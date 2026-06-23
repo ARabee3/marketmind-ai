@@ -1,0 +1,19 @@
+MarketMind AI is not just a tool; it's an Autonomous AI Marketing Manager that handles the entire marketing cycle for SMEs in 5 simple steps:
+
+1. The Discovery (The Interview)
+Instead of complex forms, the user has a "chat" with our Discovery Agent. This AI asks smart questions about their business, goals, budget, and competitors.  
+• Purpose: To build a deep understanding of the business (The "Business Profile").  
+
+2. The Strategy (The Roadmap)
+Our Strategy Agent analyzes (Search Engine) the interview data and creates a custom 3-month (according the plan) marketing plan. It decides which platforms to use (TikTok, Instagram, etc.), how to spend the budget, and what KPIs to track.  
+
+3. The Content (The Engine)
+The Content Agent automatically generates everything needed for the strategy: Arabic/English captions, AI-generated images, and video scripts for Reels/TikTok—all matching the brand's unique voice.  
+
+4. The Execution (The Publisher)
+Using n8n automation, the system automatically schedules and posts the content to social media platforms. The business owner doesn’t need to touch a single button.  
+
+5. The Optimization (The Pivot)
+The Monitor Agent tracks performance 24/7. If engagement drops or an ad is underperforming, the Pivot Engine sends an instant alert to the owner with a specific suggestion on what to change to get better results.  
+
+Summary: We are building a "Closed Loop" system: Learn → Plan → Create → Publish → Monitor → Improve. Our goal is to give a small cafe or a local boutique the same marketing power as a big company, at a fraction of the cost.

@@ -1,0 +1,43 @@
+Card Name,List,Labels,Owner,Reviewer,Estimate,Description,Acceptance Criteria
+Implement Discovery Agent flow contract,Ready,"ai,discovery,integration",Ahmed,Mokhtar,Medium,"Owner: Ahmed
+Reviewer: Mokhtar
+Estimate: Medium
+
+Task:
+Define and implement the Discovery session lifecycle and the AI/Nest contract for start, respond, and summarize. Discovery must not perform strategy or content work.",NestJS team can understand how to call the AI service later; AI service receives structured input and returns structured output; Discovery has clear completion and forbidden-behavior rules.
+Implement real AI provider adapter and Discovery prompt,Ready,"ai,provider,prompting",Merzek,Gerges,Medium,"Owner: Merzek
+Reviewer: Gerges
+Estimate: Medium
+
+Task:
+Create the real OpenAI-first provider path and Discovery prompt behavior for bilingual interview flow.","Real AI call path is ready; prompt supports Arabic, English, and mixed language; prompt forbids invented facts; AI returns next question or profile draft in structured form."
+Implement Discovery schemas and AI evaluation cases,Ready,"ai,schemas,testing",Kordy,Abdulazim,Medium,"Owner: Kordy
+Reviewer: Abdulazim
+Estimate: Medium
+
+Task:
+Define DiscoverySession, DiscoveryMessage, BusinessProfileDraft, BusinessProfile, Uncertainty, AgentRun, and the first AI test/evaluation cases.","Schemas are usable by AI and NestJS streams; tests cover Arabic, English, mixed language, unknowns, contradiction, resume, and prompt injection; outputs can be validated."
+Initialize NestJS backend repo and Health endpoint,Ready,"nestjs,backend,setup",Abdulazim,Kordy,Medium,"Owner: Abdulazim
+Reviewer: Kordy
+Estimate: Medium
+
+Task:
+Initialize the NestJS backend structure with AuthModule, UsersModule, RbacModule, and HealthModule only.",Backend runs locally; GET /health returns a simple healthy response; module structure is understandable; no AuditModule is created in Sprint 1.
+Implement Auth APIs,Ready,"nestjs,auth,security",Mokhtar,Ahmed,Medium,"Owner: Mokhtar
+Reviewer: Ahmed
+Estimate: Medium
+
+Task:
+Implement register, login, refresh, logout, and current-user endpoints for owner accounts.",User can register as owner; duplicate email is rejected; password is hashed; login returns tokens; refresh works; logout invalidates refresh session; /auth/me requires authentication.
+Implement RBAC roles permissions and guards,Ready,"nestjs,rbac,security",Gerges,Merzek,Medium,"Owner: Gerges
+Reviewer: Merzek
+Estimate: Medium
+
+Task:
+Implement initial roles, permissions, guards/decorators, and current-user permission resolution.",Protected routes can require permissions; owner permissions are returned correctly; unauthorized access is rejected; RBAC is ready to protect Discovery APIs later.
+Plan future audit events for approval-sensitive actions,Backlog,"security,audit,future",Unassigned,Ahmed or Merzek,Small,"Owner: Unassigned
+Reviewer: Ahmed or Merzek
+Estimate: Small
+
+Task:
+Define future audit events for profile confirmation, strategy approval, publishing approval, optimization approval, and AI-sensitive actions. This is not part of Sprint 1 implementation.",Audit events are defined later for approval-sensitive actions; AuditModule is not created in Sprint 1.
