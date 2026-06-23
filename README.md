@@ -10,7 +10,7 @@ Implementation has not started yet. This repository currently contains only:
 The current planning pack lives in:
 
 ```text
-Docs/AI-PLANNING/
+Docs/planning/
 ```
 
 Sprint 1 is expected to start with:
@@ -19,4 +19,3 @@ Sprint 1 is expected to start with:
 - NestJS Auth/RBAC foundation
 
 No product features, agent logic, frontend app, backend app, or dependencies are implemented yet.
-
