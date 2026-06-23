@@ -51,17 +51,25 @@ Only the current sprint should live in `Sprint Ready`, `In Progress`, `Review`, 
 
 Future ideas stay in `Backlog`.
 
-## Every GitHub Issue must include
+## Every GitHub Issue must be an implementation packet
 
-- task goal
+Each issue should be detailed enough for a teammate or AI coding agent to start safely.
+
+Every issue must include:
+
+- owner and reviewer
+- goal
+- context
+- in scope
+- out of scope
+- expected deliverables
+- suggested implementation steps
+- interfaces or contracts
 - acceptance criteria
-- owner
-- reviewer
-- estimate
-- dependencies
-- testing evidence
-- documentation impact
-- demo evidence if relevant
+- test/verification plan
+- review checklist
+- AI assistance rules
+- related docs
 
 If an issue does not have acceptance criteria, it is not ready.
 

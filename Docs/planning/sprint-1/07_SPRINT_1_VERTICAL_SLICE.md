@@ -281,7 +281,7 @@ Sprint 1 should be tracked with GitHub Issues and one GitHub Project named:
 MarketMind AI
 ```
 
-Use `github_sprint_1_issues.csv` in this folder as the issue source/reference.
+Use `github_sprint_1_issue_packets.md` in this folder as the readable source of truth for Sprint 1 issue bodies.
 
 The GitHub Project board has been created:
 
