@@ -32,10 +32,19 @@ All team members can work across frontend, backend, AI, docs, testing, and demo 
 Use these columns:
 
 ```text
-Backlog → Ready → In Progress → Review → QA → Done
+Backlog → Sprint Ready → In Progress → Review → QA → Done This Sprint
 ```
 
-Use a separate `Blocked` state when a task cannot move.
+Use separate lists for:
+
+```text
+Blocked
+Archived / Later
+```
+
+Only the current sprint should live in `Sprint Ready`, `In Progress`, `Review`, `QA`, and `Done This Sprint`.
+
+Future ideas stay in `Backlog` or `Archived / Later`.
 
 ## Every Trello card must include
 
@@ -145,4 +154,3 @@ A task is Done only when:
 Build one clear journey before building many features.
 
 ابنوا رحلة واحدة مفهومة وقوية قبل ما توسعوا السيستم.
-
