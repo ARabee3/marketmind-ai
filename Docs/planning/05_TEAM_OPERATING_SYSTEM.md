@@ -27,26 +27,31 @@ Ahmed and Merzek protect the AI architecture and review AI-critical work.
 
 All team members can work across frontend, backend, AI, docs, testing, and demo tasks depending on capacity.
 
-## Trello workflow
+## GitHub Projects workflow
 
-Use these columns:
+Use one GitHub Project connected to the repo:
 
 ```text
-Backlog → Sprint Ready → In Progress → Review → QA → Done This Sprint
+MarketMind AI
 ```
 
-Use separate lists for:
+Use these statuses:
+
+```text
+Backlog → Sprint Ready → In Progress → Review → Done
+```
+
+Use a separate status for:
 
 ```text
 Blocked
-Archived / Later
 ```
 
-Only the current sprint should live in `Sprint Ready`, `In Progress`, `Review`, `QA`, and `Done This Sprint`.
+Only the current sprint should live in `Sprint Ready`, `In Progress`, `Review`, and `Done`.
 
-Future ideas stay in `Backlog` or `Archived / Later`.
+Future ideas stay in `Backlog`.
 
-## Every Trello card must include
+## Every GitHub Issue must include
 
 - task goal
 - acceptance criteria
@@ -58,7 +63,15 @@ Future ideas stay in `Backlog` or `Archived / Later`.
 - documentation impact
 - demo evidence if relevant
 
-If a card does not have acceptance criteria, it is not ready.
+If an issue does not have acceptance criteria, it is not ready.
+
+Every implementation pull request should mention or close its related issue.
+
+Example:
+
+```text
+Closes #12
+```
 
 ## Review rules
 
@@ -88,7 +101,7 @@ Need:
 ### Monday — Planning
 
 - choose weekly goals
-- assign Trello cards
+- assign GitHub Issues
 - confirm owners and reviewers
 - identify blockers early
 

@@ -61,7 +61,7 @@ Recommended order:
 2. Read `01_AI_CONCEPTS_FOR_THE_TEAM.md` to understand the AI vocabulary.
 3. Read `02_MARKETMIND_AI_FLOW.md` to understand the full journey.
 4. Read `03_AGENTS_OVERVIEW.md` to understand each AI role.
-5. Read `04_FIRST_IMPLEMENTATION_ROADMAP.md` before planning Trello tasks.
+5. Read `04_FIRST_IMPLEMENTATION_ROADMAP.md` before creating GitHub Issues.
 6. Read `05_TEAM_OPERATING_SYSTEM.md` before assigning work.
 7. Use `06_GLOSSARY_AND_CHECKLIST.md` before coding and before demo.
 8. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.

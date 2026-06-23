@@ -31,7 +31,7 @@ Use this file before coding, before reviews, and before the final demo.
 - [ ] We know what data moves between phases.
 - [ ] We know which claims need citations.
 - [ ] We know direct cafe-owner interviews were not conducted, if still true.
-- [ ] We have Trello cards with owners and reviewers.
+- [ ] We have GitHub Issues with owners and reviewers.
 
 ## Before building any agent
 
@@ -93,4 +93,3 @@ Before starting implementation, each team member should be able to answer:
 “If I follow one cafe from discovery to optimization, what does each AI role receive, produce, and wait for?”
 
 If the answer is unclear, stay in planning for one more session.
-

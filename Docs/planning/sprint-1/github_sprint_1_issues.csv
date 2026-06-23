@@ -1,4 +1,4 @@
-Card Name,List,Labels,Owner,Reviewer,Estimate,Description,Acceptance Criteria
+Issue Title,Status,Labels,Owner,Reviewer,Estimate,Description,Acceptance Criteria
 Implement Discovery Agent flow contract,Sprint Ready,"sprint-1,ai,discovery,integration",Ahmed,Mokhtar,Medium,"Owner: Ahmed
 Reviewer: Mokhtar
 Estimate: Medium

@@ -2,7 +2,7 @@
 
 This sprint is implementation work, not planning-only work.
 
-Each card owner is responsible for thinking, building, testing, documenting the important decisions, and explaining the result in review.
+Each issue owner is responsible for thinking, building, testing, documenting the important decisions, and explaining the result in review.
 
 ## Sprint 1 goal
 
@@ -273,8 +273,16 @@ Backend side:
 - Permission guard allows valid permission.
 - Permission guard rejects missing permission.
 
-## Trello import note
+## GitHub Issues and Projects note
 
-Trello is not connected in this workspace.
+Sprint 1 should be tracked with GitHub Issues and one GitHub Project named:
 
-Use `trello_sprint_1_cards.csv` in this folder as the card source for manual import or copy-paste.
+```text
+MarketMind AI
+```
+
+Use `github_sprint_1_issues.csv` in this folder as the issue source/reference.
+
+If the GitHub Project board is not created yet, follow `github_project_manual_setup.md`.
+
+Pull requests should mention or close their related issue.

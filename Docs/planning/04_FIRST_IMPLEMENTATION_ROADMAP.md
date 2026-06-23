@@ -76,9 +76,9 @@ Output:
 
 - simple agreed data dictionary
 
-### Day 5 — Trello preparation
+### Day 5 — GitHub Projects preparation
 
-Create cards for:
+Create GitHub Issues for:
 
 - UX planning
 - AI planning
@@ -89,7 +89,7 @@ Create cards for:
 
 Output:
 
-- first sprint ready
+- first sprint ready in GitHub Projects
 
 ## Sprint 1 implementation direction
 
