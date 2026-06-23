@@ -1,29 +1,22 @@
-# GitHub Project Manual Setup
+# GitHub Project Setup
 
-The Sprint 1 issues and labels already exist in GitHub.
+The Sprint 1 GitHub Issues, labels, and Project already exist.
 
-The only remaining step is creating the GitHub Project board, because the local GitHub CLI could not save the extra `project` permission scope in the macOS keyring.
+Project URL:
 
-## Create the project
+```text
+https://github.com/users/ARabee3/projects/1
+```
 
-1. Open the repo:
+## Status field
 
-   ```text
-   https://github.com/ARabee3/marketmind-ai
-   ```
+The project uses a custom single-select field named:
 
-2. Go to `Projects`.
-3. Create a new project named:
+```text
+Sprint Status
+```
 
-   ```text
-   MarketMind AI
-   ```
-
-4. Use a board view.
-
-## Status columns
-
-Create these statuses:
+Options:
 
 ```text
 Backlog
@@ -34,9 +27,9 @@ Done
 Blocked
 ```
 
-## Add Sprint 1 issues
+## Sprint 1 issues
 
-Add these issues to the project:
+These issues are already added to the project:
 
 ```text
 #1 Implement Discovery Agent flow contract
@@ -48,7 +41,7 @@ Add these issues to the project:
 #7 Plan future audit events for approval-sensitive actions
 ```
 
-Set status:
+Current `Sprint Status` values:
 
 - `#1` to `#6` → `Sprint Ready`
 - `#7` → `Backlog`
@@ -62,4 +55,3 @@ Example:
 ```text
 Closes #5
 ```
-

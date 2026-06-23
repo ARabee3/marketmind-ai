@@ -283,6 +283,10 @@ MarketMind AI
 
 Use `github_sprint_1_issues.csv` in this folder as the issue source/reference.
 
-If the GitHub Project board is not created yet, follow `github_project_manual_setup.md`.
+The GitHub Project board has been created:
+
+```text
+https://github.com/users/ARabee3/projects/1
+```
 
 Pull requests should mention or close their related issue.
