@@ -9,6 +9,9 @@ Define and implement the Discovery session lifecycle and the AI/Nest contract fo
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+NestJS team can understand how to call the AI service later; AI service receives structured input and returns structured output; Discovery has clear completion and forbidden-behavior rules.
 ",NestJS team can understand how to call the AI service later; AI service receives structured input and returns structured output; Discovery has clear completion and forbidden-behavior rules.
 Implement real AI provider adapter and Discovery prompt,Sprint Ready,"sprint-1,ai,provider,prompting",Merzek,Gerges,Medium,"Owner: Merzek
 Reviewer: Gerges
@@ -20,6 +23,9 @@ Create the real OpenAI-first provider path and Discovery prompt behavior for bil
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+Real AI call path is ready; prompt supports Arabic, English, and mixed language; prompt forbids invented facts; AI returns next question or profile draft in structured form.
 ","Real AI call path is ready; prompt supports Arabic, English, and mixed language; prompt forbids invented facts; AI returns next question or profile draft in structured form."
 Implement Discovery schemas and AI evaluation cases,Sprint Ready,"sprint-1,ai,schemas,testing",Kordy,Abdulazim,Medium,"Owner: Kordy
 Reviewer: Abdulazim
@@ -31,6 +37,9 @@ Define DiscoverySession, DiscoveryMessage, BusinessProfileDraft, BusinessProfile
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+Schemas are usable by AI and NestJS streams; tests cover Arabic, English, mixed language, unknowns, contradiction, resume, and prompt injection; outputs can be validated.
 ","Schemas are usable by AI and NestJS streams; tests cover Arabic, English, mixed language, unknowns, contradiction, resume, and prompt injection; outputs can be validated."
 Initialize NestJS backend repo and Health endpoint,Sprint Ready,"sprint-1,nestjs,backend,setup",Abdulazim,Kordy,Medium,"Owner: Abdulazim
 Reviewer: Kordy
@@ -42,6 +51,9 @@ Initialize the NestJS backend structure with AuthModule, UsersModule, RbacModule
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+Backend runs locally; GET /health returns a simple healthy response; module structure is understandable; no AuditModule is created in Sprint 1.
 ",Backend runs locally; GET /health returns a simple healthy response; module structure is understandable; no AuditModule is created in Sprint 1.
 Implement Auth APIs,Sprint Ready,"sprint-1,nestjs,auth,security",Mokhtar,Ahmed,Medium,"Owner: Mokhtar
 Reviewer: Ahmed
@@ -53,6 +65,9 @@ Implement register, login, refresh, logout, and current-user endpoints for owner
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+User can register as owner; duplicate email is rejected; password is hashed; login returns tokens; refresh works; logout invalidates refresh session; /auth/me requires authentication.
 ",User can register as owner; duplicate email is rejected; password is hashed; login returns tokens; refresh works; logout invalidates refresh session; /auth/me requires authentication.
 Implement RBAC roles permissions and guards,Sprint Ready,"sprint-1,nestjs,rbac,security",Gerges,Merzek,Medium,"Owner: Gerges
 Reviewer: Merzek
@@ -64,6 +79,9 @@ Implement initial roles, permissions, guards/decorators, and current-user permis
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+Protected routes can require permissions; owner permissions are returned correctly; unauthorized access is rejected; RBAC is ready to protect Discovery APIs later.
 ",Protected routes can require permissions; owner permissions are returned correctly; unauthorized access is rejected; RBAC is ready to protect Discovery APIs later.
 Plan future audit events for approval-sensitive actions,Backlog,"security,audit,future",Unassigned,Ahmed or Merzek,Small,"Owner: Unassigned
 Reviewer: Ahmed or Merzek
@@ -75,4 +93,7 @@ Define future audit events for profile confirmation, strategy approval, publishi
 Testing Evidence:
 
 Review Notes:
+
+Acceptance Criteria:
+Audit events are defined later for approval-sensitive actions; AuditModule is not created in Sprint 1.
 ",Audit events are defined later for approval-sensitive actions; AuditModule is not created in Sprint 1.
