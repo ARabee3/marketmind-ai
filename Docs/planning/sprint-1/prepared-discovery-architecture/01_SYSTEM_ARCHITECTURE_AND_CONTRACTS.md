@@ -77,7 +77,7 @@ FastAPI must not write to PostgreSQL in Sprint 1. Keeping one database writer av
 
 ### Public API Routes
 
-Use URI versioning from the first implementation:
+Use URI versioning from the first public API version:
 
 ```text
 POST /api/v1/auth/register

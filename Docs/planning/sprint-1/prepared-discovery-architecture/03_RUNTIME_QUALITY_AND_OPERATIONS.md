@@ -328,14 +328,14 @@ Production retention should be reviewed before real customers.
 - AI prompt input must not include secrets.
 - Owner confirmation is required before Strategy can use a profile.
 
-## Sprint 1 Implementation Checklist
+## Sprint 1 Readiness Checklist
 
 Architecture:
 
 - [ ] Use `/api/v1`, `/ws/v1`, and `/internal/v1` prefixes.
 - [ ] Keep NestJS as the only PostgreSQL writer.
 - [ ] Keep Qdrant optional and unused in Sprint 1.
-- [ ] Implement WebSocket progress plus HTTP status recovery.
+- [ ] Provide WebSocket progress plus HTTP status recovery.
 
 Database:
 
@@ -347,7 +347,7 @@ Database:
 
 Errors:
 
-- [ ] Implement shared error envelope.
+- [ ] Define shared error envelope.
 - [ ] Add request id middleware.
 - [ ] Map provider failures to safe retryable errors.
 

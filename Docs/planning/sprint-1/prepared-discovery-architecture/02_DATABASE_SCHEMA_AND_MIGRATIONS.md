@@ -310,7 +310,7 @@ Indexes:
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | `uuid primary key default gen_random_uuid()` | Gap id. |
+| `id` | `uuid primary key default gen_random_uuid()` | Knowledge gap id. |
 | `session_id` | `uuid not null references discovery_sessions(id) on delete cascade` |  |
 | `field_key` | `text not null` | Example: `target_audience`, `best_selling_items`. |
 | `question_hint` | `text not null` | Suggested question. |
@@ -431,7 +431,7 @@ Indexes:
 
 ### Future MVP Tables
 
-Do not implement these in Sprint 1 unless the sprint plan expands again:
+Keep these outside the first Prepared Discovery version unless the sprint scope expands:
 
 - `strategies`
 - `strategy_versions`

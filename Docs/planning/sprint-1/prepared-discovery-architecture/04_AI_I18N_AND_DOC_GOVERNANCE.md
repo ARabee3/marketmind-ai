@@ -20,7 +20,7 @@ The chosen model must support:
 - Safe retry behavior for invalid output.
 - Cost suitable for repeated student/demo usage.
 
-Implementation rule:
+Provider configuration rule:
 
 - Do not hardcode the model name in application logic.
 - Configure `AI_PROVIDER_MODE` and provider model names through environment variables.
@@ -67,7 +67,7 @@ Frontend string catalogs, RTL layout, and route-level language switching are int
 
 Source-of-truth order:
 
-1. This architecture pack for Prepared Discovery implementation gaps.
+1. This architecture pack for Prepared Discovery feature architecture.
 2. `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md` for project-wide folder boundaries.
 3. Sprint issue packets for task execution.
 4. Older planning docs for product context.
