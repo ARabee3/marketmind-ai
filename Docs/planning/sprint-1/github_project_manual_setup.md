@@ -32,9 +32,9 @@ Blocked
 These issues are already added to the project:
 
 ```text
-#1 Implement Discovery Agent flow contract
+#1 Implement Prepared Discovery flow and contract
 #2 Implement real AI provider adapter and Discovery prompt
-#3 Implement Discovery schemas and AI evaluation cases
+#3 Implement Prepared Discovery schemas and AI evaluation cases
 #4 Initialize NestJS backend repo and Health endpoint
 #5 Implement Auth APIs
 #6 Implement RBAC roles permissions and guards

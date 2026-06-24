@@ -1,4 +1,4 @@
-# Sprint 1 Vertical Slice — Real Discovery AI + NestJS Auth/RBAC
+# Sprint 1 Vertical Slice — Prepared Discovery + NestJS Auth/RBAC
 
 This sprint is implementation work, not planning-only work.
 
@@ -6,7 +6,9 @@ Each issue owner is responsible for thinking, building, testing, documenting the
 
 ## Sprint 1 goal
 
-Prepare the foundation for the first real AI agent: the Discovery Agent.
+Implement the first full Prepared Discovery journey.
+
+Prepared Discovery means the owner submits intake information and optional public social links, the system performs bounded pre-chat intelligence gathering, shows WebSocket research progress, then opens a focused Discovery interview that produces a structured `BusinessProfileDraft` for owner confirmation.
 
 By the end of Sprint 1, the team should have:
 
@@ -14,7 +16,11 @@ By the end of Sprint 1, the team should have:
 - Auth APIs working.
 - Basic RBAC working.
 - Simple health endpoint working.
-- Real AI Discovery Agent foundation started.
+- Prepared Discovery flow working end-to-end.
+- `IntelligenceGatherer` internal helper for pre-chat research.
+- Lightweight metadata extraction for owner-provided links.
+- Free/no-key search for bounded market and competitor context.
+- WebSocket progress for the research/loading experience.
 - Clear contract between NestJS and the AI service.
 - Test cases for both streams.
 - No premature `AuditModule`.
@@ -23,9 +29,9 @@ By the end of Sprint 1, the team should have:
 
 | Member | Owns and implements | Reviews |
 |---|---|---|
-| Ahmed | Discovery Agent flow + AI/Nest contract | Mokhtar’s Auth APIs |
+| Ahmed | Prepared Discovery flow + AI/Nest/WebSocket contract | Mokhtar’s Auth APIs |
 | Merzek | Real AI provider adapter + Discovery prompt behavior | Gerges’s RBAC guards |
-| Kordy | Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup |
+| Kordy | Prepared Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup |
 | Abdulazim | NestJS repo initialization + `HealthModule` | Kordy’s schemas/tests |
 | Mokhtar | Auth APIs | Ahmed’s AI/Nest contract |
 | Gerges | RBAC roles, permissions, and guards | Merzek’s AI provider/prompt behavior |
@@ -36,13 +42,19 @@ Auth, RBAC, prompts, schemas, and provider calls need careful review because the
 
 ## Backend modules for Sprint 1
 
-Create only these NestJS modules:
+Create these backend foundation modules first:
 
 ```text
 AuthModule
 UsersModule
 RbacModule
 HealthModule
+```
+
+Prepared Discovery also needs:
+
+```text
+DiscoveryModule
 ```
 
 Do not create:
@@ -58,7 +70,7 @@ AuditModule
 For Sprint 1, it should only expose:
 
 ```text
-GET /health
+GET /api/v1/health
 ```
 
 Later, it can check:
@@ -82,44 +94,93 @@ Examples:
 - optimization approval
 - AI decision traces
 
-Since Sprint 1 focuses on Auth/RBAC and the real Discovery AI foundation, a full audit module now would be premature.
+Since Sprint 1 focuses on Auth/RBAC and the Prepared Discovery journey, a full audit module now would be premature.
 
 For now, keep this future rule:
 
 > Important owner approvals and AI-sensitive actions must create audit events later.
 
-## Slice 1 — Ahmed: Discovery Agent flow + AI/Nest contract
+## Prepared Discovery decisions
+
+Sprint 1 follows the decisions recorded in:
+
+```text
+Docs/planning/sprint-1/prepared-discovery-architecture/README.md
+Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md
+```
+
+Approved direction:
+
+- Public API boundary is NestJS.
+- Public routes use `/api/v1`, WebSocket routes use `/ws/v1`, and internal AI routes use `/internal/v1`.
+- Internal AI work runs in FastAPI.
+- Project folders follow `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md`.
+- PostgreSQL is the source of truth.
+- Qdrant is reserved for later RAG/vector retrieval.
+- `IntelligenceGatherer` is an internal helper inside Discovery, not the future standalone Research Agent.
+- Owner-provided social links are optional but become the primary lookup target when present.
+- Lightweight page metadata extraction runs first.
+- Free/no-key search gathers bounded market and competitor context.
+- WebSocket progress is required for the prepared-consultant UX.
+- Research must happen before Discovery chat opens. No form-only Discovery as the normal path.
+- Research facts visible to the owner need source labels/citations.
+- Wrong or low-confidence matches are discarded before they reach the agent.
+- AI output must be schema-validated structured output.
+- Discovery asks questions and summarizes only; it does not create strategy, content, channel recommendations, or budget allocation.
+
+## Slice 1 — Ahmed: Prepared Discovery flow + AI/Nest/WebSocket contract
 
 Build and document:
 
-- Discovery session lifecycle:
-  - start
+- Prepared Discovery lifecycle:
+  - start intake
+  - run pre-chat intelligence gathering
+  - stream WebSocket progress
+  - open Discovery chat
   - continue interview
   - produce profile draft
-  - request confirmation
-- contract between NestJS and the AI service
-- completion rules
+  - request owner confirmation
+- public NestJS contract
+- internal FastAPI contract
+- WebSocket progress contract
+- completion, partial, and failure rules
 - forbidden Discovery behavior
 
 Minimum AI service endpoints to design:
 
 ```text
-POST /ai/discovery/start
-POST /ai/discovery/respond
-POST /ai/discovery/summarize
+POST /internal/v1/ai/discovery/start
+POST /internal/v1/ai/discovery/respond
+POST /internal/v1/ai/discovery/summarize
+```
+
+Public NestJS endpoints to design:
+
+```text
+POST /api/v1/discovery/start
+GET /api/v1/discovery/:session_id/status
+POST /api/v1/discovery/:session_id/respond
+POST /api/v1/discovery/:session_id/summarize
+POST /api/v1/discovery/:session_id/confirm-profile
+WS /ws/v1/discovery/:session_id/progress
 ```
 
 Acceptance:
 
-- NestJS team can understand how to call the AI service later.
+- NestJS team can understand how to call the AI service.
+- Frontend team can understand how to start the flow and receive progress.
 - The AI service receives structured input and returns structured output.
+- Research status is recoverable through HTTP status if WebSocket disconnects.
+- Owner confirmation boundary is clear.
 - Discovery does not perform strategy or content work.
 
 ## Slice 2 — Merzek: Real AI provider adapter + prompt behavior
 
 Build and document:
 
-- real OpenAI-first provider adapter
+- OpenAI-intended provider adapter
+- Gemini/free dev provider mode
+- deterministic mock/no-key mode for local development and tests
 - Discovery Agent prompt skeleton
 - structured response expectations
 - provider error behavior
@@ -127,17 +188,27 @@ Build and document:
 
 Acceptance:
 
-- Real AI call path is ready.
+- Provider adapter supports `openai`, `gemini_dev`, and `mock` modes.
+- Local development does not block when `OPENAI_API_KEY` is missing.
 - Prompt supports Arabic, English, and mixed language.
 - Prompt tells the AI not to invent facts.
+- Prompt forbids strategy, content, channel, and budget recommendations.
 - AI returns either the next question or a profile draft in a structured shape.
+- Invalid model output is rejected or retried safely.
 
-## Slice 3 — Kordy: Discovery schemas + AI test cases
+## Slice 3 — Kordy: Prepared Discovery schemas + AI test cases
 
 Build and document:
 
 - `DiscoverySession`
 - `DiscoveryMessage`
+- `PreparedDiscoveryIntake`
+- `SocialLink`
+- `IntelligenceResult`
+- `ResearchObservation`
+- `SourceRef`
+- `ConversationHook`
+- `KnowledgeGap`
 - `BusinessProfileDraft`
 - `BusinessProfile`
 - `Uncertainty`
@@ -147,7 +218,10 @@ Build and document:
 Acceptance:
 
 - Schemas are usable by both AI and NestJS streams.
+- Schemas separate confirmed owner facts, research observations, uncertainties, owner goals, and strategy-relevant notes.
+- Source labels/citations can be stored for owner-visible research facts.
 - Test cases cover Arabic, English, mixed language, unknowns, contradiction, resume, and prompt injection.
+- Test cases cover metadata extraction, free/no-key search partial failure, wrong-match discard, strategy request refusal, and profile confirmation lock.
 - Outputs can be validated.
 
 ## Slice 4 — Abdulazim: NestJS repo initialization + HealthModule
@@ -166,7 +240,7 @@ Build:
 Acceptance:
 
 - Backend runs locally.
-- `GET /health` returns a simple healthy response.
+- `GET /api/v1/health` returns a simple healthy response.
 - Other backend members can start auth/RBAC work without setup confusion.
 - No `AuditModule` is created in Sprint 1.
 
@@ -175,11 +249,11 @@ Acceptance:
 Build:
 
 ```text
-POST /auth/register
-POST /auth/login
-POST /auth/refresh
-POST /auth/logout
-GET /auth/me
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET /api/v1/auth/me
 ```
 
 Acceptance:
@@ -252,6 +326,12 @@ Sensitive work needs two approvals:
 
 AI side:
 
+- Owner submits social links and metadata extraction contributes observations.
+- Owner submits no social links and bounded free/no-key search still runs.
+- WebSocket emits research progress stages.
+- Research partially fails and chat opens with `partial_ready`.
+- Total research failure is labeled `research_failed`.
+- Wrong/low-confidence business match is discarded.
 - Arabic interview.
 - English interview.
 - Mixed Arabic/English interview.
@@ -260,6 +340,8 @@ AI side:
 - User asks for strategy during Discovery.
 - Prompt-injection style user message.
 - Provider failure.
+- Schema-invalid AI output.
+- Profile draft separates confirmed facts, research observations, uncertainties, owner goals, and strategy notes.
 
 Backend side:
 
@@ -272,6 +354,36 @@ Backend side:
 - `/auth/me` protected.
 - Permission guard allows valid permission.
 - Permission guard rejects missing permission.
+- Discovery start requires `discovery:start`.
+- Discovery respond/summarize requires `discovery:continue`.
+- Profile confirmation requires `discovery:confirm_profile`.
+
+## Sprint 1 done definition
+
+Sprint 1 is done when the team can demo one Prepared Discovery journey end-to-end:
+
+1. Owner registers/logs in.
+2. Owner submits intake form with optional social links.
+3. System opens WebSocket progress and shows research stages.
+4. `IntelligenceGatherer` reads submitted-link metadata.
+5. Free/no-key search gathers bounded market and competitor context.
+6. Research facts include source labels/citations.
+7. Wrong or low-confidence matches are discarded.
+8. Discovery chat opens only after research is complete or partially complete.
+9. Discovery asks one question at a time in Arabic, English, or mixed language.
+10. Discovery refuses strategy/content requests during interview.
+11. Discovery produces schema-valid `BusinessProfileDraft`.
+12. Draft separates confirmed facts, research observations, uncertainties, owner goals, and strategy-relevant notes.
+13. Owner confirms the profile.
+14. Strategy remains locked until confirmation.
+
+Required proof:
+
+- API demo transcript for start/status/respond/summarize/confirm.
+- WebSocket progress transcript or screenshot.
+- Evaluation cases for Arabic, English, mixed language, unknown answer, contradiction, strategy request, and prompt injection.
+- Example validated `BusinessProfileDraft` JSON.
+- Evidence that source labels/citations are present for owner-visible research facts.
 
 ## GitHub Issues and Projects note
 

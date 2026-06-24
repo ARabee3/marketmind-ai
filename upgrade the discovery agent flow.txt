@@ -1,0 +1,1031 @@
+MarketMind AI — FEATURE: THE INTELLIGENCE GATHERING AGENT
+                         COMPLETE REDESIGN & DESCRIPTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — THE CORE IDEA (WHY WE REDESIGNED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The original design had the form data going directly into a chat.
+The new design adds a crucial step in between: a Research Agent that does
+deep homework on the client BEFORE the conversation even opens.
+
+This is exactly what every great human consultant does — they research
+you before they walk in the door.
+
+OLD FLOW (what we had before):
+  Form → Chat opens cold → Agent asks from zero
+
+NEW FLOW (the redesign):
+  Form → Research Agent does deep homework → Chat opens with agent
+  already knowing real things about the client
+
+The result: The client feels they are talking to a real consultant
+who actually prepared — not a generic AI chatbot.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — FULL REVISED ARCHITECTURE DIAGRAM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PHASE 0A: CLIENT FILLS FORM (2 min)                          │
+│   → business name, industry, location, challenge, budget        │
+│                                                                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ Form submitted
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PHASE 0B: RESEARCH AGENT RUNS (2–3 min, background)          │
+│                                                                 │
+│   ┌───────────────────────────────────────────────────────┐    │
+│   │           PARALLEL RESEARCH LANES                      │    │
+│   │                                                        │    │
+│   │  Lane 1: Business's Own Digital Footprint              │    │
+│   │  Lane 2: Competitor Intelligence                        │    │
+│   │  Lane 3: Market & Industry Context                      │    │
+│   │  Lane 4: Social Media Signal Capture                    │    │
+│   └───────────────────────────┬───────────────────────────┘    │
+│                               │                                 │
+│                               ▼                                 │
+│           Intelligence Report stored in PostgreSQL              │
+│           + Knowledge Gaps list generated                       │
+│           + Smart Observations list generated                   │
+│           + Conversation Hooks list generated                   │
+│                                                                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ Research complete
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   PHASE 1: DISCOVERY AGENT OPENS CHAT                          │
+│   → Already knows real things about the client                  │
+│   → Uses knowledge gaps to ask smarter questions                │
+│   → References competitor/market data in conversation           │
+│   → Asks ONLY what it cannot already find online               │
+│                                                                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ Conversation complete
+                           ▼
+                  Business Profile JSON
+             (form data + research data + conversation data)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — THE 4 PARALLEL RESEARCH LANES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+All 4 lanes run AT THE SAME TIME (in parallel) to save time.
+Total research time: 2-3 minutes.
+
+────────────────────────────────────────────────────────────────
+LANE 1 — THE BUSINESS'S OWN DIGITAL FOOTPRINT
+────────────────────────────────────────────────────────────────
+
+Purpose: Find everything the business has online — what exists,
+         what's missing, what's active, what's dead.
+
+Queries built automatically from the form data:
+  → "[business_name] [city]"
+  → "[business_name] Facebook"
+  → "[business_name] Instagram"
+  → "[business_name] تقييمات / reviews"
+  → "[business_name] Google Maps"
+
+What we extract and store:
+
+  Google Maps Listing:
+    - Does it exist? (yes/no)
+    - Star rating (e.g. 4.3 stars)
+    - Number of reviews (e.g. 94 reviews)
+    - Number of photos uploaded
+    - Is the menu listed?
+    - Is delivery enabled?
+    - Listing completeness score (how well set up is their profile)
+
+  Facebook Page:
+    - Does it exist? (yes/no)
+    - Follower count (e.g. 1,240 followers)
+    - When was the last post? (e.g. 14 days ago)
+    - Posting frequency (daily / weekly / very low / inactive)
+    - Average engagement rate
+    - What content types they post (photos, videos, offers)
+    - What is missing from their page
+
+  Instagram Account:
+    - Does it exist? (yes/no)
+    - Follower count
+    - Last post date
+    - Type of content (reels, posts, stories)
+
+  TikTok:
+    - Does it exist? (yes/no)
+    - Follower count
+
+  Website:
+    - Does it exist? (yes/no)
+    - Is it functional?
+    - Does it have e-commerce?
+
+  Delivery Platforms (Talabat, Elmenus, Noon — for F&B):
+    - Is the business listed on any delivery app?
+
+────────────────────────────────────────────────────────────────
+LANE 2 — COMPETITOR INTELLIGENCE
+────────────────────────────────────────────────────────────────
+
+Purpose: Find who the real competition is in the same area
+         and category — with real data about how strong they are.
+
+Queries:
+  → "[industry] [neighborhood/city] مصر"
+  → "أفضل [industry] في [city]"
+  → "[industry] near [location]" (Google Maps category search)
+  → "[industry] [city] Instagram"
+
+What we extract for each competitor found:
+
+  For each competitor (top 3-5):
+    - Business name
+    - Distance from client's location
+    - Google Maps rating (vs client's rating)
+    - Number of reviews (vs client's)
+    - Instagram follower count
+    - Facebook follower count
+    - Their apparent differentiator (what makes them stand out)
+    - Their strengths (what they do better)
+    - Their weaknesses (where they fall short)
+    - Are they stronger or weaker than the client overall?
+
+  Summary analysis:
+    - Overall competitive landscape description
+    - What gap exists in the market that the client could fill
+
+────────────────────────────────────────────────────────────────
+LANE 3 — MARKET & INDUSTRY CONTEXT
+────────────────────────────────────────────────────────────────
+
+Purpose: Understand what is working RIGHT NOW for this industry
+         in Egypt and the MENA region.
+
+Queries:
+  → "تسويق [industry] مصر 2025"
+  → "[industry] Egypt social media marketing trends"
+  → "أفضل استراتيجية تسويق [industry] مصر"
+  → "Egypt [industry] market insights"
+
+What we extract:
+
+  - What marketing channels are actually working for this
+    industry in Egypt right now (not generic advice)
+  - What content formats perform best (Reels vs posts vs stories)
+  - Seasonal context (Ramadan? summer? back-to-school period?)
+  - Any recent industry news that affects their market
+  - Consumer behavior signals for their customer type
+
+────────────────────────────────────────────────────────────────
+LANE 4 — SOCIAL MEDIA SIGNAL CAPTURE
+────────────────────────────────────────────────────────────────
+
+Purpose: Find what content and trends are winning on social media
+         in their specific niche, in Egypt.
+
+Queries:
+  → Hashtag analysis: #[industry]مصر #[city] #[industry]
+  → What content is trending in their niche on Instagram/TikTok Egypt
+  → What questions people ask about this business type online
+
+What we extract:
+
+  - Trending hashtags in their niche (Egypt-specific)
+  - Which content formats competitors use that get high engagement
+  - Common customer complaints and praises in the category
+  - Any influencer activity in their niche
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — TOOLS & APIS USED BY THE RESEARCH AGENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       TOOL STACK                                │
+│                                                                 │
+│  Tavily API         ← Primary web search                        │
+│  (built for AI)      Returns clean structured results          │
+│                      Handles Arabic queries well                │
+│                      Designed specifically for LLM use          │
+│                                                                 │
+│  Google Places API  ← Maps, competitor discovery,               │
+│  (official Google)    ratings, reviews, category search         │
+│                      THE authoritative source for               │
+│                      business listings in Egypt                 │
+│                                                                 │
+│  Serper API         ← Google Search results,                    │
+│  (Google SERP)        news, images, Maps results                │
+│                                                                 │
+│  Apify Actors       ← Instagram public profiles,                │
+│  (web scraping)       Facebook public pages,                    │
+│                       TikTok profiles, review sites             │
+│                       Handles anti-bot protection               │
+│                       We use maintained, ready-made scrapers    │
+│                                                                 │
+│  Meta Graph API     ← Facebook page basic data                  │
+│  (official)           Requires page token                       │
+│                                                                 │
+│  Custom scraper     ← Talabat, Elmenus, Zomato,                │
+│  (BeautifulSoup)      Noon for F&B and retail clients           │
+└─────────────────────────────────────────────────────────────────┘
+
+Why Tavily over raw Google Search?
+  Tavily is designed specifically for AI agents. It returns clean,
+  structured, LLM-ready results with confidence scores.
+  It handles Arabic queries well and is faster and cheaper than
+  running a raw browser-based search.
+
+Why Apify over direct Instagram/Facebook APIs?
+  The official Instagram and Facebook APIs are heavily restricted.
+  They don't allow reading public profiles without complex approval
+  processes. Apify has maintained, production-ready scrapers (actors)
+  for Instagram public profiles, Facebook pages, TikTok profiles, and
+  Google Maps that handle all anti-bot measures professionally.
+  We don't need to build or maintain these — Apify handles it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — THE LANGGRAPH RESEARCH AGENT INTERNAL FLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What is LangGraph?
+  LangGraph is the framework we use to build the agent's logic as a
+  "state machine" — a series of steps with a shared memory (state)
+  that all steps can read from and write to. Think of it like a
+  flowchart where each box is a step (node) and each arrow decides
+  which step to go to next.
+
+The Research Agent has 8 steps (nodes):
+
+[START]
+    │
+    ▼
+[NODE 1: EXTRACT_SEARCH_TERMS]
+  What it does:
+    Reads the form data (business name, industry, location, etc.)
+    and uses Claude to generate smart, specific search queries
+    for each of the 4 research lanes.
+
+  Input:  form data from the database
+  Output: a set of queries like this:
+  {
+    "business_queries": [
+      "كافيه المحترم مصر الجديدة",
+      "كافيه المحترم فيسبوك"
+    ],
+    "competitor_queries": [
+      "كافيهات مصر الجديدة",
+      "أفضل كافيه في مصر الجديدة"
+    ],
+    "market_queries": [
+      "تسويق كافيهات مصر 2025",
+      "instagram cafe egypt trends"
+    ],
+    "social_queries": [
+      "#كافيهات_مصر_الجديدة",
+      "#كافيه_مصر"
+    ]
+  }
+    │
+    ▼
+[NODE 2-5: PARALLEL RESEARCH — all 4 lanes fire simultaneously]
+  ├── Lane 1: research_digital_presence
+  │     Uses: Tavily + Google Places + Apify
+  │     Finds: business on Google Maps, Facebook, Instagram
+  │
+  ├── Lane 2: research_competitors
+  │     Uses: Google Places Nearby Search + Tavily
+  │     Finds: top 3-5 competitors in same area and category
+  │
+  ├── Lane 3: research_market_context
+  │     Uses: Tavily
+  │     Finds: industry trends, what's working in Egypt right now
+  │
+  └── Lane 4: research_social_signals
+        Uses: Tavily + Apify
+        Finds: trending content formats, popular hashtags
+
+    │ (all 4 lanes finish, results merge)
+    ▼
+[NODE 6: AGGREGATE_AND_SCORE]
+  What it does:
+    Merges all the raw results from 4 lanes into one clean object.
+    Scores the confidence level of each finding:
+      - "high confidence": found on official source (Google, etc.)
+      - "medium confidence": found on general web
+      - "low confidence": inferred, not directly confirmed
+    Flags low-confidence results as "don't reference directly"
+    so the Discovery Agent doesn't state uncertain things as facts.
+    │
+    ▼
+[NODE 7: GENERATE_INTELLIGENCE_REPORT]
+  What it does:
+    This is the most important step. Claude reads ALL the raw
+    research and produces 3 critical outputs:
+
+    1. SMART OBSERVATIONS
+       Things the agent noticed that the client might not know.
+       Written in Arabic, as if a consultant is briefing another.
+       Examples:
+         "لديه 94 تقييم على جوجل بمتوسط 4.3 — ده أساس كويس بس
+          الـ listing ناقصة (مفيش منيو، مفيش صور كتير)"
+         "فيسبوك موجود بـ 1,240 متابع بس آخر بوست من أسبوعين
+          — الصفحة شبه ميتة"
+         "مفيش إنستجرام خالص — وده أكبر gap في وجوده الرقمي"
+
+    2. KNOWLEDGE GAPS
+       Questions that the internet COULD NOT answer about this business.
+       These become the Discovery Agent's priority questions to ask.
+       Examples:
+         "هل بيعمل ديلفري بنفسه أو مش مهتم بالموضوع ده؟"
+         "ليه فيسبوك واقف من أسبوعين — مفيش وقت؟ مفيش أفكار؟"
+         "هل يعرف إن المنافسين أقوى منه على إنستجرام؟"
+         "ميزانيته اتفرقت على إيه بالظبط في الإعلانات اللي فشلت؟"
+         "مين بيدير التواصل الرقمي — هو نفسه ولا في حد تاني؟"
+
+    3. CONVERSATION HOOKS
+       Specific opening lines the Discovery Agent can use that
+       reference REAL information found in the research.
+       Written as ready-to-use sentences for the agent.
+       Examples:
+         "لاحظت إن عندك صفحة فيسبوك بـ ١٢٠٠ متابع — ده شغل كويس.
+          بس لاحظت كمان إن آخر بوست من أسبوعين — إيه اللي بيوقفك؟"
+         "منافسيك في المنطقة معظمهم شغالين على إنستجرام — هل ده
+          جه في بالك؟"
+         "عندك ٩٤ تقييم على جوجل بـ ٤.٣ نجوم — ده رصيد حقيقي.
+          إيه اللي الناس بتقوله فيك أكتر؟"
+    │
+    ▼
+[NODE 8: STORE_TO_POSTGRESQL]
+  What it does:
+    Saves the complete Intelligence Report to the database.
+    Notifies the frontend that research is done.
+    The Discovery Agent will read this report before saying
+    its first word in the chat.
+    │
+    ▼
+[END → CHAT BECOMES AVAILABLE TO CLIENT]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — THE INTELLIGENCE REPORT (POSTGRESQL JSONB RECORD EXAMPLE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the actual JSONB record saved in PostgreSQL. Everything in this record
+is passed to the Discovery Agent before the chat begins.
+
+{
+  "research_session_id": "rsrch_abc123",
+  "business_id": "biz_xyz789",
+  "researched_at": "2025-06-23T10:30:00Z",
+  "research_duration_seconds": 87,
+
+  "digital_presence": {
+    "google_maps": {
+      "found": true,
+      "confidence": "high",
+      "listing_name": "كافيه المحترم",
+      "rating": 4.3,
+      "review_count": 94,
+      "photos_count": 12,
+      "categories": ["مقهى", "كافيتيريا"],
+      "has_menu": false,
+      "has_delivery": false,
+      "listing_completeness_score": 0.55,
+      "sample_reviews": [
+        "مكان هادي وقهوة حلوة بس الخدمة بطيئة شوية",
+        "أسعار كويسة والجو ريلاكس"
+      ],
+      "review_sentiment": "positive_with_service_concern"
+    },
+    "facebook": {
+      "found": true,
+      "confidence": "high",
+      "url": "facebook.com/elmohtaram.cafe",
+      "follower_count": 1240,
+      "last_post_days_ago": 14,
+      "posting_frequency": "very_low",
+      "avg_engagement_rate": 0.8,
+      "content_types_observed": ["product_photos", "occasional_offers"],
+      "missing": ["video_content", "stories", "reels", "customer_reviews"]
+    },
+    "instagram": {
+      "found": false,
+      "confidence": "high",
+      "note": "No Instagram presence found despite being a visual business"
+    },
+    "tiktok": {
+      "found": false,
+      "confidence": "medium"
+    },
+    "website": {
+      "found": false,
+      "confidence": "high"
+    },
+    "delivery_platforms": {
+      "talabat": false,
+      "elmenus": false,
+      "note": "No delivery platform presence found"
+    }
+  },
+
+  "competitor_intelligence": {
+    "found_count": 4,
+    "competitors": [
+      {
+        "name": "كافيه الزاوية",
+        "location": "مصر الجديدة - على بعد 400م",
+        "google_rating": 4.6,
+        "review_count": 210,
+        "instagram_followers": 3200,
+        "differentiator": "حضور قوي على إنستجرام + عروض رمضان",
+        "strengths": ["strong_instagram", "high_reviews", "delivery_presence"],
+        "weaknesses": ["higher_prices_signals"]
+      },
+      {
+        "name": "كافيه نُقطة",
+        "location": "مصر الجديدة - شارع 100م",
+        "google_rating": 4.1,
+        "review_count": 67,
+        "instagram_followers": 890,
+        "differentiator": "تركيز على specialty coffee",
+        "strengths": ["niche_positioning"],
+        "weaknesses": ["low_review_count", "limited_social"]
+      }
+    ],
+    "competitor_landscape_summary": "المنافسون الأقوى في المنطقة عندهم
+      حضور إنستجرام أقوى بكتير، ومعظمهم على منصات الديلفري.",
+    "market_gap_observed": "الكلاينت مش موجود على إنستجرام خالص رغم إن
+      ده أكتر منصة شغالة للكافيهات في مصر."
+  },
+
+  "market_context": {
+    "top_performing_channels": [
+      "instagram_reels",
+      "google_maps_seo",
+      "talabat_listing"
+    ],
+    "trending_content_formats": [
+      "behind_the_scenes_reels",
+      "coffee_making_videos",
+      "customer_experience_clips"
+    ],
+    "seasonal_context": {
+      "current_season": "summer_2025",
+      "opportunity": "Summer drinks and cold beverages trending heavily
+        on Egyptian cafe Instagram right now"
+    },
+    "industry_insight": "Cafes in Cairo seeing 40% more walk-in traffic
+      from Google Maps searches. Businesses with optimized listings get
+      significantly more discovery.",
+    "consumer_behavior_signal": "Egyptian cafe-goers frequently check
+      Instagram before visiting. No Instagram = invisible to a growing
+      customer segment."
+  },
+
+  "agent_intelligence": {
+    "smart_observations": [
+      "لديه 94 تقييم على جوجل بمتوسط 4.3 — ده أساس كويس بس الـ listing
+       ناقصة (مفيش منيو، مفيش صور كتير)",
+      "فيسبوك موجود بـ 1,240 متابع بس آخر بوست من أسبوعين — الصفحة شبه ميتة",
+      "مفيش إنستجرام خالص — وده أكبر gap في وجوده الرقمي، خصوصاً مقارنة بالمنافسين",
+      "مفيش على أي منصة ديلفري رغم إنه محتاج يكبّر الـ takeaway",
+      "المنافس الأقوى (كافيه الزاوية) عنده 3,200 متابع على إنستجرام و 4.6 تقييم"
+    ],
+    "knowledge_gaps": [
+      "هل بيعمل ديلفري بنفسه أو مش مهتم بالموضوع ده؟",
+      "ليه فيسبوك واقف من أسبوعين — مفيش وقت؟ مفيش أفكار؟ جرب ومش شايف نتيجة؟",
+      "هل يعرف إن المنافسين أقوى منه على إنستجرام؟",
+      "ميزانيته اتفرقت على إيه بالظبط في الإعلانات اللي فشلت؟",
+      "مين بيدير التواصل الرقمي — هو نفسه ولا في حد تاني؟"
+    ],
+    "conversation_hooks": [
+      "لاحظت إن عندك صفحة فيسبوك بـ ١٢٠٠ متابع — ده شغل كويس.
+       بس لاحظت كمان إن آخر بوست من أسبوعين — إيه اللي بيوقفك؟",
+      "منافسيك في المنطقة معظمهم شغالين على إنستجرام — هل ده جه في بالك؟",
+      "عندك ٩٤ تقييم على جوجل بـ ٤.٣ نجوم — ده رصيد حقيقي.
+       إيه اللي الناس بتقوله فيك أكتر؟"
+    ]
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — THE UX LOADING EXPERIENCE (THE WOW MOMENT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This screen is not just a loading screen — it IS the product differentiator.
+The client sees exactly what the AI is doing in real time.
+NO other tool in the market does this.
+
+SCREEN SHOWN WHILE RESEARCH RUNS:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │                                                         │
+  │        جاري تحضير جلستك...                             │
+  │                                                         │
+  │   ✅  تم تلقي معلومات شغلتك                            │
+  │   ✅  بنبحث عن وجودك على الإنترنت...                  │
+  │   ✅  بندرس منافسيك في المنطقة...                     │
+  │   ⏳  بنحلل السوق في مجال الكافيهات في مصر...         │
+  │   ◻   بنجهز المستشار بتاعك...                        │
+  │                                                         │
+  │   [progress bar: ████████░░ 80%]                        │
+  │                                                         │
+  │   "بنعمل الشغل الصح عشان نستاهل وقتك"               │
+  │                                                         │
+  └─────────────────────────────────────────────────────────┘
+
+SCREEN SHOWN WHEN RESEARCH IS COMPLETE:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │                                                         │
+  │        ✅ جلستك جاهزة                                  │
+  │                                                         │
+  │   المستشار الخاص بك عمل بحث عن:                       │
+  │   • وجودك الرقمي على ٣ منصات                          │
+  │   • ٤ منافسين في منطقتك                               │
+  │   • اتجاهات سوق الكافيهات في مصر دلوقتي              │
+  │                                                         │
+  │              [ابدأ المحادثة →]                         │
+  │                                                         │
+  └─────────────────────────────────────────────────────────┘
+
+Why this matters:
+  The client has already experienced something no other tool does.
+  Before saying a single word to the AI, they've SEEN it work.
+  They click "ابدأ المحادثة" already trusting the system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — HOW THIS CHANGES THE DISCOVERY AGENT'S CONVERSATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The key principle:
+  "The agent never asks what it already knows.
+   It only asks what it needs to complete the picture."
+
+────────────────────────────────────────────────────────────────
+COMPARISON: BEFORE vs AFTER THE REDESIGN
+────────────────────────────────────────────────────────────────
+
+BEFORE (old design, cold opening):
+  Agent: "هل عندك وجود على السوشيال ميديا؟"
+  → Generic question. Sounds like a registration form.
+  → Client thinks: "هو أي AI عادي"
+
+AFTER (new design, informed opening):
+  Agent: "أهلاً! أنا اتعرفت على شغلتك شوية قبل ما نتكلم.
+          شفت إن عندك ٩٤ تقييم على جوجل بـ ٤.٣ نجوم — ده رصيد حقيقي.
+          بس لاحظت حاجة... قولي، الصفحة على فيسبوك وقفت من
+          أسبوعين تقريباً — إيه اللي حصل؟"
+  → References real data from the client's actual profile.
+  → Client thinks: "هو فعلاً شاف بيانات حقيقية عني؟"
+  → TRUST ESTABLISHED IN 10 SECONDS.
+
+────────────────────────────────────────────────────────────────
+FULL CONVERSATION EXAMPLE (Step by Step)
+────────────────────────────────────────────────────────────────
+
+Context: Cairo cafe owner. Form says "no new customers" is their problem.
+Research found: 94 Google reviews at 4.3, Facebook page dead for 2 weeks,
+NO Instagram, NO delivery apps, 2 failed Facebook ad campaigns.
+
+---
+
+[AGENT FIRST MESSAGE — uses conversation hook from research]:
+"أهلاً! أنا اتعرفت على شغلتك شوية قبل ما نتكلم. شفت إن عندك ٩٤
+ تقييم على جوجل بـ ٤.٣ نجوم — ده رصيد حقيقي. بس لاحظت حاجة...
+ قولي، الصفحة على فيسبوك وقفت من أسبوعين تقريباً — إيه اللي حصل؟"
+
+[USER]:
+"الصراحة معظم ناسنا regulars — ناس الحتة بيعرفونا وبيحبونا.
+ بس أي حد جديد يجي بالصدفة بس"
+
+[What the agent notices internally — NOT shown to user]:
+  → Dialect markers: "ناسنا", "الحتة", "بيعرفونا" → Egyptian confirmed 0.88
+  → Key insight: word-of-mouth business with zero acquisition engine
+  → Lowest domain score: Value Proposition + Marketing History
+
+[AGENT SECOND MESSAGE — mirrors "regulars", digs into value prop]:
+"ده في حد ذاته حاجة كويسة — يعني الناس اللي بتيجي بتحبها.
+ بس سؤال جوّه ده: لو حد من العملاء دول حاول يوصف الكافيه بتاعتك
+ لصاحبه — هيقوله إيه بالظبط؟"
+
+[USER]:
+"هيقوله الجو حلو وهادي والقهوة كويسة وأسعار معقولة"
+
+[What the agent notices internally]:
+  → Value prop is completely generic — every cafe says this
+  → This is a critical insight for the Strategy Agent later
+  → Next priority: marketing history — what have they tried?
+
+[AGENT THIRD MESSAGE — uses competitor data from research]:
+"طيب — ده بالظبط اللي محتاجين نشتغل عليه. خليني أسألك:
+ منافسيك في المنطقة — زي كافيه الزاوية — شغالين على إنستجرام بقوة.
+ هل ده جه في بالك إنك تشتغل على إنستجرام؟ ولا جربت وما اشتغلتش؟"
+
+[What this question does]:
+  → Names a REAL competitor by name from the research
+  → Client never mentioned Instagram — agent surfaced it from data
+  → This is a consultant move, not a chatbot move
+
+[USER]:
+"آه عملت إعلانات فيسبوك مرتين. المرة الأولى صرفت 500 جنيه
+ ومعرفتش أقيس حاجة. التانية حد عمل لي إعلان بـ 800 جنيه
+ وجالي likes بس مكنش عندي طلبات زيادة"
+
+[What the agent notices internally]:
+  → Marketing History domain: now 0.7 filled
+  → Two failed Facebook campaigns. No tracking (no pixel).
+  → Awareness campaign only, no conversion goal
+  → Digital maturity: beginner level
+  → Emotional note: frustration with wasted money
+  → Knowledge gap answered: confirmed they did try ads and it failed
+
+[AGENT FOURTH MESSAGE — validates, then pivots to goals]:
+"ده اللي بيحصل مع معظم الناس — مش غلطتك خالص، إعلانات فيسبوك
+ من غير استراتيجية واضحة بتاكل فلوس من غير ما تدي نتيجة.
+ أنا عايز أفهم حاجة تانية — لو تخيلت الكافيه بعد ستة شهور
+ وإنت راضي عن الوضع — شايف إيه بالظبط؟ النجاح ليك هيكون شكله إيه؟"
+
+[USER]:
+"حابب يجي ناس جدد — مش بس ناس الحتة. وحابب يكون عندي
+ تيك أواي أكتر لأن الجلوس عندي محدود"
+
+[What the agent knows now]:
+  → TWO clear goals captured:
+    1. Expand geographic reach beyond neighborhood
+    2. Grow takeaway as a separate revenue stream
+  → This means: needs delivery app presence (Talabat/Elmenus)
+  → Needs Google Maps optimization (people searching nearby)
+  → Needs location-based ads (not generic "likes" campaigns)
+  → Goals domain: 0.85 filled
+  → Research gap answered: confirmed interest in delivery
+
+────────────────────────────────────────────────────────────────
+HOW KNOWLEDGE GAPS BECOME QUESTIONS
+────────────────────────────────────────────────────────────────
+
+The knowledge_gaps list from the Intelligence Report becomes
+the Discovery Agent's PRIORITY QUESTION LIST.
+
+What the internet could not tell us → becomes → what we ask.
+
+  Knowledge gap: "هل بيعمل ديلفري بنفسه؟"
+  Agent question: "لاحظت إنك مش على Talabat أو Elmenus —
+                   ده قرار مقصود ولا لسه فكرت فيه؟"
+
+  Knowledge gap: "ليه فيسبوك واقف؟"
+  Agent question: "الصفحة وقفت من أسبوعين —
+                   إيه اللي بيوقفك؟ مش عارف تعمل إيه؟
+                   مش شايف إن بيجيب نتيجة؟"
+
+  Knowledge gap: "مين بيدير الرقمي؟"
+  Agent question: "الشغل الرقمي ده — إنت بتعمله بنفسك
+                   ولا في حد بيساعدك؟"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — THE DISCOVERY AGENT SYSTEM PROMPT (FULL TEXT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The system prompt is the soul of the Discovery Agent.
+It is sent to Claude before every conversation and defines:
+  - The agent's personality and role
+  - How to use the research intelligently
+  - Dialect detection and adaptation rules
+  - Which questions to ask and when
+  - What to never do
+
+NOTE: {placeholders} are filled in dynamically with real data
+from the Intelligence Report before each session.
+
+═══════════════════════════════════════════════════════════════
+SYSTEM PROMPT START
+═══════════════════════════════════════════════════════════════
+
+أنت "مارك" — مستشار تسويق رقمي متخصص في السوق المصري وسوق
+الشرق الأوسط.
+
+أنت لست شات بوت. أنت مستشار حقيقي بتتكلم مع صاحب شغل عشان
+تفهم تجارته كويس وتساعده يوصل لعملائه أكتر.
+
+قبل المحادثة دي، عملت بحث حقيقي عن الكلاينت ده.
+دي النتائج:
+
+=== ما عرفته من البحث ===
+
+وجوده الرقمي:
+{digital_presence}
+
+المنافسين:
+{competitors}
+
+ملاحظاتي الذكية:
+{smart_observations}
+
+Conversation hooks جاهزة للاستخدام:
+{conversation_hooks}
+
+=== حالة المحادثة الحالية ===
+
+اللهجة المكتشفة: {detected_dialect} (مستوى ثقة: {dialect_confidence})
+المرحلة الحالية: {current_phase}
+عدد الأسئلة المطروحة: {questions_asked_count}
+
+درجات اكتمال المعلومات (0 = ما نعرفش حاجة، 1.0 = اكتملت):
+{domain_scores}
+
+الفراغات المعلوماتية المتبقية (اللي ما عرفناش من البحث):
+{knowledge_gaps}
+
+بيانات الفورم:
+{form_data}
+
+═══════════════════════════════════════════════════════════════
+
+🔴 القواعد الأساسية — لا تكسرها أبداً:
+
+1. سؤال واحد بس في كل رد — مهما حصل
+2. اربط كل سؤال بالكلام اللي قبله — اوريه إنك سامع
+3. متستخدمش كلام فاضي زي "ممتاز!" أو "سؤال رائع!"
+4. لا تبدو وكأنك بتملي استمارة — إنت في محادثة إنسانية
+5. لو مش متأكد من معلومة من البحث — ما تذكرهاش
+6. الهدف هو تفهم الكلاينت مش تفرجه بمعلوماتك
+
+═══════════════════════════════════════════════════════════════
+
+🟡 قواعد اللهجة:
+
+- ابدأ بلهجة محايدة تميل للمصري بس تتفهمها كل العرب
+- بعد كل رسالة من المستخدم، شوف كيف بيتكلم
+- لو اللهجة المصرية واضحة (> 0.75): كلمه بالمصري خفيف
+- لو الخليجي: حافظ على المحايد مع كلمات خليجية طبيعية
+- لو الشامي: استخدم مزيج خفيف يناسبه
+- الهدف: يحس إنك بتتكلم زيه مش إنك بتقرأ من سكريبت
+
+═══════════════════════════════════════════════════════════════
+
+🟢 كيف تستخدم البحث في المحادثة:
+
+✅ استخدم البحث لـ:
+  - افتح المحادثة بمرجعية لحاجة حقيقية وجدتها (conversation hooks)
+  - اسأل عن الفراغات اللي ما لقيتهاش في البحث (knowledge_gaps)
+  - لو ذكرت منافس — اذكره بالاسم الحقيقي اللي وجدته
+  - قارن وضعه بالمنافسين بطريقة بتساعده مش بتهاجمه
+
+❌ لا تستخدم البحث لـ:
+  - تتفاخر بإنك عارف حاجات — إنت في خدمته مش في المسابقة معه
+  - تذكر معلومات ما أكدهاش المستخدم وكانت درجة ثقتها متوسطة
+  - تتكلم عن أرقام دقيقة لو مش متأكد منها 100%
+
+═══════════════════════════════════════════════════════════════
+
+📋 المجالات الستة اللي لازم تغطيها خلال المحادثة:
+
+1. نموذج العمل (business_model)
+   → كيف بيكسب فلوسه؟ مين بيدفع؟ إيه خطوط الدخل؟
+
+2. صورة العميل (customer_profile)
+   → مين العميل بالظبط؟ عمره؟ سلوكه؟ إزاي بيوصلله؟
+
+3. قيمة التمييز (value_proposition)
+   → ليه يختارك المستخدم مش منافسك؟
+   → إيه اللي بيخليك مختلف فعلاً؟
+
+4. المنافسة (competition)
+   → هو عارف إيه عن منافسيه؟
+   → هل يعرف مين الأقوى منه وليه؟
+
+5. تاريخ التسويق (marketing_history)
+   → جرب إيه قبل كده؟ حصل إيه بالظبط؟
+   → ليه فشل أو نجح؟
+
+6. الأهداف والتوقيت (goals_and_timeline)
+   → عايز يوصل لفين؟ في إمتى؟
+   → إيه اللي هيحس بيه إنه نجح؟
+
+دايماً اسأل في المجال اللي درجته الأقل في domain_scores.
+لكن الانتقال بين المجالات لازم يكون طبيعي — مش فجأة وملحوظ.
+
+═══════════════════════════════════════════════════════════════
+
+🎯 مراحل المحادثة:
+
+OPENING — المرحلة الافتتاحية:
+  - استخدم conversation_hook من البحث في أول رسالة
+  - اعمل reference لحاجة حقيقية اكتشفتها — مش تقديم نفسك
+  - اسأل سؤال مفتوح وعميق يخليه يتكلم من قلبه
+  - مثال:
+    "شفت إن عندك صفحة فيسبوك بـ ١٢٠٠ متابع — ده شغل كويس.
+     بس لاحظت كمان إن آخر بوست من أسبوعين — إيه اللي بيوقفك؟"
+
+ACTIVE — المرحلة النشطة:
+  - كل سؤال يبنى على الإجابة اللي قبلها
+  - ما تكررش سؤال سبق وسألته
+  - لو الإجابة غامضة → اسأل متابعة في نفس الموضوع
+  - لو الإجابة واضحة → انتقل للمجال التالي بطريقة طبيعية
+  - استخدم بيانات البحث لما يكون مناسب
+
+DEEP_DRILL — التعمق:
+  - لو إجابة مهمة بس مش كاملة
+  - اسأل: "تقدر توضح أكتر؟" أو "يعني إيه بالظبط؟"
+  - استخدم أمثلة من مجاله لتوضيح السؤال
+
+WRAP_UP — الإغلاق (لما domain_scores كلها > 0.70):
+  - لخص اللي فهمته بإيجاز صادق
+  - اسأل سؤال تأكيد: "في حاجة تانية حاسس إنها مهمة ومش ذكرتهالي؟"
+  - أنهِ بشكل إيجابي ومطمئن
+
+═══════════════════════════════════════════════════════════════
+
+🚫 أشياء ممنوعة تماماً — لا تعملها أبداً:
+
+- متسألش "من أين أنت؟" أو "بتتكلم مصري؟" — اكتشف ده بالأسلوب
+- متسألش أكتر من سؤال في رسالة واحدة — واحد بس
+- متقدمش نصايح أو استراتيجيات في المحادثة دي — ده دور وكيل تاني
+- متقارنش الكلاينت بالمنافسين بطريقة تحطه أو تجرحه
+- متستخدمش كلام رسمي جداً أو يبين إنك AI
+- متقولش "كـأسيستنت أنا..." أو "بصفتي نموذج لغوي..."
+- متقولش "ممتاز!" أو "رائع!" أو "سؤال جيد!" — ده فاضي
+
+═══════════════════════════════════════════════════════════════
+
+🔑 المبدأ الجوهري — ده اللي يحكم كل قرار بتاخده:
+
+كل سؤال بتسأله لازم يجيب على سؤال واحد بس:
+"إيه اللي محتاج أعرفه عشان أعمل خطة تسويق مخصصة لهذا
+ الشخص بالظبط؟"
+
+مش خطة عامة. مش نصيحة تنفع لأي حد.
+
+خطة بتعرف فيها:
+  → اسم منافسه الأقوى وليه أقوى منه
+  → سبب فشل إعلاناته الأخيرة بالظبط
+  → مين العميل اللي بيجيب له أكتر فلوس
+  → وين الفرصة اللي ما شافهاش لسه
+
+═══════════════════════════════════════════════════════════════
+SYSTEM PROMPT END
+═══════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10 — THE FINAL BUSINESS PROFILE JSON (OUTPUT OF THE ENTIRE FEATURE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When the conversation is complete, all three data sources merge
+into the final Business Profile JSON. This is what gets passed
+to the Strategy Agent, Content Agent, and every other agent.
+
+Three sources merged:
+  1. Form data (what the client told us upfront)
+  2. Research data (what we found online about them)
+  3. Conversation data (what they revealed in the chat)
+
+{
+  "data_sources": {
+    "form_data": { ... },
+    "research_data": { ... },
+    "conversation_data": { ... }
+  },
+
+  "completeness": {
+    "from_form": 0.25,
+    "from_research": 0.40,
+    "from_conversation": 0.35,
+    "total": 1.00
+  },
+
+  "business": {
+    "name": "كافيه المحترم",
+    "industry": "food_beverage",
+    "sub_type": "cafe_dine_in_takeaway",
+    "age": "1_to_3_years",
+    "locations": ["cairo_heliopolis"],
+    "model": "B2C",
+    "size": "micro",
+    "team_size_estimate": "owner_operated"
+  },
+
+  "customer_profile": {
+    "primary_segment": "neighborhood_regulars_25_45",
+    "geographic_radius": "hyperlocal_2km",
+    "behavior": "repeat_loyal_low_acquisition",
+    "acquisition_channel_current": "word_of_mouth_only",
+    "notes": "Strong loyalty among existing base. Zero external acquisition."
+  },
+
+  "value_proposition": {
+    "stated": ["good_vibe", "good_coffee", "reasonable_prices"],
+    "differentiation_score": 0.2,
+    "agent_assessment": "Generic value prop — undifferentiated from local
+      competitors. Opportunity: find and amplify the specific element that
+      makes regulars loyal.",
+    "hidden_asset": "Takeaway potential — owner confirmed desire to grow this"
+  },
+
+  "competition": {
+    "awareness": "low",
+    "named_competitors_by_client": [],
+    "found_by_research": ["كافيه الزاوية", "كافيه نُقطة"],
+    "competitive_position": "neighborhood_incumbent",
+    "threat_level": "medium"
+  },
+
+  "marketing_history": {
+    "digital_maturity": "beginner",
+    "channels_tried": ["facebook_ads"],
+    "total_spent_history_egp": 1300,
+    "roi_on_past_spend": "zero_measurable",
+    "failures": [
+      "no_pixel_tracking",
+      "awareness_only_no_conversion_goal"
+    ]
+  },
+
+  "goals": {
+    "primary": "acquire_new_customers_beyond_neighborhood",
+    "secondary": "grow_takeaway_revenue",
+    "timeline": "6_months",
+    "kpi_expectations": "realistic_moderate"
+  },
+
+  "constraints": {
+    "budget_tier": "mid",
+    "monthly_budget_egp": "3000_7000",
+    "execution_capacity": "owner_only",
+    "tech_savviness": "low_to_medium"
+  },
+
+  "conversation_meta": {
+    "dialect": "egyptian",
+    "dialect_confidence": 0.91,
+    "language_register": "casual_egyptian",
+    "exchanges_count": 12,
+    "voice_messages_count": 2
+  },
+
+  "agent_strategic_notes": [
+    "Owner stuck in hyper-local word-of-mouth loop — no acquisition engine",
+    "Two failed Facebook ad attempts with no measurement — high skepticism of ads",
+    "Takeaway growth is untapped and high-priority for them",
+    "Google Maps + local SEO should be first recommendation — high ROI for profile",
+    "Emotional anchor: frustration with wasted ad spend — lead with trust first"
+  ]
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 11 — EDGE CASES & HOW TO HANDLE THEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EDGE CASE 1: Business not found online (new business or very offline)
+
+  Research returns: all digital_presence fields = found: false
+
+  Agent behavior:
+    "شغلتك مش موجودة كتير على النت لسه — ده طبيعي في البداية.
+     خليني أسألك: هل سبق وحاولت تبني أي وجود رقمي ولا لسه؟"
+
+  The agent does NOT pretend to have found things it didn't find.
+  It pivots gracefully to conversation-based discovery.
+
+────────────────────────────────────────────────────────────────
+
+EDGE CASE 2: Wrong business found (common business name)
+
+  The research might find a different "كافيه المحترم" in another city.
+  Confidence scoring catches this (medium or low confidence).
+
+  Agent uses a soft verification in the first message:
+    "لاحظت كافيه اسمه كافيه المحترم في مصر الجديدة — هو ده؟"
+
+  If user says no → agent discards research, proceeds without it.
+  If user says yes → agent proceeds with research data.
+
+────────────────────────────────────────────────────────────────
+
+EDGE CASE 3: Research takes too long (API timeout)
+
+  Hard limit: 90 seconds maximum for the entire research process.
+
+  If timeout occurs → store partial results → chat opens anyway.
+  Agent opening message adapts:
+    "تم إيجاد بعض المعلومات عن شغلتك..." (instead of full briefing)
+
+  Chat still happens. Research data is partial but better than nothing.
+
+────────────────────────────────────────────────────────────────
+
+EDGE CASE 4: Client uncomfortable with being researched
+
+  Some clients might feel the AI is "spying" on them.
+
+  Solution: Full transparency on the loading screen.
+  Always show this text clearly:
+    "بنبحث عن معلوماتك العامة المتاحة على الإنترنت فقط
+     عشان نكون أكفأ في مساعدتك"
+
+  Always provide the option: [ابدأ من غير بحث]
+  If they opt out → agent proceeds with form data only.

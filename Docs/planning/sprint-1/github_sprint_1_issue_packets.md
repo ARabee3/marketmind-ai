@@ -7,6 +7,8 @@ Each issue should be detailed enough for a teammate or AI coding agent to start 
 Common related docs for all Sprint 1 issues:
 
 - `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md`
+- `Docs/planning/sprint-1/prepared-discovery-architecture/README.md`
+- `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md`
 - `Docs/planning/05_TEAM_OPERATING_SYSTEM.md`
 - `Docs/planning/03_AGENTS_OVERVIEW.md`
 - `README.md`
@@ -14,7 +16,7 @@ Common related docs for all Sprint 1 issues:
 ---
 
 <!-- ISSUE 1 START -->
-## #1 Implement Discovery Agent flow contract
+## #1 Implement Prepared Discovery flow and contract
 
 ## Owner / Reviewer
 
@@ -25,56 +27,89 @@ Sprint Status: Sprint Ready
 
 ## Goal
 
-Define and implement the first contract for the Discovery Agent flow so the NestJS backend team can understand how the backend will call the AI service and what structured responses to expect.
+Define and implement the first Prepared Discovery flow so the NestJS backend and frontend teams can start, observe, and complete one intake-to-profile-confirmation journey.
 
 ## Context
 
-Sprint 1 starts the real Discovery AI foundation. This issue does not build the whole agent product. It defines the lifecycle and AI/Nest integration boundary for the first real agent so later implementation work does not drift or invent incompatible API shapes.
+Sprint 1 now targets a full Prepared Discovery feature, not a foundation-only contract. Prepared Discovery means the owner submits intake details and optional public links, the system performs bounded pre-chat intelligence gathering, shows progress, then opens a focused Discovery interview that produces a structured `BusinessProfileDraft` for owner confirmation.
 
 ## In Scope
 
-- Discovery session lifecycle: start, respond, summarize.
-- AI service contract for the Discovery flow.
-- Required request/response shapes at a draft level.
-- Completion rules for when a Business Profile draft is ready.
+- Prepared Discovery lifecycle: start, research, progress, respond, summarize, confirm profile.
+- `IntelligenceGatherer` orchestration inside Discovery.
+- Lightweight metadata extraction for owner-provided links.
+- Free/no-key search path for bounded market and competitor context.
+- Public NestJS endpoints.
+- Internal FastAPI endpoints.
+- WebSocket progress event contract.
+- Required request/response shapes.
+- Completion, partial, and failure rules for when a Business Profile draft is ready.
 - Explicit rule that Discovery does not create strategy or content.
+- Rule that research happens before chat opens; no form-only Discovery as the normal path.
+- Rule that wrong/low-confidence matches are discarded.
 - Examples that backend and AI teams can both understand.
 
 ## Out of Scope
 
-- Full frontend UI.
+- Polished frontend UI.
 - Auth/RBAC implementation.
-- RAG, web search, or competitor research.
+- Paid external providers such as Tavily, Serper, Google Places, Apify, or Meta Graph API.
+- Full RAG/Qdrant implementation.
 - Content generation.
 - Publishing or analytics.
-- Final production database schema.
+- Future non-Discovery database schema.
 
 ## Expected Deliverables
 
-- A documented AI/Nest contract for Discovery.
-- Lifecycle/state notes for the Discovery session.
-- Example request/response payloads for the three endpoints.
-- Notes on error cases and provider failure behavior from the caller perspective.
+- A working Prepared Discovery orchestration path.
+- A documented public NestJS + internal FastAPI contract for Prepared Discovery.
+- Lifecycle/state notes for the Discovery session and pre-chat research.
+- Lightweight metadata extraction behavior for submitted links.
+- Free/no-key search behavior for business, market, and competitor context.
+- WebSocket progress event examples.
+- Example request/response payloads for start, status, respond, summarize, and confirm.
+- Notes on partial research, total research failure, wrong matches, and provider failure behavior from the caller perspective.
 
 ## Suggested Implementation Steps
 
-- [ ] Read the Sprint 1 vertical slice doc and Discovery Agent section.
-- [ ] Define Discovery lifecycle states: `not_started`, `in_progress`, `summary_ready`, `confirmed`, `failed`.
-- [ ] Draft request/response examples for `start`, `respond`, and `summarize`.
+- [ ] Read the Sprint 1 vertical slice doc and architecture pack.
+- [ ] Define Prepared Discovery lifecycle states: `not_started`, `researching`, `partial_ready`, `ready_for_chat`, `in_progress`, `summary_ready`, `confirmed`, `research_failed`, `failed`.
+- [ ] Draft public NestJS request/response examples for `start`, `status`, `respond`, `summarize`, and `confirm-profile`.
+- [ ] Draft internal FastAPI request/response examples for `start`, `respond`, and `summarize`.
+- [ ] Draft WebSocket progress event examples.
+- [ ] Define and implement the `IntelligenceGatherer` orchestration boundary.
+- [ ] Define and implement lightweight metadata extraction for submitted links.
+- [ ] Define and implement free/no-key search behind a small replaceable function/module.
 - [ ] Define what data NestJS must send to the AI service on each call.
 - [ ] Define what the AI service must return to NestJS on each call.
 - [ ] Document when strategy remains locked.
-- [ ] Add notes for provider failure and retry-safe behavior.
+- [ ] Add notes for partial research, total research failure, wrong-match discard, provider failure, and retry-safe behavior.
 - [ ] Review contract with Mokhtar from the backend perspective.
 
 ## Interfaces / Contracts
 
-Expected AI service endpoints:
+Public NestJS endpoints:
 
 ```text
-POST /ai/discovery/start
-POST /ai/discovery/respond
-POST /ai/discovery/summarize
+POST /api/v1/discovery/start
+GET /api/v1/discovery/:session_id/status
+POST /api/v1/discovery/:session_id/respond
+POST /api/v1/discovery/:session_id/summarize
+POST /api/v1/discovery/:session_id/confirm-profile
+```
+
+WebSocket progress endpoint:
+
+```text
+WS /ws/v1/discovery/:session_id/progress
+```
+
+Internal AI service endpoints:
+
+```text
+POST /internal/v1/ai/discovery/start
+POST /internal/v1/ai/discovery/respond
+POST /internal/v1/ai/discovery/summarize
 ```
 
 Minimum response intent:
@@ -82,30 +117,45 @@ Minimum response intent:
 - next question
 - updated known facts
 - updated uncertainties
+- research observations
+- source refs
+- domain scores
 - whether the profile draft is ready
 - safe error message if the provider fails
 
 ## Acceptance Criteria
 
-- [ ] NestJS team can explain how to call the AI service for Discovery.
+- [ ] NestJS team can explain how to call the AI service for Prepared Discovery.
+- [ ] Frontend team can explain how to connect to progress and recover with status polling.
 - [ ] The contract includes start, respond, and summarize behavior.
+- [ ] The contract includes status, WebSocket progress, and confirm-profile behavior.
+- [ ] Metadata extraction runs for submitted links.
+- [ ] Free/no-key search runs for market and competitor context.
 - [ ] The contract uses structured inputs/outputs, not free-form-only text.
+- [ ] Pre-chat research is required before chat opens, with partial/failure states.
+- [ ] Source labels/citations are included for owner-visible research facts.
 - [ ] Discovery is explicitly forbidden from strategy/content generation.
 - [ ] The profile confirmation boundary is clear.
 - [ ] The issue outcome is understandable without reading every planning doc.
 
 ## Test / Verification
 
-- [ ] Walk through one fictional Egyptian cafe from start to summary.
+- [ ] Walk through one fictional Egyptian cafe from intake to profile confirmation.
 - [ ] Show an example request/response for each endpoint.
+- [ ] Show a WebSocket progress transcript.
+- [ ] Show metadata extraction from one submitted link.
+- [ ] Show bounded free/no-key market/competitor search output with source labels.
+- [ ] Show what happens when research is partial.
+- [ ] Show what happens when a wrong/low-confidence match is discarded.
 - [ ] Show what happens if the user says “I don’t know.”
 - [ ] Show what happens if the AI provider fails.
 - [ ] Paste contract examples or screenshots into the PR.
 
 ## Review Checklist
 
-- [ ] Owner can explain the lifecycle and handoff to Strategy.
+- [ ] Owner can explain the lifecycle from intake to profile confirmation.
 - [ ] Reviewer checked that the contract is backend-friendly.
+- [ ] Reviewer checked that progress/status behavior is frontend-friendly.
 - [ ] Reviewer checked that Discovery does not do strategy/content work.
 - [ ] AI-critical behavior was reviewed by Ahmed or Merzek.
 
@@ -116,6 +166,7 @@ AI tools may help draft contracts and examples, but Ahmed must understand, verif
 ## Related Docs
 
 - `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md`
+- `Docs/planning/sprint-1/prepared-discovery-architecture/README.md`
 - `Docs/planning/03_AGENTS_OVERVIEW.md`
 <!-- ISSUE 1 END -->
 
@@ -133,26 +184,29 @@ Sprint Status: Sprint Ready
 
 ## Goal
 
-Build the first real AI provider path for Discovery using an OpenAI-first adapter and a safe Discovery Agent prompt that supports Arabic, English, and mixed-language interviews.
+Build the first AI provider path for Prepared Discovery using OpenAI as the intended default, Gemini/free provider as optional dev fallback, and deterministic mock mode when no LLM key exists. The Discovery prompt must support Arabic, English, and mixed-language interviews while staying inside the Discovery boundary.
 
 ## Context
 
-The team decided not to use mocked AI as the main path. This issue creates the real AI foundation, but keeps the agent focused on Discovery only. The provider adapter should be replaceable later so Gemini or another provider can be added without rewriting the agent flow.
+The team expects an OpenAI key soon, but development must continue before it exists. This issue creates the provider adapter and prompt behavior while keeping the agent focused on Discovery only. The adapter should prevent provider-specific code from leaking into the Discovery flow.
 
 ## In Scope
 
-- OpenAI-first provider adapter.
+- OpenAI-intended provider adapter.
+- Optional `gemini_dev` provider mode.
+- Deterministic `mock` provider mode for no-key local development and tests.
 - Discovery Agent prompt skeleton.
 - Structured response expectations.
 - Provider failure behavior.
 - Bilingual Arabic/English and code-switching support.
 - No-invention rules and uncertainty handling.
+- Prompt boundary: no strategy, no content, no channel recommendations, no budget allocation.
 - Basic tracing/logging plan for provider calls.
 
 ## Out of Scope
 
 - RAG.
-- Web search.
+- Search provider implementation.
 - Strategy generation.
 - Content generation.
 - Image/logo/menu analysis.
@@ -164,17 +218,21 @@ The team decided not to use mocked AI as the main path. This issue creates the r
 - Provider adapter design or initial implementation.
 - Discovery prompt draft.
 - Structured response examples.
+- Validation behavior for invalid model output.
 - Provider failure behavior notes.
 - Minimal guidance for environment variables/secrets, without committing secrets.
 
 ## Suggested Implementation Steps
 
 - [ ] Read the Discovery Agent requirements from the planning docs.
-- [ ] Define provider adapter responsibilities: input, output, errors, model configuration.
+- [ ] Define provider adapter responsibilities: input, output, errors, model configuration, and mode selection.
+- [ ] Define modes: `openai`, `gemini_dev`, and `mock`.
 - [ ] Draft a Discovery system prompt with strict boundaries.
 - [ ] Define structured output fields for next question vs profile draft.
 - [ ] Add Arabic/English/mixed-language instructions.
 - [ ] Add rules for unknowns, contradictions, and off-topic messages.
+- [ ] Add rules for strategy/content request refusal.
+- [ ] Add schema validation behavior for provider responses.
 - [ ] Document provider failure handling.
 - [ ] Review with Gerges for backend/API compatibility.
 
@@ -195,11 +253,13 @@ The result should clearly indicate one of:
 
 ## Acceptance Criteria
 
-- [ ] Real AI call path is defined or started.
+- [ ] Provider adapter supports `openai`, `gemini_dev`, and `mock` modes.
+- [ ] Local development works without `OPENAI_API_KEY`.
 - [ ] Prompt supports Arabic, English, and mixed input.
 - [ ] Prompt forbids invented business facts.
 - [ ] Prompt forbids strategy/content generation.
 - [ ] Structured response expectations are documented.
+- [ ] Provider output is schema-validated before use.
 - [ ] Provider failure produces a safe retryable result.
 
 ## Test / Verification
@@ -208,7 +268,9 @@ The result should clearly indicate one of:
 - [ ] Test English-only input.
 - [ ] Test mixed Arabic/English input.
 - [ ] Test “I don’t know.”
+- [ ] Test user asks for strategy during Discovery.
 - [ ] Test a prompt-injection style user message.
+- [ ] Test invalid structured output.
 - [ ] Test or document provider failure behavior.
 
 ## Review Checklist
@@ -216,6 +278,7 @@ The result should clearly indicate one of:
 - [ ] Owner can explain the prompt boundaries.
 - [ ] Reviewer checked that outputs are backend-friendly.
 - [ ] Reviewer checked that the adapter avoids provider lock-in.
+- [ ] Reviewer checked that local dev does not require OpenAI.
 - [ ] AI-critical prompt/provider decisions were reviewed by Ahmed or Merzek.
 
 ## AI Assistance Rules
@@ -227,12 +290,13 @@ AI may help draft prompt variants, but Merzek must test, simplify, and remove un
 - `Docs/planning/01_AI_CONCEPTS_FOR_THE_TEAM.md`
 - `Docs/planning/03_AGENTS_OVERVIEW.md`
 - `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md`
+- `Docs/planning/sprint-1/prepared-discovery-architecture/04_AI_I18N_AND_DOC_GOVERNANCE.md`
 <!-- ISSUE 2 END -->
 
 ---
 
 <!-- ISSUE 3 START -->
-## #3 Implement Discovery schemas and AI evaluation cases
+## #3 Implement Prepared Discovery schemas and AI evaluation cases
 
 ## Owner / Reviewer
 
@@ -243,16 +307,23 @@ Sprint Status: Sprint Ready
 
 ## Goal
 
-Define the first Discovery data shapes and evaluation cases so AI output can be validated and shared safely between the AI service, NestJS API, and future frontend.
+Define the Prepared Discovery data shapes and evaluation cases so research context, AI output, profile drafts, and owner confirmation can be validated and shared safely between the AI service, NestJS API, and future frontend.
 
 ## Context
 
-The Discovery Agent must not return vague free-form text only. This issue creates the structure needed for reliable AI behavior, future database storage, and human review. It also gives the team concrete evaluation cases before deeper implementation.
+Prepared Discovery must not return vague free-form text only. This issue creates the structure needed for reliable AI behavior, PostgreSQL storage, source-backed research facts, future frontend display, and human review. It also gives the team concrete evaluation cases before deeper implementation.
 
 ## In Scope
 
 - `DiscoverySession`
 - `DiscoveryMessage`
+- `PreparedDiscoveryIntake`
+- `SocialLink`
+- `IntelligenceResult`
+- `ResearchObservation`
+- `SourceRef`
+- `ConversationHook`
+- `KnowledgeGap`
 - `BusinessProfileDraft`
 - `BusinessProfile`
 - `Uncertainty`
@@ -262,18 +333,20 @@ The Discovery Agent must not return vague free-form text only. This issue create
 
 ## Out of Scope
 
-- Final database migrations.
+- Future non-Discovery database migrations.
 - Full shared package implementation if the backend is not ready.
 - Strategy schemas.
 - Content schemas.
 - Publishing or analytics schemas.
-
+- Qdrant/RAG implementation.
 ## Expected Deliverables
 
 - Schema draft or shared contract draft.
+- Database table mapping must follow `prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md`.
 - Example valid Discovery objects.
 - Evaluation case list with expected behavior.
 - Notes on which fields are required for Sprint 1.
+- Example validated `BusinessProfileDraft` that separates confirmed facts, research observations, uncertainties, owner goals, and strategy-relevant notes.
 
 ## Suggested Implementation Steps
 
@@ -281,7 +354,8 @@ The Discovery Agent must not return vague free-form text only. This issue create
 - [ ] Draft the required Discovery schema names and responsibilities.
 - [ ] Define minimum required fields for each schema.
 - [ ] Include explicit uncertainty tracking.
-- [ ] Include source tracking where useful, such as owner answer vs AI observation.
+- [ ] Include source tracking for owner answer vs research observation.
+- [ ] Include fields for source URL, source label, retrieval timestamp, confidence, and discard reason.
 - [ ] Write example valid objects for a fictional Egyptian cafe.
 - [ ] Write the first evaluation cases.
 - [ ] Review with Abdulazim for future frontend/API usability.
@@ -293,15 +367,24 @@ Schemas must support:
 - interview state
 - message history
 - current known business facts
+- social links
+- research observations
+- conversation hooks
+- knowledge gaps
+- source refs/citations
 - missing/uncertain fields
 - profile draft
 - confirmed profile later
 - AI run trace metadata
+- owner confirmation boundary
 
 ## Acceptance Criteria
 
 - [ ] Schemas are usable by both AI and NestJS streams.
 - [ ] Unknowns can be represented without invention.
+- [ ] Research observations are not mixed with confirmed owner facts.
+- [ ] Source labels/citations can be represented for owner-visible facts.
+- [ ] Wrong/low-confidence matches can be discarded without reaching Discovery.
 - [ ] Profile draft and confirmed profile are clearly separate.
 - [ ] Evaluation cases cover the required Discovery behaviors.
 - [ ] Outputs can be validated manually or programmatically.
@@ -316,12 +399,20 @@ Schemas must support:
 - [ ] Contradictory answer case.
 - [ ] Prompt-injection case.
 - [ ] Provider failure case.
+- [ ] Owner submits social links case.
+- [ ] Owner submits no social links case.
+- [ ] Metadata extraction case.
+- [ ] Free/no-key search partial failure case.
+- [ ] Wrong-match discard case.
+- [ ] Strategy request refusal case.
+- [ ] Schema-invalid AI output case.
 
 ## Review Checklist
 
 - [ ] Owner can explain every schema.
 - [ ] Reviewer checked that schemas are not overcomplicated.
 - [ ] Reviewer checked that frontend/API can consume them later.
+- [ ] Reviewer checked that PostgreSQL is the source of truth.
 - [ ] AI-critical schema decisions were reviewed by Ahmed or Merzek.
 
 ## AI Assistance Rules
@@ -333,6 +424,7 @@ AI may help generate sample schemas and test cases, but Kordy must verify that e
 - `Docs/planning/02_MARKETMIND_AI_FLOW.md`
 - `Docs/planning/03_AGENTS_OVERVIEW.md`
 - `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md`
+- `Docs/planning/sprint-1/prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md`
 <!-- ISSUE 3 END -->
 
 ---
@@ -353,28 +445,34 @@ Initialize the NestJS backend foundation inside the monorepo and add only the mi
 
 ## Context
 
-Sprint 1 backend work starts with Auth/RBAC. Those tasks need a clean NestJS project foundation, but the repo should not grow fake modules or product features too early. This issue creates the backend base while intentionally deferring audit and business logic.
+Sprint 1 backend work starts with Auth/RBAC and Prepared Discovery. Those tasks need a clean NestJS project foundation, but the repo should not grow fake modules or product features too early. This issue creates the backend base while intentionally deferring audit and business logic.
+
+Project storage direction is PostgreSQL as source of truth and Qdrant later for RAG/vector retrieval.
 
 ## In Scope
 
 - NestJS app initialization under `apps/api`.
 - Basic project structure.
+- Folder structure aligned with `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md`.
 - Environment config approach.
+- PostgreSQL-ready configuration shape.
+- Prisma migration setup for the Sprint 1 PostgreSQL schema.
+- Local Docker Compose for PostgreSQL.
 - `HealthModule`.
 - Placeholder/module layout for:
   - `AuthModule`
   - `UsersModule`
   - `RbacModule`
   - `HealthModule`
-- `GET /health`.
+- `GET /api/v1/health`.
 
 ## Out of Scope
 
 - `AuditModule`.
 - Business/Profile APIs.
 - Discovery APIs.
-- Database-heavy feature implementation.
-- Docker Compose.
+- Prepared Discovery feature logic outside database setup.
+- Qdrant setup.
 - CI workflow.
 - Frontend work.
 
@@ -382,16 +480,23 @@ Sprint 1 backend work starts with Auth/RBAC. Those tasks need a clean NestJS pro
 
 - Runnable NestJS backend skeleton.
 - Health endpoint returning a simple healthy response.
+- Environment naming/structure that is compatible with PostgreSQL later.
+- Initial migration structure ready for Sprint 1 tables.
+- Local PostgreSQL can run from Docker Compose.
 - Clear local run instructions.
 - No production feature logic beyond foundation.
 
 ## Suggested Implementation Steps
 
 - [ ] Confirm the npm workspace structure.
+- [ ] Read `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md`.
 - [ ] Initialize NestJS under `apps/api`.
 - [ ] Keep dependencies minimal.
 - [ ] Add module layout for Auth, Users, RBAC, and Health.
-- [ ] Implement `GET /health`.
+- [ ] Document PostgreSQL as the selected source-of-truth database direction.
+- [ ] Add Prisma migration setup owned by NestJS.
+- [ ] Add local Docker Compose for PostgreSQL.
+- [ ] Implement `GET /api/v1/health`.
 - [ ] Document how to run the backend locally.
 - [ ] Confirm no `AuditModule` exists.
 - [ ] Review with Kordy for integration clarity.
@@ -401,7 +506,7 @@ Sprint 1 backend work starts with Auth/RBAC. Those tasks need a clean NestJS pro
 Required endpoint:
 
 ```text
-GET /health
+GET /api/v1/health
 ```
 
 Expected behavior:
@@ -413,15 +518,17 @@ Expected behavior:
 ## Acceptance Criteria
 
 - [ ] Backend app starts locally.
-- [ ] `GET /health` returns a healthy response.
-- [ ] Module structure includes only Auth, Users, RBAC, and Health.
+- [ ] `GET /api/v1/health` returns a healthy response.
+- [ ] Foundation module structure includes Auth, Users, RBAC, and Health.
+- [ ] Project folders follow the documented app/module/common/package boundaries.
 - [ ] No `AuditModule` is created in Sprint 1.
+- [ ] Qdrant is not required for Sprint 1 setup.
 - [ ] Other backend members can start their issues without setup confusion.
 
 ## Test / Verification
 
 - [ ] Run the backend locally.
-- [ ] Call `GET /health`.
+- [ ] Call `GET /api/v1/health`.
 - [ ] Run the available backend checks/tests.
 - [ ] Paste command output or screenshot into the PR.
 
@@ -430,6 +537,7 @@ Expected behavior:
 - [ ] Owner can explain the project structure.
 - [ ] Reviewer checked that no premature feature code was added.
 - [ ] Reviewer checked that setup is easy for the team.
+- [ ] Reviewer checked that setup aligns with PostgreSQL source-of-truth direction.
 - [ ] Backend-sensitive setup was reviewed before merge.
 
 ## AI Assistance Rules
@@ -440,6 +548,8 @@ AI may help scaffold and explain NestJS setup, but Abdulazim must understand eve
 
 - `Docs/techstack.md`
 - `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md`
+- `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md`
+- `Docs/planning/sprint-1/prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md`
 - `README.md`
 <!-- ISSUE 4 END -->
 
@@ -501,7 +611,7 @@ Discovery, strategy, and future publishing must be tied to an authenticated owne
 - [ ] Implement owner registration.
 - [ ] Implement login and token response.
 - [ ] Implement refresh and logout behavior.
-- [ ] Implement `GET /auth/me`.
+- [ ] Implement `GET /api/v1/auth/me`.
 - [ ] Add tests for happy and failure paths.
 - [ ] Review with Ahmed for product/security fit.
 
@@ -510,11 +620,11 @@ Discovery, strategy, and future publishing must be tied to an authenticated owne
 Required endpoints:
 
 ```text
-POST /auth/register
-POST /auth/login
-POST /auth/refresh
-POST /auth/logout
-GET /auth/me
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET /api/v1/auth/me
 ```
 
 Minimum role after registration:
@@ -532,7 +642,7 @@ owner
 - [ ] Wrong password is rejected safely.
 - [ ] Refresh works.
 - [ ] Logout invalidates the refresh session.
-- [ ] `/auth/me` requires authentication.
+- [ ] `/api/v1/auth/me` requires authentication.
 
 ## Test / Verification
 
@@ -542,7 +652,7 @@ owner
 - [ ] Wrong password failure test.
 - [ ] Refresh token success test.
 - [ ] Logout invalidation test.
-- [ ] `/auth/me` protected test.
+- [ ] `/api/v1/auth/me` protected test.
 - [ ] Paste test output or API screenshots into the PR.
 
 ## Review Checklist
