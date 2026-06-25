@@ -434,7 +434,7 @@ AI may help generate sample schemas and test cases, but Kordy must verify that e
 
 ## Owner / Reviewer
 
-Owner: Abdulazim  
+Owner: Gerges  
 Reviewer: Kordy  
 Estimate: Medium  
 Sprint Status: Sprint Ready
