@@ -1,0 +1,19 @@
+// Prisma schema for MarketMind AI
+// PostgreSQL is the source-of-truth database.
+// Migrations are owned by apps/api (NestJS).
+//
+// Sprint 1 migration order is documented in:
+//   Docs/planning/sprint-1/prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md
+//
+// This schema file defines the datasource and generator.
+// Sprint 1 models will be added by their respective issue owners
+// (Auth/RBAC tables by Mokhtar/Gerges, Discovery tables by Ahmed/Kordy).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
