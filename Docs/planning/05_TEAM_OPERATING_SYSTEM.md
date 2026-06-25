@@ -81,6 +81,9 @@ Example:
 Closes #12
 ```
 
+Follow `07_GIT_CONVENTIONS.md` for branch names, commit messages, PR bodies, and
+review flow.
+
 ## Review rules
 
 Normal changes:
