@@ -1,0 +1,29 @@
+# MarketMind AI — Local Development Services
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.local.yml up -d
+#
+# This file provides local development dependencies only.
+# Do not use this for production.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketmind-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: marketmind
+      POSTGRES_PASSWORD: marketmind_dev
+      POSTGRES_DB: marketmind_dev
+    volumes:
+      - marketmind_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketmind -d marketmind_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  marketmind_pgdata:
