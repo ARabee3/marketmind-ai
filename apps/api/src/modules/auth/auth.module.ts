@@ -1,16 +1,30 @@
-import { Module } from "@nestjs/common";
 
-/**
- * AuthModule — placeholder for Sprint 1.
- *
- * Will contain:
- * - POST /api/v1/auth/register
- * - POST /api/v1/auth/login
- * - POST /api/v1/auth/refresh
- * - POST /api/v1/auth/logout
- * - GET  /api/v1/auth/me
- *
- * Implementation is owned by Mokhtar (Issue #5).
- */
-@Module({})
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { ConfigModule } from '@nestjs/config';
+
+import { PrismaModule } from '../../common/persistence/prisma.module';
+
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+
+
+@Module({
+  imports: [
+    ConfigModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({}), 
+    PrismaModule,
+  ],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+  ],
+  exports: [AuthService],
+})
 export class AuthModule {}
