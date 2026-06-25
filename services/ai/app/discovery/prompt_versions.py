@@ -1,0 +1,1 @@
+DISCOVERY_PROMPT_VERSION = "discovery-v1"
