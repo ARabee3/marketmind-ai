@@ -64,7 +64,8 @@ Recommended order:
 5. Read `04_FIRST_IMPLEMENTATION_ROADMAP.md` before creating GitHub Issues.
 6. Read `05_TEAM_OPERATING_SYSTEM.md` before assigning work.
 7. Use `06_GLOSSARY_AND_CHECKLIST.md` before coding and before demo.
-8. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.
+8. Read `07_GIT_CONVENTIONS.md` before opening implementation PRs.
+9. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.
 
 ## Important team rule
 
