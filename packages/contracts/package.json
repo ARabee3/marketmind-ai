@@ -1,0 +1,9 @@
+{
+  "name": "@marketmind/contracts",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/validate-examples.mjs"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "action": "ask_next_question",
+  "next_question": "Who are your best current customers: students, office workers, families, or another group?",
+  "updated_known_facts": {
+    "business_name": "Koshary Corner",
+    "business_type": "quick service restaurant",
+    "city": "Cairo"
+  },
+  "updated_uncertainties": [
+    {
+      "field_key": "primary_customer_segment",
+      "description": "The strongest customer segment is not confirmed yet.",
+      "severity": "medium"
+    }
+  ],
+  "research_observations": [],
+  "source_refs": [],
+  "domain_scores": {
+    "intake_completeness": 0.55,
+    "research_confidence": 0.45,
+    "profile_readiness": 0.25
+  }
+}
