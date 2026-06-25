@@ -8,7 +8,6 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "echo \"No implementation yet\""
+    "check": "npm --workspace @marketmind/contracts run check"
   }
 }
-

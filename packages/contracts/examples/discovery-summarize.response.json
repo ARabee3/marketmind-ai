@@ -1,0 +1,48 @@
+{
+  "session_id": "11111111-1111-4111-8111-111111111111",
+  "status": "summary_ready",
+  "profile_draft": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "session_id": "11111111-1111-4111-8111-111111111111",
+    "version": 1,
+    "status": "ready_for_confirmation",
+    "confirmed_facts": {
+      "business_name": "Koshary Corner",
+      "business_type": "quick service restaurant",
+      "city": "Cairo",
+      "area": "Nasr City",
+      "primary_customer_segments": ["office_workers_lunch", "students_evening"],
+      "best_selling_items": ["classic koshary bowl", "family koshary tray"]
+    },
+    "research_observations": [
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "source_ref_id": "22222222-2222-4222-8222-222222222222",
+        "kind": "digital_presence",
+        "statement": "The submitted Instagram page appears to describe Koshary Corner as an Egyptian comfort food restaurant in Nasr City.",
+        "confidence": 0.86,
+        "visibility": "owner_visible",
+        "status": "accepted",
+        "metadata": {
+          "source_label": "Submitted Instagram metadata"
+        }
+      }
+    ],
+    "uncertainties": [
+      {
+        "field_key": "average_order_value",
+        "description": "Owner did not know the average order value.",
+        "severity": "low"
+      }
+    ],
+    "owner_goals": ["Attract more lunch customers."],
+    "strategy_relevant_notes": [
+      "Lunch office workers and evening students should be considered later by Strategy, after owner confirmation."
+    ],
+    "raw_ai_output": {
+      "action": "produce_profile_draft",
+      "prompt_version": "discovery-v1"
+    }
+  },
+  "strategy_locked": true
+}

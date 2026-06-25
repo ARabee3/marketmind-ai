@@ -1,0 +1,23 @@
+{
+  "intake": {
+    "business_name": "Koshary Corner",
+    "business_type": "quick service restaurant",
+    "city": "Cairo",
+    "area": "Nasr City",
+    "address_text": "Makram Ebeid",
+    "owner_goal_text": "Understand how to attract more lunch customers.",
+    "known_competitors_text": "Koshary El Tahrir and local foul shops nearby.",
+    "target_audience_text": "Students and office workers.",
+    "social_links": [
+      {
+        "platform": "instagram",
+        "url": "https://www.instagram.com/kosharycorner.example"
+      },
+      {
+        "platform": "website",
+        "url": "https://kosharycorner.example"
+      }
+    ]
+  },
+  "language_mode": "mixed"
+}

@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "DISCOVERY_SESSION_STATE_CONFLICT",
+    "message": "Discovery session is not ready for that action.",
+    "request_id": "req_abc123",
+    "retryable": false,
+    "details": {
+      "current_status": "researching"
+    }
+  }
+}

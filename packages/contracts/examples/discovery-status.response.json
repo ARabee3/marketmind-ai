@@ -1,0 +1,114 @@
+{
+  "session_id": "11111111-1111-4111-8111-111111111111",
+  "status": "partial_ready",
+  "language_mode": "mixed",
+  "current_question": "Who are your best current customers: students, office workers, families, or another group?",
+  "intake_summary": {
+    "business_name": "Koshary Corner",
+    "business_type": "quick service restaurant",
+    "city": "Cairo",
+    "area": "Nasr City"
+  },
+  "intelligence": {
+    "status": "partial",
+    "search_mode": "free_search",
+    "source_refs": [
+      {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "source_type": "metadata",
+        "platform": "instagram",
+        "url": "https://www.instagram.com/kosharycorner.example",
+        "title": "Koshary Corner",
+        "snippet": "Egyptian comfort food in Nasr City.",
+        "fetched_at": "2026-06-25T10:00:05.000Z",
+        "confidence": 0.86,
+        "metadata": {
+          "og_title": "Koshary Corner"
+        }
+      },
+      {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "source_type": "search_result",
+        "url": "https://maps.example/wrong-koshary-corner-alexandria",
+        "title": "Koshary Corner Alexandria",
+        "snippet": "Restaurant in Alexandria.",
+        "fetched_at": "2026-06-25T10:00:12.000Z",
+        "confidence": 0.28,
+        "metadata": {
+          "discarded_before_agent": true
+        }
+      }
+    ],
+    "research_observations": [
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "source_ref_id": "22222222-2222-4222-8222-222222222222",
+        "kind": "digital_presence",
+        "statement": "The submitted Instagram page appears to describe Koshary Corner as an Egyptian comfort food restaurant in Nasr City.",
+        "confidence": 0.86,
+        "visibility": "owner_visible",
+        "status": "accepted",
+        "metadata": {
+          "source_label": "Submitted Instagram metadata"
+        }
+      },
+      {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "source_ref_id": "33333333-3333-4333-8333-333333333333",
+        "kind": "competitor",
+        "statement": "Search result matched a different city and should not be used.",
+        "confidence": 0.28,
+        "visibility": "internal",
+        "status": "discarded",
+        "discard_reason": "City mismatch and low confidence.",
+        "metadata": {
+          "matched_city": "Alexandria"
+        }
+      }
+    ],
+    "conversation_hooks": [
+      {
+        "id": "66666666-6666-4666-8666-666666666666",
+        "source_observation_id": "44444444-4444-4444-8444-444444444444",
+        "hook_text": "I saw from your submitted Instagram metadata that you position the place around Egyptian comfort food.",
+        "language": "mixed",
+        "status": "active"
+      }
+    ],
+    "knowledge_gaps": [
+      {
+        "id": "77777777-7777-4777-8777-777777777777",
+        "field_key": "primary_customer_segment",
+        "question_hint": "Ask who buys most often today.",
+        "priority": 1,
+        "status": "open"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "id": "88888888-8888-4888-8888-888888888888",
+      "role": "assistant",
+      "content": "Who are your best current customers: students, office workers, families, or another group?",
+      "language": "mixed",
+      "source": "chat",
+      "created_at": "2026-06-25T10:00:21.000Z"
+    }
+  ],
+  "progress_events": [
+    {
+      "type": "progress",
+      "session_id": "11111111-1111-4111-8111-111111111111",
+      "seq": 5,
+      "stage": "ready",
+      "status": "complete",
+      "message_key": "discovery.ready_for_chat",
+      "message_text": "Discovery chat is ready.",
+      "payload": {
+        "session_status": "partial_ready"
+      },
+      "created_at": "2026-06-25T10:00:21.000Z"
+    }
+  ],
+  "strategy_locked": true
+}
