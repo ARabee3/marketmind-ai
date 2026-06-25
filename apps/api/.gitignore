@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
+.env
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# IDE
+.idea/
+.vscode/
+
+# Coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
