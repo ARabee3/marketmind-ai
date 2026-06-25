@@ -5,7 +5,7 @@
  * This factory is registered with ConfigModule.forRoot({ load: [configuration] }).
  */
 export const configuration = () => ({
-  port: parseInt(process.env.PORT || "3000", 10),
+  port: parseInt(process.env.PORT || "3001", 10),
 
   database: {
     url: process.env.DATABASE_URL || "",

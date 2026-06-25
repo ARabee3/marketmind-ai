@@ -8,7 +8,10 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "echo \"No implementation yet\""
+    "check": "npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api"
+  },
+  "overrides": {
+    "multer": "2.2.0"
   }
 }
 

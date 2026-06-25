@@ -51,12 +51,12 @@ cd apps/api
 npm run start:dev
 ```
 
-The API will be available at `http://localhost:3000/api/v1`.
+The API will be available at `http://localhost:3001/api/v1`.
 
 ### 7. Verify
 
 ```bash
-curl http://localhost:3000/api/v1/health
+curl http://localhost:3001/api/v1/health
 ```
 
 Expected response:

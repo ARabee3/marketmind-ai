@@ -13,7 +13,7 @@ export function envSchema(
 ): Record<string, unknown> {
   const errors: string[] = [];
 
-  // PORT is optional (defaults to 3000)
+  // PORT is optional (defaults to 3001)
   if (config.PORT) {
     const port = parseInt(config.PORT as string, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
