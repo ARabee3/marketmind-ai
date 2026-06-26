@@ -1,14 +1,3 @@
-// Prisma schema for MarketMind AI
-// PostgreSQL is the source-of-truth database.
-// Migrations are owned by apps/api (NestJS).
-//
-// Sprint 1 migration order is documented in:
-//   Docs/planning/sprint-1/prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md
-//
-// This schema file defines the datasource and generator.
-// Sprint 1 models will be added by their respective issue owners
-// (Auth/RBAC tables by Mokhtar/Gerges, Discovery tables by Ahmed/Kordy).
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -16,4 +5,398 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  DEVELOPER_DEMO
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique
+  password        String
+  roles           Role[]    @default([OWNER])
+  isEmailVerified Boolean   @default(false)
+  refreshToken    String?
+  lastLoginAt     DateTime?
+  fullName        String?
+  status          String    @default("active")
+  preferredLocale String    @default("ar-EG")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  businesses                   Business[]
+  discoverySessions            DiscoverySession[]
+  refreshSessions              RefreshSession[]
+  userRoles                    UserRole[]
+  confirmedProfileVersions     BusinessProfileVersion[]
+}
+
+model RefreshSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  userAgent String?   @map("user_agent")
+  ipAddress String?   @map("ip_address") @db.Inet
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
+}
+
+model RoleEntity {
+  id          String              @id @default(uuid()) @db.Uuid
+  name        Role                @unique
+  description String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String              @id @default(uuid()) @db.Uuid
+  name        String              @unique
+  description String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       RoleEntity @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role RoleEntity @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Business {
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerUserId    String   @map("owner_user_id") @db.Uuid
+  displayName    String   @map("display_name")
+  businessType   String   @map("business_type")
+  city           String
+  area           String?
+  addressText    String?  @map("address_text")
+  latitude       Decimal? @db.Decimal(9, 6)
+  longitude      Decimal? @db.Decimal(9, 6)
+  primaryLocale  String   @default("ar-EG") @map("primary_locale")
+  status         String   @default("draft")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  ownerUser                User                        @relation(fields: [ownerUserId], references: [id])
+  discoverySessions        DiscoverySession[]
+  socialLinks              SocialLink[]
+  businessProfileDrafts    BusinessProfileDraft[]
+  businessProfileVersions  BusinessProfileVersion[]
+
+  @@index([ownerUserId])
+  @@index([city, area])
+  @@map("businesses")
+}
+
+model DiscoverySession {
+  id                          String    @id @default(uuid()) @db.Uuid
+  businessId                  String?   @map("business_id") @db.Uuid
+  ownerUserId                 String    @map("owner_user_id") @db.Uuid
+  status                      String
+  languageMode                String    @default("mixed") @map("language_mode")
+  currentQuestion             String?   @map("current_question")
+  profileDraftId              String?   @map("profile_draft_id") @db.Uuid
+  confirmedProfileVersionId   String?   @map("confirmed_profile_version_id") @db.Uuid
+  startedAt                   DateTime  @default(now()) @map("started_at")
+  completedAt                 DateTime? @map("completed_at")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  business                    Business?                         @relation(fields: [businessId], references: [id])
+  ownerUser                   User                              @relation(fields: [ownerUserId], references: [id])
+  intakes                     PreparedDiscoveryIntake[]
+  socialLinks                 SocialLink[]
+  intelligenceRuns            IntelligenceRun[]
+  sourceRefs                  SourceRef[]
+  researchObservations        ResearchObservation[]
+  conversationHooks           ConversationHook[]
+  knowledgeGaps               KnowledgeGap[]
+  discoveryMessages           DiscoveryMessage[]
+  businessProfileDrafts       BusinessProfileDraft[]
+  agentRuns                   AgentRun[]
+  discoveryProgressEvents     DiscoveryProgressEvent[]
+
+  @@index([ownerUserId, status])
+  @@index([businessId])
+  @@index([createdAt])
+  @@map("discovery_sessions")
+}
+
+model PreparedDiscoveryIntake {
+  id                     String   @id @default(uuid()) @db.Uuid
+  sessionId              String   @unique @map("session_id") @db.Uuid
+  businessName           String   @map("business_name")
+  businessType           String   @map("business_type")
+  city                   String
+  area                   String?
+  addressText            String?  @map("address_text")
+  ownerGoalText          String?  @map("owner_goal_text")
+  knownCompetitorsText   String?  @map("known_competitors_text")
+  targetAudienceText     String?  @map("target_audience_text")
+  notes                  String?
+  rawPayload             Json     @default("{}") @map("raw_payload")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  session DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("prepared_discovery_intakes")
+}
+
+model SocialLink {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  businessId     String?  @map("business_id") @db.Uuid
+  platform       String
+  url            String
+  ownerSubmitted Boolean  @default(true) @map("owner_submitted")
+  status         String   @default("pending")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  session  DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  business Business?        @relation(fields: [businessId], references: [id])
+
+  @@unique([sessionId, url])
+  @@index([sessionId, platform])
+  @@map("social_links")
+}
+
+model IntelligenceRun {
+  id            String    @id @default(uuid()) @db.Uuid
+  sessionId     String    @map("session_id") @db.Uuid
+  status        String
+  searchMode    String    @map("search_mode")
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  durationMs    Int?      @map("duration_ms")
+  errorCode     String?   @map("error_code")
+  errorMessage  String?   @map("error_message")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  session   DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceRefs SourceRef[]
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("intelligence_runs")
+}
+
+model SourceRef {
+  id                String         @id @default(uuid()) @db.Uuid
+  sessionId         String         @map("session_id") @db.Uuid
+  intelligenceRunId String?        @map("intelligence_run_id") @db.Uuid
+  sourceType        String         @map("source_type")
+  platform          String?
+  url               String?
+  title             String?
+  snippet           String?
+  fetchedAt         DateTime?      @map("fetched_at")
+  confidence        Decimal        @default(0.5) @db.Decimal(4, 3)
+  metadata          Json           @default("{}")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  session              DiscoverySession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  intelligenceRun      IntelligenceRun?       @relation(fields: [intelligenceRunId], references: [id], onDelete: SetNull)
+  researchObservations ResearchObservation[]
+
+  @@index([sessionId])
+  @@index([confidence])
+  @@index([url])
+  @@map("source_refs")
+}
+
+model ResearchObservation {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionId    String   @map("session_id") @db.Uuid
+  sourceRefId  String?  @map("source_ref_id") @db.Uuid
+  kind         String
+  statement    String
+  confidence   Decimal  @default(0.5) @db.Decimal(4, 3)
+  visibility   String   @default("internal")
+  status       String   @default("accepted")
+  discardReason String? @map("discard_reason")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  session   DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceRef SourceRef?        @relation(fields: [sourceRefId], references: [id], onDelete: SetNull)
+  hooks     ConversationHook[]
+
+  @@index([sessionId, status])
+  @@index([kind])
+  @@map("research_observations")
+}
+
+model ConversationHook {
+  id                  String   @id @default(uuid()) @db.Uuid
+  sessionId           String   @map("session_id") @db.Uuid
+  sourceObservationId String?  @map("source_observation_id") @db.Uuid
+  hookText            String   @map("hook_text")
+  language            String   @default("mixed")
+  status              String   @default("active")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  session            DiscoverySession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceObservation  ResearchObservation? @relation(fields: [sourceObservationId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, status])
+  @@map("conversation_hooks")
+}
+
+model KnowledgeGap {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionId    String   @map("session_id") @db.Uuid
+  fieldKey     String   @map("field_key")
+  questionHint String   @map("question_hint")
+  priority     Int      @default(3)
+  status       String   @default("open")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  session DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status, priority])
+  @@map("knowledge_gaps")
+}
+
+model DiscoveryMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  role      String
+  content   String
+  language  String   @default("mixed")
+  source    String   @default("chat")
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("discovery_messages")
+}
+
+model BusinessProfileDraft {
+  id                     String   @id @default(uuid()) @db.Uuid
+  sessionId              String   @map("session_id") @db.Uuid
+  businessId             String?  @map("business_id") @db.Uuid
+  version                Int      @default(1)
+  status                 String   @default("draft")
+  confirmedFacts         Json     @default("{}") @map("confirmed_facts")
+  researchObservations   Json     @default("[]") @map("research_observations")
+  uncertainties          Json     @default("[]")
+  ownerGoals             Json     @default("[]") @map("owner_goals")
+  strategyRelevantNotes  Json     @default("[]") @map("strategy_relevant_notes")
+  rawAiOutput            Json     @default("{}") @map("raw_ai_output")
+  createdByAgentRunId    String?  @map("created_by_agent_run_id") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  session        DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  business       Business?        @relation(fields: [businessId], references: [id])
+  createdByAgent AgentRun?        @relation("AgentRunDrafts", fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
+  versions       BusinessProfileVersion[]
+
+  @@unique([sessionId, version])
+  @@index([sessionId, status])
+  @@map("business_profile_drafts")
+}
+
+model BusinessProfileVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  businessId      String   @map("business_id") @db.Uuid
+  draftId         String?  @map("draft_id") @db.Uuid
+  version         Int
+  profile         Json
+  confirmedByUserId String @map("confirmed_by_user_id") @db.Uuid
+  confirmedAt     DateTime @default(now()) @map("confirmed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  business       Business              @relation(fields: [businessId], references: [id])
+  draft          BusinessProfileDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  confirmedByUser User                 @relation(fields: [confirmedByUserId], references: [id])
+
+  @@unique([businessId, version])
+  @@index([businessId])
+  @@map("business_profile_versions")
+}
+
+model AgentRun {
+  id            String   @id @default(uuid()) @db.Uuid
+  sessionId     String?  @map("session_id") @db.Uuid
+  runType       String   @map("run_type")
+  providerMode  String   @map("provider_mode")
+  modelName     String?  @map("model_name")
+  promptVersion String   @map("prompt_version")
+  status        String
+  inputHash     String?  @map("input_hash")
+  inputTokens   Int?     @map("input_tokens")
+  outputTokens  Int?     @map("output_tokens")
+  latencyMs     Int?     @map("latency_ms")
+  outputJson    Json     @default("{}") @map("output_json")
+  errorCode     String?  @map("error_code")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  session           DiscoverySession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  profileDrafts     BusinessProfileDraft[] @relation("AgentRunDrafts")
+
+  @@index([sessionId])
+  @@index([runType, status])
+  @@index([createdAt])
+  @@map("agent_runs")
+}
+
+model DiscoveryProgressEvent {
+  id          BigInt   @id @default(autoincrement())
+  sessionId   String   @map("session_id") @db.Uuid
+  seq         Int
+  stage       String
+  status      String
+  messageKey  String   @map("message_key")
+  messageText String   @map("message_text")
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, seq])
+  @@index([sessionId, createdAt])
+  @@map("discovery_progress_events")
 }
