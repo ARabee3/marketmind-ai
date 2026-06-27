@@ -62,3 +62,19 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     PERMISSIONS.DISCOVERY_CONTINUE,
   ],
 };
+
+/**
+ * Public role names exposed over the API.
+ *
+ * The Prisma `Role` enum uses uppercase values (`OWNER`, `ADMIN`,
+ * `DEVELOPER_DEMO`) internally and in JWT payloads, but the planning contract
+ * (Sprint 1 issue packet #6 and the prepared-discovery schema) defines the
+ * public role names as the lowercase strings below. Endpoints that surface a
+ * user's roles to consumers must map their enum values through this map so
+ * frontend clients following the issue packet agree with the API.
+ */
+export const PUBLIC_ROLE_NAMES: Record<Role, string> = {
+  [Role.OWNER]: "owner",
+  [Role.ADMIN]: "admin",
+  [Role.DEVELOPER_DEMO]: "developer_demo",
+};

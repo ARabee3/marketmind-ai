@@ -128,7 +128,7 @@ describe("RBAC (e2e)", () => {
         .set("Authorization", `Bearer ${ownerToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.roles).toEqual(["OWNER"]);
+          expect(res.body.roles).toEqual(["owner"]);
           expect(res.body.permissions).toEqual(
             [
               "business:read",
@@ -148,7 +148,7 @@ describe("RBAC (e2e)", () => {
         .set("Authorization", `Bearer ${adminToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.roles).toEqual(["ADMIN"]);
+          expect(res.body.roles).toEqual(["admin"]);
           expect(res.body.permissions).toHaveLength(7);
           expect(res.body.permissions).toContain("admin:manage_library");
         }));
@@ -159,7 +159,7 @@ describe("RBAC (e2e)", () => {
         .set("Authorization", `Bearer ${devDemoToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.roles).toEqual(["DEVELOPER_DEMO"]);
+          expect(res.body.roles).toEqual(["developer_demo"]);
           expect(res.body.permissions).toEqual(
             ["business:read", "discovery:continue", "discovery:start"].sort(),
           );

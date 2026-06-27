@@ -12,7 +12,7 @@ import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { Permissions } from "./decorators/permissions.decorator";
 import { PermissionsGuard } from "./guards/permissions.guard";
-import { PERMISSIONS } from "./rbac.constants";
+import { PERMISSIONS, PUBLIC_ROLE_NAMES } from "./rbac.constants";
 import { RbacService } from "./rbac.service";
 
 interface RequestWithUser extends Request {
@@ -42,11 +42,11 @@ export class RbacController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   mePermissions(@Req() req: RequestWithUser): {
-    roles: AuthenticatedUser["roles"];
+    roles: string[];
     permissions: string[];
   } {
     return {
-      roles: req.user.roles,
+      roles: req.user.roles.map((role) => PUBLIC_ROLE_NAMES[role]),
       permissions: this.rbacService.resolvePermissions(req.user.roles),
     };
   }
