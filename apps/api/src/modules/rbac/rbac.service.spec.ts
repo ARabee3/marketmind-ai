@@ -135,28 +135,29 @@ describe("RbacService", () => {
     });
 
     it("should return false for an empty roles list", () => {
-      expect(
-        service.hasPermission([], PERMISSIONS.BUSINESS_READ),
-      ).toBe(false);
+      expect(service.hasPermission([], PERMISSIONS.BUSINESS_READ)).toBe(false);
     });
   });
 
   describe("hasAllPermissions()", () => {
     it("should return true when all required permissions are granted", () => {
       expect(
-        service.hasAllPermissions([Role.OWNER], [
-          PERMISSIONS.BUSINESS_READ,
-          PERMISSIONS.DISCOVERY_START,
-        ]),
+        service.hasAllPermissions(
+          [Role.OWNER],
+          [PERMISSIONS.BUSINESS_READ, PERMISSIONS.DISCOVERY_START],
+        ),
       ).toBe(true);
     });
 
     it("should return false when any one required permission is missing", () => {
       expect(
-        service.hasAllPermissions([Role.DEVELOPER_DEMO], [
-          PERMISSIONS.BUSINESS_READ, // granted
-          PERMISSIONS.DISCOVERY_CONFIRM_PROFILE, // not granted
-        ]),
+        service.hasAllPermissions(
+          [Role.DEVELOPER_DEMO],
+          [
+            PERMISSIONS.BUSINESS_READ, // granted
+            PERMISSIONS.DISCOVERY_CONFIRM_PROFILE, // not granted
+          ],
+        ),
       ).toBe(false);
     });
 
@@ -166,9 +167,9 @@ describe("RbacService", () => {
     });
 
     it("should return false when roles are empty but permissions are required", () => {
-      expect(
-        service.hasAllPermissions([], [PERMISSIONS.BUSINESS_READ]),
-      ).toBe(false);
+      expect(service.hasAllPermissions([], [PERMISSIONS.BUSINESS_READ])).toBe(
+        false,
+      );
     });
   });
 });

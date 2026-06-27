@@ -23,7 +23,8 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 /** All permissions, useful for seeding and super-user resolution. */
-export const ALL_PERMISSIONS: readonly Permission[] = Object.values(PERMISSIONS);
+export const ALL_PERMISSIONS: readonly Permission[] =
+  Object.values(PERMISSIONS);
 
 /**
  * Permissions granted to the `owner` role.

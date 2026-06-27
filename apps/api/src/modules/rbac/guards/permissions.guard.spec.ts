@@ -69,10 +69,9 @@ describe("PermissionsGuard", () => {
   it("should allow when RbacService confirms the required permissions", () => {
     rbacService.hasAllPermissions.mockReturnValue(true);
     const guard = buildGuard([PERMISSIONS.DISCOVERY_START]);
-    const ctx = createMockContext(
-      { roles: [Role.OWNER] },
-      [PERMISSIONS.DISCOVERY_START],
-    );
+    const ctx = createMockContext({ roles: [Role.OWNER] }, [
+      PERMISSIONS.DISCOVERY_START,
+    ]);
 
     expect(guard.canActivate(ctx)).toBe(true);
     expect(rbacService.hasAllPermissions).toHaveBeenCalledWith(
@@ -84,10 +83,9 @@ describe("PermissionsGuard", () => {
   it("should throw ForbiddenException when a required permission is missing", () => {
     rbacService.hasAllPermissions.mockReturnValue(false);
     const guard = buildGuard([PERMISSIONS.ADMIN_MANAGE_LIBRARY]);
-    const ctx = createMockContext(
-      { roles: [Role.OWNER] },
-      [PERMISSIONS.ADMIN_MANAGE_LIBRARY],
-    );
+    const ctx = createMockContext({ roles: [Role.OWNER] }, [
+      PERMISSIONS.ADMIN_MANAGE_LIBRARY,
+    ]);
 
     expect(() => guard.canActivate(ctx)).toThrow("Insufficient permissions");
   });
