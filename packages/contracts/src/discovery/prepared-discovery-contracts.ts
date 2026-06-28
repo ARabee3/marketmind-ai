@@ -3,6 +3,7 @@ import type {
   DiscoveryProgressStatus,
   DiscoverySessionStatus,
 } from "./discovery-lifecycle";
+import type { Uncertainty, UncertaintyInput } from "./uncertainty.schema";
 import type { ErrorEnvelope } from "../errors/error-envelope";
 
 export type UUID = string;
@@ -19,7 +20,11 @@ export type SocialPlatform =
   | "delivery"
   | "other";
 
-export type SourceType = "owner_link" | "metadata" | "search_result" | "manual_owner_answer";
+export type SourceType =
+  | "owner_link"
+  | "metadata"
+  | "search_result"
+  | "manual_owner_answer";
 
 export interface SocialLinkInput {
   platform: SocialPlatform;
@@ -107,11 +112,7 @@ export interface BusinessProfileDraft {
   status: "draft" | "ready_for_confirmation" | "confirmed" | "superseded";
   confirmed_facts: Record<string, unknown>;
   research_observations: ResearchObservation[];
-  uncertainties: Array<{
-    field_key: string;
-    description: string;
-    severity: "low" | "medium" | "high";
-  }>;
+  uncertainties: Uncertainty[];
   owner_goals: string[];
   strategy_relevant_notes: string[];
   raw_ai_output: Record<string, unknown>;
@@ -157,7 +158,10 @@ export interface DiscoveryStatusResponse {
   status: DiscoverySessionStatus;
   language_mode: LanguageMode;
   current_question?: string;
-  intake_summary: Pick<PreparedDiscoveryIntake, "business_name" | "business_type" | "city" | "area">;
+  intake_summary: Pick<
+    PreparedDiscoveryIntake,
+    "business_name" | "business_type" | "city" | "area"
+  >;
   intelligence: IntelligenceResult;
   messages: DiscoveryMessage[];
   profile_draft?: BusinessProfileDraft;
@@ -234,7 +238,7 @@ export interface AiDiscoveryResult {
   action: AiDiscoveryAction;
   next_question?: string;
   updated_known_facts: Record<string, unknown>;
-  updated_uncertainties: BusinessProfileDraft["uncertainties"];
+  updated_uncertainties: UncertaintyInput[];
   research_observations: ResearchObservation[];
   source_refs: SourceRef[];
   domain_scores: Record<string, number>;

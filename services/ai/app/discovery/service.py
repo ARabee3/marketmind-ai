@@ -12,6 +12,9 @@ from app.discovery.schemas import (
     AiDiscoverySummarizeRequest,
     BusinessProfileDraft,
     DiscoveryModelOutput,
+    ResearchObservation,
+    SourceRef,
+    Uncertainty,
 )
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError, TurnKind
 
@@ -36,11 +39,20 @@ class DiscoveryService:
         turn_kind: TurnKind,
         request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
     ) -> AiDiscoveryResult:
+        accepted_observations, accepted_sources = self._accepted_research(request)
+        provider_payload = request.model_dump(mode="json")
+        provider_payload["intelligence"]["research_observations"] = [
+            observation.model_dump(mode="json")
+            for observation in accepted_observations
+        ]
+        provider_payload["intelligence"]["source_refs"] = [
+            source.model_dump(mode="json") for source in accepted_sources
+        ]
         provider_request = DiscoveryProviderRequest(
             session_id=request.session_id,
             turn_kind=turn_kind,
             language_mode=request.language_mode,
-            payload=request.model_dump(mode="json"),
+            payload=provider_payload,
         )
         logger.info("discovery_provider_call mode=%s turn=%s", self.provider.name, turn_kind)
         try:
@@ -64,24 +76,35 @@ class DiscoveryService:
                 provider_error(exc.code, str(exc), retryable=exc.retryable),
             )
 
-        return self._to_result(request, model_output)
+        return self._to_result(
+            request,
+            model_output,
+            accepted_observations,
+            accepted_sources,
+        )
 
     def _to_result(
         self,
         request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
         output: DiscoveryModelOutput,
+        accepted_observations: list[ResearchObservation],
+        accepted_sources: list[SourceRef],
     ) -> AiDiscoveryResult:
         profile_draft = None
         if output.action == "produce_profile_draft":
-            profile_draft = self._build_profile_draft(request, output)
+            profile_draft = self._build_profile_draft(
+                request,
+                output,
+                accepted_observations,
+            )
 
         return AiDiscoveryResult(
             action=output.action,
             next_question=output.next_question,
             updated_known_facts=output.updated_known_facts,
             updated_uncertainties=output.updated_uncertainties,
-            research_observations=request.intelligence.research_observations,
-            source_refs=request.intelligence.source_refs,
+            research_observations=accepted_observations,
+            source_refs=accepted_sources,
             domain_scores=output.domain_scores,
             profile_draft=profile_draft,
             safe_error=None,
@@ -91,6 +114,7 @@ class DiscoveryService:
         self,
         request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
         output: DiscoveryModelOutput,
+        accepted_observations: list[ResearchObservation],
     ) -> BusinessProfileDraft:
         return BusinessProfileDraft(
             id=str(uuid5(NAMESPACE_URL, f"marketmind:profile-draft:{request.session_id}:1")),
@@ -98,8 +122,11 @@ class DiscoveryService:
             version=1,
             status="ready_for_confirmation",
             confirmed_facts=output.updated_known_facts,
-            research_observations=request.intelligence.research_observations,
-            uncertainties=output.updated_uncertainties,
+            research_observations=accepted_observations,
+            uncertainties=[
+                Uncertainty(**uncertainty.model_dump(), resolved=False)
+                for uncertainty in output.updated_uncertainties
+            ],
             owner_goals=output.owner_goals,
             strategy_relevant_notes=output.strategy_relevant_notes,
             raw_ai_output=output.model_dump(mode="json"),
@@ -111,6 +138,7 @@ class DiscoveryService:
         safe_error: ErrorBody,
         validation_errors: list[dict[str, Any]] | None = None,
     ) -> AiDiscoveryResult:
+        accepted_observations, accepted_sources = self._accepted_research(request)
         details = {"validation_errors": validation_errors} if validation_errors else {}
         error = safe_error.model_copy(update={"details": details})
         return AiDiscoveryResult(
@@ -118,9 +146,30 @@ class DiscoveryService:
             next_question=None,
             updated_known_facts={},
             updated_uncertainties=[],
-            research_observations=request.intelligence.research_observations,
-            source_refs=request.intelligence.source_refs,
+            research_observations=accepted_observations,
+            source_refs=accepted_sources,
             domain_scores={},
             profile_draft=None,
             safe_error=error,
         )
+
+    def _accepted_research(
+        self,
+        request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
+    ) -> tuple[list[ResearchObservation], list[SourceRef]]:
+        observations = [
+            observation
+            for observation in request.intelligence.research_observations
+            if observation.status == "accepted"
+        ]
+        referenced_source_ids = {
+            observation.source_ref_id
+            for observation in observations
+            if observation.source_ref_id
+        }
+        sources = [
+            source
+            for source in request.intelligence.source_refs
+            if source.id in referenced_source_ids
+        ]
+        return observations, sources
