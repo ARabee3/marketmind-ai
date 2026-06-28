@@ -17,44 +17,26 @@ export type UncertaintySource =
   | "intake_form"
   | "ai_inference";
 
-export interface Uncertainty {
+export interface UncertaintyInput {
   field_key: string;
-
   description: string;
-
   severity: UncertaintySeverity;
-
   category: UncertaintyCategory;
-
   source: UncertaintySource;
-
   source_ref_id?: string;
-
   owner_stated_value?: string;
-
   research_suggested_value?: string;
-
   contradiction_detail?: string;
+}
 
+export interface Uncertainty extends UncertaintyInput {
   resolved: boolean;
-
   resolved_at?: string;
-
-  resolved_by_action?: "owner_clarified" | "research_confirmed" | "discarded" | "skipped";
-
-  created_at: string;
-
-  updated_at: string;
+  resolved_by_action?:
+    | "owner_clarified"
+    | "research_confirmed"
+    | "discarded"
+    | "skipped";
 }
 
-export interface UncertaintyCreateInput {
-  field_key: string;
-  description: string;
-  severity: UncertaintySeverity;
-  category: UncertaintyCategory;
-  source: UncertaintySource;
-  source_ref_id?: string;
-  owner_stated_value?: string;
-  research_suggested_value?: string;
-  contradiction_detail?: string;
-}
+export type UncertaintyCreateInput = UncertaintyInput;

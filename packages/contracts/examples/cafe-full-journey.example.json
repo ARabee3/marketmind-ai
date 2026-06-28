@@ -333,7 +333,7 @@
         "description": "Not discussed during interview. Knowledge gap remains open.",
         "severity": "medium",
         "category": "missing_information",
-        "source": "research_gap",
+        "source": "ai_inference",
         "owner_stated_value": null,
         "research_suggested_value": null,
         "contradiction_detail": null,
@@ -410,7 +410,7 @@
         "description": "Not discussed during interview.",
         "severity": "medium",
         "category": "missing_information",
-        "source": "research_gap",
+        "source": "ai_inference",
         "owner_stated_value": null,
         "research_suggested_value": null,
         "contradiction_detail": null,
@@ -442,17 +442,21 @@
         {
           "field_key": "competitors",
           "description": "Owner mentioned 'local foul shops nearby' but no specific competitor names confirmed.",
-          "severity": "low"
+          "severity": "low",
+          "category": "owner_unknown",
+          "source": "owner_answer",
+          "owner_stated_value": "Some foul and taameya shops nearby, names unknown"
         },
         {
           "field_key": "marketing_budget",
           "description": "Owner did not state a specific marketing budget.",
-          "severity": "medium"
+          "severity": "medium",
+          "category": "owner_unknown",
+          "source": "owner_unknown",
+          "owner_stated_value": "Maybe something small to start"
         }
       ],
-      "owner_goals": [
-        "Attract more lunch customers from nearby offices."
-      ],
+      "owner_goals": ["Attract more lunch customers from nearby offices."],
       "strategy_relevant_notes": [
         "Strategy work stays locked until the owner confirms this profile.",
         "Owner seems price-sensitive — average meal 30-60 EGP suggests budget-friendly positioning.",
@@ -478,7 +482,6 @@
     "business_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
     "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     "version": 1,
-    "status": "active",
     "profile": {
       "business_name": "Koshary Corner",
       "business_type": "quick service restaurant",
@@ -495,76 +498,74 @@
         "peak_hours": "1pm to 3pm weekdays",
         "average_meal_price_range": "30-60 EGP"
       },
-      "owner_goals": [
-        "Attract more lunch customers from nearby offices."
+      "research_observations": [
+        {
+          "id": "44444444-4444-4444-8444-444444444444",
+          "source_ref_id": "22222222-2222-4222-8222-222222222222",
+          "kind": "digital_presence",
+          "statement": "Instagram describes Koshary Corner as Egyptian comfort food in Nasr City with 340 followers.",
+          "confidence": 0.86,
+          "visibility": "owner_visible",
+          "status": "accepted",
+          "metadata": {
+            "source_label": "Submitted Instagram metadata"
+          }
+        },
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "source_ref_id": "33333333-3333-4333-8333-333333333333",
+          "kind": "metadata",
+          "statement": "Google Maps listing shows 3.8 stars from 124 reviews.",
+          "confidence": 0.72,
+          "visibility": "owner_visible",
+          "status": "accepted",
+          "metadata": {
+            "source_label": "Google Maps metadata extraction"
+          }
+        }
       ],
+      "uncertainties": [
+        {
+          "field_key": "competitors",
+          "description": "Owner could not name specific competitors. Carried forward as unresolved for Strategy.",
+          "severity": "low",
+          "category": "owner_unknown",
+          "source": "owner_answer",
+          "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
+          "research_suggested_value": null,
+          "contradiction_detail": null,
+          "resolved": false
+        },
+        {
+          "field_key": "marketing_budget",
+          "description": "Owner expressed willingness for small spend but no specific amount.",
+          "severity": "medium",
+          "category": "owner_unknown",
+          "source": "owner_unknown",
+          "owner_stated_value": "Maybe something small to start",
+          "research_suggested_value": null,
+          "contradiction_detail": null,
+          "resolved": false
+        },
+        {
+          "field_key": "best_selling_items",
+          "description": "Not discussed during interview.",
+          "severity": "medium",
+          "category": "missing_information",
+          "source": "ai_inference",
+          "owner_stated_value": null,
+          "research_suggested_value": null,
+          "contradiction_detail": null,
+          "resolved": false
+        }
+      ],
+      "owner_goals": ["Attract more lunch customers from nearby offices."],
       "strategy_relevant_notes": [
         "Owner seems price-sensitive — budget-friendly positioning.",
         "Instagram exists, Google Maps outdated — quick win opportunity.",
         "Owner willing to try small spend."
       ]
     },
-    "source_draft_observations": [
-      {
-        "id": "44444444-4444-4444-8444-444444444444",
-        "source_ref_id": "22222222-2222-4222-8222-222222222222",
-        "kind": "digital_presence",
-        "statement": "Instagram describes Koshary Corner as Egyptian comfort food in Nasr City with 340 followers.",
-        "confidence": 0.86,
-        "visibility": "owner_visible",
-        "status": "accepted",
-        "metadata": {
-          "source_label": "Submitted Instagram metadata"
-        }
-      },
-      {
-        "id": "99999999-9999-4999-8999-999999999999",
-        "source_ref_id": "33333333-3333-4333-8333-333333333333",
-        "kind": "metadata",
-        "statement": "Google Maps listing shows 3.8 stars from 124 reviews.",
-        "confidence": 0.72,
-        "visibility": "owner_visible",
-        "status": "accepted",
-        "metadata": {
-          "source_label": "Google Maps metadata extraction"
-        }
-      }
-    ],
-    "resolved_uncertainties": [
-      {
-        "field_key": "competitors",
-        "description": "Owner could not name specific competitors. Carried forward as unresolved for Strategy.",
-        "severity": "low",
-        "category": "owner_unknown",
-        "source": "owner_answer",
-        "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
-        "research_suggested_value": null,
-        "contradiction_detail": null,
-        "resolved": false
-      },
-      {
-        "field_key": "marketing_budget",
-        "description": "Owner expressed willingness for small spend but no specific amount.",
-        "severity": "medium",
-        "category": "owner_unknown",
-        "source": "owner_unknown",
-        "owner_stated_value": "Maybe something small to start",
-        "research_suggested_value": null,
-        "contradiction_detail": null,
-        "resolved": false
-      },
-      {
-        "field_key": "best_selling_items",
-        "description": "Not discussed during interview.",
-        "severity": "medium",
-        "category": "missing_information",
-        "source": "research_gap",
-        "owner_stated_value": null,
-        "research_suggested_value": null,
-        "contradiction_detail": null,
-        "resolved": false
-      }
-    ],
     "confirmed_by_user_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     "confirmed_at": "2026-06-25T10:05:00.000Z",
     "created_at": "2026-06-25T10:05:00.000Z"
@@ -575,6 +576,7 @@
       "session_id": "11111111-1111-4111-8111-111111111111",
       "run_type": "discovery_start",
       "provider_mode": "mock",
+      "model_name": null,
       "prompt_version": "discovery-v1",
       "status": "success",
       "input_hash": "hash_a01",
@@ -596,7 +598,8 @@
           "profile_readiness": 0.35
         }
       },
-      "retry_count": 0,
+      "error_code": null,
+      "error_message": null,
       "created_at": "2026-06-25T10:00:21.000Z"
     },
     {
@@ -604,6 +607,7 @@
       "session_id": "11111111-1111-4111-8111-111111111111",
       "run_type": "discovery_turn",
       "provider_mode": "mock",
+      "model_name": null,
       "prompt_version": "discovery-v1",
       "status": "success",
       "input_hash": "hash_a07",
@@ -625,7 +629,8 @@
           "profile_readiness": 0.35
         }
       },
-      "retry_count": 0,
+      "error_code": null,
+      "error_message": null,
       "created_at": "2026-06-25T10:02:35.000Z"
     },
     {
@@ -633,6 +638,7 @@
       "session_id": "11111111-1111-4111-8111-111111111111",
       "run_type": "discovery_summary",
       "provider_mode": "mock",
+      "model_name": null,
       "prompt_version": "discovery-v1",
       "status": "success",
       "input_hash": "hash_a09",
@@ -651,7 +657,8 @@
           "profile_readiness": 0.85
         }
       },
-      "retry_count": 0,
+      "error_code": null,
+      "error_message": null,
       "created_at": "2026-06-25T10:03:30.000Z"
     }
   ]

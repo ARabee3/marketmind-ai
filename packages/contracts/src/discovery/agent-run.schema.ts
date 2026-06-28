@@ -1,4 +1,7 @@
-export type AgentRunType = "discovery_start" | "discovery_turn" | "discovery_summary";
+export type AgentRunType =
+  | "discovery_start"
+  | "discovery_turn"
+  | "discovery_summary";
 
 export type AgentRunStatus = "success" | "schema_retry_success" | "failed";
 
@@ -6,35 +9,19 @@ export type ProviderMode = "openai" | "gemini_dev" | "mock";
 
 export interface AgentRun {
   id: string;
-
-  session_id?: string;
-
+  session_id: string | null;
   run_type: AgentRunType;
-
   provider_mode: ProviderMode;
-
-  model_name?: string;
-
+  model_name: string | null;
   prompt_version: string;
-
   status: AgentRunStatus;
-
-  input_hash?: string;
-
-  input_tokens?: number;
-
-  output_tokens?: number;
-
-  latency_ms: number;
-
+  input_hash: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number | null;
   output_json: Record<string, unknown>;
-
-  error_code?: string;
-
-  error_message?: string;
-
-  retry_count: number;
-
+  error_code: string | null;
+  error_message: string | null;
   created_at: string;
 }
 
@@ -56,7 +43,6 @@ export interface AgentRunCompletionInput {
   latency_ms: number;
   error_code?: string;
   error_message?: string;
-  retry_count: number;
 }
 
 export const AGENT_RUN_TYPES: readonly AgentRunType[] = [

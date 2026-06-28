@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+import pytest
 
 from app.main import create_app
 from app.discovery.schemas import (
@@ -13,12 +14,13 @@ from app.discovery.schemas import (
     DiscoveryModelOutput,
     IntelligenceResult,
     PreparedDiscoveryIntake,
-    ProfileUncertainty,
     ResearchObservation,
     SourceRef,
+    Uncertainty,
+    UncertaintyInput,
 )
 from app.discovery.service import DiscoveryService
-from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError
+from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest
 from app.providers.mock_provider import MockDiscoveryProvider
 
 SESSION_ID = "11111111-1111-4111-8111-111111111111"
@@ -103,6 +105,49 @@ def assistant_message(content: str, language: str = "en") -> dict[str, str]:
     }
 
 
+class ContradictionProvider(DiscoveryProvider):
+    name = "contradiction"
+
+    async def generate_structured(
+        self,
+        request: DiscoveryProviderRequest,
+    ) -> DiscoveryModelOutput:
+        return DiscoveryModelOutput(
+            action="ask_clarification",
+            next_question="Which closing time is correct: 5pm or 11pm?",
+            updated_known_facts={},
+            updated_uncertainties=[
+                UncertaintyInput(
+                    field_key="business_hours",
+                    description="The owner gave conflicting closing times.",
+                    severity="high",
+                    category="contradiction",
+                    source="owner_answer",
+                    owner_stated_value="11pm every day",
+                    contradiction_detail="The earlier answer said 5pm on weekends.",
+                )
+            ],
+        )
+
+
+class CapturingProvider(DiscoveryProvider):
+    name = "capturing"
+
+    def __init__(self) -> None:
+        self.last_request: DiscoveryProviderRequest | None = None
+
+    async def generate_structured(
+        self,
+        request: DiscoveryProviderRequest,
+    ) -> DiscoveryModelOutput:
+        self.last_request = request
+        return DiscoveryModelOutput(
+            action="ask_next_question",
+            next_question="Who are your best current customers?",
+            updated_known_facts={},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Unknown / knowledge gap cases
 # ---------------------------------------------------------------------------
@@ -119,6 +164,8 @@ def test_unknown_budget_is_tracked_as_uncertainty() -> None:
     assert len(uncertainties) > 0, "Unknown answer should produce at least one uncertainty"
     for u in uncertainties:
         assert u.severity in ("low", "medium", "high")
+        assert u.category == "owner_unknown"
+        assert u.source == "owner_unknown"
     assert any("unknown" in u.field_key.lower() for u in uncertainties), (
         "At least one uncertainty field_key should reference the unknown answer. "
         "Note: current mock uses generic 'owner_unknown_answer'. "
@@ -138,6 +185,8 @@ def test_unknown_competitors_is_tracked_as_uncertainty() -> None:
     assert len(uncertainties) > 0, "Unknown competitors should produce at least one uncertainty"
     for u in uncertainties:
         assert u.severity in ("low", "medium", "high")
+        assert u.category == "owner_unknown"
+        assert u.source == "owner_unknown"
     assert any("unknown" in u.field_key.lower() for u in uncertainties), (
         "At least one uncertainty field_key should reference the unknown answer. "
         "Note: current mock uses generic 'owner_unknown_answer'. "
@@ -159,18 +208,16 @@ def test_contradictory_answer_tracked_as_uncertainty() -> None:
     ]
     payload["owner_message"] = owner_message("Actually we close at 11pm every day. I was wrong earlier.")
     request = AiDiscoveryRespondRequest.model_validate(payload)
-    result = run(DiscoveryService(MockDiscoveryProvider()).respond(request))
+    result = run(DiscoveryService(ContradictionProvider()).respond(request))
 
-    assert result.action in ("ask_next_question", "ask_clarification")
-    uncertainties = result.updated_uncertainties
-    contradiction = next(
-        (u for u in uncertainties if "hour" in u.field_key.lower() or "peak" in u.field_key.lower()),
-        None,
-    )
-    if contradiction is not None:
-        assert contradiction.severity in ("low", "medium", "high")
-    else:
-        assert len(uncertainties) == 0
+    assert result.action == "ask_clarification"
+    assert result.next_question == "Which closing time is correct: 5pm or 11pm?"
+    assert len(result.updated_uncertainties) == 1
+    contradiction = result.updated_uncertainties[0]
+    assert contradiction.field_key == "business_hours"
+    assert contradiction.category == "contradiction"
+    assert contradiction.source == "owner_answer"
+    assert contradiction.contradiction_detail is not None
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +307,9 @@ def test_metadata_extraction_adds_observations() -> None:
     observations = result.research_observations
     assert len(observations) >= 1
     metadata_obs = next((o for o in observations if o.kind == "metadata"), None)
-    if metadata_obs is not None:
-        assert metadata_obs.visibility == "owner_visible"
-        assert metadata_obs.status == "accepted"
+    assert metadata_obs is not None
+    assert metadata_obs.visibility == "owner_visible"
+    assert metadata_obs.status == "accepted"
 
 
 # ---------------------------------------------------------------------------
@@ -316,8 +363,31 @@ def test_metadata_reachable_but_search_partial_failure() -> None:
 
 def test_wrong_match_discarded_not_in_ai_context() -> None:
     payload = base_payload("en", with_social_links=True)
-
-    accepted_observations = [
+    payload["intelligence"]["source_refs"] = [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "source_type": "metadata",
+            "platform": "instagram",
+            "url": "https://www.instagram.com/kosharycorner.example",
+            "title": "Koshary Corner",
+            "snippet": "Egyptian comfort food in Nasr City.",
+            "fetched_at": "2026-06-25T10:00:05.000Z",
+            "confidence": 0.86,
+            "metadata": {},
+        },
+        {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "source_type": "search_result",
+            "platform": "google_maps",
+            "url": "https://maps.google.com/wrong-business",
+            "title": "Wrong Koshary Branch",
+            "snippet": "A different business in Downtown Cairo.",
+            "fetched_at": "2026-06-25T10:00:06.000Z",
+            "confidence": 0.31,
+            "metadata": {},
+        },
+    ]
+    payload["intelligence"]["research_observations"] = [
         {
             "id": "44444444-4444-4444-8444-444444444444",
             "source_ref_id": "22222222-2222-4222-8222-222222222222",
@@ -327,20 +397,41 @@ def test_wrong_match_discarded_not_in_ai_context() -> None:
             "visibility": "owner_visible",
             "status": "accepted",
             "metadata": {},
-        }
+        },
+        {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "source_ref_id": "33333333-3333-4333-8333-333333333333",
+            "kind": "competitor",
+            "statement": "A Downtown branch is the owner's local competitor.",
+            "confidence": 0.31,
+            "visibility": "internal",
+            "status": "discarded",
+            "discard_reason": "The location does not match the owner's area.",
+            "metadata": {},
+        },
     ]
 
-    payload["intelligence"]["research_observations"] = accepted_observations
     request = AiDiscoveryStartRequest.model_validate(payload)
-    result = run(DiscoveryService(MockDiscoveryProvider()).start(request))
+    provider = CapturingProvider()
+    result = run(DiscoveryService(provider).start(request))
 
-    passed_to_ai = result.research_observations
-    for obs in passed_to_ai:
-        assert obs.status == "accepted", "Discarded observations must not reach AI context"
-        assert obs.confidence >= 0.4, "Low-confidence discarded observations must not reach AI context"
+    assert provider.last_request is not None
+    passed_observations = provider.last_request.payload["intelligence"][
+        "research_observations"
+    ]
+    passed_sources = provider.last_request.payload["intelligence"]["source_refs"]
+    assert [observation["id"] for observation in passed_observations] == [
+        "44444444-4444-4444-8444-444444444444"
+    ]
+    assert [source["id"] for source in passed_sources] == [
+        "22222222-2222-4222-8222-222222222222"
+    ]
+    assert [observation.id for observation in result.research_observations] == [
+        "44444444-4444-4444-8444-444444444444"
+    ]
 
 
-def test_discarded_observation_has_discard_reason() -> None:
+def test_discarded_observation_requires_discard_reason() -> None:
     discarded = ResearchObservation(
         id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
         source_ref_id=None,
@@ -355,6 +446,18 @@ def test_discarded_observation_has_discard_reason() -> None:
     assert discarded.status == "discarded"
     assert discarded.discard_reason is not None
     assert len(discarded.discard_reason) > 0
+
+    with pytest.raises(ValidationError, match="discard_reason is required"):
+        ResearchObservation(
+            id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02",
+            source_ref_id=None,
+            kind="competitor",
+            statement="Wrong business match.",
+            confidence=0.31,
+            visibility="internal",
+            status="discarded",
+            metadata={},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -378,21 +481,25 @@ def test_profile_draft_separates_confirmed_facts_from_observations() -> None:
     assert isinstance(draft.strategy_relevant_notes, list)
 
     owner_fact_keys = set(draft.confirmed_facts.keys())
-    observation_statements = {o.statement for o in draft.research_observations}
-
     assert len(owner_fact_keys) >= 3, "Confirmed facts should contain business-owner-stated data"
-    assert len(draft.uncertainties) >= 0
+    assert draft.uncertainties == []
     assert draft.status == "ready_for_confirmation"
 
 
 def test_profile_uncertainty_as_standalone_schema() -> None:
-    uncertainty = ProfileUncertainty(
+    uncertainty = Uncertainty(
         field_key="marketing_budget",
         description="Owner did not state a specific marketing budget.",
         severity="medium",
+        category="owner_unknown",
+        source="owner_unknown",
+        owner_stated_value="Maybe something small to start",
+        resolved=False,
     )
     assert uncertainty.field_key == "marketing_budget"
     assert uncertainty.severity == "medium"
+    assert uncertainty.category == "owner_unknown"
+    assert uncertainty.resolved is False
     assert uncertainty.description is not None
 
 
@@ -458,6 +565,21 @@ def test_owner_visible_observation_requires_source() -> None:
         metadata={"source_label": "Instagram metadata"},
     )
     assert valid_owner_visible.source_ref_id is not None or "source_label" in valid_owner_visible.metadata
+
+    with pytest.raises(
+        ValidationError,
+        match="owner-visible observations require",
+    ):
+        ResearchObservation(
+            id="44444444-4444-4444-8444-444444444445",
+            source_ref_id=None,
+            kind="digital_presence",
+            statement="Uncited owner-visible claim.",
+            confidence=0.86,
+            visibility="owner_visible",
+            status="accepted",
+            metadata={},
+        )
 
 
 # ---------------------------------------------------------------------------

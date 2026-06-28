@@ -43,12 +43,19 @@
     {
       "field_key": "competitors",
       "description": "Owner mentioned 'local foul shops nearby' but no specific competitor names confirmed.",
-      "severity": "low"
+      "severity": "low",
+      "category": "owner_unknown",
+      "source": "owner_answer",
+      "owner_stated_value": "Local foul shops nearby",
+      "resolved": false
     },
     {
       "field_key": "marketing_budget",
       "description": "Owner did not state any marketing budget or willingness to spend.",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "owner_unknown",
+      "source": "owner_unknown",
+      "resolved": false
     }
   ],
   "owner_goals": [
@@ -74,12 +81,13 @@
       {
         "field_key": "competitors",
         "description": "Owner mentioned 'local foul shops nearby' but no specific competitor names confirmed.",
-        "severity": "low"
+        "severity": "low",
+        "category": "owner_unknown",
+        "source": "owner_answer",
+        "owner_stated_value": "Local foul shops nearby"
       }
     ],
-    "owner_goals": [
-      "Attract more lunch customers."
-    ],
+    "owner_goals": ["Attract more lunch customers."],
     "strategy_relevant_notes": [
       "Strategy work stays locked until the owner confirms this profile."
     ],
