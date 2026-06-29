@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { StartDiscoveryDto, SocialLinkInputDto } from "./dto/start-discovery.dto";
+import { IntelligenceResult } from "./discovery-state";
+import { intelligenceFromPersistence } from "./discovery-persistence.mapper";
+import {
+  StartDiscoveryDto,
+  SocialLinkInputDto,
+} from "./dto/start-discovery.dto";
 
 type DiscoverySessionWithIntake = {
   id: string;
@@ -15,6 +20,7 @@ type DiscoverySessionWithIntake = {
     city: string;
     area: string | null;
   }>;
+  intelligence: IntelligenceResult;
 };
 
 @Injectable()
@@ -49,7 +55,11 @@ export class DiscoveryRepository {
         },
       });
 
-      await this.createSocialLinks(tx, session.id, dto.intake.social_links ?? []);
+      await this.createSocialLinks(
+        tx,
+        session.id,
+        dto.intake.social_links ?? [],
+      );
 
       return session;
     });
@@ -65,6 +75,16 @@ export class DiscoveryRepository {
         ownerUserId,
       },
       include: {
+        intelligenceRuns: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            status: true,
+            searchMode: true,
+            errorCode: true,
+            errorMessage: true,
+          },
+        },
         intakes: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -75,6 +95,54 @@ export class DiscoveryRepository {
             area: true,
           },
         },
+        sourceRefs: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            sourceType: true,
+            platform: true,
+            url: true,
+            title: true,
+            snippet: true,
+            fetchedAt: true,
+            confidence: true,
+            metadata: true,
+          },
+        },
+        researchObservations: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            sourceRefId: true,
+            kind: true,
+            statement: true,
+            confidence: true,
+            visibility: true,
+            status: true,
+            discardReason: true,
+            metadata: true,
+          },
+        },
+        conversationHooks: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            sourceObservationId: true,
+            hookText: true,
+            language: true,
+            status: true,
+          },
+        },
+        knowledgeGaps: {
+          orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+          select: {
+            id: true,
+            fieldKey: true,
+            questionHint: true,
+            priority: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -82,7 +150,10 @@ export class DiscoveryRepository {
       throw new NotFoundException("Discovery session not found");
     }
 
-    return session;
+    return {
+      ...session,
+      intelligence: intelligenceFromPersistence(session),
+    };
   }
 
   private async createSocialLinks(

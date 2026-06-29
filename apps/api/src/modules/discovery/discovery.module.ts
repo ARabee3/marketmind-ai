@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DiscoveryController } from "./discovery.controller";
+import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { AiQueryPlanningClient } from "./ai-client/ai-query-planning.client";
@@ -15,6 +16,7 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
   controllers: [DiscoveryController],
   providers: [
     DiscoveryRepository,
+    DiscoveryIntelligenceRepository,
     DiscoveryService,
     IntelligenceContractMapper,
     IntelligenceGathererService,
