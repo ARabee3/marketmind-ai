@@ -93,7 +93,8 @@ export type DiscoveryStatusResponse = {
     "business_name" | "business_type" | "city" | "area"
   >;
   intelligence: IntelligenceResult;
-  messages: unknown[];
+  messages: readonly DiscoveryMessage[];
+  profile_draft?: BusinessProfileDraft;
   progress_events: readonly DiscoveryProgressEvent[];
   strategy_locked: true;
 };
@@ -125,4 +126,79 @@ export type DiscoveryProgressInput = {
   readonly messageKey: string;
   readonly messageText: string;
   readonly payload?: Record<string, unknown>;
+};
+
+export type DiscoveryMessage = {
+  readonly id: string;
+  readonly role: "owner" | "assistant" | "system";
+  readonly content: string;
+  readonly language: LanguageModeDto;
+  readonly source: "chat" | "research_hook" | "summary";
+  readonly created_at: string;
+};
+
+export type BusinessProfileDraft = {
+  readonly id: string;
+  readonly session_id: string;
+  readonly version: number;
+  readonly status: "draft" | "ready_for_confirmation" | "confirmed" | "superseded";
+  readonly confirmed_facts: Record<string, unknown>;
+  readonly research_observations: readonly ResearchObservation[];
+  readonly uncertainties: readonly ProfileUncertainty[];
+  readonly owner_goals: readonly string[];
+  readonly strategy_relevant_notes: readonly string[];
+  readonly raw_ai_output: Record<string, unknown>;
+};
+
+export type ProfileUncertainty = {
+  readonly field_key: string;
+  readonly description: string;
+  readonly severity: "low" | "medium" | "high";
+};
+
+export type AiDiscoveryAction =
+  | "ask_next_question"
+  | "ask_clarification"
+  | "produce_profile_draft"
+  | "safe_failure";
+
+export type AiDiscoveryResult = {
+  readonly action: AiDiscoveryAction;
+  readonly next_question?: string;
+  readonly updated_known_facts: Record<string, unknown>;
+  readonly updated_uncertainties: readonly ProfileUncertainty[];
+  readonly research_observations: readonly ResearchObservation[];
+  readonly source_refs: readonly SourceRef[];
+  readonly domain_scores: Record<string, number>;
+  readonly profile_draft?: BusinessProfileDraft;
+  readonly safe_error?: {
+    readonly code: string;
+    readonly message: string;
+    readonly retryable: boolean;
+  };
+};
+
+export type DiscoveryRespondResponse = {
+  readonly session_id: string;
+  readonly status: "in_progress" | "summary_ready";
+  readonly assistant_message?: DiscoveryMessage;
+  readonly updated_known_facts: Record<string, unknown>;
+  readonly uncertainties: readonly ProfileUncertainty[];
+  readonly profile_draft?: BusinessProfileDraft;
+  readonly strategy_locked: true;
+};
+
+export type DiscoverySummarizeResponse = {
+  readonly session_id: string;
+  readonly status: "summary_ready";
+  readonly profile_draft: BusinessProfileDraft;
+  readonly strategy_locked: true;
+};
+
+export type ConfirmProfileResponse = {
+  readonly session_id: string;
+  readonly status: "confirmed";
+  readonly business_profile_version_id: string;
+  readonly confirmed_at: string;
+  readonly strategy_locked: false;
 };

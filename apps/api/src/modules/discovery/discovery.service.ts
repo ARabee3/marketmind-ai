@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryRepository } from "./discovery.repository";
 import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
@@ -19,6 +20,7 @@ export class DiscoveryService {
 
   constructor(
     private readonly discoveryRepository: DiscoveryRepository,
+    private readonly conversationRepository: DiscoveryConversationRepository,
     private readonly intelligenceRepository: DiscoveryIntelligenceRepository,
     private readonly intelligenceGatherer: IntelligenceGathererService,
     private readonly aiDiscoveryClient: AiDiscoveryClient,
@@ -169,6 +171,10 @@ export class DiscoveryService {
       ownerUserId,
       sessionId,
     );
+    const [messages, profileDraft] = await Promise.all([
+      this.conversationRepository.listMessages(sessionId),
+      this.conversationRepository.latestProfileDraft(sessionId),
+    ]);
     const intake = session.intakes[0];
 
     return {
@@ -184,9 +190,11 @@ export class DiscoveryService {
         area: intake?.area ?? undefined,
       },
       intelligence: session.intelligence,
-      messages: [],
+      messages,
+      profile_draft: profileDraft,
       progress_events: progressEventsFromPersistence(session.progressEvents),
       strategy_locked: true,
     };
   }
+
 }

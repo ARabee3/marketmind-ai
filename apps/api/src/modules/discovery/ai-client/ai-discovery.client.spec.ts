@@ -60,6 +60,13 @@ describe("AiDiscoveryClient", () => {
     expect(result).toEqual({
       action: "ask_next_question",
       next_question: "Who are your best current customers?",
+      updated_known_facts: {},
+      updated_uncertainties: [],
+      research_observations: [],
+      source_refs: [],
+      domain_scores: {},
+      profile_draft: undefined,
+      safe_error: undefined,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://ai-service/internal/v1/ai/discovery/start",

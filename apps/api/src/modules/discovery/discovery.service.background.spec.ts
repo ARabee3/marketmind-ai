@@ -1,5 +1,6 @@
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { IntelligenceResult } from "./discovery-state";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
@@ -19,6 +20,15 @@ describe("DiscoveryService background research", () => {
   const intelligenceRepository = {
     saveIntelligenceResult: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryIntelligenceRepository>;
+  const conversationRepository = {
+    listMessages: jest.fn(),
+    latestProfileDraft: jest.fn(),
+    getIntake: jest.fn(),
+    appendMessage: jest.fn(),
+    saveProfileDraft: jest.fn(),
+    updateSessionConversationState: jest.fn(),
+    confirmProfile: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
     gather: jest.fn(),
   } as unknown as jest.Mocked<IntelligenceGathererService>;
@@ -46,6 +56,7 @@ describe("DiscoveryService background research", () => {
     );
     service = new DiscoveryService(
       repository,
+      conversationRepository,
       intelligenceRepository,
       gatherer,
       aiDiscoveryClient,
@@ -58,10 +69,7 @@ describe("DiscoveryService background research", () => {
     const intelligence = emptyIntelligence();
     repository.createPreparedSession.mockResolvedValue(session() as never);
     gatherer.gather.mockResolvedValue(intelligence);
-    aiDiscoveryClient.start.mockResolvedValue({
-      action: "ask_next_question",
-      next_question: "Who are your best current customers?",
-    });
+    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
 
     await expect(
       service.startPreparedDiscovery("owner-id", dto),
@@ -109,10 +117,7 @@ describe("DiscoveryService background research", () => {
     const pendingGather = deferred<IntelligenceResult>();
     repository.createPreparedSession.mockResolvedValue(session() as never);
     gatherer.gather.mockReturnValue(pendingGather.promise);
-    aiDiscoveryClient.start.mockResolvedValue({
-      action: "ask_next_question",
-      next_question: "Who are your best current customers?",
-    });
+    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
 
     const responsePromise = service.startPreparedDiscovery("owner-id", dto);
     const response = await Promise.race([
@@ -184,6 +189,18 @@ function emptyIntelligence(): IntelligenceResult {
     research_observations: [],
     conversation_hooks: [],
     knowledge_gaps: [],
+  };
+}
+
+function aiQuestion() {
+  return {
+    action: "ask_next_question" as const,
+    next_question: "Who are your best current customers?",
+    updated_known_facts: {},
+    updated_uncertainties: [],
+    research_observations: [],
+    source_refs: [],
+    domain_scores: {},
   };
 }
 

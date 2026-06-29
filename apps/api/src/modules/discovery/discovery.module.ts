@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryController } from "./discovery.controller";
+import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryRepository } from "./discovery.repository";
@@ -22,7 +24,9 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
   controllers: [DiscoveryController],
   providers: [
     DiscoveryRepository,
+    DiscoveryConversationRepository,
     DiscoveryIntelligenceRepository,
+    DiscoveryConversationService,
     DiscoveryService,
     DiscoveryProgressGateway,
     AiDiscoveryClient,

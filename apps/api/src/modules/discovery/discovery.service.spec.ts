@@ -1,11 +1,13 @@
 import { NotFoundException } from "@nestjs/common";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { IntelligenceResult } from "./discovery-state";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { LanguageModeDto } from "./dto/start-discovery.dto";
 
 describe("DiscoveryService", () => {
   const repository = {
@@ -18,6 +20,15 @@ describe("DiscoveryService", () => {
   const intelligenceRepository = {
     saveIntelligenceResult: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryIntelligenceRepository>;
+  const conversationRepository = {
+    listMessages: jest.fn(),
+    latestProfileDraft: jest.fn(),
+    getIntake: jest.fn(),
+    appendMessage: jest.fn(),
+    saveProfileDraft: jest.fn(),
+    updateSessionConversationState: jest.fn(),
+    confirmProfile: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
     gather: jest.fn(),
   } as unknown as jest.Mocked<IntelligenceGathererService>;
@@ -34,6 +45,7 @@ describe("DiscoveryService", () => {
     jest.resetAllMocks();
     service = new DiscoveryService(
       repository,
+      conversationRepository,
       intelligenceRepository,
       gatherer,
       aiDiscoveryClient,
@@ -87,6 +99,17 @@ describe("DiscoveryService", () => {
         },
       ],
     } as never);
+    conversationRepository.listMessages.mockResolvedValue([
+      {
+        id: "88888888-8888-4888-8888-888888888888",
+        role: "assistant",
+        content: "Who are your customers?",
+        language: LanguageModeDto.Mixed,
+        source: "chat",
+        created_at: "2026-06-29T10:02:00.000Z",
+      },
+    ]);
+    conversationRepository.latestProfileDraft.mockResolvedValue(undefined);
 
     const status = await service.getStatus(
       "owner-id",
@@ -101,6 +124,7 @@ describe("DiscoveryService", () => {
       area: "Nasr City",
     });
     expect(status.intelligence).toEqual(intelligence);
+    expect(status.messages).toHaveLength(1);
     expect(status.progress_events).toEqual([
       {
         seq: 1,

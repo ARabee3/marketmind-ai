@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
@@ -8,6 +9,11 @@ describe("DiscoveryController", () => {
     startPreparedDiscovery: jest.fn(),
     getStatus: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryService>;
+  const conversationService = {
+    respondToDiscovery: jest.fn(),
+    summarizeDiscovery: jest.fn(),
+    confirmProfile: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryConversationService>;
 
   let controller: DiscoveryController;
 
@@ -15,7 +21,10 @@ describe("DiscoveryController", () => {
     jest.resetAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DiscoveryController],
-      providers: [{ provide: DiscoveryService, useValue: service }],
+      providers: [
+        { provide: DiscoveryService, useValue: service },
+        { provide: DiscoveryConversationService, useValue: conversationService },
+      ],
     }).compile();
 
     controller = module.get<DiscoveryController>(DiscoveryController);
