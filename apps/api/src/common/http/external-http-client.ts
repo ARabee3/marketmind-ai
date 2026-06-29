@@ -20,3 +20,25 @@ export async function getExternalJson<T>(
 
   return (await response.json()) as T;
 }
+
+export async function postExternalJson<T>(
+  url: string,
+  body: unknown,
+  options: ExternalHttpJsonOptions = {},
+): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(options.headers ?? {}),
+    },
+    body: JSON.stringify(body),
+    signal: withTimeout(options.timeoutMs ?? 8000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`External request failed with ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
