@@ -40,7 +40,10 @@ export class IntelligenceGathererService {
       observationCandidates.push(...metadata.research_observations);
 
       for (const plannedQuery of plan.queries.slice(0, MAX_QUERIES_PER_RUN)) {
-        const results = await this.searchClient.search(plannedQuery.query);
+        const results = await this.searchClient.search(
+          plannedQuery.query,
+          plannedQuery.provider_hints,
+        );
         const sourceStartIndex = sourceCandidates.length;
         sourceCandidates.push(...this.toSources(results));
         observationCandidates.push(

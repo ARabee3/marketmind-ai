@@ -1,4 +1,4 @@
-export type SearchProviderName = "serpapi" | "duckduckgo";
+export type SearchProviderName = "serpapi" | "duckduckgo" | "apify_google_maps";
 
 export type SearchResultCandidate = {
   readonly provider: SearchProviderName;
