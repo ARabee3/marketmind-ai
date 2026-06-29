@@ -108,14 +108,22 @@ export const emptyRunningIntelligence = (): IntelligenceResult => ({
   knowledge_gaps: [],
 });
 
-export type DiscoveryProgressEventStatus = "started" | "completed" | "failed";
+export type DiscoveryProgressEventStatus =
+  | "started"
+  | "progress"
+  | "complete"
+  | "completed"
+  | "failed";
 
 export type DiscoveryProgressEvent = {
+  readonly type: "progress";
+  readonly session_id: string;
   readonly seq: number;
   readonly stage: string;
-  readonly status: DiscoveryProgressEventStatus;
+  readonly status: Exclude<DiscoveryProgressEventStatus, "completed">;
   readonly message_key: string;
   readonly message_text: string;
+  readonly retryable?: boolean;
   readonly payload: Record<string, unknown>;
   readonly created_at: string;
 };

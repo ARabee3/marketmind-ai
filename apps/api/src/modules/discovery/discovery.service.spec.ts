@@ -81,6 +81,7 @@ describe("DiscoveryService", () => {
       progressEvents: [
         {
           id: BigInt(1),
+          sessionId: "11111111-1111-4111-8111-111111111111",
           seq: 1,
           stage: "intelligence",
           status: "started",
@@ -127,8 +128,10 @@ describe("DiscoveryService", () => {
     expect(status.messages).toHaveLength(1);
     expect(status.progress_events).toEqual([
       {
+        type: "progress",
+        session_id: "11111111-1111-4111-8111-111111111111",
         seq: 1,
-        stage: "intelligence",
+        stage: "search",
         status: "started",
         message_key: "discovery.intelligence.started",
         message_text: "Research started.",

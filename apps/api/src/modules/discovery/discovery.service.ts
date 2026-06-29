@@ -100,6 +100,14 @@ export class DiscoveryService {
           ? "First discovery question is ready."
           : "AI discovery provider is not available yet.",
       });
+      if (aiStarted) {
+        await this.recordProgress(sessionId, {
+          stage: "ready",
+          status: "completed",
+          messageKey: "discovery.ready_for_chat",
+          messageText: "Discovery chat is ready.",
+        });
+      }
     } catch (error) {
       await this.handleBackgroundFailure(sessionId, error);
     }

@@ -45,9 +45,11 @@ describe("DiscoveryService background research", () => {
     jest.resetAllMocks();
     repository.appendProgressEvent.mockImplementation(
       async (_sessionId, event) => ({
+        type: "progress",
+        session_id: "11111111-1111-4111-8111-111111111111",
         seq: 1,
-        stage: event.stage,
-        status: event.status,
+        stage: event.stage === "session" ? "queued" : event.stage,
+        status: event.status === "completed" ? "complete" : event.status,
         message_key: event.messageKey,
         message_text: event.messageText,
         payload: event.payload ?? {},
@@ -92,7 +94,7 @@ describe("DiscoveryService background research", () => {
     );
     expect(progressGateway.emitProgress).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
-      expect.objectContaining({ stage: "session", status: "completed" }),
+      expect.objectContaining({ stage: "queued", status: "complete" }),
     );
     await flushPromises();
     expect(gatherer.gather).toHaveBeenCalledWith(dto, expect.any(Function));
@@ -108,6 +110,14 @@ describe("DiscoveryService background research", () => {
     expect(repository.updateCurrentQuestion).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
       "Who are your best current customers?",
+    );
+    expect(repository.appendProgressEvent).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      expect.objectContaining({
+        stage: "ready",
+        status: "completed",
+        messageKey: "discovery.ready_for_chat",
+      }),
     );
   });
 

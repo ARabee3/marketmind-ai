@@ -45,6 +45,7 @@ describe("DiscoveryProgressGateway", () => {
     repository.findSessionForOwner.mockResolvedValue({
       progressEvents: [
         {
+          sessionId: "11111111-1111-4111-8111-111111111111",
           seq: 1,
           stage: "session",
           status: "completed",
@@ -70,8 +71,10 @@ describe("DiscoveryProgressGateway", () => {
     );
     expect(client.emit).toHaveBeenCalledWith("discovery.progress.snapshot", [
       expect.objectContaining({
-        stage: "session",
-        status: "completed",
+        type: "progress",
+        session_id: "11111111-1111-4111-8111-111111111111",
+        stage: "queued",
+        status: "complete",
       }),
     ]);
   });

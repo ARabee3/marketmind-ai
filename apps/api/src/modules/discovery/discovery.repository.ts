@@ -29,6 +29,7 @@ type DiscoverySessionWithIntake = {
     area: string | null;
   }>;
   progressEvents: Array<{
+    sessionId: string;
     seq: number;
     stage: string;
     status: string;
@@ -163,6 +164,7 @@ export class DiscoveryRepository {
         discoveryProgressEvents: {
           orderBy: { seq: "asc" },
           select: {
+            sessionId: true,
             seq: true,
             stage: true,
             status: true,
