@@ -12,6 +12,7 @@ import {
   IntelligenceObservationCandidate,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
+import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchQueryIntent } from "./query-plan.types";
 import { SearchClientService } from "./search-client.service";
@@ -24,15 +25,20 @@ export class IntelligenceGathererService {
   constructor(
     private readonly queryPlanner: QueryPlannerService,
     private readonly searchClient: SearchClientService,
+    private readonly metadataExtractor: MetadataExtractorService,
     private readonly mapper: IntelligenceContractMapper,
   ) {}
 
   async gather(dto: StartDiscoveryDto): Promise<IntelligenceResult> {
     const plan = await this.queryPlanner.plan(dto);
+    const metadata = await this.metadataExtractor.extract(dto);
     const sourceCandidates: IntelligenceSourceCandidate[] = [];
     const observationCandidates: IntelligenceObservationCandidate[] = [];
 
     try {
+      sourceCandidates.push(...metadata.source_refs);
+      observationCandidates.push(...metadata.research_observations);
+
       for (const plannedQuery of plan.queries.slice(0, MAX_QUERIES_PER_RUN)) {
         const results = await this.searchClient.search(plannedQuery.query);
         const sourceStartIndex = sourceCandidates.length;

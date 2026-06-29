@@ -9,6 +9,7 @@ import { DeterministicQueryPlannerService } from "./intelligence/deterministic-q
 import { DuckDuckGoSearchProvider } from "./intelligence/duckduckgo-search.provider";
 import { IntelligenceContractMapper } from "./intelligence/intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
+import { MetadataExtractorService } from "./intelligence/metadata-extractor.service";
 import { QueryPlannerService } from "./intelligence/query-planner.service";
 import { SearchClientService } from "./intelligence/search-client.service";
 import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
@@ -22,6 +23,7 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     AiDiscoveryClient,
     IntelligenceContractMapper,
     IntelligenceGathererService,
+    MetadataExtractorService,
     DeterministicQueryPlannerService,
     AiQueryPlanningClient,
     QueryPlannerService,

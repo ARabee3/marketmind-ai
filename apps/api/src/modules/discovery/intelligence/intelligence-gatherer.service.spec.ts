@@ -3,6 +3,7 @@ import { ProviderError } from "../../../common/errors/provider-error";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
+import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
 
@@ -13,6 +14,9 @@ describe("IntelligenceGathererService", () => {
   const searchClient = {
     search: jest.fn(),
   } as unknown as jest.Mocked<SearchClientService>;
+  const metadataExtractor = {
+    extract: jest.fn(),
+  } as unknown as jest.Mocked<MetadataExtractorService>;
   const dto: StartDiscoveryDto = {
     language_mode: LanguageModeDto.Mixed,
     intake: {
@@ -29,8 +33,13 @@ describe("IntelligenceGathererService", () => {
     service = new IntelligenceGathererService(
       queryPlanner,
       searchClient,
+      metadataExtractor,
       new IntelligenceContractMapper(),
     );
+    metadataExtractor.extract.mockResolvedValue({
+      source_refs: [],
+      research_observations: [],
+    });
   });
 
   it("maps planned search results into contract-safe intelligence", async () => {
@@ -102,6 +111,46 @@ describe("IntelligenceGathererService", () => {
     expect(result.knowledge_gaps[0]).toMatchObject({
       field_key: "search_sources",
       status: "open",
+    });
+  });
+
+  it("keeps owner link metadata before broad search results", async () => {
+    metadataExtractor.extract.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "owner_link",
+          platform: "instagram",
+          url: "https://instagram.com/kosharycorner",
+          title: "Koshary Corner",
+          confidence: 0.75,
+          metadata: { owner_submitted: true },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "social_signal",
+          statement: "Koshary Corner",
+          source_index: 0,
+          confidence: 0.75,
+          visibility: "internal",
+        },
+      ],
+    });
+    queryPlanner.plan.mockResolvedValue({
+      source: "deterministic",
+      queries: [],
+    });
+
+    const result = await service.gather(dto);
+
+    expect(result.search_mode).toBe("metadata_only");
+    expect(result.source_refs[0]).toMatchObject({
+      source_type: "owner_link",
+      platform: "instagram",
+    });
+    expect(result.research_observations[0]).toMatchObject({
+      source_ref_id: "source_ref_1",
+      kind: "social_signal",
     });
   });
 
