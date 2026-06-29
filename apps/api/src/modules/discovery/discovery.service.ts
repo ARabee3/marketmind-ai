@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { ProviderError } from "../../common/errors/provider-error";
+import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryRepository } from "./discovery.repository";
 import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
@@ -14,6 +16,7 @@ export class DiscoveryService {
     private readonly discoveryRepository: DiscoveryRepository,
     private readonly intelligenceRepository: DiscoveryIntelligenceRepository,
     private readonly intelligenceGatherer: IntelligenceGathererService,
+    private readonly aiDiscoveryClient: AiDiscoveryClient,
   ) {}
 
   async startPreparedDiscovery(
@@ -29,6 +32,7 @@ export class DiscoveryService {
       session.id,
       intelligence,
     );
+    await this.startAiDiscovery(session.id, dto, intelligence);
 
     return {
       session_id: session.id,
@@ -37,6 +41,31 @@ export class DiscoveryService {
       status_url: `/api/v1/discovery/${session.id}/status`,
       accepted_at: session.startedAt.toISOString(),
     };
+  }
+
+  private async startAiDiscovery(
+    sessionId: string,
+    dto: StartDiscoveryDto,
+    intelligence: Awaited<ReturnType<IntelligenceGathererService["gather"]>>,
+  ): Promise<void> {
+    try {
+      const result = await this.aiDiscoveryClient.start(
+        sessionId,
+        dto,
+        intelligence,
+      );
+      if (result.next_question) {
+        await this.discoveryRepository.updateCurrentQuestion(
+          sessionId,
+          result.next_question,
+        );
+      }
+    } catch (error) {
+      if (error instanceof ProviderError) {
+        return;
+      }
+      throw error;
+    }
   }
 
   async getStatus(

@@ -156,6 +156,19 @@ export class DiscoveryRepository {
     };
   }
 
+  async updateCurrentQuestion(
+    sessionId: string,
+    currentQuestion: string,
+  ): Promise<void> {
+    await this.prisma.discoverySession.update({
+      where: { id: sessionId },
+      data: {
+        currentQuestion,
+        status: "in_progress",
+      },
+    });
+  }
+
   private async createSocialLinks(
     tx: Prisma.TransactionClient,
     sessionId: string,
