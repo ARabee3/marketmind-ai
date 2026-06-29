@@ -23,7 +23,7 @@ export class AiQueryPlanningClient {
 
     try {
       const response = await postExternalJson<unknown>(
-        `${config.aiServiceBaseUrl}/internal/v1/ai/discovery/query-plan`,
+        `${config.aiServiceBaseUrl}/internal/v1/ai/search/query-plan`,
         dto,
         { timeoutMs: config.discoverySearchTimeoutMs },
       );
@@ -55,7 +55,7 @@ function parseQueryPlan(value: unknown): QueryPlan {
   }
 
   return {
-    source: "llm",
+    source: value.source,
     queries: value.queries,
     warnings: value.warnings,
   };
@@ -66,9 +66,13 @@ function isQueryPlan(value: unknown): value is QueryPlan {
     return false;
   }
 
-  const candidate = value as { readonly queries?: unknown };
+  const candidate = value as {
+    readonly queries?: unknown;
+    readonly source?: unknown;
+  };
 
   return (
+    (candidate.source === "llm" || candidate.source === "deterministic") &&
     Array.isArray(candidate.queries) &&
     candidate.queries.length > 0 &&
     candidate.queries.every(isPlannedSearchQuery)
