@@ -114,6 +114,45 @@ describe("IntelligenceGathererService", () => {
     });
   });
 
+  it("reports query planning, metadata, and search progress", async () => {
+    queryPlanner.plan.mockResolvedValue({
+      source: "deterministic",
+      queries: [
+        {
+          intent: "business_match",
+          query: "koshary cairo",
+          language: LanguageModeDto.Mixed,
+          priority: 100,
+          provider_hints: ["serpapi"],
+        },
+      ],
+    });
+    searchClient.search.mockResolvedValue([]);
+    const progress = jest.fn().mockResolvedValue(undefined);
+
+    await service.gather(dto, progress);
+
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "query_planning",
+        status: "started",
+      }),
+    );
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "metadata",
+        status: "completed",
+      }),
+    );
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "search",
+        status: "completed",
+        payload: expect.objectContaining({ result_count: 0 }),
+      }),
+    );
+  });
+
   it("keeps owner link metadata before broad search results", async () => {
     metadataExtractor.extract.mockResolvedValue({
       source_refs: [

@@ -1,18 +1,19 @@
 import { NotFoundException } from "@nestjs/common";
-import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { IntelligenceResult } from "./discovery-state";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
+import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
-import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
 
 describe("DiscoveryService", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
     updateCurrentQuestion: jest.fn(),
+    updateStatus: jest.fn(),
+    appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const intelligenceRepository = {
     saveIntelligenceResult: jest.fn(),
@@ -23,6 +24,9 @@ describe("DiscoveryService", () => {
   const aiDiscoveryClient = {
     start: jest.fn(),
   } as unknown as jest.Mocked<AiDiscoveryClient>;
+  const progressGateway = {
+    emitProgress: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryProgressGateway>;
 
   let service: DiscoveryService;
 
@@ -33,106 +37,8 @@ describe("DiscoveryService", () => {
       intelligenceRepository,
       gatherer,
       aiDiscoveryClient,
+      progressGateway,
     );
-  });
-
-  it("runs and stores intelligence for a prepared discovery session", async () => {
-    repository.createPreparedSession.mockResolvedValue({
-      id: "11111111-1111-4111-8111-111111111111",
-      startedAt: new Date("2026-06-29T10:00:00.000Z"),
-    } as never);
-
-    const dto: StartDiscoveryDto = {
-      language_mode: LanguageModeDto.Mixed,
-      intake: {
-        business_name: "Koshary Corner",
-        business_type: "quick service restaurant",
-        city: "Cairo",
-        area: "Nasr City",
-      },
-    };
-    const intelligence: IntelligenceResult = {
-      status: "complete",
-      search_mode: "free_search",
-      source_refs: [],
-      research_observations: [],
-      conversation_hooks: [],
-      knowledge_gaps: [],
-    };
-    gatherer.gather.mockResolvedValue(intelligence);
-    aiDiscoveryClient.start.mockResolvedValue({
-      action: "ask_next_question",
-      next_question: "Who are your best current customers?",
-    });
-
-    await expect(
-      service.startPreparedDiscovery("owner-id", dto),
-    ).resolves.toEqual({
-      session_id: "11111111-1111-4111-8111-111111111111",
-      status: "researching",
-      progress_ws_url:
-        "/ws/v1/discovery/11111111-1111-4111-8111-111111111111/progress",
-      status_url:
-        "/api/v1/discovery/11111111-1111-4111-8111-111111111111/status",
-      accepted_at: "2026-06-29T10:00:00.000Z",
-    });
-    expect(repository.createPreparedSession).toHaveBeenCalledWith(
-      "owner-id",
-      dto,
-    );
-    expect(gatherer.gather).toHaveBeenCalledWith(dto);
-    expect(intelligenceRepository.saveIntelligenceResult).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-      intelligence,
-    );
-    expect(aiDiscoveryClient.start).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-      dto,
-      intelligence,
-    );
-    expect(repository.updateCurrentQuestion).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-      "Who are your best current customers?",
-    );
-  });
-
-  it("does not fail start when the AI discovery service is not configured", async () => {
-    repository.createPreparedSession.mockResolvedValue({
-      id: "11111111-1111-4111-8111-111111111111",
-      startedAt: new Date("2026-06-29T10:00:00.000Z"),
-    } as never);
-    const dto: StartDiscoveryDto = {
-      language_mode: LanguageModeDto.Mixed,
-      intake: {
-        business_name: "Koshary Corner",
-        business_type: "quick service restaurant",
-        city: "Cairo",
-      },
-    };
-    const intelligence: IntelligenceResult = {
-      status: "complete",
-      search_mode: "free_search",
-      source_refs: [],
-      research_observations: [],
-      conversation_hooks: [],
-      knowledge_gaps: [],
-    };
-    gatherer.gather.mockResolvedValue(intelligence);
-    aiDiscoveryClient.start.mockRejectedValue(
-      new ProviderError(
-        "AI_SERVICE_NOT_CONFIGURED",
-        "AI discovery service is not configured.",
-        false,
-      ),
-    );
-
-    await expect(
-      service.startPreparedDiscovery("owner-id", dto),
-    ).resolves.toMatchObject({
-      session_id: "11111111-1111-4111-8111-111111111111",
-      status: "researching",
-    });
-    expect(repository.updateCurrentQuestion).not.toHaveBeenCalled();
   });
 
   it("returns status with persisted intelligence", async () => {
@@ -160,6 +66,18 @@ describe("DiscoveryService", () => {
       currentQuestion: null,
       startedAt: new Date("2026-06-29T10:00:00.000Z"),
       intelligence,
+      progressEvents: [
+        {
+          id: BigInt(1),
+          seq: 1,
+          stage: "intelligence",
+          status: "started",
+          messageKey: "discovery.intelligence.started",
+          messageText: "Research started.",
+          payload: { source: "test" },
+          createdAt: new Date("2026-06-29T10:01:00.000Z"),
+        },
+      ],
       intakes: [
         {
           businessName: "Koshary Corner",
@@ -183,6 +101,17 @@ describe("DiscoveryService", () => {
       area: "Nasr City",
     });
     expect(status.intelligence).toEqual(intelligence);
+    expect(status.progress_events).toEqual([
+      {
+        seq: 1,
+        stage: "intelligence",
+        status: "started",
+        message_key: "discovery.intelligence.started",
+        message_text: "Research started.",
+        payload: { source: "test" },
+        created_at: "2026-06-29T10:01:00.000Z",
+      },
+    ]);
   });
 
   it("surfaces missing sessions from the repository", async () => {

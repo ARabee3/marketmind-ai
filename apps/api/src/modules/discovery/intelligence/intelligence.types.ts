@@ -51,3 +51,15 @@ export type IntelligenceMappingInput = {
   readonly knowledge_gaps?: readonly IntelligenceKnowledgeGapCandidate[];
   readonly safe_error?: IntelligenceResult["safe_error"];
 };
+
+export type IntelligenceProgressEvent = {
+  readonly stage: string;
+  readonly status: "started" | "completed" | "failed";
+  readonly messageKey: string;
+  readonly messageText: string;
+  readonly payload?: Record<string, unknown>;
+};
+
+export type IntelligenceProgressCallback = (
+  event: IntelligenceProgressEvent,
+) => Promise<void>;

@@ -94,7 +94,7 @@ export type DiscoveryStatusResponse = {
   >;
   intelligence: IntelligenceResult;
   messages: unknown[];
-  progress_events: unknown[];
+  progress_events: readonly DiscoveryProgressEvent[];
   strategy_locked: true;
 };
 
@@ -106,3 +106,23 @@ export const emptyRunningIntelligence = (): IntelligenceResult => ({
   conversation_hooks: [],
   knowledge_gaps: [],
 });
+
+export type DiscoveryProgressEventStatus = "started" | "completed" | "failed";
+
+export type DiscoveryProgressEvent = {
+  readonly seq: number;
+  readonly stage: string;
+  readonly status: DiscoveryProgressEventStatus;
+  readonly message_key: string;
+  readonly message_text: string;
+  readonly payload: Record<string, unknown>;
+  readonly created_at: string;
+};
+
+export type DiscoveryProgressInput = {
+  readonly stage: string;
+  readonly status: DiscoveryProgressEventStatus;
+  readonly messageKey: string;
+  readonly messageText: string;
+  readonly payload?: Record<string, unknown>;
+};

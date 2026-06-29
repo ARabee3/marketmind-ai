@@ -1,8 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { IntelligenceResult } from "./discovery-state";
-import { intelligenceFromPersistence } from "./discovery-persistence.mapper";
+import {
+  DiscoveryProgressEvent,
+  DiscoveryProgressInput,
+  IntelligenceResult,
+} from "./discovery-state";
+import {
+  intelligenceFromPersistence,
+  metadataForPrisma,
+} from "./discovery-persistence.mapper";
+import { progressEventsFromPersistence } from "./discovery-progress.mapper";
 import {
   StartDiscoveryDto,
   SocialLinkInputDto,
@@ -19,6 +27,15 @@ type DiscoverySessionWithIntake = {
     businessType: string;
     city: string;
     area: string | null;
+  }>;
+  progressEvents: Array<{
+    seq: number;
+    stage: string;
+    status: string;
+    messageKey: string;
+    messageText: string;
+    payload: Prisma.JsonValue;
+    createdAt: Date;
   }>;
   intelligence: IntelligenceResult;
 };
@@ -143,6 +160,18 @@ export class DiscoveryRepository {
             status: true,
           },
         },
+        discoveryProgressEvents: {
+          orderBy: { seq: "asc" },
+          select: {
+            seq: true,
+            stage: true,
+            status: true,
+            messageKey: true,
+            messageText: true,
+            payload: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -153,6 +182,7 @@ export class DiscoveryRepository {
     return {
       ...session,
       intelligence: intelligenceFromPersistence(session),
+      progressEvents: session.discoveryProgressEvents,
     };
   }
 
@@ -167,6 +197,43 @@ export class DiscoveryRepository {
         status: "in_progress",
       },
     });
+  }
+
+  async updateStatus(sessionId: string, status: string): Promise<void> {
+    await this.prisma.discoverySession.update({
+      where: { id: sessionId },
+      data: { status },
+    });
+  }
+
+  async appendProgressEvent(
+    sessionId: string,
+    event: DiscoveryProgressInput,
+  ): Promise<DiscoveryProgressEvent> {
+    const savedEvent = await this.prisma.$transaction(async (tx) => {
+      const seq = await tx.discoveryProgressEvent.count({
+        where: { sessionId },
+      });
+
+      return tx.discoveryProgressEvent.create({
+        data: {
+          sessionId,
+          seq: seq + 1,
+          stage: event.stage,
+          status: event.status,
+          messageKey: event.messageKey,
+          messageText: event.messageText,
+          payload: metadataForPrisma(event.payload ?? {}),
+        },
+      });
+    });
+
+    const progressEvent = progressEventsFromPersistence([savedEvent])[0];
+    if (!progressEvent) {
+      throw new Error("Progress event was not persisted.");
+    }
+
+    return progressEvent;
   }
 
   private async createSocialLinks(

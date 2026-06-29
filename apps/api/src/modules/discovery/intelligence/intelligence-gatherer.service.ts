@@ -10,6 +10,7 @@ import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import {
   IntelligenceMappingInput,
   IntelligenceObservationCandidate,
+  IntelligenceProgressCallback,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
 import { MetadataExtractorService } from "./metadata-extractor.service";
@@ -29,9 +30,38 @@ export class IntelligenceGathererService {
     private readonly mapper: IntelligenceContractMapper,
   ) {}
 
-  async gather(dto: StartDiscoveryDto): Promise<IntelligenceResult> {
+  async gather(
+    dto: StartDiscoveryDto,
+    onProgress?: IntelligenceProgressCallback,
+  ): Promise<IntelligenceResult> {
+    await onProgress?.({
+      stage: "query_planning",
+      status: "started",
+      messageKey: "discovery.query_planning.started",
+      messageText: "Planning useful research searches.",
+    });
     const plan = await this.queryPlanner.plan(dto);
+    await onProgress?.({
+      stage: "query_planning",
+      status: "completed",
+      messageKey: "discovery.query_planning.completed",
+      messageText: "Research searches are ready.",
+      payload: { query_count: plan.queries.length, source: plan.source },
+    });
+    await onProgress?.({
+      stage: "metadata",
+      status: "started",
+      messageKey: "discovery.metadata.started",
+      messageText: "Checking owner-submitted links.",
+    });
     const metadata = await this.metadataExtractor.extract(dto);
+    await onProgress?.({
+      stage: "metadata",
+      status: "completed",
+      messageKey: "discovery.metadata.completed",
+      messageText: "Owner-submitted links were checked.",
+      payload: { source_count: metadata.source_refs.length },
+    });
     const sourceCandidates: IntelligenceSourceCandidate[] = [];
     const observationCandidates: IntelligenceObservationCandidate[] = [];
 
@@ -40,10 +70,30 @@ export class IntelligenceGathererService {
       observationCandidates.push(...metadata.research_observations);
 
       for (const plannedQuery of plan.queries.slice(0, MAX_QUERIES_PER_RUN)) {
+        await onProgress?.({
+          stage: "search",
+          status: "started",
+          messageKey: "discovery.search.started",
+          messageText: "Searching public sources.",
+          payload: {
+            intent: plannedQuery.intent,
+            query: plannedQuery.query,
+          },
+        });
         const results = await this.searchClient.search(
           plannedQuery.query,
           plannedQuery.provider_hints,
         );
+        await onProgress?.({
+          stage: "search",
+          status: "completed",
+          messageKey: "discovery.search.completed",
+          messageText: "Public source search finished.",
+          payload: {
+            intent: plannedQuery.intent,
+            result_count: results.length,
+          },
+        });
         const sourceStartIndex = sourceCandidates.length;
         sourceCandidates.push(...this.toSources(results));
         observationCandidates.push(
