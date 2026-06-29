@@ -1,8 +1,17 @@
+from types import SimpleNamespace
+
+import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings, get_settings
 from app.main import create_app
+from app.providers.base import ProviderError
+from app.search.llm_query_planner import (
+    GeminiQueryPlanner,
+    create_llm_query_planner,
+)
 from app.search.query_planning_service import QueryPlanningService
-from app.search.schemas import QueryPlanningRequest
+from app.search.schemas import PlannedSearchQuery, QueryPlan, QueryPlanningRequest
 
 PayloadValue = str | dict[str, str | list[dict[str, str]]]
 
@@ -30,10 +39,11 @@ def payload(language_mode: str = "mixed") -> dict[str, PayloadValue]:
     }
 
 
-def test_query_planner_includes_competitor_and_social_queries() -> None:
+@pytest.mark.anyio
+async def test_query_planner_includes_competitor_and_social_queries() -> None:
     request = QueryPlanningRequest.model_validate(payload())
 
-    plan = QueryPlanningService().plan(request)
+    plan = await QueryPlanningService().plan(request)
 
     assert plan.source == "deterministic"
     assert [query.intent for query in plan.queries] == [
@@ -54,10 +64,11 @@ def test_query_planner_includes_competitor_and_social_queries() -> None:
     assert plan.queries[4].metadata == {"owner_provided_competitor": True}
 
 
-def test_query_planner_supports_arabic_queries() -> None:
+@pytest.mark.anyio
+async def test_query_planner_supports_arabic_queries() -> None:
     request = QueryPlanningRequest.model_validate(payload("ar-EG"))
 
-    plan = QueryPlanningService().plan(request)
+    plan = await QueryPlanningService().plan(request)
 
     assert plan.queries[1].query == (
         "أفضل quick service restaurant في Nasr City, Cairo منافسين"
@@ -76,3 +87,115 @@ def test_internal_query_plan_endpoint() -> None:
     body = response.json()
     assert body["source"] == "deterministic"
     assert body["queries"][1]["intent"] == "competitor_discovery"
+
+
+def test_internal_query_plan_endpoint_uses_configured_llm_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google import genai
+
+    monkeypatch.setattr(genai, "Client", FakeGeminiClient)
+
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        ai_provider_mode="gemini_dev",
+        ai_request_timeout_ms=30_000,
+        gemini_api_key="test-key",
+        gemini_model="gemini-test",
+    )
+    client = TestClient(app)
+
+    response = client.post("/internal/v1/ai/search/query-plan", json=payload())
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "llm"
+    assert body["queries"][0]["query"] == "configured provider competitors in Cairo"
+
+
+def test_gemini_query_planner_keeps_timeout_in_milliseconds() -> None:
+    planner = create_llm_query_planner(
+        Settings(
+            ai_provider_mode="gemini_dev",
+            ai_request_timeout_ms=30_000,
+            gemini_api_key="test-key",
+            gemini_model="gemini-test",
+        )
+    )
+
+    assert isinstance(planner, GeminiQueryPlanner)
+    assert planner.timeout_ms == 30_000
+
+
+@pytest.mark.anyio
+async def test_query_planner_uses_llm_first_when_available() -> None:
+    request = QueryPlanningRequest.model_validate(payload())
+
+    plan = await QueryPlanningService(StaticLlmQueryPlanner()).plan(request)
+
+    assert plan.source == "llm"
+    assert plan.queries[0].query == "smart competitors in Nasr City"
+
+
+@pytest.mark.anyio
+async def test_query_planner_falls_back_when_llm_fails() -> None:
+    request = QueryPlanningRequest.model_validate(payload())
+
+    plan = await QueryPlanningService(FailingLlmQueryPlanner()).plan(request)
+
+    assert plan.source == "deterministic"
+    assert plan.queries[1].intent == "competitor_discovery"
+    assert plan.warnings == ["LLM_QUERY_PLAN_FAILED: planner unavailable"]
+
+
+class StaticLlmQueryPlanner:
+    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+        return QueryPlan(
+            source="llm",
+            queries=[
+                PlannedSearchQuery(
+                    intent="competitor_discovery",
+                    query=f"smart competitors in {request.intake.area}",
+                    language=request.language_mode,
+                    priority=100,
+                    provider_hints=["serpapi", "apify_google_maps"],
+                )
+            ],
+        )
+
+
+class FailingLlmQueryPlanner:
+    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+        raise ProviderError(
+            "LLM_QUERY_PLAN_FAILED",
+            "planner unavailable",
+            retryable=True,
+        )
+
+
+class FakeGeminiClient:
+    def __init__(self, api_key: str) -> None:
+        self.models = FakeGeminiModels()
+
+
+class FakeGeminiModels:
+    def generate_content(self, **kwargs: object) -> SimpleNamespace:
+        config = kwargs["config"]
+        if getattr(config, "response_schema", None) is not None:
+            raise ValueError("additionalProperties unsupported")
+
+        return SimpleNamespace(
+            text=QueryPlan(
+                source="llm",
+                queries=[
+                    PlannedSearchQuery(
+                        intent="competitor_discovery",
+                        query="configured provider competitors in Cairo",
+                        language="mixed",
+                        priority=100,
+                        provider_hints=["serpapi"],
+                    )
+                ],
+            ).model_dump_json()
+        )

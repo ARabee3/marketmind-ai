@@ -1,13 +1,40 @@
-from typing import Final, assert_never
+from typing import Final, Protocol, assert_never
 
 from app.discovery.schemas import LanguageMode, PreparedDiscoveryIntake
+from app.providers.base import ProviderError
 from app.search.schemas import PlannedSearchQuery, QueryPlan, QueryPlanningRequest
 
 MAX_OWNER_COMPETITORS: Final = 5
 
 
+class LlmQueryPlanner(Protocol):
+    async def plan(self, request: QueryPlanningRequest) -> QueryPlan: ...
+
+
 class QueryPlanningService:
-    def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+    def __init__(self, llm_planner: LlmQueryPlanner | None = None) -> None:
+        self.llm_planner = llm_planner
+
+    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+        if self.llm_planner is not None:
+            try:
+                llm_plan = await self.llm_planner.plan(request)
+                return QueryPlan(
+                    source="llm",
+                    queries=llm_plan.queries,
+                    warnings=llm_plan.warnings,
+                )
+            except ProviderError as exc:
+                fallback = self._deterministic_plan(request)
+                return QueryPlan(
+                    source="deterministic",
+                    queries=fallback.queries,
+                    warnings=[*fallback.warnings, f"{exc.code}: {exc}"],
+                )
+
+        return self._deterministic_plan(request)
+
+    def _deterministic_plan(self, request: QueryPlanningRequest) -> QueryPlan:
         intake = request.intake
         language = request.language_mode
         queries = [
