@@ -32,7 +32,10 @@
       {
         "field_key": "average_order_value",
         "description": "Owner did not know the average order value.",
-        "severity": "low"
+        "severity": "low",
+        "category": "owner_unknown",
+        "source": "owner_unknown",
+        "resolved": false
       }
     ],
     "owner_goals": ["Attract more lunch customers."],

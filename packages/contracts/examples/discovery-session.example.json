@@ -1,0 +1,14 @@
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "business_id": null,
+  "owner_user_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "status": "in_progress",
+  "language_mode": "mixed",
+  "current_question": "What type of content do your current customers engage with most?",
+  "profile_draft_id": null,
+  "confirmed_profile_version_id": null,
+  "started_at": "2026-06-25T10:00:00.000Z",
+  "completed_at": null,
+  "created_at": "2026-06-25T10:00:00.000Z",
+  "updated_at": "2026-06-25T10:01:00.000Z"
+}

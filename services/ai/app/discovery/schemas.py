@@ -14,6 +14,23 @@ AiDiscoveryAction = Literal[
     "produce_profile_draft",
     "safe_failure",
 ]
+UncertaintyCategory = Literal[
+    "missing_information",
+    "contradiction",
+    "low_confidence",
+    "owner_unknown",
+    "research_gap",
+    "ambiguous_answer",
+]
+UncertaintySource = Literal[
+    "owner_answer",
+    "owner_unknown",
+    "research_observation",
+    "metadata_extraction",
+    "search_result",
+    "intake_form",
+    "ai_inference",
+]
 
 
 class StrictModel(BaseModel):
@@ -69,6 +86,20 @@ class ResearchObservation(StrictModel):
     discard_reason: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def validate_evidence(self) -> "ResearchObservation":
+        if self.status == "discarded" and not self.discard_reason:
+            raise ValueError("discard_reason is required for discarded observations")
+        if (
+            self.visibility == "owner_visible"
+            and not self.source_ref_id
+            and not self.metadata.get("source_label")
+        ):
+            raise ValueError(
+                "owner-visible observations require a source_ref_id or source_label"
+            )
+        return self
+
 
 class ConversationHook(StrictModel):
     id: UUID
@@ -105,10 +136,27 @@ class DiscoveryMessage(StrictModel):
     created_at: IsoDateTime
 
 
-class ProfileUncertainty(StrictModel):
+class UncertaintyInput(StrictModel):
     field_key: str
     description: str
     severity: Literal["low", "medium", "high"]
+    category: UncertaintyCategory
+    source: UncertaintySource
+    source_ref_id: UUID | None = None
+    owner_stated_value: str | None = None
+    research_suggested_value: str | None = None
+    contradiction_detail: str | None = None
+
+
+class Uncertainty(UncertaintyInput):
+    resolved: bool = False
+    resolved_at: IsoDateTime | None = None
+    resolved_by_action: Literal[
+        "owner_clarified",
+        "research_confirmed",
+        "discarded",
+        "skipped",
+    ] | None = None
 
 
 class BusinessProfileDraft(StrictModel):
@@ -118,7 +166,7 @@ class BusinessProfileDraft(StrictModel):
     status: Literal["draft", "ready_for_confirmation", "confirmed", "superseded"]
     confirmed_facts: dict[str, Any]
     research_observations: list[ResearchObservation]
-    uncertainties: list[ProfileUncertainty]
+    uncertainties: list[Uncertainty]
     owner_goals: list[str]
     strategy_relevant_notes: list[str]
     raw_ai_output: dict[str, Any]
@@ -152,7 +200,7 @@ class DiscoveryModelOutput(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
     updated_known_facts: dict[str, Any] = Field(default_factory=dict)
-    updated_uncertainties: list[ProfileUncertainty] = Field(default_factory=list)
+    updated_uncertainties: list[UncertaintyInput] = Field(default_factory=list)
     owner_goals: list[str] = Field(default_factory=list)
     strategy_relevant_notes: list[str] = Field(default_factory=list)
     domain_scores: dict[str, float] = Field(default_factory=dict)
@@ -168,7 +216,7 @@ class AiDiscoveryResult(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
     updated_known_facts: dict[str, Any]
-    updated_uncertainties: list[ProfileUncertainty]
+    updated_uncertainties: list[UncertaintyInput]
     research_observations: list[ResearchObservation]
     source_refs: list[SourceRef]
     domain_scores: dict[str, float]

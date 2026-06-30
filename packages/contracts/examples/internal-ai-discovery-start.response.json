@@ -10,7 +10,9 @@
     {
       "field_key": "primary_customer_segment",
       "description": "The strongest customer segment is not confirmed yet.",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "missing_information",
+      "source": "intake_form"
     }
   ],
   "research_observations": [],

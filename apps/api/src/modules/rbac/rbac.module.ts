@@ -1,19 +1,27 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
+
+import { RbacController } from "./rbac.controller";
+import { RbacService } from "./rbac.service";
 
 /**
- * RbacModule — placeholder for Sprint 1.
+ * RbacModule — role/permission resolution and route protection.
  *
- * Will contain:
- * - RbacService: permission resolution.
- * - PermissionsGuard: route-level permission enforcement.
- * - @Permissions() decorator for controller methods.
+ * Marked `@Global()` so that feature modules (Discovery, Strategy, ...) can
+ * use `PermissionsGuard` and `RbacService` without importing this module in
+ * each one. Resolution is a pure in-memory lookup over `ROLE_PERMISSIONS`;
+ * this module has no database dependency.
  *
- * Initial roles: owner, admin, developer_demo.
- * Initial permissions: business:read, business:update, discovery:start,
- *   discovery:continue, discovery:confirm_profile, strategy:start,
- *   admin:manage_library.
+ * Public providers:
+ *   - `RbacService`          — resolve a user's permissions from their roles.
  *
- * Implementation is owned by Gerges (Issue #6).
+ * Guards/decorators live alongside this module and are exported implicitly as
+ * they are framework primitives (no DI provider needed for the decorator; the
+ * guard is used via `@UseGuards`).
  */
-@Module({})
+@Global()
+@Module({
+  controllers: [RbacController],
+  providers: [RbacService],
+  exports: [RbacService],
+})
 export class RbacModule {}

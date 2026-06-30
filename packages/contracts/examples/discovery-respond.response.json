@@ -16,7 +16,10 @@
     {
       "field_key": "best_selling_items",
       "description": "The owner has not named the strongest products yet.",
-      "severity": "medium"
+      "severity": "medium",
+      "category": "missing_information",
+      "source": "owner_unknown",
+      "resolved": false
     }
   ],
   "strategy_locked": true

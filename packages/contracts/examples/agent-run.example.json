@@ -1,0 +1,33 @@
+{
+  "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "session_id": "11111111-1111-4111-8111-111111111111",
+  "run_type": "discovery_turn",
+  "provider_mode": "mock",
+  "model_name": null,
+  "prompt_version": "discovery-v1",
+  "status": "success",
+  "input_hash": "abc123def456",
+  "input_tokens": 420,
+  "output_tokens": 85,
+  "latency_ms": 340,
+  "output_json": {
+    "action": "ask_next_question",
+    "next_question": "What time of day do most of your customers visit?",
+    "updated_known_facts": {
+      "business_name": "Koshary Corner",
+      "business_type": "quick service restaurant",
+      "city": "Cairo"
+    },
+    "updated_uncertainties": [],
+    "owner_goals": [],
+    "strategy_relevant_notes": [],
+    "domain_scores": {
+      "intake_completeness": 0.55,
+      "research_confidence": 0.45,
+      "profile_readiness": 0.35
+    }
+  },
+  "error_code": null,
+  "error_message": null,
+  "created_at": "2026-06-25T10:00:22.000Z"
+}

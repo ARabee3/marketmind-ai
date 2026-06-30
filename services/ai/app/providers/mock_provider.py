@@ -1,4 +1,4 @@
-from app.discovery.schemas import DiscoveryModelOutput, ProfileUncertainty
+from app.discovery.schemas import DiscoveryModelOutput, UncertaintyInput
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest
 
 
@@ -41,10 +41,13 @@ class MockDiscoveryProvider(DiscoveryProvider):
                 next_question=self._next_question(request),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[
-                    ProfileUncertainty(
+                    UncertaintyInput(
                         field_key="owner_unknown_answer",
                         description="The owner did not know the requested Discovery fact.",
                         severity="medium",
+                        category="owner_unknown",
+                        source="owner_unknown",
+                        owner_stated_value=owner_text,
                     )
                 ],
                 domain_scores=self._scores(0.3),
