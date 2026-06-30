@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
+from app.core.config import Settings, get_settings
 from app.main import create_app
 from app.discovery.schemas import (
     AiDiscoveryRespondRequest,
@@ -668,7 +669,9 @@ def test_strategy_locked_before_confirmation() -> None:
 # ---------------------------------------------------------------------------
 
 def test_internal_start_endpoint_with_arabic() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("ar-EG", with_gap=True)
     response = client.post("/internal/v1/ai/discovery/start", json=payload)
 
@@ -676,10 +679,13 @@ def test_internal_start_endpoint_with_arabic() -> None:
     body = response.json()
     assert body["action"] == "ask_next_question"
     assert body["next_question"] is not None
+    app.dependency_overrides.clear()
 
 
 def test_internal_respond_endpoint_accepts_chat() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("en")
     payload["messages"] = [assistant_message("Who are your best customers?")]
     payload["owner_message"] = owner_message("Office workers at lunch.")
@@ -688,10 +694,13 @@ def test_internal_respond_endpoint_accepts_chat() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["action"] in ("ask_next_question", "ask_clarification", "produce_profile_draft")
+    app.dependency_overrides.clear()
 
 
 def test_internal_summarize_endpoint_produces_draft() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("en")
     payload["messages"] = [owner_message("Office workers at lunch.")]
     response = client.post("/internal/v1/ai/discovery/summarize", json=payload)
@@ -700,6 +709,7 @@ def test_internal_summarize_endpoint_produces_draft() -> None:
     body = response.json()
     assert body["action"] == "produce_profile_draft"
     assert body["profile_draft"] is not None
+    app.dependency_overrides.clear()
     assert body["profile_draft"]["status"] == "ready_for_confirmation"
 
 
