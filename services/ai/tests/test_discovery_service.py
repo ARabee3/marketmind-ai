@@ -1,6 +1,9 @@
 import asyncio
+import json
+from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -217,3 +220,50 @@ def test_openrouter_provider_requires_key() -> None:
     assert result.action == "safe_failure"
     assert result.safe_error is not None
     assert result.safe_error.code == "AI_PROVIDER_NOT_CONFIGURED"
+
+
+def test_openrouter_provider_adds_fallback_question_when_model_omits_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    FakeOpenRouterClient.calls = 0
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenRouterClient)
+
+    request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
+    )
+
+    assert result.action == "ask_clarification"
+    assert result.next_question == (
+        "What is the most important missing business detail we should confirm next?"
+    )
+    assert FakeOpenRouterClient.calls == 1
+
+
+class FakeOpenRouterClient:
+    calls = 0
+
+    def __init__(self, **kwargs: object) -> None:
+        self.chat = SimpleNamespace(completions=self)
+
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        return _openrouter_response({"action": "ask_clarification"})
+
+
+def _openrouter_response(payload: dict[str, object]) -> SimpleNamespace:
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=json.dumps(payload)),
+            )
+        ]
+    )

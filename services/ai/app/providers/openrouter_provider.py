@@ -17,6 +17,9 @@ from app.providers.base import (
 
 
 OPENROUTER_BASE_URL: Final = "https://openrouter.ai/api/v1"
+FALLBACK_NEXT_QUESTION: Final = (
+    "What is the most important missing business detail we should confirm next?"
+)
 
 
 class OpenRouterDiscoveryProvider(DiscoveryProvider):
@@ -49,13 +52,15 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
                 timeout=self.timeout_seconds,
             )
 
+            messages = [
+                {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
+                {"role": "user", "content": build_user_context(request.payload)},
+            ]
+
             try:
                 response = client.chat.completions.create(
                     model=self.model,
-                    messages=[
-                        {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
-                        {"role": "user", "content": build_user_context(request.payload)},
-                    ],
+                    messages=messages,
                     response_format=_json_schema_response_format(
                         "discovery_model_output",
                         DiscoveryModelOutput.model_json_schema(),
@@ -68,7 +73,7 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
                     retryable=True,
                 ) from exc
 
-            return normalize_provider_output(json.loads(_message_content(response)))
+            return _normalize_openrouter_output(_message_content(response))
 
         try:
             return await to_thread.run_sync(call_openrouter)
@@ -110,3 +115,15 @@ def _message_content(response: Any) -> str:
         )
 
     return content
+
+
+def _normalize_openrouter_output(content: str) -> DiscoveryModelOutput:
+    raw_output = json.loads(content)
+    if (
+        isinstance(raw_output, dict)
+        and raw_output.get("action") in {"ask_next_question", "ask_clarification"}
+        and not raw_output.get("next_question")
+    ):
+        raw_output["next_question"] = FALLBACK_NEXT_QUESTION
+
+    return normalize_provider_output(raw_output)
