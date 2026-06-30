@@ -1,12 +1,13 @@
 import json
 from json import JSONDecodeError
-from typing import Final, assert_never
+from typing import Any, Final, assert_never
 
 from anyio import to_thread
 from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
+from app.providers.openrouter_provider import OPENROUTER_BASE_URL
 from app.search.query_planning_service import LlmQueryPlanner
 from app.search.schemas import QueryPlan, QueryPlanningRequest
 
@@ -36,6 +37,12 @@ def create_llm_query_planner(settings: Settings) -> LlmQueryPlanner | None:
             return GeminiQueryPlanner(
                 api_key=settings.gemini_api_key,
                 model=settings.gemini_model,
+                timeout_ms=settings.ai_request_timeout_ms,
+            )
+        case "openrouter":
+            return OpenRouterQueryPlanner(
+                api_key=settings.open_router_api_key,
+                model=settings.open_router_model,
                 timeout_ms=settings.ai_request_timeout_ms,
             )
         case "mock":
@@ -145,6 +152,64 @@ class GeminiQueryPlanner:
             ) from exc
 
 
+class OpenRouterQueryPlanner:
+    def __init__(self, api_key: str, model: str, timeout_ms: int) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_seconds = timeout_ms / 1000
+
+    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+        if not self.api_key:
+            raise ProviderConfigError("OPEN_ROUTER_API_KEY is required for query planning.")
+        if not self.model:
+            raise ProviderConfigError("OPEN_ROUTER_MODEL is required for query planning.")
+
+        try:
+            from openai import OpenAI, OpenAIError
+        except ImportError as exc:
+            raise ProviderConfigError("The openai package is not installed.") from exc
+
+        def call_openrouter() -> QueryPlan:
+            client = OpenAI(
+                api_key=self.api_key,
+                base_url=OPENROUTER_BASE_URL,
+                timeout=self.timeout_seconds,
+            )
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": QUERY_PLAN_SYSTEM_PROMPT},
+                    {"role": "user", "content": _query_context(request)},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "query_plan",
+                        "strict": True,
+                        "schema": QueryPlan.model_json_schema(),
+                    },
+                },
+            )
+            return _normalize_query_plan(json.loads(_message_content(response)))
+
+        try:
+            return await to_thread.run_sync(call_openrouter)
+        except ProviderError:
+            raise
+        except OpenAIError as exc:
+            raise ProviderError(
+                "LLM_QUERY_PLAN_FAILED",
+                "OpenRouter query planning failed.",
+                retryable=True,
+            ) from exc
+        except (JSONDecodeError, ValidationError) as exc:
+            raise ProviderError(
+                "LLM_QUERY_PLAN_INVALID_OUTPUT",
+                "OpenRouter query planning returned invalid output.",
+                retryable=True,
+            ) from exc
+
+
 def _query_context(request: QueryPlanningRequest) -> str:
     return (
         "Generate 4 to 8 search queries for this discovery intake. "
@@ -156,3 +221,23 @@ def _query_context(request: QueryPlanningRequest) -> str:
 def _normalize_query_plan(raw_plan: QueryPlan | JsonValue) -> QueryPlan:
     parsed = QueryPlan.model_validate(raw_plan)
     return QueryPlan(source="llm", queries=parsed.queries, warnings=parsed.warnings)
+
+
+def _message_content(response: Any) -> str:
+    choices = response.choices
+    if not choices:
+        raise ProviderError(
+            "LLM_QUERY_PLAN_EMPTY_OUTPUT",
+            "OpenRouter returned no query planning choices.",
+            retryable=True,
+        )
+
+    content = choices[0].message.content
+    if not isinstance(content, str) or not content.strip():
+        raise ProviderError(
+            "LLM_QUERY_PLAN_EMPTY_OUTPUT",
+            "OpenRouter returned an empty query planning message.",
+            retryable=True,
+        )
+
+    return content

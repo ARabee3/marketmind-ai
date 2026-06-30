@@ -8,6 +8,7 @@ from app.main import create_app
 from app.providers.base import ProviderError
 from app.search.llm_query_planner import (
     GeminiQueryPlanner,
+    OpenRouterQueryPlanner,
     create_llm_query_planner,
 )
 from app.search.query_planning_service import QueryPlanningService
@@ -79,10 +80,13 @@ async def test_query_planner_supports_arabic_queries() -> None:
 
 
 def test_internal_query_plan_endpoint() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
 
     response = client.post("/internal/v1/ai/search/query-plan", json=payload())
 
+    app.dependency_overrides.clear()
     assert response.status_code == 200
     body = response.json()
     assert body["source"] == "deterministic"
@@ -126,6 +130,20 @@ def test_gemini_query_planner_keeps_timeout_in_milliseconds() -> None:
 
     assert isinstance(planner, GeminiQueryPlanner)
     assert planner.timeout_ms == 30_000
+
+
+def test_openrouter_query_planner_is_selected_from_provider_mode() -> None:
+    planner = create_llm_query_planner(
+        Settings(
+            ai_provider_mode="openrouter",
+            ai_request_timeout_ms=30_000,
+            open_router_api_key="test-key",
+            open_router_model="openrouter-test",
+        )
+    )
+
+    assert isinstance(planner, OpenRouterQueryPlanner)
+    assert planner.timeout_seconds == 30
 
 
 @pytest.mark.anyio

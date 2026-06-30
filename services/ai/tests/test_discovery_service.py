@@ -7,7 +7,10 @@ from app.main import create_app
 from app.discovery.schemas import AiDiscoveryRespondRequest, AiDiscoveryStartRequest, AiDiscoverySummarizeRequest
 from app.discovery.service import DiscoveryService
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError
+from app.providers.factory import create_provider
 from app.providers.mock_provider import MockDiscoveryProvider
+from app.providers.openrouter_provider import OpenRouterDiscoveryProvider
+from app.core.config import Settings, get_settings
 
 
 SESSION_ID = "11111111-1111-4111-8111-111111111111"
@@ -175,10 +178,42 @@ def test_provider_failure_returns_retryable_safe_failure() -> None:
 
 
 def test_internal_start_endpoint_uses_mock_without_llm_key() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     response = client.post("/internal/v1/ai/discovery/start", json=base_payload("en", with_gap=True))
 
+    app.dependency_overrides.clear()
     assert response.status_code == 200
     body = response.json()
     assert body["action"] == "ask_next_question"
     assert body["next_question"] == "Who buys most often today?"
+
+
+def test_provider_factory_selects_openrouter() -> None:
+    provider = create_provider(
+        Settings(
+            ai_provider_mode="openrouter",
+            open_router_api_key="test-key",
+            open_router_model="test-model",
+        )
+    )
+
+    assert isinstance(provider, OpenRouterDiscoveryProvider)
+
+
+def test_openrouter_provider_requires_key() -> None:
+    request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
+    )
+
+    assert result.action == "safe_failure"
+    assert result.safe_error is not None
+    assert result.safe_error.code == "AI_PROVIDER_NOT_CONFIGURED"
