@@ -55,17 +55,20 @@ describe("IntelligenceGathererService", () => {
         },
       ],
     });
-    searchClient.search.mockResolvedValue([
-      {
-        provider: "serpapi",
-        title: "Nearby competitor",
-        url: "https://example.com/competitor",
-        snippet: "Popular restaurant in Nasr City.",
-        rank: 1,
-        query: "best restaurants in Nasr City competitors",
-        confidence: 0.91,
-      },
-    ]);
+    searchClient.search.mockResolvedValue({
+      results: [
+        {
+          provider: "serpapi",
+          title: "Nearby competitor",
+          url: "https://example.com/competitor",
+          snippet: "Popular restaurant in Nasr City.",
+          rank: 1,
+          query: "best restaurants in Nasr City competitors",
+          confidence: 0.91,
+        },
+      ],
+      provider_warnings: [],
+    } as never);
 
     const result = await service.gather(dto);
 
@@ -103,7 +106,10 @@ describe("IntelligenceGathererService", () => {
         },
       ],
     });
-    searchClient.search.mockResolvedValue([]);
+    searchClient.search.mockResolvedValue({
+      results: [],
+      provider_warnings: [],
+    } as never);
 
     const result = await service.gather(dto);
 
@@ -127,7 +133,10 @@ describe("IntelligenceGathererService", () => {
         },
       ],
     });
-    searchClient.search.mockResolvedValue([]);
+    searchClient.search.mockResolvedValue({
+      results: [],
+      provider_warnings: [],
+    } as never);
     const progress = jest.fn().mockResolvedValue(undefined);
 
     await service.gather(dto, progress);
@@ -217,6 +226,40 @@ describe("IntelligenceGathererService", () => {
     expect(result.safe_error).toEqual({
       code: "SEARCH_FAILED",
       message: "Search provider failed.",
+      retryable: true,
+    });
+  });
+
+  it("surfaces provider warnings when fallback has no results", async () => {
+    queryPlanner.plan.mockResolvedValue({
+      source: "deterministic",
+      queries: [
+        {
+          intent: "business_match",
+          query: "koshary cairo",
+          language: LanguageModeDto.Mixed,
+          priority: 100,
+          provider_hints: ["serpapi"],
+        },
+      ],
+    });
+    searchClient.search.mockResolvedValue({
+      results: [],
+      provider_warnings: [
+        {
+          code: "SERPAPI_SEARCH_FAILED",
+          message: "SerpApi failed.",
+          retryable: true,
+        },
+      ],
+    } as never);
+
+    const result = await service.gather(dto);
+
+    expect(result.status).toBe("failed");
+    expect(result.safe_error).toEqual({
+      code: "SERPAPI_SEARCH_FAILED",
+      message: "SerpApi failed.",
       retryable: true,
     });
   });

@@ -83,6 +83,29 @@ describe("MetadataExtractorService", () => {
     });
   });
 
+  it("rejects private owner metadata URLs before fetching", async () => {
+    const result = await new MetadataExtractorService().extract({
+      ...dto,
+      intake: {
+        ...dto.intake,
+        social_links: [
+          {
+            platform: SocialPlatformDto.Website,
+            url: "http://127.0.0.1/admin",
+          },
+        ],
+      },
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.source_refs[0]).toMatchObject({
+      url: "http://127.0.0.1/admin",
+      metadata: {
+        metadata_fetch_status: "failed",
+      },
+    });
+  });
+
   it("parses open graph descriptions without lowercasing content", () => {
     expect(
       extractPageMetadata(

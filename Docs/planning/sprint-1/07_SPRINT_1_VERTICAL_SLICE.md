@@ -27,14 +27,14 @@ By the end of Sprint 1, the team should have:
 
 ## Team split
 
-| Member | Owns and implements | Reviews |
-|---|---|---|
-| Ahmed | Prepared Discovery flow + AI/Nest/WebSocket contract | Mokhtar’s Auth APIs |
-| Merzek | Real AI provider adapter + Discovery prompt behavior | Gerges’s RBAC guards |
-| Kordy | Prepared Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup |
-| Abdulazim | NestJS repo initialization + `HealthModule` | Kordy’s schemas/tests |
-| Mokhtar | Auth APIs | Ahmed’s AI/Nest contract |
-| Gerges | RBAC roles, permissions, and guards | Merzek’s AI provider/prompt behavior |
+| Member    | Owns and implements                                   | Reviews                              |
+| --------- | ----------------------------------------------------- | ------------------------------------ |
+| Ahmed     | Prepared Discovery flow + AI/Nest/WebSocket contract  | Mokhtar’s Auth APIs                  |
+| Merzek    | Real AI provider adapter + Discovery prompt behavior  | Gerges’s RBAC guards                 |
+| Kordy     | Prepared Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup             |
+| Abdulazim | NestJS repo initialization + `HealthModule`           | Kordy’s schemas/tests                |
+| Mokhtar   | Auth APIs                                             | Ahmed’s AI/Nest contract             |
+| Gerges    | RBAC roles, permissions, and guards                   | Merzek’s AI provider/prompt behavior |
 
 Ahmed and Merzek review AI-critical decisions.
 
@@ -106,6 +106,7 @@ Sprint 1 follows the decisions recorded in:
 
 ```text
 Docs/planning/sprint-1/prepared-discovery-architecture/README.md
+Docs/planning/sprint-1/intelligence-gatherer-integration-fix-plan.md
 Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md
 ```
 

@@ -52,6 +52,14 @@ export class DiscoveryConversationService {
       messages,
       ownerMessage,
     );
+    if (result.safe_error) {
+      throw new ProviderError(
+        result.safe_error.code,
+        result.safe_error.message,
+        result.safe_error.retryable,
+      );
+    }
+
     const profileDraft = await this.persistProfileDraft(result.profile_draft);
     const assistantMessage = result.next_question
       ? await this.conversationRepository.appendMessage(sessionId, {

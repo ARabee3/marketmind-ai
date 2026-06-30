@@ -81,4 +81,49 @@ describe("AiDiscoveryClient", () => {
       }),
     );
   });
+
+  it("preserves AI discovery source and observation arrays", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        action: "ask_next_question",
+        next_question: "Who buys most often?",
+        updated_known_facts: {},
+        updated_uncertainties: [],
+        research_observations: [
+          {
+            id: "observation_1",
+            source_ref_id: "source_ref_1",
+            kind: "digital_presence",
+            statement: "Koshary Corner has public search presence.",
+            confidence: 0.8,
+            visibility: "internal",
+            status: "accepted",
+            metadata: {},
+          },
+        ],
+        source_refs: [
+          {
+            id: "source_ref_1",
+            source_type: "search_result",
+            platform: "serpapi",
+            url: "https://example.com/koshary",
+            confidence: 0.8,
+            metadata: {},
+          },
+        ],
+        domain_scores: {},
+      }),
+    } as Response);
+
+    const result = await new AiDiscoveryClient().start(
+      "11111111-1111-4111-8111-111111111111",
+      dto,
+      intelligence,
+    );
+
+    expect(result.source_refs).toHaveLength(1);
+    expect(result.research_observations).toHaveLength(1);
+    expect(result.research_observations[0]?.source_ref_id).toBe("source_ref_1");
+  });
 });

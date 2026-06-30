@@ -17,7 +17,10 @@ import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchQueryIntent } from "./query-plan.types";
 import { SearchClientService } from "./search-client.service";
-import { SearchResultCandidate } from "./search-result.types";
+import {
+  SearchProviderWarning,
+  SearchResultCandidate,
+} from "./search-result.types";
 
 const MAX_QUERIES_PER_RUN = 4;
 
@@ -64,6 +67,7 @@ export class IntelligenceGathererService {
     });
     const sourceCandidates: IntelligenceSourceCandidate[] = [];
     const observationCandidates: IntelligenceObservationCandidate[] = [];
+    const providerWarnings: SearchProviderWarning[] = [];
 
     try {
       sourceCandidates.push(...metadata.source_refs);
@@ -80,10 +84,11 @@ export class IntelligenceGathererService {
             query: plannedQuery.query,
           },
         });
-        const results = await this.searchClient.search(
+        const searchResponse = await this.searchClient.search(
           plannedQuery.query,
           plannedQuery.provider_hints,
         );
+        providerWarnings.push(...searchResponse.provider_warnings);
         await onProgress?.({
           stage: "search",
           status: "completed",
@@ -91,26 +96,42 @@ export class IntelligenceGathererService {
           messageText: "Public source search finished.",
           payload: {
             intent: plannedQuery.intent,
-            result_count: results.length,
+            result_count: searchResponse.results.length,
+            provider_warnings: searchResponse.provider_warnings,
           },
         });
         const sourceStartIndex = sourceCandidates.length;
-        sourceCandidates.push(...this.toSources(results));
+        sourceCandidates.push(...this.toSources(searchResponse.results));
         observationCandidates.push(
           ...this.toObservations(
-            results,
+            searchResponse.results,
             plannedQuery.intent,
             sourceStartIndex,
           ),
         );
       }
 
+      const firstWarning = providerWarnings[0];
       return this.mapper.toIntelligenceResult({
-        status: sourceCandidates.length > 0 ? "complete" : "partial",
+        status:
+          sourceCandidates.length > 0
+            ? firstWarning
+              ? "partial"
+              : "complete"
+            : firstWarning
+              ? "failed"
+              : "partial",
         source_refs: sourceCandidates,
         research_observations: observationCandidates,
+        safe_error: firstWarning
+          ? safeError(
+              firstWarning.code,
+              firstWarning.message,
+              firstWarning.retryable,
+            )
+          : undefined,
         knowledge_gaps:
-          sourceCandidates.length > 0
+          sourceCandidates.length > 0 || firstWarning
             ? []
             : [
                 {

@@ -49,9 +49,10 @@ describe("SearchClientService", () => {
   it("uses SerpApi results first", async () => {
     serpApi.search.mockResolvedValue([serpResult]);
 
-    await expect(service.search("koshary cairo")).resolves.toEqual([
-      serpResult,
-    ]);
+    await expect(service.search("koshary cairo")).resolves.toEqual({
+      results: [serpResult],
+      provider_warnings: [],
+    });
     expect(duckDuckGo.search).not.toHaveBeenCalled();
   });
 
@@ -60,7 +61,7 @@ describe("SearchClientService", () => {
 
     await expect(
       service.search("koshary cairo", ["apify_google_maps", "serpapi"]),
-    ).resolves.toEqual([mapsResult]);
+    ).resolves.toEqual({ results: [mapsResult], provider_warnings: [] });
     expect(serpApi.search).not.toHaveBeenCalled();
   });
 
@@ -72,7 +73,10 @@ describe("SearchClientService", () => {
 
     await expect(
       service.search("koshary cairo", ["apify_google_maps", "serpapi"]),
-    ).resolves.toEqual([serpResult]);
+    ).resolves.toMatchObject({
+      results: [serpResult],
+      provider_warnings: [{ code: "APIFY_NOT_CONFIGURED" }],
+    });
   });
 
   it("falls back to DuckDuckGo when SerpApi is unavailable", async () => {
@@ -81,17 +85,39 @@ describe("SearchClientService", () => {
     );
     duckDuckGo.search.mockResolvedValue([duckResult]);
 
-    await expect(service.search("koshary cairo")).resolves.toEqual([
-      duckResult,
-    ]);
+    await expect(service.search("koshary cairo")).resolves.toMatchObject({
+      results: [duckResult],
+      provider_warnings: [{ code: "SERPAPI_NOT_CONFIGURED" }],
+    });
   });
 
   it("falls back to DuckDuckGo when SerpApi returns no results", async () => {
     serpApi.search.mockResolvedValue([]);
     duckDuckGo.search.mockResolvedValue([duckResult]);
 
-    await expect(service.search("koshary cairo")).resolves.toEqual([
-      duckResult,
-    ]);
+    await expect(service.search("koshary cairo")).resolves.toEqual({
+      results: [duckResult],
+      provider_warnings: [],
+    });
+  });
+
+  it("returns fallback results with provider warnings", async () => {
+    apifyMaps.search.mockRejectedValue(
+      new ProviderError("APIFY_MAPS_ERROR", "Maps failed.", true),
+    );
+    serpApi.search.mockRejectedValue(
+      new ProviderError("SERPAPI_SEARCH_FAILED", "SerpApi failed.", true),
+    );
+    duckDuckGo.search.mockResolvedValue([duckResult]);
+
+    await expect(
+      service.search("koshary cairo", ["apify_google_maps"]),
+    ).resolves.toMatchObject({
+      results: [duckResult],
+      provider_warnings: [
+        { code: "APIFY_MAPS_ERROR" },
+        { code: "SERPAPI_SEARCH_FAILED" },
+      ],
+    });
   });
 });

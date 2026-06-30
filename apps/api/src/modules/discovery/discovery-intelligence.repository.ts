@@ -63,8 +63,18 @@ export class DiscoveryIntelligenceRepository {
     intelligence: IntelligenceResult,
   ): Promise<ReadonlyMap<string, string>> {
     const sourceIdByContractId = new Map<string, string>();
+    const sourceIdByNormalizedUrl = new Map<string, string>();
 
     for (const source of intelligence.source_refs) {
+      const normalizedUrl = normalizeUrl(source.url);
+      const existingSourceId = normalizedUrl
+        ? sourceIdByNormalizedUrl.get(normalizedUrl)
+        : undefined;
+      if (existingSourceId) {
+        sourceIdByContractId.set(source.id, existingSourceId);
+        continue;
+      }
+
       const savedSource = await tx.sourceRef.create({
         data: {
           sessionId,
@@ -82,6 +92,9 @@ export class DiscoveryIntelligenceRepository {
         },
       });
       sourceIdByContractId.set(source.id, savedSource.id);
+      if (normalizedUrl) {
+        sourceIdByNormalizedUrl.set(normalizedUrl, savedSource.id);
+      }
     }
 
     return sourceIdByContractId;
@@ -158,5 +171,23 @@ export class DiscoveryIntelligenceRepository {
         status: gap.status,
       })),
     });
+  }
+}
+
+function normalizeUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase();
+    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+      url.pathname = url.pathname.slice(0, -1);
+    }
+    return url.toString();
+  } catch {
+    return value.trim().toLowerCase();
   }
 }

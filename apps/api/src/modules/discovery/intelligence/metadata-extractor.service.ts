@@ -7,6 +7,8 @@ import {
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
 
+const METADATA_MAX_BODY_BYTES = 256 * 1024;
+
 export type MetadataExtractionResult = {
   readonly source_refs: readonly IntelligenceSourceCandidate[];
   readonly research_observations: readonly IntelligenceObservationCandidate[];
@@ -54,6 +56,8 @@ export class MetadataExtractorService {
     try {
       const html = await getExternalText(url, {
         timeoutMs: externalProviderConfig().discoverySearchTimeoutMs,
+        validateUrl: true,
+        maxBodyBytes: METADATA_MAX_BODY_BYTES,
       });
       const metadata = extractPageMetadata(html);
 

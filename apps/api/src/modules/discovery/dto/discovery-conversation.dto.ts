@@ -1,9 +1,18 @@
-import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from "class-validator";
 import { LanguageModeDto } from "./start-discovery.dto";
 
 export class DiscoveryRespondDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(2000)
   message!: string;
 
   @IsOptional()

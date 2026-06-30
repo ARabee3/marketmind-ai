@@ -1,4 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
+import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
@@ -9,7 +10,10 @@ import {
   IntelligenceResult,
 } from "./discovery-state";
 import { DiscoveryRepository } from "./discovery.repository";
-import { LanguageModeDto, PreparedDiscoveryIntakeDto } from "./dto/start-discovery.dto";
+import {
+  LanguageModeDto,
+  PreparedDiscoveryIntakeDto,
+} from "./dto/start-discovery.dto";
 
 describe("DiscoveryService conversation", () => {
   const repository = {
@@ -79,14 +83,45 @@ describe("DiscoveryService conversation", () => {
       expect.objectContaining({ role: "owner" }),
     );
     expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(2);
-    expect(conversationRepository.updateSessionConversationState).toHaveBeenCalledWith(
+    expect(
+      conversationRepository.updateSessionConversationState,
+    ).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
       "in_progress",
       "What offer sells best today?",
       undefined,
     );
     expect(response.status).toBe("in_progress");
-    expect(response.assistant_message?.content).toBe("What offer sells best today?");
+    expect(response.assistant_message?.content).toBe(
+      "What offer sells best today?",
+    );
+  });
+
+  it("does not mark AI safe failures as in progress", async () => {
+    aiDiscoveryClient.respond.mockResolvedValue({
+      ...aiResult(),
+      action: "safe_failure",
+      safe_error: {
+        code: "AI_PROVIDER_FAILURE",
+        message: "Provider timeout.",
+        retryable: true,
+      },
+    });
+
+    await expect(
+      service.respondToDiscovery(
+        "owner-id",
+        "11111111-1111-4111-8111-111111111111",
+        {
+          message: "Families buy most often.",
+          language: LanguageModeDto.Mixed,
+        },
+      ),
+    ).rejects.toBeInstanceOf(ProviderError);
+    expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(1);
+    expect(
+      conversationRepository.updateSessionConversationState,
+    ).not.toHaveBeenCalled();
   });
 
   it("summarizes the conversation into a profile draft", async () => {
@@ -104,7 +139,9 @@ describe("DiscoveryService conversation", () => {
     );
 
     expect(conversationRepository.saveProfileDraft).toHaveBeenCalledWith(draft);
-    expect(conversationRepository.updateSessionConversationState).toHaveBeenCalledWith(
+    expect(
+      conversationRepository.updateSessionConversationState,
+    ).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
       "summary_ready",
       undefined,

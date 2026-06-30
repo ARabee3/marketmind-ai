@@ -11,6 +11,17 @@ export type SearchResultCandidate = {
   readonly metadata?: Record<string, unknown>;
 };
 
+export type SearchProviderWarning = {
+  readonly code: string;
+  readonly message: string;
+  readonly retryable: boolean;
+};
+
+export type SearchResponse = {
+  readonly results: readonly SearchResultCandidate[];
+  readonly provider_warnings: readonly SearchProviderWarning[];
+};
+
 export interface SearchProvider {
   search(query: string): Promise<readonly SearchResultCandidate[]>;
 }

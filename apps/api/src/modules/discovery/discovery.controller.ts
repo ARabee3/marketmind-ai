@@ -14,6 +14,7 @@ import { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
+import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryService } from "./discovery.service";
 import {
   ConfirmProfileDto,
@@ -33,7 +34,7 @@ interface RequestWithUser extends Request {
 }
 
 @Controller("discovery")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DiscoveryRateLimitGuard)
 export class DiscoveryController {
   constructor(
     private readonly discoveryService: DiscoveryService,
@@ -63,7 +64,11 @@ export class DiscoveryController {
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
     @Body() dto: DiscoveryRespondDto,
   ): Promise<DiscoveryRespondResponse> {
-    return this.conversationService.respondToDiscovery(req.user.id, sessionId, dto);
+    return this.conversationService.respondToDiscovery(
+      req.user.id,
+      sessionId,
+      dto,
+    );
   }
 
   @Post(":sessionId/summarize")
