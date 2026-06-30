@@ -13,6 +13,9 @@ import {
 import { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
+import { Permissions } from "../rbac/decorators/permissions.decorator";
+import { PermissionsGuard } from "../rbac/guards/permissions.guard";
+import { PERMISSIONS } from "../rbac/rbac.constants";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryService } from "./discovery.service";
@@ -34,7 +37,7 @@ interface RequestWithUser extends Request {
 }
 
 @Controller("discovery")
-@UseGuards(JwtAuthGuard, DiscoveryRateLimitGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, DiscoveryRateLimitGuard)
 export class DiscoveryController {
   constructor(
     private readonly discoveryService: DiscoveryService,
@@ -42,6 +45,7 @@ export class DiscoveryController {
   ) {}
 
   @Post("start")
+  @Permissions(PERMISSIONS.DISCOVERY_START)
   @HttpCode(HttpStatus.ACCEPTED)
   async start(
     @Req() req: RequestWithUser,
@@ -59,6 +63,7 @@ export class DiscoveryController {
   }
 
   @Post(":sessionId/respond")
+  @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
   async respond(
     @Req() req: RequestWithUser,
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
@@ -72,6 +77,7 @@ export class DiscoveryController {
   }
 
   @Post(":sessionId/summarize")
+  @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
   async summarize(
     @Req() req: RequestWithUser,
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
@@ -80,6 +86,7 @@ export class DiscoveryController {
   }
 
   @Post(":sessionId/confirm-profile")
+  @Permissions(PERMISSIONS.DISCOVERY_CONFIRM_PROFILE)
   async confirmProfile(
     @Req() req: RequestWithUser,
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,

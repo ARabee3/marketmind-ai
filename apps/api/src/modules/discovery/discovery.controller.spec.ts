@@ -1,8 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
+import { PERMISSIONS_KEY } from "../rbac/decorators/permissions.decorator";
+import { PermissionsGuard } from "../rbac/guards/permissions.guard";
+import { PERMISSIONS } from "../rbac/rbac.constants";
+import { RbacService } from "../rbac/rbac.service";
 
 describe("DiscoveryController", () => {
   const service = {
@@ -23,7 +28,11 @@ describe("DiscoveryController", () => {
       controllers: [DiscoveryController],
       providers: [
         { provide: DiscoveryService, useValue: service },
-        { provide: DiscoveryConversationService, useValue: conversationService },
+        {
+          provide: DiscoveryConversationService,
+          useValue: conversationService,
+        },
+        RbacService,
       ],
     }).compile();
 
@@ -50,12 +59,17 @@ describe("DiscoveryController", () => {
     });
 
     const result = await controller.start(
-      { user: { id: "owner-id", email: "owner@example.com", roles: [] } } as never,
+      {
+        user: { id: "owner-id", email: "owner@example.com", roles: [] },
+      } as never,
       dto,
     );
 
     expect(result.status).toBe("researching");
-    expect(service.startPreparedDiscovery).toHaveBeenCalledWith("owner-id", dto);
+    expect(service.startPreparedDiscovery).toHaveBeenCalledWith(
+      "owner-id",
+      dto,
+    );
   });
 
   it("reads status for the authenticated owner", async () => {
@@ -82,7 +96,9 @@ describe("DiscoveryController", () => {
     });
 
     const result = await controller.status(
-      { user: { id: "owner-id", email: "owner@example.com", roles: [] } } as never,
+      {
+        user: { id: "owner-id", email: "owner@example.com", roles: [] },
+      } as never,
       "11111111-1111-4111-8111-111111111111",
     );
 
@@ -92,4 +108,36 @@ describe("DiscoveryController", () => {
       "11111111-1111-4111-8111-111111111111",
     );
   });
+
+  it("declares RBAC permissions for protected discovery actions", () => {
+    expect(getPermissions("start")).toEqual([PERMISSIONS.DISCOVERY_START]);
+    expect(getPermissions("respond")).toEqual([PERMISSIONS.DISCOVERY_CONTINUE]);
+    expect(getPermissions("summarize")).toEqual([
+      PERMISSIONS.DISCOVERY_CONTINUE,
+    ]);
+    expect(getPermissions("confirmProfile")).toEqual([
+      PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
+    ]);
+    expect(getPermissions("status")).toBeUndefined();
+  });
+
+  it("runs the permissions guard on discovery routes", () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, DiscoveryController);
+
+    expect(guards).toContain(PermissionsGuard);
+  });
 });
+
+type DiscoveryRoute =
+  | "start"
+  | "status"
+  | "respond"
+  | "summarize"
+  | "confirmProfile";
+
+function getPermissions(route: DiscoveryRoute): unknown {
+  return Reflect.getMetadata(
+    PERMISSIONS_KEY,
+    DiscoveryController.prototype[route],
+  );
+}
