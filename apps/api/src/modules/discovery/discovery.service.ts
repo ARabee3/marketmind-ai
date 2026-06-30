@@ -100,14 +100,16 @@ export class DiscoveryService {
           ? "First discovery question is ready."
           : "AI discovery provider is not available yet.",
       });
-      if (aiStarted) {
-        await this.recordProgress(sessionId, {
-          stage: "ready",
-          status: "completed",
-          messageKey: "discovery.ready_for_chat",
-          messageText: "Discovery chat is ready.",
-        });
+      if (!aiStarted) {
+        await this.discoveryRepository.updateStatus(sessionId, "partial_ready");
+        return;
       }
+      await this.recordProgress(sessionId, {
+        stage: "ready",
+        status: "completed",
+        messageKey: "discovery.ready_for_chat",
+        messageText: "Discovery chat is ready.",
+      });
     } catch (error) {
       await this.handleBackgroundFailure(sessionId, error);
     }
@@ -124,12 +126,13 @@ export class DiscoveryService {
         dto,
         intelligence,
       );
-      if (result.next_question) {
-        await this.discoveryRepository.updateCurrentQuestion(
-          sessionId,
-          result.next_question,
-        );
+      if (result.safe_error || !result.next_question) {
+        return false;
       }
+      await this.discoveryRepository.updateCurrentQuestion(
+        sessionId,
+        result.next_question,
+      );
       return true;
     } catch (error) {
       if (error instanceof ProviderError) {
