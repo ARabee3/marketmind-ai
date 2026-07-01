@@ -68,10 +68,22 @@ export class DiscoveryService {
         dto,
         (event) => this.recordProgress(sessionId, event),
       );
+      await this.recordProgress(sessionId, {
+        stage: "persisting",
+        status: "started",
+        messageKey: "discovery.persisting.started",
+        messageText: "Saving research results.",
+      });
       await this.intelligenceRepository.saveIntelligenceResult(
         sessionId,
         intelligence,
       );
+      await this.recordProgress(sessionId, {
+        stage: "persisting",
+        status: "completed",
+        messageKey: "discovery.persisting.completed",
+        messageText: "Research results were saved.",
+      });
       await this.recordProgress(sessionId, {
         stage: "intelligence",
         status: "completed",

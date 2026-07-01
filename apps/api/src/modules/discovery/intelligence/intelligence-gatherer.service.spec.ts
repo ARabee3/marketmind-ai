@@ -1,8 +1,10 @@
 import "reflect-metadata";
 import { ProviderError } from "../../../common/errors/provider-error";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
+import { ConfidenceService } from "./confidence.service";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
+import { MatchFilterService } from "./match-filter.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -34,6 +36,7 @@ describe("IntelligenceGathererService", () => {
       queryPlanner,
       searchClient,
       metadataExtractor,
+      new MatchFilterService(new ConfidenceService()),
       new IntelligenceContractMapper(),
     );
     metadataExtractor.extract.mockResolvedValue({

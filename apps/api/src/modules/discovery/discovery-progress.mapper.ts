@@ -48,7 +48,6 @@ function progressStage(value: string): string {
     case "session":
       return "queued";
     case "intelligence":
-    case "query_planning":
       return "search";
     case "ai_discovery":
       return "ai_start";

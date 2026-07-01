@@ -1,26 +1,19 @@
 import { Injectable } from "@nestjs/common";
 import { ProviderError } from "../../../common/errors/provider-error";
 import { safeError } from "../../../common/errors/safe-error";
-import {
-  IntelligenceResult,
-  ResearchObservationKind,
-} from "../discovery-state";
+import { IntelligenceResult } from "../discovery-state";
 import { StartDiscoveryDto } from "../dto/start-discovery.dto";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import {
-  IntelligenceMappingInput,
   IntelligenceObservationCandidate,
   IntelligenceProgressCallback,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
+import { MatchFilterService } from "./match-filter.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
-import { SearchQueryIntent } from "./query-plan.types";
 import { SearchClientService } from "./search-client.service";
-import {
-  SearchProviderWarning,
-  SearchResultCandidate,
-} from "./search-result.types";
+import { SearchProviderWarning } from "./search-result.types";
 
 const MAX_QUERIES_PER_RUN = 4;
 
@@ -30,6 +23,7 @@ export class IntelligenceGathererService {
     private readonly queryPlanner: QueryPlannerService,
     private readonly searchClient: SearchClientService,
     private readonly metadataExtractor: MetadataExtractorService,
+    private readonly matchFilter: MatchFilterService,
     private readonly mapper: IntelligenceContractMapper,
   ) {}
 
@@ -74,10 +68,14 @@ export class IntelligenceGathererService {
       observationCandidates.push(...metadata.research_observations);
 
       for (const plannedQuery of plan.queries.slice(0, MAX_QUERIES_PER_RUN)) {
+        const searchStage =
+          plannedQuery.intent === "competitor_discovery"
+            ? "competitor_searching"
+            : "search";
         await onProgress?.({
-          stage: "search",
+          stage: searchStage,
           status: "started",
-          messageKey: "discovery.search.started",
+          messageKey: `discovery.${searchStage}.started`,
           messageText: "Searching public sources.",
           payload: {
             intent: plannedQuery.intent,
@@ -90,9 +88,9 @@ export class IntelligenceGathererService {
         );
         providerWarnings.push(...searchResponse.provider_warnings);
         await onProgress?.({
-          stage: "search",
+          stage: searchStage,
           status: "completed",
-          messageKey: "discovery.search.completed",
+          messageKey: `discovery.${searchStage}.completed`,
           messageText: "Public source search finished.",
           payload: {
             intent: plannedQuery.intent,
@@ -101,20 +99,41 @@ export class IntelligenceGathererService {
           },
         });
         const sourceStartIndex = sourceCandidates.length;
-        sourceCandidates.push(...this.toSources(searchResponse.results));
-        observationCandidates.push(
-          ...this.toObservations(
-            searchResponse.results,
-            plannedQuery.intent,
-            sourceStartIndex,
-          ),
-        );
+        await onProgress?.({
+          stage: "filtering",
+          status: "started",
+          messageKey: "discovery.filtering.started",
+          messageText: "Filtering weak or unrelated results.",
+          payload: { intent: plannedQuery.intent },
+        });
+        const filtered = this.matchFilter.filter({
+          dto,
+          intent: plannedQuery.intent,
+          results: searchResponse.results,
+          sourceStartIndex,
+        });
+        sourceCandidates.push(...filtered.source_refs);
+        observationCandidates.push(...filtered.research_observations);
+        await onProgress?.({
+          stage: "filtering",
+          status: "completed",
+          messageKey: "discovery.filtering.completed",
+          messageText: "Search results were filtered.",
+          payload: {
+            intent: plannedQuery.intent,
+            accepted_count: filtered.accepted_count,
+            discarded_count: filtered.discarded_count,
+          },
+        });
       }
 
       const firstWarning = providerWarnings[0];
+      const acceptedSourceCount = sourceCandidates.filter(
+        (source) => source.status !== "discarded",
+      ).length;
       return this.mapper.toIntelligenceResult({
         status:
-          sourceCandidates.length > 0
+          acceptedSourceCount > 0
             ? firstWarning
               ? "partial"
               : "complete"
@@ -131,7 +150,7 @@ export class IntelligenceGathererService {
             )
           : undefined,
         knowledge_gaps:
-          sourceCandidates.length > 0 || firstWarning
+          acceptedSourceCount > 0 || firstWarning
             ? []
             : [
                 {
@@ -155,68 +174,4 @@ export class IntelligenceGathererService {
       });
     }
   }
-
-  private toSources(
-    results: readonly SearchResultCandidate[],
-  ): readonly IntelligenceSourceCandidate[] {
-    const fetchedAt = new Date().toISOString();
-
-    return results.map((result) => ({
-      source_type: "search_result",
-      platform: result.provider,
-      url: result.url,
-      title: result.title,
-      snippet: result.snippet,
-      fetched_at: fetchedAt,
-      confidence: result.confidence,
-      metadata: {
-        ...(result.metadata ?? {}),
-        provider: result.provider,
-        rank: result.rank,
-        query: result.query,
-      },
-    }));
-  }
-
-  private toObservations(
-    results: readonly SearchResultCandidate[],
-    intent: SearchQueryIntent,
-    sourceStartIndex: number,
-  ): readonly IntelligenceObservationCandidate[] {
-    return results.map((result, index) => ({
-      kind: observationKindForIntent(intent),
-      statement: result.snippet ?? result.title ?? "Search result found.",
-      source_index: sourceStartIndex + index,
-      confidence: result.confidence,
-      visibility:
-        intent === "competitor_discovery" ? "owner_visible" : "internal",
-      metadata: {
-        provider: result.provider,
-        rank: result.rank,
-        query: result.query,
-      },
-    }));
-  }
-}
-
-function observationKindForIntent(
-  intent: SearchQueryIntent,
-): ResearchObservationKind {
-  switch (intent) {
-    case "business_match":
-    case "review_presence":
-      return "digital_presence";
-    case "competitor_discovery":
-      return "competitor";
-    case "market_context":
-      return "market_context";
-    case "social_profile":
-      return "social_signal";
-    default:
-      return assertNever(intent);
-  }
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled search query intent: ${value}`);
 }
