@@ -13,8 +13,7 @@ describe("DiscoveryService", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
-    updateCurrentQuestion: jest.fn(),
-    updateStatus: jest.fn(),
+    updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const intelligenceRepository = {
@@ -25,8 +24,9 @@ describe("DiscoveryService", () => {
     latestProfileDraft: jest.fn(),
     getIntake: jest.fn(),
     appendMessage: jest.fn(),
+    recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
-    updateSessionConversationState: jest.fn(),
+    completeConversationTurn: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
@@ -126,6 +126,7 @@ describe("DiscoveryService", () => {
     });
     expect(status.intelligence).toEqual(intelligence);
     expect(status.messages).toHaveLength(1);
+    expect(status.strategy_locked).toBe(true);
     expect(status.progress_events).toEqual([
       {
         type: "progress",
@@ -139,6 +140,42 @@ describe("DiscoveryService", () => {
         created_at: "2026-06-29T10:01:00.000Z",
       },
     ]);
+  });
+
+  it("unlocks strategy only after confirmation", async () => {
+    repository.findSessionForOwner.mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      status: "confirmed",
+      languageMode: "mixed",
+      currentQuestion: null,
+      startedAt: new Date("2026-06-29T10:00:00.000Z"),
+      intelligence: {
+        status: "complete",
+        search_mode: "free_search",
+        source_refs: [],
+        research_observations: [],
+        conversation_hooks: [],
+        knowledge_gaps: [],
+      },
+      progressEvents: [],
+      intakes: [
+        {
+          businessName: "Koshary Corner",
+          businessType: "restaurant",
+          city: "Cairo",
+          area: null,
+        },
+      ],
+    } as never);
+    conversationRepository.listMessages.mockResolvedValue([]);
+    conversationRepository.latestProfileDraft.mockResolvedValue(undefined);
+
+    const status = await service.getStatus(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+    );
+
+    expect(status.strategy_locked).toBe(false);
   });
 
   it("surfaces missing sessions from the repository", async () => {

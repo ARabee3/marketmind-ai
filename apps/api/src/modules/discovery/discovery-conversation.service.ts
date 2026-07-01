@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -12,8 +16,16 @@ import {
   BusinessProfileDraft,
   ConfirmProfileResponse,
   DiscoveryRespondResponse,
+  DiscoverySessionStatus,
   DiscoverySummarizeResponse,
 } from "./discovery-state";
+
+const CONVERSATION_STATUSES: readonly DiscoverySessionStatus[] = [
+  "partial_ready",
+  "ready_for_chat",
+  "research_failed",
+  "in_progress",
+];
 
 @Injectable()
 export class DiscoveryConversationService {
@@ -32,6 +44,7 @@ export class DiscoveryConversationService {
       ownerUserId,
       sessionId,
     );
+    assertStatusAllows(session.status, CONVERSATION_STATUSES);
     const languageMode = languageModeFromSession(session.languageMode);
     const intake = await this.conversationRepository.getIntake(sessionId);
     const messages = await this.conversationRepository.listMessages(sessionId);
@@ -60,22 +73,27 @@ export class DiscoveryConversationService {
       );
     }
 
-    const profileDraft = await this.persistProfileDraft(result.profile_draft);
-    const assistantMessage = result.next_question
-      ? await this.conversationRepository.appendMessage(sessionId, {
-          role: "assistant",
-          content: result.next_question,
-          language: languageMode,
-          source: profileDraft ? "summary" : "chat",
-        })
-      : undefined;
-    const status = profileDraft ? "summary_ready" : "in_progress";
-    await this.conversationRepository.updateSessionConversationState(
+    const profileDraft = await this.persistProfileDraft(
       sessionId,
-      status,
-      result.next_question,
-      profileDraft?.id,
+      result.profile_draft,
     );
+    const status = profileDraft ? "summary_ready" : "in_progress";
+    const assistantMessage =
+      await this.conversationRepository.completeConversationTurn(
+        sessionId,
+        CONVERSATION_STATUSES,
+        status,
+        result.next_question,
+        profileDraft?.id,
+        result.next_question
+          ? {
+              role: "assistant",
+              content: result.next_question,
+              language: languageMode,
+              source: profileDraft ? "summary" : "chat",
+            }
+          : undefined,
+      );
 
     return {
       session_id: sessionId,
@@ -96,6 +114,7 @@ export class DiscoveryConversationService {
       ownerUserId,
       sessionId,
     );
+    assertStatusAllows(session.status, CONVERSATION_STATUSES);
     const languageMode = languageModeFromSession(session.languageMode);
     const intake = await this.conversationRepository.getIntake(sessionId);
     const messages = await this.conversationRepository.listMessages(sessionId);
@@ -106,7 +125,10 @@ export class DiscoveryConversationService {
       session.intelligence,
       messages,
     );
-    const profileDraft = await this.persistProfileDraft(result.profile_draft);
+    const profileDraft = await this.persistProfileDraft(
+      sessionId,
+      result.profile_draft,
+    );
     if (!profileDraft) {
       throw new ProviderError(
         "AI_DISCOVERY_PROFILE_DRAFT_MISSING",
@@ -115,17 +137,18 @@ export class DiscoveryConversationService {
       );
     }
 
-    await this.conversationRepository.appendMessage(sessionId, {
-      role: "assistant",
-      content: "Profile draft is ready for confirmation.",
-      language: languageMode,
-      source: "summary",
-    });
-    await this.conversationRepository.updateSessionConversationState(
+    await this.conversationRepository.completeConversationTurn(
       sessionId,
+      CONVERSATION_STATUSES,
       "summary_ready",
       undefined,
       profileDraft.id,
+      {
+        role: "assistant",
+        content: "Profile draft is ready for confirmation.",
+        language: languageMode,
+        source: "summary",
+      },
     );
 
     return {
@@ -149,6 +172,7 @@ export class DiscoveryConversationService {
       ownerUserId,
       sessionId,
     );
+    assertStatusAllows(session.status, ["summary_ready", "confirmed"]);
     const intake = await this.conversationRepository.getIntake(session.id);
 
     return this.conversationRepository.confirmProfile(
@@ -160,13 +184,32 @@ export class DiscoveryConversationService {
   }
 
   private async persistProfileDraft(
+    sessionId: string,
     draft: BusinessProfileDraft | undefined,
   ): Promise<BusinessProfileDraft | undefined> {
     if (!draft) {
       return undefined;
     }
+    if (draft.session_id !== sessionId) {
+      throw new ProviderError(
+        "AI_DISCOVERY_INVALID_OUTPUT",
+        "AI discovery returned a profile draft for another session.",
+        true,
+      );
+    }
 
     return this.conversationRepository.saveProfileDraft(draft);
+  }
+}
+
+function assertStatusAllows(
+  status: DiscoverySessionStatus,
+  allowedStatuses: readonly DiscoverySessionStatus[],
+): void {
+  if (!allowedStatuses.includes(status)) {
+    throw new ConflictException(
+      "Discovery session is not in a valid state for this action",
+    );
   }
 }
 

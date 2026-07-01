@@ -1,4 +1,14 @@
 import "reflect-metadata";
+
+jest.mock("node:dns/promises", () => ({
+  lookup: jest.fn().mockResolvedValue([
+    {
+      address: "93.184.216.34",
+      family: 4,
+    },
+  ]),
+}));
+
 import {
   LanguageModeDto,
   SocialPlatformDto,
@@ -35,11 +45,12 @@ describe("MetadataExtractorService", () => {
   });
 
   it("extracts title and description from owner-submitted links", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      text: async () =>
+    fetchMock.mockResolvedValue(
+      new Response(
         `<html><head><title>Koshary Corner</title><meta name="description" content="Egyptian restaurant in Cairo"></head></html>`,
-    } as Response);
+        { status: 200 },
+      ),
+    );
 
     const result = await new MetadataExtractorService().extract(dto);
 
@@ -78,7 +89,8 @@ describe("MetadataExtractorService", () => {
       metadata: {
         owner_submitted: true,
         metadata_fetch_status: "failed",
-        error_message: "External request failed with 403",
+        error_code: "METADATA_FETCH_FAILED",
+        error_message: "Metadata fetch failed.",
       },
     });
   });

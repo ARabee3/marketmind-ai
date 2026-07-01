@@ -6,7 +6,10 @@ import { SearchProvider, SearchResultCandidate } from "./search-result.types";
 
 @Injectable()
 export class DuckDuckGoSearchProvider implements SearchProvider {
-  async search(query: string): Promise<readonly SearchResultCandidate[]> {
+  async search(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<readonly SearchResultCandidate[]> {
     const config = externalProviderConfig();
 
     try {
@@ -18,13 +21,14 @@ export class DuckDuckGoSearchProvider implements SearchProvider {
 
       const response = await getExternalJson<unknown>(url.toString(), {
         timeoutMs: config.discoverySearchTimeoutMs,
+        signal,
       });
 
       return parseDuckDuckGoResults(response, query);
     } catch (error) {
       throw new ProviderError(
         "DUCKDUCKGO_SEARCH_FAILED",
-        error instanceof Error ? error.message : "DuckDuckGo search failed.",
+        "DuckDuckGo search failed.",
         true,
       );
     }

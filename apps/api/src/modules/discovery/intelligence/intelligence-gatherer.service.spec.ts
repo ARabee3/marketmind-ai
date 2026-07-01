@@ -266,4 +266,30 @@ describe("IntelligenceGathererService", () => {
       retryable: true,
     });
   });
+
+  it("executes only the four highest-priority planned queries", async () => {
+    queryPlanner.plan.mockResolvedValue({
+      source: "deterministic",
+      queries: [10, 100, 40, 90, 80, 70].map((priority) => ({
+        intent: "business_match",
+        query: `query-${priority}`,
+        language: LanguageModeDto.Mixed,
+        priority,
+        provider_hints: ["serpapi"],
+      })),
+    });
+    searchClient.search.mockResolvedValue({
+      results: [],
+      provider_warnings: [],
+    } as never);
+
+    await service.gather(dto);
+
+    expect(searchClient.search.mock.calls.map(([query]) => query)).toEqual([
+      "query-100",
+      "query-90",
+      "query-80",
+      "query-70",
+    ]);
+  });
 });

@@ -21,13 +21,16 @@ export class SearchClientService {
   async search(
     query: string,
     providerHints: readonly SearchProviderHint[] = [],
+    signal?: AbortSignal,
   ): Promise<SearchResponse> {
+    signal?.throwIfAborted();
     const providerWarnings: SearchProviderWarning[] = [];
 
     if (providerHints.includes("apify_google_maps")) {
       const mapsResults = await this.trySearch(
-        () => this.apifyMaps.search(query),
+        () => this.apifyMaps.search(query, signal),
         providerWarnings,
+        signal,
       );
       if (mapsResults.length > 0) {
         return { results: mapsResults, provider_warnings: providerWarnings };
@@ -35,14 +38,16 @@ export class SearchClientService {
     }
 
     const serpResults = await this.trySearch(
-      () => this.serpApi.search(query),
+      () => this.serpApi.search(query, signal),
       providerWarnings,
+      signal,
     );
     if (serpResults.length > 0) {
       return { results: serpResults, provider_warnings: providerWarnings };
     }
 
-    const duckResults = await this.duckDuckGo.search(query);
+    signal?.throwIfAborted();
+    const duckResults = await this.duckDuckGo.search(query, signal);
 
     return { results: duckResults, provider_warnings: providerWarnings };
   }
@@ -50,10 +55,12 @@ export class SearchClientService {
   private async trySearch(
     search: () => Promise<readonly SearchResultCandidate[]>,
     providerWarnings: SearchProviderWarning[],
+    signal?: AbortSignal,
   ): Promise<readonly SearchResultCandidate[]> {
     try {
       return await search();
     } catch (error) {
+      signal?.throwIfAborted();
       if (!(error instanceof ProviderError)) {
         throw error;
       }

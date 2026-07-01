@@ -45,4 +45,24 @@ describe("external HTTP client", () => {
       }),
     ).rejects.toThrow("External response exceeded 10 bytes");
   });
+
+  it("cancels an in-flight request when its parent operation is aborted", async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementation(
+      async (_url, options) =>
+        new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(options.signal?.reason);
+          });
+        }),
+    );
+
+    const request = getExternalText("https://example.com", {
+      signal: controller.signal,
+      validateUrl: false,
+    });
+    controller.abort(new Error("Research deadline reached."));
+
+    await expect(request).rejects.toThrow("Research deadline reached.");
+  });
 });

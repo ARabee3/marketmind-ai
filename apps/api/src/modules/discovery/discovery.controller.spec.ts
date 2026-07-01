@@ -51,8 +51,7 @@ describe("DiscoveryController", () => {
     service.startPreparedDiscovery.mockResolvedValue({
       session_id: "11111111-1111-4111-8111-111111111111",
       status: "researching",
-      progress_ws_url:
-        "/ws/v1/discovery/11111111-1111-4111-8111-111111111111/progress",
+      progress_ws_url: "/ws/v1/discovery",
       status_url:
         "/api/v1/discovery/11111111-1111-4111-8111-111111111111/status",
       accepted_at: "2026-06-29T10:00:00.000Z",

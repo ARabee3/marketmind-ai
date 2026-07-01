@@ -15,8 +15,7 @@ describe("DiscoveryService background research", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
-    updateCurrentQuestion: jest.fn(),
-    updateStatus: jest.fn(),
+    updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const intelligenceRepository = {
@@ -27,8 +26,9 @@ describe("DiscoveryService background research", () => {
     latestProfileDraft: jest.fn(),
     getIntake: jest.fn(),
     appendMessage: jest.fn(),
+    recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
-    updateSessionConversationState: jest.fn(),
+    completeConversationTurn: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
@@ -45,12 +45,16 @@ describe("DiscoveryService background research", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    repository.updateStatusIfCurrent.mockResolvedValue(true);
+    conversationRepository.recordInitialAssistantQuestion.mockResolvedValue(
+      assistantMessage(),
+    );
     repository.appendProgressEvent.mockImplementation(
       async (_sessionId, event) => ({
         type: "progress",
         session_id: SESSION_ID,
         seq: 1,
-        stage: event.stage === "session" ? "queued" : event.stage,
+        stage: event.stage === "session" ? "queued" : "search",
         status: event.status === "completed" ? "complete" : event.status,
         message_key: event.messageKey,
         message_text: event.messageText,
@@ -69,11 +73,10 @@ describe("DiscoveryService background research", () => {
   });
 
   function expectAiUnavailableFallback(): void {
-    expect(repository.updateCurrentQuestion).not.toHaveBeenCalled();
-    expect(repository.updateStatus).toHaveBeenCalledWith(
-      SESSION_ID,
-      "partial_ready",
-    );
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).not.toHaveBeenCalled();
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalled();
     expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
       SESSION_ID,
       expect.objectContaining({ messageKey: "discovery.ready_for_chat" }),
@@ -92,7 +95,7 @@ describe("DiscoveryService background research", () => {
     ).resolves.toEqual({
       session_id: SESSION_ID,
       status: "researching",
-      progress_ws_url: `/ws/v1/discovery/${SESSION_ID}/progress`,
+      progress_ws_url: "/ws/v1/discovery",
       status_url: `/api/v1/discovery/${SESSION_ID}/status`,
       accepted_at: "2026-06-29T10:00:00.000Z",
     });
@@ -101,7 +104,11 @@ describe("DiscoveryService background research", () => {
       dto,
     );
     await flushPromises();
-    expect(gatherer.gather).toHaveBeenCalledWith(dto, expect.any(Function));
+    expect(gatherer.gather).toHaveBeenCalledWith(
+      dto,
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
     expect(intelligenceRepository.saveIntelligenceResult).toHaveBeenCalledWith(
       SESSION_ID,
       intelligence,
@@ -111,9 +118,12 @@ describe("DiscoveryService background research", () => {
       dto,
       intelligence,
     );
-    expect(repository.updateCurrentQuestion).toHaveBeenCalledWith(
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).toHaveBeenCalledWith(
       SESSION_ID,
       "Who are your best current customers?",
+      LanguageModeDto.Mixed,
     );
     expect(repository.appendProgressEvent).toHaveBeenCalledWith(
       SESSION_ID,
@@ -144,7 +154,9 @@ describe("DiscoveryService background research", () => {
       session_id: SESSION_ID,
       status: "researching",
     });
-    expect(intelligenceRepository.saveIntelligenceResult).not.toHaveBeenCalled();
+    expect(
+      intelligenceRepository.saveIntelligenceResult,
+    ).not.toHaveBeenCalled();
 
     pendingGather.resolve(intelligence);
     await flushPromises();
@@ -197,6 +209,62 @@ describe("DiscoveryService background research", () => {
     await flushPromises();
     expectAiUnavailableFallback();
   });
+
+  it("does not expose internal background failure details", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    gatherer.gather.mockRejectedValue(
+      new Error("secret provider host and credentials"),
+    );
+
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+    await flushPromises();
+
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching", "partial_ready", "ready_for_chat", "research_failed"],
+      "failed",
+    );
+    expect(repository.appendProgressEvent).toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.objectContaining({
+        payload: {
+          code: "DISCOVERY_BACKGROUND_FAILED",
+          retryable: true,
+        },
+      }),
+    );
+  });
+
+  it("cancels research when the total deadline is reached", async () => {
+    const previousTimeout = process.env.DISCOVERY_RESEARCH_TIMEOUT_MS;
+    process.env.DISCOVERY_RESEARCH_TIMEOUT_MS = "5";
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    gatherer.gather.mockImplementation(
+      async (_dto, _onProgress, signal) =>
+        new Promise<IntelligenceResult>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            reject(signal.reason);
+          });
+        }),
+    );
+
+    try {
+      await service.startPreparedDiscovery("owner-id", discoveryDto());
+      await new Promise((resolve) => setTimeout(resolve, 15));
+
+      expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+        SESSION_ID,
+        ["researching", "partial_ready", "ready_for_chat", "research_failed"],
+        "failed",
+      );
+    } finally {
+      if (previousTimeout === undefined) {
+        delete process.env.DISCOVERY_RESEARCH_TIMEOUT_MS;
+      } else {
+        process.env.DISCOVERY_RESEARCH_TIMEOUT_MS = previousTimeout;
+      }
+    }
+  });
 });
 
 function session(): { readonly id: string; readonly startedAt: Date } {
@@ -238,6 +306,17 @@ function aiQuestion() {
     research_observations: [],
     source_refs: [],
     domain_scores: {},
+  };
+}
+
+function assistantMessage() {
+  return {
+    id: "assistant-message",
+    role: "assistant" as const,
+    content: "Who are your best current customers?",
+    language: LanguageModeDto.Mixed,
+    source: "chat" as const,
+    created_at: "2026-06-29T10:01:00.000Z",
   };
 }
 

@@ -8,6 +8,7 @@ export type ExternalHttpJsonOptions = {
   readonly validateUrl?: boolean;
   readonly maxBodyBytes?: number;
   readonly maxRedirects?: number;
+  readonly signal?: AbortSignal;
 };
 
 const DEFAULT_MAX_REDIRECTS = 3;
@@ -54,7 +55,7 @@ export async function postExternalJson<T>(
       ...(options.headers ?? {}),
     },
     body: JSON.stringify(body),
-    signal: withTimeout(options.timeoutMs ?? 8000),
+    signal: requestSignal(options.timeoutMs ?? 8000, options.signal),
   });
 
   if (!response.ok) {
@@ -83,7 +84,7 @@ async function fetchExternal(
     const response = await fetch(currentUrl, {
       headers: options.headers,
       redirect: "manual",
-      signal: withTimeout(options.timeoutMs ?? 8000),
+      signal: requestSignal(options.timeoutMs ?? 8000, options.signal),
     });
 
     if (!isRedirect(response.status)) {
@@ -149,12 +150,32 @@ async function responseText(
     throw new Error(`External response exceeded ${maxBodyBytes} bytes`);
   }
 
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > maxBodyBytes) {
-    throw new Error(`External response exceeded ${maxBodyBytes} bytes`);
+  if (!response.body) {
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > maxBodyBytes) {
+      throw new Error(`External response exceeded ${maxBodyBytes} bytes`);
+    }
+    return text;
   }
 
-  return text;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let body = "";
+  let receivedBytes = 0;
+
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) {
+      return body + decoder.decode();
+    }
+
+    receivedBytes += chunk.value.byteLength;
+    if (receivedBytes > maxBodyBytes) {
+      await reader.cancel();
+      throw new Error(`External response exceeded ${maxBodyBytes} bytes`);
+    }
+    body += decoder.decode(chunk.value, { stream: true });
+  }
 }
 
 function isRedirect(status: number): boolean {
@@ -214,4 +235,14 @@ function normalizeHostname(value: string): string {
   return hostname.startsWith("[") && hostname.endsWith("]")
     ? hostname.slice(1, -1)
     : hostname;
+}
+
+function requestSignal(
+  timeoutMs: number,
+  parentSignal: AbortSignal | undefined,
+): AbortSignal {
+  const timeoutSignal = withTimeout(timeoutMs);
+  return parentSignal
+    ? AbortSignal.any([parentSignal, timeoutSignal])
+    : timeoutSignal;
 }

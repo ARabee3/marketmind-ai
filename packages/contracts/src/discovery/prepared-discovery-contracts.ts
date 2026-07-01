@@ -4,7 +4,6 @@ import type {
   DiscoverySessionStatus,
 } from "./discovery-lifecycle";
 import type { Uncertainty, UncertaintyInput } from "./uncertainty.schema";
-import type { ErrorEnvelope } from "../errors/error-envelope";
 
 export type UUID = string;
 export type IsoDateTime = string;
@@ -47,7 +46,7 @@ export interface PreparedDiscoveryIntake {
 export interface SourceRef {
   id: UUID;
   source_type: SourceType;
-  platform?: SocialPlatform;
+  platform?: string;
   url?: string;
   title?: string;
   snippet?: string;
@@ -166,7 +165,7 @@ export interface DiscoveryStatusResponse {
   messages: DiscoveryMessage[];
   profile_draft?: BusinessProfileDraft;
   progress_events: DiscoveryProgressEvent[];
-  strategy_locked: true;
+  strategy_locked: boolean;
 }
 
 export interface DiscoveryRespondRequest {
@@ -179,7 +178,7 @@ export interface DiscoveryRespondResponse {
   status: Extract<DiscoverySessionStatus, "in_progress" | "summary_ready">;
   assistant_message?: DiscoveryMessage;
   updated_known_facts: Record<string, unknown>;
-  uncertainties: BusinessProfileDraft["uncertainties"];
+  uncertainties: UncertaintyInput[];
   profile_draft?: BusinessProfileDraft;
   strategy_locked: true;
 }
@@ -243,5 +242,9 @@ export interface AiDiscoveryResult {
   source_refs: SourceRef[];
   domain_scores: Record<string, number>;
   profile_draft?: BusinessProfileDraft;
-  safe_error?: ErrorEnvelope["error"];
+  safe_error?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+  };
 }

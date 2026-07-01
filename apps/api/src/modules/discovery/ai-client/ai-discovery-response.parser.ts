@@ -8,42 +8,35 @@ import {
 } from "../discovery-state";
 
 export function parseAiDiscoveryResult(value: unknown): AiDiscoveryResult {
-  if (typeof value !== "object" || value === null) {
+  if (!isRecord(value)) {
     throw invalidOutput();
   }
 
-  const candidate = value as {
-    readonly action?: unknown;
-    readonly next_question?: unknown;
-    readonly updated_known_facts?: unknown;
-    readonly updated_uncertainties?: unknown;
-    readonly research_observations?: unknown;
-    readonly source_refs?: unknown;
-    readonly domain_scores?: unknown;
-    readonly profile_draft?: unknown;
-    readonly safe_error?: unknown;
-  };
-
-  if (!isAction(candidate.action)) {
+  if (
+    !isAction(value["action"]) ||
+    !isRecord(value["updated_known_facts"]) ||
+    !isRecord(value["domain_scores"])
+  ) {
     throw invalidOutput();
   }
 
-  return {
-    action: candidate.action,
+  const result: AiDiscoveryResult = {
+    action: value["action"],
     next_question:
-      typeof candidate.next_question === "string"
-        ? candidate.next_question
+      typeof value["next_question"] === "string"
+        ? value["next_question"]
         : undefined,
-    updated_known_facts: objectRecord(candidate.updated_known_facts),
-    updated_uncertainties: uncertainties(candidate.updated_uncertainties),
-    research_observations: researchObservations(
-      candidate.research_observations,
-    ),
-    source_refs: sourceRefs(candidate.source_refs),
-    domain_scores: numberRecord(candidate.domain_scores),
-    profile_draft: profileDraft(candidate.profile_draft),
-    safe_error: safeError(candidate.safe_error),
+    updated_known_facts: value["updated_known_facts"],
+    updated_uncertainties: uncertainties(value["updated_uncertainties"]),
+    research_observations: researchObservations(value["research_observations"]),
+    source_refs: sourceRefs(value["source_refs"]),
+    domain_scores: numberRecord(value["domain_scores"]),
+    profile_draft: profileDraft(value["profile_draft"]),
+    safe_error: safeError(value["safe_error"]),
   };
+
+  assertActionInvariants(result);
+  return result;
 }
 
 function isAction(value: unknown): value is AiDiscoveryResult["action"] {
@@ -63,137 +56,191 @@ function invalidOutput(): ProviderError {
   );
 }
 
-function objectRecord(value: unknown): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-}
-
 function numberRecord(value: unknown): Record<string, number> {
-  const record = objectRecord(value);
-
-  return Object.fromEntries(
-    Object.entries(record).filter((entry): entry is [string, number] => {
-      return typeof entry[1] === "number";
-    }),
-  );
-}
-
-function uncertainties(value: unknown): readonly ProfileUncertainty[] {
-  if (!Array.isArray(value)) {
-    return [];
+  if (
+    !isRecord(value) ||
+    Object.values(value).some(
+      (score) => typeof score !== "number" || !Number.isFinite(score),
+    )
+  ) {
+    throw invalidOutput();
   }
 
-  return value.filter(isProfileUncertainty);
+  return value as Record<string, number>;
 }
 
-function profileDraft(value: unknown): BusinessProfileDraft | undefined {
-  if (!isProfileDraft(value)) {
-    return undefined;
+function uncertainties(value: unknown): ProfileUncertainty[] {
+  if (!Array.isArray(value) || !value.every(isProfileUncertainty)) {
+    throw invalidOutput();
   }
 
   return value;
 }
 
-function sourceRefs(value: unknown): readonly SourceRef[] {
-  if (!Array.isArray(value)) {
-    return [];
+function profileDraft(value: unknown): BusinessProfileDraft | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!isProfileDraft(value)) {
+    throw invalidOutput();
   }
 
-  return value.filter(isSourceRef);
+  return value;
 }
 
-function researchObservations(value: unknown): readonly ResearchObservation[] {
-  if (!Array.isArray(value)) {
-    return [];
+function sourceRefs(value: unknown): SourceRef[] {
+  if (!Array.isArray(value) || !value.every(isSourceRef)) {
+    throw invalidOutput();
   }
 
-  return value.filter(isResearchObservation);
+  return value;
+}
+
+function researchObservations(value: unknown): ResearchObservation[] {
+  if (!Array.isArray(value) || !value.every(isResearchObservation)) {
+    throw invalidOutput();
+  }
+
+  return value;
 }
 
 function safeError(value: unknown): AiDiscoveryResult["safe_error"] {
-  const record = objectRecord(value);
-  if (
-    typeof record["code"] !== "string" ||
-    typeof record["message"] !== "string" ||
-    typeof record["retryable"] !== "boolean"
-  ) {
+  if (value === undefined || value === null) {
     return undefined;
+  }
+  if (
+    !isRecord(value) ||
+    typeof value["code"] !== "string" ||
+    typeof value["message"] !== "string" ||
+    typeof value["retryable"] !== "boolean"
+  ) {
+    throw invalidOutput();
   }
 
   return {
-    code: record["code"],
-    message: record["message"],
-    retryable: record["retryable"],
+    code: value["code"],
+    message: value["message"],
+    retryable: value["retryable"],
   };
 }
 
 function isProfileUncertainty(value: unknown): value is ProfileUncertainty {
-  const record = objectRecord(value);
+  if (!isRecord(value)) {
+    return false;
+  }
 
   return (
-    typeof record["field_key"] === "string" &&
-    typeof record["description"] === "string" &&
-    isSeverity(record["severity"])
+    typeof value["field_key"] === "string" &&
+    typeof value["description"] === "string" &&
+    isSeverity(value["severity"]) &&
+    isUncertaintyCategory(value["category"]) &&
+    isUncertaintySource(value["source"]) &&
+    optionalString(value["source_ref_id"]) &&
+    optionalString(value["owner_stated_value"]) &&
+    optionalString(value["research_suggested_value"]) &&
+    optionalString(value["contradiction_detail"])
   );
 }
 
 function isSourceRef(value: unknown): value is SourceRef {
-  const record = objectRecord(value);
+  if (!isRecord(value)) {
+    return false;
+  }
 
   return (
-    typeof record["id"] === "string" &&
-    isSourceType(record["source_type"]) &&
-    optionalString(record["platform"]) &&
-    optionalString(record["url"]) &&
-    optionalString(record["title"]) &&
-    optionalString(record["snippet"]) &&
-    optionalString(record["fetched_at"]) &&
-    typeof record["confidence"] === "number" &&
-    typeof record["metadata"] === "object" &&
-    record["metadata"] !== null &&
-    !Array.isArray(record["metadata"])
+    typeof value["id"] === "string" &&
+    isSourceType(value["source_type"]) &&
+    optionalString(value["platform"]) &&
+    optionalString(value["url"]) &&
+    optionalString(value["title"]) &&
+    optionalString(value["snippet"]) &&
+    optionalString(value["fetched_at"]) &&
+    isConfidence(value["confidence"]) &&
+    isRecord(value["metadata"])
   );
 }
 
 function isResearchObservation(value: unknown): value is ResearchObservation {
-  const record = objectRecord(value);
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const baseIsValid =
+    typeof value["id"] === "string" &&
+    optionalString(value["source_ref_id"]) &&
+    isObservationKind(value["kind"]) &&
+    typeof value["statement"] === "string" &&
+    isConfidence(value["confidence"]) &&
+    isObservationVisibility(value["visibility"]) &&
+    isObservationStatus(value["status"]) &&
+    optionalString(value["discard_reason"]) &&
+    isRecord(value["metadata"]);
+  if (!baseIsValid) {
+    return false;
+  }
+
+  const hasSource =
+    typeof value["source_ref_id"] === "string" ||
+    typeof value["metadata"]["source_label"] === "string";
 
   return (
-    typeof record["id"] === "string" &&
-    optionalString(record["source_ref_id"]) &&
-    isObservationKind(record["kind"]) &&
-    typeof record["statement"] === "string" &&
-    typeof record["confidence"] === "number" &&
-    isObservationVisibility(record["visibility"]) &&
-    isObservationStatus(record["status"]) &&
-    optionalString(record["discard_reason"]) &&
-    typeof record["metadata"] === "object" &&
-    record["metadata"] !== null &&
-    !Array.isArray(record["metadata"])
+    (value["status"] !== "discarded" ||
+      nonEmptyString(value["discard_reason"])) &&
+    (value["visibility"] !== "owner_visible" || hasSource)
   );
 }
 
 function isProfileDraft(value: unknown): value is BusinessProfileDraft {
-  const record = objectRecord(value);
+  if (!isRecord(value)) {
+    return false;
+  }
 
   return (
-    typeof record["id"] === "string" &&
-    typeof record["session_id"] === "string" &&
-    typeof record["version"] === "number" &&
-    typeof record["confirmed_facts"] === "object" &&
-    Array.isArray(record["research_observations"]) &&
-    Array.isArray(record["uncertainties"]) &&
-    Array.isArray(record["owner_goals"]) &&
-    Array.isArray(record["strategy_relevant_notes"]) &&
-    typeof record["raw_ai_output"] === "object"
+    typeof value["id"] === "string" &&
+    typeof value["session_id"] === "string" &&
+    Number.isInteger(value["version"]) &&
+    (value["version"] as number) > 0 &&
+    isDraftStatus(value["status"]) &&
+    isRecord(value["confirmed_facts"]) &&
+    Array.isArray(value["research_observations"]) &&
+    value["research_observations"].every(isResearchObservation) &&
+    Array.isArray(value["uncertainties"]) &&
+    value["uncertainties"].every(isResolvedUncertainty) &&
+    isStringArray(value["owner_goals"]) &&
+    isStringArray(value["strategy_relevant_notes"]) &&
+    isRecord(value["raw_ai_output"])
   );
 }
 
 function isSeverity(value: unknown): value is ProfileUncertainty["severity"] {
   return value === "low" || value === "medium" || value === "high";
+}
+
+function isUncertaintyCategory(
+  value: unknown,
+): value is ProfileUncertainty["category"] {
+  return (
+    value === "missing_information" ||
+    value === "contradiction" ||
+    value === "low_confidence" ||
+    value === "owner_unknown" ||
+    value === "research_gap" ||
+    value === "ambiguous_answer"
+  );
+}
+
+function isUncertaintySource(
+  value: unknown,
+): value is ProfileUncertainty["source"] {
+  return (
+    value === "owner_answer" ||
+    value === "owner_unknown" ||
+    value === "research_observation" ||
+    value === "metadata_extraction" ||
+    value === "search_result" ||
+    value === "intake_form" ||
+    value === "ai_inference"
+  );
 }
 
 function isSourceType(value: unknown): value is SourceRef["source_type"] {
@@ -231,4 +278,87 @@ function isObservationStatus(
 
 function optionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
+}
+
+function isResolvedUncertainty(
+  value: unknown,
+): value is BusinessProfileDraft["uncertainties"][number] {
+  return (
+    isProfileUncertainty(value) &&
+    isRecord(value) &&
+    typeof value["resolved"] === "boolean" &&
+    optionalString(value["resolved_at"]) &&
+    (value["resolved_by_action"] === undefined ||
+      value["resolved_by_action"] === "owner_clarified" ||
+      value["resolved_by_action"] === "research_confirmed" ||
+      value["resolved_by_action"] === "discarded" ||
+      value["resolved_by_action"] === "skipped")
+  );
+}
+
+function isDraftStatus(
+  value: unknown,
+): value is BusinessProfileDraft["status"] {
+  return (
+    value === "draft" ||
+    value === "ready_for_confirmation" ||
+    value === "confirmed" ||
+    value === "superseded"
+  );
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isConfidence(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 1
+  );
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertActionInvariants(result: AiDiscoveryResult): void {
+  const asksQuestion =
+    result.action === "ask_next_question" ||
+    result.action === "ask_clarification";
+  if (asksQuestion && !nonEmptyString(result.next_question)) {
+    throw invalidOutput();
+  }
+  if (asksQuestion && result.profile_draft) {
+    throw invalidOutput();
+  }
+  if (result.action === "produce_profile_draft" && !result.profile_draft) {
+    throw invalidOutput();
+  }
+  if (
+    result.action === "produce_profile_draft" &&
+    result.next_question !== undefined
+  ) {
+    throw invalidOutput();
+  }
+  if (result.action === "safe_failure" && !result.safe_error) {
+    throw invalidOutput();
+  }
+  if (
+    result.action === "safe_failure" &&
+    (result.next_question !== undefined || result.profile_draft !== undefined)
+  ) {
+    throw invalidOutput();
+  }
+  if (result.action !== "safe_failure" && result.safe_error) {
+    throw invalidOutput();
+  }
 }

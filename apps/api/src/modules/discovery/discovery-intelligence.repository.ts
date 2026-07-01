@@ -49,8 +49,8 @@ export class DiscoveryIntelligenceRepository {
         observationIdByContractId,
       );
       await this.createKnowledgeGaps(tx, sessionId, intelligence);
-      await tx.discoverySession.update({
-        where: { id: sessionId },
+      await tx.discoverySession.updateMany({
+        where: { id: sessionId, status: "researching" },
         data: { status: sessionStatusForIntelligence(intelligence) },
       });
     });

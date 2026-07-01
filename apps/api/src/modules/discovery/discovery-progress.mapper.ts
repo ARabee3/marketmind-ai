@@ -14,7 +14,7 @@ export type PersistedProgressEvent = {
 
 export function progressEventsFromPersistence(
   events: readonly PersistedProgressEvent[] = [],
-): readonly DiscoveryProgressEvent[] {
+): DiscoveryProgressEvent[] {
   return events.map((event) => ({
     type: "progress",
     session_id: event.sessionId,
@@ -43,7 +43,7 @@ function progressStatus(value: string): DiscoveryProgressEvent["status"] {
   }
 }
 
-function progressStage(value: string): string {
+function progressStage(value: string): DiscoveryProgressEvent["stage"] {
   switch (value) {
     case "session":
       return "queued";
@@ -53,8 +53,19 @@ function progressStage(value: string): string {
       return "ai_start";
     case "background":
       return "failed";
-    default:
+    case "queued":
+    case "query_planning":
+    case "metadata":
+    case "competitor_searching":
+    case "search":
+    case "filtering":
+    case "persisting":
+    case "ai_start":
+    case "ready":
+    case "failed":
       return value;
+    default:
+      return "failed";
   }
 }
 

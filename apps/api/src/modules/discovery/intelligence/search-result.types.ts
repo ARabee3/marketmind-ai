@@ -23,5 +23,8 @@ export type SearchResponse = {
 };
 
 export interface SearchProvider {
-  search(query: string): Promise<readonly SearchResultCandidate[]>;
+  search(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<readonly SearchResultCandidate[]>;
 }

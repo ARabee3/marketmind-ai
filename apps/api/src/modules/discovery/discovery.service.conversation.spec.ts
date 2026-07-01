@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -19,8 +19,7 @@ describe("DiscoveryService conversation", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
-    updateCurrentQuestion: jest.fn(),
-    updateStatus: jest.fn(),
+    updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const conversationRepository = {
@@ -28,8 +27,9 @@ describe("DiscoveryService conversation", () => {
     latestProfileDraft: jest.fn(),
     getIntake: jest.fn(),
     appendMessage: jest.fn(),
+    recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
-    updateSessionConversationState: jest.fn(),
+    completeConversationTurn: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const aiDiscoveryClient = {
@@ -54,6 +54,26 @@ describe("DiscoveryService conversation", () => {
         source: message.source,
         created_at: "2026-06-29T10:05:00.000Z",
       }),
+    );
+    conversationRepository.completeConversationTurn.mockImplementation(
+      async (
+        _sessionId,
+        _allowedStatuses,
+        _status,
+        _currentQuestion,
+        _profileDraftId,
+        message,
+      ) =>
+        message
+          ? {
+              id: "assistant-message",
+              role: message.role,
+              content: message.content,
+              language: message.language,
+              source: message.source,
+              created_at: "2026-06-29T10:05:00.000Z",
+            }
+          : undefined,
     );
     service = new DiscoveryConversationService(
       repository,
@@ -82,14 +102,19 @@ describe("DiscoveryService conversation", () => {
       [assistantMessage()],
       expect.objectContaining({ role: "owner" }),
     );
-    expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(2);
+    expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(1);
     expect(
-      conversationRepository.updateSessionConversationState,
+      conversationRepository.completeConversationTurn,
     ).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
+      ["partial_ready", "ready_for_chat", "research_failed", "in_progress"],
       "in_progress",
       "What offer sells best today?",
       undefined,
+      expect.objectContaining({
+        role: "assistant",
+        content: "What offer sells best today?",
+      }),
     );
     expect(response.status).toBe("in_progress");
     expect(response.assistant_message?.content).toBe(
@@ -120,7 +145,7 @@ describe("DiscoveryService conversation", () => {
     ).rejects.toBeInstanceOf(ProviderError);
     expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(1);
     expect(
-      conversationRepository.updateSessionConversationState,
+      conversationRepository.completeConversationTurn,
     ).not.toHaveBeenCalled();
   });
 
@@ -140,12 +165,17 @@ describe("DiscoveryService conversation", () => {
 
     expect(conversationRepository.saveProfileDraft).toHaveBeenCalledWith(draft);
     expect(
-      conversationRepository.updateSessionConversationState,
+      conversationRepository.completeConversationTurn,
     ).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
+      ["partial_ready", "ready_for_chat", "research_failed", "in_progress"],
       "summary_ready",
       undefined,
       draft.id,
+      expect.objectContaining({
+        role: "assistant",
+        source: "summary",
+      }),
     );
     expect(response.profile_draft.id).toBe(draft.id);
   });
@@ -169,6 +199,9 @@ describe("DiscoveryService conversation", () => {
       confirmed_at: "2026-06-29T10:10:00.000Z",
       strategy_locked: false,
     });
+    repository.findSessionForOwner.mockResolvedValue(
+      session("summary_ready") as never,
+    );
 
     const response = await service.confirmProfile(
       "owner-id",
@@ -187,12 +220,47 @@ describe("DiscoveryService conversation", () => {
       intake(),
     );
   });
+
+  it("rejects conversation writes after a terminal state", async () => {
+    repository.findSessionForOwner.mockResolvedValue(
+      session("confirmed") as never,
+    );
+
+    await expect(
+      service.respondToDiscovery(
+        "owner-id",
+        "11111111-1111-4111-8111-111111111111",
+        { message: "This should not be stored." },
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(conversationRepository.appendMessage).not.toHaveBeenCalled();
+    expect(aiDiscoveryClient.respond).not.toHaveBeenCalled();
+  });
+
+  it("rejects a profile draft produced for another session", async () => {
+    aiDiscoveryClient.summarize.mockResolvedValue({
+      ...aiResult(),
+      action: "produce_profile_draft",
+      profile_draft: {
+        ...profileDraft(),
+        session_id: "22222222-2222-4222-8222-222222222222",
+      },
+    });
+
+    await expect(
+      service.summarizeDiscovery(
+        "owner-id",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).rejects.toMatchObject({ code: "AI_DISCOVERY_INVALID_OUTPUT" });
+    expect(conversationRepository.saveProfileDraft).not.toHaveBeenCalled();
+  });
 });
 
-function session() {
+function session(status = "ready_for_chat") {
   return {
     id: "11111111-1111-4111-8111-111111111111",
-    status: "ready_for_chat",
+    status,
     languageMode: LanguageModeDto.Mixed,
     currentQuestion: "Who are your best current customers?",
     startedAt: new Date("2026-06-29T10:00:00.000Z"),

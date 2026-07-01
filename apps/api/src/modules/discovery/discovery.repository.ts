@@ -4,6 +4,7 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 import {
   DiscoveryProgressEvent,
   DiscoveryProgressInput,
+  DiscoverySessionStatus,
   IntelligenceResult,
 } from "./discovery-state";
 import {
@@ -18,7 +19,7 @@ import {
 
 type DiscoverySessionWithIntake = {
   id: string;
-  status: string;
+  status: DiscoverySessionStatus;
   languageMode: string;
   currentQuestion: string | null;
   startedAt: Date;
@@ -183,29 +184,26 @@ export class DiscoveryRepository {
 
     return {
       ...session,
+      status: session.status as DiscoverySessionStatus,
       intelligence: intelligenceFromPersistence(session),
       progressEvents: session.discoveryProgressEvents,
     };
   }
 
-  async updateCurrentQuestion(
+  async updateStatusIfCurrent(
     sessionId: string,
-    currentQuestion: string,
-  ): Promise<void> {
-    await this.prisma.discoverySession.update({
-      where: { id: sessionId },
-      data: {
-        currentQuestion,
-        status: "in_progress",
+    allowedStatuses: readonly DiscoverySessionStatus[],
+    status: DiscoverySessionStatus,
+  ): Promise<boolean> {
+    const result = await this.prisma.discoverySession.updateMany({
+      where: {
+        id: sessionId,
+        status: { in: [...allowedStatuses] },
       },
-    });
-  }
-
-  async updateStatus(sessionId: string, status: string): Promise<void> {
-    await this.prisma.discoverySession.update({
-      where: { id: sessionId },
       data: { status },
     });
+
+    return result.count === 1;
   }
 
   async appendProgressEvent(

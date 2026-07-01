@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { externalProviderConfig } from "../../common/config/external-provider.config";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -47,7 +48,7 @@ export class DiscoveryService {
     return {
       session_id: session.id,
       status: "researching",
-      progress_ws_url: `/ws/v1/discovery/${session.id}/progress`,
+      progress_ws_url: "/ws/v1/discovery",
       status_url: `/api/v1/discovery/${session.id}/status`,
       accepted_at: session.startedAt.toISOString(),
     };
@@ -64,9 +65,17 @@ export class DiscoveryService {
         messageKey: "discovery.intelligence.started",
         messageText: "Research started.",
       });
-      const intelligence = await this.intelligenceGatherer.gather(
-        dto,
-        (event) => this.recordProgress(sessionId, event),
+      const intelligence = await withResearchDeadline(
+        (signal) =>
+          this.intelligenceGatherer.gather(
+            dto,
+            (event) => {
+              signal.throwIfAborted();
+              return this.recordProgress(sessionId, event);
+            },
+            signal,
+          ),
+        externalProviderConfig().discoveryResearchTimeoutMs,
       );
       await this.recordProgress(sessionId, {
         stage: "persisting",
@@ -101,7 +110,11 @@ export class DiscoveryService {
         messageKey: "discovery.ai.started",
         messageText: "Preparing the first discovery question.",
       });
-      const aiStarted = await this.startAiDiscovery(sessionId, dto, intelligence);
+      const aiStarted = await this.startAiDiscovery(
+        sessionId,
+        dto,
+        intelligence,
+      );
       await this.recordProgress(sessionId, {
         stage: "ai_discovery",
         status: aiStarted ? "completed" : "failed",
@@ -113,7 +126,6 @@ export class DiscoveryService {
           : "AI discovery provider is not available yet.",
       });
       if (!aiStarted) {
-        await this.discoveryRepository.updateStatus(sessionId, "partial_ready");
         return;
       }
       await this.recordProgress(sessionId, {
@@ -141,9 +153,10 @@ export class DiscoveryService {
       if (result.safe_error || !result.next_question) {
         return false;
       }
-      await this.discoveryRepository.updateCurrentQuestion(
+      await this.conversationRepository.recordInitialAssistantQuestion(
         sessionId,
         result.next_question,
+        dto.language_mode ?? LanguageModeDto.Mixed,
       );
       return true;
     } catch (error) {
@@ -162,15 +175,22 @@ export class DiscoveryService {
       "Discovery background research failed",
       error instanceof Error ? error.stack : String(error),
     );
-    await this.discoveryRepository.updateStatus(sessionId, "failed");
+    const failed = await this.discoveryRepository.updateStatusIfCurrent(
+      sessionId,
+      ["researching", "partial_ready", "ready_for_chat", "research_failed"],
+      "failed",
+    );
+    if (!failed) {
+      return;
+    }
     await this.recordProgress(sessionId, {
       stage: "background",
       status: "failed",
       messageKey: "discovery.background.failed",
       messageText: "Discovery research failed.",
       payload: {
-        message:
-          error instanceof Error ? error.message : "Unknown discovery failure.",
+        code: "DISCOVERY_BACKGROUND_FAILED",
+        retryable: true,
       },
     });
   }
@@ -216,8 +236,29 @@ export class DiscoveryService {
       messages,
       profile_draft: profileDraft,
       progress_events: progressEventsFromPersistence(session.progressEvents),
-      strategy_locked: true,
+      strategy_locked: session.status !== "confirmed",
     };
   }
+}
 
+async function withResearchDeadline<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  const controller = new AbortController();
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      controller.abort();
+      reject(new Error("Discovery research exceeded its time limit."));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([operation(controller.signal), timeout]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 }

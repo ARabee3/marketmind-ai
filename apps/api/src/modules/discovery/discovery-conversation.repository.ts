@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import {
   BusinessProfileDraft,
   ConfirmProfileResponse,
   DiscoveryMessage,
+  DiscoverySessionStatus,
 } from "./discovery-state";
 import {
   messageFromPersistence,
@@ -42,7 +47,7 @@ export class DiscoveryConversationRepository {
     return messageFromPersistence(saved);
   }
 
-  async listMessages(sessionId: string): Promise<readonly DiscoveryMessage[]> {
+  async listMessages(sessionId: string): Promise<DiscoveryMessage[]> {
     const messages = await this.prisma.discoveryMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: "asc" },
@@ -81,7 +86,9 @@ export class DiscoveryConversationRepository {
         researchObservations: jsonForPrismaArray(draft.research_observations),
         uncertainties: jsonForPrismaArray(draft.uncertainties),
         ownerGoals: jsonForPrismaArray(draft.owner_goals),
-        strategyRelevantNotes: jsonForPrismaArray(draft.strategy_relevant_notes),
+        strategyRelevantNotes: jsonForPrismaArray(
+          draft.strategy_relevant_notes,
+        ),
         rawAiOutput: jsonForPrisma(draft.raw_ai_output),
       },
       update: {
@@ -90,7 +97,9 @@ export class DiscoveryConversationRepository {
         researchObservations: jsonForPrismaArray(draft.research_observations),
         uncertainties: jsonForPrismaArray(draft.uncertainties),
         ownerGoals: jsonForPrismaArray(draft.owner_goals),
-        strategyRelevantNotes: jsonForPrismaArray(draft.strategy_relevant_notes),
+        strategyRelevantNotes: jsonForPrismaArray(
+          draft.strategy_relevant_notes,
+        ),
         rawAiOutput: jsonForPrisma(draft.raw_ai_output),
       },
     });
@@ -98,20 +107,74 @@ export class DiscoveryConversationRepository {
     return profileDraftFromPersistence(saved);
   }
 
-  async updateSessionConversationState(
+  async completeConversationTurn(
     sessionId: string,
+    allowedStatuses: readonly DiscoverySessionStatus[],
     status: "in_progress" | "summary_ready",
     currentQuestion?: string,
     profileDraftId?: string,
-  ): Promise<void> {
-    await this.prisma.discoverySession.update({
-      where: { id: sessionId },
-      data: {
-        status,
-        currentQuestion,
-        profileDraftId,
-      },
+    assistantMessage?: MessageInput,
+  ): Promise<DiscoveryMessage | undefined> {
+    const savedMessage = await this.prisma.$transaction(async (tx) => {
+      const transition = await tx.discoverySession.updateMany({
+        where: {
+          id: sessionId,
+          status: { in: [...allowedStatuses] },
+        },
+        data: {
+          status,
+          currentQuestion: currentQuestion ?? null,
+          profileDraftId,
+        },
+      });
+
+      if (transition.count !== 1) {
+        throw invalidDiscoveryState();
+      }
+
+      if (!assistantMessage) {
+        return undefined;
+      }
+
+      return tx.discoveryMessage.create({
+        data: {
+          sessionId,
+          role: assistantMessage.role,
+          content: assistantMessage.content,
+          language: assistantMessage.language,
+          source: assistantMessage.source,
+          metadata: jsonForPrisma(assistantMessage.metadata ?? {}),
+        },
+      });
     });
+
+    return savedMessage ? messageFromPersistence(savedMessage) : undefined;
+  }
+
+  async recordInitialAssistantQuestion(
+    sessionId: string,
+    content: string,
+    language: DiscoveryMessage["language"],
+  ): Promise<DiscoveryMessage> {
+    const message = await this.completeConversationTurn(
+      sessionId,
+      ["partial_ready", "ready_for_chat", "research_failed"],
+      "in_progress",
+      content,
+      undefined,
+      {
+        role: "assistant",
+        content,
+        language,
+        source: "chat",
+      },
+    );
+
+    if (!message) {
+      throw new Error("Initial discovery question was not persisted.");
+    }
+
+    return message;
   }
 
   async getIntake(sessionId: string): Promise<PreparedDiscoveryIntakeDto> {
@@ -153,6 +216,62 @@ export class DiscoveryConversationRepository {
         throw new NotFoundException("Profile draft not found");
       }
 
+      if (session.status === "confirmed") {
+        if (
+          session.profileDraftId !== profileDraftId ||
+          !session.confirmedProfileVersionId
+        ) {
+          throw new ConflictException(
+            "Discovery session was confirmed with a different profile draft",
+          );
+        }
+
+        const existingVersion = await tx.businessProfileVersion.findUnique({
+          where: { id: session.confirmedProfileVersionId },
+        });
+        if (!existingVersion) {
+          throw new ConflictException(
+            "Confirmed profile version is not available",
+          );
+        }
+        return existingVersion;
+      }
+
+      if (
+        session.status !== "summary_ready" ||
+        session.profileDraftId !== profileDraftId
+      ) {
+        throw invalidDiscoveryState();
+      }
+
+      const claim = await tx.discoverySession.updateMany({
+        where: {
+          id: sessionId,
+          ownerUserId,
+          status: "summary_ready",
+          profileDraftId,
+        },
+        data: { status: "confirmed" },
+      });
+      if (claim.count !== 1) {
+        const confirmedSession = await tx.discoverySession.findFirst({
+          where: { id: sessionId, ownerUserId },
+        });
+        if (
+          confirmedSession?.status === "confirmed" &&
+          confirmedSession.profileDraftId === profileDraftId &&
+          confirmedSession.confirmedProfileVersionId
+        ) {
+          const existingVersion = await tx.businessProfileVersion.findUnique({
+            where: { id: confirmedSession.confirmedProfileVersionId },
+          });
+          if (existingVersion) {
+            return existingVersion;
+          }
+        }
+        throw invalidDiscoveryState();
+      }
+
       const businessId =
         session.businessId ??
         (
@@ -170,15 +289,28 @@ export class DiscoveryConversationRepository {
           })
         ).id;
 
-      const nextVersion =
-        (await tx.businessProfileVersion.count({ where: { businessId } })) + 1;
+      const latestVersion = await tx.businessProfileVersion.aggregate({
+        where: { businessId },
+        _max: { version: true },
+      });
+      const nextVersion = (latestVersion._max.version ?? 0) + 1;
       const savedVersion = await tx.businessProfileVersion.create({
         data: {
           businessId,
           draftId: draft.id,
           version: nextVersion,
           profile: jsonForPrisma({
+            business_name: intake.business_name,
+            business_type: intake.business_type,
+            city: intake.city,
+            ...(intake.area === undefined ? {} : { area: intake.area }),
+            ...(intake.address_text === undefined
+              ? {}
+              : { address_text: intake.address_text }),
+            primary_locale: session.languageMode,
             confirmed_facts: draft.confirmedFacts,
+            research_observations: draft.researchObservations,
+            uncertainties: draft.uncertainties,
             owner_goals: draft.ownerGoals,
             strategy_relevant_notes: draft.strategyRelevantNotes,
           }),
@@ -220,4 +352,10 @@ function jsonForPrisma(value: Record<string, unknown>): Prisma.InputJsonObject {
 
 function jsonForPrismaArray(value: readonly unknown[]): Prisma.InputJsonArray {
   return [...value] as Prisma.InputJsonArray;
+}
+
+function invalidDiscoveryState(): ConflictException {
+  return new ConflictException(
+    "Discovery session is not in a valid state for this action",
+  );
 }

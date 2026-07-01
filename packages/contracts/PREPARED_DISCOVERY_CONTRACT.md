@@ -27,11 +27,15 @@ Prepared Discovery is a research-first intake flow:
 
 ## WebSocket Contract
 
-Progress route:
+Socket.IO namespace:
 
 ```text
-WS /ws/v1/discovery/:session_id/progress
+WS /ws/v1/discovery
 ```
+
+After authenticating, the client emits `discovery.join` with
+`{"session_id":"<uuid>"}`. The server verifies ownership, joins the
+session-specific room, and emits `discovery.progress.snapshot`.
 
 Progress events are live feedback only. If the client disconnects, it should call
 `GET /api/v1/discovery/:session_id/status`.

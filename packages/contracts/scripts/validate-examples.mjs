@@ -17,8 +17,12 @@ const discoveryStatuses = new Set([
 
 const progressStages = new Set([
   "queued",
+  "query_planning",
   "metadata",
+  "competitor_searching",
   "search",
+  "filtering",
+  "persisting",
   "ai_start",
   "ready",
   "failed",
@@ -352,8 +356,8 @@ assert(
 );
 assertString(startResponse.session_id, "startResponse.session_id");
 assert(
-  startResponse.progress_ws_url.includes(startResponse.session_id),
-  "progress URL must include session id",
+  startResponse.progress_ws_url === "/ws/v1/discovery",
+  "progress URL must identify the Socket.IO discovery namespace",
 );
 assert(
   startResponse.status_url.includes(startResponse.session_id),

@@ -82,6 +82,33 @@ describe("AiDiscoveryClient", () => {
     );
   });
 
+  it("uses the dedicated AI request timeout", async () => {
+    process.env.DISCOVERY_SEARCH_TIMEOUT_MS = "1";
+    process.env.AI_REQUEST_TIMEOUT_MS = "30000";
+    const timeoutSpy = jest.spyOn(AbortSignal, "timeout");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        action: "ask_next_question",
+        next_question: "Who are your best current customers?",
+        updated_known_facts: {},
+        updated_uncertainties: [],
+        research_observations: [],
+        source_refs: [],
+        domain_scores: {},
+      }),
+    } as Response);
+
+    await new AiDiscoveryClient().start(
+      "11111111-1111-4111-8111-111111111111",
+      dto,
+      intelligence,
+    );
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30000);
+    timeoutSpy.mockRestore();
+  });
+
   it("preserves AI discovery source and observation arrays", async () => {
     fetchMock.mockResolvedValue({
       ok: true,

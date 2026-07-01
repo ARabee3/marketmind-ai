@@ -6,7 +6,10 @@ import { SearchProvider, SearchResultCandidate } from "./search-result.types";
 
 @Injectable()
 export class SerpApiSearchProvider implements SearchProvider {
-  async search(query: string): Promise<readonly SearchResultCandidate[]> {
+  async search(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<readonly SearchResultCandidate[]> {
     const config = externalProviderConfig();
 
     if (!config.serpApiKey) {
@@ -28,6 +31,7 @@ export class SerpApiSearchProvider implements SearchProvider {
 
       const response = await getExternalJson<unknown>(url.toString(), {
         timeoutMs: config.discoverySearchTimeoutMs,
+        signal,
       });
 
       return parseSerpApiResults(response, query);
@@ -38,7 +42,7 @@ export class SerpApiSearchProvider implements SearchProvider {
 
       throw new ProviderError(
         "SERPAPI_SEARCH_FAILED",
-        error instanceof Error ? error.message : "SerpApi search failed.",
+        "SerpApi search failed.",
         true,
       );
     }

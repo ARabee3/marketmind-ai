@@ -30,14 +30,17 @@ export class IntelligenceGathererService {
   async gather(
     dto: StartDiscoveryDto,
     onProgress?: IntelligenceProgressCallback,
+    signal?: AbortSignal,
   ): Promise<IntelligenceResult> {
+    signal?.throwIfAborted();
     await onProgress?.({
       stage: "query_planning",
       status: "started",
       messageKey: "discovery.query_planning.started",
       messageText: "Planning useful research searches.",
     });
-    const plan = await this.queryPlanner.plan(dto);
+    const plan = await this.queryPlanner.plan(dto, signal);
+    signal?.throwIfAborted();
     await onProgress?.({
       stage: "query_planning",
       status: "completed",
@@ -51,7 +54,8 @@ export class IntelligenceGathererService {
       messageKey: "discovery.metadata.started",
       messageText: "Checking owner-submitted links.",
     });
-    const metadata = await this.metadataExtractor.extract(dto);
+    const metadata = await this.metadataExtractor.extract(dto, signal);
+    signal?.throwIfAborted();
     await onProgress?.({
       stage: "metadata",
       status: "completed",
@@ -67,7 +71,11 @@ export class IntelligenceGathererService {
       sourceCandidates.push(...metadata.source_refs);
       observationCandidates.push(...metadata.research_observations);
 
-      for (const plannedQuery of plan.queries.slice(0, MAX_QUERIES_PER_RUN)) {
+      const prioritizedQueries = [...plan.queries]
+        .sort((left, right) => right.priority - left.priority)
+        .slice(0, MAX_QUERIES_PER_RUN);
+      for (const plannedQuery of prioritizedQueries) {
+        signal?.throwIfAborted();
         const searchStage =
           plannedQuery.intent === "competitor_discovery"
             ? "competitor_searching"
@@ -85,7 +93,9 @@ export class IntelligenceGathererService {
         const searchResponse = await this.searchClient.search(
           plannedQuery.query,
           plannedQuery.provider_hints,
+          signal,
         );
+        signal?.throwIfAborted();
         providerWarnings.push(...searchResponse.provider_warnings);
         await onProgress?.({
           stage: searchStage,
@@ -127,6 +137,7 @@ export class IntelligenceGathererService {
         });
       }
 
+      signal?.throwIfAborted();
       const firstWarning = providerWarnings[0];
       const acceptedSourceCount = sourceCandidates.filter(
         (source) => source.status !== "discarded",
@@ -162,6 +173,7 @@ export class IntelligenceGathererService {
               ],
       });
     } catch (error) {
+      signal?.throwIfAborted();
       if (!(error instanceof ProviderError)) {
         throw error;
       }

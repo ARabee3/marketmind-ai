@@ -10,7 +10,7 @@ import {
 
 @Injectable()
 export class AiQueryPlanningClient {
-  async plan(dto: StartDiscoveryDto): Promise<QueryPlan> {
+  async plan(dto: StartDiscoveryDto, signal?: AbortSignal): Promise<QueryPlan> {
     const config = externalProviderConfig();
 
     if (!config.aiServiceBaseUrl) {
@@ -25,7 +25,7 @@ export class AiQueryPlanningClient {
       const response = await postExternalJson<unknown>(
         `${config.aiServiceBaseUrl}/internal/v1/ai/search/query-plan`,
         dto,
-        { timeoutMs: config.discoverySearchTimeoutMs },
+        { timeoutMs: config.aiRequestTimeoutMs, signal },
       );
 
       return parseQueryPlan(response);
@@ -36,9 +36,7 @@ export class AiQueryPlanningClient {
 
       throw new ProviderError(
         "AI_QUERY_PLAN_PROVIDER_ERROR",
-        error instanceof Error
-          ? error.message
-          : "AI query planning provider failed.",
+        "AI query planning provider failed.",
         true,
       );
     }

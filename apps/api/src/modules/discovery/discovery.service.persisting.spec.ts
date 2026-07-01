@@ -14,8 +14,7 @@ describe("DiscoveryService persistence progress", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
-    updateCurrentQuestion: jest.fn(),
-    updateStatus: jest.fn(),
+    updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const intelligenceRepository = {
@@ -26,8 +25,9 @@ describe("DiscoveryService persistence progress", () => {
     latestProfileDraft: jest.fn(),
     getIntake: jest.fn(),
     appendMessage: jest.fn(),
+    recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
-    updateSessionConversationState: jest.fn(),
+    completeConversationTurn: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
@@ -42,6 +42,7 @@ describe("DiscoveryService persistence progress", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    repository.updateStatusIfCurrent.mockResolvedValue(true);
     repository.createPreparedSession.mockResolvedValue({
       id: SESSION_ID,
       startedAt: new Date("2026-06-29T10:00:00.000Z"),
@@ -55,6 +56,14 @@ describe("DiscoveryService persistence progress", () => {
       research_observations: [],
       source_refs: [],
       domain_scores: {},
+    });
+    conversationRepository.recordInitialAssistantQuestion.mockResolvedValue({
+      id: "assistant-message",
+      role: "assistant",
+      content: "Who are your best current customers?",
+      language: LanguageModeDto.Mixed,
+      source: "chat",
+      created_at: "2026-06-29T10:01:00.000Z",
     });
   });
 

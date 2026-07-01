@@ -1,5 +1,6 @@
 import { LanguageModeDto } from "../dto/start-discovery.dto";
 import {
+  DiscoveryProgressInput,
   IntelligenceResult,
   ResearchObservationKind,
   SourceType,
@@ -53,7 +54,7 @@ export type IntelligenceMappingInput = {
 };
 
 export type IntelligenceProgressEvent = {
-  readonly stage: string;
+  readonly stage: DiscoveryProgressInput["stage"];
   readonly status: "started" | "completed" | "failed";
   readonly messageKey: string;
   readonly messageText: string;

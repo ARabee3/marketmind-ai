@@ -112,7 +112,7 @@ function jsonObject(value: Prisma.JsonValue): Record<string, unknown> {
   return value;
 }
 
-function researchObservations(value: Prisma.JsonValue): readonly ResearchObservation[] {
+function researchObservations(value: Prisma.JsonValue): ResearchObservation[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -123,7 +123,9 @@ function researchObservations(value: Prisma.JsonValue): readonly ResearchObserva
   });
 }
 
-function uncertainties(value: Prisma.JsonValue): readonly ProfileUncertainty[] {
+function uncertainties(
+  value: Prisma.JsonValue,
+): BusinessProfileDraft["uncertainties"] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -134,7 +136,7 @@ function uncertainties(value: Prisma.JsonValue): readonly ProfileUncertainty[] {
   });
 }
 
-function stringArray(value: Prisma.JsonValue): readonly string[] {
+function stringArray(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -142,9 +144,14 @@ function stringArray(value: Prisma.JsonValue): readonly string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-function researchObservation(value: Prisma.JsonValue): ResearchObservation | undefined {
+function researchObservation(
+  value: Prisma.JsonValue,
+): ResearchObservation | undefined {
   const record = jsonObject(value);
-  if (typeof record["id"] !== "string" || typeof record["statement"] !== "string") {
+  if (
+    typeof record["id"] !== "string" ||
+    typeof record["statement"] !== "string"
+  ) {
     return undefined;
   }
 
@@ -169,11 +176,17 @@ function researchObservation(value: Prisma.JsonValue): ResearchObservation | und
   };
 }
 
-function profileUncertainty(value: Prisma.JsonValue): ProfileUncertainty | undefined {
+function profileUncertainty(
+  value: Prisma.JsonValue,
+): BusinessProfileDraft["uncertainties"][number] | undefined {
   const record = jsonObject(value);
   if (
     typeof record["field_key"] !== "string" ||
-    typeof record["description"] !== "string"
+    typeof record["description"] !== "string" ||
+    typeof record["resolved"] !== "boolean" ||
+    !isUncertaintySeverity(record["severity"]) ||
+    !isUncertaintyCategory(record["category"]) ||
+    !isUncertaintySource(record["source"])
   ) {
     return undefined;
   }
@@ -181,7 +194,18 @@ function profileUncertainty(value: Prisma.JsonValue): ProfileUncertainty | undef
   return {
     field_key: record["field_key"],
     description: record["description"],
-    severity: uncertaintySeverity(record["severity"]),
+    severity: record["severity"],
+    category: record["category"],
+    source: record["source"],
+    source_ref_id: optionalString(record["source_ref_id"]),
+    owner_stated_value: optionalString(record["owner_stated_value"]),
+    research_suggested_value: optionalString(
+      record["research_suggested_value"],
+    ),
+    contradiction_detail: optionalString(record["contradiction_detail"]),
+    resolved: record["resolved"],
+    resolved_at: optionalString(record["resolved_at"]),
+    resolved_by_action: resolutionAction(record["resolved_by_action"]),
   };
 }
 
@@ -198,13 +222,53 @@ function observationKind(value: unknown): ResearchObservation["kind"] {
   }
 }
 
-function uncertaintySeverity(value: unknown): ProfileUncertainty["severity"] {
+function isUncertaintySeverity(
+  value: unknown,
+): value is ProfileUncertainty["severity"] {
+  return value === "low" || value === "medium" || value === "high";
+}
+
+function isUncertaintyCategory(
+  value: unknown,
+): value is ProfileUncertainty["category"] {
+  return (
+    value === "contradiction" ||
+    value === "low_confidence" ||
+    value === "owner_unknown" ||
+    value === "research_gap" ||
+    value === "ambiguous_answer" ||
+    value === "missing_information"
+  );
+}
+
+function isUncertaintySource(
+  value: unknown,
+): value is ProfileUncertainty["source"] {
+  return (
+    value === "owner_answer" ||
+    value === "owner_unknown" ||
+    value === "research_observation" ||
+    value === "metadata_extraction" ||
+    value === "search_result" ||
+    value === "intake_form" ||
+    value === "ai_inference"
+  );
+}
+
+function resolutionAction(
+  value: unknown,
+): BusinessProfileDraft["uncertainties"][number]["resolved_by_action"] {
   switch (value) {
-    case "low":
-    case "high":
-    case "medium":
+    case "owner_clarified":
+    case "research_confirmed":
+    case "discarded":
+    case "skipped":
       return value;
     default:
-      return "medium";
+      return undefined;
   }
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }

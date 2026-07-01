@@ -16,14 +16,18 @@ export type MetadataExtractionResult = {
 
 @Injectable()
 export class MetadataExtractorService {
-  async extract(dto: StartDiscoveryDto): Promise<MetadataExtractionResult> {
+  async extract(
+    dto: StartDiscoveryDto,
+    signal?: AbortSignal,
+  ): Promise<MetadataExtractionResult> {
     const links = dto.intake.social_links ?? [];
     const sources: IntelligenceSourceCandidate[] = [];
     const observations: IntelligenceObservationCandidate[] = [];
 
     for (const link of links) {
+      signal?.throwIfAborted();
       const sourceIndex = sources.length;
-      const source = await this.extractLink(link.platform, link.url);
+      const source = await this.extractLink(link.platform, link.url, signal);
       sources.push(source);
       observations.push({
         kind: "social_signal",
@@ -50,6 +54,7 @@ export class MetadataExtractorService {
   private async extractLink(
     platform: string,
     url: string,
+    signal?: AbortSignal,
   ): Promise<IntelligenceSourceCandidate> {
     const fetchedAt = new Date().toISOString();
 
@@ -58,6 +63,7 @@ export class MetadataExtractorService {
         timeoutMs: externalProviderConfig().discoverySearchTimeoutMs,
         validateUrl: true,
         maxBodyBytes: METADATA_MAX_BODY_BYTES,
+        signal,
       });
       const metadata = extractPageMetadata(html);
 
@@ -75,6 +81,7 @@ export class MetadataExtractorService {
         },
       };
     } catch (error) {
+      signal?.throwIfAborted();
       return {
         source_type: "owner_link",
         platform,
@@ -84,8 +91,8 @@ export class MetadataExtractorService {
         metadata: {
           owner_submitted: true,
           metadata_fetch_status: "failed",
-          error_message:
-            error instanceof Error ? error.message : "Metadata fetch failed.",
+          error_code: "METADATA_FETCH_FAILED",
+          error_message: "Metadata fetch failed.",
         },
       };
     }

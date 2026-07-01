@@ -9,7 +9,10 @@ const MAX_MAPS_RESULTS = 5;
 
 @Injectable()
 export class ApifyMapsProvider implements SearchProvider {
-  async search(query: string): Promise<readonly SearchResultCandidate[]> {
+  async search(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<readonly SearchResultCandidate[]> {
     const config = externalProviderConfig();
 
     if (!config.apifyToken) {
@@ -39,6 +42,7 @@ export class ApifyMapsProvider implements SearchProvider {
             authorization: `Bearer ${config.apifyToken}`,
           },
           timeoutMs: Math.max(config.discoverySearchTimeoutMs, 60_000),
+          signal,
         },
       );
 
@@ -50,9 +54,7 @@ export class ApifyMapsProvider implements SearchProvider {
 
       throw new ProviderError(
         "APIFY_MAPS_ERROR",
-        error instanceof Error
-          ? `Apify Google Maps actor failed for query '${query}': ${error.message}`
-          : `Apify Google Maps actor failed for query '${query}'.`,
+        "Apify Google Maps search failed.",
         true,
       );
     }

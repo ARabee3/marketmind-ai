@@ -81,7 +81,7 @@ export class AiDiscoveryClient {
       const response = await postExternalJson<unknown>(
         `${config.aiServiceBaseUrl}/internal/v1/ai/discovery${path}`,
         payload,
-        { timeoutMs: config.discoverySearchTimeoutMs },
+        { timeoutMs: config.aiRequestTimeoutMs },
       );
 
       return parseAiDiscoveryResult(response);
@@ -92,9 +92,7 @@ export class AiDiscoveryClient {
 
       throw new ProviderError(
         "AI_DISCOVERY_PROVIDER_ERROR",
-        error instanceof Error
-          ? error.message
-          : "AI discovery provider failed.",
+        "AI discovery provider failed.",
         true,
       );
     }

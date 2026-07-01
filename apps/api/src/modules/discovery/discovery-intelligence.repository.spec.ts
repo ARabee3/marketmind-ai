@@ -60,7 +60,7 @@ function prismaMock(): PrismaService {
       createMany: jest.fn(),
     },
     discoverySession: {
-      update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
 

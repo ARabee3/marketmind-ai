@@ -12,10 +12,12 @@ export class QueryPlannerService {
     private readonly deterministicPlanner: DeterministicQueryPlannerService,
   ) {}
 
-  async plan(dto: StartDiscoveryDto): Promise<QueryPlan> {
+  async plan(dto: StartDiscoveryDto, signal?: AbortSignal): Promise<QueryPlan> {
+    signal?.throwIfAborted();
     try {
-      return await this.aiClient.plan(dto);
+      return await this.aiClient.plan(dto, signal);
     } catch (error) {
+      signal?.throwIfAborted();
       if (!(error instanceof ProviderError)) {
         throw error;
       }

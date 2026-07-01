@@ -163,8 +163,11 @@ GET /api/v1/discovery/:session_id/status
 POST /api/v1/discovery/:session_id/respond
 POST /api/v1/discovery/:session_id/summarize
 POST /api/v1/discovery/:session_id/confirm-profile
-WS /ws/v1/discovery/:session_id/progress
+WS /ws/v1/discovery
 ```
+
+After connecting, the client emits `discovery.join` with the target
+`session_id`.
 
 Acceptance:
 
