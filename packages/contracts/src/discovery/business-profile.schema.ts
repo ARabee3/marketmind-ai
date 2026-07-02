@@ -1,4 +1,8 @@
-import type { ResearchObservation } from "./prepared-discovery-contracts";
+import type {
+  MarketAwareBusinessFacts,
+  MarketContextSnapshot,
+  ResearchObservation,
+} from "./prepared-discovery-contracts";
 import type { Uncertainty } from "./uncertainty.schema";
 
 export interface BusinessProfileData {
@@ -8,7 +12,8 @@ export interface BusinessProfileData {
   area?: string;
   address_text?: string;
   primary_locale: string;
-  confirmed_facts: Record<string, unknown>;
+  confirmed_facts: MarketAwareBusinessFacts;
+  market_context: MarketContextSnapshot;
   research_observations: ResearchObservation[];
   uncertainties: Uncertainty[];
   owner_goals: string[];

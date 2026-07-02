@@ -2,6 +2,10 @@ import { ProviderError } from "../../../common/errors/provider-error";
 import {
   AiDiscoveryResult,
   BusinessProfileDraft,
+  DiscoveryDomainScores,
+  MarketAwareBusinessFacts,
+  MarketContextSnapshot,
+  MarketEvidence,
   ProfileUncertainty,
   ResearchObservation,
   SourceRef,
@@ -14,7 +18,7 @@ export function parseAiDiscoveryResult(value: unknown): AiDiscoveryResult {
 
   if (
     !isAction(value["action"]) ||
-    !isRecord(value["updated_known_facts"]) ||
+    !isMarketAwareBusinessFacts(value["updated_known_facts"]) ||
     !isRecord(value["domain_scores"])
   ) {
     throw invalidOutput();
@@ -56,17 +60,12 @@ function invalidOutput(): ProviderError {
   );
 }
 
-function numberRecord(value: unknown): Record<string, number> {
-  if (
-    !isRecord(value) ||
-    Object.values(value).some(
-      (score) => typeof score !== "number" || !Number.isFinite(score),
-    )
-  ) {
+function numberRecord(value: unknown): DiscoveryDomainScores {
+  if (!isDiscoveryDomainScores(value)) {
     throw invalidOutput();
   }
 
-  return value as Record<string, number>;
+  return value;
 }
 
 function uncertainties(value: unknown): ProfileUncertainty[] {
@@ -195,21 +194,39 @@ function isProfileDraft(value: unknown): value is BusinessProfileDraft {
     return false;
   }
 
-  return (
+  const baseIsValid =
     typeof value["id"] === "string" &&
     typeof value["session_id"] === "string" &&
     Number.isInteger(value["version"]) &&
     (value["version"] as number) > 0 &&
     isDraftStatus(value["status"]) &&
-    isRecord(value["confirmed_facts"]) &&
+    isMarketAwareBusinessFacts(value["confirmed_facts"]) &&
+    isMarketContext(value["market_context"]) &&
     Array.isArray(value["research_observations"]) &&
     value["research_observations"].every(isResearchObservation) &&
     Array.isArray(value["uncertainties"]) &&
     value["uncertainties"].every(isResolvedUncertainty) &&
     isStringArray(value["owner_goals"]) &&
     isStringArray(value["strategy_relevant_notes"]) &&
-    isRecord(value["raw_ai_output"])
+    isRecord(value["raw_ai_output"]);
+  if (!baseIsValid) {
+    return false;
+  }
+
+  const observations = value["research_observations"] as ResearchObservation[];
+  const marketContext = value["market_context"] as MarketContextSnapshot;
+  const observationsById = new Map(
+    observations.map((observation) => [observation.id, observation]),
   );
+  return marketEvidenceItems(marketContext).every((evidence) => {
+    const observation = observationsById.get(evidence.observation_id);
+    return (
+      observation?.status === "accepted" &&
+      observation.source_ref_id === evidence.source_ref_id &&
+      observation.statement === evidence.statement &&
+      observation.confidence === evidence.confidence
+    );
+  });
 }
 
 function isSeverity(value: unknown): value is ProfileUncertainty["severity"] {
@@ -320,6 +337,107 @@ function isConfidence(value: unknown): value is number {
     value >= 0 &&
     value <= 1
   );
+}
+
+function isDiscoveryDomainScores(
+  value: unknown,
+): value is DiscoveryDomainScores {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return [
+    "identity",
+    "offer",
+    "customers",
+    "differentiation",
+    "current_marketing",
+    "goals_and_constraints",
+    "market_context",
+    "research_confidence",
+    "profile_readiness",
+  ].every((field) => isConfidence(value[field]));
+}
+
+function isMarketAwareBusinessFacts(
+  value: unknown,
+): value is MarketAwareBusinessFacts {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const identity = value["identity"];
+  const offer = value["offer"];
+  const customers = value["customers"];
+  const differentiation = value["differentiation"];
+  const currentMarketing = value["current_marketing"];
+  const goalsAndConstraints = value["goals_and_constraints"];
+
+  return (
+    isRecord(identity) &&
+    optionalString(identity["business_name"]) &&
+    optionalString(identity["business_type"]) &&
+    optionalString(identity["city"]) &&
+    optionalString(identity["area"]) &&
+    isRecord(offer) &&
+    isStringArray(offer["core_offerings"]) &&
+    isStringArray(offer["best_sellers"]) &&
+    optionalString(offer["price_range"]) &&
+    isStringArray(offer["purchase_occasions"]) &&
+    isRecord(customers) &&
+    isStringArray(customers["primary_segments"]) &&
+    isStringArray(customers["visit_or_order_occasions"]) &&
+    isStringArray(customers["peak_periods"]) &&
+    isStringArray(customers["customer_needs"]) &&
+    isRecord(differentiation) &&
+    isStringArray(differentiation["owner_claimed_strengths"]) &&
+    isStringArray(differentiation["customer_choice_reasons"]) &&
+    isStringArray(differentiation["proof_points"]) &&
+    isRecord(currentMarketing) &&
+    isStringArray(currentMarketing["active_channels"]) &&
+    isStringArray(currentMarketing["current_activities"]) &&
+    isStringArray(currentMarketing["delivery_platforms"]) &&
+    isStringArray(currentMarketing["available_assets"]) &&
+    isRecord(goalsAndConstraints) &&
+    isStringArray(goalsAndConstraints["growth_goals"]) &&
+    optionalString(goalsAndConstraints["timeframe"]) &&
+    optionalString(goalsAndConstraints["marketing_budget_range"]) &&
+    optionalString(goalsAndConstraints["team_capacity"]) &&
+    isStringArray(goalsAndConstraints["operational_constraints"])
+  );
+}
+
+function isMarketContext(value: unknown): value is MarketContextSnapshot {
+  return (
+    isRecord(value) &&
+    isMarketEvidenceArray(value["competitor_landscape"]) &&
+    isMarketEvidenceArray(value["local_demand_signals"]) &&
+    isMarketEvidenceArray(value["digital_presence_signals"]) &&
+    isMarketEvidenceArray(value["other_signals"])
+  );
+}
+
+function isMarketEvidenceArray(value: unknown): value is MarketEvidence[] {
+  return Array.isArray(value) && value.every(isMarketEvidence);
+}
+
+function isMarketEvidence(value: unknown): value is MarketEvidence {
+  return (
+    isRecord(value) &&
+    typeof value["observation_id"] === "string" &&
+    optionalString(value["source_ref_id"]) &&
+    typeof value["statement"] === "string" &&
+    isConfidence(value["confidence"])
+  );
+}
+
+function marketEvidenceItems(context: MarketContextSnapshot): MarketEvidence[] {
+  return [
+    ...context.competitor_landscape,
+    ...context.local_demand_signals,
+    ...context.digital_presence_signals,
+    ...context.other_signals,
+  ];
 }
 
 function nonEmptyString(value: unknown): value is string {

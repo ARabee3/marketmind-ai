@@ -5,6 +5,10 @@ import { IntelligenceResult } from "./discovery-state";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
+import {
+  emptyDiscoveryDomainScores,
+  emptyMarketAwareBusinessFacts,
+} from "./market-profile";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
@@ -183,11 +187,11 @@ describe("DiscoveryService background research", () => {
       arrangeAiFailure: () =>
         aiDiscoveryClient.start.mockResolvedValue({
           action: "safe_failure",
-          updated_known_facts: {},
+          updated_known_facts: emptyMarketAwareBusinessFacts(),
           updated_uncertainties: [],
           research_observations: [],
           source_refs: [],
-          domain_scores: {},
+          domain_scores: emptyDiscoveryDomainScores(),
           safe_error: {
             code: "AI_PROVIDER_INVALID_OUTPUT",
             message: "Provider returned invalid discovery output.",
@@ -301,11 +305,11 @@ function aiQuestion() {
   return {
     action: "ask_next_question" as const,
     next_question: "Who are your best current customers?",
-    updated_known_facts: {},
+    updated_known_facts: emptyMarketAwareBusinessFacts(),
     updated_uncertainties: [],
     research_observations: [],
     source_refs: [],
-    domain_scores: {},
+    domain_scores: emptyDiscoveryDomainScores(),
   };
 }
 

@@ -294,6 +294,7 @@ export class DiscoveryConversationRepository {
         _max: { version: true },
       });
       const nextVersion = (latestVersion._max.version ?? 0) + 1;
+      const confirmedDraft = profileDraftFromPersistence(draft);
       const savedVersion = await tx.businessProfileVersion.create({
         data: {
           businessId,
@@ -308,11 +309,12 @@ export class DiscoveryConversationRepository {
               ? {}
               : { address_text: intake.address_text }),
             primary_locale: session.languageMode,
-            confirmed_facts: draft.confirmedFacts,
-            research_observations: draft.researchObservations,
-            uncertainties: draft.uncertainties,
-            owner_goals: draft.ownerGoals,
-            strategy_relevant_notes: draft.strategyRelevantNotes,
+            confirmed_facts: confirmedDraft.confirmed_facts,
+            market_context: confirmedDraft.market_context,
+            research_observations: confirmedDraft.research_observations,
+            uncertainties: confirmedDraft.uncertainties,
+            owner_goals: confirmedDraft.owner_goals,
+            strategy_relevant_notes: confirmedDraft.strategy_relevant_notes,
           }),
           confirmedByUserId: ownerUserId,
         },
@@ -346,7 +348,7 @@ export class DiscoveryConversationRepository {
   }
 }
 
-function jsonForPrisma(value: Record<string, unknown>): Prisma.InputJsonObject {
+function jsonForPrisma(value: object): Prisma.InputJsonObject {
   return value as Prisma.InputJsonObject;
 }
 

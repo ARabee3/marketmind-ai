@@ -18,7 +18,8 @@ from app.providers.base import (
 
 OPENROUTER_BASE_URL: Final = "https://openrouter.ai/api/v1"
 FALLBACK_NEXT_QUESTION: Final = (
-    "What is the most important missing business detail we should confirm next?"
+    "Think about your busiest period: what do customers repeatedly choose, "
+    "and what seems to bring them back?"
 )
 
 
@@ -54,7 +55,13 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
 
             messages = [
                 {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_context(request.payload)},
+                {
+                    "role": "user",
+                    "content": build_user_context(
+                        request.turn_kind,
+                        request.payload,
+                    ),
+                },
             ]
 
             try:

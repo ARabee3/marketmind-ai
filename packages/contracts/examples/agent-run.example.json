@@ -4,7 +4,7 @@
   "run_type": "discovery_turn",
   "provider_mode": "mock",
   "model_name": null,
-  "prompt_version": "discovery-v1",
+  "prompt_version": "discovery-v2-market-aware",
   "status": "success",
   "input_hash": "abc123def456",
   "input_tokens": 420,
@@ -12,17 +12,51 @@
   "latency_ms": 340,
   "output_json": {
     "action": "ask_next_question",
-    "next_question": "What time of day do most of your customers visit?",
+    "next_question": "Think about your busiest period: who is usually ordering, and what do they tend to choose?",
     "updated_known_facts": {
-      "business_name": "Koshary Corner",
-      "business_type": "quick service restaurant",
-      "city": "Cairo"
+      "identity": {
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo"
+      },
+      "offer": {
+        "core_offerings": [],
+        "best_sellers": [],
+        "purchase_occasions": []
+      },
+      "customers": {
+        "primary_segments": [],
+        "visit_or_order_occasions": [],
+        "peak_periods": [],
+        "customer_needs": []
+      },
+      "differentiation": {
+        "owner_claimed_strengths": [],
+        "customer_choice_reasons": [],
+        "proof_points": []
+      },
+      "current_marketing": {
+        "active_channels": ["instagram"],
+        "current_activities": [],
+        "delivery_platforms": [],
+        "available_assets": []
+      },
+      "goals_and_constraints": {
+        "growth_goals": [],
+        "operational_constraints": []
+      }
     },
     "updated_uncertainties": [],
     "owner_goals": [],
     "strategy_relevant_notes": [],
     "domain_scores": {
-      "intake_completeness": 0.55,
+      "identity": 0.9,
+      "offer": 0.1,
+      "customers": 0.1,
+      "differentiation": 0,
+      "current_marketing": 0.3,
+      "goals_and_constraints": 0.4,
+      "market_context": 0.2,
       "research_confidence": 0.45,
       "profile_readiness": 0.35
     }

@@ -14,6 +14,11 @@ import {
   LanguageModeDto,
   PreparedDiscoveryIntakeDto,
 } from "./dto/start-discovery.dto";
+import {
+  emptyDiscoveryDomainScores,
+  emptyMarketAwareBusinessFacts,
+  marketContextFromObservations,
+} from "./market-profile";
 
 describe("DiscoveryService conversation", () => {
   const repository = {
@@ -311,21 +316,30 @@ function assistantMessage(): DiscoveryMessage {
 function aiResult(): AiDiscoveryResult {
   return {
     action: "ask_next_question",
-    updated_known_facts: {},
+    updated_known_facts: emptyMarketAwareBusinessFacts(),
     updated_uncertainties: [],
     research_observations: [],
     source_refs: [],
-    domain_scores: {},
+    domain_scores: emptyDiscoveryDomainScores(),
   };
 }
 
 function profileDraft(): BusinessProfileDraft {
+  const confirmedFacts = emptyMarketAwareBusinessFacts();
+
   return {
     id: "99999999-9999-4999-8999-999999999999",
     session_id: "11111111-1111-4111-8111-111111111111",
     version: 1,
     status: "ready_for_confirmation",
-    confirmed_facts: { primary_customer_segment: "families" },
+    confirmed_facts: {
+      ...confirmedFacts,
+      customers: {
+        ...confirmedFacts.customers,
+        primary_segments: ["families"],
+      },
+    },
+    market_context: marketContextFromObservations([]),
     research_observations: [],
     uncertainties: [],
     owner_goals: [],

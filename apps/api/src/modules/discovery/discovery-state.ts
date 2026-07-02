@@ -5,6 +5,7 @@ import type {
   ConfirmProfileResponse as ContractConfirmProfileResponse,
   ConversationHook as ContractConversationHook,
   DiscoveryMessage as ContractDiscoveryMessage,
+  DiscoveryDomainScores as ContractDiscoveryDomainScores,
   DiscoveryProgressEvent as ContractDiscoveryProgressEvent,
   DiscoveryRespondResponse as ContractDiscoveryRespondResponse,
   DiscoverySessionStatus as ContractDiscoverySessionStatus,
@@ -12,6 +13,9 @@ import type {
   DiscoverySummarizeResponse as ContractDiscoverySummarizeResponse,
   IntelligenceResult as ContractIntelligenceResult,
   KnowledgeGap as ContractKnowledgeGap,
+  MarketAwareBusinessFacts as ContractMarketAwareBusinessFacts,
+  MarketContextSnapshot as ContractMarketContextSnapshot,
+  MarketEvidence as ContractMarketEvidence,
   ResearchObservation as ContractResearchObservation,
   SourceRef as ContractSourceRef,
   SourceType as ContractSourceType,
@@ -27,6 +31,9 @@ export type ResearchObservationKind = ContractResearchObservation["kind"];
 export type ResearchObservation = ContractResearchObservation;
 export type ConversationHook = ContractConversationHook;
 export type KnowledgeGap = ContractKnowledgeGap;
+export type MarketAwareBusinessFacts = ContractMarketAwareBusinessFacts;
+export type MarketContextSnapshot = ContractMarketContextSnapshot;
+export type MarketEvidence = ContractMarketEvidence;
 export type StartDiscoveryResponse = ContractStartDiscoveryResponse;
 export type DiscoveryStatusResponse = ContractDiscoveryStatusResponse;
 
@@ -62,6 +69,7 @@ export type DiscoveryProgressInput = {
 };
 
 export type DiscoveryMessage = ContractDiscoveryMessage;
+export type DiscoveryDomainScores = ContractDiscoveryDomainScores;
 export type BusinessProfileDraft = ContractBusinessProfileDraft;
 export type ProfileUncertainty = UncertaintyInput;
 export type AiDiscoveryAction = ContractAiDiscoveryAction;

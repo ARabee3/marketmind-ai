@@ -475,14 +475,26 @@ def test_profile_draft_separates_confirmed_facts_from_observations() -> None:
     assert result.profile_draft is not None
 
     draft = result.profile_draft
-    assert isinstance(draft.confirmed_facts, dict)
+    assert draft.confirmed_facts.identity.business_name == "Koshary Corner"
+    assert draft.confirmed_facts.identity.city == "Cairo"
+    assert draft.confirmed_facts.goals_and_constraints.growth_goals == [
+        "Attract more lunch customers."
+    ]
+    assert isinstance(draft.market_context.competitor_landscape, list)
     assert isinstance(draft.research_observations, list)
     assert isinstance(draft.uncertainties, list)
     assert isinstance(draft.owner_goals, list)
     assert isinstance(draft.strategy_relevant_notes, list)
 
-    owner_fact_keys = set(draft.confirmed_facts.keys())
-    assert len(owner_fact_keys) >= 3, "Confirmed facts should contain business-owner-stated data"
+    owner_fact_keys = set(draft.confirmed_facts.model_dump())
+    assert owner_fact_keys == {
+        "identity",
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints",
+    }
     assert draft.uncertainties == []
     assert draft.status == "ready_for_confirmation"
 
@@ -750,3 +762,49 @@ def test_owner_answer_tracked_separately_from_research() -> None:
         metadata={"source_label": "Instagram metadata"},
     )
     assert observation.statement != intake.business_name
+
+
+def test_profile_groups_only_cited_research_into_market_context() -> None:
+    payload = base_payload("en")
+    payload["messages"] = [owner_message("Office workers usually order at lunch.")]
+    payload["intelligence"]["source_refs"] = [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "source_type": "search_result",
+            "platform": "serpapi",
+            "url": "https://example.com/nearby-cafe",
+            "confidence": 0.82,
+            "metadata": {},
+        }
+    ]
+    payload["intelligence"]["research_observations"] = [
+        {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "kind": "competitor",
+            "statement": "A nearby quick-service restaurant appears in local search.",
+            "confidence": 0.82,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {},
+        },
+        {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "kind": "market_context",
+            "statement": "An uncited market assumption.",
+            "confidence": 0.4,
+            "visibility": "internal",
+            "status": "accepted",
+            "metadata": {},
+        },
+    ]
+    request = AiDiscoverySummarizeRequest.model_validate(payload)
+
+    result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
+
+    assert result.profile_draft is not None
+    context = result.profile_draft.market_context
+    assert [item.observation_id for item in context.competitor_landscape] == [
+        "44444444-4444-4444-8444-444444444444"
+    ]
+    assert context.local_demand_signals == []

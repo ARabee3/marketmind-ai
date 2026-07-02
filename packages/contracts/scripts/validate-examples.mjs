@@ -95,6 +95,18 @@ function assertNullableString(value, label) {
   );
 }
 
+function assertOptionalString(value, label) {
+  assert(
+    value === undefined || (typeof value === "string" && value.length > 0),
+    `${label} must be a non-empty string when provided`,
+  );
+}
+
+function assertStringArray(value, label) {
+  assert(Array.isArray(value), `${label} must be an array`);
+  value.forEach((item, index) => assertString(item, `${label}[${index}]`));
+}
+
 function assertStatus(value, label) {
   assert(
     discoveryStatuses.has(value),
@@ -178,11 +190,7 @@ function assertProfileDraft(draft, label) {
     ),
     `${label}.status is invalid`,
   );
-  assert(
-    typeof draft.confirmed_facts === "object" &&
-      !Array.isArray(draft.confirmed_facts),
-    `${label}.confirmed_facts must be an object`,
-  );
+  assertMarketAwareFacts(draft.confirmed_facts, `${label}.confirmed_facts`);
   assert(
     Array.isArray(draft.research_observations),
     `${label}.research_observations must be an array`,
@@ -208,6 +216,132 @@ function assertProfileDraft(draft, label) {
   draft.uncertainties.forEach((uncertainty, index) =>
     assertUncertainty(uncertainty, `${label}.uncertainties[${index}]`),
   );
+  assertMarketContext(
+    draft.market_context,
+    draft.research_observations,
+    `${label}.market_context`,
+  );
+}
+
+function assertMarketAwareFacts(facts, label) {
+  assert(
+    typeof facts === "object" && facts !== null && !Array.isArray(facts),
+    `${label} must be an object`,
+  );
+  const identity = facts.identity;
+  assert(
+    typeof identity === "object" && identity !== null,
+    `${label}.identity must be an object`,
+  );
+  ["business_name", "business_type", "city", "area"].forEach((field) =>
+    assertOptionalString(identity[field], `${label}.identity.${field}`),
+  );
+
+  const arrayFields = {
+    offer: ["core_offerings", "best_sellers", "purchase_occasions"],
+    customers: [
+      "primary_segments",
+      "visit_or_order_occasions",
+      "peak_periods",
+      "customer_needs",
+    ],
+    differentiation: [
+      "owner_claimed_strengths",
+      "customer_choice_reasons",
+      "proof_points",
+    ],
+    current_marketing: [
+      "active_channels",
+      "current_activities",
+      "delivery_platforms",
+      "available_assets",
+    ],
+    goals_and_constraints: ["growth_goals", "operational_constraints"],
+  };
+  for (const [section, fields] of Object.entries(arrayFields)) {
+    assert(
+      typeof facts[section] === "object" && facts[section] !== null,
+      `${label}.${section} must be an object`,
+    );
+    fields.forEach((field) =>
+      assertStringArray(facts[section][field], `${label}.${section}.${field}`),
+    );
+  }
+  assertOptionalString(facts.offer.price_range, `${label}.offer.price_range`);
+  ["timeframe", "marketing_budget_range", "team_capacity"].forEach((field) =>
+    assertOptionalString(
+      facts.goals_and_constraints[field],
+      `${label}.goals_and_constraints.${field}`,
+    ),
+  );
+}
+
+function assertMarketContext(context, observations, label) {
+  assert(
+    typeof context === "object" && context !== null && !Array.isArray(context),
+    `${label} must be an object`,
+  );
+  const observationsById = new Map(observations.map((item) => [item.id, item]));
+  [
+    "competitor_landscape",
+    "local_demand_signals",
+    "digital_presence_signals",
+    "other_signals",
+  ].forEach((section) => {
+    assert(
+      Array.isArray(context[section]),
+      `${label}.${section} must be an array`,
+    );
+    context[section].forEach((evidence, index) => {
+      const evidenceLabel = `${label}.${section}[${index}]`;
+      assertString(evidence.observation_id, `${evidenceLabel}.observation_id`);
+      const observation = observationsById.get(evidence.observation_id);
+      assert(
+        observation,
+        `${evidenceLabel} must reference a profile observation`,
+      );
+      assert(
+        observation.status === "accepted" &&
+          observation.source_ref_id === evidence.source_ref_id &&
+          observation.statement === evidence.statement &&
+          observation.confidence === evidence.confidence,
+        `${evidenceLabel} must exactly mirror accepted cited evidence`,
+      );
+      assertOptionalString(
+        evidence.source_ref_id,
+        `${evidenceLabel}.source_ref_id`,
+      );
+      assertString(evidence.statement, `${evidenceLabel}.statement`);
+      assert(
+        typeof evidence.confidence === "number" &&
+          evidence.confidence >= 0 &&
+          evidence.confidence <= 1,
+        `${evidenceLabel}.confidence is invalid`,
+      );
+    });
+  });
+}
+
+function assertDomainScores(scores, label) {
+  const requiredDomains = [
+    "identity",
+    "offer",
+    "customers",
+    "differentiation",
+    "current_marketing",
+    "goals_and_constraints",
+    "market_context",
+    "research_confidence",
+    "profile_readiness",
+  ];
+  requiredDomains.forEach((domain) => {
+    assert(
+      typeof scores?.[domain] === "number" &&
+        scores[domain] >= 0 &&
+        scores[domain] <= 1,
+      `${label}.${domain} must be between 0 and 1`,
+    );
+  });
 }
 
 function assertIntelligence(intelligence, label) {
@@ -274,6 +408,18 @@ function assertAgentRun(run, label) {
     typeof run.output_json === "object" && !Array.isArray(run.output_json),
     `${label}.output_json must be an object`,
   );
+  if (run.output_json.updated_known_facts) {
+    assertMarketAwareFacts(
+      run.output_json.updated_known_facts,
+      `${label}.output_json.updated_known_facts`,
+    );
+  }
+  if (run.output_json.domain_scores) {
+    assertDomainScores(
+      run.output_json.domain_scores,
+      `${label}.output_json.domain_scores`,
+    );
+  }
   assertNullableString(run.error_code, `${label}.error_code`);
   assertNullableString(run.error_message, `${label}.error_message`);
   assert(
@@ -323,6 +469,15 @@ function assertBusinessProfile(profile, label) {
   assert(
     Array.isArray(profile.profile.uncertainties),
     `${label}.profile.uncertainties must be an array`,
+  );
+  assertMarketAwareFacts(
+    profile.profile.confirmed_facts,
+    `${label}.profile.confirmed_facts`,
+  );
+  assertMarketContext(
+    profile.profile.market_context,
+    profile.profile.research_observations,
+    `${label}.profile.market_context`,
   );
   profile.profile.research_observations.forEach((observation, index) =>
     assertResearchObservation(
@@ -391,6 +546,10 @@ assertIntelligence(statusResponse.intelligence, "statusResponse.intelligence");
 
 const respondResponse = await loadJson("discovery-respond.response.json");
 assertStatus(respondResponse.status, "respondResponse.status");
+assertMarketAwareFacts(
+  respondResponse.updated_known_facts,
+  "respondResponse.updated_known_facts",
+);
 assert(
   respondResponse.strategy_locked === true,
   "strategy must stay locked during chat",
@@ -437,6 +596,14 @@ const aiStartResponse = await loadJson(
 );
 assert(aiActions.has(aiStartResponse.action), "AI start action is invalid");
 assertString(aiStartResponse.next_question, "aiStartResponse.next_question");
+assertMarketAwareFacts(
+  aiStartResponse.updated_known_facts,
+  "aiStartResponse.updated_known_facts",
+);
+assertDomainScores(
+  aiStartResponse.domain_scores,
+  "aiStartResponse.domain_scores",
+);
 
 const aiSummarizeResponse = await loadJson(
   "internal-ai-discovery-summarize.response.json",
@@ -448,6 +615,14 @@ assert(
 assert(
   aiSummarizeResponse.action === "produce_profile_draft",
   "AI summarize should produce a profile draft",
+);
+assertMarketAwareFacts(
+  aiSummarizeResponse.updated_known_facts,
+  "aiSummarizeResponse.updated_known_facts",
+);
+assertDomainScores(
+  aiSummarizeResponse.domain_scores,
+  "aiSummarizeResponse.domain_scores",
 );
 assertProfileDraft(
   aiSummarizeResponse.profile_draft,

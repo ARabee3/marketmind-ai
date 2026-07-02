@@ -1,6 +1,10 @@
 import "reflect-metadata";
 import { IntelligenceResult } from "../discovery-state";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
+import {
+  emptyDiscoveryDomainScores,
+  emptyMarketAwareBusinessFacts,
+} from "../market-profile";
 import { AiDiscoveryClient } from "./ai-discovery.client";
 
 describe("AiDiscoveryClient", () => {
@@ -43,11 +47,11 @@ describe("AiDiscoveryClient", () => {
       json: async () => ({
         action: "ask_next_question",
         next_question: "Who are your best current customers?",
-        updated_known_facts: {},
+        updated_known_facts: emptyMarketAwareBusinessFacts(),
         updated_uncertainties: [],
         research_observations: [],
         source_refs: [],
-        domain_scores: {},
+        domain_scores: emptyDiscoveryDomainScores(),
       }),
     } as Response);
 
@@ -60,11 +64,11 @@ describe("AiDiscoveryClient", () => {
     expect(result).toEqual({
       action: "ask_next_question",
       next_question: "Who are your best current customers?",
-      updated_known_facts: {},
+      updated_known_facts: emptyMarketAwareBusinessFacts(),
       updated_uncertainties: [],
       research_observations: [],
       source_refs: [],
-      domain_scores: {},
+      domain_scores: emptyDiscoveryDomainScores(),
       profile_draft: undefined,
       safe_error: undefined,
     });
@@ -91,11 +95,11 @@ describe("AiDiscoveryClient", () => {
       json: async () => ({
         action: "ask_next_question",
         next_question: "Who are your best current customers?",
-        updated_known_facts: {},
+        updated_known_facts: emptyMarketAwareBusinessFacts(),
         updated_uncertainties: [],
         research_observations: [],
         source_refs: [],
-        domain_scores: {},
+        domain_scores: emptyDiscoveryDomainScores(),
       }),
     } as Response);
 
@@ -115,7 +119,7 @@ describe("AiDiscoveryClient", () => {
       json: async () => ({
         action: "ask_next_question",
         next_question: "Who buys most often?",
-        updated_known_facts: {},
+        updated_known_facts: emptyMarketAwareBusinessFacts(),
         updated_uncertainties: [],
         research_observations: [
           {
@@ -139,7 +143,7 @@ describe("AiDiscoveryClient", () => {
             metadata: {},
           },
         ],
-        domain_scores: {},
+        domain_scores: emptyDiscoveryDomainScores(),
       }),
     } as Response);
 

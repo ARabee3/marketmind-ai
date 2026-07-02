@@ -7,6 +7,10 @@ import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
+import {
+  emptyDiscoveryDomainScores,
+  emptyMarketAwareBusinessFacts,
+} from "./market-profile";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -51,11 +55,11 @@ describe("DiscoveryService persistence progress", () => {
     aiDiscoveryClient.start.mockResolvedValue({
       action: "ask_next_question",
       next_question: "Who are your best current customers?",
-      updated_known_facts: {},
+      updated_known_facts: emptyMarketAwareBusinessFacts(),
       updated_uncertainties: [],
       research_observations: [],
       source_refs: [],
-      domain_scores: {},
+      domain_scores: emptyDiscoveryDomainScores(),
     });
     conversationRepository.recordInitialAssistantQuestion.mockResolvedValue({
       id: "assistant-message",

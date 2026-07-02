@@ -36,7 +36,13 @@ class OpenAIDiscoveryProvider(DiscoveryProvider):
                 model=self.model,
                 input=[
                     {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
-                    {"role": "user", "content": build_user_context(request.payload)},
+                    {
+                        "role": "user",
+                        "content": build_user_context(
+                            request.turn_kind,
+                            request.payload,
+                        ),
+                    },
                 ],
                 text_format=DiscoveryModelOutput,
             )

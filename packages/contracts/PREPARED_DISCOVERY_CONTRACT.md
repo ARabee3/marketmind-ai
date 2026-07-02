@@ -54,6 +54,40 @@ examples/discovery-progress.transcript.json
 | `POST /internal/v1/ai/discovery/respond` | Continue a Discovery turn from message history. | Use the same result shape as `examples/internal-ai-discovery-start.response.json`. |
 | `POST /internal/v1/ai/discovery/summarize` | Produce a structured profile draft. | `examples/internal-ai-discovery-summarize.response.json` |
 
+## Market-Aware Profile
+
+`confirmed_facts` is a structured description of the owner's actual marketing
+reality, not a generic free-form summary. It contains:
+
+- identity and locality;
+- offers, best sellers, price range, and purchase occasions;
+- real customer groups, needs, occasions, and peak periods;
+- owner-claimed differentiation and available proof;
+- current channels, activities, delivery presence, and usable assets;
+- growth goals, timeframe, spend range, team capacity, and operational limits.
+
+`market_context` is separate. It groups competitor, local-demand,
+digital-presence, and other market signals derived only from accepted
+`research_observations` with source references. Research never becomes a
+confirmed owner fact merely because an AI model summarized it.
+
+## Conversation Style
+
+The coverage fields are internal scaffolding, not questions to show the owner.
+Discovery asks one concise, contextual question at a time:
+
+- ask about concrete moments such as a busy shift, repeated order, customer
+  comparison, or quiet period;
+- connect the question to known intake, an earlier answer, or cited research;
+- never ask form-like questions such as "Who is your target audience?" or
+  "What is your USP?";
+- do not repeat known information or copy a `knowledge_gap.question_hint`
+  verbatim;
+- preserve unknown fields as uncertainties when the owner cannot answer.
+
+All providers use the same `discovery-v2-market-aware` prompt and turn
+instructions.
+
 ## Lifecycle States
 
 Allowed session statuses live in:

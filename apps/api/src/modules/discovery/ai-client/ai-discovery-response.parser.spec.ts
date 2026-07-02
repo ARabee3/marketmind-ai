@@ -1,4 +1,10 @@
 import { ProviderError } from "../../../common/errors/provider-error";
+import { ResearchObservation } from "../discovery-state";
+import {
+  emptyDiscoveryDomainScores,
+  emptyMarketAwareBusinessFacts,
+  marketContextFromObservations,
+} from "../market-profile";
 import { parseAiDiscoveryResult } from "./ai-discovery-response.parser";
 
 describe("parseAiDiscoveryResult", () => {
@@ -70,7 +76,8 @@ describe("parseAiDiscoveryResult", () => {
         session_id: "session-1",
         version: 1,
         status: "ready_for_confirmation",
-        confirmed_facts: {},
+        confirmed_facts: emptyMarketAwareBusinessFacts(),
+        market_context: marketContextFromObservations([]),
         research_observations: [],
         uncertainties: [
           {
@@ -87,17 +94,60 @@ describe("parseAiDiscoveryResult", () => {
       },
     });
   });
+
+  it("rejects market context that rewrites cited evidence", () => {
+    const observation: ResearchObservation = {
+      id: "observation-1",
+      source_ref_id: "source-1",
+      kind: "competitor",
+      statement: "A nearby restaurant appears in local search.",
+      confidence: 0.8,
+      visibility: "owner_visible",
+      status: "accepted",
+      metadata: {},
+    };
+
+    expectInvalid({
+      ...questionResult(),
+      action: "produce_profile_draft",
+      next_question: undefined,
+      research_observations: [observation],
+      profile_draft: {
+        id: "draft-1",
+        session_id: "session-1",
+        version: 1,
+        status: "ready_for_confirmation",
+        confirmed_facts: emptyMarketAwareBusinessFacts(),
+        market_context: {
+          ...marketContextFromObservations([observation]),
+          competitor_landscape: [
+            {
+              observation_id: "observation-1",
+              source_ref_id: "source-1",
+              statement: "The business is definitely the market leader.",
+              confidence: 0.8,
+            },
+          ],
+        },
+        research_observations: [observation],
+        uncertainties: [],
+        owner_goals: [],
+        strategy_relevant_notes: [],
+        raw_ai_output: {},
+      },
+    });
+  });
 });
 
 function questionResult(): Record<string, unknown> {
   return {
     action: "ask_next_question",
     next_question: "Who are your best current customers?",
-    updated_known_facts: {},
+    updated_known_facts: emptyMarketAwareBusinessFacts(),
     updated_uncertainties: [],
     research_observations: [],
     source_refs: [],
-    domain_scores: {},
+    domain_scores: emptyDiscoveryDomainScores(),
   };
 }
 

@@ -358,6 +358,12 @@ Indexes:
 | `created_at`              | `timestamp(3) not null default now()`                               |                                                               |
 | `updated_at`              | `timestamp(3) not null default now()`                               |                                                               |
 
+`confirmed_facts` uses the structured market-aware domains defined in
+`packages/contracts`; it is not an arbitrary fact bag. The API derives the
+draft's `market_context` view from accepted, source-referenced entries in
+`research_observations`, so market evidence remains separate without requiring
+another persistence column.
+
 Indexes:
 
 - unique `business_profile_drafts_session_version_key` on `(session_id, version)`.

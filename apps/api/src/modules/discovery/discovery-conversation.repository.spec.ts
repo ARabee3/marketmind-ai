@@ -2,6 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { LanguageModeDto } from "./dto/start-discovery.dto";
+import { emptyMarketAwareBusinessFacts } from "./market-profile";
 
 describe("DiscoveryConversationRepository", () => {
   it("stores the initial assistant question with its state transition", async () => {
@@ -112,9 +113,37 @@ describe("DiscoveryConversationRepository", () => {
           businessProfileDrafts: [
             {
               id: "draft-id",
-              confirmedFacts: { audience: "families" },
-              researchObservations: [{ id: "observation-1" }],
-              uncertainties: [{ field_key: "budget", resolved: false }],
+              confirmedFacts: {
+                ...emptyMarketAwareBusinessFacts(),
+                identity: {
+                  business_name: "Koshary Corner",
+                  business_type: "restaurant",
+                  city: "Cairo",
+                  area: "Nasr City",
+                },
+              },
+              researchObservations: [
+                {
+                  id: "observation-1",
+                  source_ref_id: "source-1",
+                  kind: "competitor",
+                  statement: "A nearby restaurant appears in local search.",
+                  confidence: 0.8,
+                  visibility: "owner_visible",
+                  status: "accepted",
+                  metadata: {},
+                },
+              ],
+              uncertainties: [
+                {
+                  field_key: "budget",
+                  description: "Budget is unknown.",
+                  severity: "medium",
+                  category: "owner_unknown",
+                  source: "owner_unknown",
+                  resolved: false,
+                },
+              ],
               ownerGoals: ["grow delivery"],
               strategyRelevantNotes: ["family bundles"],
             },
@@ -153,8 +182,17 @@ describe("DiscoveryConversationRepository", () => {
         profile: expect.objectContaining({
           business_name: "Koshary Corner",
           primary_locale: "mixed",
-          research_observations: [{ id: "observation-1" }],
-          uncertainties: [{ field_key: "budget", resolved: false }],
+          market_context: expect.objectContaining({
+            competitor_landscape: [
+              expect.objectContaining({ observation_id: "observation-1" }),
+            ],
+          }),
+          research_observations: [
+            expect.objectContaining({ id: "observation-1" }),
+          ],
+          uncertainties: [
+            expect.objectContaining({ field_key: "budget", resolved: false }),
+          ],
         }),
       }),
     });

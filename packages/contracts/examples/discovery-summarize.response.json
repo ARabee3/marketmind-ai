@@ -7,12 +7,52 @@
     "version": 1,
     "status": "ready_for_confirmation",
     "confirmed_facts": {
-      "business_name": "Koshary Corner",
-      "business_type": "quick service restaurant",
-      "city": "Cairo",
-      "area": "Nasr City",
-      "primary_customer_segments": ["office_workers_lunch", "students_evening"],
-      "best_selling_items": ["classic koshary bowl", "family koshary tray"]
+      "identity": {
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo",
+        "area": "Nasr City"
+      },
+      "offer": {
+        "core_offerings": ["koshary bowls", "family trays"],
+        "best_sellers": ["classic koshary bowl", "family koshary tray"],
+        "price_range": "30-60 EGP",
+        "purchase_occasions": ["weekday lunch", "family meal"]
+      },
+      "customers": {
+        "primary_segments": ["office workers", "students"],
+        "visit_or_order_occasions": ["weekday lunch", "evening meal"],
+        "peak_periods": ["1pm to 3pm weekdays"],
+        "customer_needs": ["quick filling lunch", "affordable meal"]
+      },
+      "differentiation": {
+        "owner_claimed_strengths": ["fast service"],
+        "customer_choice_reasons": ["quick affordable lunch"],
+        "proof_points": []
+      },
+      "current_marketing": {
+        "active_channels": ["instagram"],
+        "current_activities": [],
+        "delivery_platforms": [],
+        "available_assets": ["submitted Instagram page"]
+      },
+      "goals_and_constraints": {
+        "growth_goals": ["Attract more lunch customers."],
+        "operational_constraints": []
+      }
+    },
+    "market_context": {
+      "competitor_landscape": [],
+      "local_demand_signals": [],
+      "digital_presence_signals": [
+        {
+          "observation_id": "44444444-4444-4444-8444-444444444444",
+          "source_ref_id": "22222222-2222-4222-8222-222222222222",
+          "statement": "The submitted Instagram page appears to describe Koshary Corner as an Egyptian comfort food restaurant in Nasr City.",
+          "confidence": 0.86
+        }
+      ],
+      "other_signals": []
     },
     "research_observations": [
       {
@@ -44,7 +84,7 @@
     ],
     "raw_ai_output": {
       "action": "produce_profile_draft",
-      "prompt_version": "discovery-v1"
+      "prompt_version": "discovery-v2-market-aware"
     }
   },
   "strategy_locked": true

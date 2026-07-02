@@ -57,6 +57,24 @@ Discovery prompt rules:
 - Support Egyptian Arabic, English, and mixed language.
 - Do not translate business names unless the owner does.
 - Ask one question at a time.
+- Keep profile-domain names internal; never expose the conversation as a form.
+- Ask through concrete business moments such as busy periods, repeated orders,
+  customer comparisons, and current promotional routines.
+- Use known intake or cited research as context instead of repeating generic
+  questions.
+- Build `confirmed_facts` from owner claims and `market_context` only from
+  accepted, source-referenced research observations.
+- Preserve unresolved domains as canonical uncertainties.
+
+The active prompt version is `discovery-v2-market-aware`. OpenAI, Gemini, and
+OpenRouter must all receive the same start/respond/summarize turn instructions.
+
+### Market-Aware Profile Domains
+
+The structured profile covers identity, offer, customers, differentiation,
+current marketing, and goals/constraints. These are coverage domains, not a
+fixed interview order. The agent chooses the highest-impact missing domain and
+phrases one natural question based on the existing conversation.
 
 ### Deferred Frontend Work
 
