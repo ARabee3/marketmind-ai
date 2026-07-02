@@ -12,6 +12,9 @@ from app.discovery.schemas import (
     AiDiscoverySummarizeRequest,
     BusinessProfileDraft,
     DiscoveryModelOutput,
+    MarketAwareBusinessFacts,
+    MarketContextSnapshot,
+    MarketEvidence,
     ResearchObservation,
     SourceRef,
     Uncertainty,
@@ -90,18 +93,20 @@ class DiscoveryService:
         accepted_observations: list[ResearchObservation],
         accepted_sources: list[SourceRef],
     ) -> AiDiscoveryResult:
+        normalized_facts = self._normalize_facts(request, output)
         profile_draft = None
         if output.action == "produce_profile_draft":
             profile_draft = self._build_profile_draft(
                 request,
                 output,
                 accepted_observations,
+                normalized_facts,
             )
 
         return AiDiscoveryResult(
             action=output.action,
             next_question=output.next_question,
-            updated_known_facts=output.updated_known_facts,
+            updated_known_facts=normalized_facts,
             updated_uncertainties=output.updated_uncertainties,
             research_observations=accepted_observations,
             source_refs=accepted_sources,
@@ -115,13 +120,15 @@ class DiscoveryService:
         request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
         output: DiscoveryModelOutput,
         accepted_observations: list[ResearchObservation],
+        normalized_facts: MarketAwareBusinessFacts,
     ) -> BusinessProfileDraft:
         return BusinessProfileDraft(
             id=str(uuid5(NAMESPACE_URL, f"marketmind:profile-draft:{request.session_id}:1")),
             session_id=request.session_id,
             version=1,
             status="ready_for_confirmation",
-            confirmed_facts=output.updated_known_facts,
+            confirmed_facts=normalized_facts,
+            market_context=self._market_context(accepted_observations),
             research_observations=accepted_observations,
             uncertainties=[
                 Uncertainty(**uncertainty.model_dump(), resolved=False)
@@ -144,7 +151,10 @@ class DiscoveryService:
         return AiDiscoveryResult(
             action="safe_failure",
             next_question=None,
-            updated_known_facts={},
+            updated_known_facts=self._normalize_facts(
+                request,
+                DiscoveryModelOutput(action="safe_failure"),
+            ),
             updated_uncertainties=[],
             research_observations=accepted_observations,
             source_refs=accepted_sources,
@@ -152,6 +162,91 @@ class DiscoveryService:
             profile_draft=None,
             safe_error=error,
         )
+
+    def _normalize_facts(
+        self,
+        request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
+        output: DiscoveryModelOutput,
+    ) -> MarketAwareBusinessFacts:
+        facts = output.updated_known_facts
+        intake = request.intake
+        identity = facts.identity.model_copy(
+            update={
+                "business_name": facts.identity.business_name or intake.business_name,
+                "business_type": facts.identity.business_type or intake.business_type,
+                "city": facts.identity.city or intake.city,
+                "area": facts.identity.area or intake.area,
+            }
+        )
+        goals = _unique_strings(
+            [
+                *facts.goals_and_constraints.growth_goals,
+                *output.owner_goals,
+                *([intake.owner_goal_text] if intake.owner_goal_text else []),
+            ]
+        )
+        goals_and_constraints = facts.goals_and_constraints.model_copy(
+            update={"growth_goals": goals}
+        )
+        submitted_channels = [
+            link.platform
+            for link in intake.social_links
+            if link.platform != "delivery"
+        ]
+        delivery_platforms = [
+            link.platform for link in intake.social_links if link.platform == "delivery"
+        ]
+        current_marketing = facts.current_marketing.model_copy(
+            update={
+                "active_channels": _unique_strings(
+                    [*facts.current_marketing.active_channels, *submitted_channels]
+                ),
+                "delivery_platforms": _unique_strings(
+                    [
+                        *facts.current_marketing.delivery_platforms,
+                        *delivery_platforms,
+                    ]
+                ),
+            }
+        )
+
+        return facts.model_copy(
+            update={
+                "identity": identity,
+                "current_marketing": current_marketing,
+                "goals_and_constraints": goals_and_constraints,
+            }
+        )
+
+    def _market_context(
+        self,
+        observations: list[ResearchObservation],
+    ) -> MarketContextSnapshot:
+        grouped: dict[str, list[MarketEvidence]] = {
+            "competitor_landscape": [],
+            "local_demand_signals": [],
+            "digital_presence_signals": [],
+            "other_signals": [],
+        }
+        for observation in observations:
+            if not observation.source_ref_id:
+                continue
+            evidence = MarketEvidence(
+                observation_id=observation.id,
+                source_ref_id=observation.source_ref_id,
+                statement=observation.statement,
+                confidence=observation.confidence,
+            )
+            if observation.kind == "competitor":
+                grouped["competitor_landscape"].append(evidence)
+            elif observation.kind == "market_context":
+                grouped["local_demand_signals"].append(evidence)
+            elif observation.kind in {"digital_presence", "social_signal"}:
+                grouped["digital_presence_signals"].append(evidence)
+            else:
+                grouped["other_signals"].append(evidence)
+
+        return MarketContextSnapshot(**grouped)
 
     def _accepted_research(
         self,
@@ -173,3 +268,7 @@ class DiscoveryService:
             if source.id in referenced_source_ids
         ]
         return observations, sources
+
+
+def _unique_strings(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(value.strip() for value in values if value.strip()))

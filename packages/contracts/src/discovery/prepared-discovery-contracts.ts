@@ -4,7 +4,6 @@ import type {
   DiscoverySessionStatus,
 } from "./discovery-lifecycle";
 import type { Uncertainty, UncertaintyInput } from "./uncertainty.schema";
-import type { ErrorEnvelope } from "../errors/error-envelope";
 
 export type UUID = string;
 export type IsoDateTime = string;
@@ -47,7 +46,7 @@ export interface PreparedDiscoveryIntake {
 export interface SourceRef {
   id: UUID;
   source_type: SourceType;
-  platform?: SocialPlatform;
+  platform?: string;
   url?: string;
   title?: string;
   snippet?: string;
@@ -105,12 +104,90 @@ export interface IntelligenceResult {
   };
 }
 
+export interface BusinessIdentityFacts {
+  business_name?: string;
+  business_type?: string;
+  city?: string;
+  area?: string;
+}
+
+export interface OfferFacts {
+  core_offerings: string[];
+  best_sellers: string[];
+  price_range?: string;
+  purchase_occasions: string[];
+}
+
+export interface CustomerFacts {
+  primary_segments: string[];
+  visit_or_order_occasions: string[];
+  peak_periods: string[];
+  customer_needs: string[];
+}
+
+export interface DifferentiationFacts {
+  owner_claimed_strengths: string[];
+  customer_choice_reasons: string[];
+  proof_points: string[];
+}
+
+export interface CurrentMarketingFacts {
+  active_channels: string[];
+  current_activities: string[];
+  delivery_platforms: string[];
+  available_assets: string[];
+}
+
+export interface GoalsAndConstraintsFacts {
+  growth_goals: string[];
+  timeframe?: string;
+  marketing_budget_range?: string;
+  team_capacity?: string;
+  operational_constraints: string[];
+}
+
+export interface MarketAwareBusinessFacts {
+  identity: BusinessIdentityFacts;
+  offer: OfferFacts;
+  customers: CustomerFacts;
+  differentiation: DifferentiationFacts;
+  current_marketing: CurrentMarketingFacts;
+  goals_and_constraints: GoalsAndConstraintsFacts;
+}
+
+export interface MarketEvidence {
+  observation_id: UUID;
+  source_ref_id?: UUID;
+  statement: string;
+  confidence: number;
+}
+
+export interface MarketContextSnapshot {
+  competitor_landscape: MarketEvidence[];
+  local_demand_signals: MarketEvidence[];
+  digital_presence_signals: MarketEvidence[];
+  other_signals: MarketEvidence[];
+}
+
+export interface DiscoveryDomainScores {
+  identity: number;
+  offer: number;
+  customers: number;
+  differentiation: number;
+  current_marketing: number;
+  goals_and_constraints: number;
+  market_context: number;
+  research_confidence: number;
+  profile_readiness: number;
+}
+
 export interface BusinessProfileDraft {
   id: UUID;
   session_id: UUID;
   version: number;
   status: "draft" | "ready_for_confirmation" | "confirmed" | "superseded";
-  confirmed_facts: Record<string, unknown>;
+  confirmed_facts: MarketAwareBusinessFacts;
+  market_context: MarketContextSnapshot;
   research_observations: ResearchObservation[];
   uncertainties: Uncertainty[];
   owner_goals: string[];
@@ -166,7 +243,7 @@ export interface DiscoveryStatusResponse {
   messages: DiscoveryMessage[];
   profile_draft?: BusinessProfileDraft;
   progress_events: DiscoveryProgressEvent[];
-  strategy_locked: true;
+  strategy_locked: boolean;
 }
 
 export interface DiscoveryRespondRequest {
@@ -178,8 +255,8 @@ export interface DiscoveryRespondResponse {
   session_id: UUID;
   status: Extract<DiscoverySessionStatus, "in_progress" | "summary_ready">;
   assistant_message?: DiscoveryMessage;
-  updated_known_facts: Record<string, unknown>;
-  uncertainties: BusinessProfileDraft["uncertainties"];
+  updated_known_facts: MarketAwareBusinessFacts;
+  uncertainties: UncertaintyInput[];
   profile_draft?: BusinessProfileDraft;
   strategy_locked: true;
 }
@@ -237,11 +314,15 @@ export interface AiDiscoverySummarizeRequest {
 export interface AiDiscoveryResult {
   action: AiDiscoveryAction;
   next_question?: string;
-  updated_known_facts: Record<string, unknown>;
+  updated_known_facts: MarketAwareBusinessFacts;
   updated_uncertainties: UncertaintyInput[];
   research_observations: ResearchObservation[];
   source_refs: SourceRef[];
-  domain_scores: Record<string, number>;
+  domain_scores: DiscoveryDomainScores;
   profile_draft?: BusinessProfileDraft;
-  safe_error?: ErrorEnvelope["error"];
+  safe_error?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+  };
 }

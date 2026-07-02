@@ -6,6 +6,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
+import { DiscoveryModule } from "./modules/discovery/discovery.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
@@ -27,6 +28,7 @@ import { AppController } from "./app.controller";
     AuthModule,
     UsersModule,
     RbacModule,
+    DiscoveryModule,
   ],
   controllers: [AppController],
 })

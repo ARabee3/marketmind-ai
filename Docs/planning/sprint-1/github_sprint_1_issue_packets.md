@@ -101,8 +101,10 @@ POST /api/v1/discovery/:session_id/confirm-profile
 WebSocket progress endpoint:
 
 ```text
-WS /ws/v1/discovery/:session_id/progress
+WS /ws/v1/discovery
 ```
+
+The client then emits `discovery.join` with `session_id`.
 
 Internal AI service endpoints:
 

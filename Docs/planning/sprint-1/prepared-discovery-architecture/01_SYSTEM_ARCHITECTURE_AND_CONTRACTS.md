@@ -94,8 +94,11 @@ POST /api/v1/discovery/:session_id/respond
 POST /api/v1/discovery/:session_id/summarize
 POST /api/v1/discovery/:session_id/confirm-profile
 
-WS   /ws/v1/discovery/:session_id/progress
+WS   /ws/v1/discovery
 ```
+
+The Socket.IO client emits `discovery.join` with `session_id`; NestJS verifies
+session ownership before joining the session-specific progress room.
 
 Internal FastAPI routes:
 
