@@ -1,5 +1,9 @@
 # IntelligenceGatherer Integration Fix Plan
 
+**Status:** Implemented on `feature/intelligence-gatherer-integration`. Keep this
+document as the repair rationale and use
+`DISCOVERY_IMPLEMENTATION_HANDOFF.md` for the final behavior and review guide.
+
 This plan documents the hardening work needed around the current Prepared
 Discovery and `IntelligenceGatherer` integration. It is intended for the team to
 continue implementation and review without depending on private planning notes.

@@ -10,6 +10,8 @@ Read in this order:
 2. `02_DATABASE_SCHEMA_AND_MIGRATIONS.md`
 3. `03_RUNTIME_QUALITY_AND_OPERATIONS.md`
 4. `04_AI_I18N_AND_DOC_GOVERNANCE.md`
+5. `../DISCOVERY_IMPLEMENTATION_HANDOFF.md` for the implemented flow, review
+   guide, verification evidence, and remaining production checks.
 
 Project-wide structure lives outside this feature pack:
 
@@ -39,4 +41,5 @@ Authoritative decisions:
 | PostgreSQL tables, relations, indexes, and migration order | `02_DATABASE_SCHEMA_AND_MIGRATIONS.md` |
 | Error handling, testing, deployment, secrets, observability, and non-functional requirements | `03_RUNTIME_QUALITY_AND_OPERATIONS.md` |
 | AI provider policy, bilingual behavior, and documentation change rules | `04_AI_I18N_AND_DOC_GOVERNANCE.md` |
+| Implemented behavior, review guide, and sufficiency boundary | `../DISCOVERY_IMPLEMENTATION_HANDOFF.md` |
 | Project folder structure and reusable components | `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md` |
