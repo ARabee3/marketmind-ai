@@ -4,6 +4,7 @@ import { ProviderError } from "../../../common/errors/provider-error";
 import { postExternalJson } from "../../../common/http/external-http-client";
 import {
   AiDiscoveryResult,
+  DiscoveryCompletionContext,
   DiscoveryMessage,
   IntelligenceResult,
 } from "../discovery-state";
@@ -53,6 +54,7 @@ export class AiDiscoveryClient {
     intake: PreparedDiscoveryIntakeDto,
     intelligence: IntelligenceResult,
     messages: readonly DiscoveryMessage[],
+    completionContext: DiscoveryCompletionContext,
   ): Promise<AiDiscoveryResult> {
     return this.postDiscovery("/summarize", {
       session_id: sessionId,
@@ -60,6 +62,7 @@ export class AiDiscoveryClient {
       intake,
       intelligence,
       messages,
+      completion_context: completionContext,
     });
   }
 

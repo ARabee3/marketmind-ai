@@ -13,6 +13,7 @@ import {
 } from "./discovery-state";
 import { progressEventsFromPersistence } from "./discovery-progress.mapper";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
+import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 
 @Injectable()
@@ -26,6 +27,7 @@ export class DiscoveryService {
     private readonly intelligenceGatherer: IntelligenceGathererService,
     private readonly aiDiscoveryClient: AiDiscoveryClient,
     private readonly progressGateway: DiscoveryProgressGateway,
+    private readonly readinessService: DiscoveryReadinessService,
   ) {}
 
   async startPreparedDiscovery(
@@ -157,6 +159,7 @@ export class DiscoveryService {
         sessionId,
         result.next_question,
         dto.language_mode ?? LanguageModeDto.Mixed,
+        this.readinessService.evaluate(result, 0),
       );
       return true;
     } catch (error) {
@@ -235,6 +238,7 @@ export class DiscoveryService {
       intelligence: session.intelligence,
       messages,
       profile_draft: profileDraft,
+      profile_state: session.profileState,
       progress_events: progressEventsFromPersistence(session.progressEvents),
       strategy_locked: session.status !== "confirmed",
     };

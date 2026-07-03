@@ -1,10 +1,14 @@
 import {
   DiscoveryDomainScores,
+  DiscoveryProfileState,
+  DiscoveryReadiness,
   MarketAwareBusinessFacts,
   MarketContextSnapshot,
   MarketEvidence,
   ResearchObservation,
 } from "./discovery-state";
+
+export const MAX_DISCOVERY_OWNER_TURNS = 15;
 
 export function emptyDiscoveryDomainScores(): DiscoveryDomainScores {
   return {
@@ -49,6 +53,35 @@ export function emptyMarketAwareBusinessFacts(): MarketAwareBusinessFacts {
       growth_goals: [],
       operational_constraints: [],
     },
+  };
+}
+
+export function emptyDiscoveryReadiness(): DiscoveryReadiness {
+  const domainScores = emptyDiscoveryDomainScores();
+
+  return {
+    ready: false,
+    llm_recommended: false,
+    profile_readiness: 0,
+    domain_scores: domainScores,
+    blocking_domains: [
+      "identity",
+      "offer",
+      "customers",
+      "differentiation",
+      "current_marketing",
+      "goals_and_constraints",
+    ],
+    owner_turn_count: 0,
+    max_owner_turns: MAX_DISCOVERY_OWNER_TURNS,
+  };
+}
+
+export function emptyDiscoveryProfileState(): DiscoveryProfileState {
+  return {
+    known_facts: emptyMarketAwareBusinessFacts(),
+    uncertainties: [],
+    readiness: emptyDiscoveryReadiness(),
   };
 }
 

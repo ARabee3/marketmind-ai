@@ -4,10 +4,12 @@ import { DiscoveryConversationRepository } from "./discovery-conversation.reposi
 import { IntelligenceResult } from "./discovery-state";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
+import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto } from "./dto/start-discovery.dto";
+import { emptyDiscoveryProfileState } from "./market-profile";
 
 describe("DiscoveryService", () => {
   const repository = {
@@ -27,6 +29,7 @@ describe("DiscoveryService", () => {
     recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
     completeConversationTurn: jest.fn(),
+    completeConversationWithDraft: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const gatherer = {
@@ -50,6 +53,7 @@ describe("DiscoveryService", () => {
       gatherer,
       aiDiscoveryClient,
       progressGateway,
+      new DiscoveryReadinessService(),
     );
   });
 
@@ -91,6 +95,9 @@ describe("DiscoveryService", () => {
           createdAt: new Date("2026-06-29T10:01:00.000Z"),
         },
       ],
+      profileState: emptyDiscoveryProfileState(),
+      ownerTurnCount: 0,
+      completionReason: null,
       intakes: [
         {
           businessName: "Koshary Corner",
@@ -158,6 +165,9 @@ describe("DiscoveryService", () => {
         knowledge_gaps: [],
       },
       progressEvents: [],
+      profileState: emptyDiscoveryProfileState(),
+      ownerTurnCount: 0,
+      completionReason: null,
       intakes: [
         {
           businessName: "Koshary Corner",

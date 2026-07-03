@@ -4,13 +4,13 @@
 
 ### Runtime Components
 
-| Component | Default port | Responsibility |
-|---|---:|---|
-| Next.js web app | `3000` | Future UI only; docs deferred. |
-| NestJS API | `3001` | Public REST API, auth, RBAC, Discovery orchestration, WebSocket progress, PostgreSQL writes. |
-| FastAPI AI service | `8000` | Discovery prompt execution, provider adapter, structured AI responses. |
-| PostgreSQL | `5432` | Source-of-truth relational and JSONB storage. |
-| Qdrant | `6333` | Future vector retrieval; optional and unused in Sprint 1. |
+| Component          | Default port | Responsibility                                                                               |
+| ------------------ | -----------: | -------------------------------------------------------------------------------------------- |
+| Next.js web app    |       `3000` | Future UI only; docs deferred.                                                               |
+| NestJS API         |       `3001` | Public REST API, auth, RBAC, Discovery orchestration, WebSocket progress, PostgreSQL writes. |
+| FastAPI AI service |       `8000` | Discovery prompt execution, provider adapter, structured AI responses.                       |
+| PostgreSQL         |       `5432` | Source-of-truth relational and JSONB storage.                                                |
+| Qdrant             |       `6333` | Future vector retrieval; optional and unused in Sprint 1.                                    |
 
 ### Architecture Diagram
 
@@ -108,6 +108,19 @@ POST /internal/v1/ai/discovery/respond
 POST /internal/v1/ai/discovery/summarize
 ```
 
+## Automatic Discovery Completion
+
+FastAPI recommends readiness and always returns a fallback question during
+start/respond turns. NestJS persists the cumulative profile state and applies
+the authoritative balanced-coverage gate. A passing recommendation/gate pair
+or the fifteenth successful owner turn invokes the internal summarize endpoint
+immediately.
+
+The public summarize endpoint remains an owner-controlled early-finish path.
+When blockers remain it requires `finish_anyway: true`, creates an incomplete
+draft, and preserves each blocker as an uncertainty. Confirming that draft
+requires `acknowledge_incomplete: true`. Research confidence and market context
+do not block completion.
 
 ## API Versioning
 

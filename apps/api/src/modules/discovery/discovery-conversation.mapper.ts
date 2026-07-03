@@ -1,13 +1,22 @@
 import { Prisma } from "@prisma/client";
 import {
   BusinessProfileDraft,
+  DiscoveryCompletionReason,
+  DiscoveryDomainScores,
+  DiscoveryProfileState,
+  DiscoveryReadiness,
   DiscoveryMessage,
   MarketAwareBusinessFacts,
   ProfileUncertainty,
   ResearchObservation,
 } from "./discovery-state";
 import { LanguageModeDto } from "./dto/start-discovery.dto";
-import { marketContextFromObservations } from "./market-profile";
+import {
+  emptyDiscoveryDomainScores,
+  emptyDiscoveryProfileState,
+  marketContextFromObservations,
+  MAX_DISCOVERY_OWNER_TURNS,
+} from "./market-profile";
 
 export type PersistedDiscoveryMessage = {
   readonly id: string;
@@ -23,6 +32,9 @@ export type PersistedBusinessProfileDraft = {
   readonly sessionId: string;
   readonly version: number;
   readonly status: string;
+  readonly completeness: string;
+  readonly completionReason: string;
+  readonly readiness: Prisma.JsonValue;
   readonly confirmedFacts: Prisma.JsonValue;
   readonly researchObservations: Prisma.JsonValue;
   readonly uncertainties: Prisma.JsonValue;
@@ -54,6 +66,9 @@ export function profileDraftFromPersistence(
     session_id: draft.sessionId,
     version: draft.version,
     status: draftStatus(draft.status),
+    completeness: draft.completeness === "complete" ? "complete" : "incomplete",
+    completion_reason: completionReason(draft.completionReason),
+    readiness: readinessFromJson(draft.readiness),
     confirmed_facts: marketAwareFacts(draft.confirmedFacts),
     market_context: marketContextFromObservations(observations),
     research_observations: observations,
@@ -61,6 +76,42 @@ export function profileDraftFromPersistence(
     owner_goals: stringArray(draft.ownerGoals),
     strategy_relevant_notes: stringArray(draft.strategyRelevantNotes),
     raw_ai_output: jsonObject(draft.rawAiOutput),
+  };
+}
+
+export function profileStateFromPersistence(
+  value: Prisma.JsonValue,
+  ownerTurnCount: number,
+  persistedCompletionReason: string | null,
+): DiscoveryProfileState {
+  const record = jsonObject(value);
+  if (Object.keys(record).length === 0) {
+    const empty = emptyDiscoveryProfileState();
+    return {
+      ...empty,
+      readiness: {
+        ...empty.readiness,
+        owner_turn_count: ownerTurnCount,
+        completion_reason: persistedCompletionReason
+          ? completionReason(persistedCompletionReason)
+          : undefined,
+      },
+    };
+  }
+
+  const readiness = readinessFromJson(record["readiness"] as Prisma.JsonValue);
+  return {
+    known_facts: marketAwareFacts(record["known_facts"] as Prisma.JsonValue),
+    uncertainties: uncertaintyInputs(
+      record["uncertainties"] as Prisma.JsonValue,
+    ),
+    readiness: {
+      ...readiness,
+      owner_turn_count: ownerTurnCount,
+      completion_reason: persistedCompletionReason
+        ? completionReason(persistedCompletionReason)
+        : readiness.completion_reason,
+    },
   };
 }
 
@@ -210,6 +261,19 @@ function uncertainties(
   });
 }
 
+function uncertaintyInputs(
+  value: Prisma.JsonValue,
+): DiscoveryProfileState["uncertainties"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    const uncertainty = profileUncertaintyInput(item);
+    return uncertainty ? [uncertainty] : [];
+  });
+}
+
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -254,10 +318,27 @@ function profileUncertainty(
   value: Prisma.JsonValue,
 ): BusinessProfileDraft["uncertainties"][number] | undefined {
   const record = jsonObject(value);
+  const input = profileUncertaintyInput(record);
+  if (!input || typeof record["resolved"] !== "boolean") {
+    return undefined;
+  }
+
+  return {
+    ...input,
+    resolved: record["resolved"],
+    resolved_at: optionalString(record["resolved_at"]),
+    resolved_by_action: resolutionAction(record["resolved_by_action"]),
+  };
+}
+
+function profileUncertaintyInput(
+  value: Prisma.JsonValue | Record<string, unknown>,
+): DiscoveryProfileState["uncertainties"][number] | undefined {
+  const record = isJsonRecord(value) ? value : jsonObject(value);
   if (
+    !isProfileDomain(record["domain"]) ||
     typeof record["field_key"] !== "string" ||
     typeof record["description"] !== "string" ||
-    typeof record["resolved"] !== "boolean" ||
     !isUncertaintySeverity(record["severity"]) ||
     !isUncertaintyCategory(record["category"]) ||
     !isUncertaintySource(record["source"])
@@ -266,6 +347,7 @@ function profileUncertainty(
   }
 
   return {
+    domain: record["domain"],
     field_key: record["field_key"],
     description: record["description"],
     severity: record["severity"],
@@ -277,9 +359,6 @@ function profileUncertainty(
       record["research_suggested_value"],
     ),
     contradiction_detail: optionalString(record["contradiction_detail"]),
-    resolved: record["resolved"],
-    resolved_at: optionalString(record["resolved_at"]),
-    resolved_by_action: resolutionAction(record["resolved_by_action"]),
   };
 }
 
@@ -345,4 +424,108 @@ function resolutionAction(
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function readinessFromJson(value: Prisma.JsonValue): DiscoveryReadiness {
+  const record = jsonObject(value);
+  const scores = domainScoresFromJson(
+    record["domain_scores"] as Prisma.JsonValue,
+  );
+
+  return {
+    ready: record["ready"] === true,
+    llm_recommended: record["llm_recommended"] === true,
+    profile_readiness:
+      typeof record["profile_readiness"] === "number"
+        ? record["profile_readiness"]
+        : scores.profile_readiness,
+    domain_scores: scores,
+    blocking_domains: Array.isArray(record["blocking_domains"])
+      ? record["blocking_domains"].filter(isProfileDomain)
+      : [],
+    owner_turn_count:
+      typeof record["owner_turn_count"] === "number"
+        ? record["owner_turn_count"]
+        : 0,
+    max_owner_turns:
+      typeof record["max_owner_turns"] === "number"
+        ? record["max_owner_turns"]
+        : MAX_DISCOVERY_OWNER_TURNS,
+    completion_reason:
+      typeof record["completion_reason"] === "string"
+        ? completionReason(record["completion_reason"])
+        : undefined,
+  };
+}
+
+function domainScoresFromJson(value: Prisma.JsonValue): DiscoveryDomainScores {
+  const record = jsonObject(value);
+  const empty = emptyDiscoveryDomainScores();
+
+  return {
+    identity: confidenceOr(record["identity"], empty.identity),
+    offer: confidenceOr(record["offer"], empty.offer),
+    customers: confidenceOr(record["customers"], empty.customers),
+    differentiation: confidenceOr(
+      record["differentiation"],
+      empty.differentiation,
+    ),
+    current_marketing: confidenceOr(
+      record["current_marketing"],
+      empty.current_marketing,
+    ),
+    goals_and_constraints: confidenceOr(
+      record["goals_and_constraints"],
+      empty.goals_and_constraints,
+    ),
+    market_context: confidenceOr(
+      record["market_context"],
+      empty.market_context,
+    ),
+    research_confidence: confidenceOr(
+      record["research_confidence"],
+      empty.research_confidence,
+    ),
+    profile_readiness: confidenceOr(
+      record["profile_readiness"],
+      empty.profile_readiness,
+    ),
+  };
+}
+
+function confidenceOr(value: unknown, fallback: number): number {
+  return typeof value === "number" && value >= 0 && value <= 1
+    ? value
+    : fallback;
+}
+
+function completionReason(value: string): DiscoveryCompletionReason {
+  switch (value) {
+    case "sufficient":
+    case "owner_finished_early":
+    case "turn_limit":
+      return value;
+    default:
+      return "owner_finished_early";
+  }
+}
+
+function isProfileDomain(
+  value: unknown,
+): value is DiscoveryReadiness["blocking_domains"][number] {
+  return (
+    value === "identity" ||
+    value === "offer" ||
+    value === "customers" ||
+    value === "differentiation" ||
+    value === "current_marketing" ||
+    value === "goals_and_constraints" ||
+    value === "market_context"
+  );
+}
+
+function isJsonRecord(
+  value: Prisma.JsonValue | Record<string, unknown>,
+): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

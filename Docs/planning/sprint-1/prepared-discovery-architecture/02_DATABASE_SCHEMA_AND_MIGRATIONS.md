@@ -147,20 +147,23 @@ Indexes:
 
 #### `discovery_sessions`
 
-| Column                         | Type                                  | Notes                                               |
-| ------------------------------ | ------------------------------------- | --------------------------------------------------- |
-| `id`                           | `uuid primary key`                    | Session id.                                         |
-| `business_id`                  | `uuid references businesses(id)`      | Nullable until business row is created from intake. |
-| `owner_user_id`                | `uuid not null references User(id)`   | Access control owner.                               |
-| `status`                       | `text not null`                       | See lifecycle below.                                |
-| `language_mode`                | `text not null default 'mixed'`       | `ar-EG`, `en`, `mixed`.                             |
-| `current_question`             | `text`                                | Last active assistant question.                     |
-| `profile_draft_id`             | `uuid`                                | Set after draft exists.                             |
-| `confirmed_profile_version_id` | `uuid`                                | Set after confirmation.                             |
-| `started_at`                   | `timestamp(3) not null default now()` |                                                     |
-| `completed_at`                 | `timestamp(3)`                        | Chat complete.                                      |
-| `created_at`                   | `timestamp(3) not null default now()` |                                                     |
-| `updated_at`                   | `timestamp(3) not null default now()` |                                                     |
+| Column                         | Type                                  | Notes                                                            |
+| ------------------------------ | ------------------------------------- | ---------------------------------------------------------------- |
+| `id`                           | `uuid primary key`                    | Session id.                                                      |
+| `business_id`                  | `uuid references businesses(id)`      | Nullable until business row is created from intake.              |
+| `owner_user_id`                | `uuid not null references User(id)`   | Access control owner.                                            |
+| `status`                       | `text not null`                       | See lifecycle below.                                             |
+| `language_mode`                | `text not null default 'mixed'`       | `ar-EG`, `en`, `mixed`.                                          |
+| `current_question`             | `text`                                | Last active assistant question.                                  |
+| `profile_state`                | `jsonb not null default '{}'`         | Cumulative facts, uncertainties, scores, and readiness snapshot. |
+| `owner_turn_count`             | `integer not null default 0`          | Successful owner conversation turns; capped at 15.               |
+| `completion_reason`            | `text`                                | `sufficient`, `owner_finished_early`, or `turn_limit`.           |
+| `profile_draft_id`             | `uuid`                                | Set after draft exists.                                          |
+| `confirmed_profile_version_id` | `uuid`                                | Set after confirmation.                                          |
+| `started_at`                   | `timestamp(3) not null default now()` |                                                                  |
+| `completed_at`                 | `timestamp(3)`                        | Chat complete.                                                   |
+| `created_at`                   | `timestamp(3) not null default now()` |                                                                  |
+| `updated_at`                   | `timestamp(3) not null default now()` |                                                                  |
 
 Allowed `status` values:
 
@@ -348,6 +351,9 @@ Indexes:
 | `business_id`             | `uuid references businesses(id)`                                    |                                                               |
 | `version`                 | `integer not null default 1`                                        | Draft version.                                                |
 | `status`                  | `text not null default 'draft'`                                     | `draft`, `ready_for_confirmation`, `confirmed`, `superseded`. |
+| `completeness`            | `text not null default 'incomplete'`                                | `complete` or `incomplete`.                                   |
+| `completion_reason`       | `text not null default 'owner_finished_early'`                      | Why the interview ended.                                      |
+| `readiness`               | `jsonb not null default '{}'`                                       | Immutable readiness snapshot used to create the draft.        |
 | `confirmed_facts`         | `jsonb not null default '{}'`                                       | Owner-confirmed or owner-stated facts only.                   |
 | `research_observations`   | `jsonb not null default '[]'`                                       | Research observations copied for review.                      |
 | `uncertainties`           | `jsonb not null default '[]'`                                       | Unknowns/contradictions.                                      |

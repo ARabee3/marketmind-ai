@@ -88,7 +88,8 @@
       "category": "owner_unknown",
       "source": "owner_answer",
       "owner_stated_value": "Local foul shops nearby",
-      "resolved": false
+      "resolved": false,
+      "domain": "market_context"
     },
     {
       "field_key": "marketing_budget",
@@ -96,7 +97,8 @@
       "severity": "medium",
       "category": "owner_unknown",
       "source": "owner_unknown",
-      "resolved": false
+      "resolved": false,
+      "domain": "goals_and_constraints"
     }
   ],
   "owner_goals": [
@@ -118,7 +120,8 @@
         "severity": "low",
         "category": "owner_unknown",
         "source": "owner_answer",
-        "owner_stated_value": "Local foul shops nearby"
+        "owner_stated_value": "Local foul shops nearby",
+        "domain": "market_context"
       }
     ],
     "owner_goals": ["Attract more lunch customers."],
@@ -136,5 +139,27 @@
       "research_confidence": 0.5,
       "profile_readiness": 0.85
     }
+  },
+  "completeness": "complete",
+  "completion_reason": "sufficient",
+  "readiness": {
+    "ready": true,
+    "llm_recommended": true,
+    "profile_readiness": 0.86,
+    "domain_scores": {
+      "identity": 1,
+      "offer": 0.8,
+      "customers": 0.85,
+      "differentiation": 0.7,
+      "current_marketing": 0.7,
+      "goals_and_constraints": 0.8,
+      "market_context": 0.5,
+      "research_confidence": 0.5,
+      "profile_readiness": 0.86
+    },
+    "blocking_domains": [],
+    "owner_turn_count": 7,
+    "max_owner_turns": 15,
+    "completion_reason": "sufficient"
   }
 }

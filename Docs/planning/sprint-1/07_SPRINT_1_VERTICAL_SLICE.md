@@ -166,6 +166,12 @@ POST /api/v1/discovery/:session_id/confirm-profile
 WS /ws/v1/discovery
 ```
 
+Respond turns return cumulative profile state, readiness, and a fallback
+question. NestJS automatically invokes summarize when the hybrid readiness gate
+passes or after 15 successful owner turns. The public summarize route is the
+explicit early-finish path and requires `finish_anyway: true` while blockers
+remain. Incomplete confirmation requires `acknowledge_incomplete: true`.
+
 After connecting, the client emits `discovery.join` with the target
 `session_id`.
 
@@ -376,10 +382,14 @@ Sprint 1 is done when the team can demo one Prepared Discovery journey end-to-en
 8. Discovery chat opens only after research is complete or partially complete.
 9. Discovery asks one question at a time in Arabic, English, or mixed language.
 10. Discovery refuses strategy/content requests during interview.
-11. Discovery produces schema-valid `BusinessProfileDraft`.
-12. Draft separates confirmed facts, research observations, uncertainties, owner goals, and strategy-relevant notes.
-13. Owner confirms the profile.
-14. Strategy remains locked until confirmation.
+11. Discovery continues until the hybrid readiness gate passes, the owner
+    explicitly finishes early, or turn 15 is reached.
+12. Discovery automatically produces a schema-valid `BusinessProfileDraft`
+    with completeness, completion reason, and readiness snapshot.
+13. Draft separates confirmed facts, research observations, uncertainties,
+    owner goals, and strategy-relevant notes.
+14. Owner confirms the profile and explicitly acknowledges incomplete drafts.
+15. Strategy remains locked until confirmation.
 
 Required proof:
 

@@ -16,9 +16,11 @@ import {
 } from "./dto/start-discovery.dto";
 import {
   emptyDiscoveryDomainScores,
+  emptyDiscoveryProfileState,
   emptyMarketAwareBusinessFacts,
   marketContextFromObservations,
 } from "./market-profile";
+import { DiscoveryReadinessService } from "./discovery-readiness.service";
 
 describe("DiscoveryService conversation", () => {
   const repository = {
@@ -35,6 +37,7 @@ describe("DiscoveryService conversation", () => {
     recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
     completeConversationTurn: jest.fn(),
+    completeConversationWithDraft: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
   const aiDiscoveryClient = {
@@ -80,10 +83,31 @@ describe("DiscoveryService conversation", () => {
             }
           : undefined,
     );
+    conversationRepository.completeConversationWithDraft.mockImplementation(
+      async (
+        _sessionId,
+        _allowedStatuses,
+        draft,
+        _profileState,
+        _completionReason,
+        message,
+      ) => ({
+        draft,
+        assistantMessage: {
+          id: "summary-message",
+          role: message.role,
+          content: message.content,
+          language: message.language,
+          source: message.source,
+          created_at: "2026-06-29T10:06:00.000Z",
+        },
+      }),
+    );
     service = new DiscoveryConversationService(
       repository,
       conversationRepository,
       aiDiscoveryClient,
+      new DiscoveryReadinessService(),
     );
   });
 
@@ -120,6 +144,10 @@ describe("DiscoveryService conversation", () => {
         role: "assistant",
         content: "What offer sells best today?",
       }),
+      expect.objectContaining({
+        readiness: expect.objectContaining({ owner_turn_count: 1 }),
+      }),
+      true,
     );
     expect(response.status).toBe("in_progress");
     expect(response.assistant_message?.content).toBe(
@@ -154,6 +182,112 @@ describe("DiscoveryService conversation", () => {
     ).not.toHaveBeenCalled();
   });
 
+  it("automatically summarizes when the hybrid readiness gate passes", async () => {
+    const ready = readyAiResult();
+    aiDiscoveryClient.respond.mockResolvedValue(ready);
+    aiDiscoveryClient.summarize.mockImplementation(
+      async (
+        _sessionId,
+        _languageMode,
+        _intake,
+        _intelligence,
+        _messages,
+        completionContext,
+      ) => ({
+        ...ready,
+        action: "produce_profile_draft",
+        next_question: undefined,
+        profile_draft: {
+          ...profileDraft(),
+          completeness: completionContext.completeness,
+          completion_reason: completionContext.reason,
+          readiness: completionContext.readiness,
+          confirmed_facts: ready.updated_known_facts,
+        },
+      }),
+    );
+
+    const response = await service.respondToDiscovery(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      { message: "The owner and one team member handle marketing." },
+    );
+
+    expect(response.status).toBe("summary_ready");
+    expect(response.profile_draft?.completeness).toBe("complete");
+    expect(response.readiness.ready).toBe(true);
+    expect(aiDiscoveryClient.summarize).toHaveBeenCalledWith(
+      expect.any(String),
+      LanguageModeDto.Mixed,
+      intake(),
+      intelligence(),
+      expect.arrayContaining([expect.objectContaining({ role: "owner" })]),
+      expect.objectContaining({
+        reason: "sufficient",
+        completeness: "complete",
+      }),
+    );
+  });
+
+  it("automatically creates an incomplete draft on owner turn fifteen", async () => {
+    repository.findSessionForOwner.mockResolvedValue({
+      ...session(),
+      ownerTurnCount: 14,
+    } as never);
+    const continuing = {
+      ...aiResult(),
+      next_question: "What constraint matters most?",
+    };
+    aiDiscoveryClient.respond.mockResolvedValue(continuing);
+    aiDiscoveryClient.summarize.mockImplementation(
+      async (
+        _sessionId,
+        _languageMode,
+        _intake,
+        _intelligence,
+        _messages,
+        completionContext,
+      ) => ({
+        ...continuing,
+        action: "produce_profile_draft",
+        next_question: undefined,
+        profile_draft: {
+          ...profileDraft(),
+          completeness: completionContext.completeness,
+          completion_reason: completionContext.reason,
+          readiness: completionContext.readiness,
+        },
+      }),
+    );
+
+    const response = await service.respondToDiscovery(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      { message: "I still do not know." },
+    );
+
+    expect(response.status).toBe("summary_ready");
+    expect(response.profile_draft).toMatchObject({
+      completeness: "incomplete",
+      completion_reason: "turn_limit",
+    });
+    expect(response.readiness.owner_turn_count).toBe(15);
+  });
+
+  it("rejects manual summarization while blocking gaps remain", async () => {
+    await expect(
+      service.summarizeDiscovery(
+        "owner-id",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: "DISCOVERY_PROFILE_NOT_READY",
+      }),
+    });
+    expect(aiDiscoveryClient.summarize).not.toHaveBeenCalled();
+  });
+
   it("summarizes the conversation into a profile draft", async () => {
     const draft = profileDraft();
     aiDiscoveryClient.summarize.mockResolvedValue({
@@ -166,21 +300,26 @@ describe("DiscoveryService conversation", () => {
     const response = await service.summarizeDiscovery(
       "owner-id",
       "11111111-1111-4111-8111-111111111111",
+      { finish_anyway: true },
     );
 
-    expect(conversationRepository.saveProfileDraft).toHaveBeenCalledWith(draft);
     expect(
-      conversationRepository.completeConversationTurn,
+      conversationRepository.completeConversationWithDraft,
     ).toHaveBeenCalledWith(
       "11111111-1111-4111-8111-111111111111",
       ["partial_ready", "ready_for_chat", "research_failed", "in_progress"],
-      "summary_ready",
-      undefined,
-      draft.id,
+      draft,
+      expect.objectContaining({
+        readiness: expect.objectContaining({
+          completion_reason: "owner_finished_early",
+        }),
+      }),
+      "owner_finished_early",
       expect.objectContaining({
         role: "assistant",
         source: "summary",
       }),
+      false,
     );
     expect(response.profile_draft.id).toBe(draft.id);
   });
@@ -223,6 +362,7 @@ describe("DiscoveryService conversation", () => {
       "11111111-1111-4111-8111-111111111111",
       "99999999-9999-4999-8999-999999999999",
       intake(),
+      false,
     );
   });
 
@@ -256,6 +396,7 @@ describe("DiscoveryService conversation", () => {
       service.summarizeDiscovery(
         "owner-id",
         "11111111-1111-4111-8111-111111111111",
+        { finish_anyway: true },
       ),
     ).rejects.toMatchObject({ code: "AI_DISCOVERY_INVALID_OUTPUT" });
     expect(conversationRepository.saveProfileDraft).not.toHaveBeenCalled();
@@ -268,6 +409,9 @@ function session(status = "ready_for_chat") {
     status,
     languageMode: LanguageModeDto.Mixed,
     currentQuestion: "Who are your best current customers?",
+    profileState: emptyDiscoveryProfileState(),
+    ownerTurnCount: 0,
+    completionReason: null,
     startedAt: new Date("2026-06-29T10:00:00.000Z"),
     intelligence: intelligence(),
     progressEvents: [],
@@ -321,6 +465,7 @@ function aiResult(): AiDiscoveryResult {
     research_observations: [],
     source_refs: [],
     domain_scores: emptyDiscoveryDomainScores(),
+    ready_to_summarize: false,
   };
 }
 
@@ -332,6 +477,9 @@ function profileDraft(): BusinessProfileDraft {
     session_id: "11111111-1111-4111-8111-111111111111",
     version: 1,
     status: "ready_for_confirmation",
+    completeness: "incomplete",
+    completion_reason: "owner_finished_early",
+    readiness: emptyDiscoveryProfileState().readiness,
     confirmed_facts: {
       ...confirmedFacts,
       customers: {
@@ -345,5 +493,57 @@ function profileDraft(): BusinessProfileDraft {
     owner_goals: [],
     strategy_relevant_notes: [],
     raw_ai_output: {},
+  };
+}
+
+function readyAiResult(): AiDiscoveryResult {
+  const result = aiResult();
+  const facts = emptyMarketAwareBusinessFacts();
+
+  return {
+    ...result,
+    next_question: "What is the most important remaining detail?",
+    ready_to_summarize: true,
+    updated_known_facts: {
+      ...facts,
+      identity: {
+        business_name: "Koshary Corner",
+        business_type: "quick service restaurant",
+        city: "Cairo",
+      },
+      offer: {
+        ...facts.offer,
+        core_offerings: ["koshary bowls"],
+      },
+      customers: {
+        ...facts.customers,
+        primary_segments: ["office workers"],
+        peak_periods: ["weekday lunch"],
+      },
+      differentiation: {
+        ...facts.differentiation,
+        owner_claimed_strengths: ["fast service"],
+      },
+      current_marketing: {
+        ...facts.current_marketing,
+        active_channels: ["instagram"],
+      },
+      goals_and_constraints: {
+        ...facts.goals_and_constraints,
+        growth_goals: ["increase lunch orders"],
+        team_capacity: "owner and one team member",
+      },
+    },
+    domain_scores: {
+      identity: 0.95,
+      offer: 0.75,
+      customers: 0.8,
+      differentiation: 0.65,
+      current_marketing: 0.65,
+      goals_and_constraints: 0.75,
+      market_context: 0,
+      research_confidence: 0,
+      profile_readiness: 0.85,
+    },
   };
 }

@@ -73,6 +73,11 @@ DISCOVERY_SYSTEM_PROMPT = "\n".join(
         "goals_and_constraints, market_context, research_confidence, and profile_readiness.",
         "Scores represent actual coverage, not optimism. On summarize, preserve",
         "missing domains as uncertainties instead of filling them with generic assumptions.",
+        "Set ready_to_summarize=true only when the owner-business domains are sufficiently",
+        "covered and no high-severity contradiction remains. Research confidence and market",
+        "context never block readiness. During start/respond, always provide the best fallback",
+        "next question even when ready_to_summarize=true; the application owns the final gate.",
+        "Every uncertainty must name its profile domain.",
         "",
         "Return only the structured schema requested by the caller.",
     ]
@@ -86,11 +91,15 @@ TURN_INSTRUCTIONS = {
     ),
     "respond": (
         "Continue the conversation from the full message history. Interpret the latest owner "
-        "answer, update cumulative facts and uncertainties, then ask the smartest next question."
+        "answer, update cumulative facts and uncertainties, score readiness honestly, and ask "
+        "the smartest next question for the highest-value remaining gap. The question is also "
+        "required as a fallback when you recommend summarization."
     ),
     "summarize": (
-        "End the interview now. Return action=produce_profile_draft with cumulative facts, "
-        "goals, constraints, and honest uncertainties. Do not ask another question."
+        "End the interview now because the application supplied an explicit completion_context. "
+        "Return action=produce_profile_draft with cumulative facts, goals, constraints, and "
+        "honest uncertainties. For incomplete completion, preserve every blocking domain from "
+        "completion_context as an uncertainty. Do not ask another question."
     ),
 }
 

@@ -75,7 +75,8 @@
         "severity": "low",
         "category": "owner_unknown",
         "source": "owner_unknown",
-        "resolved": false
+        "resolved": false,
+        "domain": "offer"
       }
     ],
     "owner_goals": ["Attract more lunch customers."],
@@ -85,6 +86,28 @@
     "raw_ai_output": {
       "action": "produce_profile_draft",
       "prompt_version": "discovery-v2-market-aware"
+    },
+    "completeness": "complete",
+    "completion_reason": "sufficient",
+    "readiness": {
+      "ready": true,
+      "llm_recommended": true,
+      "profile_readiness": 0.86,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.8,
+        "customers": 0.85,
+        "differentiation": 0.7,
+        "current_marketing": 0.7,
+        "goals_and_constraints": 0.8,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.86
+      },
+      "blocking_domains": [],
+      "owner_turn_count": 7,
+      "max_owner_turns": 15,
+      "completion_reason": "sufficient"
     }
   },
   "strategy_locked": true

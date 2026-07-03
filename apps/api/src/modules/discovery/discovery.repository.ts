@@ -4,9 +4,11 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 import {
   DiscoveryProgressEvent,
   DiscoveryProgressInput,
+  DiscoveryProfileState,
   DiscoverySessionStatus,
   IntelligenceResult,
 } from "./discovery-state";
+import { profileStateFromPersistence } from "./discovery-conversation.mapper";
 import {
   intelligenceFromPersistence,
   metadataForPrisma,
@@ -22,6 +24,9 @@ type DiscoverySessionWithIntake = {
   status: DiscoverySessionStatus;
   languageMode: string;
   currentQuestion: string | null;
+  profileState: DiscoveryProfileState;
+  ownerTurnCount: number;
+  completionReason: string | null;
   startedAt: Date;
   intakes: Array<{
     businessName: string;
@@ -185,6 +190,11 @@ export class DiscoveryRepository {
     return {
       ...session,
       status: session.status as DiscoverySessionStatus,
+      profileState: profileStateFromPersistence(
+        session.profileState,
+        session.ownerTurnCount,
+        session.completionReason,
+      ),
       intelligence: intelligenceFromPersistence(session),
       progressEvents: session.discoveryProgressEvents,
     };

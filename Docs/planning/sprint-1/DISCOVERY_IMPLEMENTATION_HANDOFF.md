@@ -44,11 +44,20 @@ stage. It does not attempt to replace the future Research or Strategy stages.
 6. The AI updates structured business facts and uncertainties while asking one
    contextual question at a time. It must not expose an internal questionnaire
    or generate strategy.
-7. Summarization creates a complete market-aware draft through
-   `POST /api/v1/discovery/:sessionId/summarize`.
-8. Explicit owner confirmation through
-   `POST /api/v1/discovery/:sessionId/confirm-profile` creates an immutable
-   profile version and unlocks the downstream boundary.
+7. Each response carries cumulative facts, domain-aware uncertainty, domain
+   scores, a fallback question, and an AI readiness recommendation. NestJS
+   applies the authoritative balanced-coverage gate.
+8. When the AI recommends completion and the gate passes, NestJS immediately
+   invokes the internal summarize turn and returns `summary_ready`. Turn 15
+   also summarizes automatically, preserving remaining gaps in an incomplete
+   draft.
+9. `POST /api/v1/discovery/:sessionId/summarize` is the owner early-finish
+   path. If blockers remain, it requires `finish_anyway: true` and produces an
+   explicitly incomplete draft.
+10. Explicit owner confirmation through
+    `POST /api/v1/discovery/:sessionId/confirm-profile` creates an immutable
+    profile version and unlocks the downstream boundary. Incomplete drafts
+    additionally require `acknowledge_incomplete: true`.
 
 HTTP status is the recovery source of truth. Socket.IO at
 `/ws/v1/discovery` supplies progress updates through `discovery.join`,
@@ -59,16 +68,16 @@ HTTP status is the recovery source of truth. Socket.IO at
 The confirmed profile is intentionally more useful than a general business
 summary. It contains:
 
-| Domain | Captured information |
-| --- | --- |
-| Identity | Business name, type, city, and area |
-| Offer | Core offerings, best sellers, price range, and purchase occasions |
-| Customers | Primary segments, visit/order occasions, peak periods, and needs |
-| Differentiation | Owner-claimed strengths, choice reasons, and proof points |
-| Current marketing | Active channels, current activities, delivery platforms, and available assets |
-| Goals and constraints | Growth goals, timeframe, budget range, team capacity, and operational constraints |
-| Market context | Competitor landscape, local demand, digital presence, and other evidence-backed signals |
-| Decision quality | Research observations, uncertainties, owner goals, and strategy-relevant notes |
+| Domain                | Captured information                                                                    |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| Identity              | Business name, type, city, and area                                                     |
+| Offer                 | Core offerings, best sellers, price range, and purchase occasions                       |
+| Customers             | Primary segments, visit/order occasions, peak periods, and needs                        |
+| Differentiation       | Owner-claimed strengths, choice reasons, and proof points                               |
+| Current marketing     | Active channels, current activities, delivery platforms, and available assets           |
+| Goals and constraints | Growth goals, timeframe, budget range, team capacity, and operational constraints       |
+| Market context        | Competitor landscape, local demand, digital presence, and other evidence-backed signals |
+| Decision quality      | Research observations, uncertainties, owner goals, and strategy-relevant notes          |
 
 Market context entries retain observation and source references where available.
 The system does not silently promote a public claim into an owner-confirmed
@@ -93,6 +102,17 @@ The prompt and response validation enforce these rules:
 - refuse strategy work while Discovery is still active;
 - only mark the profile ready when required domains are sufficiently covered.
 
+NestJS, not the model, owns the final readiness decision. Automatic completion
+requires `profile_readiness >= 0.80`, balanced minimum scores and structural
+facts for the owner-business domains, and no unresolved high-severity owner
+fact contradiction. Market context and research confidence never block
+completion because public research is degradable.
+
+The owner may still stop early. That path and the 15-turn limit produce an
+incomplete draft whose blocking domains are converted into visible
+uncertainties. Confirmation requires explicit acknowledgement, and those gaps
+remain in the immutable profile for downstream agents.
+
 OpenAI, Gemini, and OpenRouter share the same runtime turn instructions so
 provider choice does not change the product contract.
 
@@ -111,6 +131,7 @@ The integration includes:
 - strict FastAPI and NestJS response parsing;
 - safe provider errors without leaked credentials or raw upstream bodies;
 - idempotent profile confirmation and transactional profile version creation;
+- durable profile-state snapshots, readiness recovery, and a 15-turn cap;
 - persistent progress events so reconnecting clients can recover state.
 
 Research failure is degradable: Discovery can continue with owner conversation.
@@ -120,7 +141,9 @@ AI conversation failure is not converted into a successful turn.
 
 The shared contracts now define the lifecycle, progress events, market-aware
 facts, evidence-backed market context, profile draft, confirmed profile, and
-canonical uncertainty model.
+canonical uncertainty model. Public status and respond responses expose the
+persisted readiness snapshot. Profile drafts record completeness, completion
+reason, scores, and blocking domains.
 
 Persistence remains aligned with the Prepared Discovery architecture. The
 branch updates migration documentation to match the implementation but does not
@@ -153,13 +176,16 @@ High-value review questions:
 
 ## Verification Evidence
 
-`npm run check` passes on this branch:
+The implementation verification completed in this workspace includes:
 
 - contract typecheck and all contract examples;
 - API production build;
-- API unit tests: 33 suites, 127 tests;
-- API end-to-end tests: 3 suites, 17 tests;
+- API unit tests: 34 suites, 138 tests;
 - AI tests: 47 tests.
+
+The API end-to-end suite contains 3 suites and 17 tests. It must be run in CI
+or a local shell that permits ephemeral localhost listeners; this restricted
+workspace rejects Supertest's listener with `listen EPERM`.
 
 Coverage includes Arabic, English, mixed language, unknown answers, invalid model
 output, prompt injection, strategy refusal, provider failure, wrong-match
@@ -171,6 +197,8 @@ confirmation, and HTTP route behavior.
 Discovery is sufficient for handoff to the next stage when:
 
 - the owner can complete the journey without research being mandatory;
+- normal completion passes the hybrid readiness gate, while early/turn-limit
+  completion remains explicitly incomplete;
 - the confirmed profile covers the seven profile domains above;
 - market context is evidence-backed rather than invented;
 - unresolved gaps and contradictions remain explicit;
@@ -200,6 +228,8 @@ Before production rollout, run:
 - a live PostgreSQL journey from start through confirmation;
 - smoke tests with each enabled AI and search provider;
 - reconnect testing from the actual frontend Socket.IO client;
+- frontend review of readiness progress, early-finish warnings, and incomplete
+  acknowledgement;
 - prompt-quality review using representative Egyptian cafe and restaurant cases;
 - dependency and secret-scanning checks in CI.
 

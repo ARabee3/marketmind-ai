@@ -53,6 +53,7 @@ class MockDiscoveryProvider(DiscoveryProvider):
         if self._is_strategy_request(owner_text):
             return DiscoveryModelOutput(
                 action="ask_clarification",
+                ready_to_summarize=False,
                 next_question=self._boundary_question(request.language_mode),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[],
@@ -61,6 +62,7 @@ class MockDiscoveryProvider(DiscoveryProvider):
         if self._is_prompt_injection(owner_text):
             return DiscoveryModelOutput(
                 action="ask_clarification",
+                ready_to_summarize=False,
                 next_question=self._safe_discovery_question(
                     request.language_mode,
                     str(intake["business_name"]),
@@ -72,10 +74,12 @@ class MockDiscoveryProvider(DiscoveryProvider):
         if self._is_unknown(owner_text):
             return DiscoveryModelOutput(
                 action="ask_next_question",
+                ready_to_summarize=False,
                 next_question=self._next_question(request),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[
                     UncertaintyInput(
+                        domain="customers",
                         field_key="owner_unknown_answer",
                         description="The owner did not know the requested Discovery fact.",
                         severity="medium",
@@ -88,6 +92,7 @@ class MockDiscoveryProvider(DiscoveryProvider):
             )
         return DiscoveryModelOutput(
             action="ask_next_question",
+            ready_to_summarize=False,
             next_question=self._next_question(request),
             updated_known_facts=known_facts,
             updated_uncertainties=[],
@@ -110,6 +115,7 @@ class MockDiscoveryProvider(DiscoveryProvider):
             strategy_relevant_notes=[
                 "Strategy work stays locked until the owner confirms this profile."
             ],
+            ready_to_summarize=True,
             domain_scores={
                 "identity": 1.0,
                 "offer": 0.3,

@@ -8,6 +8,20 @@ from app.core.errors import ErrorBody
 UUID = str
 IsoDateTime = str
 LanguageMode = Literal["ar-EG", "en", "mixed"]
+DiscoveryProfileDomain = Literal[
+    "identity",
+    "offer",
+    "customers",
+    "differentiation",
+    "current_marketing",
+    "goals_and_constraints",
+    "market_context",
+]
+DiscoveryCompletionReason = Literal[
+    "sufficient",
+    "owner_finished_early",
+    "turn_limit",
+]
 AiDiscoveryAction = Literal[
     "ask_next_question",
     "ask_clarification",
@@ -137,6 +151,7 @@ class DiscoveryMessage(StrictModel):
 
 
 class UncertaintyInput(StrictModel):
+    domain: DiscoveryProfileDomain
     field_key: str
     description: str
     severity: Literal["low", "medium", "high"]
@@ -238,11 +253,31 @@ class DiscoveryDomainScores(StrictModel):
     profile_readiness: float = Field(default=0, ge=0, le=1)
 
 
+class DiscoveryReadiness(StrictModel):
+    ready: bool
+    llm_recommended: bool
+    profile_readiness: float = Field(ge=0, le=1)
+    domain_scores: DiscoveryDomainScores
+    blocking_domains: list[DiscoveryProfileDomain] = Field(default_factory=list)
+    owner_turn_count: int = Field(ge=0)
+    max_owner_turns: int = Field(gt=0)
+    completion_reason: DiscoveryCompletionReason | None = None
+
+
+class DiscoveryCompletionContext(StrictModel):
+    reason: DiscoveryCompletionReason
+    completeness: Literal["complete", "incomplete"]
+    readiness: DiscoveryReadiness
+
+
 class BusinessProfileDraft(StrictModel):
     id: UUID
     session_id: UUID
     version: int
     status: Literal["draft", "ready_for_confirmation", "confirmed", "superseded"]
+    completeness: Literal["complete", "incomplete"]
+    completion_reason: DiscoveryCompletionReason
+    readiness: DiscoveryReadiness
     confirmed_facts: MarketAwareBusinessFacts
     market_context: MarketContextSnapshot
     research_observations: list[ResearchObservation]
@@ -274,18 +309,18 @@ class AiDiscoverySummarizeRequest(StrictModel):
     intake: PreparedDiscoveryIntake
     intelligence: IntelligenceResult
     messages: list[DiscoveryMessage]
+    completion_context: DiscoveryCompletionContext
 
 
 class DiscoveryModelOutput(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
-    updated_known_facts: MarketAwareBusinessFacts = Field(
-        default_factory=MarketAwareBusinessFacts
-    )
-    updated_uncertainties: list[UncertaintyInput] = Field(default_factory=list)
+    updated_known_facts: MarketAwareBusinessFacts
+    updated_uncertainties: list[UncertaintyInput]
     owner_goals: list[str] = Field(default_factory=list)
     strategy_relevant_notes: list[str] = Field(default_factory=list)
-    domain_scores: DiscoveryDomainScores = Field(default_factory=DiscoveryDomainScores)
+    domain_scores: DiscoveryDomainScores
+    ready_to_summarize: bool
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> "DiscoveryModelOutput":
@@ -302,5 +337,6 @@ class AiDiscoveryResult(StrictModel):
     research_observations: list[ResearchObservation]
     source_refs: list[SourceRef]
     domain_scores: DiscoveryDomainScores
+    ready_to_summarize: bool
     profile_draft: BusinessProfileDraft | None = None
     safe_error: ErrorBody | None = None

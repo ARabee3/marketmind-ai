@@ -22,6 +22,7 @@ import { DiscoveryService } from "./discovery.service";
 import {
   ConfirmProfileDto,
   DiscoveryRespondDto,
+  DiscoverySummarizeDto,
 } from "./dto/discovery-conversation.dto";
 import { StartDiscoveryDto } from "./dto/start-discovery.dto";
 import {
@@ -81,8 +82,13 @@ export class DiscoveryController {
   async summarize(
     @Req() req: RequestWithUser,
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
+    @Body() dto: DiscoverySummarizeDto,
   ): Promise<DiscoverySummarizeResponse> {
-    return this.conversationService.summarizeDiscovery(req.user.id, sessionId);
+    return this.conversationService.summarizeDiscovery(
+      req.user.id,
+      sessionId,
+      dto,
+    );
   }
 
   @Post(":sessionId/confirm-profile")

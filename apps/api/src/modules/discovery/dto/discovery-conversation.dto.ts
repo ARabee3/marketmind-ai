@@ -26,4 +26,14 @@ export class ConfirmProfileDto {
 
   @IsBoolean()
   owner_confirmation!: true;
+
+  @IsOptional()
+  @IsBoolean()
+  acknowledge_incomplete?: true;
+}
+
+export class DiscoverySummarizeDto {
+  @IsOptional()
+  @IsBoolean()
+  finish_anyway?: boolean;
 }

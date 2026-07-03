@@ -59,7 +59,8 @@
       "market_context": 0.2,
       "research_confidence": 0.45,
       "profile_readiness": 0.35
-    }
+    },
+    "ready_to_summarize": false
   },
   "error_code": null,
   "error_message": null,

@@ -8,6 +8,7 @@ import { PERMISSIONS_KEY } from "../rbac/decorators/permissions.decorator";
 import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { PERMISSIONS } from "../rbac/rbac.constants";
 import { RbacService } from "../rbac/rbac.service";
+import { emptyDiscoveryProfileState } from "./market-profile";
 
 describe("DiscoveryController", () => {
   const service = {
@@ -90,6 +91,7 @@ describe("DiscoveryController", () => {
         knowledge_gaps: [],
       },
       messages: [],
+      profile_state: emptyDiscoveryProfileState(),
       progress_events: [],
       strategy_locked: true,
     });

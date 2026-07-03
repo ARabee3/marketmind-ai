@@ -1,10 +1,28 @@
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
+import { profileStateFromPersistence } from "./discovery-conversation.mapper";
 import { LanguageModeDto } from "./dto/start-discovery.dto";
-import { emptyMarketAwareBusinessFacts } from "./market-profile";
+import {
+  emptyDiscoveryProfileState,
+  emptyMarketAwareBusinessFacts,
+} from "./market-profile";
 
 describe("DiscoveryConversationRepository", () => {
+  it("recovers persisted readiness, turn count, and completion reason", () => {
+    const persisted = emptyDiscoveryProfileState();
+    const recovered = profileStateFromPersistence(
+      persisted as never,
+      15,
+      "turn_limit",
+    );
+
+    expect(recovered.readiness).toMatchObject({
+      owner_turn_count: 15,
+      completion_reason: "turn_limit",
+    });
+  });
+
   it("stores the initial assistant question with its state transition", async () => {
     const prisma = transactionPrisma({
       discoverySession: {
@@ -75,7 +93,9 @@ describe("DiscoveryConversationRepository", () => {
           status: "confirmed",
           profileDraftId: "draft-id",
           confirmedProfileVersionId: "version-id",
-          businessProfileDrafts: [{ id: "draft-id" }],
+          businessProfileDrafts: [
+            { id: "draft-id", completeness: "incomplete" },
+          ],
         }),
       },
       businessProfileVersion: {
@@ -113,6 +133,8 @@ describe("DiscoveryConversationRepository", () => {
           businessProfileDrafts: [
             {
               id: "draft-id",
+              completeness: "complete",
+              completionReason: "sufficient",
               confirmedFacts: {
                 ...emptyMarketAwareBusinessFacts(),
                 identity: {
@@ -136,6 +158,7 @@ describe("DiscoveryConversationRepository", () => {
               ],
               uncertainties: [
                 {
+                  domain: "goals_and_constraints",
                   field_key: "budget",
                   description: "Budget is unknown.",
                   severity: "medium",
@@ -196,6 +219,33 @@ describe("DiscoveryConversationRepository", () => {
         }),
       }),
     });
+  });
+
+  it("requires acknowledgement before confirming an incomplete draft", async () => {
+    const tx = {
+      discoverySession: {
+        findFirst: jest.fn().mockResolvedValue({
+          status: "summary_ready",
+          profileDraftId: "draft-id",
+          businessProfileDrafts: [
+            { id: "draft-id", completeness: "incomplete" },
+          ],
+        }),
+      },
+    };
+    const repository = new DiscoveryConversationRepository(
+      transactionPrisma(tx) as never,
+    );
+
+    await expect(
+      repository.confirmProfile(
+        "owner-id",
+        "session-id",
+        "draft-id",
+        intake(),
+        false,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 

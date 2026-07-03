@@ -148,6 +148,7 @@ function questionResult(): Record<string, unknown> {
     research_observations: [],
     source_refs: [],
     domain_scores: emptyDiscoveryDomainScores(),
+    ready_to_summarize: false,
   };
 }
 

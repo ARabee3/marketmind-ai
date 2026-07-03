@@ -51,8 +51,32 @@
       "severity": "medium",
       "category": "missing_information",
       "source": "owner_unknown",
-      "resolved": false
+      "resolved": false,
+      "domain": "offer"
     }
   ],
-  "strategy_locked": true
+  "strategy_locked": true,
+  "readiness": {
+    "ready": false,
+    "llm_recommended": false,
+    "profile_readiness": 0.62,
+    "domain_scores": {
+      "identity": 1,
+      "offer": 0.65,
+      "customers": 0.75,
+      "differentiation": 0.35,
+      "current_marketing": 0.55,
+      "goals_and_constraints": 0.6,
+      "market_context": 0.45,
+      "research_confidence": 0.45,
+      "profile_readiness": 0.62
+    },
+    "blocking_domains": [
+      "differentiation",
+      "current_marketing",
+      "goals_and_constraints"
+    ],
+    "owner_turn_count": 2,
+    "max_owner_turns": 15
+  }
 }

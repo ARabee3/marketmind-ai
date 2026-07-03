@@ -52,6 +52,7 @@ describe("AiDiscoveryClient", () => {
         research_observations: [],
         source_refs: [],
         domain_scores: emptyDiscoveryDomainScores(),
+        ready_to_summarize: false,
       }),
     } as Response);
 
@@ -69,6 +70,7 @@ describe("AiDiscoveryClient", () => {
       research_observations: [],
       source_refs: [],
       domain_scores: emptyDiscoveryDomainScores(),
+      ready_to_summarize: false,
       profile_draft: undefined,
       safe_error: undefined,
     });
@@ -100,6 +102,7 @@ describe("AiDiscoveryClient", () => {
         research_observations: [],
         source_refs: [],
         domain_scores: emptyDiscoveryDomainScores(),
+        ready_to_summarize: false,
       }),
     } as Response);
 
@@ -144,6 +147,7 @@ describe("AiDiscoveryClient", () => {
           },
         ],
         domain_scores: emptyDiscoveryDomainScores(),
+        ready_to_summarize: false,
       }),
     } as Response);
 

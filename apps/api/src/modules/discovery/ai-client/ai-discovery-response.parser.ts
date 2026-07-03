@@ -3,6 +3,7 @@ import {
   AiDiscoveryResult,
   BusinessProfileDraft,
   DiscoveryDomainScores,
+  DiscoveryReadiness,
   MarketAwareBusinessFacts,
   MarketContextSnapshot,
   MarketEvidence,
@@ -19,7 +20,8 @@ export function parseAiDiscoveryResult(value: unknown): AiDiscoveryResult {
   if (
     !isAction(value["action"]) ||
     !isMarketAwareBusinessFacts(value["updated_known_facts"]) ||
-    !isRecord(value["domain_scores"])
+    !isRecord(value["domain_scores"]) ||
+    typeof value["ready_to_summarize"] !== "boolean"
   ) {
     throw invalidOutput();
   }
@@ -35,6 +37,7 @@ export function parseAiDiscoveryResult(value: unknown): AiDiscoveryResult {
     research_observations: researchObservations(value["research_observations"]),
     source_refs: sourceRefs(value["source_refs"]),
     domain_scores: numberRecord(value["domain_scores"]),
+    ready_to_summarize: value["ready_to_summarize"],
     profile_draft: profileDraft(value["profile_draft"]),
     safe_error: safeError(value["safe_error"]),
   };
@@ -129,6 +132,7 @@ function isProfileUncertainty(value: unknown): value is ProfileUncertainty {
   }
 
   return (
+    isProfileDomain(value["domain"]) &&
     typeof value["field_key"] === "string" &&
     typeof value["description"] === "string" &&
     isSeverity(value["severity"]) &&
@@ -200,6 +204,10 @@ function isProfileDraft(value: unknown): value is BusinessProfileDraft {
     Number.isInteger(value["version"]) &&
     (value["version"] as number) > 0 &&
     isDraftStatus(value["status"]) &&
+    (value["completeness"] === "complete" ||
+      value["completeness"] === "incomplete") &&
+    isCompletionReason(value["completion_reason"]) &&
+    isDiscoveryReadiness(value["readiness"]) &&
     isMarketAwareBusinessFacts(value["confirmed_facts"]) &&
     isMarketContext(value["market_context"]) &&
     Array.isArray(value["research_observations"]) &&
@@ -231,6 +239,20 @@ function isProfileDraft(value: unknown): value is BusinessProfileDraft {
 
 function isSeverity(value: unknown): value is ProfileUncertainty["severity"] {
   return value === "low" || value === "medium" || value === "high";
+}
+
+function isProfileDomain(
+  value: unknown,
+): value is ProfileUncertainty["domain"] {
+  return (
+    value === "identity" ||
+    value === "offer" ||
+    value === "customers" ||
+    value === "differentiation" ||
+    value === "current_marketing" ||
+    value === "goals_and_constraints" ||
+    value === "market_context"
+  );
 }
 
 function isUncertaintyCategory(
@@ -357,6 +379,34 @@ function isDiscoveryDomainScores(
     "research_confidence",
     "profile_readiness",
   ].every((field) => isConfidence(value[field]));
+}
+
+function isDiscoveryReadiness(value: unknown): value is DiscoveryReadiness {
+  return (
+    isRecord(value) &&
+    typeof value["ready"] === "boolean" &&
+    typeof value["llm_recommended"] === "boolean" &&
+    isConfidence(value["profile_readiness"]) &&
+    isDiscoveryDomainScores(value["domain_scores"]) &&
+    Array.isArray(value["blocking_domains"]) &&
+    value["blocking_domains"].every(isProfileDomain) &&
+    Number.isInteger(value["owner_turn_count"]) &&
+    (value["owner_turn_count"] as number) >= 0 &&
+    Number.isInteger(value["max_owner_turns"]) &&
+    (value["max_owner_turns"] as number) > 0 &&
+    (value["completion_reason"] === undefined ||
+      isCompletionReason(value["completion_reason"]))
+  );
+}
+
+function isCompletionReason(
+  value: unknown,
+): value is BusinessProfileDraft["completion_reason"] {
+  return (
+    value === "sufficient" ||
+    value === "owner_finished_early" ||
+    value === "turn_limit"
+  );
 }
 
 function isMarketAwareBusinessFacts(

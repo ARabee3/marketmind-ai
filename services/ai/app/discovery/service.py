@@ -18,6 +18,7 @@ from app.discovery.schemas import (
     ResearchObservation,
     SourceRef,
     Uncertainty,
+    UncertaintyInput,
 )
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError, TurnKind
 
@@ -79,6 +80,16 @@ class DiscoveryService:
                 provider_error(exc.code, str(exc), retryable=exc.retryable),
             )
 
+        if not self._valid_turn_output(turn_kind, model_output):
+            return self._safe_failure(
+                request,
+                provider_error(
+                    "AI_PROVIDER_INVALID_OUTPUT",
+                    "The AI provider returned an action that is invalid for this Discovery turn.",
+                    retryable=True,
+                ),
+            )
+
         return self._to_result(
             request,
             model_output,
@@ -111,6 +122,7 @@ class DiscoveryService:
             research_observations=accepted_observations,
             source_refs=accepted_sources,
             domain_scores=output.domain_scores,
+            ready_to_summarize=output.ready_to_summarize,
             profile_draft=profile_draft,
             safe_error=None,
         )
@@ -122,17 +134,27 @@ class DiscoveryService:
         accepted_observations: list[ResearchObservation],
         normalized_facts: MarketAwareBusinessFacts,
     ) -> BusinessProfileDraft:
+        if not isinstance(request, AiDiscoverySummarizeRequest):
+            raise ValueError("Profile drafts may only be built during summarize turns.")
+
+        uncertainties = self._completion_uncertainties(
+            output.updated_uncertainties,
+            request,
+        )
         return BusinessProfileDraft(
             id=str(uuid5(NAMESPACE_URL, f"marketmind:profile-draft:{request.session_id}:1")),
             session_id=request.session_id,
             version=1,
             status="ready_for_confirmation",
+            completeness=request.completion_context.completeness,
+            completion_reason=request.completion_context.reason,
+            readiness=request.completion_context.readiness,
             confirmed_facts=normalized_facts,
             market_context=self._market_context(accepted_observations),
             research_observations=accepted_observations,
             uncertainties=[
                 Uncertainty(**uncertainty.model_dump(), resolved=False)
-                for uncertainty in output.updated_uncertainties
+                for uncertainty in uncertainties
             ],
             owner_goals=output.owner_goals,
             strategy_relevant_notes=output.strategy_relevant_notes,
@@ -153,12 +175,19 @@ class DiscoveryService:
             next_question=None,
             updated_known_facts=self._normalize_facts(
                 request,
-                DiscoveryModelOutput(action="safe_failure"),
+                DiscoveryModelOutput(
+                    action="safe_failure",
+                    updated_known_facts=MarketAwareBusinessFacts(),
+                    updated_uncertainties=[],
+                    domain_scores={},
+                    ready_to_summarize=False,
+                ),
             ),
             updated_uncertainties=[],
             research_observations=accepted_observations,
             source_refs=accepted_sources,
             domain_scores={},
+            ready_to_summarize=False,
             profile_draft=None,
             safe_error=error,
         )
@@ -268,6 +297,47 @@ class DiscoveryService:
             if source.id in referenced_source_ids
         ]
         return observations, sources
+
+    def _valid_turn_output(
+        self,
+        turn_kind: TurnKind,
+        output: DiscoveryModelOutput,
+    ) -> bool:
+        if turn_kind == "summarize":
+            return (
+                output.action == "produce_profile_draft"
+                and output.next_question is None
+            )
+        return (
+            output.action in {"ask_next_question", "ask_clarification"}
+            and bool(output.next_question and output.next_question.strip())
+        )
+
+    def _completion_uncertainties(
+        self,
+        uncertainties: list[UncertaintyInput],
+        request: AiDiscoverySummarizeRequest,
+    ) -> list[UncertaintyInput]:
+        result = list(uncertainties)
+        existing_domains = {uncertainty.domain for uncertainty in result}
+        for domain in request.completion_context.readiness.blocking_domains:
+            if domain in existing_domains:
+                continue
+            result.append(
+                UncertaintyInput(
+                    domain=domain,
+                    field_key=f"{domain}.completion_gap",
+                    description=(
+                        f"The {domain.replace('_', ' ')} domain was incomplete "
+                        f"when Discovery ended because of "
+                        f"{request.completion_context.reason}."
+                    ),
+                    severity="medium",
+                    category="missing_information",
+                    source="ai_inference",
+                )
+            )
+        return result
 
 
 def _unique_strings(values: list[str]) -> list[str]:

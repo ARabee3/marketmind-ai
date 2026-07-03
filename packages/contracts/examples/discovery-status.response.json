@@ -110,5 +110,67 @@
       "created_at": "2026-06-25T10:00:21.000Z"
     }
   ],
-  "strategy_locked": true
+  "strategy_locked": true,
+  "profile_state": {
+    "known_facts": {
+      "identity": {
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo",
+        "area": "Nasr City"
+      },
+      "offer": {
+        "core_offerings": [],
+        "best_sellers": [],
+        "purchase_occasions": []
+      },
+      "customers": {
+        "primary_segments": [],
+        "visit_or_order_occasions": [],
+        "peak_periods": [],
+        "customer_needs": []
+      },
+      "differentiation": {
+        "owner_claimed_strengths": [],
+        "customer_choice_reasons": [],
+        "proof_points": []
+      },
+      "current_marketing": {
+        "active_channels": [],
+        "current_activities": [],
+        "delivery_platforms": [],
+        "available_assets": []
+      },
+      "goals_and_constraints": {
+        "growth_goals": [],
+        "operational_constraints": []
+      }
+    },
+    "uncertainties": [],
+    "readiness": {
+      "ready": false,
+      "llm_recommended": false,
+      "profile_readiness": 0.25,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.2,
+        "customers": 0.2,
+        "differentiation": 0.1,
+        "current_marketing": 0.2,
+        "goals_and_constraints": 0.3,
+        "market_context": 0.45,
+        "research_confidence": 0.45,
+        "profile_readiness": 0.25
+      },
+      "blocking_domains": [
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints"
+      ],
+      "owner_turn_count": 0,
+      "max_owner_turns": 15
+    }
+  }
 }

@@ -70,6 +70,41 @@ def owner_message(content: str, language: str = "en") -> dict[str, str]:
     }
 
 
+def with_completion_context(payload: dict[str, Any]) -> dict[str, Any]:
+    scores = {
+        "identity": 1.0,
+        "offer": 0.3,
+        "customers": 0.4,
+        "differentiation": 0.1,
+        "current_marketing": 0.4,
+        "goals_and_constraints": 0.5,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.45,
+    }
+    payload["completion_context"] = {
+        "reason": "owner_finished_early",
+        "completeness": "incomplete",
+        "readiness": {
+            "ready": False,
+            "llm_recommended": False,
+            "profile_readiness": 0.45,
+            "domain_scores": scores,
+            "blocking_domains": [
+                "offer",
+                "customers",
+                "differentiation",
+                "current_marketing",
+                "goals_and_constraints",
+            ],
+            "owner_turn_count": 1,
+            "max_owner_turns": 15,
+            "completion_reason": "owner_finished_early",
+        },
+    }
+    return payload
+
+
 def run(coro: Any) -> Any:
     return asyncio.run(coro)
 
@@ -173,13 +208,26 @@ def test_mock_ignores_prompt_injection() -> None:
 def test_summarize_builds_backend_profile_draft() -> None:
     payload = base_payload("en")
     payload["messages"] = [owner_message("Mostly office workers at lunch.")]
-    request = AiDiscoverySummarizeRequest.model_validate(payload)
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
     result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
 
     assert result.action == "produce_profile_draft"
     assert result.profile_draft is not None
     assert result.profile_draft.status == "ready_for_confirmation"
     assert result.profile_draft.session_id == SESSION_ID
+    assert result.profile_draft.completeness == "incomplete"
+    assert result.profile_draft.completion_reason == "owner_finished_early"
+    assert {
+        uncertainty.domain for uncertainty in result.profile_draft.uncertainties
+    } == {
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints",
+    }
 
 
 class InvalidProvider(DiscoveryProvider):
@@ -296,7 +344,15 @@ class FakeOpenRouterClient:
 
     def create(self, **kwargs: object) -> SimpleNamespace:
         self.__class__.calls += 1
-        return _openrouter_response({"action": "ask_clarification"})
+        return _openrouter_response(
+            {
+                "action": "ask_clarification",
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "domain_scores": {},
+                "ready_to_summarize": False,
+            }
+        )
 
 
 def _openrouter_response(payload: dict[str, object]) -> SimpleNamespace:

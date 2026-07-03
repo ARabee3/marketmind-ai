@@ -9,6 +9,7 @@ import {
   emptyDiscoveryDomainScores,
   emptyMarketAwareBusinessFacts,
 } from "./market-profile";
+import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
@@ -73,6 +74,7 @@ describe("DiscoveryService background research", () => {
       gatherer,
       aiDiscoveryClient,
       progressGateway,
+      new DiscoveryReadinessService(),
     );
   });
 
@@ -128,6 +130,9 @@ describe("DiscoveryService background research", () => {
       SESSION_ID,
       "Who are your best current customers?",
       LanguageModeDto.Mixed,
+      expect.objectContaining({
+        readiness: expect.objectContaining({ owner_turn_count: 0 }),
+      }),
     );
     expect(repository.appendProgressEvent).toHaveBeenCalledWith(
       SESSION_ID,
@@ -192,6 +197,7 @@ describe("DiscoveryService background research", () => {
           research_observations: [],
           source_refs: [],
           domain_scores: emptyDiscoveryDomainScores(),
+          ready_to_summarize: false,
           safe_error: {
             code: "AI_PROVIDER_INVALID_OUTPUT",
             message: "Provider returned invalid discovery output.",
@@ -310,6 +316,7 @@ function aiQuestion() {
     research_observations: [],
     source_refs: [],
     domain_scores: emptyDiscoveryDomainScores(),
+    ready_to_summarize: false,
   };
 }
 

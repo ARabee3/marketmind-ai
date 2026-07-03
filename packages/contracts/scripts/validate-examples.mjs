@@ -51,6 +51,20 @@ const uncertaintySources = new Set([
   "intake_form",
   "ai_inference",
 ]);
+const profileDomains = new Set([
+  "identity",
+  "offer",
+  "customers",
+  "differentiation",
+  "current_marketing",
+  "goals_and_constraints",
+  "market_context",
+]);
+const completionReasons = new Set([
+  "sufficient",
+  "owner_finished_early",
+  "turn_limit",
+]);
 const agentRunTypes = new Set([
   "discovery_start",
   "discovery_turn",
@@ -115,6 +129,10 @@ function assertStatus(value, label) {
 }
 
 function assertUncertainty(uncertainty, label, persisted = true) {
+  assert(
+    profileDomains.has(uncertainty.domain),
+    `${label}.domain is invalid`,
+  );
   assertString(uncertainty.field_key, `${label}.field_key`);
   assertString(uncertainty.description, `${label}.description`);
   assert(
@@ -184,6 +202,16 @@ function assertProfileDraft(draft, label) {
     Number.isInteger(draft.version),
     `${label}.version must be an integer`,
   );
+  assert(
+    draft.completeness === "complete" ||
+      draft.completeness === "incomplete",
+    `${label}.completeness is invalid`,
+  );
+  assert(
+    completionReasons.has(draft.completion_reason),
+    `${label}.completion_reason is invalid`,
+  );
+  assertReadiness(draft.readiness, `${label}.readiness`);
   assert(
     ["draft", "ready_for_confirmation", "confirmed", "superseded"].includes(
       draft.status,
@@ -344,6 +372,61 @@ function assertDomainScores(scores, label) {
   });
 }
 
+function assertReadiness(readiness, label) {
+  assert(
+    typeof readiness?.ready === "boolean",
+    `${label}.ready must be boolean`,
+  );
+  assert(
+    typeof readiness?.llm_recommended === "boolean",
+    `${label}.llm_recommended must be boolean`,
+  );
+  assert(
+    typeof readiness?.profile_readiness === "number" &&
+      readiness.profile_readiness >= 0 &&
+      readiness.profile_readiness <= 1,
+    `${label}.profile_readiness must be between 0 and 1`,
+  );
+  assertDomainScores(readiness.domain_scores, `${label}.domain_scores`);
+  assert(
+    Array.isArray(readiness.blocking_domains) &&
+      readiness.blocking_domains.every((domain) => profileDomains.has(domain)),
+    `${label}.blocking_domains is invalid`,
+  );
+  assert(
+    Number.isInteger(readiness.owner_turn_count) &&
+      readiness.owner_turn_count >= 0,
+    `${label}.owner_turn_count is invalid`,
+  );
+  assert(
+    Number.isInteger(readiness.max_owner_turns) &&
+      readiness.max_owner_turns > 0,
+    `${label}.max_owner_turns is invalid`,
+  );
+  if (readiness.completion_reason !== undefined) {
+    assert(
+      completionReasons.has(readiness.completion_reason),
+      `${label}.completion_reason is invalid`,
+    );
+  }
+}
+
+function assertProfileState(state, label) {
+  assertMarketAwareFacts(state.known_facts, `${label}.known_facts`);
+  assert(
+    Array.isArray(state.uncertainties),
+    `${label}.uncertainties must be an array`,
+  );
+  state.uncertainties.forEach((uncertainty, index) =>
+    assertUncertainty(
+      uncertainty,
+      `${label}.uncertainties[${index}]`,
+      false,
+    ),
+  );
+  assertReadiness(state.readiness, `${label}.readiness`);
+}
+
 function assertIntelligence(intelligence, label) {
   assert(
     ["running", "partial", "complete", "failed"].includes(intelligence.status),
@@ -439,6 +522,16 @@ function assertDiscoverySession(session, label) {
     `${label}.language_mode is invalid`,
   );
   assertNullableString(session.current_question, `${label}.current_question`);
+  assertProfileState(session.profile_state, `${label}.profile_state`);
+  assert(
+    Number.isInteger(session.owner_turn_count) &&
+      session.owner_turn_count >= 0,
+    `${label}.owner_turn_count is invalid`,
+  );
+  assertNullableString(
+    session.completion_reason,
+    `${label}.completion_reason`,
+  );
   assertNullableString(session.profile_draft_id, `${label}.profile_draft_id`);
   assertNullableString(
     session.confirmed_profile_version_id,
@@ -458,6 +551,16 @@ function assertBusinessProfile(profile, label) {
     Number.isInteger(profile.version),
     `${label}.version must be an integer`,
   );
+  assert(
+    profile.profile.completeness === "complete" ||
+      profile.profile.completeness === "incomplete",
+    `${label}.profile.completeness is invalid`,
+  );
+  assert(
+    completionReasons.has(profile.profile.completion_reason),
+    `${label}.profile.completion_reason is invalid`,
+  );
+  assertReadiness(profile.profile.readiness, `${label}.profile.readiness`);
   assert(
     typeof profile.profile === "object" && !Array.isArray(profile.profile),
     `${label}.profile must be an object`,
@@ -543,6 +646,7 @@ assert(
   "strategy must stay locked before confirmation",
 );
 assertIntelligence(statusResponse.intelligence, "statusResponse.intelligence");
+assertProfileState(statusResponse.profile_state, "statusResponse.profile_state");
 
 const respondResponse = await loadJson("discovery-respond.response.json");
 assertStatus(respondResponse.status, "respondResponse.status");
@@ -553,6 +657,13 @@ assertMarketAwareFacts(
 assert(
   respondResponse.strategy_locked === true,
   "strategy must stay locked during chat",
+);
+assertReadiness(respondResponse.readiness, "respondResponse.readiness");
+
+const summarizeRequest = await loadJson("discovery-summarize.request.json");
+assert(
+  typeof summarizeRequest.finish_anyway === "boolean",
+  "summarize request finish_anyway must be boolean",
 );
 
 const summarizeResponse = await loadJson("discovery-summarize.response.json");
@@ -577,6 +688,15 @@ assert(
 assert(
   confirmRequest.profile_draft_id === summarizeResponse.profile_draft.id,
   "confirm request must reference the draft",
+);
+
+const incompleteConfirmRequest = await loadJson(
+  "discovery-confirm-incomplete-profile.request.json",
+);
+assert(
+  incompleteConfirmRequest.owner_confirmation === true &&
+    incompleteConfirmRequest.acknowledge_incomplete === true,
+  "incomplete confirm request must explicitly confirm and acknowledge gaps",
 );
 
 const confirmResponse = await loadJson(
@@ -604,6 +724,22 @@ assertDomainScores(
   aiStartResponse.domain_scores,
   "aiStartResponse.domain_scores",
 );
+assert(
+  typeof aiStartResponse.ready_to_summarize === "boolean",
+  "AI start ready_to_summarize must be boolean",
+);
+
+const aiSummarizeRequest = await loadJson(
+  "internal-ai-discovery-summarize.request.json",
+);
+assert(
+  completionReasons.has(aiSummarizeRequest.completion_context?.reason),
+  "AI summarize request completion reason is invalid",
+);
+assertReadiness(
+  aiSummarizeRequest.completion_context?.readiness,
+  "aiSummarizeRequest.completion_context.readiness",
+);
 
 const aiSummarizeResponse = await loadJson(
   "internal-ai-discovery-summarize.response.json",
@@ -623,6 +759,10 @@ assertMarketAwareFacts(
 assertDomainScores(
   aiSummarizeResponse.domain_scores,
   "aiSummarizeResponse.domain_scores",
+);
+assert(
+  aiSummarizeResponse.ready_to_summarize === true,
+  "AI summarize should mark readiness true",
 );
 assertProfileDraft(
   aiSummarizeResponse.profile_draft,

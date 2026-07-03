@@ -1,5 +1,14 @@
 export type UncertaintySeverity = "low" | "medium" | "high";
 
+export type DiscoveryProfileDomain =
+  | "identity"
+  | "offer"
+  | "customers"
+  | "differentiation"
+  | "current_marketing"
+  | "goals_and_constraints"
+  | "market_context";
+
 export type UncertaintyCategory =
   | "missing_information"
   | "contradiction"
@@ -18,6 +27,7 @@ export type UncertaintySource =
   | "ai_inference";
 
 export interface UncertaintyInput {
+  domain: DiscoveryProfileDomain;
   field_key: string;
   description: string;
   severity: UncertaintySeverity;

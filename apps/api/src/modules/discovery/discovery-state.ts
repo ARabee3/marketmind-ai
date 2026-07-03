@@ -6,6 +6,10 @@ import type {
   ConversationHook as ContractConversationHook,
   DiscoveryMessage as ContractDiscoveryMessage,
   DiscoveryDomainScores as ContractDiscoveryDomainScores,
+  DiscoveryCompletionContext as ContractDiscoveryCompletionContext,
+  DiscoveryCompletionReason as ContractDiscoveryCompletionReason,
+  DiscoveryProfileState as ContractDiscoveryProfileState,
+  DiscoveryReadiness as ContractDiscoveryReadiness,
   DiscoveryProgressEvent as ContractDiscoveryProgressEvent,
   DiscoveryRespondResponse as ContractDiscoveryRespondResponse,
   DiscoverySessionStatus as ContractDiscoverySessionStatus,
@@ -70,6 +74,10 @@ export type DiscoveryProgressInput = {
 
 export type DiscoveryMessage = ContractDiscoveryMessage;
 export type DiscoveryDomainScores = ContractDiscoveryDomainScores;
+export type DiscoveryReadiness = ContractDiscoveryReadiness;
+export type DiscoveryProfileState = ContractDiscoveryProfileState;
+export type DiscoveryCompletionReason = ContractDiscoveryCompletionReason;
+export type DiscoveryCompletionContext = ContractDiscoveryCompletionContext;
 export type BusinessProfileDraft = ContractBusinessProfileDraft;
 export type ProfileUncertainty = UncertaintyInput;
 export type AiDiscoveryAction = ContractAiDiscoveryAction;

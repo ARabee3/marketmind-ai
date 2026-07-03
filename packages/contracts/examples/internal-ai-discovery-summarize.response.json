@@ -41,13 +41,13 @@
   "domain_scores": {
     "identity": 1,
     "offer": 0.8,
-    "customers": 0.8,
-    "differentiation": 0.5,
-    "current_marketing": 0.5,
-    "goals_and_constraints": 0.7,
+    "customers": 0.85,
+    "differentiation": 0.7,
+    "current_marketing": 0.7,
+    "goals_and_constraints": 0.8,
     "market_context": 0.5,
-    "research_confidence": 0.7,
-    "profile_readiness": 0.92
+    "research_confidence": 0.5,
+    "profile_readiness": 0.86
   },
   "profile_draft": {
     "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -103,6 +103,29 @@
     ],
     "raw_ai_output": {
       "action": "produce_profile_draft"
+    },
+    "completeness": "complete",
+    "completion_reason": "sufficient",
+    "readiness": {
+      "ready": true,
+      "llm_recommended": true,
+      "profile_readiness": 0.86,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.8,
+        "customers": 0.85,
+        "differentiation": 0.7,
+        "current_marketing": 0.7,
+        "goals_and_constraints": 0.8,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.86
+      },
+      "blocking_domains": [],
+      "owner_turn_count": 7,
+      "max_owner_turns": 15,
+      "completion_reason": "sufficient"
     }
-  }
+  },
+  "ready_to_summarize": true
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,8 +8,10 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import {
   BusinessProfileDraft,
+  DiscoveryCompletionReason,
   ConfirmProfileResponse,
   DiscoveryMessage,
+  DiscoveryProfileState,
   DiscoverySessionStatus,
 } from "./discovery-state";
 import {
@@ -82,6 +85,9 @@ export class DiscoveryConversationRepository {
         sessionId: draft.session_id,
         version: draft.version,
         status: draft.status,
+        completeness: draft.completeness,
+        completionReason: draft.completion_reason,
+        readiness: jsonForPrisma(draft.readiness),
         confirmedFacts: jsonForPrisma(draft.confirmed_facts),
         researchObservations: jsonForPrismaArray(draft.research_observations),
         uncertainties: jsonForPrismaArray(draft.uncertainties),
@@ -93,6 +99,9 @@ export class DiscoveryConversationRepository {
       },
       update: {
         status: draft.status,
+        completeness: draft.completeness,
+        completionReason: draft.completion_reason,
+        readiness: jsonForPrisma(draft.readiness),
         confirmedFacts: jsonForPrisma(draft.confirmed_facts),
         researchObservations: jsonForPrismaArray(draft.research_observations),
         uncertainties: jsonForPrismaArray(draft.uncertainties),
@@ -114,6 +123,8 @@ export class DiscoveryConversationRepository {
     currentQuestion?: string,
     profileDraftId?: string,
     assistantMessage?: MessageInput,
+    profileState?: DiscoveryProfileState,
+    incrementOwnerTurn = false,
   ): Promise<DiscoveryMessage | undefined> {
     const savedMessage = await this.prisma.$transaction(async (tx) => {
       const transition = await tx.discoverySession.updateMany({
@@ -125,6 +136,10 @@ export class DiscoveryConversationRepository {
           status,
           currentQuestion: currentQuestion ?? null,
           profileDraftId,
+          ...(profileState
+            ? { profileState: jsonForPrisma(profileState) }
+            : {}),
+          ...(incrementOwnerTurn ? { ownerTurnCount: { increment: 1 } } : {}),
         },
       });
 
@@ -151,10 +166,72 @@ export class DiscoveryConversationRepository {
     return savedMessage ? messageFromPersistence(savedMessage) : undefined;
   }
 
+  async completeConversationWithDraft(
+    sessionId: string,
+    allowedStatuses: readonly DiscoverySessionStatus[],
+    draft: BusinessProfileDraft,
+    profileState: DiscoveryProfileState,
+    completionReason: DiscoveryCompletionReason,
+    assistantMessage: MessageInput,
+    incrementOwnerTurn: boolean,
+  ): Promise<{
+    draft: BusinessProfileDraft;
+    assistantMessage: DiscoveryMessage;
+  }> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const transition = await tx.discoverySession.updateMany({
+        where: {
+          id: sessionId,
+          status: { in: [...allowedStatuses] },
+        },
+        data: {
+          status: "summary_ready",
+          currentQuestion: null,
+          profileDraftId: draft.id,
+          profileState: jsonForPrisma(profileState),
+          completionReason,
+          ...(incrementOwnerTurn ? { ownerTurnCount: { increment: 1 } } : {}),
+        },
+      });
+      if (transition.count !== 1) {
+        throw invalidDiscoveryState();
+      }
+
+      const savedDraft = await tx.businessProfileDraft.upsert({
+        where: {
+          sessionId_version: {
+            sessionId: draft.session_id,
+            version: draft.version,
+          },
+        },
+        create: profileDraftCreateData(draft),
+        update: profileDraftUpdateData(draft),
+      });
+      const savedMessage = await tx.discoveryMessage.create({
+        data: {
+          sessionId,
+          role: assistantMessage.role,
+          content: assistantMessage.content,
+          language: assistantMessage.language,
+          source: assistantMessage.source,
+          metadata: jsonForPrisma(assistantMessage.metadata ?? {}),
+        },
+      });
+
+      return { savedDraft, savedMessage };
+    });
+
+    return {
+      draft: profileDraftFromPersistence(result.savedDraft),
+      assistantMessage: messageFromPersistence(result.savedMessage),
+    };
+  }
+
   async recordInitialAssistantQuestion(
     sessionId: string,
     content: string,
     language: DiscoveryMessage["language"],
+    profileState?: DiscoveryProfileState,
   ): Promise<DiscoveryMessage> {
     const message = await this.completeConversationTurn(
       sessionId,
@@ -168,6 +245,7 @@ export class DiscoveryConversationRepository {
         language,
         source: "chat",
       },
+      profileState,
     );
 
     if (!message) {
@@ -204,6 +282,7 @@ export class DiscoveryConversationRepository {
     sessionId: string,
     profileDraftId: string,
     intake: PreparedDiscoveryIntakeDto,
+    acknowledgeIncomplete = false,
   ): Promise<ConfirmProfileResponse> {
     const version = await this.prisma.$transaction(async (tx) => {
       const session = await tx.discoverySession.findFirst({
@@ -215,7 +294,6 @@ export class DiscoveryConversationRepository {
       if (!session || !draft) {
         throw new NotFoundException("Profile draft not found");
       }
-
       if (session.status === "confirmed") {
         if (
           session.profileDraftId !== profileDraftId ||
@@ -235,6 +313,11 @@ export class DiscoveryConversationRepository {
           );
         }
         return existingVersion;
+      }
+      if (draft.completeness === "incomplete" && !acknowledgeIncomplete) {
+        throw new BadRequestException(
+          "Incomplete profile acknowledgement is required",
+        );
       }
 
       if (
@@ -310,6 +393,9 @@ export class DiscoveryConversationRepository {
               : { address_text: intake.address_text }),
             primary_locale: session.languageMode,
             confirmed_facts: confirmedDraft.confirmed_facts,
+            completeness: confirmedDraft.completeness,
+            completion_reason: confirmedDraft.completion_reason,
+            readiness: confirmedDraft.readiness,
             market_context: confirmedDraft.market_context,
             research_observations: confirmedDraft.research_observations,
             uncertainties: confirmedDraft.uncertainties,
@@ -346,6 +432,39 @@ export class DiscoveryConversationRepository {
       strategy_locked: false,
     };
   }
+}
+
+function profileDraftCreateData(draft: BusinessProfileDraft) {
+  return {
+    id: draft.id,
+    sessionId: draft.session_id,
+    version: draft.version,
+    status: draft.status,
+    completeness: draft.completeness,
+    completionReason: draft.completion_reason,
+    readiness: jsonForPrisma(draft.readiness),
+    confirmedFacts: jsonForPrisma(draft.confirmed_facts),
+    researchObservations: jsonForPrismaArray(draft.research_observations),
+    uncertainties: jsonForPrismaArray(draft.uncertainties),
+    ownerGoals: jsonForPrismaArray(draft.owner_goals),
+    strategyRelevantNotes: jsonForPrismaArray(draft.strategy_relevant_notes),
+    rawAiOutput: jsonForPrisma(draft.raw_ai_output),
+  };
+}
+
+function profileDraftUpdateData(draft: BusinessProfileDraft) {
+  return {
+    status: draft.status,
+    completeness: draft.completeness,
+    completionReason: draft.completion_reason,
+    readiness: jsonForPrisma(draft.readiness),
+    confirmedFacts: jsonForPrisma(draft.confirmed_facts),
+    researchObservations: jsonForPrismaArray(draft.research_observations),
+    uncertainties: jsonForPrismaArray(draft.uncertainties),
+    ownerGoals: jsonForPrismaArray(draft.owner_goals),
+    strategyRelevantNotes: jsonForPrismaArray(draft.strategy_relevant_notes),
+    rawAiOutput: jsonForPrisma(draft.raw_ai_output),
+  };
 }
 
 function jsonForPrisma(value: object): Prisma.InputJsonObject {

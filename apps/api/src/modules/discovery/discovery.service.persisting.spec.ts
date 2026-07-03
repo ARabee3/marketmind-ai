@@ -11,6 +11,7 @@ import {
   emptyDiscoveryDomainScores,
   emptyMarketAwareBusinessFacts,
 } from "./market-profile";
+import { DiscoveryReadinessService } from "./discovery-readiness.service";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -60,6 +61,7 @@ describe("DiscoveryService persistence progress", () => {
       research_observations: [],
       source_refs: [],
       domain_scores: emptyDiscoveryDomainScores(),
+      ready_to_summarize: false,
     });
     conversationRepository.recordInitialAssistantQuestion.mockResolvedValue({
       id: "assistant-message",
@@ -79,6 +81,7 @@ describe("DiscoveryService persistence progress", () => {
       gatherer,
       aiDiscoveryClient,
       progressGateway,
+      new DiscoveryReadinessService(),
     );
 
     await service.startPreparedDiscovery("owner-id", discoveryDto());
