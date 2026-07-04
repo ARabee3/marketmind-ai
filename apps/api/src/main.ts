@@ -5,6 +5,10 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Allow local testing frontends (e.g. the discovery playground page) to call
+  // the API cross-origin during development.
+  app.enableCors({ origin: true, credentials: true });
+
   // Global validation pipe — enables class-validator decorators on DTOs
   app.useGlobalPipes(
     new ValidationPipe({

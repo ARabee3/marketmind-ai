@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Discovery Playground — MarketMind</title>
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1f232c; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --acc:#4f8cff; --ok:#34c759;
+    --warn:#ff9f0a; --err:#ff453a; --mono:ui-monospace,Sfmono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,system-ui,sans-serif;
+       background:var(--bg);color:var(--text)}
+  header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0}
+  header .dot{height:9px;width:9px;border-radius:50%;background:var(--muted)}
+  header .dot.ok{background:var(--ok)} header .dot.err{background:var(--err)} header .dot.warn{background:var(--warn)}
+  header .api{margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:12px}
+  input,select,textarea,button{font:inherit;color:var(--text);background:var(--panel-2);
+        border:1px solid var(--border);border-radius:6px;padding:6px 9px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+  button{cursor:pointer;background:var(--acc);color:#fff;border-color:transparent;padding:7px 13px;font-weight:600}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.danger{background:var(--err)} button.ok{background:var(--ok)}
+  label{color:var(--muted);font-size:12px;display:block;margin:6px 0 2px}
+  .row{display:grid;gap:10px}
+  main{display:grid;grid-template-columns:380px 1fr;grid-template-rows:auto 1fr;height:calc(100vh - 53px)}
+  .left{border-right:1px solid var(--border);overflow:auto;padding:14px}
+  section.panel{border:1px solid var(--border);border-radius:8px;background:var(--panel);margin-bottom:14px}
+  section.panel > h2{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+        padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between}
+  section.panel.collapsed > .body{display:none}
+  .body{padding:11px 12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .right{display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+  .chat{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#101218}
+  .msg{max-width:78%;padding:9px 13px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+  .msg.owner{align-self:flex-end;background:#2563eb;color:#fff;border-bottom-right-radius:3px}
+  .msg.assistant{align-self:flex-start;background:var(--panel-2);border:1px solid var(--border);border-bottom-left-radius:3px}
+  .msg.system{align-self:center;background:transparent;color:var(--muted);font-size:12px;border:1px dashed var(--border)}
+  .meta{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+  .composer{border-top:1px solid var(--border);padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;background:var(--panel)}
+  .progress{font-family:var(--mono);font-size:11px;background:#0c0e13;color:#c7d0e0;border-bottom:1px solid var(--border);
+            max-height:140px;overflow:auto;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+  .progress .ev{padding:2px 0;border-bottom:1px dotted var(--border)}
+  .progress .ev .st{color:var(--muted)}
+  .progress .ev.started .st{color:var(--acc)}
+  .progress .ev.complete .st,.progress .ev.completed .st{color:var(--ok)}
+  .progress .ev.failed .st{color:var(--err)}
+  .progress .ev.progress .st{color:var(--warn)}
+  pre.json{background:#0c0e13;color:#c7d0e0;padding:10px;border-radius:6px;overflow:auto;
+           font-family:var(--mono);font-size:11px;border:1px solid var(--border);max-height:340px}
+  .badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--panel-2);
+         border:1px solid var(--border);color:var(--muted);font-family:var(--mono)}
+  .badge.ok{color:var(--ok);border-color:var(--ok)} .badge.warn{color:var(--warn);border-color:var(--warn)}
+  .badge.err{color:var(--err);border-color:var(--err)} .badge.info{color:var(--acc);border-color:var(--acc)}
+  .scorebar{height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden;margin-top:2px}
+  .scorebar > i{display:block;height:100%;background:var(--acc)}
+  .scores{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+  .score .k{font-size:11px;color:var(--muted)}
+  .score .v{font-family:var(--mono);font-size:12px}
+  .obs{border-left:2px solid var(--acc);padding:6px 9px;margin:5px 0;background:var(--panel-2);border-radius:0 6px 6px 0}
+  .obs .kind{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase}
+  .links{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .links .link{font-family:var(--mono);font-size:11px;background:var(--panel-2);padding:3px 7px;border-radius:6px;border:1px solid var(--border)}
+  .linkrow{display:grid;grid-template-columns:repeat(3, 1fr) auto;gap:6px;align-items:end;margin-top:6px}
+  .small{font-size:11px;color:var(--muted)}
+  .toast{position:fixed;bottom:14px;right:14px;background:var(--panel-2);border:1px solid var(--border);
+         padding:9px 13px;border-radius:8px;font-size:13px;max-width:360px;z-index:20;box-shadow:0 6px 20px #000}
+  .toast.err{border-color:var(--err)} .toast.ok{border-color:var(--ok)}
+  a{color:var(--acc)}
+  .hidden{display:none!important}
+  .toolbar{display:flex;gap:6px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <h1>Discovery Playground</h1>
+  <span id="wsDot" class="dot" title="WebSocket"></span>
+  <span id="sessionState" class="badge">no session</span>
+  <span class="api">API: <input id="apiBase" value="http://localhost:3001/api/v1" style="width:230px;font-family:var(--mono)" /></span>
+</header>
+
+<main>
+  <div class="left">
+    <!-- AUTH -->
+    <section class="panel" id="authPanel">
+      <h2><span>Auth</span><span id="authState" class="badge">signed out</span></h2>
+      <div class="body">
+        <div class="grid2">
+          <div>
+            <label>Email</label>
+            <input id="email" placeholder="owner@example.com" autocomplete="email" />
+          </div>
+          <div>
+            <label>Full name (register only)</label>
+            <input id="fullName" placeholder="Rabee Owner" autocomplete="name" />
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <label>Password</label>
+            <input id="password" type="password" placeholder="min 8 chars" autocomplete="current-password" />
+          </div>
+          <div style="align-self:end">
+            <label>&nbsp;</label>
+            <div class="toolbar">
+              <button id="btnRegister" class="ghost">Register</button>
+              <button id="btnLogin">Login</button>
+              <button id="btnLogout" class="ghost hidden">Logout</button>
+            </div>
+          </div>
+        </div>
+        <div class="small" style="margin-top:8px">
+          Tokens are stored in localStorage. New registrations default to <code>OWNER</code> role (all discovery perms).
+        </div>
+      </div>
+    </section>
+
+    <!-- START DISCOVERY -->
+    <section class="panel" id="startPanel">
+      <h2><span>Start Discovery (intake)</span></h2>
+      <div class="body">
+        <label>Business name *</label>
+        <input id="business_name" placeholder="Café Arabesque" />
+        <div class="grid2">
+          <div>
+            <label>Business type *</label>
+            <input id="business_type" placeholder="cafe" />
+          </div>
+          <div>
+            <label>Language mode</label>
+            <select id="language_mode">
+              <option value="mixed" selected>mixed</option>
+              <option value="ar-EG">ar-EG</option>
+              <option value="en">en</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid3">
+          <div>
+            <label>City *</label>
+            <input id="city" placeholder="Cairo" />
+          </div>
+          <div>
+            <label>Area</label>
+            <input id="area" placeholder="Zamalek" />
+          </div>
+          <div>
+            <label>Address</label>
+            <input id="address_text" placeholder="26th July St" />
+          </div>
+        </div>
+        <label>Owner goal</label>
+        <textarea id="owner_goal_text" rows="2" placeholder="more weekend foot traffic"></textarea>
+        <label>Known competitors (free text)</label>
+        <textarea id="known_competitors_text" rows="2" placeholder="Beit El Ahwa, Sufi"></textarea>
+        <label>Target audience</label>
+        <textarea id="target_audience_text" rows="2" placeholder="students, remote workers"></textarea>
+        <label>Notes</label>
+        <textarea id="notes" rows="2" placeholder="anything else"></textarea>
+        <label>Social links (optional, up to 8)</label>
+        <div id="socialLinks">
+          <div class="linkrow">
+            <select class="sl-platform">
+              <option value="facebook">facebook</option>
+              <option value="instagram">instagram</option>
+              <option value="tiktok">tiktok</option>
+              <option value="website">website</option>
+              <option value="google_maps">google_maps</option>
+              <option value="delivery">delivery</option>
+              <option value="other">other</option>
+            </select>
+            <input class="sl-url" placeholder="https://..." style="grid-column:span 2" />
+            <button class="ghost sm-remove" type="button">-</button>
+          </div>
+        </div>
+        <button id="btnAddLink" class="ghost" style="margin-top:6px">+ add link</button>
+        <div style="margin-top:10px">
+          <button id="btnStart">Start session</button>
+          <button id="btnLoadStatus" class="ghost">Refresh status</button>
+        </div>
+        <div class="small" style="margin-top:6px">Session ID: <input id="sessionId" style="width:280px;font-family:var(--mono)" placeholder="(after start)" /></div>
+      </div>
+    </section>
+
+    <!-- STATUS / INTELLIGENCE -->
+    <section class="panel" id="statusPanel">
+      <h2><span>Status &amp; intelligence</span><span id="intelBadge" class="badge">idle</span></h2>
+      <div class="body">
+        <div>Session status: <span id="sessionStatusVal" class="badge">—</span> · strategy_locked: <span id="strategyLocked">—</span></div>
+        <div style="margin-top:6px">Current question:</div>
+        <div id="currentQuestion" class="small" style="font-style:italic">—</div>
+        <hr style="border-color:var(--border);margin:10px 0" />
+        <div class="small">Source refs:</div>
+        <div id="sourceRefs" class="links"></div>
+        <div class="small" style="margin-top:6px">Research observations:</div>
+        <div id="observations"></div>
+        <div class="small" style="margin-top:6px">Conversation hooks:</div>
+        <div id="hooks"></div>
+      </div>
+    </section>
+
+    <!-- PROFILE / READINESS -->
+    <section class="panel" id="profilePanel">
+      <h2><span>Profile state &amp; readiness</span></h2>
+      <div class="body">
+        <div>Ready to summarize: <span id="readyToSumm" class="badge">—</span></div>
+        <div class="small">LLM recommended: <span id="llmRec">—</span> · turns: <span id="turns">—</span>/<span id="maxTurns">—</span> · reason: <span id="completionReason">—</span></div>
+        <div class="scores" id="scores" style="margin-top:8px"></div>
+        <hr style="border-color:var(--border);margin:10px 0" />
+        <div class="small">Profile draft: <span id="draftStatus" class="badge">none</span></div>
+        <div id="draftId" class="small" style="font-family:var(--mono)"></div>
+        <button id="btnSummarize" class="ghost" style="margin-top:6px">Summarize now</button>
+        <label style="margin-top:8px">Confirm profile draft id</label>
+        <input id="confirmDraftId" style="font-family:var(--mono)" placeholder="paste profile_draft_id" />
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+          <label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="ackIncomplete" style="width:auto" /> acknowledge_incomplete</label>
+        </div>
+        <button id="btnConfirm" class="ok" style="margin-top:6px">Confirm profile</button>
+      </div>
+    </section>
+
+    <!-- RAW -->
+    <section class="panel collapsed" id="rawPanel">
+      <h2><span>Raw response</span><span id="rawToggle" class="small">[expand]</span></h2>
+      <div class="body"><pre class="json" id="rawJson">—</pre></div>
+    </section>
+  </div>
+
+  <div class="right">
+    <div class="progress" id="progress">
+      <div class="small" style="text-align:center;color:var(--muted)">Progress events will stream here once a session is started.</div>
+    </div>
+    <div class="chat" id="chat">
+      <div class="small" style="text-align:center;color:var(--muted);margin:auto">Messages will appear here after you start a session.</div>
+    </div>
+    <div class="composer">
+      <textarea id="respondMsg" rows="2" placeholder="Type your answer to the assistant… (Enter to send, Shift+Enter for newline)"></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px;justify-content:end">
+        <button id="btnRespond">Send</button>
+        <button id="btnSummarize2" class="ghost">Summarize</button>
+      </div>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const apiBaseInput = $('apiBase');
+const api = () => apiBaseInput.value.replace(/\/$/,'');
+const tokenKey = 'mm_discovery_token';
+const refreshKey = 'mm_discovery_refresh';
+const userKey = 'mm_discovery_user';
+let socket = null;
+let pollingTimer = null;
+let lastSeq = 0;
+
+function getToken(){ return localStorage.getItem(tokenKey) }
+function setTokens(access, refresh){ localStorage.setItem(tokenKey, access); if(refresh) localStorage.setItem(refreshKey, refresh) }
+function setUser(u){ localStorage.setItem(userKey, JSON.stringify(u)); renderAuth() }
+function clearAuth(){ localStorage.removeItem(tokenKey); localStorage.removeItem(refreshKey); localStorage.removeItem(userKey); renderAuth() }
+
+function toast(msg, kind){
+  const t = $('toast'); t.textContent = msg;
+  t.className = 'toast' + (kind?(' '+kind):'');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.className='hidden', 4200);
+}
+
+async function apiCall(path, { method='GET', body, raw=false } = {}){
+  const headers = { 'Content-Type':'application/json' };
+  const tok = getToken();
+  if(tok) headers['Authorization'] = 'Bearer '+tok;
+  const res = await fetch(api()+path, { method, headers, body: body?JSON.stringify(body):undefined });
+  let data = null;
+  const text = await res.text();
+  if(text){ try { data = JSON.parse(text) } catch { data = text } }
+  if(!res.ok){
+    const msg = (data && (data.message || data.error)) || ('HTTP '+res.status);
+    const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    err.status = res.status; err.data = data; throw err;
+  }
+  return raw ? res : data;
+}
+
+/* ---------- Auth ---------- */
+$('btnRegister').onclick = async () => {
+  try {
+    const body = { email:$('email').value.trim(), fullName:$('fullName').value.trim(), password:$('password').value };
+    if(!body.email || !body.password) throw new Error('email + password required');
+    if(!body.fullName) throw new Error('fullName required for register');
+    const user = await apiCall('/auth/register', { method:'POST', body });
+    toast('Registered. Now click Login.', 'ok');
+    setUser(user);
+  } catch(e){ toast('Register failed: '+e.message, 'err') }
+};
+$('btnLogin').onclick = async () => {
+  try {
+    const body = { email:$('email').value.trim(), password:$('password').value };
+    const tokens = await apiCall('/auth/login', { method:'POST', body });
+    setTokens(tokens.accessToken, tokens.refreshToken);
+    const me = await apiCall('/auth/me');
+    setUser(me);
+    toast('Logged in', 'ok');
+  } catch(e){ toast('Login failed: '+e.message, 'err') }
+};
+$('btnLogout').onclick = async () => {
+  try { await apiCall('/auth/logout', { method:'POST' }) } catch {}
+  clearAuth(); stopPolling(); socketDisconnect(); toast('Logged out');
+};
+
+function renderAuth(){
+  const u = localStorage.getItem(userKey);
+  const tok = getToken();
+  if(u && tok){
+    try {
+      const me = JSON.parse(u);
+      $('authState').textContent = me.email + ' [roles: '+(me.roles||[]).join(', ')+']';
+      $('authState').className = 'badge info';
+      $('btnLogout').classList.remove('hidden');
+      $('btnLogin').classList.add('hidden');
+      $('btnRegister').classList.add('hidden');
+    } catch { $('authState').textContent='signed out'; }
+  } else {
+    $('authState').textContent='signed out';
+    $('authState').className='badge';
+    $('btnLogout').classList.add('hidden');
+    $('btnLogin').classList.remove('hidden');
+    $('btnRegister').classList.remove('hidden');
+  }
+}
+
+/* ---------- Social links ---------- */
+$('btnAddLink').onclick = () => {
+  const wrap = document.createElement('div');
+  wrap.className = 'linkrow';
+  wrap.innerHTML = `
+    <select class="sl-platform">
+      <option value="facebook">facebook</option><option value="instagram">instagram</option>
+      <option value="tiktok">tiktok</option><option value="website">website</option>
+      <option value="google_maps">google_maps</option><option value="delivery">delivery</option>
+      <option value="other">other</option>
+    </select>
+    <input class="sl-url" placeholder="https://..." style="grid-column:span 2" />
+    <button class="ghost sm-remove" type="button">-</button>`;
+  wrap.querySelector('.sm-remove').onclick = () => wrap.remove();
+  $('socialLinks').appendChild(wrap);
+};
+document.querySelectorAll('.sm-remove').forEach(b=>b.onclick = (e)=>e.target.parentElement.remove());
+
+function buildIntake(){
+  const fields = ['business_name','business_type','city','area','address_text','owner_goal_text','known_competitors_text','target_audience_text','notes'];
+  const intake = {};
+  fields.forEach(f=>{ const v = $(f).value.trim(); if(v) intake[f] = v });
+  if(!intake.business_name || !intake.business_type || !intake.city)
+    throw new Error('business_name, business_type and city are required');
+  const social_links = [];
+  document.querySelectorAll('#socialLinks .linkrow').forEach(row=>{
+    const platform = row.querySelector('.sl-platform').value;
+    const url = row.querySelector('.sl-url').value.trim();
+    if(url) social_links.push({ platform, url });
+  });
+  if(social_links.length) intake.social_links = social_links;
+  return intake;
+}
+
+/* ---------- Start / status ---------- */
+$('btnStart').onclick = async () => {
+  try {
+    const intake = buildIntake();
+    const language_mode = $('language_mode').value;
+    const body = { intake, language_mode };
+    const res = await apiCall('/discovery/start', { method:'POST', body });
+    $('sessionId').value = res.session_id;
+    $('sessionState').textContent = res.status;
+    $('sessionState').className = 'badge info';
+    toast('Session started: '+res.session_id, 'ok');
+    setRaw(res);
+    socketConnect(res.session_id);
+    startPolling(res.session_id);
+    loadStatus(res.session_id);
+  } catch(e){ toast('Start failed: '+e.message, 'err'); console.error(e.data||e) }
+};
+$('btnLoadStatus').onclick = () => {
+  const id = $('sessionId').value.trim(); if(id) loadStatus(id);
+};
+
+async function loadStatus(sessionId){
+  try {
+    const s = await apiCall('/discovery/'+sessionId+'/status');
+    renderStatus(s);
+    if(['in_progress','summary_ready','confirmed','researching'].includes(s.status))
+      startPolling(sessionId);
+    socketConnect(sessionId);
+  } catch(e){ toast('Status failed: '+e.message, 'err'); console.error(e.data||e) }
+}
+
+function renderStatus(s){
+  setRaw(s);
+  $('sessionStatusVal').textContent = s.status;
+  $('sessionStatusVal').className = 'badge '+(s.status==='confirmed'?'ok':(s.status==='summary_ready'?'warn':'info'));
+  $('sessionState').textContent = s.status;
+  $('sessionState').className = 'badge info';
+  $('strategyLocked').textContent = String(s.strategy_locked);
+  $('currentQuestion').textContent = s.current_question || '—';
+  $('sessionId').value = s.session_id;
+  // intelligence
+  const intel = s.intelligence || {};
+  $('intelBadge').textContent = intel.status || '—';
+  $('intelBadge').className = 'badge '+(intel.status==='complete'?'ok':(intel.status==='failed'?'err':'warn'));
+  $('sourceRefs').innerHTML = (intel.source_refs||[]).map(r=>`<span class="link" title="${escAttr(r.url||'')}">${r.source_type}${r.platform?(' · '+r.platform):''}${r.title?(' · '+escHtml(r.title)):''}</span>`).join('') || '<span class="small">none</span>';
+  $('observations').innerHTML = (intel.research_observations||[]).map(o=>`<div class="obs"><div class="kind">${o.kind} · conf ${o.confidence} · ${o.status}</div><div>${escHtml(o.statement)}</div></div>`).join('') || '<span class="small">none</span>';
+  $('hooks').innerHTML = (intel.conversation_hooks||[]).map(h=>`<div class="obs"><div class="kind">${h.status} · ${h.language}</div><div>${escHtml(h.hook_text)}</div></div>`).join('') || '<span class="small">none</span>';
+  // profile_state
+  const ps = s.profile_state || {};
+  const rdy = ps.readiness || {};
+  $('readyToSumm').textContent = String(rdy.ready);
+  $('readyToSumm').className = 'badge '+(rdy.ready?'ok':'');
+  $('llmRec').textContent = String(rdy.llm_recommended);
+  $('turns').textContent = rdy.owner_turn_count ?? '—';
+  $('maxTurns').textContent = rdy.max_owner_turns ?? '—';
+  $('completionReason').textContent = rdy.completion_reason || '—';
+  const ds = rdy.domain_scores || {};
+  $('scores').innerHTML = Object.keys(ds).map(k=>{
+    const v = ds[k]; const pct = Math.round((v||0)*100);
+    return `<div class="score"><div class="k">${k}</div><div class="v">${v?.toFixed(2)}</div><div class="scorebar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('') || '<span class="small">—</span>';
+  // profile draft
+  const draft = s.profile_draft;
+  if(draft){
+    $('draftStatus').textContent = draft.status + ' · ' + draft.completeness;
+    $('draftStatus').className = 'badge '+(draft.status==='confirmed'?'ok':'warn');
+    $('draftId').textContent = draft.id;
+    $('confirmDraftId').value = draft.id;
+  } else {
+    $('draftStatus').textContent = 'none'; $('draftStatus').className='badge'; $('draftId').textContent='';
+  }
+  // messages
+  renderMessages(s.messages || []);
+}
+
+function renderMessages(msgs){
+  if(!msgs.length){ $('chat').innerHTML = '<div class="small" style="text-align:center;color:var(--muted);margin:auto">No messages yet.</div>'; return }
+  $('chat').innerHTML = msgs.map(m=>{
+    return `<div class="msg ${m.role}"><div>${escHtml(m.content)}</div><div class="meta">${m.role} · ${m.source} · ${m.language} · ${new Date(m.created_at).toLocaleTimeString()}</div></div>`;
+  }).join('');
+  scrollToBottom();
+}
+function scrollToBottom(){ const c=$('chat'); c.scrollTop = c.scrollHeight }
+
+/* ---------- Respond / summarize / confirm ---------- */
+async function sendRespond(){
+  const id = $('sessionId').value.trim();
+  const message = $('respondMsg').value.trim();
+  if(!id) return toast('No session id', 'err');
+  if(!message) return;
+  try {
+    const body = { message, language: $('language_mode').value };
+    appendOwnerMsg(message);
+    $('respondMsg').value = '';
+    const res = await apiCall('/discovery/'+id+'/respond', { method:'POST', body });
+    setRaw(res);
+    if(res.assistant_message) appendAssistantMsg(res.assistant_message);
+    // update scores/readiness
+    refreshStatusLight(res);
+  } catch(e){ toast('Respond failed: '+e.message, 'err'); console.error(e.data||e) }
+}
+$('btnRespond').onclick = sendRespond;
+$('respondMsg').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendRespond() }
+});
+
+async function doSummarize(){
+  const id = $('sessionId').value.trim();
+  if(!id) return;
+  const finish_anyway = confirm('Send finish_anyway=true? Cancel = false') ? true : false;
+  try {
+    const res = await apiCall('/discovery/'+id+'/summarize', { method:'POST', body: { finish_anyway } });
+    setRaw(res);
+    toast('Summarized. profile_draft ready.', 'ok');
+    appendSystemMsg('📝 Summary produced. status='+res.status);
+    loadStatus(id);
+  } catch(e){ toast('Summarize failed: '+e.message, 'err'); console.error(e.data||e) }
+}
+$('btnSummarize').onclick = doSummarize;
+$('btnSummarize2').onclick = doSummarize;
+
+$('btnConfirm').onclick = async () => {
+  const id = $('sessionId').value.trim();
+  const profile_draft_id = $('confirmDraftId').value.trim();
+  if(!id) return toast('No session id', 'err');
+  if(!profile_draft_id) return toast('No profile_draft_id', 'err');
+  const body = { profile_draft_id, owner_confirmation: true };
+  if($('ackIncomplete').checked) body.acknowledge_incomplete = true;
+  try {
+    const res = await apiCall('/discovery/'+id+'/confirm-profile', { method:'POST', body });
+    setRaw(res);
+    toast('Profile confirmed ✓', 'ok');
+    appendSystemMsg('✅ Profile confirmed. business_profile_version_id='+res.business_profile_version_id);
+    $('sessionState').textContent='confirmed'; $('sessionState').className='badge ok';
+    stopPolling();
+    loadStatus(id);
+  } catch(e){ toast('Confirm failed: '+e.message, 'err'); console.error(e.data||e) }
+};
+
+function refreshStatusLight(res){
+  const rdy = res.readiness || {};
+  $('readyToSumm').textContent = String(rdy.ready);
+  $('readyToSumm').className = 'badge '+(rdy.ready?'ok':'');
+  $('turns').textContent = rdy.owner_turn_count ?? '—';
+  const ds = rdy.domain_scores || {};
+  $('scores').innerHTML = Object.keys(ds).map(k=>{
+    const v = ds[k]; const pct = Math.round((v||0)*100);
+    return `<div class="score"><div class="k">${k}</div><div class="v">${v?.toFixed(2)}</div><div class="scorebar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('');
+  if(res.profile_draft){
+    $('draftStatus').textContent = res.profile_draft.status + ' · ' + res.profile_draft.completeness;
+    $('draftId').textContent = res.profile_draft.id;
+    $('confirmDraftId').value = res.profile_draft.id;
+  }
+  $('sessionState').textContent = res.status || $('sessionState').textContent;
+}
+
+/* ---------- Polling ---------- */
+function startPolling(sessionId){
+  stopPolling();
+  pollingTimer = setInterval(async ()=>{
+    try { const s = await apiCall('/discovery/'+sessionId+'/status'); renderStatus(s) }
+    catch(e){ /* ignore transient */ }
+  }, 4000);
+}
+function stopPolling(){ if(pollingTimer){ clearInterval(pollingTimer); pollingTimer=null } }
+
+/* ---------- WebSocket progress ---------- */
+function socketConnect(sessionId){
+  socketDisconnect();
+  const baseWs = api().replace(/^http/,'ws').replace(/\/api\/v1$/,'');
+  const wsUrl = baseWs + '/ws/v1/discovery';
+  socket = io(wsUrl, { transports:['websocket'], auth:{ token: getToken() } });
+  socket.on('connect', ()=>{ $('wsDot').className='dot ok'; socket.emit('discovery.join', { session_id: sessionId }) });
+  socket.on('disconnect', ()=>{ $('wsDot').className='dot warn' });
+  socket.on('connect_error', ()=>{ $('wsDot').className='dot err' });
+  socket.on('discovery.error', (p)=>{ appendProgress({stage:'socket',status:'failed',message_key:'socket_error',message_text:JSON.stringify(p)}, true) });
+  socket.on('discovery.progress.snapshot', (arr)=>{ (arr||[]).forEach(e=>appendProgress(e)) });
+  socket.on('discovery.progress', (e)=>appendProgress(e));
+}
+function socketDisconnect(){ if(socket){ try{socket.disconnect()}catch{} socket=null } $('wsDot').className='dot' }
+
+function appendProgress(e, force){
+  if(!force && e.seq && e.seq<=lastSeq) return;
+  if(e.seq) lastSeq = e.seq;
+  if($('progress').querySelector('.small')) $('progress').innerHTML='';
+  const div = document.createElement('div');
+  div.className = 'ev '+(e.status||'');
+  const time = e.created_at ? new Date(e.created_at).toLocaleTimeString() : '';
+  div.innerHTML = `<span class="st">[${time}] ${e.status||''} · ${e.stage||''} · ${e.message_key||''}</span> ${escHtml(e.message_text||'')}`;
+  $('progress').appendChild(div);
+  $('progress').scrollTop = $('progress').scrollHeight;
+  if(e.status==='completed'||e.status==='complete'||e.status==='failed'){
+    appendSystemMsg('📡 progress: '+e.stage+' → '+e.status+(e.message_text?(' ('+e.message_text+')'):''));
+  }
+}
+
+/* ---------- Helpers ---------- */
+function appendAssistantMsg(m){ const c=$('chat'); c.insertAdjacentHTML('beforeend', `<div class="msg assistant"><div>${escHtml(m.content)}</div><div class="meta">${m.role} · ${m.source} · ${m.language}</div></div>`); scrollToBottom() }
+function appendOwnerMsg(text){ const c=$('chat'); c.insertAdjacentHTML('beforeend', `<div class="msg owner"><div>${escHtml(text)}</div><div class="meta">you</div></div>`); scrollToBottom() }
+function appendSystemMsg(text){ const c=$('chat'); c.insertAdjacentHTML('beforeend', `<div class="msg system">${escHtml(text)}</div>`); scrollToBottom() }
+function setRaw(d){ $('rawJson').textContent = JSON.stringify(d, null, 2) }
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) }
+function escAttr(s){ return escHtml(s).replace(/"/g,'&quot;') }
+
+/* ---------- Panel collapse ---------- */
+document.querySelectorAll('section.panel > h2').forEach(h=>{
+  h.onclick = ()=>{ h.parentElement.classList.toggle('collapsed'); h.querySelector('.small,#rawToggle') && (h.querySelector('#rawToggle').textContent = h.parentElement.classList.contains('collapsed')?'[expand]':'[collapse]') };
+});
+
+renderAuth();
+</script>
+</body>
+</html>

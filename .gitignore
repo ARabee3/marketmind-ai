@@ -21,6 +21,10 @@ npm-debug.log*
 .idea/
 .vscode/
 
+# dev-up.sh runtime artifacts (logs + pids)
+output/dev-up-*.log
+output/dev-up-*.pid
+
 # Package-manager stores
 .pnpm-store/
 # Local/private project documents

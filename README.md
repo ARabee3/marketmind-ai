@@ -19,3 +19,11 @@ Sprint 1 is expected to start with:
 - NestJS Auth/RBAC foundation
 
 No product features, agent logic, frontend app, backend app, or dependencies are implemented yet.
+
+## Manual testing (Discovery)
+
+A local testing harness for the Prepared Discovery module lives on the
+`feature/discovery-test-harness` branch. It adds a one-command startup script
+(`./dev-up.sh`), a stop script (`./dev-down.sh`), and a self-contained browser
+playground (`apps/web/discovery-playground.html`). See
+`Docs/testing/README.md` on that branch for the full guide.
