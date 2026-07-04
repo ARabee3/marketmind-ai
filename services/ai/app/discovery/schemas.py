@@ -8,6 +8,20 @@ from app.core.errors import ErrorBody
 UUID = str
 IsoDateTime = str
 LanguageMode = Literal["ar-EG", "en", "mixed"]
+DiscoveryProfileDomain = Literal[
+    "identity",
+    "offer",
+    "customers",
+    "differentiation",
+    "current_marketing",
+    "goals_and_constraints",
+    "market_context",
+]
+DiscoveryCompletionReason = Literal[
+    "sufficient",
+    "owner_finished_early",
+    "turn_limit",
+]
 AiDiscoveryAction = Literal[
     "ask_next_question",
     "ask_clarification",
@@ -137,6 +151,7 @@ class DiscoveryMessage(StrictModel):
 
 
 class UncertaintyInput(StrictModel):
+    domain: DiscoveryProfileDomain
     field_key: str
     description: str
     severity: Literal["low", "medium", "high"]
@@ -159,12 +174,112 @@ class Uncertainty(UncertaintyInput):
     ] | None = None
 
 
+class BusinessIdentityFacts(StrictModel):
+    business_name: str | None = None
+    business_type: str | None = None
+    city: str | None = None
+    area: str | None = None
+
+
+class OfferFacts(StrictModel):
+    core_offerings: list[str] = Field(default_factory=list)
+    best_sellers: list[str] = Field(default_factory=list)
+    price_range: str | None = None
+    purchase_occasions: list[str] = Field(default_factory=list)
+
+
+class CustomerFacts(StrictModel):
+    primary_segments: list[str] = Field(default_factory=list)
+    visit_or_order_occasions: list[str] = Field(default_factory=list)
+    peak_periods: list[str] = Field(default_factory=list)
+    customer_needs: list[str] = Field(default_factory=list)
+
+
+class DifferentiationFacts(StrictModel):
+    owner_claimed_strengths: list[str] = Field(default_factory=list)
+    customer_choice_reasons: list[str] = Field(default_factory=list)
+    proof_points: list[str] = Field(default_factory=list)
+
+
+class CurrentMarketingFacts(StrictModel):
+    active_channels: list[str] = Field(default_factory=list)
+    current_activities: list[str] = Field(default_factory=list)
+    delivery_platforms: list[str] = Field(default_factory=list)
+    available_assets: list[str] = Field(default_factory=list)
+
+
+class GoalsAndConstraintsFacts(StrictModel):
+    growth_goals: list[str] = Field(default_factory=list)
+    timeframe: str | None = None
+    marketing_budget_range: str | None = None
+    team_capacity: str | None = None
+    operational_constraints: list[str] = Field(default_factory=list)
+
+
+class MarketAwareBusinessFacts(StrictModel):
+    identity: BusinessIdentityFacts = Field(default_factory=BusinessIdentityFacts)
+    offer: OfferFacts = Field(default_factory=OfferFacts)
+    customers: CustomerFacts = Field(default_factory=CustomerFacts)
+    differentiation: DifferentiationFacts = Field(default_factory=DifferentiationFacts)
+    current_marketing: CurrentMarketingFacts = Field(default_factory=CurrentMarketingFacts)
+    goals_and_constraints: GoalsAndConstraintsFacts = Field(
+        default_factory=GoalsAndConstraintsFacts
+    )
+
+
+class MarketEvidence(StrictModel):
+    observation_id: UUID
+    source_ref_id: UUID | None = None
+    statement: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class MarketContextSnapshot(StrictModel):
+    competitor_landscape: list[MarketEvidence] = Field(default_factory=list)
+    local_demand_signals: list[MarketEvidence] = Field(default_factory=list)
+    digital_presence_signals: list[MarketEvidence] = Field(default_factory=list)
+    other_signals: list[MarketEvidence] = Field(default_factory=list)
+
+
+class DiscoveryDomainScores(StrictModel):
+    identity: float = Field(default=0, ge=0, le=1)
+    offer: float = Field(default=0, ge=0, le=1)
+    customers: float = Field(default=0, ge=0, le=1)
+    differentiation: float = Field(default=0, ge=0, le=1)
+    current_marketing: float = Field(default=0, ge=0, le=1)
+    goals_and_constraints: float = Field(default=0, ge=0, le=1)
+    market_context: float = Field(default=0, ge=0, le=1)
+    research_confidence: float = Field(default=0, ge=0, le=1)
+    profile_readiness: float = Field(default=0, ge=0, le=1)
+
+
+class DiscoveryReadiness(StrictModel):
+    ready: bool
+    llm_recommended: bool
+    profile_readiness: float = Field(ge=0, le=1)
+    domain_scores: DiscoveryDomainScores
+    blocking_domains: list[DiscoveryProfileDomain] = Field(default_factory=list)
+    owner_turn_count: int = Field(ge=0)
+    max_owner_turns: int = Field(gt=0)
+    completion_reason: DiscoveryCompletionReason | None = None
+
+
+class DiscoveryCompletionContext(StrictModel):
+    reason: DiscoveryCompletionReason
+    completeness: Literal["complete", "incomplete"]
+    readiness: DiscoveryReadiness
+
+
 class BusinessProfileDraft(StrictModel):
     id: UUID
     session_id: UUID
     version: int
     status: Literal["draft", "ready_for_confirmation", "confirmed", "superseded"]
-    confirmed_facts: dict[str, Any]
+    completeness: Literal["complete", "incomplete"]
+    completion_reason: DiscoveryCompletionReason
+    readiness: DiscoveryReadiness
+    confirmed_facts: MarketAwareBusinessFacts
+    market_context: MarketContextSnapshot
     research_observations: list[ResearchObservation]
     uncertainties: list[Uncertainty]
     owner_goals: list[str]
@@ -194,16 +309,18 @@ class AiDiscoverySummarizeRequest(StrictModel):
     intake: PreparedDiscoveryIntake
     intelligence: IntelligenceResult
     messages: list[DiscoveryMessage]
+    completion_context: DiscoveryCompletionContext
 
 
 class DiscoveryModelOutput(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
-    updated_known_facts: dict[str, Any] = Field(default_factory=dict)
-    updated_uncertainties: list[UncertaintyInput] = Field(default_factory=list)
+    updated_known_facts: MarketAwareBusinessFacts
+    updated_uncertainties: list[UncertaintyInput]
     owner_goals: list[str] = Field(default_factory=list)
     strategy_relevant_notes: list[str] = Field(default_factory=list)
-    domain_scores: dict[str, float] = Field(default_factory=dict)
+    domain_scores: DiscoveryDomainScores
+    ready_to_summarize: bool
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> "DiscoveryModelOutput":
@@ -215,10 +332,11 @@ class DiscoveryModelOutput(StrictModel):
 class AiDiscoveryResult(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
-    updated_known_facts: dict[str, Any]
+    updated_known_facts: MarketAwareBusinessFacts
     updated_uncertainties: list[UncertaintyInput]
     research_observations: list[ResearchObservation]
     source_refs: list[SourceRef]
-    domain_scores: dict[str, float]
+    domain_scores: DiscoveryDomainScores
+    ready_to_summarize: bool
     profile_draft: BusinessProfileDraft | None = None
     safe_error: ErrorBody | None = None

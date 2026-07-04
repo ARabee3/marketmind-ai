@@ -5,7 +5,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-ProviderMode = Literal["mock", "openai", "gemini_dev"]
+ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 
 
 class Settings(BaseSettings):
@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     openai_model: str = ""
     gemini_api_key: str = ""
     gemini_model: str = ""
+    open_router_api_key: str = ""
+    open_router_model: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

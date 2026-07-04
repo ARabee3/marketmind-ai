@@ -47,17 +47,9 @@ class GeminiDiscoveryProvider(DiscoveryProvider):
             except ImportError as exc:
                 raise ProviderConfigError("The google-genai package is not installed.") from exc
 
-            turn_instructions = {
-                "start": "This is a NEW Discovery interview. Ask the FIRST interview question.",
-                "respond": "This is a Discovery interview TURN. Ask the NEXT question based on the owner's answer.",
-                "summarize": "This is the END of the Discovery interview. Produce a BusinessProfileDraft NOW with action=produce_profile_draft. Include ALL confirmed facts, uncertainties, goals, and strategy notes you have. Do not ask another question.",
-            }
             schema = _strip_additional_properties(DiscoveryModelOutput.model_json_schema())
             client = genai.Client(api_key=self.api_key)
-            user_prompt = (
-                f"{turn_instructions.get(request.turn_kind, turn_instructions['respond'])}\n\n"
-                + build_user_context(request.payload)
-            )
+            user_prompt = build_user_context(request.turn_kind, request.payload)
             response = client.models.generate_content(
                 model=self.model,
                 contents=[user_prompt],
@@ -77,6 +69,6 @@ class GeminiDiscoveryProvider(DiscoveryProvider):
         except Exception as exc:
             raise ProviderError(
                 "AI_PROVIDER_FAILURE",
-                f"Gemini provider call failed: {exc}",
+                "Gemini provider call failed.",
                 retryable=True,
             ) from exc

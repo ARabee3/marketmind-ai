@@ -1,0 +1,259 @@
+{
+  "info": {
+    "_postman_id": "marketmind-ai-collection",
+    "name": "MarketMind AI",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "MarketMind AI API collection. Two services:\n\n1) NestJS API (apps/api) — port 3001, global prefix /api/v1. JWT Bearer auth (Authorization: Bearer <accessToken>).\n2) FastAPI AI Service (services/ai) — port 8000, internal endpoints prefixed /internal/v1/ai. No auth (internal only).\n\nFlow: register -> login -> start discovery -> poll status -> respond (loop) -> summarize -> confirm-profile."
+  },
+  "variable": [
+    { "key": "apiBaseUrl", "value": "http://localhost:3001/api/v1", "type": "string" },
+    { "key": "aiBaseUrl", "value": "http://localhost:8000", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "sessionId", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "NestJS API",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}", "host": ["{{apiBaseUrl}}"] }
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}/health", "host": ["{{apiBaseUrl}}", "health"] }
+          }
+        },
+        {
+          "name": "Auth - Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{apiBaseUrl}}/auth/register", "host": ["{{apiBaseUrl}}", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"fullName\": \"Cairo Owner\",\n  \"password\": \"strongpassword123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test(\"register ok\", () => pm.response.to.have.status(201));"], "type": "text/javascript" }
+            }
+          ]
+        },
+        {
+          "name": "Auth - Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{apiBaseUrl}}/auth/login", "host": ["{{apiBaseUrl}}", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"strongpassword123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "pm.collectionVariables.set(\"refreshToken\", json.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth - Me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}/auth/me", "host": ["{{apiBaseUrl}}", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Auth - Refresh",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{refreshToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": { "raw": "{{apiBaseUrl}}/auth/refresh", "host": ["{{apiBaseUrl}}", "auth", "refresh"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "pm.collectionVariables.set(\"refreshToken\", json.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth - Logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{apiBaseUrl}}/auth/logout", "host": ["{{apiBaseUrl}}", "auth", "logout"] }
+          }
+        },
+        {
+          "name": "RBAC - My Permissions",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}/rbac/me/permissions", "host": ["{{apiBaseUrl}}", "rbac", "me", "permissions"] }
+          }
+        },
+        {
+          "name": "RBAC - Demo business:read",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}/rbac/demo/business-read", "host": ["{{apiBaseUrl}}", "rbac", "demo", "business-read"] }
+          }
+        },
+        {
+          "name": "Discovery - Start",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{apiBaseUrl}}/discovery/start", "host": ["{{apiBaseUrl}}", "discovery", "start"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intake\": {\n    \"business_name\": \"Cairo Coffee Corner\",\n    \"business_type\": \"cafe\",\n    \"city\": \"Cairo\",\n    \"area\": \"Zamalek\",\n    \"address_text\": \"26 July St.\",\n    \"owner_goal_text\": \"More weekend foot traffic\",\n    \"known_competitors_text\": \"Bean Brothers, Espresso Lab\",\n    \"target_audience_text\": \"Students and remote workers 18-30\",\n    \"notes\": \"Open 8am-11pm\",\n    \"social_links\": [\n      { \"platform\": \"instagram\", \"url\": \"https://instagram.com/cairocoffee\" },\n      { \"platform\": \"facebook\", \"url\": \"https://facebook.com/cairocoffee\" }\n    ]\n  },\n  \"language_mode\": \"ar-EG\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.sessionId) pm.collectionVariables.set(\"sessionId\", json.sessionId);",
+                  "if (json.session_id) pm.collectionVariables.set(\"sessionId\", json.session_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discovery - Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{apiBaseUrl}}/discovery/{{sessionId}}/status", "host": ["{{apiBaseUrl}}", "discovery", "{{sessionId}}", "status"] }
+          }
+        },
+        {
+          "name": "Discovery - Respond",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{apiBaseUrl}}/discovery/{{sessionId}}/respond", "host": ["{{apiBaseUrl}}", "discovery", "{{sessionId}}", "respond"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"We mostly serve specialty coffee and pastries.\",\n  \"language\": \"en\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Discovery - Summarize",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{apiBaseUrl}}/discovery/{{sessionId}}/summarize", "host": ["{{apiBaseUrl}}", "discovery", "{{sessionId}}", "summarize"] }
+          }
+        },
+        {
+          "name": "Discovery - Confirm Profile",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{apiBaseUrl}}/discovery/{{sessionId}}/confirm-profile", "host": ["{{apiBaseUrl}}", "discovery", "{{sessionId}}", "confirm-profile"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile_draft_id\": \"f3a2c1b0-1111-4abc-9876-0123456789ab\",\n  \"owner_confirmation\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "FastAPI AI Service (internal)",
+      "auth": { "type": "noauth" },
+      "item": [
+        {
+          "name": "AI - Health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{aiBaseUrl}}/health", "host": ["{{aiBaseUrl}}", "health"] }
+          }
+        },
+        {
+          "name": "AI - Query Plan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{aiBaseUrl}}/internal/v1/ai/search/query-plan", "host": ["{{aiBaseUrl}}", "internal", "v1", "ai", "search", "query-plan"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language_mode\": \"mixed\",\n  \"intake\": {\n    \"business_name\": \"Cairo Coffee Corner\",\n    \"business_type\": \"cafe\",\n    \"city\": \"Cairo\",\n    \"area\": \"Zamalek\",\n    \"owner_goal_text\": \"More weekend foot traffic\",\n    \"known_competitors_text\": \"Bean Brothers, Espresso Lab\",\n    \"social_links\": [\n      { \"platform\": \"instagram\", \"url\": \"https://instagram.com/cairocoffee\" }\n    ]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "AI - Discovery Start",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{aiBaseUrl}}/internal/v1/ai/discovery/start", "host": ["{{aiBaseUrl}}", "internal", "v1", "ai", "discovery", "start"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"00000000-0000-4000-8000-000000000001\",\n  \"language_mode\": \"ar-EG\",\n  \"intake\": {\n    \"business_name\": \"Cairo Coffee Corner\",\n    \"business_type\": \"cafe\",\n    \"city\": \"Cairo\",\n    \"area\": \"Zamalek\"\n  },\n  \"intelligence\": {\n    \"status\": \"partial\",\n    \"search_mode\": \"metadata_only\",\n    \"source_refs\": [],\n    \"research_observations\": [],\n    \"conversation_hooks\": [],\n    \"knowledge_gaps\": []\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "AI - Discovery Respond",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{aiBaseUrl}}/internal/v1/ai/discovery/respond", "host": ["{{aiBaseUrl}}", "internal", "v1", "ai", "discovery", "respond"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"00000000-0000-4000-8000-000000000001\",\n  \"language_mode\": \"ar-EG\",\n  \"intake\": {\n    \"business_name\": \"Cairo Coffee Corner\",\n    \"business_type\": \"cafe\",\n    \"city\": \"Cairo\",\n    \"area\": \"Zamalek\"\n  },\n  \"intelligence\": {\n    \"status\": \"partial\",\n    \"search_mode\": \"metadata_only\",\n    \"source_refs\": [],\n    \"research_observations\": [],\n    \"conversation_hooks\": [],\n    \"knowledge_gaps\": []\n  },\n  \"messages\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000010\",\n      \"role\": \"assistant\",\n      \"content\": \"شفت إن عندك ٩٤ تقييم على جوجل - ده رصيد حقيقي. إيه اللي الناس بتقوله فيك أكتر؟\",\n      \"language\": \"ar-EG\",\n      \"source\": \"chat\",\n      \"created_at\": \"2026-07-03T10:00:00Z\"\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000011\",\n      \"role\": \"owner\",\n      \"content\": \"الجو حلو والقهوة كويسة وأسعار معقولة\",\n      \"language\": \"ar-EG\",\n      \"source\": \"chat\",\n      \"created_at\": \"2026-07-03T10:00:30Z\"\n    }\n  ],\n  \"owner_message\": {\n    \"id\": \"00000000-0000-4000-8000-000000000012\",\n    \"role\": \"owner\",\n    \"content\": \"بس سؤال في إنستجرام مش موجود خالص\",\n    \"language\": \"ar-EG\",\n    \"source\": \"chat\",\n    \"created_at\": \"2026-07-03T10:01:00Z\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "AI - Discovery Summarize",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{aiBaseUrl}}/internal/v1/ai/discovery/summarize", "host": ["{{aiBaseUrl}}", "internal", "v1", "ai", "discovery", "summarize"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"00000000-0000-4000-8000-000000000001\",\n  \"language_mode\": \"ar-EG\",\n  \"intake\": {\n    \"business_name\": \"Cairo Coffee Corner\",\n    \"business_type\": \"cafe\",\n    \"city\": \"Cairo\",\n    \"area\": \"Zamalek\"\n  },\n  \"intelligence\": {\n    \"status\": \"partial\",\n    \"search_mode\": \"metadata_only\",\n    \"source_refs\": [],\n    \"research_observations\": [],\n    \"conversation_hooks\": [],\n    \"knowledge_gaps\": []\n  },\n  \"messages\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000010\",\n      \"role\": \"assistant\",\n      \"content\": \"إيه اللي بيوقفك عن إنستجرام؟\",\n      \"language\": \"ar-EG\",\n      \"source\": \"chat\",\n      \"created_at\": \"2026-07-03T10:00:00Z\"\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000011\",\n      \"role\": \"owner\",\n      \"content\": \"ماركنج وقتش\",\n      \"language\": \"ar-EG\",\n      \"source\": \"chat\",\n      \"created_at\": \"2026-07-03T10:00:30Z\"\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

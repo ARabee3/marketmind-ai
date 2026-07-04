@@ -27,14 +27,14 @@ By the end of Sprint 1, the team should have:
 
 ## Team split
 
-| Member | Owns and implements | Reviews |
-|---|---|---|
-| Ahmed | Prepared Discovery flow + AI/Nest/WebSocket contract | Mokhtar’s Auth APIs |
-| Merzek | Real AI provider adapter + Discovery prompt behavior | Gerges’s RBAC guards |
-| Kordy | Prepared Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup |
-| Abdulazim | NestJS repo initialization + `HealthModule` | Kordy’s schemas/tests |
-| Mokhtar | Auth APIs | Ahmed’s AI/Nest contract |
-| Gerges | RBAC roles, permissions, and guards | Merzek’s AI provider/prompt behavior |
+| Member    | Owns and implements                                   | Reviews                              |
+| --------- | ----------------------------------------------------- | ------------------------------------ |
+| Ahmed     | Prepared Discovery flow + AI/Nest/WebSocket contract  | Mokhtar’s Auth APIs                  |
+| Merzek    | Real AI provider adapter + Discovery prompt behavior  | Gerges’s RBAC guards                 |
+| Kordy     | Prepared Discovery schemas + AI test/evaluation cases | Abdulazim’s NestJS setup             |
+| Abdulazim | NestJS repo initialization + `HealthModule`           | Kordy’s schemas/tests                |
+| Mokhtar   | Auth APIs                                             | Ahmed’s AI/Nest contract             |
+| Gerges    | RBAC roles, permissions, and guards                   | Merzek’s AI provider/prompt behavior |
 
 Ahmed and Merzek review AI-critical decisions.
 
@@ -106,6 +106,7 @@ Sprint 1 follows the decisions recorded in:
 
 ```text
 Docs/planning/sprint-1/prepared-discovery-architecture/README.md
+Docs/planning/sprint-1/intelligence-gatherer-integration-fix-plan.md
 Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md
 ```
 
@@ -162,8 +163,17 @@ GET /api/v1/discovery/:session_id/status
 POST /api/v1/discovery/:session_id/respond
 POST /api/v1/discovery/:session_id/summarize
 POST /api/v1/discovery/:session_id/confirm-profile
-WS /ws/v1/discovery/:session_id/progress
+WS /ws/v1/discovery
 ```
+
+Respond turns return cumulative profile state, readiness, and a fallback
+question. NestJS automatically invokes summarize when the hybrid readiness gate
+passes or after 15 successful owner turns. The public summarize route is the
+explicit early-finish path and requires `finish_anyway: true` while blockers
+remain. Incomplete confirmation requires `acknowledge_incomplete: true`.
+
+After connecting, the client emits `discovery.join` with the target
+`session_id`.
 
 Acceptance:
 
@@ -372,10 +382,14 @@ Sprint 1 is done when the team can demo one Prepared Discovery journey end-to-en
 8. Discovery chat opens only after research is complete or partially complete.
 9. Discovery asks one question at a time in Arabic, English, or mixed language.
 10. Discovery refuses strategy/content requests during interview.
-11. Discovery produces schema-valid `BusinessProfileDraft`.
-12. Draft separates confirmed facts, research observations, uncertainties, owner goals, and strategy-relevant notes.
-13. Owner confirms the profile.
-14. Strategy remains locked until confirmation.
+11. Discovery continues until the hybrid readiness gate passes, the owner
+    explicitly finishes early, or turn 15 is reached.
+12. Discovery automatically produces a schema-valid `BusinessProfileDraft`
+    with completeness, completion reason, and readiness snapshot.
+13. Draft separates confirmed facts, research observations, uncertainties,
+    owner goals, and strategy-relevant notes.
+14. Owner confirms the profile and explicitly acknowledges incomplete drafts.
+15. Strategy remains locked until confirmation.
 
 Required proof:
 

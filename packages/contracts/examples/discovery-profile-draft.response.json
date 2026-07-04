@@ -4,14 +4,55 @@
   "version": 1,
   "status": "ready_for_confirmation",
   "confirmed_facts": {
-    "business_name": "Koshary Corner",
-    "business_type": "quick service restaurant",
-    "city": "Cairo",
-    "area": "Nasr City",
-    "address_text": "Makram Ebeid",
-    "primary_customer_segment": "office workers and students",
-    "peak_hours": "1pm to 3pm weekdays",
-    "average_meal_price_range": "30-60 EGP"
+    "identity": {
+      "business_name": "Koshary Corner",
+      "business_type": "quick service restaurant",
+      "city": "Cairo",
+      "area": "Nasr City"
+    },
+    "offer": {
+      "core_offerings": ["koshary bowls", "family trays"],
+      "best_sellers": ["classic koshary bowl"],
+      "price_range": "30-60 EGP",
+      "purchase_occasions": ["weekday lunch", "evening meal"]
+    },
+    "customers": {
+      "primary_segments": ["office workers", "students"],
+      "visit_or_order_occasions": ["weekday lunch", "evening meal"],
+      "peak_periods": ["1pm to 3pm weekdays"],
+      "customer_needs": ["quick filling lunch", "affordable meal"]
+    },
+    "differentiation": {
+      "owner_claimed_strengths": ["fast service"],
+      "customer_choice_reasons": ["quick affordable lunch"],
+      "proof_points": []
+    },
+    "current_marketing": {
+      "active_channels": ["instagram", "google_maps"],
+      "current_activities": [],
+      "delivery_platforms": [],
+      "available_assets": ["submitted Instagram page"]
+    },
+    "goals_and_constraints": {
+      "growth_goals": [
+        "Attract more lunch customers.",
+        "Understand how to reach nearby office workers."
+      ],
+      "operational_constraints": []
+    }
+  },
+  "market_context": {
+    "competitor_landscape": [],
+    "local_demand_signals": [],
+    "digital_presence_signals": [
+      {
+        "observation_id": "44444444-4444-4444-8444-444444444444",
+        "source_ref_id": "22222222-2222-4222-8222-222222222222",
+        "statement": "The submitted Instagram page describes Koshary Corner as Egyptian comfort food in Nasr City.",
+        "confidence": 0.86
+      }
+    ],
+    "other_signals": []
   },
   "research_observations": [
     {
@@ -47,7 +88,8 @@
       "category": "owner_unknown",
       "source": "owner_answer",
       "owner_stated_value": "Local foul shops nearby",
-      "resolved": false
+      "resolved": false,
+      "domain": "market_context"
     },
     {
       "field_key": "marketing_budget",
@@ -55,7 +97,8 @@
       "severity": "medium",
       "category": "owner_unknown",
       "source": "owner_unknown",
-      "resolved": false
+      "resolved": false,
+      "domain": "goals_and_constraints"
     }
   ],
   "owner_goals": [
@@ -64,19 +107,12 @@
   ],
   "strategy_relevant_notes": [
     "Strategy work stays locked until the owner confirms this profile.",
-    "Owner seems price-sensitive — average meal 30-60 EGP suggests budget-friendly positioning.",
-    "Instagram exists but Google Maps is outdated — quick win opportunity."
+    "The owner described office workers and students as current customer groups.",
+    "The available digital-presence observations remain evidence, not confirmed owner facts."
   ],
   "raw_ai_output": {
     "action": "produce_profile_draft",
-    "updated_known_facts": {
-      "business_name": "Koshary Corner",
-      "business_type": "quick service restaurant",
-      "city": "Cairo",
-      "area": "Nasr City",
-      "primary_customer_segment": "office workers and students",
-      "peak_hours": "1pm to 3pm weekdays"
-    },
+    "prompt_version": "discovery-v2-market-aware",
     "updated_uncertainties": [
       {
         "field_key": "competitors",
@@ -84,7 +120,8 @@
         "severity": "low",
         "category": "owner_unknown",
         "source": "owner_answer",
-        "owner_stated_value": "Local foul shops nearby"
+        "owner_stated_value": "Local foul shops nearby",
+        "domain": "market_context"
       }
     ],
     "owner_goals": ["Attract more lunch customers."],
@@ -92,9 +129,37 @@
       "Strategy work stays locked until the owner confirms this profile."
     ],
     "domain_scores": {
-      "intake_completeness": 0.8,
+      "identity": 1,
+      "offer": 0.7,
+      "customers": 0.8,
+      "differentiation": 0.4,
+      "current_marketing": 0.5,
+      "goals_and_constraints": 0.6,
+      "market_context": 0.5,
       "research_confidence": 0.5,
       "profile_readiness": 0.85
     }
+  },
+  "completeness": "complete",
+  "completion_reason": "sufficient",
+  "readiness": {
+    "ready": true,
+    "llm_recommended": true,
+    "profile_readiness": 0.86,
+    "domain_scores": {
+      "identity": 1,
+      "offer": 0.8,
+      "customers": 0.85,
+      "differentiation": 0.7,
+      "current_marketing": 0.7,
+      "goals_and_constraints": 0.8,
+      "market_context": 0.5,
+      "research_confidence": 0.5,
+      "profile_readiness": 0.86
+    },
+    "blocking_domains": [],
+    "owner_turn_count": 7,
+    "max_owner_turns": 15,
+    "completion_reason": "sufficient"
   }
 }

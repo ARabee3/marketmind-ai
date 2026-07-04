@@ -194,7 +194,7 @@
       {
         "id": "88888888-8888-4888-8888-888888888888",
         "role": "assistant",
-        "content": "أهلاً بك في Koshary Corner! لاحظت من صفحة الانستجرام إنكم بتقدموا الأكل المصري في مدينة نصر. عايز تعرف ناس أكتر عنكم. مين هم الزباين الأكثر حضوراً دلوقتي: طلاب، موظفين، عائلات ولا فئة تانية؟",
+        "content": "أهلاً بك في Koshary Corner! صفحة الانستجرام بتوصف المكان كأكل مصري في مدينة نصر. تخيل يوم زحمة عندكم: مين غالبا بيكون موجود، والزحمة بتبدأ امتى؟",
         "language": "ar-EG",
         "source": "chat",
         "created_at": "2026-06-25T10:00:21.000Z",
@@ -217,7 +217,7 @@
       {
         "id": "11111111-1111-4111-8111-1111111111a1",
         "role": "assistant",
-        "content": "Great, office workers at lunch! What time does the lunch rush usually start, and how much does an average customer spend?",
+        "content": "That lunch crowd helps. During the rush, which orders keep appearing, and what does a typical lunch cost per person?",
         "language": "en",
         "source": "chat",
         "created_at": "2026-06-25T10:01:05.000Z",
@@ -239,7 +239,7 @@
       {
         "id": "33333333-3333-4333-8333-3333333333a1",
         "role": "assistant",
-        "content": "Do you know who your main competitors are in Nasr City specifically?",
+        "content": "When an office worker is choosing lunch nearby, which other places do they usually compare you with?",
         "language": "en",
         "source": "chat",
         "created_at": "2026-06-25T10:01:35.000Z",
@@ -261,7 +261,7 @@
       {
         "id": "55555555-5555-4555-8555-5555555555a1",
         "role": "assistant",
-        "content": "Do you have a budget for marketing or ads, or would you like to start with free organic content?",
+        "content": "When you want to remind nearby customers about Koshary Corner, what do you actually do today, and who handles it?",
         "language": "en",
         "source": "chat",
         "created_at": "2026-06-25T10:02:05.000Z",
@@ -283,7 +283,7 @@
       {
         "id": "77777777-7777-4777-8777-7777777777a1",
         "role": "assistant",
-        "content": "I understand you want to move fast! Strategy and content will be ready right after we confirm your business profile. Let me ask just one more thing: what would you say is your budget range for marketing per month?",
+        "content": "Strategy and content come right after profile confirmation. If the next few months went well, what change would you want without putting too much pressure on daily operations?",
         "language": "en",
         "source": "chat",
         "created_at": "2026-06-25T10:02:35.000Z",
@@ -315,7 +315,8 @@
         "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "market_context"
       },
       {
         "field_key": "marketing_budget",
@@ -326,7 +327,8 @@
         "owner_stated_value": "Maybe something small to start",
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "goals_and_constraints"
       },
       {
         "field_key": "best_selling_items",
@@ -337,7 +339,8 @@
         "owner_stated_value": null,
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "offer"
       }
     ]
   },
@@ -347,14 +350,62 @@
     "version": 1,
     "status": "ready_for_confirmation",
     "confirmed_facts": {
-      "business_name": "Koshary Corner",
-      "business_type": "quick service restaurant",
-      "city": "Cairo",
-      "area": "Nasr City",
-      "address_text": "Makram Ebeid Street, Nasr City",
-      "primary_customer_segment": "office workers",
-      "peak_hours": "1pm to 3pm weekdays",
-      "average_meal_price_range": "30-60 EGP"
+      "identity": {
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo",
+        "area": "Nasr City"
+      },
+      "offer": {
+        "core_offerings": ["koshary bowls", "family trays"],
+        "best_sellers": [],
+        "price_range": "30-60 EGP",
+        "purchase_occasions": ["weekday lunch"]
+      },
+      "customers": {
+        "primary_segments": ["office workers"],
+        "visit_or_order_occasions": ["weekday lunch"],
+        "peak_periods": ["1pm to 3pm weekdays"],
+        "customer_needs": ["quick filling lunch"]
+      },
+      "differentiation": {
+        "owner_claimed_strengths": ["fast service"],
+        "customer_choice_reasons": [],
+        "proof_points": []
+      },
+      "current_marketing": {
+        "active_channels": ["instagram", "google_maps"],
+        "current_activities": [],
+        "delivery_platforms": [],
+        "available_assets": ["submitted Instagram page"]
+      },
+      "goals_and_constraints": {
+        "growth_goals": [
+          "Attract more lunch customers from nearby offices.",
+          "Understand how to reach nearby office workers."
+        ],
+        "operational_constraints": []
+      }
+    },
+    "market_context": {
+      "competitor_landscape": [],
+      "local_demand_signals": [],
+      "digital_presence_signals": [
+        {
+          "observation_id": "44444444-4444-4444-8444-444444444444",
+          "source_ref_id": "22222222-2222-4222-8222-222222222222",
+          "statement": "The submitted Instagram page describes Koshary Corner as Egyptian comfort food in Nasr City with 340 followers.",
+          "confidence": 0.86
+        }
+      ],
+      "other_signals": [
+        {
+          "observation_id": "99999999-9999-4999-8999-999999999999",
+          "source_ref_id": "33333333-3333-4333-8333-333333333333",
+          "statement": "Google Maps listing shows 3.8 stars from 124 reviews. Located on Makram Ebeid.",
+          "confidence": 0.72
+        }
+      ]
     },
     "research_observations": [
       {
@@ -392,7 +443,8 @@
         "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "market_context"
       },
       {
         "field_key": "marketing_budget",
@@ -403,7 +455,8 @@
         "owner_stated_value": "Maybe something small to start",
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "goals_and_constraints"
       },
       {
         "field_key": "best_selling_items",
@@ -414,7 +467,8 @@
         "owner_stated_value": null,
         "research_suggested_value": null,
         "contradiction_detail": null,
-        "resolved": false
+        "resolved": false,
+        "domain": "offer"
       }
     ],
     "owner_goals": [
@@ -423,21 +477,13 @@
     ],
     "strategy_relevant_notes": [
       "Strategy work stays locked until the owner confirms this profile.",
-      "Owner seems price-sensitive — average meal 30-60 EGP suggests budget-friendly positioning.",
-      "Instagram exists but Google Maps is outdated — quick win opportunity to update listing.",
-      "Owner willing to try small marketing spend but no specific budget confirmed."
+      "The owner described nearby office workers as a current lunch segment.",
+      "The owner mentioned willingness to try a small spend but did not confirm a range.",
+      "Digital-presence observations remain source-backed evidence rather than confirmed owner facts."
     ],
     "raw_ai_output": {
       "action": "produce_profile_draft",
-      "updated_known_facts": {
-        "business_name": "Koshary Corner",
-        "business_type": "quick service restaurant",
-        "city": "Cairo",
-        "area": "Nasr City",
-        "primary_customer_segment": "office workers",
-        "peak_hours": "1pm to 3pm weekdays",
-        "average_meal_price_range": "30-60 EGP"
-      },
+      "prompt_version": "discovery-v2-market-aware",
       "updated_uncertainties": [
         {
           "field_key": "competitors",
@@ -445,7 +491,8 @@
           "severity": "low",
           "category": "owner_unknown",
           "source": "owner_answer",
-          "owner_stated_value": "Some foul and taameya shops nearby, names unknown"
+          "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
+          "domain": "market_context"
         },
         {
           "field_key": "marketing_budget",
@@ -453,20 +500,48 @@
           "severity": "medium",
           "category": "owner_unknown",
           "source": "owner_unknown",
-          "owner_stated_value": "Maybe something small to start"
+          "owner_stated_value": "Maybe something small to start",
+          "domain": "goals_and_constraints"
         }
       ],
       "owner_goals": ["Attract more lunch customers from nearby offices."],
       "strategy_relevant_notes": [
         "Strategy work stays locked until the owner confirms this profile.",
-        "Owner seems price-sensitive — average meal 30-60 EGP suggests budget-friendly positioning.",
-        "Instagram exists but Google Maps is outdated — quick win opportunity."
+        "The owner described nearby office workers as a current lunch segment."
       ],
       "domain_scores": {
-        "intake_completeness": 0.8,
+        "identity": 1,
+        "offer": 0.6,
+        "customers": 0.8,
+        "differentiation": 0.3,
+        "current_marketing": 0.4,
+        "goals_and_constraints": 0.5,
+        "market_context": 0.5,
         "research_confidence": 0.5,
         "profile_readiness": 0.85
       }
+    },
+    "completeness": "complete",
+    "completion_reason": "sufficient",
+    "readiness": {
+      "ready": true,
+      "llm_recommended": true,
+      "profile_readiness": 0.86,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.8,
+        "customers": 0.85,
+        "differentiation": 0.7,
+        "current_marketing": 0.7,
+        "goals_and_constraints": 0.8,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.86
+      },
+      "blocking_domains": [],
+      "owner_turn_count": 7,
+      "max_owner_turns": 15,
+      "completion_reason": "sufficient"
     }
   },
   "confirmation": {
@@ -490,13 +565,62 @@
       "address_text": "Makram Ebeid Street, Nasr City",
       "primary_locale": "ar-EG",
       "confirmed_facts": {
-        "business_name": "Koshary Corner",
-        "business_type": "quick service restaurant",
-        "city": "Cairo",
-        "area": "Nasr City",
-        "primary_customer_segment": "office workers",
-        "peak_hours": "1pm to 3pm weekdays",
-        "average_meal_price_range": "30-60 EGP"
+        "identity": {
+          "business_name": "Koshary Corner",
+          "business_type": "quick service restaurant",
+          "city": "Cairo",
+          "area": "Nasr City"
+        },
+        "offer": {
+          "core_offerings": ["koshary bowls", "family trays"],
+          "best_sellers": [],
+          "price_range": "30-60 EGP",
+          "purchase_occasions": ["weekday lunch"]
+        },
+        "customers": {
+          "primary_segments": ["office workers"],
+          "visit_or_order_occasions": ["weekday lunch"],
+          "peak_periods": ["1pm to 3pm weekdays"],
+          "customer_needs": ["quick filling lunch"]
+        },
+        "differentiation": {
+          "owner_claimed_strengths": ["fast service"],
+          "customer_choice_reasons": [],
+          "proof_points": []
+        },
+        "current_marketing": {
+          "active_channels": ["instagram", "google_maps"],
+          "current_activities": [],
+          "delivery_platforms": [],
+          "available_assets": ["submitted Instagram page"]
+        },
+        "goals_and_constraints": {
+          "growth_goals": [
+            "Attract more lunch customers from nearby offices.",
+            "Understand how to reach nearby office workers."
+          ],
+          "operational_constraints": []
+        }
+      },
+      "market_context": {
+        "competitor_landscape": [],
+        "local_demand_signals": [],
+        "digital_presence_signals": [
+          {
+            "observation_id": "44444444-4444-4444-8444-444444444444",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "statement": "Instagram describes Koshary Corner as Egyptian comfort food in Nasr City with 340 followers.",
+            "confidence": 0.86
+          }
+        ],
+        "other_signals": [
+          {
+            "observation_id": "99999999-9999-4999-8999-999999999999",
+            "source_ref_id": "33333333-3333-4333-8333-333333333333",
+            "statement": "Google Maps listing shows 3.8 stars from 124 reviews.",
+            "confidence": 0.72
+          }
+        ]
       },
       "research_observations": [
         {
@@ -534,7 +658,8 @@
           "owner_stated_value": "Some foul and taameya shops nearby, names unknown",
           "research_suggested_value": null,
           "contradiction_detail": null,
-          "resolved": false
+          "resolved": false,
+          "domain": "market_context"
         },
         {
           "field_key": "marketing_budget",
@@ -545,7 +670,8 @@
           "owner_stated_value": "Maybe something small to start",
           "research_suggested_value": null,
           "contradiction_detail": null,
-          "resolved": false
+          "resolved": false,
+          "domain": "goals_and_constraints"
         },
         {
           "field_key": "best_selling_items",
@@ -556,15 +682,38 @@
           "owner_stated_value": null,
           "research_suggested_value": null,
           "contradiction_detail": null,
-          "resolved": false
+          "resolved": false,
+          "domain": "offer"
         }
       ],
       "owner_goals": ["Attract more lunch customers from nearby offices."],
       "strategy_relevant_notes": [
-        "Owner seems price-sensitive — budget-friendly positioning.",
-        "Instagram exists, Google Maps outdated — quick win opportunity.",
-        "Owner willing to try small spend."
-      ]
+        "The owner described office workers as a current lunch segment.",
+        "The owner did not confirm a marketing budget range.",
+        "Digital-presence observations remain source-backed evidence."
+      ],
+      "completeness": "complete",
+      "completion_reason": "sufficient",
+      "readiness": {
+        "ready": true,
+        "llm_recommended": true,
+        "profile_readiness": 0.86,
+        "domain_scores": {
+          "identity": 1,
+          "offer": 0.8,
+          "customers": 0.85,
+          "differentiation": 0.7,
+          "current_marketing": 0.7,
+          "goals_and_constraints": 0.8,
+          "market_context": 0.5,
+          "research_confidence": 0.5,
+          "profile_readiness": 0.86
+        },
+        "blocking_domains": [],
+        "owner_turn_count": 7,
+        "max_owner_turns": 15,
+        "completion_reason": "sufficient"
+      }
     },
     "confirmed_by_user_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     "confirmed_at": "2026-06-25T10:05:00.000Z",
@@ -577,7 +726,7 @@
       "run_type": "discovery_start",
       "provider_mode": "mock",
       "model_name": null,
-      "prompt_version": "discovery-v1",
+      "prompt_version": "discovery-v2-market-aware",
       "status": "success",
       "input_hash": "hash_a01",
       "input_tokens": 520,
@@ -585,18 +734,56 @@
       "latency_ms": 340,
       "output_json": {
         "action": "ask_next_question",
-        "next_question": "مين هم الزباين الأكثر حضوراً دلوقتي؟",
+        "next_question": "تخيل يوم زحمة في Koshary Corner: مين غالبا بيكون موجود، وبيطلبوا إيه وفي أي وقت؟",
         "updated_known_facts": {
-          "business_name": "Koshary Corner",
-          "business_type": "quick service restaurant",
-          "city": "Cairo"
+          "identity": {
+            "business_name": "Koshary Corner",
+            "business_type": "quick service restaurant",
+            "city": "Cairo",
+            "area": "Nasr City"
+          },
+          "offer": {
+            "core_offerings": [],
+            "best_sellers": [],
+            "purchase_occasions": []
+          },
+          "customers": {
+            "primary_segments": [],
+            "visit_or_order_occasions": [],
+            "peak_periods": [],
+            "customer_needs": []
+          },
+          "differentiation": {
+            "owner_claimed_strengths": [],
+            "customer_choice_reasons": [],
+            "proof_points": []
+          },
+          "current_marketing": {
+            "active_channels": ["instagram", "google_maps"],
+            "current_activities": [],
+            "delivery_platforms": [],
+            "available_assets": []
+          },
+          "goals_and_constraints": {
+            "growth_goals": [
+              "Attract more lunch customers from nearby offices."
+            ],
+            "operational_constraints": []
+          }
         },
         "updated_uncertainties": [],
         "domain_scores": {
-          "intake_completeness": 0.55,
+          "identity": 0.9,
+          "offer": 0.1,
+          "customers": 0.1,
+          "differentiation": 0,
+          "current_marketing": 0.3,
+          "goals_and_constraints": 0.4,
+          "market_context": 0.2,
           "research_confidence": 0.45,
           "profile_readiness": 0.35
-        }
+        },
+        "ready_to_summarize": false
       },
       "error_code": null,
       "error_message": null,
@@ -608,7 +795,7 @@
       "run_type": "discovery_turn",
       "provider_mode": "mock",
       "model_name": null,
-      "prompt_version": "discovery-v1",
+      "prompt_version": "discovery-v2-market-aware",
       "status": "success",
       "input_hash": "hash_a07",
       "input_tokens": 680,
@@ -616,18 +803,56 @@
       "latency_ms": 410,
       "output_json": {
         "action": "ask_clarification",
-        "next_question": "Strategy and content will be ready right after we confirm your business profile.",
+        "next_question": "Strategy comes after confirmation. For now, think about the lunch rush: what makes office workers choose you over a nearby option?",
         "updated_known_facts": {
-          "business_name": "Koshary Corner",
-          "business_type": "quick service restaurant",
-          "city": "Cairo"
+          "identity": {
+            "business_name": "Koshary Corner",
+            "business_type": "quick service restaurant",
+            "city": "Cairo",
+            "area": "Nasr City"
+          },
+          "offer": {
+            "core_offerings": [],
+            "best_sellers": [],
+            "purchase_occasions": []
+          },
+          "customers": {
+            "primary_segments": ["office workers"],
+            "visit_or_order_occasions": ["weekday lunch"],
+            "peak_periods": ["1pm to 3pm weekdays"],
+            "customer_needs": ["quick filling lunch"]
+          },
+          "differentiation": {
+            "owner_claimed_strengths": [],
+            "customer_choice_reasons": [],
+            "proof_points": []
+          },
+          "current_marketing": {
+            "active_channels": ["instagram", "google_maps"],
+            "current_activities": [],
+            "delivery_platforms": [],
+            "available_assets": []
+          },
+          "goals_and_constraints": {
+            "growth_goals": [
+              "Attract more lunch customers from nearby offices."
+            ],
+            "operational_constraints": []
+          }
         },
         "updated_uncertainties": [],
         "domain_scores": {
-          "intake_completeness": 0.55,
+          "identity": 0.9,
+          "offer": 0.3,
+          "customers": 0.7,
+          "differentiation": 0.2,
+          "current_marketing": 0.3,
+          "goals_and_constraints": 0.4,
+          "market_context": 0.3,
           "research_confidence": 0.45,
           "profile_readiness": 0.35
-        }
+        },
+        "ready_to_summarize": false
       },
       "error_code": null,
       "error_message": null,
@@ -639,7 +864,7 @@
       "run_type": "discovery_summary",
       "provider_mode": "mock",
       "model_name": null,
-      "prompt_version": "discovery-v1",
+      "prompt_version": "discovery-v2-market-aware",
       "status": "success",
       "input_hash": "hash_a09",
       "input_tokens": 920,
@@ -652,7 +877,13 @@
           "status": "ready_for_confirmation"
         },
         "domain_scores": {
-          "intake_completeness": 0.8,
+          "identity": 1,
+          "offer": 0.6,
+          "customers": 0.8,
+          "differentiation": 0.3,
+          "current_marketing": 0.4,
+          "goals_and_constraints": 0.5,
+          "market_context": 0.5,
           "research_confidence": 0.5,
           "profile_readiness": 0.85
         }
@@ -661,5 +892,30 @@
       "error_message": null,
       "created_at": "2026-06-25T10:03:30.000Z"
     }
-  ]
+  ],
+  "automatic_completion": {
+    "trigger": "hybrid_readiness",
+    "owner_turn_count": 7,
+    "max_owner_turns": 15,
+    "readiness": {
+      "ready": true,
+      "llm_recommended": true,
+      "profile_readiness": 0.86,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.8,
+        "customers": 0.85,
+        "differentiation": 0.7,
+        "current_marketing": 0.7,
+        "goals_and_constraints": 0.8,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.86
+      },
+      "blocking_domains": [],
+      "owner_turn_count": 7,
+      "max_owner_turns": 15,
+      "completion_reason": "sufficient"
+    }
+  }
 }

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
+from app.core.config import Settings, get_settings
 from app.main import create_app
 from app.discovery.schemas import (
     AiDiscoveryRespondRequest,
@@ -83,6 +84,47 @@ def base_payload(
     }
 
 
+def with_completion_context(
+    payload: dict[str, Any],
+    *,
+    reason: str = "owner_finished_early",
+    blocking_domains: list[str] | None = None,
+) -> dict[str, Any]:
+    domains = blocking_domains or [
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints",
+    ]
+    scores = {
+        "identity": 1.0,
+        "offer": 0.3,
+        "customers": 0.4,
+        "differentiation": 0.1,
+        "current_marketing": 0.4,
+        "goals_and_constraints": 0.5,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.45,
+    }
+    payload["completion_context"] = {
+        "reason": reason,
+        "completeness": "complete" if reason == "sufficient" else "incomplete",
+        "readiness": {
+            "ready": reason == "sufficient",
+            "llm_recommended": reason == "sufficient",
+            "profile_readiness": scores["profile_readiness"],
+            "domain_scores": scores,
+            "blocking_domains": domains,
+            "owner_turn_count": 3,
+            "max_owner_turns": 15,
+            "completion_reason": reason,
+        },
+    }
+    return payload
+
+
 def owner_message(content: str, language: str = "en") -> dict[str, str]:
     return {
         "id": "22222222-2222-4222-8222-222222222222",
@@ -114,10 +156,12 @@ class ContradictionProvider(DiscoveryProvider):
     ) -> DiscoveryModelOutput:
         return DiscoveryModelOutput(
             action="ask_clarification",
+            ready_to_summarize=False,
             next_question="Which closing time is correct: 5pm or 11pm?",
             updated_known_facts={},
             updated_uncertainties=[
                 UncertaintyInput(
+                    domain="goals_and_constraints",
                     field_key="business_hours",
                     description="The owner gave conflicting closing times.",
                     severity="high",
@@ -127,6 +171,7 @@ class ContradictionProvider(DiscoveryProvider):
                     contradiction_detail="The earlier answer said 5pm on weekends.",
                 )
             ],
+            domain_scores={},
         )
 
 
@@ -143,8 +188,11 @@ class CapturingProvider(DiscoveryProvider):
         self.last_request = request
         return DiscoveryModelOutput(
             action="ask_next_question",
+            ready_to_summarize=False,
             next_question="Who are your best current customers?",
             updated_known_facts={},
+            updated_uncertainties=[],
+            domain_scores={},
         )
 
 
@@ -467,27 +515,49 @@ def test_discarded_observation_requires_discard_reason() -> None:
 def test_profile_draft_separates_confirmed_facts_from_observations() -> None:
     payload = base_payload("en")
     payload["messages"] = [owner_message("Mostly office workers at lunch.")]
-    request = AiDiscoverySummarizeRequest.model_validate(payload)
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
     result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
 
     assert result.action == "produce_profile_draft"
     assert result.profile_draft is not None
 
     draft = result.profile_draft
-    assert isinstance(draft.confirmed_facts, dict)
+    assert draft.confirmed_facts.identity.business_name == "Koshary Corner"
+    assert draft.confirmed_facts.identity.city == "Cairo"
+    assert draft.confirmed_facts.goals_and_constraints.growth_goals == [
+        "Attract more lunch customers."
+    ]
+    assert isinstance(draft.market_context.competitor_landscape, list)
     assert isinstance(draft.research_observations, list)
     assert isinstance(draft.uncertainties, list)
     assert isinstance(draft.owner_goals, list)
     assert isinstance(draft.strategy_relevant_notes, list)
 
-    owner_fact_keys = set(draft.confirmed_facts.keys())
-    assert len(owner_fact_keys) >= 3, "Confirmed facts should contain business-owner-stated data"
-    assert draft.uncertainties == []
+    owner_fact_keys = set(draft.confirmed_facts.model_dump())
+    assert owner_fact_keys == {
+        "identity",
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints",
+    }
+    assert {uncertainty.domain for uncertainty in draft.uncertainties} == {
+        "offer",
+        "customers",
+        "differentiation",
+        "current_marketing",
+        "goals_and_constraints",
+    }
+    assert all(not uncertainty.resolved for uncertainty in draft.uncertainties)
     assert draft.status == "ready_for_confirmation"
 
 
 def test_profile_uncertainty_as_standalone_schema() -> None:
     uncertainty = Uncertainty(
+        domain="goals_and_constraints",
         field_key="marketing_budget",
         description="Owner did not state a specific marketing budget.",
         severity="medium",
@@ -590,7 +660,10 @@ def test_invalid_action_rejected_by_schema() -> None:
     try:
         DiscoveryModelOutput(
             action="invalid_action",
+            ready_to_summarize=False,
             updated_known_facts={},
+            updated_uncertainties=[],
+            domain_scores={},
         )
     except ValidationError:
         pass
@@ -603,8 +676,11 @@ def test_question_action_requires_next_question() -> None:
     try:
         DiscoveryModelOutput(
             action="ask_next_question",
+            ready_to_summarize=False,
             next_question=None,
             updated_known_facts={},
+            updated_uncertainties=[],
+            domain_scores={},
         )
     except ValidationError:
         pass
@@ -616,14 +692,20 @@ def test_question_action_requires_next_question() -> None:
 def test_discovery_model_output_action_validation() -> None:
     valid = DiscoveryModelOutput(
         action="ask_next_question",
+        ready_to_summarize=False,
         next_question="What is your best-selling item?",
         updated_known_facts={},
+        updated_uncertainties=[],
+        domain_scores={},
     )
     assert valid.action == "ask_next_question"
 
     draft_action = DiscoveryModelOutput(
         action="produce_profile_draft",
+        ready_to_summarize=True,
         updated_known_facts={},
+        updated_uncertainties=[],
+        domain_scores={},
     )
     assert draft_action.action == "produce_profile_draft"
 
@@ -631,7 +713,9 @@ def test_discovery_model_output_action_validation() -> None:
 def test_profile_draft_jsonb_fields_are_valid() -> None:
     payload = base_payload("en")
     payload["messages"] = [owner_message("Mostly office workers at lunch.")]
-    request = AiDiscoverySummarizeRequest.model_validate(payload)
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
     result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
 
     assert result.profile_draft is not None
@@ -652,7 +736,9 @@ def test_profile_draft_jsonb_fields_are_valid() -> None:
 def test_strategy_locked_before_confirmation() -> None:
     payload = base_payload("en")
     payload["messages"] = [owner_message("Mostly office workers at lunch.")]
-    request = AiDiscoverySummarizeRequest.model_validate(payload)
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
     result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
 
     assert result.profile_draft is not None
@@ -668,7 +754,9 @@ def test_strategy_locked_before_confirmation() -> None:
 # ---------------------------------------------------------------------------
 
 def test_internal_start_endpoint_with_arabic() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("ar-EG", with_gap=True)
     response = client.post("/internal/v1/ai/discovery/start", json=payload)
 
@@ -676,10 +764,13 @@ def test_internal_start_endpoint_with_arabic() -> None:
     body = response.json()
     assert body["action"] == "ask_next_question"
     assert body["next_question"] is not None
+    app.dependency_overrides.clear()
 
 
 def test_internal_respond_endpoint_accepts_chat() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("en")
     payload["messages"] = [assistant_message("Who are your best customers?")]
     payload["owner_message"] = owner_message("Office workers at lunch.")
@@ -688,18 +779,25 @@ def test_internal_respond_endpoint_accepts_chat() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["action"] in ("ask_next_question", "ask_clarification", "produce_profile_draft")
+    app.dependency_overrides.clear()
 
 
 def test_internal_summarize_endpoint_produces_draft() -> None:
-    client = TestClient(create_app())
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
     payload = base_payload("en")
     payload["messages"] = [owner_message("Office workers at lunch.")]
-    response = client.post("/internal/v1/ai/discovery/summarize", json=payload)
+    response = client.post(
+        "/internal/v1/ai/discovery/summarize",
+        json=with_completion_context(payload),
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["action"] == "produce_profile_draft"
     assert body["profile_draft"] is not None
+    app.dependency_overrides.clear()
     assert body["profile_draft"]["status"] == "ready_for_confirmation"
 
 
@@ -740,3 +838,51 @@ def test_owner_answer_tracked_separately_from_research() -> None:
         metadata={"source_label": "Instagram metadata"},
     )
     assert observation.statement != intake.business_name
+
+
+def test_profile_groups_only_cited_research_into_market_context() -> None:
+    payload = base_payload("en")
+    payload["messages"] = [owner_message("Office workers usually order at lunch.")]
+    payload["intelligence"]["source_refs"] = [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "source_type": "search_result",
+            "platform": "serpapi",
+            "url": "https://example.com/nearby-cafe",
+            "confidence": 0.82,
+            "metadata": {},
+        }
+    ]
+    payload["intelligence"]["research_observations"] = [
+        {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "kind": "competitor",
+            "statement": "A nearby quick-service restaurant appears in local search.",
+            "confidence": 0.82,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {},
+        },
+        {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "kind": "market_context",
+            "statement": "An uncited market assumption.",
+            "confidence": 0.4,
+            "visibility": "internal",
+            "status": "accepted",
+            "metadata": {},
+        },
+    ]
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
+
+    result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
+
+    assert result.profile_draft is not None
+    context = result.profile_draft.market_context
+    assert [item.observation_id for item in context.competitor_landscape] == [
+        "44444444-4444-4444-8444-444444444444"
+    ]
+    assert context.local_demand_signals == []

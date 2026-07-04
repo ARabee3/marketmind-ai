@@ -1,1 +1,1 @@
-DISCOVERY_PROMPT_VERSION = "discovery-v1"
+DISCOVERY_PROMPT_VERSION = "discovery-v2-market-aware"

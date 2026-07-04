@@ -27,11 +27,11 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  businesses                   Business[]
-  discoverySessions            DiscoverySession[]
-  refreshSessions              RefreshSession[]
-  userRoles                    UserRole[]
-  confirmedProfileVersions     BusinessProfileVersion[]
+  businesses               Business[]
+  discoverySessions        DiscoverySession[]
+  refreshSessions          RefreshSession[]
+  userRoles                UserRole[]
+  confirmedProfileVersions BusinessProfileVersion[]
 }
 
 model RefreshSession {
@@ -52,10 +52,10 @@ model RefreshSession {
 }
 
 model RoleEntity {
-  id          String              @id @default(uuid()) @db.Uuid
-  name        Role                @unique
+  id          String   @id @default(uuid()) @db.Uuid
+  name        Role     @unique
   description String?
-  createdAt   DateTime            @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   rolePermissions RolePermission[]
   userRoles       UserRole[]
@@ -64,10 +64,10 @@ model RoleEntity {
 }
 
 model Permission {
-  id          String              @id @default(uuid()) @db.Uuid
-  name        String              @unique
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
   description String?
-  createdAt   DateTime            @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   rolePermissions RolePermission[]
 
@@ -99,25 +99,25 @@ model UserRole {
 }
 
 model Business {
-  id             String   @id @default(uuid()) @db.Uuid
-  ownerUserId    String   @map("owner_user_id") @db.Uuid
-  displayName    String   @map("display_name")
-  businessType   String   @map("business_type")
-  city           String
-  area           String?
-  addressText    String?  @map("address_text")
-  latitude       Decimal? @db.Decimal(9, 6)
-  longitude      Decimal? @db.Decimal(9, 6)
-  primaryLocale  String   @default("ar-EG") @map("primary_locale")
-  status         String   @default("draft")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  ownerUserId   String   @map("owner_user_id") @db.Uuid
+  displayName   String   @map("display_name")
+  businessType  String   @map("business_type")
+  city          String
+  area          String?
+  addressText   String?  @map("address_text")
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  primaryLocale String   @default("ar-EG") @map("primary_locale")
+  status        String   @default("draft")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  ownerUser                User                        @relation(fields: [ownerUserId], references: [id])
-  discoverySessions        DiscoverySession[]
-  socialLinks              SocialLink[]
-  businessProfileDrafts    BusinessProfileDraft[]
-  businessProfileVersions  BusinessProfileVersion[]
+  ownerUser               User                     @relation(fields: [ownerUserId], references: [id])
+  discoverySessions       DiscoverySession[]
+  socialLinks             SocialLink[]
+  businessProfileDrafts   BusinessProfileDraft[]
+  businessProfileVersions BusinessProfileVersion[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -125,32 +125,35 @@ model Business {
 }
 
 model DiscoverySession {
-  id                          String    @id @default(uuid()) @db.Uuid
-  businessId                  String?   @map("business_id") @db.Uuid
-  ownerUserId                 String    @map("owner_user_id") @db.Uuid
-  status                      String
-  languageMode                String    @default("mixed") @map("language_mode")
-  currentQuestion             String?   @map("current_question")
-  profileDraftId              String?   @map("profile_draft_id") @db.Uuid
-  confirmedProfileVersionId   String?   @map("confirmed_profile_version_id") @db.Uuid
-  startedAt                   DateTime  @default(now()) @map("started_at")
-  completedAt                 DateTime? @map("completed_at")
-  createdAt                   DateTime  @default(now()) @map("created_at")
-  updatedAt                   DateTime  @updatedAt @map("updated_at")
+  id                        String    @id @default(uuid()) @db.Uuid
+  businessId                String?   @map("business_id") @db.Uuid
+  ownerUserId               String    @map("owner_user_id") @db.Uuid
+  status                    String
+  languageMode              String    @default("mixed") @map("language_mode")
+  currentQuestion           String?   @map("current_question")
+  profileState              Json      @default("{}") @map("profile_state")
+  ownerTurnCount            Int       @default(0) @map("owner_turn_count")
+  completionReason          String?   @map("completion_reason")
+  profileDraftId            String?   @map("profile_draft_id") @db.Uuid
+  confirmedProfileVersionId String?   @map("confirmed_profile_version_id") @db.Uuid
+  startedAt                 DateTime  @default(now()) @map("started_at")
+  completedAt               DateTime? @map("completed_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
 
-  business                    Business?                         @relation(fields: [businessId], references: [id])
-  ownerUser                   User                              @relation(fields: [ownerUserId], references: [id])
-  intakes                     PreparedDiscoveryIntake[]
-  socialLinks                 SocialLink[]
-  intelligenceRuns            IntelligenceRun[]
-  sourceRefs                  SourceRef[]
-  researchObservations        ResearchObservation[]
-  conversationHooks           ConversationHook[]
-  knowledgeGaps               KnowledgeGap[]
-  discoveryMessages           DiscoveryMessage[]
-  businessProfileDrafts       BusinessProfileDraft[]
-  agentRuns                   AgentRun[]
-  discoveryProgressEvents     DiscoveryProgressEvent[]
+  business                Business?                 @relation(fields: [businessId], references: [id])
+  ownerUser               User                      @relation(fields: [ownerUserId], references: [id])
+  intakes                 PreparedDiscoveryIntake[]
+  socialLinks             SocialLink[]
+  intelligenceRuns        IntelligenceRun[]
+  sourceRefs              SourceRef[]
+  researchObservations    ResearchObservation[]
+  conversationHooks       ConversationHook[]
+  knowledgeGaps           KnowledgeGap[]
+  discoveryMessages       DiscoveryMessage[]
+  businessProfileDrafts   BusinessProfileDraft[]
+  agentRuns               AgentRun[]
+  discoveryProgressEvents DiscoveryProgressEvent[]
 
   @@index([ownerUserId, status])
   @@index([businessId])
@@ -159,19 +162,19 @@ model DiscoverySession {
 }
 
 model PreparedDiscoveryIntake {
-  id                     String   @id @default(uuid()) @db.Uuid
-  sessionId              String   @unique @map("session_id") @db.Uuid
-  businessName           String   @map("business_name")
-  businessType           String   @map("business_type")
-  city                   String
-  area                   String?
-  addressText            String?  @map("address_text")
-  ownerGoalText          String?  @map("owner_goal_text")
-  knownCompetitorsText   String?  @map("known_competitors_text")
-  targetAudienceText     String?  @map("target_audience_text")
-  notes                  String?
-  rawPayload             Json     @default("{}") @map("raw_payload")
-  createdAt              DateTime @default(now()) @map("created_at")
+  id                   String   @id @default(uuid()) @db.Uuid
+  sessionId            String   @unique @map("session_id") @db.Uuid
+  businessName         String   @map("business_name")
+  businessType         String   @map("business_type")
+  city                 String
+  area                 String?
+  addressText          String?  @map("address_text")
+  ownerGoalText        String?  @map("owner_goal_text")
+  knownCompetitorsText String?  @map("known_competitors_text")
+  targetAudienceText   String?  @map("target_audience_text")
+  notes                String?
+  rawPayload           Json     @default("{}") @map("raw_payload")
+  createdAt            DateTime @default(now()) @map("created_at")
 
   session DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -199,18 +202,18 @@ model SocialLink {
 }
 
 model IntelligenceRun {
-  id            String    @id @default(uuid()) @db.Uuid
-  sessionId     String    @map("session_id") @db.Uuid
-  status        String
-  searchMode    String    @map("search_mode")
-  startedAt     DateTime  @default(now()) @map("started_at")
-  completedAt   DateTime? @map("completed_at")
-  durationMs    Int?      @map("duration_ms")
-  errorCode     String?   @map("error_code")
-  errorMessage  String?   @map("error_message")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id           String    @id @default(uuid()) @db.Uuid
+  sessionId    String    @map("session_id") @db.Uuid
+  status       String
+  searchMode   String    @map("search_mode")
+  startedAt    DateTime  @default(now()) @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  durationMs   Int?      @map("duration_ms")
+  errorCode    String?   @map("error_code")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  session   DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session    DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sourceRefs SourceRef[]
 
   @@index([sessionId])
@@ -219,21 +222,21 @@ model IntelligenceRun {
 }
 
 model SourceRef {
-  id                String         @id @default(uuid()) @db.Uuid
-  sessionId         String         @map("session_id") @db.Uuid
-  intelligenceRunId String?        @map("intelligence_run_id") @db.Uuid
-  sourceType        String         @map("source_type")
+  id                String    @id @default(uuid()) @db.Uuid
+  sessionId         String    @map("session_id") @db.Uuid
+  intelligenceRunId String?   @map("intelligence_run_id") @db.Uuid
+  sourceType        String    @map("source_type")
   platform          String?
   url               String?
   title             String?
   snippet           String?
-  fetchedAt         DateTime?      @map("fetched_at")
-  confidence        Decimal        @default(0.5) @db.Decimal(4, 3)
-  metadata          Json           @default("{}")
-  createdAt         DateTime       @default(now()) @map("created_at")
+  fetchedAt         DateTime? @map("fetched_at")
+  confidence        Decimal   @default(0.5) @db.Decimal(4, 3)
+  metadata          Json      @default("{}")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   session              DiscoverySession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  intelligenceRun      IntelligenceRun?       @relation(fields: [intelligenceRunId], references: [id], onDelete: SetNull)
+  intelligenceRun      IntelligenceRun?      @relation(fields: [intelligenceRunId], references: [id], onDelete: SetNull)
   researchObservations ResearchObservation[]
 
   @@index([sessionId])
@@ -243,20 +246,20 @@ model SourceRef {
 }
 
 model ResearchObservation {
-  id           String   @id @default(uuid()) @db.Uuid
-  sessionId    String   @map("session_id") @db.Uuid
-  sourceRefId  String?  @map("source_ref_id") @db.Uuid
-  kind         String
-  statement    String
-  confidence   Decimal  @default(0.5) @db.Decimal(4, 3)
-  visibility   String   @default("internal")
-  status       String   @default("accepted")
-  discardReason String? @map("discard_reason")
-  metadata     Json     @default("{}")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  sessionId     String   @map("session_id") @db.Uuid
+  sourceRefId   String?  @map("source_ref_id") @db.Uuid
+  kind          String
+  statement     String
+  confidence    Decimal  @default(0.5) @db.Decimal(4, 3)
+  visibility    String   @default("internal")
+  status        String   @default("accepted")
+  discardReason String?  @map("discard_reason")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  session   DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sourceRef SourceRef?        @relation(fields: [sourceRefId], references: [id], onDelete: SetNull)
+  session   DiscoverySession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceRef SourceRef?         @relation(fields: [sourceRefId], references: [id], onDelete: SetNull)
   hooks     ConversationHook[]
 
   @@index([sessionId, status])
@@ -273,8 +276,8 @@ model ConversationHook {
   status              String   @default("active")
   createdAt           DateTime @default(now()) @map("created_at")
 
-  session            DiscoverySession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sourceObservation  ResearchObservation? @relation(fields: [sourceObservationId], references: [id], onDelete: SetNull)
+  session           DiscoverySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceObservation ResearchObservation? @relation(fields: [sourceObservationId], references: [id], onDelete: SetNull)
 
   @@index([sessionId, status])
   @@map("conversation_hooks")
@@ -313,24 +316,27 @@ model DiscoveryMessage {
 }
 
 model BusinessProfileDraft {
-  id                     String   @id @default(uuid()) @db.Uuid
-  sessionId              String   @map("session_id") @db.Uuid
-  businessId             String?  @map("business_id") @db.Uuid
-  version                Int      @default(1)
-  status                 String   @default("draft")
-  confirmedFacts         Json     @default("{}") @map("confirmed_facts")
-  researchObservations   Json     @default("[]") @map("research_observations")
-  uncertainties          Json     @default("[]")
-  ownerGoals             Json     @default("[]") @map("owner_goals")
-  strategyRelevantNotes  Json     @default("[]") @map("strategy_relevant_notes")
-  rawAiOutput            Json     @default("{}") @map("raw_ai_output")
-  createdByAgentRunId    String?  @map("created_by_agent_run_id") @db.Uuid
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid()) @db.Uuid
+  sessionId             String   @map("session_id") @db.Uuid
+  businessId            String?  @map("business_id") @db.Uuid
+  version               Int      @default(1)
+  status                String   @default("draft")
+  completeness          String   @default("incomplete")
+  completionReason      String   @default("owner_finished_early") @map("completion_reason")
+  readiness             Json     @default("{}")
+  confirmedFacts        Json     @default("{}") @map("confirmed_facts")
+  researchObservations  Json     @default("[]") @map("research_observations")
+  uncertainties         Json     @default("[]")
+  ownerGoals            Json     @default("[]") @map("owner_goals")
+  strategyRelevantNotes Json     @default("[]") @map("strategy_relevant_notes")
+  rawAiOutput           Json     @default("{}") @map("raw_ai_output")
+  createdByAgentRunId   String?  @map("created_by_agent_run_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
-  session        DiscoverySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  business       Business?        @relation(fields: [businessId], references: [id])
-  createdByAgent AgentRun?        @relation("AgentRunDrafts", fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
+  session        DiscoverySession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  business       Business?                @relation(fields: [businessId], references: [id])
+  createdByAgent AgentRun?                @relation("AgentRunDrafts", fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
   versions       BusinessProfileVersion[]
 
   @@unique([sessionId, version])
@@ -339,18 +345,18 @@ model BusinessProfileDraft {
 }
 
 model BusinessProfileVersion {
-  id              String   @id @default(uuid()) @db.Uuid
-  businessId      String   @map("business_id") @db.Uuid
-  draftId         String?  @map("draft_id") @db.Uuid
-  version         Int
-  profile         Json
-  confirmedByUserId String @map("confirmed_by_user_id") @db.Uuid
-  confirmedAt     DateTime @default(now()) @map("confirmed_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid()) @db.Uuid
+  businessId        String   @map("business_id") @db.Uuid
+  draftId           String?  @map("draft_id") @db.Uuid
+  version           Int
+  profile           Json
+  confirmedByUserId String   @map("confirmed_by_user_id") @db.Uuid
+  confirmedAt       DateTime @default(now()) @map("confirmed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  business       Business              @relation(fields: [businessId], references: [id])
-  draft          BusinessProfileDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
-  confirmedByUser User                 @relation(fields: [confirmedByUserId], references: [id])
+  business        Business              @relation(fields: [businessId], references: [id])
+  draft           BusinessProfileDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  confirmedByUser User                  @relation(fields: [confirmedByUserId], references: [id])
 
   @@unique([businessId, version])
   @@index([businessId])
@@ -374,8 +380,8 @@ model AgentRun {
   errorMessage  String?  @map("error_message")
   createdAt     DateTime @default(now()) @map("created_at")
 
-  session           DiscoverySession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  profileDrafts     BusinessProfileDraft[] @relation("AgentRunDrafts")
+  session       DiscoverySession?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  profileDrafts BusinessProfileDraft[] @relation("AgentRunDrafts")
 
   @@index([sessionId])
   @@index([runType, status])

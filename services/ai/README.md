@@ -19,6 +19,7 @@ Copy `.env.example` to `.env` and choose one provider mode:
 - `AI_PROVIDER_MODE=mock`: deterministic local/test behavior.
 - `AI_PROVIDER_MODE=openai`: requires `OPENAI_API_KEY` and `OPENAI_MODEL`.
 - `AI_PROVIDER_MODE=gemini_dev`: requires `GEMINI_API_KEY` and `GEMINI_MODEL`.
+- `AI_PROVIDER_MODE=openrouter`: requires `OPEN_ROUTER_API_KEY` and `OPEN_ROUTER_MODEL`.
 
 Do not commit real keys.
 

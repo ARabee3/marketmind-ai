@@ -17,7 +17,11 @@ def get_discovery_service(settings: Settings = Depends(get_settings)) -> Discove
     return DiscoveryService(create_provider(settings))
 
 
-@router.post("/start", response_model=AiDiscoveryResult)
+@router.post(
+    "/start",
+    response_model=AiDiscoveryResult,
+    response_model_exclude_none=True,
+)
 async def start_discovery(
     request: AiDiscoveryStartRequest,
     service: DiscoveryService = Depends(get_discovery_service),
@@ -25,7 +29,11 @@ async def start_discovery(
     return await service.start(request)
 
 
-@router.post("/respond", response_model=AiDiscoveryResult)
+@router.post(
+    "/respond",
+    response_model=AiDiscoveryResult,
+    response_model_exclude_none=True,
+)
 async def respond_discovery(
     request: AiDiscoveryRespondRequest,
     service: DiscoveryService = Depends(get_discovery_service),
@@ -33,7 +41,11 @@ async def respond_discovery(
     return await service.respond(request)
 
 
-@router.post("/summarize", response_model=AiDiscoveryResult)
+@router.post(
+    "/summarize",
+    response_model=AiDiscoveryResult,
+    response_model_exclude_none=True,
+)
 async def summarize_discovery(
     request: AiDiscoverySummarizeRequest,
     service: DiscoveryService = Depends(get_discovery_service),

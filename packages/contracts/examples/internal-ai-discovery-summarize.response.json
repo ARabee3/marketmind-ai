@@ -1,18 +1,53 @@
 {
   "action": "produce_profile_draft",
   "updated_known_facts": {
-    "business_name": "Koshary Corner",
-    "business_type": "quick service restaurant",
-    "city": "Cairo",
-    "area": "Nasr City"
+    "identity": {
+      "business_name": "Koshary Corner",
+      "business_type": "quick service restaurant",
+      "city": "Cairo",
+      "area": "Nasr City"
+    },
+    "offer": {
+      "core_offerings": ["koshary bowls"],
+      "best_sellers": ["classic koshary bowl"],
+      "price_range": "30-60 EGP",
+      "purchase_occasions": ["weekday lunch"]
+    },
+    "customers": {
+      "primary_segments": ["office workers"],
+      "visit_or_order_occasions": ["weekday lunch"],
+      "peak_periods": ["1pm to 3pm weekdays"],
+      "customer_needs": ["quick filling lunch"]
+    },
+    "differentiation": {
+      "owner_claimed_strengths": ["fast service"],
+      "customer_choice_reasons": ["quick affordable lunch"],
+      "proof_points": []
+    },
+    "current_marketing": {
+      "active_channels": ["instagram"],
+      "current_activities": [],
+      "delivery_platforms": [],
+      "available_assets": []
+    },
+    "goals_and_constraints": {
+      "growth_goals": ["Attract more lunch customers."],
+      "operational_constraints": []
+    }
   },
   "updated_uncertainties": [],
   "research_observations": [],
   "source_refs": [],
   "domain_scores": {
-    "intake_completeness": 0.9,
-    "research_confidence": 0.7,
-    "profile_readiness": 0.92
+    "identity": 1,
+    "offer": 0.8,
+    "customers": 0.85,
+    "differentiation": 0.7,
+    "current_marketing": 0.7,
+    "goals_and_constraints": 0.8,
+    "market_context": 0.5,
+    "research_confidence": 0.5,
+    "profile_readiness": 0.86
   },
   "profile_draft": {
     "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -20,9 +55,45 @@
     "version": 1,
     "status": "ready_for_confirmation",
     "confirmed_facts": {
-      "business_name": "Koshary Corner",
-      "business_type": "quick service restaurant",
-      "city": "Cairo"
+      "identity": {
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo",
+        "area": "Nasr City"
+      },
+      "offer": {
+        "core_offerings": ["koshary bowls"],
+        "best_sellers": ["classic koshary bowl"],
+        "price_range": "30-60 EGP",
+        "purchase_occasions": ["weekday lunch"]
+      },
+      "customers": {
+        "primary_segments": ["office workers"],
+        "visit_or_order_occasions": ["weekday lunch"],
+        "peak_periods": ["1pm to 3pm weekdays"],
+        "customer_needs": ["quick filling lunch"]
+      },
+      "differentiation": {
+        "owner_claimed_strengths": ["fast service"],
+        "customer_choice_reasons": ["quick affordable lunch"],
+        "proof_points": []
+      },
+      "current_marketing": {
+        "active_channels": ["instagram"],
+        "current_activities": [],
+        "delivery_platforms": [],
+        "available_assets": []
+      },
+      "goals_and_constraints": {
+        "growth_goals": ["Attract more lunch customers."],
+        "operational_constraints": []
+      }
+    },
+    "market_context": {
+      "competitor_landscape": [],
+      "local_demand_signals": [],
+      "digital_presence_signals": [],
+      "other_signals": []
     },
     "research_observations": [],
     "uncertainties": [],
@@ -32,6 +103,29 @@
     ],
     "raw_ai_output": {
       "action": "produce_profile_draft"
+    },
+    "completeness": "complete",
+    "completion_reason": "sufficient",
+    "readiness": {
+      "ready": true,
+      "llm_recommended": true,
+      "profile_readiness": 0.86,
+      "domain_scores": {
+        "identity": 1,
+        "offer": 0.8,
+        "customers": 0.85,
+        "differentiation": 0.7,
+        "current_marketing": 0.7,
+        "goals_and_constraints": 0.8,
+        "market_context": 0.5,
+        "research_confidence": 0.5,
+        "profile_readiness": 0.86
+      },
+      "blocking_domains": [],
+      "owner_turn_count": 7,
+      "max_owner_turns": 15,
+      "completion_reason": "sufficient"
     }
-  }
+  },
+  "ready_to_summarize": true
 }
