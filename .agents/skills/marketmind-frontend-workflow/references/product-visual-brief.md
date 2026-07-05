@@ -1,53 +1,36 @@
 # Product Visual Brief — MarketMind AI
 
-> MarketMind is a trustworthy, practical, Arabic-first growth workspace for
-> Egyptian SMEs across different industries. AI should feel helpful,
-> explainable, and grounded in business evidence — not futuristic or
-> mysterious.
+> MarketMind is a trustworthy, practical, Arabic-first growth workspace for Egyptian SMEs across industries. AI should feel helpful, explainable, and grounded in business evidence, not futuristic or mysterious.
 
 ## Audience
 
-Egyptian small and medium business (SME) owners across industries: retail,
-services, hospitality (cafés/restaurants), education, healthcare, and others.
-The owner is non-technical, often Arabic-first, and wants clear control over
-what AI proposes and what gets published. They value evidence and
-explainability over flash.
+Egyptian SME owners across retail, services, hospitality, education, healthcare, and other industries. Owners may be non-technical and Arabic-first. They want clear control over what AI proposes and what gets published, and value evidence over visual spectacle.
 
-## Voice & tone
+## Voice and tone
 
-- Helpful, practical, grounded. Calm and confident, not hyped.
-- Explainable: every AI suggestion says *why* and points to business
-  evidence when available.
-- Owner-respecting: progress, readiness, and approval gates are visible.
-  Never hide failed integrations; never present simulation data as real.
-- Bilingual by default: Arabic and English are first-class; RTL is not an
-  afterthought.
+- Helpful, practical, grounded, calm, and confident.
+- Explain why AI suggests something and show supporting business evidence when available.
+- Keep progress, readiness, failures, review, and approval gates visible.
+- Treat Arabic and English as equal product experiences; RTL is structural, not decorative.
 
-## Distinctiveness comes from
+## Distinctive product signals
 
-- Guided business journeys (Discovery → Strategy → Content → Publish →
-  Monitor → Improve), not a generic dashboard.
-- Bilingual typography (IBM Plex Sans + IBM Plex Sans Arabic) as a cohesive
-  type system.
-- Visible readiness / progress / approval gates.
-- Evidence and citations for AI output.
-- Clear owner control and undo paths.
+- Guided business journeys rather than a generic dashboard.
+- A cohesive bilingual type system using IBM Plex Sans and IBM Plex Sans Arabic.
+- Visible readiness, progress, evidence, citations, review, and approval.
+- Clear owner control and recovery paths.
 
-## Anti-patterns (do not use)
+## Avoid
 
-- Generic AI conventions: purple gradients, glassmorphism, excessive floating
-  cards, sparkle / robot imagery, sci-fi styling.
-- Industry-specific decoration or iconography (e.g. café-only theming). The
-  product serves SMEs across industries; a café may appear as one example,
-  never as the framing identity.
-- Hiding failed integrations or presenting simulation/demo data as real.
-  Demo/simulated data must be clearly labeled.
-- Generic SaaS dashboard looks (default navy/teal paired without intent,
-  template hero of "big number + small label + gradient accent" unless truly
-  justified by content).
+- Purple gradients, glassmorphism, excessive floating cards, sparkle or robot imagery, and sci-fi styling.
+- Industry-specific decoration. A café may be one example, never the product identity.
+- Hidden integration failures or unlabeled simulation data.
+- Generic SaaS metric-card compositions without a real information need.
 - Emoji decoration unless explicitly requested.
 
-## Palette (use only these tokens; do not invent new ones ad hoc)
+## Palette
+
+Use the existing semantic tokens; do not invent ad hoc colors.
 
 | Token | Hex | Usage |
 | --- | --- | --- |
@@ -55,18 +38,13 @@ explainability over flash.
 | `--color-surface` / `--color-card` | `#FFFFFF` | Cards, modals, sheets |
 | `--color-navy` / `--color-foreground` | `#102A43` | Headings, primary text |
 | `--color-primary` | `#0B6F71` | Buttons, links, active states |
-| `--color-action` | `#246BFD` | Call-to-action, interactive elements |
-| `--color-warning` | `#A15C00` | Warning banners, caution icons |
-| `--color-danger` / `--color-destructive` | `#B42318` | Error states, destructive buttons |
-| `--color-border` / `--color-input` | `#D9E2EC` | Dividers, input borders, card strokes |
+| `--color-action` | `#246BFD` | Calls to action and interactive elements |
+| `--color-warning` | `#A15C00` | Warnings and caution icons |
+| `--color-danger` / `--color-destructive` | `#B42318` | Errors and destructive actions |
+| `--color-border` / `--color-input` | `#D9E2EC` | Dividers, borders, and inputs |
 
-Dark mode overrides are defined in `apps/web/src/app/globals.css`; reuse them
-rather than introducing separate dark palettes.
+The current application theme is intentionally light-only. Dark mode is deferred until every semantic and brand token has a complete, tested dark value. Do not add partial `prefers-color-scheme` overrides.
 
 ## Layout shell
 
-`apps/web/src/components/layout/app-shell.tsx` provides the shared page frame:
-desktop sidebar (240px start edge) + mobile top bar + mobile bottom nav; page
-content sits in a centered `max-w-[1200px]` container, offset on desktop by
-`md:ms-[240px]` (logical, RTL-safe). Feature owners should render inside this
-shell, not invent their own chrome.
+`apps/web/src/components/layout/app-shell.tsx` owns shared chrome: a 240px sidebar on the logical start edge for desktop, plus mobile top and bottom navigation. On desktop, a logical-margin wrapper reserves sidebar space; a nested `max-w-[1200px]` main element centers content within the remaining width. Feature owners render inside this shell rather than creating competing navigation or page frames.
