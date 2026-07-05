@@ -20,10 +20,6 @@ vi.mock('@/lib/api/discovery', () => ({
   startDiscovery: vi.fn(),
 }))
 
-vi.mock('@/lib/auth', () => ({
-  useAuth: () => ({ token: 'test-token', isAuthenticated: true }),
-}))
-
 describe('IntakeForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -32,27 +28,27 @@ describe('IntakeForm', () => {
   it('validates required fields', async () => {
     render(<IntakeForm />)
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
-    
+
     // First missing field is business name
-    expect(await screen.findByText('validationNameRequired')).toBeDefined()
+    expect(await screen.findByText('DiscoveryIntake.validationNameRequired')).toBeDefined()
     expect(startDiscovery).not.toHaveBeenCalled()
   })
 
   it('validates URLs', async () => {
     render(<IntakeForm />)
-    
+
     // Fill required
     fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test' } })
     fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
     fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
-    
+
     // Add invalid social link
     fireEvent.click(screen.getByRole('button', { name: 'addSocialLink' }))
     const urlInput = await screen.findByPlaceholderText('socialLinkUrlPlaceholder')
     fireEvent.change(urlInput, { target: { value: 'invalid-url' } })
-    
+
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
-    expect(await screen.findByText('validationUrlInvalid')).toBeDefined()
+    expect(await screen.findByText('DiscoveryIntake.validationUrlInvalid')).toBeDefined()
     expect(startDiscovery).not.toHaveBeenCalled()
   })
 
@@ -65,17 +61,17 @@ describe('IntakeForm', () => {
       accepted_at: new Date().toISOString(),
     })
 
-    render(<IntakeForm />)
-    
+    render(<IntakeForm authToken="test-token" />)
+
     fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
     fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
     fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
-    
+
     // Select Arabic language mode explicitly
     fireEvent.click(screen.getByLabelText('languageModeAr'))
-    
+
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
-    
+
     await waitFor(() => {
       expect(startDiscovery).toHaveBeenCalledWith({
         language_mode: 'ar-EG',
@@ -87,5 +83,36 @@ describe('IntakeForm', () => {
       }, 'test-token')
       expect(mockRouterPush).toHaveBeenCalledWith('/discovery/test-session-123')
     })
+  })
+
+  it('maps API errors to typed translation keys', async () => {
+    vi.mocked(startDiscovery).mockRejectedValueOnce({ status: 422, code: 'VALIDATION_FAILED', message: 'bad' })
+
+    render(<IntakeForm authToken="test-token" />)
+
+    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
+    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'submit' }))
+
+    expect(await screen.findByText('Errors.validationError')).toBeDefined()
+  })
+
+  it('maps queue failures to localized UI copy', async () => {
+    vi.mocked(startDiscovery).mockRejectedValueOnce({
+      status: 503,
+      code: 'DISCOVERY_QUEUE_UNAVAILABLE',
+      message: 'Queue unavailable',
+    })
+
+    render(<IntakeForm />)
+
+    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
+    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+    fireEvent.click(screen.getByRole('button', { name: 'submit' }))
+
+    expect(await screen.findByText('DiscoveryProgress.errorRedisFailure')).toBeDefined()
   })
 })

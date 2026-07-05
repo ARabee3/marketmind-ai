@@ -9,6 +9,7 @@ import type {
   StartPreparedDiscoveryRequest,
   StartPreparedDiscoveryResponse,
   DiscoveryStatusResponse,
+  ErrorCode,
 } from '@marketmind/contracts'
 
 const API_BASE =
@@ -16,7 +17,7 @@ const API_BASE =
 
 export interface ApiError {
   status: number
-  code: string
+  code: ErrorCode | string
   message: string
 }
 
@@ -30,7 +31,7 @@ async function request<T>(
   })
 
   if (!res.ok) {
-    let code = 'api_error'
+    let code: ErrorCode | string = 'api_error'
     let message = res.statusText
     try {
       const body = await res.json()

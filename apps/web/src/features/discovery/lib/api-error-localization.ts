@@ -1,0 +1,56 @@
+/**
+ * Explicit, stable API error-code-to-translation-key map for Discovery-facing
+ * requests. Shared contract codes are mapped directly; transport/auth/network
+ * and unknown codes fall back to typed generic keys.
+ */
+
+import type { ErrorCode } from '@marketmind/contracts'
+import type { TranslationKey } from '@/i18n/types'
+import type { ApiError } from '@/lib/api/discovery'
+
+const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
+  UNAUTHORIZED: 'Errors.unauthorized',
+  FORBIDDEN: 'Errors.forbidden',
+  VALIDATION_FAILED: 'Errors.validationError',
+  DISCOVERY_SESSION_NOT_FOUND: 'Errors.notFound',
+  DISCOVERY_SESSION_STATE_CONFLICT: 'Errors.generic',
+  DISCOVERY_RESEARCH_CAP_EXCEEDED: 'Errors.generic',
+  DISCOVERY_AI_SERVICE_UNAVAILABLE: 'DiscoveryProgress.errorProviderFailure',
+  DISCOVERY_AI_BAD_RESPONSE: 'DiscoveryProgress.errorGeneric',
+  DISCOVERY_PROFILE_ALREADY_CONFIRMED: 'Errors.generic',
+}
+
+export function isKnownErrorCode(code: string): code is ErrorCode {
+  return Object.keys(API_ERROR_CODE_TO_TRANSLATION).includes(code)
+}
+
+/**
+ * Maps an API error to a typed translation key. Prefer the contract code when
+ * present; fall back by HTTP status; otherwise return a generic fallback.
+ */
+export function getApiErrorTranslationKey(err: ApiError): TranslationKey {
+  // S2-5 owns the queue implementation and stable code contract. Supporting
+  // its agreed frontend-facing code here keeps the intake error localized
+  // without coupling this PR to Redis or BullMQ.
+  if (err.code === 'DISCOVERY_QUEUE_UNAVAILABLE') {
+    return 'DiscoveryProgress.errorRedisFailure'
+  }
+
+  if (isKnownErrorCode(err.code)) {
+    return API_ERROR_CODE_TO_TRANSLATION[err.code]
+  }
+
+  if (err.status >= 400 && err.status < 500) {
+    if (err.status === 401) return 'Errors.unauthorized'
+    if (err.status === 403) return 'Errors.forbidden'
+    if (err.status === 404) return 'Errors.notFound'
+    if (err.status === 422) return 'Errors.validationError'
+    return 'Errors.generic'
+  }
+
+  if (err.status >= 500) {
+    return 'Errors.serverError'
+  }
+
+  return 'Errors.networkError'
+}

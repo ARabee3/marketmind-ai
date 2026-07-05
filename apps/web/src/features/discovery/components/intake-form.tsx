@@ -9,8 +9,9 @@ import type {
   SocialPlatform,
   SocialLinkInput,
 } from '@marketmind/contracts'
-import { startDiscovery } from '@/lib/api/discovery'
-import { useAuth } from '@/lib/auth'
+import { startDiscovery, type ApiError } from '@/lib/api/discovery'
+import { getApiErrorTranslationKey } from '@/features/discovery/lib/api-error-localization'
+import type { TranslationKey } from '@/i18n/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,15 +27,14 @@ const PLATFORMS: SocialPlatform[] = [
   'other',
 ]
 
-export function IntakeForm() {
+export function IntakeForm({ authToken }: { authToken?: string }) {
   const t = useTranslations('DiscoveryIntake')
-  const tErrors = useTranslations('Errors')
+  const tAll = useTranslations()
   const locale = useLocale()
   const router = useRouter()
-  const { token } = useAuth()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<TranslationKey | null>(null)
 
   // Fields
   const [businessName, setBusinessName] = useState('')
@@ -68,26 +68,26 @@ export function IntakeForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    
+    setErrorKey(null)
+
     // Basic validation
     if (!businessName.trim()) {
-      setError(t('validationNameRequired'))
+      setErrorKey('DiscoveryIntake.validationNameRequired')
       return
     }
     if (!businessType.trim()) {
-      setError(t('validationTypeRequired'))
+      setErrorKey('DiscoveryIntake.validationTypeRequired')
       return
     }
     if (!city.trim()) {
-      setError(t('validationCityRequired'))
+      setErrorKey('DiscoveryIntake.validationCityRequired')
       return
     }
 
     // Validate URLs
     for (const link of socialLinks) {
       if (!link.url.trim().startsWith('http://') && !link.url.trim().startsWith('https://')) {
-        setError(t('validationUrlInvalid'))
+        setErrorKey('DiscoveryIntake.validationUrlInvalid')
         return
       }
     }
@@ -108,11 +108,11 @@ export function IntakeForm() {
         }
       }
 
-      const res = await startDiscovery(payload, token)
+      const res = await startDiscovery(payload, authToken)
       router.push(`/discovery/${res.session_id}`)
     } catch (err: unknown) {
-      const code = (err as { code?: string })?.code || 'generic'
-      setError(tErrors(code as Parameters<typeof tErrors>[0]))
+      const apiError = err as ApiError
+      setErrorKey(getApiErrorTranslationKey(apiError))
       setIsSubmitting(false)
     }
   }
@@ -129,13 +129,13 @@ export function IntakeForm() {
       
       <form onSubmit={handleSubmit} noValidate>
         <CardContent className="space-y-8">
-          {error && (
-            <div 
+          {errorKey && (
+            <div
               className="p-3 text-sm text-destructive bg-destructive/10 rounded-md"
               aria-live="assertive"
               role="alert"
             >
-              {error}
+              {tAll(errorKey)}
             </div>
           )}
 
