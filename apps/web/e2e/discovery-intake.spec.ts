@@ -60,10 +60,10 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Should navigate to session page
     await expect(page).toHaveURL(/\/en\/discovery\/test-session-123/)
-    
+
     // Should display progress timeline (from mocked status)
-    await expect(page.getByText('Queued for research')).toBeVisible()
-    await expect(page.getByText('Researching your business')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Queued for research' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Researching your business' })).toBeVisible()
   })
 
   test('Arabic mode: submits intake with mixed language preference', async ({ page }) => {
@@ -82,7 +82,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Should navigate to session page
     await expect(page).toHaveURL(/\/ar\/discovery\/test-session-123/)
-    
+
     // Should display progress timeline
     await expect(page.getByText('Queued for research')).toBeVisible() // message text mocked in English
     await expect(page.getByText('جارٍ البحث عن معلومات نشاطك')).toBeVisible()
@@ -112,7 +112,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Should show error banner for partial research
     await expect(page.getByText('Some research sources could not be loaded')).toBeVisible()
-    
+
     // Should show Start Interview button
     await expect(page.getByRole('button', { name: 'Start interview' })).toBeVisible()
   })
