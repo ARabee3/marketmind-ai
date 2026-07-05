@@ -47,11 +47,6 @@ jobs:
         working-directory: .
       - name: Build
         run: npm run build -w @marketmind/web
-        env:
-          # next/font/google fetches Google Fonts at build time; allow mocks to
-          # keep CI offline-friendly, but the build itself works against the
-          # network when available.
-          NEXT_FONT_GOOGLE_MOCKED: '1'
 
   e2e:
     name: Playwright e2e

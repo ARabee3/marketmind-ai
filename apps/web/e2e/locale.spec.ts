@@ -96,3 +96,18 @@ test.describe('Language switcher preserves route (both directions)', () => {
     await expect(page).toHaveURL(/\/en\/discovery(\b|$)/)
   })
 })
+
+test.describe('Responsive shell', () => {
+  for (const locale of ['en', 'ar'] as const) {
+    test(`does not overflow horizontally at 1280px in ${locale}`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 })
+      await page.goto(`/${locale}`)
+
+      const hasHorizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+      )
+
+      expect(hasHorizontalOverflow).toBe(false)
+    })
+  }
+})

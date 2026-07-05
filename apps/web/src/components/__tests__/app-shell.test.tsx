@@ -81,7 +81,9 @@ describe('AppShell', () => {
       </AppShell>,
     )
     const main = container.querySelector('main#main-content')
+    expect(main?.parentElement?.className).toMatch(/md:ms-\[240px\]/)
     expect(main?.className).toMatch(/max-w-\[1200px\]/)
+    expect(main?.className).not.toMatch(/md:ms-\[240px\]/)
     expect(main?.textContent).toMatch(/body/)
   })
 })

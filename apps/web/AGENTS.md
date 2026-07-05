@@ -70,8 +70,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
   Desktop: fixed 240px sidebar on the start edge containing brand, primary
   navigation, and the language switcher. Mobile: sticky top bar (brand +
   switcher) and a fixed bottom nav. Page content is centered in a
-  `max-w-[1200px]` container; on desktop the main column is offset by the
-  sidebar using `md:ms-[240px]` (logical, RTL-safe).
+  `max-w-[1200px]` container inside a wrapper offset from the sidebar using
+  `md:ms-[240px]` (logical, RTL-safe).
 - **Colour tokens** are defined in `src/app/globals.css` under `@theme inline`.
   Brand palette:
 
@@ -120,7 +120,7 @@ configuration and MCP policy live in
 | Skill | Official source | Pinned commit | Status | When |
 | --- | --- | --- | --- | --- |
 | Next.js best practices (bundled docs + workflow skills) | `vercel/next.js` canary `skills/` (migrated from `vercel-labs/next-skills`) | `vercel/next.js@00598045` (canary) | Required | Pages, layouts, RSC, fonts, data patterns, routing (Next.js 16 `proxy.ts`, app router) |
-| `react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
+| `vercel-react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
 | `web-design-guidelines` | `vercel-labs/agent-skills/skills/web-design-guidelines` | repo commit `f8a72b9` | Required (final review) | Final accessibility / UX review pass |
 | `frontend-design` | `anthropics/skills/skills/frontend-design` | repo commit `9d2f1ae` | **Required** when designing or styling UI | Visual direction, layout, tone |
 
@@ -129,3 +129,9 @@ human for consistency with these skills and the MarketMind visual brief. Use
 the project-local routing skill
 `.agents/skills/marketmind-frontend-workflow/` to select the smallest relevant
 skill / MCP for a given task; do not apply every tool to every task.
+
+Run `npm run agent:setup -- --agent <agent>` once per checkout/approved pin
+change. Before a task, run `npm run agent:doctor` and have the agent report the
+available approved MCP names. Missing dependencies must stop the workflow and
+show the approved setup command; they must never trigger discovery or silent
+installation of a substitute.

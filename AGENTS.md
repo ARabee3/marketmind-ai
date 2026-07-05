@@ -121,7 +121,7 @@ for the full install configuration, capabilities, and the MCP policy.
 | Skill | Official source | Pinned commit | Status | When |
 | --- | --- | --- | --- | --- |
 | Next.js best practices (bundled docs + workflow skills) | `vercel/next.js` canary `skills/` (skills migrated here from `vercel-labs/next-skills`) | `vercel/next.js@00598045` (canary) + `npx @next/codemod@canary agents-md` to vendor `next/dist/docs` | Required | Pages, layouts, RSC, fonts, data patterns, routing (Next.js 16 proxy, app router) |
-| `react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
+| `vercel-react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
 | `web-design-guidelines` | `vercel-labs/agent-skills/skills/web-design-guidelines` | repo commit `f8a72b9` | Required (final review) | Final accessibility / UX review pass |
 | `frontend-design` | `anthropics/skills/skills/frontend-design` | repo commit `9d2f1ae` | **Required** (not optional) when designing or styling UI — establishes visual direction |
 
@@ -154,3 +154,9 @@ that routes design, implementation, testing, debugging, and review work
 under `apps/web` to the smallest relevant approved skill / MCP. Do not apply
 every skill or MCP to every task; sequence design → implementation →
 interactive verification → final audit.
+
+Before frontend work, run `npm run agent:setup -- --agent <agent>` once, then
+use `npm run agent:doctor` to verify the reviewed skill revisions. Agents must
+not discover or silently install alternatives. MCP registration is local to
+each developer's agent and must never commit credentials or personal browser
+profiles.

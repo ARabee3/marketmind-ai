@@ -43,34 +43,10 @@
   --font-sans: var(--font-body), var(--font-body-arabic), sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme inline {
-    --color-background: #0B1A2A;
-    --color-foreground: #E6EEF6;
-    --color-card: #102A43;
-    --color-card-foreground: #E6EEF6;
-    --color-popover: #152944;
-    --color-popover-foreground: #E6EEF6;
-    --color-primary: #2BA8AA;
-    --color-primary-foreground: #08263A;
-    --color-secondary: #163249;
-    --color-secondary-foreground: #B6E4E4;
-    --color-muted: #163249;
-    --color-muted-foreground: #9FB2C4;
-    --color-accent: #163249;
-    --color-accent-foreground: #B6E4E4;
-    --color-destructive: #E5614E;
-    --color-destructive-foreground: #2A0A06;
-    --color-input: #1F3A55;
-    --color-ring: #2BA8AA;
-    --color-border: #1F3A55;
-  }
-}
-
 :root {
   --font-sans: var(--font-body), var(--font-body-arabic), sans-serif;
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
 }

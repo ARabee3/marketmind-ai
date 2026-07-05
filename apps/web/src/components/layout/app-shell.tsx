@@ -58,12 +58,14 @@ export function AppShell({ brandName, children }: { brandName: string; children:
       <MobileTopBar brandName={brandName} />
       <DesktopSidebar brandName={brandName} />
       <MobileBottomNav />
-      <main
-        id="main-content"
-        className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 md:ms-[240px] md:pb-8"
-      >
-        {children}
-      </main>
+      <div className="md:ms-[240px]">
+        <main
+          id="main-content"
+          className="mx-auto w-full max-w-[1200px] px-4 pt-6 pb-24 md:pb-8"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
