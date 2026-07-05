@@ -17,6 +17,7 @@
     "multer": "2.2.0"
   },
   "dependencies": {
+    "@swc/helpers": "0.5.23",
     "next-intl": "^4.13.1"
   },
   "devDependencies": {
