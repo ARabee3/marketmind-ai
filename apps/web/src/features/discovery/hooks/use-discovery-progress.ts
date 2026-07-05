@@ -62,7 +62,7 @@ export function isTerminal(status: DiscoverySessionStatus | null): boolean {
 }
 
 export function canOpenInterview(status: DiscoverySessionStatus | null): boolean {
-  return status === 'ready_for_chat' || status === 'partial_ready' || status === 'research_failed'
+  return status === 'ready_for_chat' || status === 'partial_ready' || status === 'research_failed' || status === 'in_progress'
 }
 
 // ── Error-code mapping ────────────────────────────────────────────────────────
@@ -169,8 +169,9 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
   }, [loadStatus])
 
   useEffect(() => {
-    // Only poll if we are actively researching AND disconnected
-    const shouldPoll = isResearchActive(state.sessionStatus) && state.connectionState !== 'connected'
+    // Only poll if we are actively researching. Live events don't carry session_status,
+    // so we must poll until authoritative /status reaches a non-research state.
+    const shouldPoll = isResearchActive(state.sessionStatus)
     
     if (!shouldPoll) return
 
@@ -179,7 +180,7 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(intervalId)
-  }, [state.sessionStatus, state.connectionState])
+  }, [state.sessionStatus])
 
   // ── Socket.IO connection ───────────────────────────────────────────────────
   useEffect(() => {
@@ -219,14 +220,14 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
       dispatch({ type: 'RECONNECTING' })
     })
 
-    socket.on('reconnect', () => {
+    socket.io.on('reconnect', () => {
       if (!mountedRef.current) return
       dispatch({ type: 'CONNECTED' })
       // Re-hydrate from HTTP to recover missed events
       loadStatus()
     })
 
-    socket.on('reconnect_failed', () => {
+    socket.io.on('reconnect_failed', () => {
       if (!mountedRef.current) return
       dispatch({ type: 'SOCKET_FAILED', error: 'errorGeneric' })
     })
