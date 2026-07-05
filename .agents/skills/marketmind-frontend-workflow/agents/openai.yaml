@@ -1,45 +1,15 @@
-# OpenAI agent manifest for the MarketMind frontend workflow skill.
-# See SKILL.md (same folder) for the routing rules and references/ for the
-# product visual brief, approved tools, and the frontend definition of done.
-name: marketmind-frontend-workflow
-description: >-
-  Routes frontend design, implementation, testing, debugging, and review work
-  under apps/web for the MarketMind AI monorepo. Selects the smallest relevant
-  approved skill or MCP for the task phase; sequences
-  design -> implementation -> interactive verification -> final audit.
-instructions: SKILL.md
-references:
-  - references/product-visual-brief.md
-  - references/approved-tools.md
-  - references/frontend-definition-of-done.md
-tools:
-  - name: vitest
-    type: shell
-    command: npm run test -w @marketmind/web
-    purpose: committed unit/component tests (authoritative)
-  - name: playwright
-    type: shell
-    command: npm run test:e2e -w @marketmind/web
-    purpose: committed e2e tests (authoritative)
-  - name: check
-    type: shell
-    command: npm run check -w @marketmind/web
-    purpose: typecheck + lint + tests + dictionary parity
-  - name: build
-    type: shell
-    command: npm run build -w @marketmind/web
-    purpose: production build validation
-mcps:
-  - name: context7
-    required: false
-    default: true
-    purpose: documentation lookup for version-specific library APIs
-  - name: playwright-mcp
-    required: false
-    default: false
-    purpose: exploratory interactive verification during implementation/review
-  - name: chrome-devtools-mcp
-    required: false
-    default: false
-    isolatedProfile: true
-    purpose: console/network/runtime + performance diagnosis on demand
+interface:
+  display_name: "MarketMind Frontend Workflow"
+  short_description: "Route frontend work to approved skills and tools"
+  default_prompt: "Use $marketmind-frontend-workflow to implement and verify this MarketMind frontend task."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "context7"
+      description: "Version-specific library documentation from Context7"
+      transport: "streamable_http"
+      url: "https://mcp.context7.com/mcp"
+
+policy:
+  allow_implicit_invocation: true
