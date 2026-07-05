@@ -112,7 +112,7 @@ export function IntakeForm() {
       router.push(`/discovery/${res.session_id}`)
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code || 'generic'
-      setError(tErrors(code as any))
+      setError(tErrors(code as Parameters<typeof tErrors>[0]))
       setIsSubmitting(false)
     }
   }

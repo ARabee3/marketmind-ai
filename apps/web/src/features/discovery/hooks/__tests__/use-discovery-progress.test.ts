@@ -18,6 +18,9 @@ vi.mock('socket.io-client', () => ({
     on: mockSocketOn,
     emit: mockSocketEmit,
     disconnect: mockSocketDisconnect,
+    io: {
+      on: mockSocketOn
+    }
   }),
 }))
 
@@ -131,7 +134,7 @@ describe('useDiscoveryProgress', () => {
         progress_events: [],
       } as any)
 
-      const { result } = renderHook(() => useDiscoveryProgress({ sessionId: 'test' }))
+      renderHook(() => useDiscoveryProgress({ sessionId: 'test' }))
 
       // Wait for async hydrate
       await act(async () => {

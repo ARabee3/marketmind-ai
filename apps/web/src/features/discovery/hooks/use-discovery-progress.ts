@@ -143,7 +143,7 @@ interface Options {
 export function useDiscoveryProgress({ sessionId, authToken }: Options): ProgressState {
   const [state, dispatch] = useReducer(reducer, initialState)
   const socketRef = useRef<Socket | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const mountedRef = useRef(true)
 
   // ── Status hydration ───────────────────────────────────────────────────────

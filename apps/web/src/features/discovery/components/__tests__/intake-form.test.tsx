@@ -20,6 +20,10 @@ vi.mock('@/lib/api/discovery', () => ({
   startDiscovery: vi.fn(),
 }))
 
+vi.mock('@/lib/auth', () => ({
+  useAuth: () => ({ token: 'test-token', isAuthenticated: true }),
+}))
+
 describe('IntakeForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -80,7 +84,7 @@ describe('IntakeForm', () => {
           business_type: 'Cafe',
           city: 'Cairo',
         }
-      })
+      }, 'test-token')
       expect(mockRouterPush).toHaveBeenCalledWith('/discovery/test-session-123')
     })
   })
