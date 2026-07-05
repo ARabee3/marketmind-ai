@@ -62,3 +62,36 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `npm run check:dictionary` — validates that `en.json` and `ar.json` export matching key sets.
 - Must pass before merging any PR that touches message files.
 
+## DESIGN SYSTEM
+
+- **Responsive app shell:** sidebar nav on desktop, bottom nav on mobile; max-width
+  1200px content area centred in the viewport.
+- **Approved colour palette:**
+
+  | Token | Hex | Usage |
+  | --- | --- | --- |
+  | `--bg` | `#F7F8FA` | Page background |
+  | `--surface` | `#FFFFFF` | Cards, modals, sheets |
+  | `--navy` | `#102A43` | Headings, primary text |
+  | `--primary` | `#0B6F71` | Buttons, links, active states |
+  | `--action` | `#246BFD` | Call-to-action, interactive elements |
+  | `--warning` | `#A15C00` | Warning banners, caution icons |
+  | `--danger` | `#B42318` | Error states, destructive buttons |
+  | `--border` | `#D9E2EC` | Dividers, input borders, card strokes |
+
+
+
+## APPROVED AI CODING SKILLS
+
+AI-generated frontend code must follow one of these approved skill packs (in
+order of preference):
+
+| Skill | Source | When to use |
+| --- | --- | --- |
+| `Vercel next-best-practices` | Vercel docs | All Next.js pages, layouts, data fetching, routing |
+| `react-best-practices` | React docs | Component logic, hooks, state management, performance |
+| `web-design-guidelines` | In-house rules | Layout, spacing, typography, colour, responsive design |
+| `Anthropic frontend-design` (optional) | Anthropic | Supplemental design patterns / UX copy when needed |
+
+Every AI-generated frontend PR must pass `npm run check` and be reviewed by a
+human for consistency with these skill packs.
