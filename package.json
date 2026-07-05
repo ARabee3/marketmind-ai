@@ -8,10 +8,22 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai",
+    "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check -w @marketmind/web",
     "check:ai": "cd services/ai && uv run pytest"
   },
   "overrides": {
     "multer": "2.2.0"
+  },
+  "dependencies": {
+    "next-intl": "^4.13.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint-config-next": "^16.2.10",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "vitest": "^4.1.9"
   }
 }
