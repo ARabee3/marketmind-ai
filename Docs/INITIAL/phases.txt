@@ -16,4 +16,4 @@ Using n8n automation, the system automatically schedules and posts the content t
 5. The Optimization (The Pivot)
 The Monitor Agent tracks performance 24/7. If engagement drops or an ad is underperforming, the Pivot Engine sends an instant alert to the owner with a specific suggestion on what to change to get better results.  
 
-Summary: We are building a "Closed Loop" system: Learn → Plan → Create → Publish → Monitor → Improve. Our goal is to give a small cafe or a local boutique the same marketing power as a big company, at a fraction of the cost.
+Summary: We are building a "Closed Loop" system: Learn → Plan → Create → Publish → Monitor → Improve. Our goal is to give a small or medium business (SME) — across retail, services, hospitality, education, healthcare, and more — the same marketing power as a big company, at a fraction of the cost.

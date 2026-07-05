@@ -1,0 +1,65 @@
+{
+  "skills_cli_version": "1.5.14",
+  "skill_sources": [
+    {
+      "source": "https://github.com/vercel-labs/agent-skills/tree/f8a72b9603728bb92a217a879b7e62e43ad76c81",
+      "selectors": [
+        "react-best-practices",
+        "web-design-guidelines"
+      ],
+      "expected_skills": [
+        {
+          "name": "vercel-react-best-practices",
+          "skill_file_git_blob_sha": "237988de4a66dd8a71d30a2c24ebe1a86b58d04e"
+        },
+        {
+          "name": "web-design-guidelines",
+          "skill_file_git_blob_sha": "ceae92ab319216a68274168fba9b63b998b65997"
+        }
+      ]
+    },
+    {
+      "source": "https://github.com/anthropics/skills/tree/9d2f1ae187231d8199c64b5b762e1bdf2244733d",
+      "selectors": [
+        "frontend-design"
+      ],
+      "expected_skills": [
+        {
+          "name": "frontend-design",
+          "skill_file_git_blob_sha": "decdff43d05908b4c1fc2cfd2d80fc5743440934"
+        }
+      ]
+    }
+  ],
+  "mcps": [
+    {
+      "name": "context7",
+      "status": "default",
+      "transport": "streamable_http",
+      "url": "https://mcp.context7.com/mcp",
+      "package": "@upstash/context7-mcp",
+      "version": "3.2.2"
+    },
+    {
+      "name": "playwright",
+      "status": "on_demand",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@playwright/mcp@0.0.77"
+      ]
+    },
+    {
+      "name": "chrome-devtools",
+      "status": "on_demand",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "--yes",
+        "chrome-devtools-mcp@1.5.0",
+        "--isolated"
+      ]
+    }
+  ]
+}

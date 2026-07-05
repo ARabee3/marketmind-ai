@@ -24,13 +24,13 @@ Use this file before coding, before reviews, and before the final demo.
 
 - [ ] We can explain the MVP in one minute.
 - [ ] We know what is included and deferred.
-- [ ] We have one fictional cafe example.
+- [ ] We have one fictional SME example (a café is fine as the illustrative SME; the product targets SMEs across industries).
 - [ ] We know the five AI roles.
 - [ ] We know publishing is not an AI agent.
 - [ ] We know where owner approval is required.
 - [ ] We know what data moves between phases.
 - [ ] We know which claims need citations.
-- [ ] We know direct cafe-owner interviews were not conducted, if still true.
+- [ ] We know direct SME-owner interviews were not conducted, if still true.
 - [ ] We have GitHub Issues with owners and reviewers.
 
 ## Before building any agent
@@ -90,6 +90,6 @@ The graduation demo needs a reliable story more than perfect infrastructure.
 
 Before starting implementation, each team member should be able to answer:
 
-“If I follow one cafe from discovery to optimization, what does each AI role receive, produce, and wait for?”
+“If I follow one SME from discovery to optimization, what does each AI role receive, produce, and wait for?”
 
 If the answer is unclear, stay in planning for one more session.

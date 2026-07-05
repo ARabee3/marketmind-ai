@@ -6,9 +6,9 @@ The goal is not to start coding yet. The goal is to help the whole team understa
 
 ## Project in one sentence
 
-MarketMind AI helps Egyptian cafes and restaurants plan, create, publish, and improve social media marketing with AI while keeping the business owner in control.
+MarketMind AI helps Egyptian small and medium businesses (SMEs) across industries plan, create, publish, and improve social media marketing with AI while keeping the business owner in control.
 
-ببساطة: السيستم بيساعد صاحب كافيه أو مطعم في مصر يعمل خطة تسويق ومحتوى للسوشيال ميديا، لكن أي قرار مهم لازم يتوافق عليه من الإنسان الأول.
+ببساطة: السيستم بيساعد أصحاب الشركات الصغيرة والمتوسطة في مصر في مختلف المجالات يعملوا خطة تسويق ومحتوى للسوشيال ميديا، لكن أي قرار مهم لازم يتوافق عليه من الإنسان الأول.
 
 ## MVP in simple words
 

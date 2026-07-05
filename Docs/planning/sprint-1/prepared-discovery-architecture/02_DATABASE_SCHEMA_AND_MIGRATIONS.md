@@ -127,7 +127,7 @@ Primary key:
 | `id`             | `uuid primary key`                    | Business id.                             |
 | `owner_user_id`  | `uuid not null references User(id)`   | Current MVP owner.                       |
 | `display_name`   | `text not null`                       | Public business name.                    |
-| `business_type`  | `text not null`                       | `cafe`, `restaurant`, `bakery`, `other`. |
+| `business_type`  | `text not null`                       | Illustrative Sprint-1 values `cafe`, `restaurant`, `bakery`, `other` — the product targets SMEs across industries, so this set will be broadened; `other` is always accepted. |
 | `city`           | `text not null`                       | Example: Cairo, Alexandria.              |
 | `area`           | `text`                                | Neighborhood/district.                   |
 | `address_text`   | `text`                                | Optional.                                |
