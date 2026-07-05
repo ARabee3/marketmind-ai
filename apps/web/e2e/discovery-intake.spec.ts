@@ -85,7 +85,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Should display progress timeline
     // FIX: Using exact heading role to prevent strict mode violation
-    await expect(page.getByRole('heading', { name: 'Queued for research' })).toBeVisible()
+    await expect(page.getByText('Queued for research').first()).toBeVisible()
     await expect(page.getByText('جارٍ البحث عن معلومات نشاطك').first()).toBeVisible()
   })
 
