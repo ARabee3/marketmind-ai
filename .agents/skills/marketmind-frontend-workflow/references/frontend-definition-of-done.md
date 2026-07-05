@@ -1,77 +1,63 @@
 # Frontend Definition of Done
 
-A frontend change under `apps/web` is done only when **all** of the following
-are true. Use this as the closing checklist.
+A frontend change under `apps/web` is done only when all applicable checks below pass.
 
-## Code correctness
+## Toolchain and correctness
 
-- `npm run check` (`typecheck && lint && test && check:dictionary`) is green.
-- `npm run build` produces a successful production build.
-- No new TypeScript `any` introduced without justification.
-- shadcn primitives render styled — every semantic token referenced by
-  `src/components/ui/*` is defined in `src/app/globals.css` (Tailwind v4
-  `@theme inline`). Missing tokens silently drop styles; verify visually.
+- `npm run agent:doctor -- --available-mcp context7` verifies the reviewed skills and default MCP before agent-assisted frontend work.
+- `npm run check -w @marketmind/web` passes typecheck, lint, unit tests, and dictionary parity.
+- `npm run build -w @marketmind/web` produces a successful production build.
+- No new TypeScript `any` is introduced without justification.
+- Every semantic token used by `src/components/ui` is defined in `src/app/globals.css` and verified visually.
 
-## i18n
+## Internationalization
 
-- No hard-coded user-visible strings in JSX, labels, placeholders,
-  `aria-label`s, or error messages. Everything comes from
-  `messages/{en,ar}.json`.
-- `npm run check:dictionary` passes — both locale files have identical key
-  sets.
-- `next-intl` is type-augmented (`src/i18n/types.ts` augments `use-intl`'s
-  `AppConfig`); invalid keys fail `npm run typecheck`.
+- User-visible strings, labels, placeholders, accessibility labels, errors, loading states, and empty states come from `messages/en.json` and `messages/ar.json`.
+- English and Arabic dictionaries have identical key sets.
+- Invalid translation keys fail TypeScript validation.
 - Dates, numbers, currencies, and percentages use locale-aware formatters.
+- Owner messages, AI responses, evidence, and business names are not silently translated.
 
-## Routing & locales
+## Routing and locales
 
-- Next.js 16 uses `src/proxy.ts` (not `middleware.ts`). Unprefixed URLs are
-  negotiated via `NEXT_LOCALE` cookie → `Accept-Language` → default `ar`, and
-  the rest of the path is preserved. No custom locale redirects.
-- Both directions of language switching preserve the current route.
+- Next.js 16 uses `src/proxy.ts` rather than `middleware.ts`.
+- Unprefixed URLs resolve through the locale cookie, then `Accept-Language`, then Arabic fallback while preserving the remaining path.
+- Language switching works in both directions and preserves the current route and Discovery session.
 
-## Responsive shell
+## Responsive shell and RTL
 
-- Page content renders inside `AppShell` (desktop sidebar 240px + mobile top
-  bar + mobile bottom nav; content in a centered `max-w-[1200px]` container,
-  desktop offset `md:ms-[240px]`).
-- Verified at ≥1 desktop (≥1280px) and ≥1 mobile (≤375px) breakpoint.
-- No layout relies on `left`/`right`; logical properties (`ms`/`me`,
-  `ps`/`pe`, `inset-inline-start`) are used so RTL flips correctly.
+- Page content renders inside `AppShell`: desktop sidebar, mobile top bar, and mobile bottom navigation.
+- On desktop, a wrapper uses logical `md:ms-[240px]`; the nested main content remains centered with `max-w-[1200px]` inside the available area.
+- Verify at desktop width of at least 1280px and mobile width of at most 375px.
+- No horizontal overflow occurs in English or Arabic.
+- Layout uses logical start/end properties instead of left/right assumptions.
+- Directional icons flip in RTL without changing message meaning.
 
 ## Accessibility
 
-- Every interactive element has an accessible name (visible label,
-  `aria-label`, or `aria-labelledby`).
-- Semantic HTML (`<nav>`, `<main>`, `<button>`, `<a>`); no `<div>` click
-  handlers.
-- Keyboard reachable and operable; visible focus styles.
-- Color contrast meets WCAG AA for all text in both light and dark mode.
-- Directional icons flip in RTL (`scaleX(-1)` or `dir`).
-- `prefers-reduced-motion` respected for any animation.
+- Every interactive element has an accessible name.
+- Use semantic HTML; do not use clickable `div` elements.
+- Controls are keyboard reachable and show visible focus.
+- Color contrast meets WCAG AA in the currently supported light theme.
+- Dark mode is deferred until every semantic and brand token has an intentional dark value; do not add partial automatic dark-mode overrides.
+- Respect `prefers-reduced-motion` for animation.
 
-## Visual direction (when styling/designing)
+## Visual direction
 
-- `frontend-design` skill was used to establish direction.
-- Output does not fall into generic AI aesthetics (purple gradients,
-  glassmorphism, sparkle/robot imagery, sci-fi styling) or industry-specific
-  decoration.
-- The product reads as a trustworthy, practical, Arabic-first SME workspace —
-  not a generic SaaS dashboard.
-- Palette/type decisions draw only from the approved tokens in
-  `references/product-visual-brief.md` and `src/app/globals.css`.
+- Use `frontend-design` whenever a task designs or styles UI.
+- Avoid generic AI decoration such as purple gradients, glassmorphism, sparkle or robot imagery, and sci-fi styling.
+- Avoid hospitality-specific decoration: MarketMind serves SMEs across industries.
+- Follow the approved palette, type, density, and component guidance in `product-visual-brief.md`.
 
-## Evidence & owner control (product rules)
+## Product trust
 
-- AI suggestions are explainable and cite business evidence when available.
-- Failed integrations are surfaced, not hidden. Demo/simulated data is clearly
-  labeled.
-- Owner approval gates and undo paths remain visible.
+- AI suggestions remain explainable and cite business evidence when available.
+- Failed integrations are visible, and simulated data is clearly labeled.
+- Owner review, approval gates, and recovery paths remain visible.
 
 ## Verification evidence
 
-- Committed Vitest / Playwright tests cover the new behavior and pass.
-- Playwright MCP may be used for exploratory checks, but the committed tests
-  are authoritative.
-- Both LTR and RTL Playwright traces captured for layout-affecting changes.
-- A final `web-design-guidelines` review pass was performed.
+- Add committed Vitest or Playwright coverage for repeatable behavior.
+- MCP sessions are exploratory and never replace committed tests.
+- Verify both LTR and RTL for layout-affecting work.
+- Perform a final `web-design-guidelines` review before marking a frontend PR done.
