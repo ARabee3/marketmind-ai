@@ -25,8 +25,8 @@ async function request<T>(
   init?: RequestInit,
 ): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
 
   if (!res.ok) {
