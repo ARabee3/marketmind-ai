@@ -10,6 +10,7 @@ import type {
   SocialLinkInput,
 } from '@marketmind/contracts'
 import { startDiscovery } from '@/lib/api/discovery'
+import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,8 +28,10 @@ const PLATFORMS: SocialPlatform[] = [
 
 export function IntakeForm() {
   const t = useTranslations('DiscoveryIntake')
+  const tErrors = useTranslations('Errors')
   const locale = useLocale()
   const router = useRouter()
+  const { token } = useAuth()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,19 +50,19 @@ export function IntakeForm() {
     locale === 'ar' ? 'ar-EG' : 'en'
   )
 
-  const [socialLinks, setSocialLinks] = useState<SocialLinkInput[]>([])
+  const [socialLinks, setSocialLinks] = useState<(SocialLinkInput & { _id: string })[]>([])
 
   function addSocialLink() {
-    setSocialLinks((prev) => [...prev, { platform: 'facebook', url: '' }])
+    setSocialLinks((prev) => [...prev, { _id: crypto.randomUUID(), platform: 'facebook', url: '' }])
   }
 
-  function removeSocialLink(index: number) {
-    setSocialLinks((prev) => prev.filter((_, i) => i !== index))
+  function removeSocialLink(id: string) {
+    setSocialLinks((prev) => prev.filter((link) => link._id !== id))
   }
 
-  function updateSocialLink(index: number, updates: Partial<SocialLinkInput>) {
+  function updateSocialLink(id: string, updates: Partial<SocialLinkInput>) {
     setSocialLinks((prev) =>
-      prev.map((link, i) => (i === index ? { ...link, ...updates } : link))
+      prev.map((link) => (link._id === id ? { ...link, ...updates } : link))
     )
   }
 
@@ -101,14 +104,15 @@ export function IntakeForm() {
           owner_goal_text: ownerGoal || undefined,
           known_competitors_text: competitors || undefined,
           target_audience_text: targetAudience || undefined,
-          social_links: socialLinks.length > 0 ? socialLinks : undefined,
+          social_links: socialLinks.length > 0 ? socialLinks.map(({ platform, url }) => ({ platform, url })) : undefined,
         }
       }
 
-      const res = await startDiscovery(payload)
+      const res = await startDiscovery(payload, token)
       router.push(`/discovery/${res.session_id}`)
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Something went wrong')
+      const code = (err as { code?: string })?.code || 'generic'
+      setError(tErrors(code as any))
       setIsSubmitting(false)
     }
   }
@@ -126,7 +130,11 @@ export function IntakeForm() {
       <form onSubmit={handleSubmit} noValidate>
         <CardContent className="space-y-8">
           {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+            <div 
+              className="p-3 text-sm text-destructive bg-destructive/10 rounded-md"
+              aria-live="assertive"
+              role="alert"
+            >
               {error}
             </div>
           )}
@@ -259,13 +267,14 @@ export function IntakeForm() {
             <p className="text-sm text-muted-foreground">{t('socialLinksHint')}</p>
             
             <div className="space-y-3">
-              {socialLinks.map((link, index) => (
-                <div key={index} className="flex flex-col md:flex-row gap-3 p-3 border border-border rounded-md bg-muted/20">
+              {socialLinks.map((link) => (
+                <div key={link._id} className="flex flex-col md:flex-row gap-3 p-3 border border-border rounded-md bg-muted/20">
                   <div className="flex-1 space-y-1.5">
-                    <Label>{t('socialLinkPlatformLabel')}</Label>
+                    <Label htmlFor={`social-platform-${link._id}`}>{t('socialLinkPlatformLabel')}</Label>
                     <select
+                      id={`social-platform-${link._id}`}
                       value={link.platform}
-                      onChange={(e) => updateSocialLink(index, { platform: e.target.value as SocialPlatform })}
+                      onChange={(e) => updateSocialLink(link._id, { platform: e.target.value as SocialPlatform })}
                       className={inputClass}
                       aria-label={t('socialLinkPlatformLabel')}
                     >
@@ -283,11 +292,12 @@ export function IntakeForm() {
                     </select>
                   </div>
                   <div className="flex-[2] space-y-1.5">
-                    <Label>{t('socialLinkUrlLabel')}</Label>
+                    <Label htmlFor={`social-url-${link._id}`}>{t('socialLinkUrlLabel')}</Label>
                     <div className="flex items-center gap-2">
                       <Input
+                        id={`social-url-${link._id}`}
                         value={link.url}
-                        onChange={(e) => updateSocialLink(index, { url: e.target.value })}
+                        onChange={(e) => updateSocialLink(link._id, { url: e.target.value })}
                         placeholder={t('socialLinkUrlPlaceholder')}
                         type="url"
                       />
@@ -295,7 +305,7 @@ export function IntakeForm() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeSocialLink(index)}
+                        onClick={() => removeSocialLink(link._id)}
                         aria-label={t('removeSocialLink')}
                         className="text-muted-foreground hover:text-destructive"
                       >
@@ -307,15 +317,17 @@ export function IntakeForm() {
               ))}
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addSocialLink}
-              className="mt-2"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="me-2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              {t('addSocialLink')}
-            </Button>
+            {socialLinks.length < 8 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addSocialLink}
+                className="mt-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="me-2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                {t('addSocialLink')}
+              </Button>
+            )}
           </div>
         </CardContent>
 

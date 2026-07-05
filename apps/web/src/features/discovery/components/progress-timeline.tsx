@@ -92,8 +92,8 @@ export function ProgressTimeline({ sessionId, authToken }: { sessionId: string; 
                   <h4 className={`text-sm font-medium ${isFailed ? 'text-destructive' : 'text-navy'}`}>
                     {stageToKey[evt.stage] || evt.stage}
                   </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {evt.message_text}
+                  <p className="text-xs text-muted-foreground mt-0.5" title={evt.message_text}>
+                    {evt.message_key ? t(evt.message_key as any) : evt.message_text}
                   </p>
                   {evt.retryable && (
                     <p className="text-xs text-warning mt-1">
