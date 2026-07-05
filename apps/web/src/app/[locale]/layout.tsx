@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google'
 import { routing } from '@/i18n/routing'
-import { LanguageSwitcher } from '@/components/language-switcher'
+import { AppShell } from '@/components/layout/app-shell'
 import '../globals.css'
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -41,6 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params
   const messages = await getMessages()
+  const t = await getTranslations({ locale, namespace: 'Common' })
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
 
   return (
@@ -49,13 +50,9 @@ export default async function LocaleLayout({ children, params }: Props) {
       dir={direction}
       className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}
     >
-      <body className="min-h-dvh flex flex-col bg-background font-sans antialiased">
+      <body className="min-h-dvh bg-background font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
-          <nav className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
-            <span className="text-lg font-semibold text-navy">MarketMind AI</span>
-            <LanguageSwitcher />
-          </nav>
-          {children}
+          <AppShell brandName={t('appName')}>{children}</AppShell>
         </NextIntlClientProvider>
       </body>
     </html>

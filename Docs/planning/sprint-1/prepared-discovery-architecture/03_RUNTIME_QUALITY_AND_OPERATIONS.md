@@ -91,7 +91,7 @@ FastAPI:
 Cross-service:
 
 - Contract fixtures shared as JSON examples.
-- One happy-path e2e transcript for a fictional Egyptian cafe.
+- One happy-path e2e transcript for a fictional Egyptian SME (the worked example uses a café; the product targets SMEs across industries).
 - One failure-path transcript for partial research and provider failure.
 
 ### Minimum Coverage Targets

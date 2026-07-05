@@ -1,0 +1,72 @@
+name: web-ci
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/web-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+
+defaults:
+  run:
+    working-directory: apps/web
+
+jobs:
+  check:
+    name: typecheck + lint + unit + dictionary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - name: Install workspace deps
+        run: npm ci
+        working-directory: .
+      - name: Run check (typecheck + lint + vitest + dictionary parity)
+        run: npm run check -w @marketmind/web
+
+  build:
+    name: production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+        working-directory: .
+      - name: Build
+        run: npm run build -w @marketmind/web
+        env:
+          # next/font/google fetches Google Fonts at build time; allow mocks to
+          # keep CI offline-friendly, but the build itself works against the
+          # network when available.
+          NEXT_FONT_GOOGLE_MOCKED: '1'
+
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+        working-directory: .
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e
+        run: npm run test:e2e -w @marketmind/web

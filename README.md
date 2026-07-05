@@ -1,6 +1,6 @@
 # MarketMind AI
 
-MarketMind AI is the graduation project monorepo for an AI-assisted marketing platform for Egyptian cafes and restaurants.
+MarketMind AI is the graduation project monorepo for an AI-assisted marketing platform for Egyptian small and medium businesses (SMEs) across industries.
 
 Implementation has not started yet. This repository currently contains only:
 

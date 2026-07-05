@@ -17,7 +17,7 @@ It is not just “ChatGPT answering anything.” In our project, each agent has:
 
 Example:
 
-The Discovery Agent can ask the owner about the cafe, but it cannot create a marketing strategy.
+The Discovery Agent can ask the owner about the business (the SME), but it cannot create a marketing strategy.
 
 بالعربي: كل Agent عامل زي عضو في الفريق عنده شغلانة محددة، مش مسموح له يعمل كل حاجة.
 
@@ -65,7 +65,7 @@ The AI does not answer from imagination only. It first retrieves useful informat
 
 Example:
 
-If the Strategy Agent says “Instagram Reels are useful for restaurant awareness,” it should connect that recommendation to a trusted source when possible.
+If the Strategy Agent says “Instagram Reels are useful for raising brand awareness,” it should connect that recommendation to a trusted source when possible.
 
 بالعربي: بدل ما الـ AI يألف، بنديله مصادر يرجع لها ويستشهد بيها.
 

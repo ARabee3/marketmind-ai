@@ -24,11 +24,12 @@ Output:
 - agreed deferred list
 - simple demo story
 
-### Day 2 — Walk through one fictional cafe
+### Day 2 — Walk through one fictional SME
 
-Use one example business:
+Use one example business (a café is used as a concrete illustrative SME; the
+product targets SMEs across industries, not only hospitality):
 
-“A small Egyptian cafe in Nasr City wants more weekday customers.”
+“A small Egyptian café in Nasr City wants more weekday customers.”
 
 Walk through:
 

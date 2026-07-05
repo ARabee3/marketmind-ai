@@ -14,6 +14,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Never hard-code strings in JSX, labels, placeholders, aria-labels, or error messages.
 - Dates, numbers, currencies, and percentages must use locale-aware formatting (use `next-intl` formatters).
 - To add a new feature's translations, add a new namespace object to both `messages/en.json` and `messages/ar.json` — no i18n framework changes needed.
+- next-intl is type-augmented in `src/i18n/types.ts` (augments `use-intl`'s `AppConfig` with `Messages: typeof en`). Translation keys are checked at compile time; invalid keys fail `npm run typecheck`.
+- Unprefixed URLs (e.g. `/auth`) are negotiated by `src/proxy.ts` via the `NEXT_LOCALE` cookie then `Accept-Language`, then redirected to `/<locale>/...` preserving the rest of the path (`ar` default). Do not add custom locale redirects.
 - Run `npm run check:dictionary` before committing to ensure key parity.
 
 ## RTL & Direction
@@ -64,34 +66,66 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## DESIGN SYSTEM
 
-- **Responsive app shell:** sidebar nav on desktop, bottom nav on mobile; max-width
-  1200px content area centred in the viewport.
-- **Approved colour palette:**
+- **Responsive app shell:** implemented in `src/components/layout/app-shell.tsx`.
+  Desktop: fixed 240px sidebar on the start edge containing brand, primary
+  navigation, and the language switcher. Mobile: sticky top bar (brand +
+  switcher) and a fixed bottom nav. Page content is centered in a
+  `max-w-[1200px]` container; on desktop the main column is offset by the
+  sidebar using `md:ms-[240px]` (logical, RTL-safe).
+- **Colour tokens** are defined in `src/app/globals.css` under `@theme inline`.
+  Brand palette:
 
   | Token | Hex | Usage |
   | --- | --- | --- |
-  | `--bg` | `#F7F8FA` | Page background |
-  | `--surface` | `#FFFFFF` | Cards, modals, sheets |
-  | `--navy` | `#102A43` | Headings, primary text |
-  | `--primary` | `#0B6F71` | Buttons, links, active states |
-  | `--action` | `#246BFD` | Call-to-action, interactive elements |
-  | `--warning` | `#A15C00` | Warning banners, caution icons |
-  | `--danger` | `#B42318` | Error states, destructive buttons |
-  | `--border` | `#D9E2EC` | Dividers, input borders, card strokes |
+  | `--color-bg` / `--color-background` | `#F7F8FA` | Page background |
+  | `--color-surface` / `--color-card` | `#FFFFFF` | Cards, modals, sheets |
+  | `--color-navy` / `--color-foreground` | `#102A43` | Headings, primary text |
+  | `--color-primary` | `#0B6F71` | Buttons, links, active states |
+  | `--color-action` | `#246BFD` | Call-to-action, interactive elements |
+  | `--color-warning` | `#A15C00` | Warning banners, caution icons |
+  | `--color-danger` / `--color-destructive` | `#B42318` | Error states, destructive buttons |
+  | `--color-border` / `--color-input` | `#D9E2EC` | Dividers, input borders, card strokes |
 
+  Plus the shadcn semantic surface (`--color-muted`, `--color-accent`,
+  `--color-secondary`, `--color-ring`, `--color-primary-foreground`, etc.)
+  and the radius scale (`--radius-sm/md/lg/xl`). The shadcn primitives in
+  `src/components/ui/` reference these tokens; do not delete them or the
+  primitives will render unstyled.
 
+## DESIGN & VOICE BRIEF
+
+> MarketMind is a trustworthy, practical, Arabic-first growth workspace for
+> Egyptian SMEs across different industries. AI should feel helpful,
+> explainable, and grounded in business evidence — not futuristic or
+> mysterious.
+
+Suitable for retail, services, hospitality, education, healthcare, and other
+SMEs. **Anti-patterns** (do not use):
+
+- generic AI conventions: purple gradients, glassmorphism, excessive floating
+  cards, sparkle / robot imagery, sci-fi styling;
+- industry-specific decoration / iconography;
+- hiding failed integrations or presenting simulation data as real.
+
+Distinctiveness comes from guided business journeys, bilingual typography,
+visible readiness / progress, evidence, and clear owner control.
 
 ## APPROVED AI CODING SKILLS
 
-AI-generated frontend code must follow one of these approved skill packs (in
-order of preference):
+AI-generated frontend work under `apps/web` must follow the approved skill
+set below. Sources are pinned to a reviewed commit; the full install
+configuration and MCP policy live in
+`../../.agents/skills/marketmind-frontend-workflow/references/approved-tools.md`.
 
-| Skill | Source | When to use |
-| --- | --- | --- |
-| `Vercel next-best-practices` | Vercel docs | All Next.js pages, layouts, data fetching, routing |
-| `react-best-practices` | React docs | Component logic, hooks, state management, performance |
-| `web-design-guidelines` | In-house rules | Layout, spacing, typography, colour, responsive design |
-| `Anthropic frontend-design` (optional) | Anthropic | Supplemental design patterns / UX copy when needed |
+| Skill | Official source | Pinned commit | Status | When |
+| --- | --- | --- | --- | --- |
+| Next.js best practices (bundled docs + workflow skills) | `vercel/next.js` canary `skills/` (migrated from `vercel-labs/next-skills`) | `vercel/next.js@00598045` (canary) | Required | Pages, layouts, RSC, fonts, data patterns, routing (Next.js 16 `proxy.ts`, app router) |
+| `react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
+| `web-design-guidelines` | `vercel-labs/agent-skills/skills/web-design-guidelines` | repo commit `f8a72b9` | Required (final review) | Final accessibility / UX review pass |
+| `frontend-design` | `anthropics/skills/skills/frontend-design` | repo commit `9d2f1ae` | **Required** when designing or styling UI | Visual direction, layout, tone |
 
 Every AI-generated frontend PR must pass `npm run check` and be reviewed by a
-human for consistency with these skill packs.
+human for consistency with these skills and the MarketMind visual brief. Use
+the project-local routing skill
+`.agents/skills/marketmind-frontend-workflow/` to select the smallest relevant
+skill / MCP for a given task; do not apply every tool to every task.

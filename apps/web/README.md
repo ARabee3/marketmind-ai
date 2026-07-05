@@ -1,78 +1,49 @@
-# apps/web
+# @marketmind/web
 
-Future Next.js frontend application.
+Next.js 16 frontend for MarketMind AI. Bilingual (English/Arabic, RTL-aware),
+powered by `next-intl`, Tailwind CSS v4, and shadcn/ui base primitives.
 
-No frontend implementation exists yet.
+## Getting started
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
+Run from the repository root (npm workspaces):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev -w @marketmind/web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Unprefixed URLs are
+negotiated via the `proxy.ts` using the `NEXT_LOCALE` cookie and the
+`Accept-Language` header, then redirected to `/<locale>/...` (`ar` default,
+the user's preferred locale otherwise).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Fonts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+IBM Plex Sans (Latin) and IBM Plex Sans Arabic (Arabic) loaded via
+`next/font/google` and exposed as the `--font-body` / `--font-body-arabic`
+CSS variables. See [`docs/font-decision.md`](./docs/font-decision.md).
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
+## Scripts
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run check            # typecheck + lint + vitest + dictionary parity
+npm run test             # vitest (unit/component)
+npm run test:e2e         # Playwright (starts the dev server)
+npm run check:dictionary # en.json / ar.json key parity
+npm run build            # production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Conventions
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+See [`AGENTS.md`](./AGENTS.md) in this directory for the frontend
+agent rules: i18n ownership, RTL, fonts, components, accessibility, testing,
+the design system, the approved AI coding skill set, and the MarketMind
+visual brief.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Internationalization
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Dictionaries live in `messages/{en,ar}.json`. Every user-visible string must
+come from a translation key — never hard-code text in JSX. Add new namespaces
+and keys to both locale files; `npm run check:dictionary` enforces parity and
+`next-intl` is type-augmented (see `src/i18n/types.ts`) so translation keys
+are checked at compile time.
