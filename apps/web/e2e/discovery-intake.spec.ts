@@ -63,7 +63,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Should display progress timeline (from mocked status)
     await expect(page.getByRole('heading', { name: 'Queued for research' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Researching your business' })).toBeVisible()
+    await expect(page.getByText('Researching your business').first()).toBeVisible()
   })
 
   test('Arabic mode: submits intake with mixed language preference', async ({ page }) => {
@@ -84,8 +84,9 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await expect(page).toHaveURL(/\/ar\/discovery\/test-session-123/)
 
     // Should display progress timeline
-    await expect(page.getByText('Queued for research')).toBeVisible() // message text mocked in English
-    await expect(page.getByText('جارٍ البحث عن معلومات نشاطك')).toBeVisible()
+    // FIX: Using exact heading role to prevent strict mode violation
+    await expect(page.getByRole('heading', { name: 'Queued for research' })).toBeVisible()
+    await expect(page.getByText('جارٍ البحث عن معلومات نشاطك').first()).toBeVisible()
   })
 
   test('Handles partial research error and allows continue', async ({ page }) => {
