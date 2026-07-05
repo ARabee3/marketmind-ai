@@ -8,6 +8,7 @@ const t = (key: string) => {
     appName: 'MarketMind AI',
     navHome: 'Home',
     navDiscovery: 'Discovery',
+    navDashboard: 'Dashboard',
     primaryNavLabel: 'Primary',
     mobileNavLabel: 'Mobile primary',
   }
@@ -31,6 +32,14 @@ vi.mock('@/components/language-switcher', () => ({
   LanguageSwitcher: () => <button type="button" aria-label="Language: Arabic">AR</button>,
 }))
 
+vi.mock('@/features/auth/session-provider', () => ({
+  useSession: () => ({ isAuthenticated: false }),
+}))
+
+vi.mock('@/features/auth/logout-button', () => ({
+  LogoutButton: () => <button type="button">Sign out</button>,
+}))
+
 describe('AppShell', () => {
   it('renders brand in both mobile top bar and desktop sidebar', () => {
     render(
@@ -42,7 +51,7 @@ describe('AppShell', () => {
     expect(brands).toHaveLength(2)
   })
 
-  it('renders primary desktop sidebar and mobile bottom nav with both destinations', () => {
+  it('renders primary desktop sidebar and mobile bottom nav with all destinations', () => {
     render(
       <AppShell brandName="MarketMind AI">
         <div>content</div>
@@ -60,6 +69,7 @@ describe('AppShell', () => {
 
     expect(screen.getAllByRole('link', { name: 'Home' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Discovery' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Dashboard' })).toHaveLength(2)
   })
 
   it('marks the home link as current in both navs', () => {

@@ -4,16 +4,19 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { useSession } from '@/features/auth/session-provider'
+import { LogoutButton } from '@/features/auth/logout-button'
 
 type NavItem = {
-  href: '/' | '/discovery'
-  labelKey: 'navHome' | 'navDiscovery'
-  iconName: 'home' | 'compass'
+  href: '/' | '/discovery' | '/dashboard'
+  labelKey: 'navHome' | 'navDiscovery' | 'navDashboard'
+  iconName: 'home' | 'compass' | 'layout-dashboard'
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/', labelKey: 'navHome', iconName: 'home' },
   { href: '/discovery', labelKey: 'navDiscovery', iconName: 'compass' },
+  { href: '/dashboard', labelKey: 'navDashboard', iconName: 'layout-dashboard' },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -40,6 +43,15 @@ function NavIcon({ name }: { name: NavItem['iconName'] }) {
       <svg {...common}>
         <circle cx="12" cy="12" r="10" />
         <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+      </svg>
+    )
+  }
+  if (name === 'layout-dashboard') {
+    return (
+      <svg {...common}>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
       </svg>
     )
   }
@@ -79,6 +91,32 @@ function MobileTopBar({ brandName }: { brandName: string }) {
   )
 }
 
+function AuthSection() {
+  const t = useTranslations('Auth')
+  const { isAuthenticated } = useSession()
+
+  if (isAuthenticated) {
+    return <LogoutButton />
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Link
+        href="/login"
+        className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {t('loginSubmit')}
+      </Link>
+      <Link
+        href="/register"
+        className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+      >
+        {t('registerSubmit')}
+      </Link>
+    </div>
+  )
+}
+
 function DesktopSidebar({ brandName }: { brandName: string }) {
   const t = useTranslations('Common')
   const pathname = usePathname()
@@ -114,7 +152,8 @@ function DesktopSidebar({ brandName }: { brandName: string }) {
           })}
         </ul>
       </nav>
-      <div className="flex items-center justify-center border-e border-border bg-surface px-4 py-4">
+      <div className="flex flex-col gap-3 border-e border-border bg-surface px-4 py-4">
+        <AuthSection />
         <LanguageSwitcher />
       </div>
     </aside>
