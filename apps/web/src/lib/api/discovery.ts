@@ -9,6 +9,12 @@ import type {
   StartPreparedDiscoveryRequest,
   StartPreparedDiscoveryResponse,
   DiscoveryStatusResponse,
+  DiscoveryRespondRequest,
+  DiscoveryRespondResponse,
+  DiscoverySummarizeRequest,
+  DiscoverySummarizeResponse,
+  ConfirmProfileRequest,
+  ConfirmProfileResponse,
   ErrorCode,
 } from '@marketmind/contracts'
 
@@ -35,8 +41,8 @@ async function request<T>(
     let message = res.statusText
     try {
       const body = await res.json()
-      code = body?.error?.code ?? code
-      message = body?.error?.message ?? message
+      code = body?.error?.code ?? body?.code ?? code
+      message = body?.error?.message ?? body?.message ?? message
     } catch {
       // ignore parse errors
     }
@@ -65,6 +71,45 @@ export function getDiscoveryStatus(
   authToken?: string,
 ): Promise<DiscoveryStatusResponse> {
   return request<DiscoveryStatusResponse>(`/discovery/${sessionId}/status`, {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+  })
+}
+
+/** POST /api/v1/discovery/:sessionId/respond */
+export function respondToDiscovery(
+  sessionId: string,
+  payload: DiscoveryRespondRequest,
+  authToken?: string,
+): Promise<DiscoveryRespondResponse> {
+  return request<DiscoveryRespondResponse>(`/discovery/${sessionId}/respond`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+  })
+}
+
+/** POST /api/v1/discovery/:sessionId/summarize */
+export function summarizeDiscovery(
+  sessionId: string,
+  payload: DiscoverySummarizeRequest,
+  authToken?: string,
+): Promise<DiscoverySummarizeResponse> {
+  return request<DiscoverySummarizeResponse>(`/discovery/${sessionId}/summarize`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+  })
+}
+
+/** POST /api/v1/discovery/:sessionId/confirm-profile */
+export function confirmDiscoveryProfile(
+  sessionId: string,
+  payload: ConfirmProfileRequest,
+  authToken?: string,
+): Promise<ConfirmProfileResponse> {
+  return request<ConfirmProfileResponse>(`/discovery/${sessionId}/confirm-profile`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
   })
 }

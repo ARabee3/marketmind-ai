@@ -1,4 +1,4 @@
-import { ProgressTimeline } from '@/features/discovery/components/progress-timeline'
+import { DiscoverySession } from '@/features/discovery/components/discovery-session'
 
 type Props = {
   params: Promise<{ locale: string; session_id: string }>
@@ -11,8 +11,8 @@ export default async function DiscoverySessionPage({ params }: Props) {
   // passed here once auth is wired; until then the component renders without a
   // token and the API client sends no Authorization header.
   return (
-    <div className="py-8">
-      <ProgressTimeline sessionId={session_id} />
+    <div>
+      <DiscoverySession sessionId={session_id} />
     </div>
   )
 }

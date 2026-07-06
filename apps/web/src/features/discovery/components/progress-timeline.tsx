@@ -17,7 +17,7 @@ export function ProgressTimeline({
 }: {
   sessionId: string
   authToken?: string
-  onContinueToInterview?: () => void
+  onContinueToInterview?: () => Promise<void> | void
 }) {
   const t = useTranslations('DiscoveryProgress')
   const tErrors = useTranslations('Errors')
@@ -152,7 +152,13 @@ export function ProgressTimeline({
         {/* Action once interview-capable */}
         {showInterviewAction ? (
           <div className="pt-4 border-t border-border mt-6">
-            <Button className="w-full" size="lg" onClick={onContinueToInterview}>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={async () => {
+                await onContinueToInterview?.()
+              }}
+            >
               {t('continueToInterview')}
             </Button>
           </div>
