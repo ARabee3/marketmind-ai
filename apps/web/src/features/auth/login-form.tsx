@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import {
   validateEmail,
   validatePassword,
+  MIN_PASSWORD_LENGTH,
   type ValidationErrorKey,
 } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
@@ -141,7 +142,7 @@ export function LoginForm() {
         />
         {errors.password && (
           <p id="password-error" className="text-sm text-destructive">
-            {t(errors.password)}
+            {t(errors.password, { min: MIN_PASSWORD_LENGTH })}
           </p>
         )}
       </div>
