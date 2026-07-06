@@ -44,6 +44,10 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(),
 }))
 
+vi.mock('@/i18n/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+}))
+
 const mockedUseSession = vi.mocked(useSession)
 const mockedUseSearchParams = vi.mocked(useSearchParams)
 

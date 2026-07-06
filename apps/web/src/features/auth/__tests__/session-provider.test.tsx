@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { SessionProvider, useSession } from '../session-provider'
 import { setAccessToken } from '@/lib/api/token-store'
+import * as realtime from '@/lib/realtime'
 
 const fetchMock = vi.fn()
 
@@ -37,14 +38,18 @@ function TestConsumer() {
 }
 
 describe('SessionProvider', () => {
+  let resetSocketAuthSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     fetchMock.mockReset()
+    resetSocketAuthSpy = vi.spyOn(realtime, 'resetSocketAuth')
     vi.stubGlobal('fetch', fetchMock)
     setAccessToken(null)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    resetSocketAuthSpy.mockRestore()
     setAccessToken(null)
   })
 
@@ -113,6 +118,7 @@ describe('SessionProvider', () => {
 
     expect(screen.getByTestId('authenticated').textContent).toBe('no')
     expect(screen.getByTestId('user').textContent).toBe('none')
+    expect(resetSocketAuthSpy).toHaveBeenCalledTimes(1)
   })
 
   it('updates session on login', async () => {
@@ -128,8 +134,15 @@ describe('SessionProvider', () => {
           new Response(
             JSON.stringify({
               accessToken: 'login-token',
-              user: { id: '2', email: 'c@d.com', name: 'Omar' },
             }),
+            { status: 200 },
+          ),
+        )
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ user: { id: '2', email: 'c@d.com', name: 'Omar' } }),
             { status: 200 },
           ),
         )
@@ -207,6 +220,7 @@ describe('SessionProvider', () => {
     )
     expect(screen.getByTestId('user').textContent).toBe('none')
     expect(screen.getByTestId('token').textContent).toBe('none')
+    expect(resetSocketAuthSpy).toHaveBeenCalledTimes(1)
   })
 
   it('throws when useSession is used outside the provider', () => {

@@ -51,8 +51,8 @@ test.describe('Locale detection (proxy.ts)', () => {
   test('preserves nested path when redirecting unprefixed URL', async ({ browser }) => {
     const context = await browser.newContext({ locale: 'en-US' })
     const page = await context.newPage()
-    await page.goto('/auth', { waitUntil: 'domcontentloaded' })
-    await expect(page).toHaveURL(/\/en\/auth(\b|$)/)
+    await page.goto('/register', { waitUntil: 'domcontentloaded' })
+    await expect(page).toHaveURL(/\/en\/register(\b|$)/)
     await context.close()
   })
 })
@@ -72,16 +72,16 @@ test.describe('Language switcher preserves route (both directions)', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })
 
-  test('preserves nested route /en/auth -> /ar/auth', async ({ page }) => {
-    await page.goto('/en/auth')
+  test('preserves nested route /en/register -> /ar/register', async ({ page }) => {
+    await page.goto('/en/register')
     await page.getByRole('button', { name: /Arabic|العربية/i }).click()
-    await expect(page).toHaveURL(/\/ar\/auth(\b|$)/)
+    await expect(page).toHaveURL(/\/ar\/register(\b|$)/)
   })
 
-  test('preserves nested route /ar/auth -> /en/auth', async ({ page }) => {
-    await page.goto('/ar/auth')
+  test('preserves nested route /ar/register -> /en/register', async ({ page }) => {
+    await page.goto('/ar/register')
     await page.getByRole('button', { name: /English|الإنجليزية/i }).click()
-    await expect(page).toHaveURL(/\/en\/auth(\b|$)/)
+    await expect(page).toHaveURL(/\/en\/register(\b|$)/)
   })
 
   test('preserves nested route /en/discovery -> /ar/discovery', async ({ page }) => {

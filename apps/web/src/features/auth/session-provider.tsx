@@ -15,6 +15,7 @@ import {
   getAccessToken,
 } from '@/lib/api'
 import type { ApiError } from '@/lib/api'
+import { resetSocketAuth } from '@/lib/realtime'
 import type { LoginCredentials, User } from './types'
 
 export type SessionContextValue = {
@@ -47,14 +48,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async (): Promise<string | null> => {
     const token = await refreshAccessToken()
     if (!token) {
-      syncToken(null)
+      resetSocketAuth()
       setUser(null)
       return null
     }
     const userData = await fetchUser()
     setUser(userData)
     return token
-  }, [syncToken, fetchUser])
+  }, [fetchUser])
 
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<void> => {
@@ -68,18 +69,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         error.response = response
         throw error
       }
-      const data = (await response.json()) as { accessToken: string; user: User }
+      const data = (await response.json()) as { accessToken: string }
       syncToken(data.accessToken)
-      setUser(data.user)
+      const userData = await fetchUser()
+      if (!userData) {
+        const error = new Error('Session verification failed') as ApiError
+        error.status = 401
+        throw error
+      }
+      setUser(userData)
     },
-    [syncToken],
+    [syncToken, fetchUser],
   )
 
   const logout = useCallback(async (): Promise<void> => {
     await apiRequest('/auth/logout', { method: 'POST' })
-    syncToken(null)
+    resetSocketAuth()
     setUser(null)
-  }, [syncToken])
+  }, [])
 
   // Initialise session on mount by calling the refresh endpoint. The HttpOnly
   // refresh cookie is sent automatically; a valid cookie restores the in-memory

@@ -3,6 +3,7 @@
 import { useState, useCallback, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useSession } from './session-provider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,10 +21,16 @@ type LoginFormErrors = {
   root?: 'errorLoginFailed' | 'errorInvalidCredentials'
 }
 
+function stripLocalePrefix(path: string): string {
+  const match = /^\/(en|ar)(\/|$)/.exec(path)
+  return match ? path.slice(match[0].length - 1) || '/' : path
+}
+
 export function LoginForm() {
   const t = useTranslations('Auth')
   const tCommon = useTranslations('Common')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { login } = useSession()
 
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
@@ -55,6 +62,9 @@ export function LoginForm() {
 
       try {
         await login({ email: email.trim(), password })
+        const returnPath = searchParams.get('from')
+        const target = returnPath ? stripLocalePrefix(returnPath) : '/dashboard'
+        router.replace(target)
       } catch (error) {
         const apiError = error as { response?: Response }
         if (apiError.response) {
@@ -68,7 +78,7 @@ export function LoginForm() {
         setIsSubmitting(false)
       }
     },
-    [validate, email, password, login],
+    [validate, email, password, login, router, searchParams],
   )
 
   return (
