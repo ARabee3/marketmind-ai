@@ -6,7 +6,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -17,9 +17,21 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload, AuthenticatedUser } from './interfaces/jwt-payload.interface';
 
 
-export interface AuthTokens {
+/** Public login response — refresh token is sent as HttpOnly cookie, never in body. */
+export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
+  user: SafeUser;
+}
+
+/** Public refresh response — refresh token is sent as HttpOnly cookie, never in body. */
+export interface RefreshResponse {
+  accessToken: string;
+}
+
+/** Internal token pair used by the controller to set the refresh cookie. */
+export interface TokenPair {
+  accessToken: string;
+  rawRefreshToken: string;
 }
 
 /** Safe user representation — never contains password or refreshToken. */
@@ -100,9 +112,12 @@ export class AuthService {
    * Uses a generic "Invalid credentials" error for BOTH "user not found"
    * and "wrong password" cases to prevent user enumeration attacks.
    *
+   * The raw refresh token is returned separately so the controller can send it
+   * as an HttpOnly cookie; it must never be included in the JSON response body.
+   *
    * @throws UnauthorizedException on any credential mismatch.
    */
-  async login(dto: LoginDto): Promise<AuthTokens> {
+  async login(dto: LoginDto): Promise<LoginResponse & TokenPair> {
     // 1. Look up the user.
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -123,12 +138,16 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
 
     // 4. Persist the hashed refresh token and update lastLoginAt atomically.
-    await this.updateRefreshTokenHash(user.id, tokens.refreshToken, {
+    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
       lastLoginAt: new Date(),
     });
 
     this.logger.log(`User logged in: ${user.id}`);
-    return tokens;
+    return {
+      accessToken: tokens.accessToken,
+      rawRefreshToken: tokens.rawRefreshToken,
+      user: this.toSafeUser(user),
+    };
   }
 
   /**
@@ -138,11 +157,14 @@ export class AuthService {
    * performed by JwtRefreshStrategy.validate() before this method is called.
    * Here we only generate new tokens and update the DB.
    *
+   * The raw refresh token is returned separately so the controller can send it
+   * as an HttpOnly cookie; it must never be included in the JSON response body.
+   *
    * @param user - The AuthenticatedUser populated by JwtRefreshStrategy.
    */
-  async refresh(user: AuthenticatedUser): Promise<AuthTokens> {
+  async refresh(user: AuthenticatedUser): Promise<TokenPair> {
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
-    await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
+    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken);
     this.logger.log(`Tokens rotated for user: ${user.id}`);
     return tokens;
   }
@@ -175,21 +197,24 @@ export class AuthService {
     userId: string,
     email: string,
     roles: Role[],
-  ): Promise<AuthTokens> {
+  ): Promise<TokenPair> {
     const payload: JwtPayload = { sub: userId, email, roles };
 
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.configService.get('JWT_ACCESS_EXPIRES_IN', '15m'),
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-      }),
+    const accessOptions: JwtSignOptions = {
+      secret: this.configService.getOrThrow<string>('jwt.accessSecret'),
+      expiresIn: this.configService.get<string>('jwt.accessExpiresIn') as JwtSignOptions['expiresIn'],
+    };
+    const refreshOptions: JwtSignOptions = {
+      secret: this.configService.getOrThrow<string>('jwt.refreshSecret'),
+      expiresIn: this.configService.get<string>('jwt.refreshExpiresIn') as JwtSignOptions['expiresIn'],
+    };
+
+    const [accessToken, rawRefreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, accessOptions),
+      this.jwtService.signAsync(payload, refreshOptions),
     ]);
 
-    return { accessToken, refreshToken };
+    return { accessToken, rawRefreshToken };
   }
 
  
