@@ -11,6 +11,7 @@ ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 class Settings(BaseSettings):
     ai_provider_mode: ProviderMode = "mock"
     ai_request_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
+    discovery_triage_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     openai_api_key: str = ""
     openai_model: str = ""
     gemini_api_key: str = ""
