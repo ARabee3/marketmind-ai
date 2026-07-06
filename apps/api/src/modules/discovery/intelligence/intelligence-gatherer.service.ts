@@ -9,7 +9,7 @@ import {
   IntelligenceProgressCallback,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
-import { MatchFilterService } from "./match-filter.service";
+import { EvidenceTriageService } from "./evidence-triage.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -23,7 +23,7 @@ export class IntelligenceGathererService {
     private readonly queryPlanner: QueryPlannerService,
     private readonly searchClient: SearchClientService,
     private readonly metadataExtractor: MetadataExtractorService,
-    private readonly matchFilter: MatchFilterService,
+    private readonly evidenceTriage: EvidenceTriageService,
     private readonly mapper: IntelligenceContractMapper,
   ) {}
 
@@ -112,25 +112,26 @@ export class IntelligenceGathererService {
         await onProgress?.({
           stage: "filtering",
           status: "started",
-          messageKey: "discovery.filtering.started",
-          messageText: "Filtering weak or unrelated results.",
-          payload: { intent: plannedQuery.intent },
+          messageKey: "discovery.triage.started",
+          messageText: "AI is reviewing search evidence.",
+          payload: { intent: plannedQuery.intent, phase: "llm_triage" },
         });
-        const filtered = this.matchFilter.filter({
+        const filtered = await this.evidenceTriage.triage({
           dto,
           intent: plannedQuery.intent,
           results: searchResponse.results,
           sourceStartIndex,
-        });
+        }, signal);
         sourceCandidates.push(...filtered.source_refs);
         observationCandidates.push(...filtered.research_observations);
         await onProgress?.({
           stage: "filtering",
           status: "completed",
-          messageKey: "discovery.filtering.completed",
-          messageText: "Search results were filtered.",
+          messageKey: "discovery.triage.completed",
+          messageText: "AI evidence review finished.",
           payload: {
             intent: plannedQuery.intent,
+            phase: "llm_triage",
             accepted_count: filtered.accepted_count,
             discarded_count: filtered.discarded_count,
           },

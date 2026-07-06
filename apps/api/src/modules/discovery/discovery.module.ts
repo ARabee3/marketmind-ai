@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { AiEvidenceTriageClient } from "./ai-client/ai-evidence-triage.client";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -15,6 +16,7 @@ import { ApifyMapsProvider } from "./intelligence/apify-maps.provider";
 import { ConfidenceService } from "./intelligence/confidence.service";
 import { DeterministicQueryPlannerService } from "./intelligence/deterministic-query-planner.service";
 import { DuckDuckGoSearchProvider } from "./intelligence/duckduckgo-search.provider";
+import { EvidenceTriageService } from "./intelligence/evidence-triage.service";
 import { IntelligenceContractMapper } from "./intelligence/intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 import { MatchFilterService } from "./intelligence/match-filter.service";
@@ -36,10 +38,12 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     DiscoveryService,
     DiscoveryProgressGateway,
     AiDiscoveryClient,
+    AiEvidenceTriageClient,
     IntelligenceContractMapper,
     IntelligenceGathererService,
     ConfidenceService,
     MatchFilterService,
+    EvidenceTriageService,
     MetadataExtractorService,
     DeterministicQueryPlannerService,
     AiQueryPlanningClient,
