@@ -11,6 +11,8 @@ const ibmPlexSans = IBM_Plex_Sans({
   weight: ['400', '500', '600', '700'],
   variable: '--font-body',
   display: 'swap',
+  fallback: ['IBM Plex Sans Arabic'],
+  adjustFontFallback: false,
 })
 
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
