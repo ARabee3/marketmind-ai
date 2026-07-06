@@ -4,7 +4,7 @@
     {
       "source": "https://github.com/vercel-labs/agent-skills/tree/f8a72b9603728bb92a217a879b7e62e43ad76c81",
       "selectors": [
-        "react-best-practices",
+        "vercel-react-best-practices",
         "web-design-guidelines"
       ],
       "expected_skills": [
