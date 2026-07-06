@@ -122,4 +122,55 @@ describe("EvidenceTriageService", () => {
       metadata: expect.objectContaining({ triage_source: "llm" }),
     });
   });
+
+  it("keeps needs confirmation evidence accepted for owner follow-up", async () => {
+    aiClient.triage.mockResolvedValue({
+      source: "llm",
+      decisions: [
+        {
+          index: 0,
+          classification: "social_signal",
+          evidence_tier: "needs_confirmation",
+          confidence: 0.62,
+          reason: "Arabic Instagram result may belong to the business.",
+          candidate_facts: { platform: "instagram" },
+          suggested_owner_question: "Is this Instagram page yours?",
+        },
+      ],
+    });
+
+    const result = await new EvidenceTriageService(aiClient).triage({
+      dto: {
+        language_mode: LanguageModeDto.ArabicEgypt,
+        intake: {
+          business_name: "قهوة الزاوية",
+          business_type: "كافيه",
+          city: "القاهرة",
+          area: "مصر الجديدة",
+        },
+      },
+      intent: "social_profile",
+      sourceStartIndex: 0,
+      results: [
+        {
+          provider: "serpapi",
+          title: "قهوة الزاوية Instagram",
+          snippet: "صفحة انستجرام بها صور مشروبات وحلويات.",
+          rank: 1,
+          query: "قهوة الزاوية مصر الجديدة instagram",
+          confidence: 0.4,
+        },
+      ],
+    });
+
+    expect(result.accepted_count).toBe(1);
+    expect(result.research_observations[0]).toMatchObject({
+      kind: "social_signal",
+      status: "accepted",
+      metadata: expect.objectContaining({
+        evidence_tier: "needs_confirmation",
+        suggested_owner_question: "Is this Instagram page yours?",
+      }),
+    });
+  });
 });
