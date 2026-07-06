@@ -8,9 +8,10 @@ Install reviewed skills once for the coding agent in use:
 
 ```bash
 npm run agent:setup -- --agent codex
+npm run agent:setup -- --agent opencode
 ```
 
-Supported agent identifiers are `codex`, `cursor`, and `claude-code`. The command uses `skills@1.5.14` and immutable GitHub tree URLs; do not replace them with moving repository names or tags.
+Supported agent identifiers are `codex`, `cursor`, `claude-code`, and `opencode`. The command uses `skills@1.5.14` and immutable GitHub tree URLs; do not replace them with moving repository names or tags.
 
 Register the printed MCP configuration locally without committing credentials or personal browser configuration. Then run:
 
