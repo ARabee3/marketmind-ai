@@ -85,6 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async (): Promise<void> => {
     await apiRequest('/auth/logout', { method: 'POST' })
     resetSocketAuth()
+    setAccessToken(null)
     setUser(null)
   }, [])
 

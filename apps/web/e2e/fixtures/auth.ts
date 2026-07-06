@@ -15,6 +15,13 @@ export const mockUser: MockUser = {
 }
 
 export const mockAccessToken = 'mock-access-token'
+export const REFRESH_TOKEN_COOKIE = 'refreshToken'
+
+function refreshCookieHeader(token: string): Record<string, string> {
+  return {
+    'Set-Cookie': `${REFRESH_TOKEN_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/`,
+  }
+}
 
 export type TokenRotation = {
   calls: number
@@ -70,6 +77,7 @@ export async function mockAuthLogin(page: Page, options: { validPassword?: strin
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: refreshCookieHeader('mock-refresh-token'),
       body: JSON.stringify({ accessToken: mockAccessToken, user: mockUser }),
     })
   })
@@ -84,6 +92,9 @@ export async function mockAuthLogout(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'Set-Cookie': `${REFRESH_TOKEN_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`,
+      },
       body: JSON.stringify({ ok: true }),
     })
   })
@@ -147,6 +158,7 @@ export async function mockAuthRefresh(
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: refreshCookieHeader(`refresh-${nextToken}`),
       body: JSON.stringify({ accessToken: nextToken }),
     })
   })
