@@ -22,6 +22,7 @@ import { MetadataExtractorService } from "./intelligence/metadata-extractor.serv
 import { QueryPlannerService } from "./intelligence/query-planner.service";
 import { SearchClientService } from "./intelligence/search-client.service";
 import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
+import { SourceEnrichmentService } from "./intelligence/source-enrichment.service";
 
 @Module({
   imports: [JwtModule.register({})],
@@ -41,6 +42,7 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     IntelligenceGathererService,
     EvidenceTriageService,
     MetadataExtractorService,
+    SourceEnrichmentService,
     DeterministicQueryPlannerService,
     AiQueryPlanningClient,
     QueryPlannerService,

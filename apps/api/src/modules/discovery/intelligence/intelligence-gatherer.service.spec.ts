@@ -7,6 +7,7 @@ import { IntelligenceGathererService } from "./intelligence-gatherer.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
+import { SourceEnrichmentService } from "./source-enrichment.service";
 
 describe("IntelligenceGathererService", () => {
   const queryPlanner = {
@@ -18,6 +19,9 @@ describe("IntelligenceGathererService", () => {
   const metadataExtractor = {
     extract: jest.fn(),
   } as unknown as jest.Mocked<MetadataExtractorService>;
+  const sourceEnrichment = {
+    enrich: jest.fn(),
+  } as unknown as jest.Mocked<SourceEnrichmentService>;
   const evidenceTriage = {
     triage: jest.fn(),
   } as unknown as jest.Mocked<EvidenceTriageService>;
@@ -38,6 +42,7 @@ describe("IntelligenceGathererService", () => {
       queryPlanner,
       searchClient,
       metadataExtractor,
+      sourceEnrichment,
       evidenceTriage,
       new IntelligenceContractMapper(),
     );
@@ -45,6 +50,7 @@ describe("IntelligenceGathererService", () => {
       source_refs: [],
       research_observations: [],
     });
+    sourceEnrichment.enrich.mockImplementation(async (results) => results);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [],
       research_observations: [],
@@ -123,6 +129,24 @@ describe("IntelligenceGathererService", () => {
 
     const result = await service.gather(dto);
 
+    expect(sourceEnrichment.enrich).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          url: "https://example.com/competitor",
+        }),
+      ],
+      undefined,
+    );
+    expect(evidenceTriage.triage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({
+            url: "https://example.com/competitor",
+          }),
+        ],
+      }),
+      undefined,
+    );
     expect(result.status).toBe("complete");
     expect(result.search_mode).toBe("free_search");
     expect(result.source_refs[0]).toMatchObject({
@@ -210,6 +234,13 @@ describe("IntelligenceGathererService", () => {
         stage: "search",
         status: "completed",
         payload: expect.objectContaining({ result_count: 0 }),
+      }),
+    );
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "metadata",
+        status: "completed",
+        payload: expect.objectContaining({ phase: "source_enrichment" }),
       }),
     );
     expect(progress).toHaveBeenCalledWith(

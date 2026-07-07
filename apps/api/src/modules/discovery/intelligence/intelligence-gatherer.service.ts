@@ -14,6 +14,7 @@ import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
 import { SearchProviderWarning } from "./search-result.types";
+import { SourceEnrichmentService } from "./source-enrichment.service";
 
 const MAX_QUERIES_PER_RUN = 4;
 
@@ -23,6 +24,7 @@ export class IntelligenceGathererService {
     private readonly queryPlanner: QueryPlannerService,
     private readonly searchClient: SearchClientService,
     private readonly metadataExtractor: MetadataExtractorService,
+    private readonly sourceEnrichment: SourceEnrichmentService,
     private readonly evidenceTriage: EvidenceTriageService,
     private readonly mapper: IntelligenceContractMapper,
   ) {}
@@ -108,6 +110,33 @@ export class IntelligenceGathererService {
             provider_warnings: searchResponse.provider_warnings,
           },
         });
+        await onProgress?.({
+          stage: "metadata",
+          status: "started",
+          messageKey: "discovery.source_enrichment.started",
+          messageText: "Checking high-value source pages.",
+          payload: {
+            intent: plannedQuery.intent,
+            phase: "source_enrichment",
+            result_count: searchResponse.results.length,
+          },
+        });
+        const enrichedResults = await this.sourceEnrichment.enrich(
+          searchResponse.results,
+          signal,
+        );
+        signal?.throwIfAborted();
+        await onProgress?.({
+          stage: "metadata",
+          status: "completed",
+          messageKey: "discovery.source_enrichment.completed",
+          messageText: "High-value source pages were checked.",
+          payload: {
+            intent: plannedQuery.intent,
+            phase: "source_enrichment",
+            result_count: enrichedResults.length,
+          },
+        });
         const sourceStartIndex = sourceCandidates.length;
         await onProgress?.({
           stage: "filtering",
@@ -119,7 +148,7 @@ export class IntelligenceGathererService {
         const filtered = await this.evidenceTriage.triage({
           dto,
           intent: plannedQuery.intent,
-          results: searchResponse.results,
+          results: enrichedResults,
           sourceStartIndex,
         }, signal);
         sourceCandidates.push(...filtered.source_refs);
