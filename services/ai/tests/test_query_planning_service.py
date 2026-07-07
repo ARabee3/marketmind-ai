@@ -9,6 +9,7 @@ from app.providers.base import ProviderError
 from app.search.llm_query_planner import (
     GeminiQueryPlanner,
     OpenRouterQueryPlanner,
+    QUERY_PLAN_SYSTEM_PROMPT,
     create_llm_query_planner,
 )
 from app.search.query_planning_service import QueryPlanningService
@@ -91,6 +92,49 @@ def test_internal_query_plan_endpoint() -> None:
     body = response.json()
     assert body["source"] == "deterministic"
     assert body["queries"][1]["intent"] == "competitor_discovery"
+
+
+def test_llm_query_prompt_is_industry_neutral() -> None:
+    assert "Egyptian SME" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "business_type" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "city/area" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "Egyptian cafe/restaurant" not in QUERY_PLAN_SYSTEM_PROMPT
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("language_mode", "business_type", "location", "forbidden_terms"),
+    [
+        ("en", "pharmacy retail", "Heliopolis, Cairo", ["restaurant", "cafe"]),
+        ("mixed", "accounting office", "Maadi, Cairo", ["restaurant", "cafe"]),
+        ("ar-EG", "مركز تعليم لغات", "سموحة, الإسكندرية", ["مطعم", "كافيه", "مقهى"]),
+    ],
+)
+async def test_query_planner_uses_actual_non_hospitality_business_type(
+    language_mode: str,
+    business_type: str,
+    location: str,
+    forbidden_terms: list[str],
+) -> None:
+    request_payload = payload(language_mode)
+    request_payload["intake"].update(
+        {
+            "business_name": "Representative SME",
+            "business_type": business_type,
+            "city": location.split(", ")[1],
+            "area": location.split(", ")[0],
+            "known_competitors_text": "",
+            "social_links": [],
+        }
+    )
+    request = QueryPlanningRequest.model_validate(request_payload)
+
+    plan = await QueryPlanningService().plan(request)
+
+    query_text = "\n".join(query.query for query in plan.queries).lower()
+    assert business_type.lower() in query_text
+    assert location.lower() in query_text
+    assert all(term not in query_text for term in forbidden_terms)
 
 
 def test_internal_query_plan_endpoint_uses_configured_llm_provider(

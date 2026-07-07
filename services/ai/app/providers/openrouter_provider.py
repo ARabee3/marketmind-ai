@@ -18,7 +18,7 @@ from app.providers.base import (
 
 OPENROUTER_BASE_URL: Final = "https://openrouter.ai/api/v1"
 FALLBACK_NEXT_QUESTION: Final = (
-    "Think about your busiest period: what do customers repeatedly choose, "
+    "Think about your busiest period: what do people repeatedly ask for or choose, "
     "and what seems to bring them back?"
 )
 
