@@ -12,9 +12,19 @@ export const configuration = () => ({
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || "",
+    accessSecret: process.env.JWT_ACCESS_SECRET || "",
+    refreshSecret: process.env.JWT_REFRESH_SECRET || "",
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  },
+
+  cookies: {
+    secure: process.env.COOKIE_SECURE === "true",
+    sameSite: (process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none") || "lax",
+  },
+
+  cors: {
+    origin: process.env.WEB_ORIGIN || "http://localhost:3000",
   },
 
   app: {
