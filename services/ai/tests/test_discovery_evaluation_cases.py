@@ -479,6 +479,142 @@ def test_wrong_match_discarded_not_in_ai_context() -> None:
     ]
 
 
+def test_provider_payload_includes_structured_research_context_pack() -> None:
+    payload = base_payload("en", with_social_links=True)
+    payload["intelligence"]["source_refs"] = [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "source_type": "search_result",
+            "platform": "serpapi",
+            "url": "https://example.com/competitor",
+            "title": "Nearby Koshary",
+            "snippet": "A nearby quick-service restaurant in Nasr City.",
+            "fetched_at": "2026-06-25T10:00:05.000Z",
+            "confidence": 0.82,
+            "metadata": {
+                "provider": "serpapi",
+                "enrichment_status": "complete",
+            },
+        },
+        {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "source_type": "metadata",
+            "platform": "instagram",
+            "url": "https://www.instagram.com/kosharycorner.example",
+            "title": "Koshary Corner",
+            "snippet": "Egyptian comfort food in Nasr City.",
+            "fetched_at": "2026-06-25T10:00:06.000Z",
+            "confidence": 0.86,
+            "metadata": {"provider": "owner_link"},
+        },
+        {
+            "id": "99999999-9999-4999-8999-999999999999",
+            "source_type": "search_result",
+            "platform": "serpapi",
+            "url": "https://example.com/wrong",
+            "title": "Wrong city result",
+            "confidence": 0.2,
+            "metadata": {"provider": "serpapi"},
+        },
+    ]
+    payload["intelligence"]["research_observations"] = [
+        {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "kind": "competitor",
+            "statement": "Nearby Koshary appears as a local competitor candidate.",
+            "confidence": 0.82,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {
+                "evidence_tier": "likely_signal",
+                "suggested_owner_question": "Is Nearby Koshary a real competitor for you?",
+            },
+        },
+        {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "source_ref_id": "33333333-3333-4333-8333-333333333333",
+            "kind": "social_signal",
+            "statement": "Instagram describes Koshary Corner as Egyptian comfort food.",
+            "confidence": 0.86,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {"evidence_tier": "confirmed_signal"},
+        },
+        {
+            "id": "66666666-6666-4666-8666-666666666666",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "kind": "market_context",
+            "statement": "Lunch demand appears visible in local quick-service results.",
+            "confidence": 0.61,
+            "visibility": "internal",
+            "status": "accepted",
+            "metadata": {"evidence_tier": "needs_confirmation"},
+        },
+        {
+            "id": "77777777-7777-4777-8777-777777777777",
+            "source_ref_id": "99999999-9999-4999-8999-999999999999",
+            "kind": "competitor",
+            "statement": "Wrong city result is a competitor.",
+            "confidence": 0.2,
+            "visibility": "internal",
+            "status": "discarded",
+            "discard_reason": "Wrong city.",
+            "metadata": {"evidence_tier": "discarded"},
+        },
+    ]
+
+    request = AiDiscoveryStartRequest.model_validate(payload)
+    provider = CapturingProvider()
+    run(DiscoveryService(provider).start(request))
+
+    assert provider.last_request is not None
+    context_pack = provider.last_request.payload["intelligence"]["research_context_pack"]
+    assert [
+        item["observation_id"] for item in context_pack["competitor_candidates"]
+    ] == ["44444444-4444-4444-8444-444444444444"]
+    assert [
+        item["observation_id"] for item in context_pack["social_presence_signals"]
+    ] == ["55555555-5555-4555-8555-555555555555"]
+    assert [
+        item["observation_id"] for item in context_pack["unconfirmed_findings"]
+    ] == ["66666666-6666-4666-8666-666666666666"]
+    assert context_pack["suggested_owner_questions"] == [
+        {
+            "observation_id": "44444444-4444-4444-8444-444444444444",
+            "question": "Is Nearby Koshary a real competitor for you?",
+        }
+    ]
+    all_context_ids = {
+        item["observation_id"]
+        for section in (
+            "accepted_observations",
+            "unconfirmed_findings",
+            "competitor_candidates",
+            "social_presence_signals",
+            "market_context_signals",
+        )
+        for item in context_pack[section]
+    }
+    assert "77777777-7777-4777-8777-777777777777" not in all_context_ids
+    assert context_pack["source_quality_notes"] == [
+        {
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "platform": "serpapi",
+            "provider": "serpapi",
+            "confidence": 0.82,
+            "enrichment_status": "complete",
+        },
+        {
+            "source_ref_id": "33333333-3333-4333-8333-333333333333",
+            "platform": "instagram",
+            "provider": "owner_link",
+            "confidence": 0.86,
+            "enrichment_status": None,
+        },
+    ]
+
+
 def test_discarded_observation_requires_discard_reason() -> None:
     discarded = ResearchObservation(
         id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",

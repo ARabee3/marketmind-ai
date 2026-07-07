@@ -5,6 +5,7 @@ from uuid import NAMESPACE_URL, uuid5
 from pydantic import ValidationError
 
 from app.core.errors import ErrorBody, provider_error
+from app.discovery.research_context_pack import build_research_context_pack
 from app.discovery.schemas import (
     AiDiscoveryRespondRequest,
     AiDiscoveryResult,
@@ -52,6 +53,9 @@ class DiscoveryService:
         provider_payload["intelligence"]["source_refs"] = [
             source.model_dump(mode="json") for source in accepted_sources
         ]
+        provider_payload["intelligence"]["research_context_pack"] = (
+            build_research_context_pack(accepted_observations, accepted_sources)
+        )
         provider_request = DiscoveryProviderRequest(
             session_id=request.session_id,
             turn_kind=turn_kind,

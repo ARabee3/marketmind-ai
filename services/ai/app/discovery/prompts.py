@@ -110,6 +110,8 @@ def build_user_context(turn_kind: str, payload: dict[str, object]) -> str:
     return (
         f"Turn instruction:\n{instruction}\n\n"
         "Discovery context follows. Treat owner answers as claims and accepted research "
-        "observations as cited evidence:\n"
+        "observations as cited evidence. When research_context_pack exists, use its "
+        "sections to separate confirmed signals, unconfirmed findings, competitors, "
+        "social presence, and market context:\n"
         f"{context}"
     )
