@@ -61,13 +61,19 @@ const createMockJwtService = () => ({
 const createMockConfigService = () => ({
   getOrThrow: jest.fn((key: string) => {
     const map: Record<string, string> = {
-      JWT_ACCESS_SECRET: 'test-access-secret',
-      JWT_REFRESH_SECRET: 'test-refresh-secret',
+      'jwt.accessSecret': 'test-access-secret',
+      'jwt.refreshSecret': 'test-refresh-secret',
     };
     if (!map[key]) throw new Error(`Missing config key: ${key}`);
     return map[key];
   }),
-  get: jest.fn((key: string, fallback: string) => fallback),
+  get: jest.fn((key: string, fallback: unknown) => {
+    const map: Record<string, unknown> = {
+      'jwt.accessExpiresIn': '15m',
+      'jwt.refreshExpiresIn': '7d',
+    };
+    return map[key] ?? fallback;
+  }),
 });
 
 // ---------------------------------------------------------------------------
@@ -214,7 +220,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(MOCK_REFRESH_TOKEN);
     });
 
-    it('should return an access token and refresh token on valid credentials', async () => {
+    it('should return an access token, raw refresh token, and user on valid credentials', async () => {
       // Arrange
       prisma.user.findUnique.mockResolvedValue(mockDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
@@ -224,10 +230,11 @@ describe('AuthService', () => {
       const result = await service.login(loginDto);
 
       // Assert
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
       expect(result.accessToken).toBe('access.token.string');
-      expect(result.refreshToken).toBe(MOCK_REFRESH_TOKEN);
+      expect(result.rawRefreshToken).toBe(MOCK_REFRESH_TOKEN);
+      expect(result.user.id).toBe(MOCK_USER_ID);
+      expect(result.user).not.toHaveProperty('password');
+      expect(result.user).not.toHaveProperty('refreshToken');
     });
 
     it('should persist a hashed refresh token after successful login', async () => {
@@ -339,7 +346,7 @@ describe('AuthService', () => {
 
       // Assert
       expect(result.accessToken).toBe('new.access.token');
-      expect(result.refreshToken).toBe('new.refresh.token');
+      expect(result.rawRefreshToken).toBe('new.refresh.token');
     });
 
     it('should update the stored refresh token hash after rotation', async () => {

@@ -1,9 +1,8 @@
 import "reflect-metadata";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
-import { ConfidenceService } from "./confidence.service";
+import { EvidenceTriageService } from "./evidence-triage.service";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
-import { MatchFilterService } from "./match-filter.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -18,6 +17,9 @@ describe("IntelligenceGathererService filtering", () => {
   const metadataExtractor = {
     extract: jest.fn(),
   } as unknown as jest.Mocked<MetadataExtractorService>;
+  const evidenceTriage = {
+    triage: jest.fn(),
+  } as unknown as jest.Mocked<EvidenceTriageService>;
   const dto: StartDiscoveryDto = {
     language_mode: LanguageModeDto.Mixed,
     intake: {
@@ -35,12 +37,18 @@ describe("IntelligenceGathererService filtering", () => {
       queryPlanner,
       searchClient,
       metadataExtractor,
-      new MatchFilterService(new ConfidenceService()),
+      evidenceTriage,
       new IntelligenceContractMapper(),
     );
     metadataExtractor.extract.mockResolvedValue({
       source_refs: [],
       research_observations: [],
+    });
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [],
+      research_observations: [],
+      accepted_count: 0,
+      discarded_count: 0,
     });
   });
 
@@ -71,6 +79,34 @@ describe("IntelligenceGathererService filtering", () => {
       ],
       provider_warnings: [],
     } as never);
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "search_result",
+          platform: "serpapi",
+          title: "Nearby restaurant",
+          url: "https://example.com/nearby",
+          snippet: "Popular restaurant in Nasr City Cairo.",
+          fetched_at: "2026-07-06T00:00:00.000Z",
+          confidence: 0.9,
+          status: "accepted",
+          metadata: { triage_source: "llm" },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "competitor",
+          statement: "Popular restaurant in Nasr City Cairo.",
+          source_index: 0,
+          confidence: 0.9,
+          visibility: "owner_visible",
+          status: "accepted",
+          metadata: { triage_source: "llm" },
+        },
+      ],
+      accepted_count: 1,
+      discarded_count: 0,
+    });
     const progress = jest.fn().mockResolvedValue(undefined);
 
     await service.gather(dto, progress);
@@ -87,6 +123,7 @@ describe("IntelligenceGathererService filtering", () => {
         stage: "filtering",
         status: "completed",
         payload: expect.objectContaining({
+          phase: "llm_triage",
           accepted_count: 1,
           discarded_count: 0,
         }),
@@ -94,7 +131,7 @@ describe("IntelligenceGathererService filtering", () => {
     );
   });
 
-  it("marks unrelated search results as discarded observations", async () => {
+  it("uses LLM triage decisions for discarded observations", async () => {
     queryPlanner.plan.mockResolvedValue({
       source: "deterministic",
       queries: [
@@ -121,13 +158,49 @@ describe("IntelligenceGathererService filtering", () => {
       ],
       provider_warnings: [],
     } as never);
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "search_result",
+          platform: "serpapi",
+          title: "Italian hotel in Dubai",
+          url: "https://example.com/dubai-hotel",
+          snippet: "Luxury hotel in Dubai.",
+          fetched_at: "2026-07-06T00:00:00.000Z",
+          confidence: 0.1,
+          status: "discarded",
+          metadata: {
+            triage_source: "llm",
+            evidence_tier: "discarded",
+          },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "metadata",
+          statement: "Luxury hotel in Dubai.",
+          source_index: 0,
+          confidence: 0.1,
+          visibility: "internal",
+          status: "discarded",
+          discard_reason: "Unrelated city and business type.",
+          metadata: {
+            triage_source: "llm",
+            evidence_tier: "discarded",
+          },
+        },
+      ],
+      accepted_count: 0,
+      discarded_count: 1,
+    });
 
     const result = await service.gather(dto);
 
     expect(result.status).toBe("partial");
     expect(result.research_observations[0]).toMatchObject({
       status: "discarded",
-      discard_reason: expect.any(String),
+      discard_reason: "Unrelated city and business type.",
+      metadata: expect.objectContaining({ triage_source: "llm" }),
     });
   });
 });

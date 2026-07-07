@@ -1,10 +1,9 @@
 import "reflect-metadata";
 import { ProviderError } from "../../../common/errors/provider-error";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
-import { ConfidenceService } from "./confidence.service";
+import { EvidenceTriageService } from "./evidence-triage.service";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
-import { MatchFilterService } from "./match-filter.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -19,6 +18,9 @@ describe("IntelligenceGathererService", () => {
   const metadataExtractor = {
     extract: jest.fn(),
   } as unknown as jest.Mocked<MetadataExtractorService>;
+  const evidenceTriage = {
+    triage: jest.fn(),
+  } as unknown as jest.Mocked<EvidenceTriageService>;
   const dto: StartDiscoveryDto = {
     language_mode: LanguageModeDto.Mixed,
     intake: {
@@ -36,12 +38,18 @@ describe("IntelligenceGathererService", () => {
       queryPlanner,
       searchClient,
       metadataExtractor,
-      new MatchFilterService(new ConfidenceService()),
+      evidenceTriage,
       new IntelligenceContractMapper(),
     );
     metadataExtractor.extract.mockResolvedValue({
       source_refs: [],
       research_observations: [],
+    });
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [],
+      research_observations: [],
+      accepted_count: 0,
+      discarded_count: 0,
     });
   });
 
@@ -72,6 +80,46 @@ describe("IntelligenceGathererService", () => {
       ],
       provider_warnings: [],
     } as never);
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "search_result",
+          platform: "serpapi",
+          url: "https://example.com/competitor",
+          title: "Nearby competitor",
+          snippet: "Popular restaurant in Nasr City.",
+          fetched_at: "2026-07-06T00:00:00.000Z",
+          confidence: 0.91,
+          status: "accepted",
+          metadata: {
+            provider: "serpapi",
+            rank: 1,
+            query: "best restaurants in Nasr City competitors",
+            triage_source: "llm",
+            evidence_tier: "confirmed_signal",
+          },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "competitor",
+          statement: "Popular restaurant in Nasr City.",
+          source_index: 0,
+          confidence: 0.91,
+          visibility: "owner_visible",
+          status: "accepted",
+          metadata: {
+            provider: "serpapi",
+            rank: 1,
+            query: "best restaurants in Nasr City competitors",
+            triage_source: "llm",
+            evidence_tier: "confirmed_signal",
+          },
+        },
+      ],
+      accepted_count: 1,
+      discarded_count: 0,
+    });
 
     const result = await service.gather(dto);
 
@@ -93,6 +141,7 @@ describe("IntelligenceGathererService", () => {
       statement: "Popular restaurant in Nasr City.",
       visibility: "owner_visible",
       status: "accepted",
+      metadata: expect.objectContaining({ triage_source: "llm" }),
     });
   });
 
@@ -161,6 +210,13 @@ describe("IntelligenceGathererService", () => {
         stage: "search",
         status: "completed",
         payload: expect.objectContaining({ result_count: 0 }),
+      }),
+    );
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: "filtering",
+        status: "completed",
+        payload: expect.objectContaining({ phase: "llm_triage" }),
       }),
     );
   });

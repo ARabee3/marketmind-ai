@@ -40,13 +40,23 @@ export class SerpApiSearchProvider implements SearchProvider {
         throw error;
       }
 
-      throw new ProviderError(
-        "SERPAPI_SEARCH_FAILED",
-        "SerpApi search failed.",
-        true,
-      );
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        throw new ProviderError(
+          "SERPAPI_TIMEOUT",
+          `SerpApi search timed out after ${config.discoverySearchTimeoutMs}ms.`,
+          true,
+        );
+      }
+
+      throw new ProviderError("SERPAPI_SEARCH_FAILED", serpApiError(error), true);
     }
   }
+}
+
+function serpApiError(error: unknown): string {
+  return error instanceof Error && error.message
+    ? `SerpApi search failed: ${error.message}`
+    : "SerpApi search failed.";
 }
 
 function parseSerpApiResults(
@@ -57,16 +67,30 @@ function parseSerpApiResults(
     return [];
   }
 
-  const organicResults = (response as { readonly organic_results?: unknown })
-    .organic_results;
+  const payload = response as {
+    readonly organic_results?: unknown;
+    readonly local_results?: unknown;
+  };
+  const organicResults = Array.isArray(payload.organic_results)
+    ? payload.organic_results
+    : [];
+  const localResults = localResultItems(payload.local_results);
 
-  if (!Array.isArray(organicResults)) {
+  return [...organicResults, ...localResults]
+    .map((result, index) => toSearchResult(result, index, query))
+    .filter((result): result is SearchResultCandidate => result !== undefined);
+}
+
+function localResultItems(value: unknown): readonly unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value !== "object" || value === null) {
     return [];
   }
 
-  return organicResults
-    .map((result, index) => toSearchResult(result, index, query))
-    .filter((result): result is SearchResultCandidate => result !== undefined);
+  const localResults = value as { readonly places?: unknown };
+  return Array.isArray(localResults.places) ? localResults.places : [];
 }
 
 function toSearchResult(
@@ -83,9 +107,30 @@ function toSearchResult(
     readonly link?: unknown;
     readonly snippet?: unknown;
     readonly position?: unknown;
+    readonly place_id?: unknown;
+    readonly rating?: unknown;
+    readonly reviews?: unknown;
+    readonly address?: unknown;
+    readonly phone?: unknown;
+    readonly website?: unknown;
   };
 
-  if (typeof result.title !== "string" && typeof result.link !== "string") {
+  const title = stringValue(result.title);
+  const url = stringValue(result.link) ?? stringValue(result.website);
+  const address = stringValue(result.address);
+  const phone = stringValue(result.phone);
+  const rating = numberValue(result.rating);
+  const reviews = numberValue(result.reviews);
+  const placeId = stringValue(result.place_id);
+  const snippet = stringValue(result.snippet) ?? localSnippet({
+    address,
+    phone,
+    rating,
+    reviews,
+  });
+  const isLocalResult = Boolean(address ?? phone ?? rating ?? reviews ?? placeId);
+
+  if (!title && !url) {
     return undefined;
   }
 
@@ -94,12 +139,48 @@ function toSearchResult(
 
   return {
     provider: "serpapi",
-    title: typeof result.title === "string" ? result.title : undefined,
-    url: typeof result.link === "string" ? result.link : undefined,
-    snippet: typeof result.snippet === "string" ? result.snippet : undefined,
+    title,
+    url,
+    snippet,
     rank,
     query,
-    confidence: Math.max(0.25, 1 - (rank - 1) * 0.05),
-    metadata: { engine: "google" },
+    confidence: Math.max(0.25, (isLocalResult ? 0.95 : 1) - (rank - 1) * 0.05),
+    metadata: {
+      engine: "google",
+      ...(isLocalResult
+        ? {
+            result_type: "local_result",
+            address,
+            phone,
+            rating,
+            reviews,
+            place_id: placeId,
+          }
+        : {}),
+    },
   };
+}
+
+function localSnippet(value: {
+  readonly address?: string;
+  readonly phone?: string;
+  readonly rating?: number;
+  readonly reviews?: number;
+}): string | undefined {
+  const parts = [
+    value.address,
+    value.phone ? `tel: ${value.phone}` : undefined,
+    value.rating ? `rating: ${value.rating}` : undefined,
+    value.reviews ? `reviews: ${value.reviews}` : undefined,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
 }

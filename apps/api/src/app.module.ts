@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { configuration } from "./config/configuration";
 import { envSchema } from "./config/env.schema";
 import { HealthModule } from "./modules/health/health.module";
@@ -22,6 +23,15 @@ import { AppController } from "./app.controller";
 
     // Database
     PrismaModule,
+
+    // Rate limiting — default global guard; auth endpoints override with stricter limits
+    ThrottlerModule.forRoot([
+      {
+        name: "default",
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
 
     // Feature modules
     HealthModule,

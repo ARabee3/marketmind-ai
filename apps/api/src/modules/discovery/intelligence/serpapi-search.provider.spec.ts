@@ -52,4 +52,65 @@ describe("SerpApiSearchProvider", () => {
     expect(calledUrl.searchParams.get("q")).toBe("koshary cairo");
     expect(calledUrl.searchParams.get("gl")).toBe("eg");
   });
+
+  it("normalizes local place results when SerpApi omits organic results", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        local_results: {
+          places: [
+            {
+              title: "Daily Dose Cafe",
+              place_id: "ChIJ123",
+              rating: 4.5,
+              reviews: 320,
+              address: "Nasr City, Cairo",
+              phone: "+20 100 000 0000",
+              website: "https://example.com/daily-dose",
+              position: 1,
+            },
+          ],
+        },
+      }),
+    } as Response);
+
+    const results = await new SerpApiSearchProvider().search(
+      "best cafe in Nasr City competitors",
+    );
+
+    expect(results).toEqual([
+      {
+        provider: "serpapi",
+        title: "Daily Dose Cafe",
+        url: "https://example.com/daily-dose",
+        snippet: "Nasr City, Cairo · tel: +20 100 000 0000 · rating: 4.5 · reviews: 320",
+        rank: 1,
+        query: "best cafe in Nasr City competitors",
+        confidence: 0.95,
+        metadata: {
+          engine: "google",
+          result_type: "local_result",
+          address: "Nasr City, Cairo",
+          phone: "+20 100 000 0000",
+          rating: 4.5,
+          reviews: 320,
+          place_id: "ChIJ123",
+        },
+      },
+    ]);
+  });
+
+  it("reports SerpApi timeout distinctly", async () => {
+    fetchMock.mockRejectedValue(
+      new DOMException("The operation timed out.", "TimeoutError"),
+    );
+
+    await expect(
+      new SerpApiSearchProvider().search("slow cafe search"),
+    ).rejects.toMatchObject({
+      code: "SERPAPI_TIMEOUT",
+      message: "SerpApi search timed out after 8000ms.",
+      retryable: true,
+    });
+  });
 });
