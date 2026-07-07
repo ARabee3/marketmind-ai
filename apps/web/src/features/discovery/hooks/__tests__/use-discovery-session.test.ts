@@ -321,4 +321,162 @@ describe('useDiscoverySession', () => {
 
     await waitFor(() => expect(result.current.phase).toBe('confirmed'))
   })
+
+  it('transitions directly to review when respond returns summary_ready', async () => {
+    const draft = {
+      id: 'draft-auto',
+      session_id: 'test-session',
+      version: 1,
+      status: 'ready_for_confirmation' as const,
+      completeness: 'complete' as const,
+      completion_reason: 'sufficient' as const,
+      readiness: {
+        ...makeStatus().profile_state.readiness,
+        ready: true,
+        llm_recommended: true,
+        owner_turn_count: 3,
+      },
+      confirmed_facts: makeStatus().profile_state.known_facts,
+      market_context: { competitor_landscape: [], local_demand_signals: [], digital_presence_signals: [], other_signals: [] },
+      research_observations: [],
+      uncertainties: [],
+      owner_goals: [],
+      strategy_relevant_notes: [],
+      raw_ai_output: {},
+    }
+
+    const initialStatus = makeStatus({ status: 'in_progress' })
+    const summaryStatus = makeStatus({
+      status: 'summary_ready',
+      profile_draft: draft,
+      profile_state: {
+        ...initialStatus.profile_state,
+        readiness: draft.readiness,
+      },
+    })
+
+    vi.mocked(getDiscoveryStatus)
+      .mockResolvedValueOnce(initialStatus)
+      .mockResolvedValueOnce(summaryStatus)
+
+    vi.mocked(respondToDiscovery).mockResolvedValueOnce({
+      session_id: 'test-session',
+      status: 'summary_ready',
+      assistant_message: {
+        id: 'msg-auto',
+        role: 'assistant',
+        content: 'Review ready',
+        language: 'en',
+        source: 'chat',
+        created_at: new Date().toISOString(),
+      },
+      updated_known_facts: initialStatus.profile_state.known_facts,
+      uncertainties: [],
+      readiness: draft.readiness,
+      profile_draft: draft,
+      strategy_locked: true,
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('interview'))
+
+    await act(async () => {
+      const response = await result.current.respond('my answer')
+      expect(response.accepted).toBe(true)
+    })
+
+    await waitFor(() => expect(result.current.phase).toBe('review'))
+    expect(result.current.status?.profile_draft).toBeDefined()
+    expect(result.current.status?.profile_draft?.completeness).toBe('complete')
+    expect(summarizeDiscovery).not.toHaveBeenCalled()
+  })
+
+  it('transitions to review with incomplete turn_limit draft at fifteenth turn', async () => {
+    const draft = {
+      id: 'draft-limit',
+      session_id: 'test-session',
+      version: 1,
+      status: 'ready_for_confirmation' as const,
+      completeness: 'incomplete' as const,
+      completion_reason: 'turn_limit' as const,
+      readiness: {
+        ...makeStatus().profile_state.readiness,
+        ready: false,
+        llm_recommended: false,
+        owner_turn_count: 15,
+      },
+      confirmed_facts: makeStatus().profile_state.known_facts,
+      market_context: { competitor_landscape: [], local_demand_signals: [], digital_presence_signals: [], other_signals: [] },
+      research_observations: [],
+      uncertainties: [
+        {
+          field_key: 'budget',
+          domain: 'goals_and_constraints',
+          description: 'Marketing budget unknown',
+          severity: 'low',
+          category: 'owner_unknown',
+          source: 'owner_unknown',
+          resolved: false,
+        } as const,
+      ],
+      owner_goals: [],
+      strategy_relevant_notes: [],
+      raw_ai_output: {},
+    }
+
+    const initialStatus = makeStatus({
+      status: 'in_progress',
+      profile_state: {
+        ...makeStatus().profile_state,
+        readiness: { ...makeStatus().profile_state.readiness, owner_turn_count: 14 },
+      },
+    })
+    const summaryStatus = makeStatus({
+      status: 'summary_ready',
+      profile_draft: draft,
+      profile_state: {
+        ...initialStatus.profile_state,
+        readiness: draft.readiness,
+      },
+    })
+
+    vi.mocked(getDiscoveryStatus)
+      .mockResolvedValueOnce(initialStatus)
+      .mockResolvedValueOnce(summaryStatus)
+
+    vi.mocked(respondToDiscovery).mockResolvedValueOnce({
+      session_id: 'test-session',
+      status: 'summary_ready',
+      assistant_message: {
+        id: 'msg-limit',
+        role: 'assistant',
+        content: 'We have reached the question limit.',
+        language: 'en',
+        source: 'chat',
+        created_at: new Date().toISOString(),
+      },
+      updated_known_facts: initialStatus.profile_state.known_facts,
+      uncertainties: draft.uncertainties,
+      readiness: draft.readiness,
+      profile_draft: draft,
+      strategy_locked: true,
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('interview'))
+
+    await act(async () => {
+      const response = await result.current.respond('last answer')
+      expect(response.accepted).toBe(true)
+    })
+
+    await waitFor(() => expect(result.current.phase).toBe('review'))
+    expect(result.current.status?.profile_draft).toBeDefined()
+    expect(result.current.status?.profile_draft?.completeness).toBe('incomplete')
+    expect(result.current.status?.profile_draft?.completion_reason).toBe('turn_limit')
+    expect(result.current.status?.profile_state.readiness.owner_turn_count).toBe(15)
+    expect(result.current.status?.profile_state.readiness.ready).toBe(false)
+  })
 })

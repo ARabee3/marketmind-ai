@@ -320,6 +320,112 @@ test.describe('Discovery Interview & Review', () => {
     expect(dir).toBe('rtl')
   })
 
+  test('Arabic interview → automatic complete review → confirm journey', async ({ page }) => {
+    let turnCount = 1
+    let currentStatus = 'in_progress'
+
+    await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
+      if (currentStatus === 'confirmed') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(baseStatus({
+            status: 'confirmed',
+            profile_draft: makeDraft(),
+            strategy_locked: false,
+          })),
+        })
+      } else if (currentStatus === 'summary_ready') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(baseStatus({
+            status: 'summary_ready',
+            profile_draft: makeDraft(),
+            profile_state: {
+              ...baseStatus().profile_state,
+              readiness: { ...baseStatus().profile_state.readiness, owner_turn_count: turnCount, ready: true },
+            },
+          })),
+        })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(baseStatus({
+            messages: [
+              ...baseStatus().messages,
+              makeMessage({ id: `owner-${turnCount}`, role: 'owner', content: 'إجابتي', language: 'ar-EG' }),
+              makeMessage({ id: `assistant-${turnCount}`, role: 'assistant', content: 'سؤال تالي', language: 'ar-EG' }),
+            ],
+            profile_state: {
+              ...baseStatus().profile_state,
+              readiness: { ...baseStatus().profile_state.readiness, owner_turn_count: turnCount },
+            },
+          })),
+        })
+      }
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/respond`, async (route) => {
+      turnCount++
+      currentStatus = 'summary_ready'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session_id: sessionId,
+          status: 'summary_ready',
+          assistant_message: makeMessage({ content: 'سؤال تالي', language: 'ar-EG' }),
+          updated_known_facts: baseStatus().profile_state.known_facts,
+          uncertainties: [],
+          readiness: { ...baseStatus().profile_state.readiness, owner_turn_count: turnCount, ready: true },
+          profile_draft: makeDraft(),
+          strategy_locked: true,
+        }),
+      })
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/confirm-profile`, async (route) => {
+      currentStatus = 'confirmed'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session_id: sessionId,
+          status: 'confirmed',
+          business_profile_version_id: 'version-1',
+          confirmed_at: new Date().toISOString(),
+          strategy_locked: false,
+        }),
+      })
+    })
+
+    await page.goto(`/ar/discovery/${sessionId}`)
+
+    // Verify RTL and Arabic chrome
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+    await expect(page.getByPlaceholder('اكتب إجابتك هنا…')).toBeVisible()
+
+    // Interview phase
+    await expect(page.getByText('Welcome! What is your best selling product?')).toBeVisible()
+
+    await page.getByPlaceholder('اكتب إجابتك هنا…').fill('إجابتي')
+    await page.getByRole('button', { name: 'إرسال' }).click()
+
+    await expect.poll(() => turnCount).toBeGreaterThanOrEqual(2)
+
+    // Review phase (after automatic summary_ready from respond)
+    await expect(page.getByText('مراجعة نتائج الاستكشاف')).toBeVisible()
+    await expect(page.getByText('مكتمل')).toBeVisible()
+
+    // Confirm
+    await page.getByRole('button', { name: 'تأكيد الملف الشخصي' }).click()
+
+    // Confirmed success
+    await expect(page.getByText('الاستراتيجية متاحة الآن')).toBeVisible()
+  })
+
   test('Arabic UI with mixed English conversation preserved', async ({ page }) => {
     await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
       await route.fulfill({
@@ -339,6 +445,59 @@ test.describe('Discovery Interview & Review', () => {
     // Mixed content should be preserved exactly
     await expect(page.getByText('Hello! مرحبا')).toBeVisible()
     await expect(page.getByText('My answer: إجابتي')).toBeVisible()
+  })
+
+  test('Continued questioning renders next assistant question', async ({ page }) => {
+    let turnCount = 1
+
+    await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(baseStatus({
+          messages: [
+            makeMessage({ id: 'msg-1', role: 'assistant', content: 'Welcome! What is your best selling product?' }),
+            makeMessage({ id: 'owner-1', role: 'owner', content: 'Espresso' }),
+            makeMessage({ id: 'assistant-2', role: 'assistant', content: 'What are your opening hours?' }),
+          ],
+          profile_state: {
+            ...baseStatus().profile_state,
+            readiness: { ...baseStatus().profile_state.readiness, owner_turn_count: turnCount },
+          },
+        })),
+      })
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/respond`, async (route) => {
+      turnCount++
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          session_id: sessionId,
+          status: 'in_progress',
+          assistant_message: makeMessage({ id: 'assistant-2', role: 'assistant', content: 'What are your opening hours?', language: 'en' }),
+          updated_known_facts: baseStatus().profile_state.known_facts,
+          uncertainties: [],
+          readiness: { ...baseStatus().profile_state.readiness, owner_turn_count: turnCount },
+          strategy_locked: true,
+        }),
+      })
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/summarize`, async (route) => {
+      await route.fulfill({ status: 200, body: '{}' })
+    })
+
+    await page.goto(`/en/discovery/${sessionId}`)
+
+    await expect(page.getByText('Welcome! What is your best selling product?')).toBeVisible()
+
+    await page.getByPlaceholder('Type your answer here…').fill('Espresso')
+    await page.getByRole('button', { name: 'Submit' }).click()
+
+    // Next assistant question should appear without any summarize call
+    await expect(page.getByText('What are your opening hours?')).toBeVisible()
   })
 
   test('Early finish → incomplete review → acknowledgement → confirm', async ({ page }) => {
