@@ -84,8 +84,9 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async getMe(@Req() req: RequestWithUser): Promise<SafeUser> {
-    return this.authService.getMe(req.user.id);
+  async getMe(@Req() req: RequestWithUser): Promise<{ user: SafeUser }> {
+    const user = await this.authService.getMe(req.user.id);
+    return { user };
   }
 
   private setRefreshCookie(res: Response, token: string): void {
