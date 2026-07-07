@@ -147,6 +147,69 @@ def assistant_message(content: str, language: str = "en") -> dict[str, str]:
     }
 
 
+HOSPITALITY_TERMS = ("restaurant", "cafe", "مطعم", "كافيه", "مقهى")
+REPRESENTATIVE_SME_CASES = [
+    {
+        "label": "retail",
+        "language_mode": "en",
+        "business_name": "Green Basket",
+        "business_type": "neighborhood grocery retail",
+        "city": "Cairo",
+        "area": "Heliopolis",
+        "owner_goal_text": "Increase repeat weekly shoppers.",
+        "allows_hospitality_terms": False,
+    },
+    {
+        "label": "professional_services",
+        "language_mode": "mixed",
+        "business_name": "Nile Ledger",
+        "business_type": "accounting office",
+        "city": "Cairo",
+        "area": "Maadi",
+        "owner_goal_text": "Bring in more monthly retainer clients.",
+        "allows_hospitality_terms": False,
+    },
+    {
+        "label": "education",
+        "language_mode": "ar-EG",
+        "business_name": "مركز النور",
+        "business_type": "مركز تعليم لغات",
+        "city": "الإسكندرية",
+        "area": "سموحة",
+        "owner_goal_text": "زيادة تسجيل الطلاب في كورسات المحادثة.",
+        "allows_hospitality_terms": False,
+    },
+    {
+        "label": "hospitality",
+        "language_mode": "en",
+        "business_name": "Koshary Corner",
+        "business_type": "quick service restaurant",
+        "city": "Cairo",
+        "area": "Nasr City",
+        "owner_goal_text": "Attract more lunch customers.",
+        "allows_hospitality_terms": True,
+    },
+]
+
+
+def representative_payload(case: dict[str, Any]) -> dict[str, Any]:
+    payload = base_payload(
+        str(case["language_mode"]),
+        with_gap=True,
+        with_social_links=False,
+    )
+    payload["intake"].update(
+        {
+            "business_name": case["business_name"],
+            "business_type": case["business_type"],
+            "city": case["city"],
+            "area": case["area"],
+            "owner_goal_text": case["owner_goal_text"],
+        }
+    )
+    return payload
+
+
 class ContradictionProvider(DiscoveryProvider):
     name = "contradiction"
 
@@ -266,6 +329,61 @@ def test_contradictory_answer_tracked_as_uncertainty() -> None:
     assert contradiction.category == "contradiction"
     assert contradiction.source == "owner_answer"
     assert contradiction.contradiction_detail is not None
+
+
+# ---------------------------------------------------------------------------
+# Cross-industry SME cases
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "case",
+    REPRESENTATIVE_SME_CASES,
+    ids=[str(case["label"]) for case in REPRESENTATIVE_SME_CASES],
+)
+def test_representative_sme_start_cases_are_industry_grounded(
+    case: dict[str, Any],
+) -> None:
+    payload = representative_payload(case)
+    request = AiDiscoveryStartRequest.model_validate(payload)
+
+    result = run(DiscoveryService(MockDiscoveryProvider()).start(request))
+
+    question = result.next_question or ""
+    assert result.action == "ask_next_question"
+    assert str(case["business_name"]) in question
+    assert result.updated_known_facts.identity.business_type == case["business_type"]
+    if not case["allows_hospitality_terms"]:
+        lowered_question = question.lower()
+        assert all(term not in lowered_question for term in HOSPITALITY_TERMS)
+
+
+@pytest.mark.parametrize(
+    "case",
+    REPRESENTATIVE_SME_CASES,
+    ids=[str(case["label"]) for case in REPRESENTATIVE_SME_CASES],
+)
+def test_representative_sme_summaries_preserve_submitted_identity(
+    case: dict[str, Any],
+) -> None:
+    payload = representative_payload(case)
+    payload["messages"] = [
+        owner_message(
+            f"{case['business_name']} serves a specific local customer base.",
+            str(case["language_mode"]),
+        )
+    ]
+    request = AiDiscoverySummarizeRequest.model_validate(
+        with_completion_context(payload)
+    )
+
+    result = run(DiscoveryService(MockDiscoveryProvider()).summarize(request))
+
+    assert result.profile_draft is not None
+    identity = result.profile_draft.confirmed_facts.identity
+    assert identity.business_name == case["business_name"]
+    assert identity.business_type == case["business_type"]
+    assert identity.city == case["city"]
+    assert identity.area == case["area"]
 
 
 # ---------------------------------------------------------------------------

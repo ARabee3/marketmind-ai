@@ -15,7 +15,10 @@ QUERY_PLAN_SYSTEM_PROMPT: Final = """
 You generate web search queries for MarketMind's IntelligenceGatherer.
 Return a QueryPlan JSON object only.
 Rules:
-- Generate useful real-world research queries for an Egyptian cafe/restaurant.
+- Generate useful real-world research queries for an Egyptian SME.
+- Ground queries in request.intake.business_type, city/area, and relevant
+  owner-supplied context.
+- Do not default to any industry-specific framing unless the owner supplied it.
 - Always include at least one competitor_discovery query when city or area exists.
 - Prefer serpapi for broad web search and apify_google_maps for local competitors/reviews.
 - Include owner-provided competitors and social links when present.
