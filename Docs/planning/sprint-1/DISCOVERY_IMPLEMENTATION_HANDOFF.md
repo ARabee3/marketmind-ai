@@ -150,8 +150,10 @@ branch updates migration documentation to match the implementation but does not
 introduce an undocumented database model or Qdrant dependency.
 
 Example payloads cover start, respond, summarize, confirmation-related profile
-data, internal AI calls, agent runs, and a full cafe journey. The dependency-free
-validator checks every example as part of the root repository check.
+data, internal AI calls, agent runs, and a full SME journey (the worked
+example uses a café, but the contracts are industry-neutral). The
+dependency-free validator checks every example as part of the root repository
+check.
 
 ## Reviewer Guide
 
@@ -230,7 +232,7 @@ Before production rollout, run:
 - reconnect testing from the actual frontend Socket.IO client;
 - frontend review of readiness progress, early-finish warnings, and incomplete
   acknowledgement;
-- prompt-quality review using representative Egyptian cafe and restaurant cases;
+- prompt-quality review using representative Egyptian SME cases (a café is the worked example; the product targets SMEs across industries);
 - dependency and secret-scanning checks in CI.
 
 These are deployment-readiness checks, not missing Discovery domain behavior.

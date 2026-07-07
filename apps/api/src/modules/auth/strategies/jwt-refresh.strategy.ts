@@ -2,12 +2,16 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../common/persistence/prisma.service';
 import { JwtPayload, AuthenticatedUser } from '../interfaces/jwt-payload.interface';
+import { REFRESH_TOKEN_COOKIE } from '../auth.controller';
 
+function extractRefreshTokenFromCookie(req: Request): string | undefined {
+  return req.cookies?.[REFRESH_TOKEN_COOKIE];
+}
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
@@ -16,23 +20,22 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     private readonly prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: extractRefreshTokenFromCookie,
       ignoreExpiration: false,
-      secretOrKey: configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      secretOrKey: configService.getOrThrow<string>('jwt.refreshSecret'),
       passReqToCallback: true,
     });
   }
 
   /**
-   * @param req     - Raw Express request (needed to extract the raw token string).
+   * @param req     - Raw Express request (needed to extract the raw token string from the HttpOnly cookie).
    * @param payload - Decoded & verified JWT payload.
    */
   async validate(req: Request, payload: JwtPayload): Promise<AuthenticatedUser> {
-    const authHeader = req.get('Authorization');
-    if (!authHeader) {
-      throw new UnauthorizedException('Missing Authorization header');
+    const rawRefreshToken = extractRefreshTokenFromCookie(req);
+    if (!rawRefreshToken) {
+      throw new UnauthorizedException('Missing refresh token');
     }
-    const rawRefreshToken = authHeader.split(' ')[1];
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -40,7 +43,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
         id: true,
         email: true,
         roles: true,
-        refreshToken: true, 
+        refreshToken: true,
       },
     });
 

@@ -16,6 +16,9 @@ coverage/
 *.log
 npm-debug.log*
 
+# Runtime process files
+*.pid
+
 # OS/editor files
 .DS_Store
 .idea/
@@ -25,3 +28,6 @@ npm-debug.log*
 .pnpm-store/
 # Local/private project documents
 *.pdf
+
+# Agent skill lockfile (references local/temp paths; reinstall via npm run agent:setup)
+skills-lock.json

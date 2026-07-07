@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Brand tokens (MarketMind palette) */
+  --color-bg: #F7F8FA;
+  --color-surface: #FFFFFF;
+  --color-navy: #102A43;
+  --color-primary: #0B6F71;
+  --color-action: #246BFD;
+  --color-warning: #A15C00;
+  --color-danger: #B42318;
+  --color-border: #D9E2EC;
+
+  /* Semantic shadcn tokens, mapped onto the MarketMind palette. */
+  --color-background: #F7F8FA;
+  --color-foreground: #102A43;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #102A43;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #102A43;
+  --color-primary: #0B6F71;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #E6F2F2;
+  --color-secondary-foreground: #0B6F71;
+  --color-muted: #E9EEF3;
+  --color-muted-foreground: #5B6B7B;
+  --color-accent: #E6F2F2;
+  --color-accent-foreground: #0B6F71;
+  --color-destructive: #B42318;
+  --color-destructive-foreground: #FFFFFF;
+  --color-input: #D9E2EC;
+  --color-ring: #0B6F71;
+
+  /* Form aliases */
+  --color-border-input: #D9E2EC;
+
+  /* Radius scale (card primitives reference --radius-md). */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --font-sans: var(--font-body), var(--font-body-arabic), sans-serif;
+}
+
+:root {
+  --font-sans: var(--font-body), var(--font-body-arabic), sans-serif;
+}
+
+html {
+  color-scheme: light;
+}

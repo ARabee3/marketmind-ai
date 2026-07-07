@@ -21,11 +21,22 @@ export function envSchema(
     }
   }
 
-  // DATABASE_URL — warn if missing, required once Auth is implemented
+  // DATABASE_URL — required for Auth module
   if (!config.DATABASE_URL) {
-    console.warn(
-      "⚠️  DATABASE_URL is not set. Database features will not work.",
-    );
+    errors.push("DATABASE_URL is required");
+  }
+
+  // JWT secrets — required for token issuance/verification
+  if (!config.JWT_ACCESS_SECRET) {
+    errors.push("JWT_ACCESS_SECRET is required");
+  }
+  if (!config.JWT_REFRESH_SECRET) {
+    errors.push("JWT_REFRESH_SECRET is required");
+  }
+
+  // WEB_ORIGIN — required for credentialed CORS
+  if (!config.WEB_ORIGIN) {
+    errors.push("WEB_ORIGIN is required (e.g. http://localhost:3000)");
   }
 
   if (errors.length > 0) {

@@ -21,7 +21,7 @@ flowchart LR
 
 Goal:
 
-Understand the cafe or restaurant.
+Understand the business (the SME).
 
 The system asks the owner about:
 
@@ -198,9 +198,14 @@ flowchart TD
 
 ## Fictional example
 
+MarketMind targets SMEs across industries (retail, services, hospitality,
+education, healthcare, and more). The example below uses a café as one
+illustrative SME to keep the narrative concrete; it is *not* a statement that
+the product is hospitality-only.
+
 Business:
 
-Koshary & Coffee, a small cafe in Nasr City.
+Koshary & Coffee, a small café in Nasr City.
 
 Discovery learns:
 

@@ -142,7 +142,7 @@ Minimum response intent:
 
 ## Test / Verification
 
-- [ ] Walk through one fictional Egyptian cafe from intake to profile confirmation.
+- [ ] Walk through one fictional Egyptian SME from intake to profile confirmation (the worked example uses a café; the product targets SMEs across industries).
 - [ ] Show an example request/response for each endpoint.
 - [ ] Show a WebSocket progress transcript.
 - [ ] Show metadata extraction from one submitted link.
@@ -358,7 +358,7 @@ Prepared Discovery must not return vague free-form text only. This issue creates
 - [ ] Include explicit uncertainty tracking.
 - [ ] Include source tracking for owner answer vs research observation.
 - [ ] Include fields for source URL, source label, retrieval timestamp, confidence, and discard reason.
-- [ ] Write example valid objects for a fictional Egyptian cafe.
+- [ ] Write example valid objects for a fictional Egyptian SME (the worked example uses a café).
 - [ ] Write the first evaluation cases.
 - [ ] Review with Abdulazim for future frontend/API usability.
 

@@ -1,0 +1,15 @@
+interface:
+  display_name: "MarketMind Frontend Workflow"
+  short_description: "Route frontend work to approved skills and tools"
+  default_prompt: "Use $marketmind-frontend-workflow to implement and verify this MarketMind frontend task."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "context7"
+      description: "Version-specific library documentation from Context7"
+      transport: "streamable_http"
+      url: "https://mcp.context7.com/mcp"
+
+policy:
+  allow_implicit_invocation: true
