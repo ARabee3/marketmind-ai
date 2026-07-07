@@ -38,7 +38,11 @@ for (const locale of locales) {
         await page.getByLabel(/^Password$|^كلمة المرور$/i).fill('Password123!')
         await page.getByLabel(/Confirm password|تأكيد كلمة المرور/i).fill('Password123!')
 
+        const registerRequest = page.waitForRequest('**/auth/register')
         await page.getByRole('button', { name: /Create account|إنشاء الحساب/i }).click()
+
+        const request = await registerRequest
+        expect(request.postDataJSON().fullName).toBe(fullName)
 
         await expect(page).toHaveURL(new RegExp(`/${locale}/login`), { timeout: 10000 })
         await expect(page.getByRole('status')).toContainText(
