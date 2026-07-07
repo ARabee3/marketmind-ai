@@ -20,12 +20,6 @@ async function bootstrap() {
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
-  // Enable CORS for the local Next.js frontend during development.
-  app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
-    credentials: true,
-  });
-
   // Global validation pipe — enables class-validator decorators on DTOs
   app.useGlobalPipes(
     new ValidationPipe({
