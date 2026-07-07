@@ -127,10 +127,9 @@ describe('RegisterForm', () => {
       expect(mockedApiRequest).toHaveBeenCalledWith('/auth/register', {
         method: 'POST',
         body: {
-          name: 'Ahmed Hassan',
+          fullName: 'Ahmed Hassan',
           email: 'ahmed@example.com',
           password: 'password123',
-          confirmPassword: 'password123',
         },
       })
     })

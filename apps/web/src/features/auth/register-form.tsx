@@ -68,10 +68,9 @@ export function RegisterForm() {
         const response = await apiRequest('/auth/register', {
           method: 'POST',
           body: {
-            name: name.trim(),
+            fullName: name.trim(),
             email: email.trim(),
             password,
-            confirmPassword,
           },
         })
 
@@ -92,7 +91,7 @@ export function RegisterForm() {
         setIsSubmitting(false)
       }
     },
-    [validate, name, email, password, confirmPassword, router],
+    [validate, name, email, password, router],
   )
 
   return (

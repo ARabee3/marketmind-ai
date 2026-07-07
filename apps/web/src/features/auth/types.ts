@@ -1,7 +1,7 @@
 export type User = {
   id: string
   email: string
-  name: string
+  fullName: string
 }
 
 export type LoginCredentials = {

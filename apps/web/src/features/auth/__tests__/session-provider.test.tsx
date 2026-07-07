@@ -20,7 +20,7 @@ function TestConsumer() {
       <span data-testid="authenticated">
         {session.isAuthenticated ? 'yes' : 'no'}
       </span>
-      <span data-testid="user">{session.user?.name ?? 'none'}</span>
+      <span data-testid="user">{session.user?.fullName ?? 'none'}</span>
       <span data-testid="token">{session.accessToken ?? 'none'}</span>
       <button
         data-testid="login"
@@ -61,7 +61,7 @@ describe('SessionProvider', () => {
           new Response(
             JSON.stringify({
               accessToken: 'refreshed-token',
-              user: { id: '1', email: 'a@b.com', name: 'Ali' },
+              user: { id: '1', email: 'a@b.com', fullName: 'Ali' },
             }),
             { status: 200 },
           ),
@@ -70,7 +70,7 @@ describe('SessionProvider', () => {
       if (path === '/auth/me') {
         return Promise.resolve(
           new Response(
-            JSON.stringify({ user: { id: '1', email: 'a@b.com', name: 'Ali' } }),
+            JSON.stringify({ user: { id: '1', email: 'a@b.com', fullName: 'Ali' } }),
             { status: 200 },
           ),
         )
@@ -142,7 +142,7 @@ describe('SessionProvider', () => {
       if (path === '/auth/me') {
         return Promise.resolve(
           new Response(
-            JSON.stringify({ user: { id: '2', email: 'c@d.com', name: 'Omar' } }),
+            JSON.stringify({ user: { id: '2', email: 'c@d.com', fullName: 'Omar' } }),
             { status: 200 },
           ),
         )
@@ -180,7 +180,7 @@ describe('SessionProvider', () => {
           new Response(
             JSON.stringify({
               accessToken: 'existing-token',
-              user: { id: '3', email: 'd@e.com', name: 'Nour' },
+              user: { id: '3', email: 'd@e.com', fullName: 'Nour' },
             }),
             { status: 200 },
           ),
@@ -189,7 +189,7 @@ describe('SessionProvider', () => {
       if (path === '/auth/me') {
         return Promise.resolve(
           new Response(
-            JSON.stringify({ user: { id: '3', email: 'd@e.com', name: 'Nour' } }),
+            JSON.stringify({ user: { id: '3', email: 'd@e.com', fullName: 'Nour' } }),
             { status: 200 },
           ),
         )
