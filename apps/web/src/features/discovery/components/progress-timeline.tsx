@@ -72,7 +72,7 @@ export function ProgressTimeline({
         {/* Persistent research warnings — survive Socket.IO disconnects */}
         {researchWarning && (
           <div
-            className="p-4 rounded-md text-sm bg-warning/10 text-warning-foreground border border-warning/20"
+            className="p-4 rounded-md text-sm bg-warning/10 text-warning border border-warning/20"
             role="status"
             aria-live="polite"
           >
@@ -94,7 +94,7 @@ export function ProgressTimeline({
         {/* Reconnecting notice */}
         {connectionState === 'reconnecting' && (
           <div
-            className="p-4 rounded-md text-sm bg-warning/10 text-warning-foreground border border-warning/20"
+            className="p-4 rounded-md text-sm bg-warning/10 text-warning border border-warning/20"
             role="status"
             aria-live="polite"
           >
