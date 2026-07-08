@@ -19,7 +19,9 @@ export class RegisterDto {
   @Transform(({ value }: { value: string }) => value?.trim())
   @MinLength(3, { message: 'fullName must be at least 3 characters long' })
   @MaxLength(50, { message: 'fullName must not exceed 50 characters' })
-  @Matches(/^[a-zA-Z\s]+$/, { message: 'fullName can only contain letters and spaces' }) // اختياري: لو عاوز تمنع الرموز والأرقام في الاسم
+  @Matches(/^(?!\s)[\p{L}\s'-]+$(?<!\s)/u, {
+    message: 'fullName can only contain letters, spaces, hyphens and apostrophes',
+  })
   fullName: string;
 
   /**

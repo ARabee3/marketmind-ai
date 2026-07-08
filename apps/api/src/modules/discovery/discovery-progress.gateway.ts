@@ -19,9 +19,23 @@ type JoinDiscoveryPayload = {
   readonly session_id: string;
 };
 
+function discoveryCorsOrigin(
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void,
+): void {
+  const allowedOrigin = process.env.WEB_ORIGIN;
+  if (!allowedOrigin) {
+    return callback(new Error("WEB_ORIGIN is not configured"));
+  }
+  if (!origin || origin === allowedOrigin) {
+    return callback(null, true);
+  }
+  return callback(new Error(`Origin ${origin} is not allowed`), false);
+}
+
 @WebSocketGateway({
   namespace: "/ws/v1/discovery",
-  cors: { origin: true, credentials: true },
+  cors: { origin: discoveryCorsOrigin, credentials: true },
 })
 export class DiscoveryProgressGateway implements OnGatewayConnection {
   @WebSocketServer()
