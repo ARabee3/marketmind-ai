@@ -12,7 +12,7 @@ services:
     container_name: marketmind-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: marketmind
       POSTGRES_PASSWORD: marketmind_dev
