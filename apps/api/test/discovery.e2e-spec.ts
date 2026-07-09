@@ -1,6 +1,7 @@
 import {
   ConflictException,
   INestApplication,
+  ServiceUnavailableException,
   ValidationPipe,
 } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
@@ -14,7 +15,9 @@ import { AuthModule } from "../src/modules/auth/auth.module";
 import { DiscoveryConversationService } from "../src/modules/discovery/discovery-conversation.service";
 import { DiscoveryController } from "../src/modules/discovery/discovery.controller";
 import { DiscoveryRateLimitGuard } from "../src/modules/discovery/discovery-rate-limit.guard";
+import { DiscoveryRedisLimiterService } from "../src/modules/discovery/discovery-redis-limiter.service";
 import { DiscoveryService } from "../src/modules/discovery/discovery.service";
+import { RedisService } from "../src/modules/redis/redis.service";
 import { RbacModule } from "../src/modules/rbac/rbac.module";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
@@ -53,6 +56,20 @@ describe("Discovery public contract (e2e)", () => {
       controllers: [DiscoveryController],
       providers: [
         DiscoveryRateLimitGuard,
+        DiscoveryRedisLimiterService,
+        {
+          provide: RedisService,
+          useValue: {
+            ping: jest.fn(),
+            getClient: jest.fn().mockReturnValue({
+              pipeline: jest.fn().mockReturnValue({
+                incr: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([[null, 1], [null, 1]]),
+              }),
+            }),
+          },
+        },
         { provide: DiscoveryService, useValue: discoveryService },
         {
           provide: DiscoveryConversationService,
@@ -83,7 +100,7 @@ describe("Discovery public contract (e2e)", () => {
   });
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -148,5 +165,31 @@ describe("Discovery public contract (e2e)", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ message: "Continue after confirmation." })
       .expect(409);
+  });
+
+  it("returns 503 with DISCOVERY_ENQUEUE_FAILED when enqueue fails", () => {
+    discoveryService.startPreparedDiscovery.mockRejectedValue(
+      new ServiceUnavailableException({
+        code: "DISCOVERY_ENQUEUE_FAILED",
+        message: "Redis connection refused",
+      }),
+    );
+
+    return request(app.getHttpServer())
+      .post("/api/v1/discovery/start")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
+        language_mode: "mixed",
+        intake: {
+          business_name: "Koshary Corner",
+          business_type: "restaurant",
+          city: "Cairo",
+        },
+      })
+      .expect(503)
+      .expect((response) => {
+        expect(response.body.code).toBe("DISCOVERY_ENQUEUE_FAILED");
+        expect(response.body.message).toBe("Redis connection refused");
+      });
   });
 });
