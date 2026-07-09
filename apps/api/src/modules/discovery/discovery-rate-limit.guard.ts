@@ -7,53 +7,42 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
-
-const WINDOW_MS = 60_000;
-const MAX_POSTS_PER_WINDOW = 20;
+import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
 
 type RequestWithUser = Request & {
   readonly user?: AuthenticatedUser;
 };
 
-type RateEntry = {
-  readonly resetAt: number;
-  readonly count: number;
-};
-
+/**
+ * Rate-limit guard for Discovery POST endpoints.
+ *
+ * Uses an atomic Redis counter to enforce 20 POSTs per minute
+ * per owner and route. Replaces the previous in-memory Map.
+ */
 @Injectable()
 export class DiscoveryRateLimitGuard implements CanActivate {
-  private readonly entries = new Map<string, RateEntry>();
+  constructor(private readonly limiter: DiscoveryRedisLimiterService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     if (request.method !== "POST") {
       return true;
     }
 
-    const key = this.keyFor(request);
-    const now = Date.now();
-    const current = this.entries.get(key);
-    const next =
-      current && current.resetAt > now
-        ? { resetAt: current.resetAt, count: current.count + 1 }
-        : { resetAt: now + WINDOW_MS, count: 1 };
+    const ownerKey = request.user?.id ?? request.ip ?? "anonymous";
+    const routeKey = request.route?.path ?? request.path;
+    const allowed = await this.limiter.checkLimit(ownerKey, routeKey);
 
-    this.entries.set(key, next);
-
-    if (next.count > MAX_POSTS_PER_WINDOW) {
+    if (!allowed) {
       throw new HttpException(
-        "Too many discovery requests",
+        {
+          code: "DISCOVERY_RATE_LIMITED",
+          message: "Too many discovery requests",
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
     return true;
-  }
-
-  private keyFor(request: RequestWithUser): string {
-    const ownerKey = request.user?.id ?? request.ip ?? "anonymous";
-    const routeKey = request.route?.path ?? request.path;
-
-    return `${ownerKey}:${request.method}:${routeKey}`;
   }
 }

@@ -8,6 +8,7 @@ import { DiscoveryConversationRepository } from "./discovery-conversation.reposi
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
+import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
@@ -33,6 +34,7 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     DiscoveryIntelligenceRepository,
     DiscoveryConversationService,
     DiscoveryRateLimitGuard,
+    DiscoveryRedisLimiterService,
     DiscoveryReadinessService,
     DiscoveryService,
     DiscoveryProgressGateway,
