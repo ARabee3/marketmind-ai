@@ -216,6 +216,15 @@ export class DiscoveryRepository {
     return result.count === 1;
   }
 
+  async findSessionStatus(
+    sessionId: string,
+  ): Promise<{ status: string } | null> {
+    return this.prisma.discoverySession.findUnique({
+      where: { id: sessionId },
+      select: { status: true },
+    });
+  }
+
   async appendProgressEvent(
     sessionId: string,
     event: DiscoveryProgressInput,

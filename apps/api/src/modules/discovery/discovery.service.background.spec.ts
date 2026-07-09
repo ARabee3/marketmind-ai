@@ -1,31 +1,20 @@
 import { ProviderError } from "../../common/errors/provider-error";
-import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
-import { IntelligenceResult } from "./discovery-state";
-import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
-import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
-import {
-  emptyDiscoveryDomainScores,
-  emptyMarketAwareBusinessFacts,
-} from "./market-profile";
-import { DiscoveryReadinessService } from "./discovery-readiness.service";
+import { DiscoveryQueueProducer } from "./discovery-queue.producer";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
-import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
+import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 
-describe("DiscoveryService background research", () => {
+describe("DiscoveryService enqueue behavior", () => {
   const repository = {
     createPreparedSession: jest.fn(),
     findSessionForOwner: jest.fn(),
     updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
-  const intelligenceRepository = {
-    saveIntelligenceResult: jest.fn(),
-  } as unknown as jest.Mocked<DiscoveryIntelligenceRepository>;
   const conversationRepository = {
     listMessages: jest.fn(),
     latestProfileDraft: jest.fn(),
@@ -34,29 +23,23 @@ describe("DiscoveryService background research", () => {
     recordInitialAssistantQuestion: jest.fn(),
     saveProfileDraft: jest.fn(),
     completeConversationTurn: jest.fn(),
+    completeConversationWithDraft: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
-  const gatherer = {
-    gather: jest.fn(),
-  } as unknown as jest.Mocked<IntelligenceGathererService>;
-  const aiDiscoveryClient = {
-    start: jest.fn(),
-  } as unknown as jest.Mocked<AiDiscoveryClient>;
   const progressGateway = {
     emitProgress: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryProgressGateway>;
+  const queueProducer = {
+    enqueueResearch: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryQueueProducer>;
 
   let service: DiscoveryService;
 
   beforeEach(() => {
     jest.resetAllMocks();
-    repository.updateStatusIfCurrent.mockResolvedValue(true);
-    conversationRepository.recordInitialAssistantQuestion.mockResolvedValue(
-      assistantMessage(),
-    );
     repository.appendProgressEvent.mockImplementation(
       async (_sessionId, event) => ({
-        type: "progress",
+        type: "progress" as const,
         session_id: SESSION_ID,
         seq: 1,
         stage: event.stage === "session" ? "queued" : "search",
@@ -70,210 +53,82 @@ describe("DiscoveryService background research", () => {
     service = new DiscoveryService(
       repository,
       conversationRepository,
-      intelligenceRepository,
-      gatherer,
-      aiDiscoveryClient,
       progressGateway,
-      new DiscoveryReadinessService(),
+      queueProducer,
     );
   });
 
-  function expectAiUnavailableFallback(): void {
-    expect(
-      conversationRepository.recordInitialAssistantQuestion,
-    ).not.toHaveBeenCalled();
-    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalled();
-    expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
-      SESSION_ID,
-      expect.objectContaining({ messageKey: "discovery.ready_for_chat" }),
-    );
-  }
-
-  it("runs and stores intelligence for a prepared discovery session", async () => {
+  it("returns 202 Accepted after enqueueing research", async () => {
     const dto = discoveryDto();
-    const intelligence = emptyIntelligence();
     repository.createPreparedSession.mockResolvedValue(session() as never);
-    gatherer.gather.mockResolvedValue(intelligence);
-    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
+    queueProducer.enqueueResearch.mockResolvedValue(undefined);
 
-    await expect(
-      service.startPreparedDiscovery("owner-id", dto),
-    ).resolves.toEqual({
+    const result = await service.startPreparedDiscovery("owner-id", dto);
+
+    expect(result).toEqual({
       session_id: SESSION_ID,
       status: "researching",
       progress_ws_url: "/ws/v1/discovery",
       status_url: `/api/v1/discovery/${SESSION_ID}/status`,
       accepted_at: "2026-06-29T10:00:00.000Z",
     });
-    expect(repository.createPreparedSession).toHaveBeenCalledWith(
-      "owner-id",
-      dto,
-    );
-    await flushPromises();
-    expect(gatherer.gather).toHaveBeenCalledWith(
-      dto,
-      expect.any(Function),
-      expect.any(AbortSignal),
-    );
-    expect(intelligenceRepository.saveIntelligenceResult).toHaveBeenCalledWith(
-      SESSION_ID,
-      intelligence,
-    );
-    expect(aiDiscoveryClient.start).toHaveBeenCalledWith(
-      SESSION_ID,
-      dto,
-      intelligence,
-    );
-    expect(
-      conversationRepository.recordInitialAssistantQuestion,
-    ).toHaveBeenCalledWith(
-      SESSION_ID,
-      "Who are your best current customers?",
-      LanguageModeDto.Mixed,
-      expect.objectContaining({
-        readiness: expect.objectContaining({ owner_turn_count: 0 }),
-      }),
-    );
+    expect(repository.createPreparedSession).toHaveBeenCalledWith("owner-id", dto);
+    expect(queueProducer.enqueueResearch).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it("records queued progress event before enqueueing", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    queueProducer.enqueueResearch.mockResolvedValue(undefined);
+
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+
     expect(repository.appendProgressEvent).toHaveBeenCalledWith(
       SESSION_ID,
       expect.objectContaining({
-        stage: "ready",
-        status: "completed",
-        messageKey: "discovery.ready_for_chat",
+        stage: "queued",
+        status: "started",
+        messageKey: "discovery.queued.started",
       }),
     );
   });
 
-  it("returns before background research finishes", async () => {
-    const dto = discoveryDto();
-    const intelligence = emptyIntelligence();
-    const pendingGather = deferred<IntelligenceResult>();
+  it("throws ServiceUnavailableException when enqueue fails", async () => {
     repository.createPreparedSession.mockResolvedValue(session() as never);
-    gatherer.gather.mockReturnValue(pendingGather.promise);
-    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
-
-    const responsePromise = service.startPreparedDiscovery("owner-id", dto);
-    const response = await Promise.race([
-      responsePromise,
-      nextTickValue("blocked"),
-    ]);
-
-    expect(response).not.toBe("blocked");
-    expect(response).toMatchObject({
-      session_id: SESSION_ID,
-      status: "researching",
-    });
-    expect(
-      intelligenceRepository.saveIntelligenceResult,
-    ).not.toHaveBeenCalled();
-
-    pendingGather.resolve(intelligence);
-    await flushPromises();
-    expect(intelligenceRepository.saveIntelligenceResult).toHaveBeenCalledWith(
-      SESSION_ID,
-      intelligence,
+    queueProducer.enqueueResearch.mockRejectedValue(
+      new ProviderError(
+        "DISCOVERY_ENQUEUE_FAILED",
+        "Redis connection refused",
+        true,
+      ),
     );
-  });
-
-  it.each([
-    {
-      name: "the AI discovery service is not configured",
-      arrangeAiFailure: () =>
-        aiDiscoveryClient.start.mockRejectedValue(
-          new ProviderError(
-            "AI_SERVICE_NOT_CONFIGURED",
-            "AI discovery service is not configured.",
-            false,
-          ),
-        ),
-    },
-    {
-      name: "AI discovery returns safe failure without a question",
-      arrangeAiFailure: () =>
-        aiDiscoveryClient.start.mockResolvedValue({
-          action: "safe_failure",
-          updated_known_facts: emptyMarketAwareBusinessFacts(),
-          updated_uncertainties: [],
-          research_observations: [],
-          source_refs: [],
-          domain_scores: emptyDiscoveryDomainScores(),
-          ready_to_summarize: false,
-          safe_error: {
-            code: "AI_PROVIDER_INVALID_OUTPUT",
-            message: "Provider returned invalid discovery output.",
-            retryable: true,
-          },
-        }),
-    },
-  ])("does not mark chat ready when $name", async ({ arrangeAiFailure }) => {
-    repository.createPreparedSession.mockResolvedValue(session() as never);
-    gatherer.gather.mockResolvedValue(emptyIntelligence());
-    arrangeAiFailure();
 
     await expect(
       service.startPreparedDiscovery("owner-id", discoveryDto()),
-    ).resolves.toMatchObject({
-      session_id: SESSION_ID,
-      status: "researching",
+    ).rejects.toMatchObject({
+      status: 503,
+      response: expect.objectContaining({
+        code: "DISCOVERY_ENQUEUE_FAILED",
+      }),
     });
-    await flushPromises();
-    expectAiUnavailableFallback();
-  });
 
-  it("does not expose internal background failure details", async () => {
-    repository.createPreparedSession.mockResolvedValue(session() as never);
-    gatherer.gather.mockRejectedValue(
-      new Error("secret provider host and credentials"),
-    );
-
-    await service.startPreparedDiscovery("owner-id", discoveryDto());
-    await flushPromises();
-
-    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
-      SESSION_ID,
-      ["researching", "partial_ready", "ready_for_chat", "research_failed"],
-      "failed",
-    );
     expect(repository.appendProgressEvent).toHaveBeenCalledWith(
       SESSION_ID,
       expect.objectContaining({
-        payload: {
-          code: "DISCOVERY_BACKGROUND_FAILED",
-          retryable: true,
-        },
+        stage: "queued",
+        status: "failed",
+        messageKey: "discovery.queued.failed",
       }),
     );
   });
 
-  it("cancels research when the total deadline is reached", async () => {
-    const previousTimeout = process.env.DISCOVERY_RESEARCH_TIMEOUT_MS;
-    process.env.DISCOVERY_RESEARCH_TIMEOUT_MS = "5";
+  it("does not run background research inline", async () => {
     repository.createPreparedSession.mockResolvedValue(session() as never);
-    gatherer.gather.mockImplementation(
-      async (_dto, _onProgress, signal) =>
-        new Promise<IntelligenceResult>((_resolve, reject) => {
-          signal?.addEventListener("abort", () => {
-            reject(signal.reason);
-          });
-        }),
-    );
+    queueProducer.enqueueResearch.mockResolvedValue(undefined);
 
-    try {
-      await service.startPreparedDiscovery("owner-id", discoveryDto());
-      await new Promise((resolve) => setTimeout(resolve, 15));
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
 
-      expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
-        SESSION_ID,
-        ["researching", "partial_ready", "ready_for_chat", "research_failed"],
-        "failed",
-      );
-    } finally {
-      if (previousTimeout === undefined) {
-        delete process.env.DISCOVERY_RESEARCH_TIMEOUT_MS;
-      } else {
-        process.env.DISCOVERY_RESEARCH_TIMEOUT_MS = previousTimeout;
-      }
-    }
+    // The old inline background work is gone; only enqueue is called.
+    expect(queueProducer.enqueueResearch).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -294,67 +149,4 @@ function discoveryDto(): StartDiscoveryDto {
       area: "Nasr City",
     },
   };
-}
-
-function emptyIntelligence(): IntelligenceResult {
-  return {
-    status: "complete",
-    search_mode: "free_search",
-    source_refs: [],
-    research_observations: [],
-    conversation_hooks: [],
-    knowledge_gaps: [],
-  };
-}
-
-function aiQuestion() {
-  return {
-    action: "ask_next_question" as const,
-    next_question: "Who are your best current customers?",
-    updated_known_facts: emptyMarketAwareBusinessFacts(),
-    updated_uncertainties: [],
-    research_observations: [],
-    source_refs: [],
-    domain_scores: emptyDiscoveryDomainScores(),
-    ready_to_summarize: false,
-  };
-}
-
-function assistantMessage() {
-  return {
-    id: "assistant-message",
-    role: "assistant" as const,
-    content: "Who are your best current customers?",
-    language: LanguageModeDto.Mixed,
-    source: "chat" as const,
-    created_at: "2026-06-29T10:01:00.000Z",
-  };
-}
-
-function deferred<T>(): {
-  readonly promise: Promise<T>;
-  readonly resolve: (value: T) => void;
-} {
-  let resolveValue: ((value: T) => void) | undefined;
-  const promise = new Promise<T>((resolve) => {
-    resolveValue = resolve;
-  });
-
-  if (!resolveValue) {
-    throw new Error("Deferred promise did not initialize.");
-  }
-
-  return { promise, resolve: resolveValue };
-}
-
-function flushPromises(): Promise<void> {
-  return new Promise((resolve) => {
-    setImmediate(resolve);
-  });
-}
-
-function nextTickValue<T>(value: T): Promise<T> {
-  return new Promise((resolve) => {
-    setImmediate(() => resolve(value));
-  });
 }

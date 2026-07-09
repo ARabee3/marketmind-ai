@@ -11,6 +11,7 @@ import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryQueueModule } from "./discovery-queue.module";
 import { AiQueryPlanningClient } from "./ai-client/ai-query-planning.client";
 import { ApifyMapsProvider } from "./intelligence/apify-maps.provider";
 import { DeterministicQueryPlannerService } from "./intelligence/deterministic-query-planner.service";
@@ -24,7 +25,7 @@ import { SearchClientService } from "./intelligence/search-client.service";
 import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), DiscoveryQueueModule],
   controllers: [DiscoveryController],
   providers: [
     DiscoveryRepository,
