@@ -1,21 +1,15 @@
 import { Module } from "@nestjs/common";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
-import { DiscoveryQueueWorker } from "./discovery-queue.worker";
-import { DiscoveryResearchProcessor } from "./discovery-research.processor";
 
 /**
- * DiscoveryQueueModule registers the BullMQ queue and worker for
- * discovery research jobs.
+ * DiscoveryQueueModule registers the BullMQ queue producer.
  *
- * The producer enqueues jobs using the session UUID as the jobId.
- * The worker processes jobs with configurable concurrency and retry policy.
+ * Kept minimal to avoid circular dependencies with DiscoveryModule.
+ * The worker and processor are registered in DiscoveryModule where
+ * all discovery repositories and services are available.
  */
 @Module({
-  providers: [
-    DiscoveryQueueProducer,
-    DiscoveryQueueWorker,
-    DiscoveryResearchProcessor,
-  ],
+  providers: [DiscoveryQueueProducer],
   exports: [DiscoveryQueueProducer],
 })
 export class DiscoveryQueueModule {}

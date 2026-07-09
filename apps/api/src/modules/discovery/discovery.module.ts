@@ -13,6 +13,8 @@ import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
 import { DiscoveryQueueModule } from "./discovery-queue.module";
+import { DiscoveryQueueWorker } from "./discovery-queue.worker";
+import { DiscoveryResearchProcessor } from "./discovery-research.processor";
 import { AiQueryPlanningClient } from "./ai-client/ai-query-planning.client";
 import { ApifyMapsProvider } from "./intelligence/apify-maps.provider";
 import { DeterministicQueryPlannerService } from "./intelligence/deterministic-query-planner.service";
@@ -37,6 +39,8 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     DiscoveryRedisLimiterService,
     DiscoveryReadinessService,
     DiscoveryService,
+    DiscoveryQueueWorker,
+    DiscoveryResearchProcessor,
     DiscoveryProgressGateway,
     AiDiscoveryClient,
     AiEvidenceTriageClient,
