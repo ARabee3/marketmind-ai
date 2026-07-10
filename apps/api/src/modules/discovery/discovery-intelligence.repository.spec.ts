@@ -37,6 +37,15 @@ describe("DiscoveryIntelligenceRepository", () => {
       }),
     );
   });
+
+  it("does not mark a session chat-ready when intelligence is saved", async () => {
+    const prisma = prismaMock();
+    const repository = new DiscoveryIntelligenceRepository(prisma as never);
+
+    await repository.saveIntelligenceResult("session-id", duplicateIntelligence());
+
+    expect(prisma.discoverySession.updateMany).not.toHaveBeenCalled();
+  });
 });
 
 function prismaMock(): PrismaService {

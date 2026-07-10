@@ -1,3 +1,4 @@
+import { ConflictException } from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -82,7 +83,11 @@ describe("DiscoveryService background research", () => {
     expect(
       conversationRepository.recordInitialAssistantQuestion,
     ).not.toHaveBeenCalled();
-    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalled();
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "partial_ready",
+    );
     expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
       SESSION_ID,
       expect.objectContaining({ messageKey: "discovery.ready_for_chat" }),
@@ -141,6 +146,63 @@ describe("DiscoveryService background research", () => {
         status: "completed",
         messageKey: "discovery.ready_for_chat",
       }),
+    );
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "partial_ready",
+    );
+  });
+
+  it("does not call AI when intelligence fails", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    gatherer.gather.mockResolvedValue({
+      ...emptyIntelligence(),
+      status: "failed",
+      safe_error: {
+        code: "SEARCH_FAILED",
+        message: "Search failed.",
+        retryable: true,
+      },
+    });
+
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+    await flushPromises();
+
+    expect(aiDiscoveryClient.start).not.toHaveBeenCalled();
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "research_failed",
+    );
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("treats duplicate background completion as an idempotent no-op", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    gatherer.gather.mockResolvedValue(emptyIntelligence());
+    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
+    conversationRepository.recordInitialAssistantQuestion
+      .mockResolvedValueOnce(assistantMessage())
+      .mockRejectedValueOnce(new ConflictException("Already started."));
+
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+    await flushPromises();
+
+    const readyCalls = repository.appendProgressEvent.mock.calls.filter(
+      ([, event]) => event.messageKey === "discovery.ready_for_chat",
+    );
+    expect(readyCalls).toHaveLength(1);
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).toHaveBeenCalledTimes(2);
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.any(Array),
+      "failed",
     );
   });
 
@@ -231,7 +293,7 @@ describe("DiscoveryService background research", () => {
 
     expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
       SESSION_ID,
-      ["researching", "partial_ready", "ready_for_chat", "research_failed"],
+      ["researching"],
       "failed",
     );
     expect(repository.appendProgressEvent).toHaveBeenCalledWith(
@@ -241,6 +303,27 @@ describe("DiscoveryService background research", () => {
           code: "DISCOVERY_BACKGROUND_FAILED",
           retryable: true,
         },
+      }),
+    );
+  });
+
+  it("does not demote a stale partial-ready session to failed", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    repository.updateStatusIfCurrent.mockResolvedValue(false);
+    gatherer.gather.mockRejectedValue(new Error("stale duplicate worker"));
+
+    await service.startPreparedDiscovery("owner-id", discoveryDto());
+    await flushPromises();
+
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "failed",
+    );
+    expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.objectContaining({
+        messageKey: "discovery.background.failed",
       }),
     );
   });
@@ -264,7 +347,7 @@ describe("DiscoveryService background research", () => {
 
       expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
         SESSION_ID,
-        ["researching", "partial_ready", "ready_for_chat", "research_failed"],
+        ["researching"],
         "failed",
       );
     } finally {

@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import {
   ConversationHook,
-  DiscoverySessionStatus,
   IntelligenceResult,
   KnowledgeGap,
   ResearchObservation,
@@ -97,23 +96,6 @@ export function intelligenceFromPersistence(
           }
         : undefined,
   };
-}
-
-export function sessionStatusForIntelligence(
-  intelligence: IntelligenceResult,
-): DiscoverySessionStatus {
-  switch (intelligence.status) {
-    case "running":
-      return "researching";
-    case "partial":
-      return "partial_ready";
-    case "complete":
-      return "ready_for_chat";
-    case "failed":
-      return "research_failed";
-    default:
-      return assertNever(intelligence.status);
-  }
 }
 
 export function metadataForPrisma(
@@ -262,8 +244,4 @@ function gapStatus(value: string): KnowledgeGap["status"] {
     default:
       return "open";
   }
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled intelligence status: ${value}`);
 }

@@ -52,7 +52,7 @@ describe("DiscoveryConversationRepository", () => {
       where: {
         id: "session-id",
         status: {
-          in: ["partial_ready", "ready_for_chat", "research_failed"],
+          in: ["researching"],
         },
       },
       data: {
