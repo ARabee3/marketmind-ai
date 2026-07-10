@@ -46,7 +46,7 @@ class PlannedSearchQuery(StrictModel):
 
 class QueryPlan(StrictModel):
     source: QueryPlanSource
-    queries: list[PlannedSearchQuery] = Field(min_length=1)
+    queries: list[PlannedSearchQuery] = Field(min_length=1, max_length=8)
     warnings: list[str] = Field(default_factory=list)
 
 

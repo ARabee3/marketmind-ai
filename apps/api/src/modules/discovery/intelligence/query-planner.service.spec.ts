@@ -29,7 +29,7 @@ describe("QueryPlannerService", () => {
   });
 
   it("uses the AI query plan when the AI client succeeds", async () => {
-    aiClient.plan.mockResolvedValue({
+    const aiPlan = {
       source: "llm",
       queries: [
         {
@@ -40,20 +40,11 @@ describe("QueryPlannerService", () => {
           provider_hints: ["serpapi"],
         },
       ],
-    });
+      warnings: ["AI warning"],
+    } as const;
+    aiClient.plan.mockResolvedValue(aiPlan);
 
-    await expect(service.plan(dto)).resolves.toEqual({
-      source: "llm",
-      queries: [
-        {
-          intent: "competitor_discovery",
-          query: "best restaurants in Cairo competitors",
-          language: LanguageModeDto.Mixed,
-          priority: 100,
-          provider_hints: ["serpapi"],
-        },
-      ],
-    });
+    await expect(service.plan(dto)).resolves.toBe(aiPlan);
     expect(deterministicPlanner.plan).not.toHaveBeenCalled();
   });
 
@@ -65,7 +56,7 @@ describe("QueryPlannerService", () => {
         false,
       ),
     );
-    deterministicPlanner.plan.mockReturnValue({
+    const fallback = {
       source: "deterministic",
       queries: [
         {
@@ -76,10 +67,12 @@ describe("QueryPlannerService", () => {
           provider_hints: ["serpapi"],
         },
       ],
-    });
+    } as const;
+    deterministicPlanner.plan.mockReturnValue(fallback);
 
-    await expect(service.plan(dto)).resolves.toMatchObject({
+    await expect(service.plan(dto)).resolves.toEqual({
       source: "deterministic",
+      queries: fallback.queries,
       warnings: [
         "AI_SERVICE_NOT_CONFIGURED: AI query planning is not configured.",
       ],
