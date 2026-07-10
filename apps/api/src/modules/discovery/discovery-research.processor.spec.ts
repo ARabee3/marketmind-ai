@@ -56,7 +56,7 @@ describe("DiscoveryResearchProcessor", () => {
           message_text: event.messageText,
           payload: event.payload ?? {},
           created_at: "2026-06-29T10:01:00.000Z",
-        } as never),
+        }) as never,
     );
     conversationRepository.getIntake.mockResolvedValue(intakeDto());
     processor = new DiscoveryResearchProcessor(
@@ -71,7 +71,9 @@ describe("DiscoveryResearchProcessor", () => {
   });
 
   it("skips processing when session is already ready_for_chat", async () => {
-    repository.findSessionStatus.mockResolvedValue({ status: "ready_for_chat" });
+    repository.findSessionStatus.mockResolvedValue({
+      status: "ready_for_chat",
+    });
 
     await processor.process(SESSION_ID, 1, 3);
 
@@ -149,6 +151,35 @@ describe("DiscoveryResearchProcessor", () => {
           attempt: 1,
           max_attempts: 3,
         }),
+      }),
+    );
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalled();
+  });
+
+  it("retries run real research after a non-final failure", async () => {
+    repository.findSessionStatus.mockResolvedValue({ status: "researching" });
+    gatherer.gather
+      .mockRejectedValueOnce(new Error("Provider timeout"))
+      .mockResolvedValueOnce(emptyIntelligence());
+    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
+    conversationRepository.recordInitialAssistantQuestion.mockResolvedValue(
+      assistantMessage(),
+    );
+
+    await expect(processor.process(SESSION_ID, 1, 3)).rejects.toThrow(
+      "Provider timeout",
+    );
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalled();
+
+    await processor.process(SESSION_ID, 2, 3);
+
+    expect(gatherer.gather).toHaveBeenCalledTimes(2);
+    expect(repository.appendProgressEvent).toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.objectContaining({
+        stage: "ready",
+        status: "completed",
+        messageKey: "discovery.ready_for_chat",
       }),
     );
   });

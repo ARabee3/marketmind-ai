@@ -63,6 +63,11 @@ export class DiscoveryService {
           retryable: true,
         },
       });
+      await this.discoveryRepository.updateStatusIfCurrent(
+        session.id,
+        ["researching"],
+        "failed",
+      );
 
       if (error instanceof ProviderError) {
         throw new ServiceUnavailableException({

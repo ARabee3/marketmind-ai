@@ -41,8 +41,7 @@ export class DiscoveryResearchProcessor {
     attemptNumber: number,
     maxAttempts: number,
   ): Promise<void> {
-    const session =
-      await this.discoveryRepository.findSessionStatus(sessionId);
+    const session = await this.discoveryRepository.findSessionStatus(sessionId);
     if (!session) {
       this.logger.warn(`Session ${sessionId} not found, skipping.`);
       return;
@@ -71,7 +70,12 @@ export class DiscoveryResearchProcessor {
       if (isLastAttempt) {
         await this.handleTerminalFailure(sessionId, error);
       } else {
-        await this.handleRetryFailure(sessionId, error, attemptNumber, maxAttempts);
+        await this.handleRetryFailure(
+          sessionId,
+          error,
+          attemptNumber,
+          maxAttempts,
+        );
         throw error;
       }
     }
@@ -81,94 +85,83 @@ export class DiscoveryResearchProcessor {
     sessionId: string,
     dto: StartDiscoveryDto,
   ): Promise<void> {
-    try {
-      await this.recordProgress(sessionId, {
-        stage: "intelligence",
-        status: "started",
-        messageKey: "discovery.intelligence.started",
-        messageText: "Research started.",
-      });
-      const intelligence = await withResearchDeadline(
-        (signal) =>
-          this.intelligenceGatherer.gather(
-            dto,
-            (event) => {
-              signal.throwIfAborted();
-              return this.recordProgress(sessionId, event);
-            },
-            signal,
-          ),
-        externalProviderConfig().discoveryResearchTimeoutMs,
-      );
-      await this.recordProgress(sessionId, {
-        stage: "persisting",
-        status: "started",
-        messageKey: "discovery.persisting.started",
-        messageText: "Saving research results.",
-      });
-      await this.intelligenceRepository.saveIntelligenceResult(
-        sessionId,
-        intelligence,
-      );
-      await this.recordProgress(sessionId, {
-        stage: "persisting",
-        status: "completed",
-        messageKey: "discovery.persisting.completed",
-        messageText: "Research results were saved.",
-      });
-      await this.recordProgress(sessionId, {
-        stage: "intelligence",
-        status: "completed",
-        messageKey: "discovery.intelligence.completed",
-        messageText: "Research finished.",
-        payload: {
-          status: intelligence.status,
-          source_count: intelligence.source_refs.length,
-          observation_count: intelligence.research_observations.length,
-        },
-      });
-      await this.recordProgress(sessionId, {
-        stage: "ai_discovery",
-        status: "started",
-        messageKey: "discovery.ai.started",
-        messageText: "Preparing the first discovery question.",
-      });
-      const aiStarted = await this.startAiDiscovery(
-        sessionId,
-        dto,
-        intelligence,
-      );
-      await this.recordProgress(sessionId, {
-        stage: "ai_discovery",
-        status: aiStarted ? "completed" : "failed",
-        messageKey: aiStarted
-          ? "discovery.ai.completed"
-          : "discovery.ai.provider_unavailable",
-        messageText: aiStarted
-          ? "First discovery question is ready."
-          : "AI discovery provider is not available yet.",
-      });
-      if (!aiStarted) {
-        return;
-      }
-      await this.recordProgress(sessionId, {
-        stage: "ready",
-        status: "completed",
-        messageKey: "discovery.ready_for_chat",
-        messageText: "Discovery chat is ready.",
-      });
-    } catch (error) {
-      await this.handleBackgroundFailure(sessionId, error);
-      throw error;
+    await this.recordProgress(sessionId, {
+      stage: "intelligence",
+      status: "started",
+      messageKey: "discovery.intelligence.started",
+      messageText: "Research started.",
+    });
+    const intelligence = await withResearchDeadline(
+      (signal) =>
+        this.intelligenceGatherer.gather(
+          dto,
+          (event) => {
+            signal.throwIfAborted();
+            return this.recordProgress(sessionId, event);
+          },
+          signal,
+        ),
+      externalProviderConfig().discoveryResearchTimeoutMs,
+    );
+    await this.recordProgress(sessionId, {
+      stage: "persisting",
+      status: "started",
+      messageKey: "discovery.persisting.started",
+      messageText: "Saving research results.",
+    });
+    await this.intelligenceRepository.saveIntelligenceResult(
+      sessionId,
+      intelligence,
+    );
+    await this.recordProgress(sessionId, {
+      stage: "persisting",
+      status: "completed",
+      messageKey: "discovery.persisting.completed",
+      messageText: "Research results were saved.",
+    });
+    await this.recordProgress(sessionId, {
+      stage: "intelligence",
+      status: "completed",
+      messageKey: "discovery.intelligence.completed",
+      messageText: "Research finished.",
+      payload: {
+        status: intelligence.status,
+        source_count: intelligence.source_refs.length,
+        observation_count: intelligence.research_observations.length,
+      },
+    });
+    await this.recordProgress(sessionId, {
+      stage: "ai_discovery",
+      status: "started",
+      messageKey: "discovery.ai.started",
+      messageText: "Preparing the first discovery question.",
+    });
+    const aiStarted = await this.startAiDiscovery(sessionId, dto, intelligence);
+    await this.recordProgress(sessionId, {
+      stage: "ai_discovery",
+      status: aiStarted ? "completed" : "failed",
+      messageKey: aiStarted
+        ? "discovery.ai.completed"
+        : "discovery.ai.provider_unavailable",
+      messageText: aiStarted
+        ? "First discovery question is ready."
+        : "AI discovery provider is not available yet.",
+    });
+    if (!aiStarted) {
+      return;
     }
+    await this.recordProgress(sessionId, {
+      stage: "ready",
+      status: "completed",
+      messageKey: "discovery.ready_for_chat",
+      messageText: "Discovery chat is ready.",
+    });
   }
 
   private async startAiDiscovery(
     sessionId: string,
     dto: StartDiscoveryDto,
-    intelligence: Awaited<
-      ReturnType<IntelligenceGathererService["gather"]>
-    >,
+    intelligence: Awaited<ReturnType<IntelligenceGathererService["gather"]>>,
   ): Promise<boolean> {
     try {
       const result = await this.aiDiscoveryClient.start(
@@ -194,39 +187,6 @@ export class DiscoveryResearchProcessor {
     }
   }
 
-  private async handleBackgroundFailure(
-    sessionId: string,
-    error: unknown,
-  ): Promise<void> {
-    this.logger.error(
-      "Discovery background research failed",
-      error instanceof Error ? error.stack : String(error),
-    );
-    const failed = await this.discoveryRepository.updateStatusIfCurrent(
-      sessionId,
-      [
-        "researching",
-        "partial_ready",
-        "ready_for_chat",
-        "research_failed",
-      ],
-      "failed",
-    );
-    if (!failed) {
-      return;
-    }
-    await this.recordProgress(sessionId, {
-      stage: "background",
-      status: "failed",
-      messageKey: "discovery.background.failed",
-      messageText: "Discovery research failed.",
-      payload: {
-        code: "DISCOVERY_BACKGROUND_FAILED",
-        retryable: true,
-      },
-    });
-  }
-
   private async handleTerminalFailure(
     sessionId: string,
     error: unknown,
@@ -237,12 +197,7 @@ export class DiscoveryResearchProcessor {
     );
     const failed = await this.discoveryRepository.updateStatusIfCurrent(
       sessionId,
-      [
-        "researching",
-        "partial_ready",
-        "ready_for_chat",
-        "research_failed",
-      ],
+      ["researching", "partial_ready", "ready_for_chat", "research_failed"],
       "failed",
     );
     if (!failed) {

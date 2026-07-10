@@ -72,7 +72,10 @@ describe("DiscoveryService enqueue behavior", () => {
       status_url: `/api/v1/discovery/${SESSION_ID}/status`,
       accepted_at: "2026-06-29T10:00:00.000Z",
     });
-    expect(repository.createPreparedSession).toHaveBeenCalledWith("owner-id", dto);
+    expect(repository.createPreparedSession).toHaveBeenCalledWith(
+      "owner-id",
+      dto,
+    );
     expect(queueProducer.enqueueResearch).toHaveBeenCalledWith(SESSION_ID);
   });
 
@@ -118,6 +121,28 @@ describe("DiscoveryService enqueue behavior", () => {
         status: "failed",
         messageKey: "discovery.queued.failed",
       }),
+    );
+  });
+
+  it("transitions session to failed when enqueue fails", async () => {
+    repository.createPreparedSession.mockResolvedValue(session() as never);
+    repository.updateStatusIfCurrent.mockResolvedValue(true);
+    queueProducer.enqueueResearch.mockRejectedValue(
+      new ProviderError(
+        "DISCOVERY_ENQUEUE_FAILED",
+        "Redis connection refused",
+        true,
+      ),
+    );
+
+    await expect(
+      service.startPreparedDiscovery("owner-id", discoveryDto()),
+    ).rejects.toMatchObject({ status: 503 });
+
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "failed",
     );
   });
 
