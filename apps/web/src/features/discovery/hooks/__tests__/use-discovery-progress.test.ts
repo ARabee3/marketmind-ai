@@ -16,12 +16,14 @@ vi.mock('@/lib/api/discovery', () => ({
 const mockSocketOn = vi.fn()
 const mockSocketEmit = vi.fn()
 const mockSocketDisconnect = vi.fn()
+const mockSocketConnect = vi.fn()
 const mockIoOn = vi.fn()
 vi.mock('socket.io-client', () => ({
   io: () => ({
     on: mockSocketOn,
     emit: mockSocketEmit,
     disconnect: mockSocketDisconnect,
+    connect: mockSocketConnect,
     io: {
       on: mockIoOn,
     },
@@ -105,6 +107,7 @@ describe('useDiscoveryProgress', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -349,7 +352,7 @@ describe('useDiscoveryProgress', () => {
     })
 
     it('sets connection error on connect_error and reconnect_failed', async () => {
-      let connectErrorCallback: () => void = () => {}
+      let connectErrorCallback: (error?: Error & { data?: { status?: number } }) => Promise<void> | void = () => {}
       let reconnectFailedCallback: () => void = () => {}
 
       mockSocketOn.mockImplementation((event: string, cb: () => void) => {
@@ -374,6 +377,29 @@ describe('useDiscoveryProgress', () => {
 
       expect(result.current.connectionState).toBe('failed')
       expect(result.current.connectionError).toBe('DiscoveryProgress.connectionFailed')
+    })
+
+    it('refreshes once and reconnects when the socket rejects an expired token', async () => {
+      let connectErrorCallback: (error?: Error & { data?: { status?: number } }) => Promise<void> | void = () => {}
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ accessToken: 'fresh-token' }), { status: 200 }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      mockSocketOn.mockImplementation((event: string, cb: (error?: Error & { data?: { status?: number } }) => Promise<void> | void) => {
+        if (event === 'connect_error') connectErrorCallback = cb
+      })
+
+      renderHook(() => useDiscoveryProgress({ sessionId: 'test' }))
+
+      await act(async () => {
+        await connectErrorCallback(new Error('Authentication error'))
+      })
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:3001/api/v1/auth/refresh',
+        expect.objectContaining({ method: 'POST', credentials: 'include' }),
+      )
+      expect(mockSocketConnect).toHaveBeenCalledTimes(1)
     })
 
     it('keeps research warning across disconnect', async () => {

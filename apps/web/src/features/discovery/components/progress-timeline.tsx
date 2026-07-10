@@ -12,18 +12,15 @@ import type { TranslationKey } from '@/i18n/types'
 
 export function ProgressTimeline({
   sessionId,
-  authToken,
   onContinueToInterview,
 }: {
   sessionId: string
-  authToken?: string
   onContinueToInterview?: () => Promise<void> | void
 }) {
   const t = useTranslations('DiscoveryProgress')
   const tErrors = useTranslations('Errors')
   const { events, sessionStatus, connectionState, restoredFromStatus, connectionError, researchWarning } = useDiscoveryProgress({
     sessionId,
-    authToken,
   })
 
   const showInterviewAction = onContinueToInterview && canOpenInterview(sessionStatus)

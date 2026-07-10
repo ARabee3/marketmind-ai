@@ -48,7 +48,6 @@ export interface DiscoverySessionState {
 
 interface Options {
   sessionId: string
-  authToken?: string
 }
 
 function getPhaseFromStatus(status: DiscoveryStatusResponse['status']): SessionPhase {
@@ -66,7 +65,7 @@ function getPhaseFromStatus(status: DiscoveryStatusResponse['status']): SessionP
   return 'loading'
 }
 
-export function useDiscoverySession({ sessionId, authToken }: Options) {
+export function useDiscoverySession({ sessionId }: Options) {
   const [state, setState] = useState<DiscoverySessionState>({
     status: null,
     phase: 'loading',
@@ -86,7 +85,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
   const loadStatus = useCallback(async (): Promise<DiscoveryStatusResponse | null> => {
     setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
     try {
-      const res = await getDiscoveryStatus(sessionId, authToken)
+      const res = await getDiscoveryStatus(sessionId)
       if (!mountedRef.current) return null
       setState({
         status: res,
@@ -109,7 +108,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       }))
       return null
     }
-  }, [sessionId, authToken])
+  }, [sessionId])
 
   // Initial hydration
   useEffect(() => {
@@ -136,11 +135,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       const preOwnerCount = preOwnerIds.size
 
       try {
-        await respondToDiscovery(
-          sessionId,
-          { message },
-          authToken,
-        )
+        await respondToDiscovery(sessionId, { message })
       } catch (err) {
         // Ambiguous: refresh status to determine actual state
         const recovered = await loadStatus()
@@ -174,7 +169,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       setPending(false)
       return { accepted: true }
     },
-    [sessionId, authToken, loadStatus, setPending, state.status],
+    [sessionId, loadStatus, setPending, state.status],
   )
 
   const summarize = useCallback(
@@ -185,7 +180,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
 
       try {
-        await summarizeDiscovery(sessionId, payload, authToken)
+        await summarizeDiscovery(sessionId, payload)
       } catch (err) {
         await loadStatus()
         if (!mountedRef.current) return
@@ -204,7 +199,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       if (!mountedRef.current) return
       setPending(false)
     },
-    [sessionId, authToken, loadStatus, setPending],
+    [sessionId, loadStatus, setPending],
   )
 
   const confirm = useCallback(
@@ -215,7 +210,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
 
       try {
-        await confirmDiscoveryProfile(sessionId, payload, authToken)
+        await confirmDiscoveryProfile(sessionId, payload)
       } catch (err) {
         await loadStatus()
         if (!mountedRef.current) return
@@ -234,7 +229,7 @@ export function useDiscoverySession({ sessionId, authToken }: Options) {
       if (!mountedRef.current) return
       setPending(false)
     },
-    [sessionId, authToken, loadStatus, setPending],
+    [sessionId, loadStatus, setPending],
   )
 
   const retryLoad = useCallback(() => {

@@ -8,8 +8,12 @@ const t = (key: string) => {
     appName: 'MarketMind AI',
     navHome: 'Home',
     navDiscovery: 'Discovery',
+    navDashboard: 'Dashboard',
     primaryNavLabel: 'Primary',
     mobileNavLabel: 'Mobile primary',
+    loginSubmit: 'Sign in',
+    registerSubmit: 'Create account',
+    logout: 'Sign out',
   }
   return dict[key] ?? key
 }
@@ -31,6 +35,18 @@ vi.mock('@/components/language-switcher', () => ({
   LanguageSwitcher: () => <button type="button" aria-label="Language: Arabic">AR</button>,
 }))
 
+let authenticated = false
+
+vi.mock('@/features/auth/session-provider', () => ({
+  useSession: () => ({ isAuthenticated: authenticated }),
+}))
+
+vi.mock('@/features/auth/logout-button', () => ({
+  LogoutButton: ({ size }: { size?: string }) => (
+    <button type="button" data-size={size}>Sign out</button>
+  ),
+}))
+
 describe('AppShell', () => {
   it('renders brand in both mobile top bar and desktop sidebar', () => {
     render(
@@ -42,7 +58,7 @@ describe('AppShell', () => {
     expect(brands).toHaveLength(2)
   })
 
-  it('renders primary desktop sidebar and mobile bottom nav with both destinations', () => {
+  it('renders primary desktop sidebar and mobile bottom nav with all destinations', () => {
     render(
       <AppShell brandName="MarketMind AI">
         <div>content</div>
@@ -60,6 +76,7 @@ describe('AppShell', () => {
 
     expect(screen.getAllByRole('link', { name: 'Home' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Discovery' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Dashboard' })).toHaveLength(2)
   })
 
   it('marks the home link as current in both navs', () => {
@@ -85,5 +102,43 @@ describe('AppShell', () => {
     expect(main?.className).toMatch(/max-w-\[1200px\]/)
     expect(main?.className).not.toMatch(/md:ms-\[240px\]/)
     expect(main?.textContent).toMatch(/body/)
+  })
+
+  it('renders login and register actions in the desktop sidebar when unauthenticated', () => {
+    authenticated = false
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const desktopSidebar = screen.getByLabelText('Primary').closest('aside')!
+    expect(desktopSidebar.textContent).toMatch(/Sign in/)
+    expect(desktopSidebar.textContent).toMatch(/Create account/)
+  })
+
+  it('renders logout action in the desktop sidebar when authenticated', () => {
+    authenticated = true
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const desktopSidebar = screen.getByLabelText('Primary').closest('aside')!
+    expect(desktopSidebar.textContent).toMatch(/Sign out/)
+  })
+
+  it('renders equivalent auth actions in the mobile top bar', () => {
+    authenticated = false
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const mobileHeader = container.querySelector('header')!
+    expect(mobileHeader.textContent).toMatch(/Sign in/)
+    expect(mobileHeader.textContent).toMatch(/Create account/)
   })
 })

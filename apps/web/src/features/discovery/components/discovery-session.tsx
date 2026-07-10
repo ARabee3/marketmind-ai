@@ -67,17 +67,15 @@ function ActionErrorBanner({
 
 export function DiscoverySession({
   sessionId,
-  authToken,
 }: {
   sessionId: string
-  authToken?: string
 }) {
   const tProgress = useTranslations('DiscoveryProgress')
   const tInterview = useTranslations('DiscoveryInterview')
   const tErrors = useTranslations('Errors')
   const fmt = useFormatter()
 
-  const session = useDiscoverySession({ sessionId, authToken })
+  const session = useDiscoverySession({ sessionId })
 
   const status = session.status
   const phase = session.phase
@@ -98,7 +96,6 @@ export function DiscoverySession({
       <div className="py-8">
         <ProgressTimeline
           sessionId={sessionId}
-          authToken={authToken}
           onContinueToInterview={async () => {
             await session.refresh()
           }}

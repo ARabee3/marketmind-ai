@@ -27,7 +27,7 @@ const PLATFORMS: SocialPlatform[] = [
   'other',
 ]
 
-export function IntakeForm({ authToken }: { authToken?: string }) {
+export function IntakeForm() {
   const t = useTranslations('DiscoveryIntake')
   const tAll = useTranslations()
   const locale = useLocale()
@@ -108,7 +108,7 @@ export function IntakeForm({ authToken }: { authToken?: string }) {
         }
       }
 
-      const res = await startDiscovery(payload, authToken)
+      const res = await startDiscovery(payload)
       router.push(`/discovery/${res.session_id}`)
     } catch (err: unknown) {
       const apiError = err as ApiError

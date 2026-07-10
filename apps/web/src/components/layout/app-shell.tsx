@@ -4,16 +4,19 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { useSession } from '@/features/auth/session-provider'
+import { LogoutButton } from '@/features/auth/logout-button'
 
 type NavItem = {
-  href: '/' | '/discovery'
-  labelKey: 'navHome' | 'navDiscovery'
-  iconName: 'home' | 'compass'
+  href: '/' | '/discovery' | '/dashboard'
+  labelKey: 'navHome' | 'navDiscovery' | 'navDashboard'
+  iconName: 'home' | 'compass' | 'layout-dashboard'
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/', labelKey: 'navHome', iconName: 'home' },
   { href: '/discovery', labelKey: 'navDiscovery', iconName: 'compass' },
+  { href: '/dashboard', labelKey: 'navDashboard', iconName: 'layout-dashboard' },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -40,6 +43,15 @@ function NavIcon({ name }: { name: NavItem['iconName'] }) {
       <svg {...common}>
         <circle cx="12" cy="12" r="10" />
         <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+      </svg>
+    )
+  }
+  if (name === 'layout-dashboard') {
+    return (
+      <svg {...common}>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
       </svg>
     )
   }
@@ -74,8 +86,41 @@ function MobileTopBar({ brandName }: { brandName: string }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4 md:hidden">
       <span className="text-lg font-semibold text-navy">{brandName}</span>
-      <LanguageSwitcher />
+      <div className="flex items-center gap-2">
+        <AuthSection compact />
+        <LanguageSwitcher />
+      </div>
     </header>
+  )
+}
+
+function AuthSection({ compact = false }: { compact?: boolean }) {
+  const t = useTranslations('Auth')
+  const { isAuthenticated } = useSession()
+
+  if (isAuthenticated) {
+    return <LogoutButton size={compact ? 'sm' : 'default'} />
+  }
+
+  return (
+    <div className={`flex items-center ${compact ? 'gap-1' : 'gap-2'}`}>
+      <Link
+        href="/login"
+        className={`rounded-md font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
+          compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+        }`}
+      >
+        {t('loginSubmit')}
+      </Link>
+      <Link
+        href="/register"
+        className={`rounded-md bg-primary font-medium text-primary-foreground transition-colors hover:bg-primary/80 ${
+          compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+        }`}
+      >
+        {t('registerSubmit')}
+      </Link>
+    </div>
   )
 }
 
@@ -114,7 +159,8 @@ function DesktopSidebar({ brandName }: { brandName: string }) {
           })}
         </ul>
       </nav>
-      <div className="flex items-center justify-center border-e border-border bg-surface px-4 py-4">
+      <div className="flex flex-col gap-3 border-e border-border bg-surface px-4 py-4">
+        <AuthSection />
         <LanguageSwitcher />
       </div>
     </aside>

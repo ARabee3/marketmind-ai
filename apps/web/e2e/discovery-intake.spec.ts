@@ -3,6 +3,7 @@ import type {
   DiscoveryProgressEvent,
   DiscoverySessionStatus,
 } from '@marketmind/contracts'
+import { mockAuthRefresh, mockAuthMe, mockUser, mockAccessToken } from './fixtures/auth'
 
 const fixtureStatus = (
   status: DiscoverySessionStatus,
@@ -66,8 +67,11 @@ const queuedEvent: DiscoveryProgressEvent = {
 
 test.describe('Discovery Intake & Progress Workflow', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the POST /api/v1/discovery/start endpoint. Auth is owned by #19;
-    // these tests exercise the frontend contract without inventing tokens.
+    // Discovery is now a protected journey; provide an active session.
+    await mockAuthRefresh(page, mockAccessToken)
+    await mockAuthMe(page, mockUser)
+
+    // Mock the POST /api/v1/discovery/start endpoint.
     await page.route('**/api/v1/discovery/start', async (route) => {
       await route.fulfill({
         status: 202,
@@ -90,6 +94,25 @@ test.describe('Discovery Intake & Progress Workflow', () => {
         body: JSON.stringify(fixtureStatus('researching', [queuedEvent]))
       })
     })
+  })
+
+  test('sends the access token with authenticated Discovery requests', async ({ page }) => {
+    const discoveryStartRequest = page.waitForRequest('**/api/v1/discovery/start')
+
+    await page.goto('/en/discovery/new')
+
+    await page.getByLabel('Business name *').fill('Test Cafe')
+    await page.getByLabel('Business type *').fill('Cafe')
+    await page.getByLabel('City *').fill('Cairo')
+    await page.getByRole('button', { name: 'Start Discovery' }).click()
+
+    const startRequest = await discoveryStartRequest
+    expect(await startRequest.headerValue('Authorization')).toBe(`Bearer ${mockAccessToken}`)
+
+    const statusRequest = page.waitForRequest('**/api/v1/discovery/test-session-123/status')
+    await expect(page).toHaveURL(/\/en\/discovery\/test-session-123/)
+    const statusReq = await statusRequest
+    expect(await statusReq.headerValue('Authorization')).toBe(`Bearer ${mockAccessToken}`)
   })
 
   test('English mode: validates and submits intake form', async ({ page }) => {

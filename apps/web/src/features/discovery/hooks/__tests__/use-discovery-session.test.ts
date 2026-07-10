@@ -153,7 +153,6 @@ describe('useDiscoverySession', () => {
     expect(vi.mocked(respondToDiscovery)).toHaveBeenLastCalledWith(
       'test',
       { message: '  إجابة / answer  ' },
-      undefined,
     )
   })
 
