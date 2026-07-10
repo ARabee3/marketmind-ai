@@ -84,6 +84,9 @@ describe("IntelligenceGathererService filtering", () => {
         },
       ],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     } as never);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [
@@ -163,6 +166,9 @@ describe("IntelligenceGathererService filtering", () => {
         },
       ],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     } as never);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [

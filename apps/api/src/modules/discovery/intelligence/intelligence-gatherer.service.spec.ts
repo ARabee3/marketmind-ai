@@ -85,6 +85,9 @@ describe("IntelligenceGathererService", () => {
         },
       ],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     } as never);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [
@@ -185,6 +188,9 @@ describe("IntelligenceGathererService", () => {
     searchClient.search.mockResolvedValue({
       results: [],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "duckduckgo", outcome: "empty", result_count: 0 },
+      ],
     } as never);
 
     const result = await service.gather(dto);
@@ -212,6 +218,9 @@ describe("IntelligenceGathererService", () => {
     searchClient.search.mockResolvedValue({
       results: [],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "empty", result_count: 0 },
+      ],
     } as never);
     const progress = jest.fn().mockResolvedValue(undefined);
 
@@ -233,7 +242,12 @@ describe("IntelligenceGathererService", () => {
       expect.objectContaining({
         stage: "search",
         status: "completed",
-        payload: expect.objectContaining({ result_count: 0 }),
+        payload: expect.objectContaining({
+          provider_attempts: [
+            { provider: "serpapi", outcome: "empty", result_count: 0 },
+          ],
+          result_count: 0,
+        }),
       }),
     );
     expect(progress).toHaveBeenCalledWith(
@@ -342,6 +356,14 @@ describe("IntelligenceGathererService", () => {
           retryable: true,
         },
       ],
+      provider_attempts: [
+        {
+          provider: "serpapi",
+          outcome: "failed",
+          result_count: 0,
+          error_code: "SERPAPI_SEARCH_FAILED",
+        },
+      ],
     } as never);
 
     const result = await service.gather(dto);
@@ -368,6 +390,9 @@ describe("IntelligenceGathererService", () => {
     searchClient.search.mockResolvedValue({
       results: [],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "empty", result_count: 0 },
+      ],
     } as never);
 
     await service.gather(dto);

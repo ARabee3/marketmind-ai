@@ -108,6 +108,7 @@ export class IntelligenceGathererService {
             intent: plannedQuery.intent,
             result_count: searchResponse.results.length,
             provider_warnings: searchResponse.provider_warnings,
+            provider_attempts: searchResponse.provider_attempts,
           },
         });
         await onProgress?.({
