@@ -13,6 +13,11 @@ enum Role {
   DEVELOPER_DEMO
 }
 
+enum ActionTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 model User {
   id              String    @id @default(uuid()) @db.Uuid
   email           String    @unique
@@ -32,6 +37,8 @@ model User {
   refreshSessions          RefreshSession[]
   userRoles                UserRole[]
   confirmedProfileVersions BusinessProfileVersion[]
+  actionTokens             ActionToken[]
+  federatedIdentities      FederatedIdentity[]
 }
 
 model RefreshSession {
@@ -405,4 +412,46 @@ model DiscoveryProgressEvent {
   @@unique([sessionId, seq])
   @@index([sessionId, createdAt])
   @@map("discovery_progress_events")
+}
+
+// ── Action Tokens ─────────────────────────────────────────────────────
+// One-time tokens for password reset, email verification, etc.
+// Raw tokens are NEVER stored — only SHA-256 hashes.
+
+model ActionToken {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  type       ActionTokenType
+  tokenHash  String          @unique @map("token_hash")
+  expiresAt  DateTime        @map("expires_at")
+  consumedAt DateTime?       @map("consumed_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("action_tokens")
+}
+
+// ── Federated Identity (Google, future providers) ─────────────────────
+// Links external OAuth identities to local user accounts.
+
+model FederatedIdentity {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  provider        String
+  providerSubject String   @map("provider_subject")
+  email           String?
+  displayName     String?  @map("display_name")
+  avatarUrl       String?  @map("avatar_url")
+  rawProfile      Json     @default("{}") @map("raw_profile")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("federated_identities")
 }
