@@ -1,15 +1,12 @@
-import { NotFoundException } from "@nestjs/common";
-import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
-import { IntelligenceResult } from "./discovery-state";
-import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
-import { DiscoveryReadinessService } from "./discovery-readiness.service";
-import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
+import { DiscoveryQueueProducer } from "./discovery-queue.producer";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
-import { LanguageModeDto } from "./dto/start-discovery.dto";
+import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
 import { emptyDiscoveryProfileState } from "./market-profile";
+import { IntelligenceResult } from "./discovery-state";
 
 describe("DiscoveryService", () => {
   const repository = {
@@ -18,9 +15,6 @@ describe("DiscoveryService", () => {
     updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
-  const intelligenceRepository = {
-    saveIntelligenceResult: jest.fn(),
-  } as unknown as jest.Mocked<DiscoveryIntelligenceRepository>;
   const conversationRepository = {
     listMessages: jest.fn(),
     latestProfileDraft: jest.fn(),
@@ -32,15 +26,12 @@ describe("DiscoveryService", () => {
     completeConversationWithDraft: jest.fn(),
     confirmProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryConversationRepository>;
-  const gatherer = {
-    gather: jest.fn(),
-  } as unknown as jest.Mocked<IntelligenceGathererService>;
-  const aiDiscoveryClient = {
-    start: jest.fn(),
-  } as unknown as jest.Mocked<AiDiscoveryClient>;
   const progressGateway = {
     emitProgress: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryProgressGateway>;
+  const queueProducer = {
+    enqueueResearch: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryQueueProducer>;
 
   let service: DiscoveryService;
 
@@ -49,11 +40,8 @@ describe("DiscoveryService", () => {
     service = new DiscoveryService(
       repository,
       conversationRepository,
-      intelligenceRepository,
-      gatherer,
-      aiDiscoveryClient,
       progressGateway,
-      new DiscoveryReadinessService(),
+      queueProducer,
     );
   });
 

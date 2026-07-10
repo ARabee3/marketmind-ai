@@ -4,6 +4,7 @@ import {
   ConflictException,
   HttpException,
   InternalServerErrorException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Response } from "express";
@@ -13,6 +14,9 @@ import { Response } from "express";
  * the frontend auth flows.
  *
  * Shape: { code: string, message: string }
+ *
+ * Supports custom error codes embedded in exception responses via
+ * `{ code: string, message: string }` objects.
  */
 @Catch(HttpException)
 export class HttpExceptionFilter {
@@ -28,7 +32,7 @@ export class HttpExceptionFilter {
         : (exceptionResponse as { message?: string | string[] }).message ??
           exception.message;
 
-    const code = inferCode(exception, message);
+    const code = extractCode(exception, exceptionResponse, message);
 
     response.status(status).json({
       code,
@@ -37,16 +41,30 @@ export class HttpExceptionFilter {
   }
 }
 
-function inferCode(
+function extractCode(
   exception: HttpException,
+  exceptionResponse: string | object,
   message: string | string[],
 ): string {
+  // If the exception response carries an explicit code, trust it first.
+  if (
+    typeof exceptionResponse === "object" &&
+    exceptionResponse !== null &&
+    "code" in exceptionResponse
+  ) {
+    return (exceptionResponse as { code: string }).code;
+  }
+
   if (exception instanceof UnauthorizedException) {
     return "INVALID_CREDENTIALS";
   }
 
   if (exception instanceof ConflictException) {
     return "EMAIL_EXISTS";
+  }
+
+  if (exception instanceof ServiceUnavailableException) {
+    return "REDIS_UNAVAILABLE";
   }
 
   if (exception instanceof InternalServerErrorException) {
