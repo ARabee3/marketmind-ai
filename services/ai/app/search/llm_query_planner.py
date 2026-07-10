@@ -11,6 +11,18 @@ from app.providers.openrouter_provider import OPENROUTER_BASE_URL
 from app.search.query_planning_service import LlmQueryPlanner
 from app.search.schemas import QueryPlan, QueryPlanningRequest
 
+def _strip_additional_properties(schema: dict[str, Any]) -> dict[str, Any]:
+    schema.pop("additionalProperties", None)
+    for value in schema.values():
+        if isinstance(value, dict):
+            _strip_additional_properties(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _strip_additional_properties(item)
+    return schema
+
+
 QUERY_PLAN_SYSTEM_PROMPT: Final = """
 You generate web search queries for MarketMind's IntelligenceGatherer.
 Return a QueryPlan JSON object only.
@@ -134,12 +146,16 @@ class GeminiQueryPlanner:
 
         def call_gemini() -> QueryPlan:
             client = genai.Client(api_key=self.api_key)
+            plan_schema = _strip_additional_properties(
+                QueryPlan.model_json_schema(),
+            )
             response = client.models.generate_content(
                 model=self.model,
                 contents=[_query_context(request, correction_context)],
                 config=types.GenerateContentConfig(
                     system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
                     response_mime_type="application/json",
+                    response_schema=plan_schema,
                     http_options=types.HttpOptions(timeout=self.timeout_ms),
                 ),
             )

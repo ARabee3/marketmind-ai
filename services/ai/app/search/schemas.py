@@ -77,6 +77,7 @@ class EvidenceTriageDecision(StrictModel):
     reason: str = Field(min_length=1)
     candidate_facts: dict[str, str] = Field(default_factory=dict)
     suggested_owner_question: str | None = None
+    synthesized_observation: str | None = None
 
 
 class EvidenceTriageResult(StrictModel):

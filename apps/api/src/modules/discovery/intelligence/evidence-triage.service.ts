@@ -200,6 +200,10 @@ function statementText(
   result: SearchResultCandidate,
   decision: EvidenceTriageDecision,
 ): string {
+  if (decision.synthesized_observation) {
+    return decision.synthesized_observation;
+  }
+
   if (decision.suggested_owner_question) {
     return `${decision.reason} Suggested confirmation: ${decision.suggested_owner_question}`;
   }
