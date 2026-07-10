@@ -25,37 +25,45 @@ export class ActionTokenService {
   /**
    * Issue a new action token.
    *
+   * Uses a serializable interactive transaction to guarantee that exactly
+   * one unconsumed token exists per (userId, type) at any time — even under
+   * concurrent reissue requests.
+   *
    * 1. Generates 32 cryptographically random bytes (64 hex chars).
    * 2. Computes SHA-256 hash for storage — the raw token is NEVER persisted.
-   * 3. Invalidates all existing unconsumed tokens of the same (userId, type).
-   * 4. Persists the hash with the correct expiry.
-   * 5. Returns the raw token (for embedding in a URL sent via email).
+   * 3. Atomically invalidates all existing unconsumed tokens and creates the new one.
+   * 4. Returns the raw token (for embedding in a URL sent via email).
    */
   async issue(userId: string, type: ActionTokenType): Promise<IssuedToken> {
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = this.hashToken(rawToken);
     const expiresAt = new Date(Date.now() + EXPIRY_MS[type]);
 
-    // Invalidate all existing unconsumed tokens of the same (userId, type)
-    // before creating the new one. This ensures reissue invalidation.
-    await this.prisma.$transaction([
-      this.prisma.actionToken.updateMany({
-        where: {
-          userId,
-          type,
-          consumedAt: null,
-        },
-        data: { consumedAt: new Date() },
-      }),
-      this.prisma.actionToken.create({
-        data: {
-          userId,
-          type,
-          tokenHash,
-          expiresAt,
-        },
-      }),
-    ]);
+    // Interactive transaction with serializable isolation prevents two
+    // concurrent issue() calls from both invalidating and then both
+    // creating, which would leave two active tokens.
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.actionToken.updateMany({
+          where: {
+            userId,
+            type,
+            consumedAt: null,
+          },
+          data: { consumedAt: new Date() },
+        });
+
+        await tx.actionToken.create({
+          data: {
+            userId,
+            type,
+            tokenHash,
+            expiresAt,
+          },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
 
     this.logger.log(
       `Issued ${type} token for user ${userId}, expires at ${expiresAt.toISOString()}`,
@@ -65,17 +73,44 @@ export class ActionTokenService {
   }
 
   /**
-   * Validate and consume a token in one atomic operation.
+   * Validate and consume a token in a single atomic conditional update.
    *
-   * 1. Hashes the incoming raw token with SHA-256.
-   * 2. Looks up by (tokenHash, type).
-   * 3. Rejects if not found, expired, or already consumed.
-   * 4. Atomically sets consumedAt to prevent replay.
-   * 5. Returns the userId associated with the token.
+   * Instead of read-then-update (which is vulnerable to concurrent
+   * consumption), this uses updateMany with conditions that require the
+   * token to be unconsumed, unexpired, and of the expected type. If zero
+   * rows match, the token is invalid, already consumed, or expired.
+   *
+   * A follow-up findUnique determines the exact rejection reason for
+   * the caller.
    */
   async consume(rawToken: string, type: ActionTokenType): Promise<string> {
     const tokenHash = this.hashToken(rawToken);
+    const now = new Date();
 
+    // Single atomic conditional update: only succeeds if the token exists,
+    // is unconsumed, unexpired, and has the expected type.
+    const result = await this.prisma.actionToken.updateMany({
+      where: {
+        tokenHash,
+        type,
+        consumedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { consumedAt: now },
+    });
+
+    if (result.count === 1) {
+      // Token was successfully consumed. Look up the userId.
+      const token = await this.prisma.actionToken.findUnique({
+        where: { tokenHash },
+        select: { userId: true },
+      });
+
+      this.logger.log(`Consumed ${type} token for user ${token!.userId}`);
+      return token!.userId;
+    }
+
+    // Zero rows updated — determine the exact reason for a helpful error.
     const token = await this.prisma.actionToken.findUnique({
       where: { tokenHash },
     });
@@ -95,18 +130,12 @@ export class ActionTokenService {
       );
     }
 
-    if (token.expiresAt < new Date()) {
+    if (token.expiresAt <= now) {
       throw new ActionTokenError("ACTION_TOKEN_EXPIRED", "Token has expired");
     }
 
-    // Atomically mark as consumed
-    await this.prisma.actionToken.update({
-      where: { id: token.id },
-      data: { consumedAt: new Date() },
-    });
-
-    this.logger.log(`Consumed ${type} token for user ${token.userId}`);
-    return token.userId;
+    // Fallback — should not be reachable, but safe default.
+    throw new ActionTokenError("ACTION_TOKEN_INVALID", "Token not found");
   }
 
   /**
