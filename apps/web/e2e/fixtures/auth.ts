@@ -2,14 +2,14 @@ import type { Page } from '@playwright/test'
 
 export type MockUser = {
   id: string
-  name: string
+  fullName: string
   email: string
   role: 'owner'
 }
 
 export const mockUser: MockUser = {
   id: 'user-1',
-  name: 'Ahmed Hassan',
+  fullName: 'Ahmed Hassan',
   email: 'ahmed@example.com',
   role: 'owner',
 }

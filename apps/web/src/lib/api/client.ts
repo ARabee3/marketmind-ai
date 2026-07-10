@@ -1,7 +1,6 @@
 import { getAccessToken, setAccessToken } from './token-store'
 import { startRefresh } from './refresh-mutex'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
+import { API_BASE_URL } from './config'
 
 export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
@@ -90,6 +89,23 @@ async function executeRequest(
  */
 export async function refreshAccessToken(): Promise<string | null> {
   return performRefresh()
+}
+
+/**
+ * Makes a public API request.
+ *
+ * - Sends cookies via `credentials: 'include'` (needed for endpoints that set
+ *   or clear the HttpOnly refresh cookie, such as login/logout/register).
+ * - Does NOT send the in-memory access token.
+ * - Does NOT retry on 401, so a failed login/password error cannot trigger an
+ *   authenticated token refresh.
+ */
+export async function publicRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<Response> {
+  const url = buildUrl(path)
+  return executeRequest(url, options, null)
 }
 
 /**

@@ -3,6 +3,7 @@
 import { io, type Socket, type ManagerOptions, type SocketOptions } from 'socket.io-client'
 import { getAccessToken, setAccessToken } from '@/lib/api/token-store'
 import { refreshAccessToken } from '@/lib/api/client'
+import { WS_BASE_URL } from '@/lib/api/config'
 
 export type SocketAuthPayload = { token: string | null }
 
@@ -10,7 +11,7 @@ export type SocketClient = Socket
 
 export type SocketConnectionOptions = Partial<ManagerOptions & SocketOptions>
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? WS_BASE_URL
 
 let socket: SocketClient | null = null
 let connectionOptions: SocketConnectionOptions | undefined

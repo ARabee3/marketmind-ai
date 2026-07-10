@@ -5,8 +5,14 @@ import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { useSession } from './session-provider'
 import { Button } from '@/components/ui/button'
+import type { VariantProps } from 'class-variance-authority'
+import { buttonVariants } from '@/components/ui/button'
 
-export function LogoutButton() {
+export function LogoutButton({
+  size = 'default',
+}: {
+  size?: VariantProps<typeof buttonVariants>['size']
+}) {
   const t = useTranslations('Auth')
   const tCommon = useTranslations('Common')
   const { logout } = useSession()
@@ -27,6 +33,7 @@ export function LogoutButton() {
     <Button
       type="button"
       variant="outline"
+      size={size}
       onClick={handleLogout}
       disabled={isPending}
     >

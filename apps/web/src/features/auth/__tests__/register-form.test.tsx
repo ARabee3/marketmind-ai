@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { RegisterForm } from '../register-form'
-import { apiRequest } from '@/lib/api'
+import { publicRequest } from '@/lib/api'
 import { useRouter } from '@/i18n/navigation'
 
 const authMessages: Record<string, string> = {
@@ -45,7 +45,7 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/lib/api', () => ({
-  apiRequest: vi.fn(),
+  publicRequest: vi.fn(),
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -53,7 +53,7 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
-const mockedApiRequest = vi.mocked(apiRequest)
+const mockedPublicRequest = vi.mocked(publicRequest)
 const mockedUseRouter = vi.mocked(useRouter)
 
 function typeInto(element: HTMLElement, value: string) {
@@ -67,7 +67,7 @@ describe('RegisterForm', () => {
     mockedUseRouter.mockReturnValue({ push } as unknown as ReturnType<
       typeof useRouter
     >)
-    mockedApiRequest.mockReset()
+    mockedPublicRequest.mockReset()
     push.mockReset()
   })
 
@@ -111,7 +111,7 @@ describe('RegisterForm', () => {
   })
 
   it('submits the registration and redirects to login with email', async () => {
-    mockedApiRequest.mockResolvedValue(
+    mockedPublicRequest.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), { status: 201 }),
     )
 
@@ -124,7 +124,7 @@ describe('RegisterForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
     await waitFor(() => {
-      expect(mockedApiRequest).toHaveBeenCalledWith('/auth/register', {
+      expect(mockedPublicRequest).toHaveBeenCalledWith('/auth/register', {
         method: 'POST',
         body: {
           fullName: 'Ahmed Hassan',
@@ -140,7 +140,7 @@ describe('RegisterForm', () => {
   })
 
   it('displays a backend error when registration fails', async () => {
-    mockedApiRequest.mockResolvedValue(
+    mockedPublicRequest.mockResolvedValue(
       new Response(JSON.stringify({ code: 'EMAIL_EXISTS' }), { status: 409 }),
     )
 

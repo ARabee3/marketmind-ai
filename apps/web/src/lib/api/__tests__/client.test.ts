@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiRequest } from '../client'
+import { apiRequest, publicRequest } from '../client'
+import { startDiscovery } from '../discovery'
 import { setAccessToken } from '../token-store'
 
 const fetchMock = vi.fn()
@@ -17,7 +18,75 @@ afterEach(async () => {
   await Promise.resolve()
 })
 
+describe('publicRequest', () => {
+  it('resolves public auth endpoints to the shared API base by default', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    )
+
+    await publicRequest('/auth/login', { method: 'POST', body: { email: 'a@b.com', password: 'secret' } })
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://localhost:3001/api/v1/auth/login')
+    expect(init.credentials).toBe('include')
+    expect(init.headers.get('Authorization')).toBeNull()
+    expect(init.body).toBe(JSON.stringify({ email: 'a@b.com', password: 'secret' }))
+  })
+
+  it('does not send an Authorization header even when a token is stored', async () => {
+    setAccessToken('stored-token')
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    )
+
+    await publicRequest('/auth/register')
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers.get('Authorization')).toBeNull()
+  })
+
+  it('does not retry on 401', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    )
+
+    const response = await publicRequest('/auth/login', { method: 'POST', body: { email: 'a@b.com', password: 'wrong' } })
+
+    expect(response.status).toBe(401)
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('does not call /auth/refresh when a failed login returns 401', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 'INVALID_CREDENTIALS' }), { status: 401 }),
+    )
+
+    const response = await publicRequest('/auth/login', {
+      method: 'POST',
+      body: { email: 'a@b.com', password: 'wrong' },
+    })
+
+    expect(response.status).toBe(401)
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).not.toMatch(/auth\/refresh/)
+  })
+})
+
 describe('apiRequest', () => {
+  it('resolves authenticated endpoints to the shared API base by default', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    )
+
+    await apiRequest('/auth/me')
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://localhost:3001/api/v1/auth/me')
+  })
+
   it('sends credentials and JSON content type by default', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), { status: 200 }),
@@ -149,5 +218,50 @@ describe('apiRequest', () => {
 
     expect(response.status).toBe(401)
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('Discovery API client', () => {
+  it('refreshes and retries an expired Discovery request', async () => {
+    setAccessToken('expired-token')
+
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/auth/refresh')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ accessToken: 'fresh-token' }), { status: 200 }),
+        )
+      }
+
+      const authorization = new Headers(init?.headers).get('Authorization')
+      if (authorization === 'Bearer expired-token') {
+        return Promise.resolve(new Response(null, { status: 401 }))
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            session_id: 'session-1',
+            status: 'researching',
+            progress_ws_url: '/ws/v1/discovery',
+            status_url: '/api/v1/discovery/session-1/status',
+            accepted_at: '2026-07-10T00:00:00.000Z',
+          }),
+          { status: 202 },
+        ),
+      )
+    })
+
+    await startDiscovery({
+      language_mode: 'en',
+      intake: {
+        business_name: 'Test business',
+        business_type: 'retail',
+        city: 'Cairo',
+      },
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [, retryInit] = fetchMock.mock.calls[2]
+    expect(new Headers(retryInit.headers).get('Authorization')).toBe('Bearer fresh-token')
   })
 })

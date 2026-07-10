@@ -7,9 +7,15 @@ import * as realtime from '@/lib/realtime'
 const fetchMock = vi.fn()
 
 function getRequestPath(input: RequestInfo | URL): string {
-  if (typeof input === 'string') return input
-  if (input instanceof URL) return input.pathname
-  return input.url
+  let raw: string
+  if (typeof input === 'string') {
+    raw = input
+  } else if (input instanceof URL) {
+    raw = input.toString()
+  } else {
+    raw = input.url
+  }
+  return raw.replace(/^https?:\/\/[^/]+\/api\/v1/, '')
 }
 
 function TestConsumer() {
@@ -61,7 +67,6 @@ describe('SessionProvider', () => {
           new Response(
             JSON.stringify({
               accessToken: 'refreshed-token',
-              user: { id: '1', email: 'a@b.com', fullName: 'Ali' },
             }),
             { status: 200 },
           ),
@@ -93,6 +98,42 @@ describe('SessionProvider', () => {
     expect(screen.getByTestId('authenticated').textContent).toBe('yes')
     expect(screen.getByTestId('user').textContent).toBe('Ali')
     expect(screen.getByTestId('token').textContent).toBe('refreshed-token')
+  })
+
+  it('calls /auth/me exactly once during initial session restoration', async () => {
+    fetchMock.mockImplementation((input) => {
+      const path = getRequestPath(input)
+      if (path === '/auth/refresh') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ accessToken: 'refreshed-token' }), { status: 200 }),
+        )
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ user: { id: '1', email: 'a@b.com', fullName: 'Ali' } }),
+            { status: 200 },
+          ),
+        )
+      }
+      return Promise.resolve(new Response(null, { status: 500 }))
+    })
+
+    render(
+      <SessionProvider>
+        <TestConsumer />
+      </SessionProvider>,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loading').textContent).toBe('ready'),
+    )
+
+    const meCalls = fetchMock.mock.calls.filter(([input]) => {
+      const path = getRequestPath(input as RequestInfo | URL)
+      return path === '/auth/me'
+    })
+    expect(meCalls).toHaveLength(1)
   })
 
   it('remains unauthenticated when refresh fails', async () => {

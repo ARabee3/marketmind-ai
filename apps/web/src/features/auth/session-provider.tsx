@@ -10,6 +10,7 @@ import {
 } from 'react'
 import {
   apiRequest,
+  publicRequest,
   refreshAccessToken,
   setAccessToken,
   getAccessToken,
@@ -45,21 +46,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return data.user ?? null
   }, [])
 
-  const refresh = useCallback(async (): Promise<string | null> => {
+  const refreshTokenOnly = useCallback(async (): Promise<string | null> => {
     const token = await refreshAccessToken()
     if (!token) {
       resetSocketAuth()
       setUser(null)
-      return null
     }
+    return token
+  }, [])
+
+  const refresh = useCallback(async (): Promise<string | null> => {
+    const token = await refreshTokenOnly()
+    if (!token) return null
     const userData = await fetchUser()
     setUser(userData)
     return token
-  }, [fetchUser])
+  }, [refreshTokenOnly, fetchUser])
 
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<void> => {
-      const response = await apiRequest('/auth/login', {
+      const response = await publicRequest('/auth/login', {
         method: 'POST',
         body: credentials,
       })
@@ -97,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     async function initSession() {
       try {
-        const token = await refresh()
+        const token = await refreshTokenOnly()
         if (cancelled) return
 
         if (token) {
@@ -116,7 +122,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [refresh, fetchUser])
+  }, [refreshTokenOnly, fetchUser])
 
   const accessToken = getAccessToken()
 

@@ -11,6 +11,9 @@ const t = (key: string) => {
     navDashboard: 'Dashboard',
     primaryNavLabel: 'Primary',
     mobileNavLabel: 'Mobile primary',
+    loginSubmit: 'Sign in',
+    registerSubmit: 'Create account',
+    logout: 'Sign out',
   }
   return dict[key] ?? key
 }
@@ -32,12 +35,16 @@ vi.mock('@/components/language-switcher', () => ({
   LanguageSwitcher: () => <button type="button" aria-label="Language: Arabic">AR</button>,
 }))
 
+let authenticated = false
+
 vi.mock('@/features/auth/session-provider', () => ({
-  useSession: () => ({ isAuthenticated: false }),
+  useSession: () => ({ isAuthenticated: authenticated }),
 }))
 
 vi.mock('@/features/auth/logout-button', () => ({
-  LogoutButton: () => <button type="button">Sign out</button>,
+  LogoutButton: ({ size }: { size?: string }) => (
+    <button type="button" data-size={size}>Sign out</button>
+  ),
 }))
 
 describe('AppShell', () => {
@@ -95,5 +102,43 @@ describe('AppShell', () => {
     expect(main?.className).toMatch(/max-w-\[1200px\]/)
     expect(main?.className).not.toMatch(/md:ms-\[240px\]/)
     expect(main?.textContent).toMatch(/body/)
+  })
+
+  it('renders login and register actions in the desktop sidebar when unauthenticated', () => {
+    authenticated = false
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const desktopSidebar = screen.getByLabelText('Primary').closest('aside')!
+    expect(desktopSidebar.textContent).toMatch(/Sign in/)
+    expect(desktopSidebar.textContent).toMatch(/Create account/)
+  })
+
+  it('renders logout action in the desktop sidebar when authenticated', () => {
+    authenticated = true
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const desktopSidebar = screen.getByLabelText('Primary').closest('aside')!
+    expect(desktopSidebar.textContent).toMatch(/Sign out/)
+  })
+
+  it('renders equivalent auth actions in the mobile top bar', () => {
+    authenticated = false
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const mobileHeader = container.querySelector('header')!
+    expect(mobileHeader.textContent).toMatch(/Sign in/)
+    expect(mobileHeader.textContent).toMatch(/Create account/)
   })
 })

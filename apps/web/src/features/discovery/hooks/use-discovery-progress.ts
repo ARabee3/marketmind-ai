@@ -22,6 +22,9 @@ import type {
   DiscoverySessionStatus,
 } from '@marketmind/contracts'
 import { getDiscoveryStatus } from '@/lib/api/discovery'
+import { refreshAccessToken } from '@/lib/api/client'
+import { getAccessToken } from '@/lib/api/token-store'
+import { WS_BASE_URL } from '@/lib/api/config'
 import type { TranslationKey } from '@/i18n/types'
 import { getResearchWarningKey } from '@/features/discovery/lib/progress-localization'
 
@@ -147,17 +150,15 @@ function reducer(state: ProgressState, action: Action): ProgressState {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-const WS_URL =
-  (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001') + '/ws/v1/discovery'
+const WS_URL = `${WS_BASE_URL}/ws/v1/discovery`
 
 const POLL_INTERVAL_MS = 2000
 
 interface Options {
   sessionId: string
-  authToken?: string
 }
 
-export function useDiscoveryProgress({ sessionId, authToken }: Options): ProgressState {
+export function useDiscoveryProgress({ sessionId }: Options): ProgressState {
   const [state, dispatch] = useReducer(reducer, initialState)
   const socketRef = useRef<Socket | null>(null)
 
@@ -166,7 +167,7 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
   // ── Status hydration ───────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
     try {
-      const res = await getDiscoveryStatus(sessionId, authToken)
+      const res = await getDiscoveryStatus(sessionId)
       if (!mountedRef.current) return
       dispatch({
         type: 'STATUS_LOADED',
@@ -177,7 +178,7 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
       if (!mountedRef.current) return
       dispatch({ type: 'STATUS_FAILED' })
     }
-  }, [sessionId, authToken])
+  }, [sessionId])
 
   // ── Polling lifecycle ──────────────────────────────────────────────────────
   // Use a ref to always have the latest loadStatus without adding it to
@@ -205,13 +206,15 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
   // ── Socket.IO connection ───────────────────────────────────────────────────
   useEffect(() => {
     mountedRef.current = true
+    let refreshedAfterAuthError = false
 
     // 1. Hydrate from HTTP on first mount (handles refresh/reconnect)
     loadStatus()
 
     // 2. Open Socket.IO connection
     const socket = io(WS_URL, {
-      auth: authToken ? { token: authToken } : undefined,
+      withCredentials: true,
+      auth: (callback) => callback({ token: getAccessToken() }),
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -224,8 +227,20 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
       socket.emit('discovery.join', { session_id: sessionId })
     })
 
-    socket.on('connect_error', () => {
+    socket.on('connect_error', async (error?: Error & { data?: { status?: number } }) => {
       if (!mountedRef.current) return
+
+      const isAuthError =
+        error?.message === 'Authentication error' || error?.data?.status === 401
+      if (isAuthError && !refreshedAfterAuthError) {
+        refreshedAfterAuthError = true
+        const token = await refreshAccessToken()
+        if (token && mountedRef.current) {
+          socket.connect()
+          return
+        }
+      }
+
       dispatch({ type: 'CONNECTION_FAILED', error: 'DiscoveryProgress.connectionFailed' })
     })
 
@@ -267,8 +282,7 @@ export function useDiscoveryProgress({ sessionId, authToken }: Options): Progres
       socket.disconnect()
       socketRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, authToken])
+  }, [sessionId, loadStatus])
 
   return state
 }

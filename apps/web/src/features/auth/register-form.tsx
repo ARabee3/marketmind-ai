@@ -3,7 +3,7 @@
 import { useState, useCallback, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
-import { apiRequest } from '@/lib/api'
+import { publicRequest } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -65,7 +65,7 @@ export function RegisterForm() {
       setErrors({})
 
       try {
-        const response = await apiRequest('/auth/register', {
+        const response = await publicRequest('/auth/register', {
           method: 'POST',
           body: {
             fullName: name.trim(),

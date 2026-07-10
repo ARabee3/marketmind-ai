@@ -86,30 +86,37 @@ function MobileTopBar({ brandName }: { brandName: string }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4 md:hidden">
       <span className="text-lg font-semibold text-navy">{brandName}</span>
-      <LanguageSwitcher />
+      <div className="flex items-center gap-2">
+        <AuthSection compact />
+        <LanguageSwitcher />
+      </div>
     </header>
   )
 }
 
-function AuthSection() {
+function AuthSection({ compact = false }: { compact?: boolean }) {
   const t = useTranslations('Auth')
   const { isAuthenticated } = useSession()
 
   if (isAuthenticated) {
-    return <LogoutButton />
+    return <LogoutButton size={compact ? 'sm' : 'default'} />
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center ${compact ? 'gap-1' : 'gap-2'}`}>
       <Link
         href="/login"
-        className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className={`rounded-md font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
+          compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+        }`}
       >
         {t('loginSubmit')}
       </Link>
       <Link
         href="/register"
-        className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+        className={`rounded-md bg-primary font-medium text-primary-foreground transition-colors hover:bg-primary/80 ${
+          compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+        }`}
       >
         {t('registerSubmit')}
       </Link>

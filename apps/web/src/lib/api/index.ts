@@ -1,4 +1,4 @@
-export { apiRequest, refreshAccessToken } from './client'
+export { apiRequest, publicRequest, refreshAccessToken } from './client'
 export type { ApiError, ApiRequestOptions } from './client'
 export {
   getAccessToken,

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { mockAuthRefresh, mockAuthMe, mockUser } from './fixtures/auth'
 
 test.describe('Locale rendering', () => {
   test('renders English page under /en', async ({ page }) => {
@@ -85,12 +86,16 @@ test.describe('Language switcher preserves route (both directions)', () => {
   })
 
   test('preserves nested route /en/discovery -> /ar/discovery', async ({ page }) => {
+    await mockAuthRefresh(page)
+    await mockAuthMe(page, mockUser)
     await page.goto('/en/discovery')
     await page.getByRole('button', { name: /Arabic|العربية/i }).click()
     await expect(page).toHaveURL(/\/ar\/discovery(\b|$)/)
   })
 
   test('preserves nested route /ar/discovery -> /en/discovery', async ({ page }) => {
+    await mockAuthRefresh(page)
+    await mockAuthMe(page, mockUser)
     await page.goto('/ar/discovery')
     await page.getByRole('button', { name: /English|الإنجليزية/i }).click()
     await expect(page).toHaveURL(/\/en\/discovery(\b|$)/)
