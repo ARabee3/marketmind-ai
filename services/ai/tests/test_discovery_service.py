@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
+from app.discovery.question_language import question_matches_language
 from app.discovery.schemas import AiDiscoveryRespondRequest, AiDiscoveryStartRequest, AiDiscoverySummarizeRequest
 from app.discovery.service import DiscoveryService
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError
@@ -244,6 +245,20 @@ class FailingProvider(DiscoveryProvider):
         raise ProviderError("AI_PROVIDER_FAILURE", "Provider timeout.", retryable=True)
 
 
+class EnglishQuestionProvider(DiscoveryProvider):
+    name = "english-question"
+
+    async def generate_structured(self, request: DiscoveryProviderRequest) -> dict[str, object]:
+        return {
+            "action": "ask_next_question",
+            "next_question": "What do customers usually buy on busy days?",
+            "updated_known_facts": {},
+            "updated_uncertainties": [],
+            "domain_scores": {},
+            "ready_to_summarize": False,
+        }
+
+
 def test_invalid_provider_output_returns_safe_failure() -> None:
     request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
     result = run(DiscoveryService(InvalidProvider()).start(request))
@@ -262,6 +277,22 @@ def test_provider_failure_returns_retryable_safe_failure() -> None:
     assert result.safe_error is not None
     assert result.safe_error.code == "AI_PROVIDER_FAILURE"
     assert result.safe_error.retryable is True
+
+
+def test_arabic_mode_rejects_non_arabic_provider_question() -> None:
+    request = AiDiscoveryStartRequest.model_validate(base_payload("ar-EG"))
+    result = run(DiscoveryService(EnglishQuestionProvider()).start(request))
+
+    assert result.action == "safe_failure"
+    assert result.next_question is None
+    assert result.safe_error is not None
+    assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
+
+
+def test_question_language_validation_handles_arabic_ratio_and_mixed_mode() -> None:
+    assert question_matches_language("إيه أكتر منتج بتبيعوه في Koshary Corner؟", "ar-EG")
+    assert not question_matches_language("What do العملاء usually buy?", "ar-EG")
+    assert question_matches_language("What do customers usually buy?", "mixed")
 
 
 def test_internal_start_endpoint_uses_mock_without_llm_key() -> None:
@@ -309,7 +340,7 @@ def test_openrouter_provider_requires_key() -> None:
     assert result.safe_error.code == "AI_PROVIDER_NOT_CONFIGURED"
 
 
-def test_openrouter_provider_adds_fallback_question_when_model_omits_it(
+def test_openrouter_provider_does_not_invent_question_when_model_omits_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import openai
@@ -328,12 +359,61 @@ def test_openrouter_provider_adds_fallback_question_when_model_omits_it(
         ).start(request)
     )
 
-    assert result.action == "ask_clarification"
-    assert result.next_question == (
-        "Think about your busiest period: what do customers repeatedly choose, "
-        "and what seems to bring them back?"
+    assert result.action == "safe_failure"
+    assert result.next_question is None
+    assert result.safe_error is not None
+    assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
+    assert FakeOpenRouterClient.calls == 2
+
+
+def test_openrouter_provider_retries_blank_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    BlankThenValidOpenRouterClient.calls = 0
+    monkeypatch.setattr(openai, "OpenAI", BlankThenValidOpenRouterClient)
+
+    request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
     )
-    assert FakeOpenRouterClient.calls == 1
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "What do customers usually buy on busy days?"
+    assert BlankThenValidOpenRouterClient.calls == 2
+
+
+def test_openrouter_provider_repairs_wrong_language_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    SequencedOpenRouterClient.calls = 0
+    SequencedOpenRouterClient.messages = []
+    monkeypatch.setattr(openai, "OpenAI", SequencedOpenRouterClient)
+
+    request = AiDiscoveryStartRequest.model_validate(base_payload("ar-EG"))
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
+    )
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "إيه أكتر طلبات بتتباع وقت الزحمة؟"
+    assert SequencedOpenRouterClient.calls == 2
+    assert SequencedOpenRouterClient.messages[1][-1]["content"].startswith("Repair")
 
 
 class FakeOpenRouterClient:
@@ -347,6 +427,66 @@ class FakeOpenRouterClient:
         return _openrouter_response(
             {
                 "action": "ask_clarification",
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "domain_scores": {},
+                "ready_to_summarize": False,
+            }
+        )
+
+
+class SequencedOpenRouterClient:
+    calls = 0
+    messages: list[list[dict[str, object]]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.chat = SimpleNamespace(completions=self)
+
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        messages = kwargs["messages"]
+        if isinstance(messages, list):
+            self.__class__.messages.append(messages)
+        if self.__class__.calls == 1:
+            return _openrouter_response(
+                {
+                    "action": "ask_next_question",
+                    "next_question": "What do customers usually buy on busy days?",
+                    "updated_known_facts": {},
+                    "updated_uncertainties": [],
+                    "domain_scores": {},
+                    "ready_to_summarize": False,
+                }
+            )
+        return _openrouter_response(
+            {
+                "action": "ask_next_question",
+                "next_question": "إيه أكتر طلبات بتتباع وقت الزحمة؟",
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "domain_scores": {},
+                "ready_to_summarize": False,
+            }
+        )
+
+
+class BlankThenValidOpenRouterClient:
+    calls = 0
+
+    def __init__(self, **kwargs: object) -> None:
+        self.chat = SimpleNamespace(completions=self)
+
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        next_question = (
+            "   "
+            if self.__class__.calls == 1
+            else "What do customers usually buy on busy days?"
+        )
+        return _openrouter_response(
+            {
+                "action": "ask_next_question",
+                "next_question": next_question,
                 "updated_known_facts": {},
                 "updated_uncertainties": [],
                 "domain_scores": {},

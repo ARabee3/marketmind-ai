@@ -5,6 +5,7 @@ from uuid import NAMESPACE_URL, uuid5
 from pydantic import ValidationError
 
 from app.core.errors import ErrorBody, provider_error
+from app.discovery.question_language import question_matches_language
 from app.discovery.research_context_pack import build_research_context_pack
 from app.discovery.schemas import (
     AiDiscoveryRespondRequest,
@@ -13,6 +14,7 @@ from app.discovery.schemas import (
     AiDiscoverySummarizeRequest,
     BusinessProfileDraft,
     DiscoveryModelOutput,
+    LanguageMode,
     MarketAwareBusinessFacts,
     MarketContextSnapshot,
     MarketEvidence,
@@ -84,7 +86,7 @@ class DiscoveryService:
                 provider_error(exc.code, str(exc), retryable=exc.retryable),
             )
 
-        if not self._valid_turn_output(turn_kind, model_output):
+        if not self._valid_turn_output(turn_kind, model_output, request.language_mode):
             return self._safe_failure(
                 request,
                 provider_error(
@@ -306,16 +308,18 @@ class DiscoveryService:
         self,
         turn_kind: TurnKind,
         output: DiscoveryModelOutput,
+        language_mode: LanguageMode,
     ) -> bool:
         if turn_kind == "summarize":
             return (
                 output.action == "produce_profile_draft"
                 and output.next_question is None
             )
-        return (
-            output.action in {"ask_next_question", "ask_clarification"}
-            and bool(output.next_question and output.next_question.strip())
-        )
+        if output.action not in {"ask_next_question", "ask_clarification"}:
+            return False
+        if not output.next_question or not output.next_question.strip():
+            return False
+        return question_matches_language(output.next_question, language_mode)
 
     def _completion_uncertainties(
         self,
