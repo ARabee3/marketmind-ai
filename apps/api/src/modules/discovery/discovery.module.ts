@@ -8,9 +8,13 @@ import { DiscoveryConversationRepository } from "./discovery-conversation.reposi
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
+import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryQueueModule } from "./discovery-queue.module";
+import { DiscoveryQueueWorker } from "./discovery-queue.worker";
+import { DiscoveryResearchProcessor } from "./discovery-research.processor";
 import { AiQueryPlanningClient } from "./ai-client/ai-query-planning.client";
 import { ApifyMapsProvider } from "./intelligence/apify-maps.provider";
 import { DeterministicQueryPlannerService } from "./intelligence/deterministic-query-planner.service";
@@ -24,7 +28,7 @@ import { SearchClientService } from "./intelligence/search-client.service";
 import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), DiscoveryQueueModule],
   controllers: [DiscoveryController],
   providers: [
     DiscoveryRepository,
@@ -32,8 +36,11 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
     DiscoveryIntelligenceRepository,
     DiscoveryConversationService,
     DiscoveryRateLimitGuard,
+    DiscoveryRedisLimiterService,
     DiscoveryReadinessService,
     DiscoveryService,
+    DiscoveryQueueWorker,
+    DiscoveryResearchProcessor,
     DiscoveryProgressGateway,
     AiDiscoveryClient,
     AiEvidenceTriageClient,

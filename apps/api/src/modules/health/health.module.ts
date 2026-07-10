@@ -4,8 +4,7 @@ import { HealthController } from "./health.controller";
 /**
  * HealthModule exposes the /api/v1/health endpoint.
  *
- * Sprint 1: simple healthy response.
- * Later: can add database, Redis, BullMQ, AI service, and Qdrant checks.
+ * Checks database, Redis, and BullMQ queue readiness.
  */
 @Module({
   controllers: [HealthController],

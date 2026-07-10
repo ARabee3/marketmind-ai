@@ -15,7 +15,7 @@ export function ProgressTimeline({
   onContinueToInterview,
 }: {
   sessionId: string
-  onContinueToInterview?: () => void
+  onContinueToInterview?: () => Promise<void> | void
 }) {
   const t = useTranslations('DiscoveryProgress')
   const tErrors = useTranslations('Errors')
@@ -69,7 +69,7 @@ export function ProgressTimeline({
         {/* Persistent research warnings — survive Socket.IO disconnects */}
         {researchWarning && (
           <div
-            className="p-4 rounded-md text-sm bg-warning/10 text-warning-foreground border border-warning/20"
+            className="p-4 rounded-md text-sm bg-warning/10 text-warning border border-warning/20"
             role="status"
             aria-live="polite"
           >
@@ -91,7 +91,7 @@ export function ProgressTimeline({
         {/* Reconnecting notice */}
         {connectionState === 'reconnecting' && (
           <div
-            className="p-4 rounded-md text-sm bg-warning/10 text-warning-foreground border border-warning/20"
+            className="p-4 rounded-md text-sm bg-warning/10 text-warning border border-warning/20"
             role="status"
             aria-live="polite"
           >
@@ -149,7 +149,13 @@ export function ProgressTimeline({
         {/* Action once interview-capable */}
         {showInterviewAction ? (
           <div className="pt-4 border-t border-border mt-6">
-            <Button className="w-full" size="lg" onClick={onContinueToInterview}>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={async () => {
+                await onContinueToInterview?.()
+              }}
+            >
               {t('continueToInterview')}
             </Button>
           </div>

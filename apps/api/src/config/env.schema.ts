@@ -39,6 +39,11 @@ export function envSchema(
     errors.push("WEB_ORIGIN is required (e.g. http://localhost:3000)");
   }
 
+  // REDIS_URL — required for BullMQ queue and rate limiter
+  if (!config.REDIS_URL) {
+    errors.push("REDIS_URL is required (e.g. redis://localhost:6379)");
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Environment validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,

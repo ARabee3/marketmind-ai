@@ -9,6 +9,12 @@ import type {
   StartPreparedDiscoveryRequest,
   StartPreparedDiscoveryResponse,
   DiscoveryStatusResponse,
+  DiscoveryRespondRequest,
+  DiscoveryRespondResponse,
+  DiscoverySummarizeRequest,
+  DiscoverySummarizeResponse,
+  ConfirmProfileRequest,
+  ConfirmProfileResponse,
   ErrorCode,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
@@ -57,4 +63,37 @@ export function getDiscoveryStatus(
   sessionId: string,
 ): Promise<DiscoveryStatusResponse> {
   return request<DiscoveryStatusResponse>(`/discovery/${sessionId}/status`)
+}
+
+/** POST /api/v1/discovery/:sessionId/respond */
+export function respondToDiscovery(
+  sessionId: string,
+  payload: DiscoveryRespondRequest,
+): Promise<DiscoveryRespondResponse> {
+  return request<DiscoveryRespondResponse>(`/discovery/${sessionId}/respond`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** POST /api/v1/discovery/:sessionId/summarize */
+export function summarizeDiscovery(
+  sessionId: string,
+  payload: DiscoverySummarizeRequest,
+): Promise<DiscoverySummarizeResponse> {
+  return request<DiscoverySummarizeResponse>(`/discovery/${sessionId}/summarize`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** POST /api/v1/discovery/:sessionId/confirm-profile */
+export function confirmDiscoveryProfile(
+  sessionId: string,
+  payload: ConfirmProfileRequest,
+): Promise<ConfirmProfileResponse> {
+  return request<ConfirmProfileResponse>(`/discovery/${sessionId}/confirm-profile`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }

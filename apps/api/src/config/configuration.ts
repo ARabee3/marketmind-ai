@@ -27,6 +27,16 @@ export const configuration = () => ({
     origin: process.env.WEB_ORIGIN || "http://localhost:3000",
   },
 
+  redis: {
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  },
+
+  discovery: {
+    workerEnabled: process.env.DISCOVERY_WORKER_ENABLED !== "false",
+    workerConcurrency:
+      parseInt(process.env.DISCOVERY_WORKER_CONCURRENCY || "2", 10) || 2,
+  },
+
   app: {
     nodeEnv: process.env.NODE_ENV || "development",
   },

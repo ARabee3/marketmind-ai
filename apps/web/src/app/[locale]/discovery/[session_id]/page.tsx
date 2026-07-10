@@ -2,7 +2,7 @@
 
 import { use } from 'react'
 import { RequireAuth } from '@/features/auth/require-auth'
-import { ProgressTimeline } from '@/features/discovery/components/progress-timeline'
+import { DiscoverySession } from '@/features/discovery/components/discovery-session'
 
 type Props = {
   params: Promise<{ locale: string; session_id: string }>
@@ -13,8 +13,8 @@ export default function DiscoverySessionPage({ params }: Props) {
 
   return (
     <RequireAuth>
-      <div className="py-8">
-        <ProgressTimeline sessionId={session_id} />
+      <div>
+        <DiscoverySession sessionId={session_id} />
       </div>
     </RequireAuth>
   )

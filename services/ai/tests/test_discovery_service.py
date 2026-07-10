@@ -124,13 +124,16 @@ def test_mock_start_supports_english() -> None:
 
     assert result.action == "ask_next_question"
     assert result.next_question is not None
-    assert "busy day at Koshary Corner" in result.next_question
+    assert "busy moment at Koshary Corner" in result.next_question
     assert "target audience" not in result.next_question.lower()
 
 
 def test_prompt_keeps_internal_marketing_fields_out_of_the_interview() -> None:
     assert "never present this as a questionnaire" in DISCOVERY_SYSTEM_PROMPT
     assert "Do not ask form-like questions" in DISCOVERY_SYSTEM_PROMPT
+    assert "Egyptian SME owner" in DISCOVERY_SYSTEM_PROMPT
+    assert "Egyptian cafe or restaurant owner" not in DISCOVERY_SYSTEM_PROMPT
+    assert "submitted business_type" in DISCOVERY_SYSTEM_PROMPT
     context = build_user_context("summarize", base_payload("en"))
     assert "End the interview now" in context
     assert '"business_name":"Koshary Corner"' in context
@@ -162,7 +165,7 @@ def test_mock_moves_to_a_contextual_question_without_repeating_fields() -> None:
     payload["messages"] = [
         {
             **owner_message(
-                "Think about a busy day: who orders, what do they choose, and when?"
+                "Think about a busy moment: who do you serve, what do they need, and when?"
             ),
             "role": "assistant",
         }
@@ -202,7 +205,7 @@ def test_mock_ignores_prompt_injection() -> None:
 
     assert result.action == "ask_clarification"
     assert result.next_question is not None
-    assert "busy day at Koshary Corner" in result.next_question
+    assert "busy moment at Koshary Corner" in result.next_question
 
 
 def test_summarize_builds_backend_profile_draft() -> None:
@@ -274,7 +277,7 @@ def test_internal_start_endpoint_uses_mock_without_llm_key() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["action"] == "ask_next_question"
-    assert "busy day at Koshary Corner" in body["next_question"]
+    assert "busy moment at Koshary Corner" in body["next_question"]
     assert "target audience" not in body["next_question"].lower()
     assert "price_range" not in body["updated_known_facts"]["offer"]
     assert "profile_draft" not in body
@@ -330,7 +333,7 @@ def test_openrouter_provider_adds_fallback_question_when_model_omits_it(
 
     assert result.action == "ask_clarification"
     assert result.next_question == (
-        "Think about your busiest period: what do customers repeatedly choose, "
+        "Think about your busiest period: what do people repeatedly ask for or choose, "
         "and what seems to bring them back?"
     )
     assert FakeOpenRouterClient.calls == 1

@@ -8,6 +8,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
+import { RedisModule } from "./modules/redis/redis.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
@@ -32,6 +33,9 @@ import { AppController } from "./app.controller";
         limit: 100,
       },
     ]),
+
+    // Infrastructure
+    RedisModule,
 
     // Feature modules
     HealthModule,

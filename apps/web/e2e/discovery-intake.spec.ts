@@ -17,9 +17,38 @@ const fixtureStatus = (
     business_type: 'Cafe',
     city: 'Cairo',
   },
-  intelligence: { status: 'running' },
+  intelligence: { status: 'running', search_mode: 'metadata_only', source_refs: [], research_observations: [], conversation_hooks: [], knowledge_gaps: [] },
   messages: [],
-  profile_state: {},
+  profile_state: {
+    known_facts: {
+      identity: { business_name: 'Test Cafe', business_type: 'Cafe', city: 'Cairo' },
+      offer: { core_offerings: [], best_sellers: [], purchase_occasions: [] },
+      customers: { primary_segments: [], visit_or_order_occasions: [], peak_periods: [], customer_needs: [] },
+      differentiation: { owner_claimed_strengths: [], customer_choice_reasons: [], proof_points: [] },
+      current_marketing: { active_channels: [], current_activities: [], delivery_platforms: [], available_assets: [] },
+      goals_and_constraints: { growth_goals: [], operational_constraints: [] },
+    },
+    uncertainties: [],
+    readiness: {
+      ready: false,
+      llm_recommended: false,
+      profile_readiness: 0,
+      domain_scores: {
+        identity: 0,
+        offer: 0,
+        customers: 0,
+        differentiation: 0,
+        current_marketing: 0,
+        goals_and_constraints: 0,
+        market_context: 0,
+        research_confidence: 0,
+        profile_readiness: 0,
+      },
+      blocking_domains: [],
+      owner_turn_count: 0,
+      max_owner_turns: 15,
+    },
+  },
   progress_events: events,
   strategy_locked: true,
 })
@@ -129,22 +158,24 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await expect(page.getByText('في طابور الانتظار').first()).toBeVisible()
   })
 
-  test('Handles partial research error and shows ready state without fake action', async ({ page }) => {
+  test('Handles partial research error and enters interview', async ({ page }) => {
     // Mock partial failure status
     await page.route('**/api/v1/discovery/test-session-456/status', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(fixtureStatus('partial_ready'))
+        body: JSON.stringify({
+          ...fixtureStatus('partial_ready'),
+          intelligence: { status: 'partial', search_mode: 'free_search', source_refs: [], research_observations: [], conversation_hooks: [], knowledge_gaps: [] },
+        })
       })
     })
 
     await page.goto('/en/discovery/test-session-456')
 
+    // Interview phase is shown for partial_ready with research warning visible
+    await expect(page.getByText("Let's refine your profile")).toBeVisible()
     await expect(page.getByText('Some research sources could not be loaded')).toBeVisible()
-    // No callback is wired, so the localized ready state is shown instead of a no-op button.
-    await expect(page.getByText('Your Discovery research is ready.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Start interview' })).not.toBeVisible()
   })
 
   test('respects the maximum of 8 social links', async ({ page }) => {
@@ -176,24 +207,29 @@ test.describe('Discovery Intake & Progress Workflow', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(fixtureStatus('research_failed', [{
-          type: 'progress',
+        body: JSON.stringify({
+          ...fixtureStatus('research_failed', [{
+            type: 'progress',
+            session_id: 'test-session-provider-fail',
+            seq: 1,
+            stage: 'ai_start',
+            status: 'failed',
+            message_key: 'discovery.ai.provider_unavailable',
+            message_text: 'AI discovery provider is not available yet.',
+            retryable: true,
+            payload: {},
+            created_at: new Date().toISOString(),
+          }]),
           session_id: 'test-session-provider-fail',
-          seq: 1,
-          stage: 'ai_start',
-          status: 'failed',
-          message_key: 'discovery.ai.provider_unavailable',
-          message_text: 'AI discovery provider is not available yet.',
-          retryable: true,
-          payload: {},
-          created_at: new Date().toISOString(),
-        }]))
+          intelligence: { status: 'failed', search_mode: 'metadata_only', source_refs: [], research_observations: [], conversation_hooks: [], knowledge_gaps: [] },
+        })
       })
     })
 
     await page.goto('/en/discovery/test-session-provider-fail')
-    await expect(page.getByText('The AI provider is temporarily unavailable.')).toBeVisible()
-    await expect(page.getByText('This step failed but will be retried automatically.')).toBeVisible()
+    // Interview phase is shown for research_failed with the warning visible
+    await expect(page.getByText("Let's refine your profile")).toBeVisible()
+    await expect(page.getByText('Research could not complete. Your interview will proceed from your intake information.')).toBeVisible()
   })
 
   test('Handles enqueue/Redis failure', async ({ page }) => {
