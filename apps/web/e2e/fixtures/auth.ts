@@ -32,6 +32,36 @@ export type AuthFixture = {
   rotation: TokenRotation
 }
 
+/**
+ * Mocks the backend Google OAuth authorization endpoint.
+ *
+ * The real backend sets the OAuth state cookie and redirects the browser to
+ * Google's consent screen. In tests we short-circuit that and redirect back to
+ * the localized frontend callback with the requested query parameters.
+ */
+export async function mockAuthGoogleRedirect(
+  page: Page,
+  locale: 'en' | 'ar',
+  query: Record<string, string>,
+) {
+  const params = new URLSearchParams(query)
+  const location = `http://localhost:3000/${locale}/oauth/callback?${params.toString()}`
+
+  await routeFor(page, '**/auth/google', async (route, request) => {
+    if (request.method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+
+    await route.fulfill({
+      status: 302,
+      headers: {
+        Location: location,
+      },
+    })
+  })
+}
+
 function routeFor(page: Page, pattern: string | RegExp, handler: Parameters<Page['route']>[1]) {
   return page.route(pattern, handler)
 }
