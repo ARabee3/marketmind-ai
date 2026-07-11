@@ -52,6 +52,11 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 900000 } })
   async register(@Body() dto: RegisterDto): Promise<SafeUser> {
+    const allowed = await this.authRateLimiter.checkLimit('register', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     return this.authService.register(dto);
   }
 
@@ -62,6 +67,11 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponse> {
+    const allowed = await this.authRateLimiter.checkLimit('login', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const { accessToken, rawRefreshToken, user } = await this.authService.login(dto);
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken, user };

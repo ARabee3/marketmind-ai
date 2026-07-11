@@ -149,11 +149,32 @@ describe('AuthController', () => {
       expect(result).toEqual(mockSafeUser);
     });
 
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      mockAuthRateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(
+        controller.register({ email: 'spam@marketmind.ai', password: 'Password123!', fullName: 'Spam' }),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+
+      expect(authService.register).not.toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
   // login — rate-limit gating
   // =========================================================================
+
+  describe('login — rate limit', () => {
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      mockAuthRateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(
+        controller.login({ email: 'test@marketmind.ai', password: 'Password123!' }, response),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+
+      expect(authService.login).not.toHaveBeenCalled();
+    });
+  });
 
   // =========================================================================
   // forgot-password
@@ -169,6 +190,15 @@ describe('AuthController', () => {
       expect(authService.forgotPassword).toHaveBeenCalledWith('anyone@example.com');
     });
 
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      mockAuthRateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(
+        controller.forgotPassword({ email: 'spam@example.com' }),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+
+      expect(authService.forgotPassword).not.toHaveBeenCalled();
+    });
 
     it('still returns generic success when mail delivery fails', async () => {
       const { MailDeliveryError } = jest.requireActual('../mail/mail-delivery.error') as typeof import('../mail/mail-delivery.error');
