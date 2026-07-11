@@ -116,7 +116,7 @@ export class AuthController {
       );
     }
 
-    const state = await this.oauthState.createState('google', ip);
+    const state = await this.oauthState.createState('google');
     const url = this.googleOAuth.getAuthorizationUrl(state);
     res.redirect(url);
   }
@@ -150,7 +150,7 @@ export class AuthController {
         );
       }
 
-      await this.oauthState.consumeState(state, ip);
+      await this.oauthState.consumeState(state);
 
       if (!code) {
         throw new OAuthException(

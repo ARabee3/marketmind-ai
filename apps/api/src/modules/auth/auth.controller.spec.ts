@@ -178,7 +178,7 @@ describe('AuthController', () => {
         'oauth-initiate',
         '127.0.0.1',
       );
-      expect(oauthState.createState).toHaveBeenCalledWith('google', '127.0.0.1');
+      expect(oauthState.createState).toHaveBeenCalledWith('google');
       expect(googleOAuth.getAuthorizationUrl).toHaveBeenCalledWith('state-nonce');
       expect(response.redirect).toHaveBeenCalledWith(
         'https://accounts.google.com/o/oauth2/v2/auth?state=state-nonce',
@@ -224,7 +224,7 @@ describe('AuthController', () => {
         'auth-code',
       );
 
-      expect(oauthState.consumeState).toHaveBeenCalledWith('state-nonce', '127.0.0.1');
+      expect(oauthState.consumeState).toHaveBeenCalledWith('state-nonce');
       expect(googleOAuth.exchangeCode).toHaveBeenCalledWith('auth-code');
       expect(cookies[REFRESH_TOKEN_COOKIE]).toBeDefined();
       expect(cookies[REFRESH_TOKEN_COOKIE].value).toBe('raw-refresh-token');
