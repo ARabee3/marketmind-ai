@@ -18,6 +18,15 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   DISCOVERY_AI_SERVICE_UNAVAILABLE: 'DiscoveryProgress.errorProviderFailure',
   DISCOVERY_AI_BAD_RESPONSE: 'DiscoveryProgress.errorGeneric',
   DISCOVERY_PROFILE_ALREADY_CONFIRMED: 'Errors.generic',
+  ACTION_TOKEN_INVALID: 'Errors.sessionExpired',
+  ACTION_TOKEN_CONSUMED: 'Errors.sessionExpired',
+  ACTION_TOKEN_EXPIRED: 'Errors.sessionExpired',
+  AUTH_RATE_LIMITED: 'Errors.generic',
+  FEDERATED_IDENTITY_CONFLICT: 'Errors.generic',
+  OAUTH_STATE_MISMATCH: 'Errors.generic',
+  OAUTH_PROVIDER_ERROR: 'Errors.serverError',
+  OAUTH_EMAIL_ALREADY_USED_PASSWORD: 'Auth.errorEmailExists',
+  OAUTH_CONFIGURATION_ERROR: 'Errors.serverError',
 }
 
 export function isKnownErrorCode(code: string): code is ErrorCode {

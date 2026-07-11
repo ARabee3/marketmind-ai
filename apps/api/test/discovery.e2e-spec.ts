@@ -28,6 +28,12 @@ process.env.JWT_REFRESH_SECRET = "discovery-e2e-refresh-secret";
 process.env.JWT_ACCESS_EXPIRES_IN = "15m";
 process.env.JWT_REFRESH_EXPIRES_IN = "7d";
 
+// Infrastructure required by AuthModule.
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL ||
+  "postgresql://marketmind:marketmind_dev@localhost:5432/marketmind_dev?schema=public";
+process.env.REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
 describe("Discovery public contract (e2e)", () => {
   let app: INestApplication;
   let ownerToken: string;
