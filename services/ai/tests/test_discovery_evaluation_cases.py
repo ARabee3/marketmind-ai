@@ -196,6 +196,30 @@ class CapturingProvider(DiscoveryProvider):
         )
 
 
+class CapturingArabicProvider(DiscoveryProvider):
+    name = "capturing-arabic"
+
+    def __init__(self) -> None:
+        self.last_request: DiscoveryProviderRequest | None = None
+
+    async def generate_structured(
+        self,
+        request: DiscoveryProviderRequest,
+    ) -> DiscoveryModelOutput:
+        self.last_request = request
+        return DiscoveryModelOutput(
+            action="ask_next_question",
+            ready_to_summarize=False,
+            next_question=(
+                "وجدت إشارات عن منافسين وحضور فيسبوك وسوق الحلويات في أسيوط. "
+                "ما أكثر منتج يطلبه العملاء عندكم حاليا؟"
+            ),
+            updated_known_facts={},
+            updated_uncertainties=[],
+            domain_scores={},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Unknown / knowledge gap cases
 # ---------------------------------------------------------------------------
@@ -613,6 +637,161 @@ def test_provider_payload_includes_structured_research_context_pack() -> None:
             "enrichment_status": None,
         },
     ]
+
+
+def test_arabic_start_passes_enriched_context_pack_to_provider() -> None:
+    payload = base_payload("ar-EG", with_social_links=True)
+    payload["intake"] = {
+        "business_name": "قصر نابولي",
+        "business_type": "محل حلويات",
+        "city": "اسيوط",
+        "area": "مدينة اسيوط",
+        "owner_goal_text": "زياده البيعات",
+        "known_competitors_text": "حلواني اخر ساعه",
+        "target_audience_text": "الشباب و العائلات",
+        "social_links": [
+            {
+                "platform": "facebook",
+                "url": "https://www.facebook.com/kasrnapoly",
+            }
+        ],
+    }
+    payload["intelligence"]["source_refs"] = [
+        {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "source_type": "owner_link",
+            "platform": "facebook",
+            "url": "https://www.facebook.com/kasrnapoly",
+            "title": None,
+            "snippet": None,
+            "fetched_at": "2026-06-25T10:00:05.000Z",
+            "confidence": 0.45,
+            "metadata": {
+                "owner_submitted": True,
+                "metadata_fetch_status": "failed",
+                "error_code": "METADATA_FETCH_FAILED",
+            },
+        },
+        {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "source_type": "search_result",
+            "platform": "apify_google_maps",
+            "url": "maps://placeid/akhersaah",
+            "title": "حلواني اخر ساعه",
+            "snippet": "محل حلويات قريب في مدينة أسيوط.",
+            "fetched_at": "2026-06-25T10:00:06.000Z",
+            "confidence": 0.82,
+            "metadata": {
+                "provider": "apify_google_maps",
+                "enrichment_status": "complete",
+            },
+        },
+        {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "source_type": "search_result",
+            "platform": "serpapi",
+            "url": "https://example.com/assiut-sweets",
+            "title": "سوق الحلويات في أسيوط",
+            "snippet": "بحث محلي عن محلات الحلويات في أسيوط.",
+            "fetched_at": "2026-06-25T10:00:07.000Z",
+            "confidence": 0.74,
+            "metadata": {
+                "provider": "serpapi",
+                "enrichment_status": "complete",
+                "visible_text_excerpt": "حلويات شرقية وتورت ومناسبات في أسيوط.",
+            },
+        },
+    ]
+    payload["intelligence"]["research_observations"] = [
+        {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "source_ref_id": "22222222-2222-4222-8222-222222222222",
+            "kind": "social_signal",
+            "statement": "رابط فيسبوك مقدم من صاحب النشاط لكن جلب الصفحة محجوب.",
+            "confidence": 0.45,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {
+                "evidence_tier": "needs_confirmation",
+                "classification": "social_signal",
+            },
+        },
+        {
+            "id": "66666666-6666-4666-8666-666666666666",
+            "source_ref_id": "33333333-3333-4333-8333-333333333333",
+            "kind": "competitor",
+            "statement": "حلواني اخر ساعه يظهر كمنافس محلي محتمل في أسيوط.",
+            "confidence": 0.82,
+            "visibility": "owner_visible",
+            "status": "accepted",
+            "metadata": {
+                "evidence_tier": "confirmed_signal",
+                "classification": "competitor",
+            },
+        },
+        {
+            "id": "77777777-7777-4777-8777-777777777777",
+            "source_ref_id": "44444444-4444-4444-8444-444444444444",
+            "kind": "market_context",
+            "statement": "نتائج البحث تشير إلى طلب محلي على الحلويات للمناسبات في أسيوط.",
+            "confidence": 0.74,
+            "visibility": "internal",
+            "status": "accepted",
+            "metadata": {
+                "evidence_tier": "likely_signal",
+                "classification": "market_context",
+            },
+        },
+        {
+            "id": "88888888-8888-4888-8888-888888888888",
+            "source_ref_id": "44444444-4444-4444-8444-444444444444",
+            "kind": "market_context",
+            "statement": "نتيجة ضعيفة غير مرتبطة بأسيوط.",
+            "confidence": 0.21,
+            "visibility": "internal",
+            "status": "discarded",
+            "discard_reason": "Wrong city.",
+            "metadata": {"evidence_tier": "discarded"},
+        },
+    ]
+
+    provider = CapturingArabicProvider()
+    request = AiDiscoveryStartRequest.model_validate(payload)
+    result = run(DiscoveryService(provider).start(request))
+
+    assert result.action == "ask_next_question"
+    assert result.next_question is not None
+    assert "أكثر منتج" in result.next_question
+    assert provider.last_request is not None
+    context_pack = provider.last_request.payload["intelligence"]["research_context_pack"]
+    assert [item["observation_id"] for item in context_pack["competitor_candidates"]] == [
+        "66666666-6666-4666-8666-666666666666"
+    ]
+    assert [item["observation_id"] for item in context_pack["social_presence_signals"]] == [
+        "55555555-5555-4555-8555-555555555555"
+    ]
+    assert [item["observation_id"] for item in context_pack["market_context_signals"]] == [
+        "77777777-7777-4777-8777-777777777777"
+    ]
+    packed_ids = {
+        item["observation_id"]
+        for section in (
+            "accepted_observations",
+            "unconfirmed_findings",
+            "competitor_candidates",
+            "social_presence_signals",
+            "market_context_signals",
+        )
+        for item in context_pack[section]
+    }
+    assert "88888888-8888-4888-8888-888888888888" not in packed_ids
+    assert context_pack["source_quality_notes"][0] == {
+        "source_ref_id": "22222222-2222-4222-8222-222222222222",
+        "platform": "facebook",
+        "provider": "facebook",
+        "confidence": 0.45,
+        "enrichment_status": None,
+    }
 
 
 def test_discarded_observation_requires_discard_reason() -> None:

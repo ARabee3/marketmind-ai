@@ -1,6 +1,10 @@
 import "reflect-metadata";
 import { ProviderError } from "../../../common/errors/provider-error";
-import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
+import {
+  LanguageModeDto,
+  SocialPlatformDto,
+  StartDiscoveryDto,
+} from "../dto/start-discovery.dto";
 import { ApifyMapsProvider } from "./apify-maps.provider";
 import { DuckDuckGoSearchProvider } from "./duckduckgo-search.provider";
 import { EvidenceTriageService } from "./evidence-triage.service";
@@ -621,6 +625,202 @@ describe("IntelligenceGathererService", () => {
           metadata: expect.objectContaining({
             intent: "social_profile",
             evidence_tier: "needs_confirmation",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("preserves blocked Facebook metadata while using SerpApi social search evidence", async () => {
+    const facebookUrl = "https://www.facebook.com/kasrnapoly";
+    const socialQuery = arabicPlanQuery(
+      "social_profile",
+      "قصر نابولي فيسبوك اسيوط",
+      80,
+      ["serpapi", "duckduckgo"],
+    );
+    queryPlanner.plan.mockResolvedValue({
+      source: "llm",
+      queries: [socialQuery],
+    });
+    metadataExtractor.extract.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "owner_link",
+          platform: "facebook",
+          url: facebookUrl,
+          confidence: 0.45,
+          metadata: {
+            owner_submitted: true,
+            metadata_fetch_status: "failed",
+            error_code: "METADATA_FETCH_FAILED",
+          },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "social_signal",
+          statement: "Owner provided facebook link.",
+          source_index: 0,
+          confidence: 0.45,
+          visibility: "internal",
+          metadata: {
+            platform: "facebook",
+            owner_submitted: true,
+          },
+        },
+      ],
+    });
+    searchClient.search.mockResolvedValue({
+      results: [
+        {
+          provider: "serpapi",
+          title: "قصر نابولي - Facebook",
+          url: facebookUrl,
+          snippet: "صفحة قصر نابولي على فيسبوك تظهر في نتائج البحث.",
+          rank: 1,
+          query: socialQuery.query,
+          confidence: 0.78,
+          metadata: { provider: "serpapi", intent: "social_profile" },
+        },
+      ],
+      provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
+    } as never);
+    sourceEnrichment.enrich.mockResolvedValue([
+      {
+        provider: "serpapi",
+        title: "قصر نابولي - Facebook",
+        url: facebookUrl,
+        snippet: "صفحة قصر نابولي على فيسبوك تظهر في نتائج البحث.",
+        rank: 1,
+        query: socialQuery.query,
+        confidence: 0.78,
+        metadata: {
+          provider: "serpapi",
+          intent: "social_profile",
+          enrichment_status: "failed",
+          enrichment_error_code: "SOURCE_ENRICHMENT_FAILED",
+        },
+      },
+    ]);
+    evidenceTriage.triage.mockResolvedValue({
+      source_refs: [
+        {
+          source_type: "search_result",
+          platform: "serpapi",
+          url: facebookUrl,
+          title: "قصر نابولي - Facebook",
+          snippet: "صفحة قصر نابولي على فيسبوك تظهر في نتائج البحث.",
+          confidence: 0.78,
+          status: "accepted",
+          metadata: {
+            provider: "serpapi",
+            intent: "social_profile",
+            triage_source: "llm",
+            evidence_tier: "needs_confirmation",
+            classification: "social_signal",
+            enrichment_status: "failed",
+          },
+        },
+      ],
+      research_observations: [
+        {
+          kind: "social_signal",
+          statement: "صفحة قصر نابولي على فيسبوك تظهر في نتائج البحث.",
+          source_index: 1,
+          confidence: 0.78,
+          visibility: "owner_visible",
+          status: "accepted",
+          metadata: {
+            provider: "serpapi",
+            intent: "social_profile",
+            triage_source: "llm",
+            evidence_tier: "needs_confirmation",
+            classification: "social_signal",
+            enrichment_status: "failed",
+          },
+        },
+      ],
+      accepted_count: 1,
+      discarded_count: 0,
+    });
+
+    const result = await service.gather({
+      language_mode: LanguageModeDto.ArabicEgypt,
+      intake: {
+        business_name: "قصر نابولي",
+        business_type: "محل حلويات",
+        city: "اسيوط",
+        area: "مدينة اسيوط",
+        social_links: [{ platform: SocialPlatformDto.Facebook, url: facebookUrl }],
+      },
+    });
+
+    expect(sourceEnrichment.enrich).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          provider: "serpapi",
+          metadata: expect.objectContaining({ intent: "social_profile" }),
+        }),
+      ],
+      undefined,
+    );
+    expect(evidenceTriage.triage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: "social_profile",
+        results: [
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              provider: "serpapi",
+              enrichment_status: "failed",
+            }),
+          }),
+        ],
+        sourceStartIndex: 1,
+      }),
+      undefined,
+    );
+    expect(result.source_refs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_type: "owner_link",
+          platform: "facebook",
+          url: facebookUrl,
+          metadata: expect.objectContaining({
+            metadata_fetch_status: "failed",
+            owner_submitted: true,
+          }),
+        }),
+        expect.objectContaining({
+          source_type: "search_result",
+          platform: "serpapi",
+          url: facebookUrl,
+          metadata: expect.objectContaining({
+            intent: "social_profile",
+            evidence_tier: "needs_confirmation",
+          }),
+        }),
+      ]),
+    );
+    expect(result.research_observations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "social_signal",
+          metadata: expect.objectContaining({
+            platform: "facebook",
+            owner_submitted: true,
+          }),
+        }),
+        expect.objectContaining({
+          kind: "social_signal",
+          source_ref_id: expect.any(String),
+          metadata: expect.objectContaining({
+            provider: "serpapi",
+            intent: "social_profile",
+            triage_source: "llm",
           }),
         }),
       ]),
