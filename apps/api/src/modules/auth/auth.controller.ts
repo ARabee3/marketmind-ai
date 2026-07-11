@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
+  Logger,
   Post,
   Req,
   Res,
@@ -19,11 +21,16 @@ import {
   RefreshResponse,
   SafeUser,
 } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { AuthenticatedUser } from './interfaces/jwt-payload.interface';
+import { MailDeliveryError } from '../mail/mail-delivery.error';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -33,15 +40,23 @@ export const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly authRateLimiter: AuthRateLimiterService,
   ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 900000 } })
   async register(@Body() dto: RegisterDto): Promise<SafeUser> {
+    const allowed = await this.authRateLimiter.checkLimit('register', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     return this.authService.register(dto);
   }
 
@@ -52,6 +67,11 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponse> {
+    const allowed = await this.authRateLimiter.checkLimit('login', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const { accessToken, rawRefreshToken, user } = await this.authService.login(dto);
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken, user };
@@ -87,6 +107,73 @@ export class AuthController {
   async getMe(@Req() req: RequestWithUser): Promise<{ user: SafeUser }> {
     const user = await this.authService.getMe(req.user.id);
     return { user };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const allowed = await this.authRateLimiter.checkLimit('password-reset', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    try {
+      await this.authService.forgotPassword(dto.email);
+    } catch (error) {
+      if (error instanceof MailDeliveryError) {
+        this.logger.warn(`Password reset mail delivery failed: ${error.message}`);
+      }
+    }
+
+    return { message: 'If an account with that email exists, a password reset link has been sent' };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return { message: 'Password has been reset successfully' };
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {
+    const prefix = dto.token.substring(0, 8);
+    const allowed = await this.authRateLimiter.checkLimit('verify-email', prefix);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    await this.authService.verifyEmail(dto.token);
+    return { message: 'Email verified successfully' };
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  async resendVerification(@Req() req: RequestWithUser): Promise<{ message: string }> {
+    const allowed = await this.authRateLimiter.checkLimit('verify-email', req.user.id);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    try {
+      await this.authService.sendVerificationEmail(req.user.id, req.user.email);
+    } catch (error) {
+      if (error instanceof MailDeliveryError) {
+        throw new HttpException(
+          { code: 'MAIL_DELIVERY_FAILED', message: 'Failed to send verification email' },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw error;
+    }
+
+    return { message: 'Verification email sent' };
   }
 
   private setRefreshCookie(res: Response, token: string): void {

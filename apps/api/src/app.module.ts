@@ -9,6 +9,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
 import { RedisModule } from "./modules/redis/redis.module";
+import { MailModule } from "./modules/mail/mail.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
@@ -36,6 +37,7 @@ import { AppController } from "./app.controller";
 
     // Infrastructure
     RedisModule,
+    MailModule,
 
     // Feature modules
     HealthModule,

@@ -7,6 +7,8 @@ import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { AuthService } from './auth.service';
+import { ActionTokenService } from './action-token.service';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../../common/persistence/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -37,6 +39,11 @@ const mockDbUser = {
   updatedAt: new Date('2024-01-01T00:00:00Z'),
 };
 
+const mockVerifiedDbUser = {
+  ...mockDbUser,
+  isEmailVerified: true,
+};
+
 // ---------------------------------------------------------------------------
 // Mock factory helpers
 // ---------------------------------------------------------------------------
@@ -52,10 +59,25 @@ const createMockPrismaService = () => ({
     update: jest.fn(),
     updateMany: jest.fn(),
   },
+  refreshSession: {
+    deleteMany: jest.fn(),
+  },
+  $transaction: jest.fn((arg: any) =>
+    Array.isArray(arg) ? Promise.all(arg) : arg({ user: { update: jest.fn() }, refreshSession: { deleteMany: jest.fn() } }),
+  ),
 });
 
 const createMockJwtService = () => ({
   signAsync: jest.fn(),
+});
+
+const createMockActionTokenService = () => ({
+  issue: jest.fn(),
+  consume: jest.fn(),
+});
+
+const createMockMailService = () => ({
+  sendMail: jest.fn(),
 });
 
 const createMockConfigService = () => ({
@@ -71,6 +93,7 @@ const createMockConfigService = () => ({
     const map: Record<string, unknown> = {
       'jwt.accessExpiresIn': '15m',
       'jwt.refreshExpiresIn': '7d',
+      'mail.appUrl': 'http://localhost:3000',
     };
     return map[key] ?? fallback;
   }),
@@ -84,10 +107,14 @@ describe('AuthService', () => {
   let service: AuthService;
   let prisma: ReturnType<typeof createMockPrismaService>;
   let jwtService: ReturnType<typeof createMockJwtService>;
+  let actionTokenService: ReturnType<typeof createMockActionTokenService>;
+  let mailService: ReturnType<typeof createMockMailService>;
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
     jwtService = createMockJwtService();
+    actionTokenService = createMockActionTokenService();
+    mailService = createMockMailService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -95,6 +122,8 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: createMockConfigService() },
+        { provide: ActionTokenService, useValue: actionTokenService },
+        { provide: MailService, useValue: mailService },
       ],
     }).compile();
 
@@ -220,11 +249,29 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(MOCK_REFRESH_TOKEN);
     });
 
-    it('should return an access token, raw refresh token, and user on valid credentials', async () => {
-      // Arrange
+    it('should throw UnauthorizedException when email is not verified', async () => {
+      // Arrange — user exists but email is not verified
       prisma.user.findUnique.mockResolvedValue(mockDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      prisma.user.update.mockResolvedValue(mockDbUser);
+
+      // Act & Assert
+      let error: unknown;
+      try {
+        await service.login(loginDto);
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    });
+
+    it('should return an access token, raw refresh token, and user on valid credentials', async () => {
+      // Arrange
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
 
       // Act
       const result = await service.login(loginDto);
@@ -239,9 +286,9 @@ describe('AuthService', () => {
 
     it('should persist a hashed refresh token after successful login', async () => {
       // Arrange
-      prisma.user.findUnique.mockResolvedValue(mockDbUser);
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      prisma.user.update.mockResolvedValue(mockDbUser);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
 
       // Act
       await service.login(loginDto);
@@ -270,7 +317,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException with a generic message when password is wrong', async () => {
       // Arrange — user exists but password doesn't match
-      prisma.user.findUnique.mockResolvedValue(mockDbUser);
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
       // Act & Assert
@@ -290,7 +337,7 @@ describe('AuthService', () => {
       }
 
       // Arrange — case 2: wrong password
-      prisma.user.findUnique.mockResolvedValue(mockDbUser);
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
       let error2: UnauthorizedException | null = null;
       try {
@@ -307,9 +354,9 @@ describe('AuthService', () => {
 
     it('should update lastLoginAt on successful login', async () => {
       // Arrange
-      prisma.user.findUnique.mockResolvedValue(mockDbUser);
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      prisma.user.update.mockResolvedValue(mockDbUser);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
 
       // Act
       await service.login(loginDto);
@@ -429,6 +476,103 @@ describe('AuthService', () => {
       await expect(service.getMe(MOCK_USER_ID)).rejects.toThrow(
         new UnauthorizedException('User no longer exists'),
       );
+    });
+  });
+
+  // =========================================================================
+  // sendVerificationEmail()
+  // =========================================================================
+
+  describe('sendVerificationEmail()', () => {
+    it('should issue an EMAIL_VERIFICATION token and send a mail', async () => {
+      jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
+        rawToken: 'abc123',
+        expiresAt: new Date(),
+      });
+
+      await service.sendVerificationEmail(MOCK_USER_ID, MOCK_EMAIL);
+
+      expect(actionTokenService.issue).toHaveBeenCalledWith(MOCK_USER_ID, 'EMAIL_VERIFICATION');
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        MOCK_EMAIL,
+        expect.any(String),
+        expect.stringContaining('abc123'),
+      );
+    });
+  });
+
+  // =========================================================================
+  // forgotPassword()
+  // =========================================================================
+
+  describe('forgotPassword()', () => {
+    it('should issue a PASSWORD_RESET token and send mail when user exists', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: MOCK_USER_ID, email: MOCK_EMAIL });
+      jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
+        rawToken: 'reset-token',
+        expiresAt: new Date(),
+      });
+
+      await service.forgotPassword(MOCK_EMAIL);
+
+      expect(actionTokenService.issue).toHaveBeenCalledWith(MOCK_USER_ID, 'PASSWORD_RESET');
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        MOCK_EMAIL,
+        expect.any(String),
+        expect.stringContaining('reset-token'),
+      );
+    });
+
+    it('should silently succeed when the email is unknown', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.forgotPassword('unknown@example.com')).resolves.toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // resetPassword()
+  // =========================================================================
+
+  describe('resetPassword()', () => {
+    it('should consume token, hash password, update DB, and revoke sessions', async () => {
+      jest.spyOn(actionTokenService, 'consume').mockResolvedValue(MOCK_USER_ID);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
+      prisma.refreshSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      const bcryptSpy = jest.spyOn(bcrypt, 'hash');
+
+      await service.resetPassword('valid-token', 'NewSecurePass456');
+
+      expect(actionTokenService.consume).toHaveBeenCalledWith('valid-token', 'PASSWORD_RESET');
+      expect(bcryptSpy).toHaveBeenCalledWith('NewSecurePass456', 12);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: MOCK_USER_ID },
+        data: { password: expect.any(String), refreshToken: null },
+      });
+      // Sessions must be revoked after a successful password reset
+      expect(prisma.refreshSession.deleteMany).toHaveBeenCalledWith({
+        where: { userId: MOCK_USER_ID },
+      });
+    });
+  });
+
+  // =========================================================================
+  // verifyEmail()
+  // =========================================================================
+
+  describe('verifyEmail()', () => {
+    it('should consume EMAIL_VERIFICATION token and set isEmailVerified', async () => {
+      jest.spyOn(actionTokenService, 'consume').mockResolvedValue(MOCK_USER_ID);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
+
+      await service.verifyEmail('valid-token');
+
+      expect(actionTokenService.consume).toHaveBeenCalledWith('valid-token', 'EMAIL_VERIFICATION');
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: MOCK_USER_ID },
+        data: { isEmailVerified: true },
+      });
     });
   });
 });

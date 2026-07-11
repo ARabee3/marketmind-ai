@@ -4,14 +4,19 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, Role } from '@prisma/client';
+import { ActionTokenType, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { MailDeliveryError } from '../mail/mail-delivery.error';
+import { ActionTokenService, ActionTokenError } from './action-token.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload, AuthenticatedUser } from './interfaces/jwt-payload.interface';
@@ -58,6 +63,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly actionTokenService: ActionTokenService,
+    private readonly mailService: MailService,
   ) {}
 
 
@@ -93,6 +100,13 @@ export class AuthService {
       });
 
       this.logger.log(`New user registered: ${user.id}`);
+
+      try {
+        await this.sendVerificationEmail(user.id, user.email);
+      } catch (error) {
+        this.logger.warn(`Verification email failed for user ${user.id}: ${error}`);
+      }
+
       return this.toSafeUser(user);
     } catch (error) {
       if (
@@ -134,7 +148,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // 3. Issue tokens.
+    // 3. Guard: email must be verified.
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email before logging in',
+      });
+    }
+
+    // 4. Issue tokens.
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
 
     // 4. Persist the hashed refresh token and update lastLoginAt atomically.
@@ -191,6 +213,108 @@ export class AuthService {
     }
 
     return this.toSafeUser(user);
+  }
+
+  async sendVerificationEmail(userId: string, email: string): Promise<void> {
+    const { rawToken } = await this.actionTokenService.issue(
+      userId,
+      ActionTokenType.EMAIL_VERIFICATION,
+    );
+
+    const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
+    const link = `${appUrl}/verify-email?token=${rawToken}`;
+
+    await this.mailService.sendMail(
+      email,
+      'Verify your email address',
+      `<p>Click <a href="${link}">here</a> to verify your email. This link expires in 12 hours.</p>`,
+    );
+
+    this.logger.log(`Verification email sent to user ${userId}`);
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      this.logger.warn(`Password reset requested for unknown email: ${email}`);
+      return;
+    }
+
+    const { rawToken } = await this.actionTokenService.issue(
+      user.id,
+      ActionTokenType.PASSWORD_RESET,
+    );
+
+    const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
+    const link = `${appUrl}/reset-password?token=${rawToken}`;
+
+    await this.mailService.sendMail(
+      user.email,
+      'Reset your password',
+      `<p>Click <a href="${link}">here</a> to reset your password. This link expires in 30 minutes.</p>`,
+    );
+
+    this.logger.log(`Password reset email sent to user ${user.id}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    let userId: string;
+
+    try {
+      userId = await this.actionTokenService.consume(token, ActionTokenType.PASSWORD_RESET);
+    } catch (error) {
+      if (error instanceof ActionTokenError) {
+        throw new UnprocessableEntityException({
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          password: hashedPassword,
+          refreshToken: null,
+        },
+      }),
+      this.prisma.refreshSession.deleteMany({
+        where: { userId },
+      }),
+    ]);
+
+    this.logger.log(`Password reset for user ${userId}`);
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    let userId: string;
+
+    try {
+      userId = await this.actionTokenService.consume(token, ActionTokenType.EMAIL_VERIFICATION);
+    } catch (error) {
+      if (error instanceof ActionTokenError) {
+        throw new UnprocessableEntityException({
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isEmailVerified: true },
+    });
+
+    this.logger.log(`Email verified for user ${userId}`);
   }
 
   private async generateTokens(
