@@ -14,6 +14,8 @@ const ACTION_LIMITS: Record<
   "password-reset": { maxAttempts: 3, windowSeconds: 900 }, // 3 per 15 min
   "verify-email": { maxAttempts: 3, windowSeconds: 3600 }, // 3 per hour
   register: { maxAttempts: 5, windowSeconds: 3600 }, // 5 per hour
+  "oauth-initiate": { maxAttempts: 10, windowSeconds: 900 }, // 10 per 15 min
+  "oauth-callback": { maxAttempts: 20, windowSeconds: 900 }, // 20 per 15 min
 };
 
 const DEFAULT_LIMIT = { maxAttempts: 10, windowSeconds: 60 };

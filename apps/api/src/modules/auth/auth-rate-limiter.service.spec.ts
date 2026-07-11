@@ -134,6 +134,42 @@ describe("AuthRateLimiterService", () => {
     });
   });
 
+  describe("OAuth actions", () => {
+    it("allows up to 10 oauth-initiate attempts per 15 min", async () => {
+      for (let count = 1; count <= 10; count++) {
+        mockPipeline.exec.mockResolvedValueOnce([[null, count]]);
+        const allowed = await service.checkLimit("oauth-initiate", "127.0.0.1");
+        expect(allowed).toBe(true);
+      }
+
+      mockPipeline.exec.mockResolvedValue([[null, 11]]);
+      const rejected = await service.checkLimit("oauth-initiate", "127.0.0.1");
+      expect(rejected).toBe(false);
+    });
+
+    it("allows up to 20 oauth-callback attempts per 15 min", async () => {
+      for (let count = 1; count <= 20; count++) {
+        mockPipeline.exec.mockResolvedValueOnce([[null, count]]);
+        const allowed = await service.checkLimit("oauth-callback", "127.0.0.1");
+        expect(allowed).toBe(true);
+      }
+
+      mockPipeline.exec.mockResolvedValue([[null, 21]]);
+      const rejected = await service.checkLimit("oauth-callback", "127.0.0.1");
+      expect(rejected).toBe(false);
+    });
+
+    it("uses separate keys for oauth-initiate and oauth-callback", async () => {
+      mockPipeline.exec.mockResolvedValue([[null, 1]]);
+      await service.checkLimit("oauth-initiate", "127.0.0.1");
+      await service.checkLimit("oauth-callback", "127.0.0.1");
+
+      const incrCalls = mockPipeline.incr.mock.calls;
+      expect(incrCalls[0][0]).toBe("rate:auth:oauth-initiate:127.0.0.1");
+      expect(incrCalls[1][0]).toBe("rate:auth:oauth-callback:127.0.0.1");
+    });
+  });
+
   describe("unknown actions", () => {
     it("falls back to default limit (10 per 60s) for unknown actions", async () => {
       mockPipeline.exec.mockResolvedValue([[null, 10]]);

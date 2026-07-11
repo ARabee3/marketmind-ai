@@ -3,8 +3,11 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
+  Logger,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -24,6 +27,11 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { AuthenticatedUser } from './interfaces/jwt-payload.interface';
+import { AuthRateLimiterService } from './auth-rate-limiter.service';
+import { OAuthStateService } from './oauth-state.service';
+import { GoogleOAuthClient } from './google-oauth.client';
+import { OAuthAccountPolicyService } from './oauth-account-policy.service';
+import { OAuthException } from './exceptions/oauth.exception';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -33,9 +41,15 @@ export const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly rateLimiter: AuthRateLimiterService,
+    private readonly oauthState: OAuthStateService,
+    private readonly googleOAuth: GoogleOAuthClient,
+    private readonly oauthAccountPolicy: OAuthAccountPolicyService,
   ) {}
 
   @Post('register')
@@ -89,6 +103,74 @@ export class AuthController {
     return { user };
   }
 
+  @Get('google')
+  @Throttle({ default: { limit: 10, ttl: 900000 } })
+  async googleAuth(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const ip = req.ip ?? 'unknown';
+
+    const allowed = await this.rateLimiter.checkLimit('oauth-initiate', ip);
+    if (!allowed) {
+      throw new HttpException(
+        { code: 'AUTH_RATE_LIMITED', message: 'Too many OAuth attempts' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const state = await this.oauthState.createState('google', ip);
+    const url = this.googleOAuth.getAuthorizationUrl(state);
+    res.redirect(url);
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('state') state?: string,
+    @Query('code') code?: string,
+    @Query('error') providerError?: string,
+  ): Promise<void> {
+    const ip = req.ip ?? 'unknown';
+    const redirectBase = this.oauthRedirectUrl();
+
+    const allowed = await this.rateLimiter.checkLimit('oauth-callback', ip);
+    if (!allowed) {
+      return this.redirectWithError(
+        res,
+        redirectBase,
+        'AUTH_RATE_LIMITED',
+        'Too many callback attempts',
+      );
+    }
+
+    try {
+      if (providerError) {
+        throw new OAuthException(
+          'OAUTH_PROVIDER_ERROR',
+          `Google OAuth error: ${providerError}`,
+        );
+      }
+
+      await this.oauthState.consumeState(state, ip);
+
+      if (!code) {
+        throw new OAuthException(
+          'OAUTH_PROVIDER_ERROR',
+          'Missing authorization code',
+        );
+      }
+
+      const profile = await this.googleOAuth.exchangeCode(code);
+      const result = await this.oauthAccountPolicy.signInWithGoogle(profile);
+
+      this.setRefreshCookie(res, result.rawRefreshToken);
+      res.redirect(`${redirectBase}?status=success`);
+    } catch (error) {
+      this.logger.warn('Google OAuth callback failed', error);
+      const { code: errorCode, message } = this.normalizeOAuthError(error);
+      this.redirectWithError(res, redirectBase, errorCode, message);
+    }
+  }
+
   private setRefreshCookie(res: Response, token: string): void {
     res.cookie(REFRESH_TOKEN_COOKIE, token, {
       httpOnly: true,
@@ -112,6 +194,47 @@ export class AuthController {
     // Convert refresh token expiry (e.g. "7d") to milliseconds for the cookie.
     const expiresIn = this.configService.get<string>('jwt.refreshExpiresIn', '7d');
     return ms(expiresIn);
+  }
+
+  private oauthRedirectUrl(): string {
+    const origin = this.configService.get<string>('cors.origin');
+    return `${origin.replace(/\/$/, '')}/oauth/callback`;
+  }
+
+  private redirectWithError(
+    res: Response,
+    base: string,
+    code: string,
+    message: string,
+  ): void {
+    const url = new URL(base);
+    url.searchParams.set('error', code);
+    url.searchParams.set('message', message);
+    res.redirect(url.toString());
+  }
+
+  private normalizeOAuthError(error: unknown): { code: string; message: string } {
+    if (error instanceof OAuthException) {
+      return { code: error.code, message: error.message };
+    }
+
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (
+        typeof response === 'object' &&
+        response !== null &&
+        'code' in response
+      ) {
+        return {
+          code: (response as { code: string }).code,
+          message: (response as { message?: string }).message ?? error.message,
+        };
+      }
+      return { code: 'OAUTH_PROVIDER_ERROR', message: error.message };
+    }
+
+    const message = error instanceof Error ? error.message : 'OAuth failed';
+    return { code: 'SERVER_ERROR', message };
   }
 }
 
