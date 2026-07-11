@@ -9,6 +9,9 @@ import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { PERMISSIONS } from "../rbac/rbac.constants";
 import { RbacService } from "../rbac/rbac.service";
 import { emptyDiscoveryProfileState } from "./market-profile";
+import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
+import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
+import { RedisService } from "../redis/redis.service";
 
 describe("DiscoveryController", () => {
   const service = {
@@ -34,6 +37,12 @@ describe("DiscoveryController", () => {
           useValue: conversationService,
         },
         RbacService,
+        DiscoveryRateLimitGuard,
+        DiscoveryRedisLimiterService,
+        {
+          provide: RedisService,
+          useValue: { ping: jest.fn(), getClient: jest.fn() },
+        },
       ],
     }).compile();
 

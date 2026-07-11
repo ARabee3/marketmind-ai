@@ -1,18 +1,21 @@
-import { ProgressTimeline } from '@/features/discovery/components/progress-timeline'
+'use client'
+
+import { use } from 'react'
+import { RequireAuth } from '@/features/auth/require-auth'
+import { DiscoverySession } from '@/features/discovery/components/discovery-session'
 
 type Props = {
   params: Promise<{ locale: string; session_id: string }>
 }
 
-export default async function DiscoverySessionPage({ params }: Props) {
-  const { session_id } = await params
+export default function DiscoverySessionPage({ params }: Props) {
+  const { session_id } = use(params)
 
-  // Issue #19 owns authentication. The access token lives in memory and is
-  // passed here once auth is wired; until then the component renders without a
-  // token and the API client sends no Authorization header.
   return (
-    <div className="py-8">
-      <ProgressTimeline sessionId={session_id} />
-    </div>
+    <RequireAuth>
+      <div>
+        <DiscoverySession sessionId={session_id} />
+      </div>
+    </RequireAuth>
   )
 }

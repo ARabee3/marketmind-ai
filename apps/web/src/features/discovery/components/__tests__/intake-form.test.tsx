@@ -61,7 +61,7 @@ describe('IntakeForm', () => {
       accepted_at: new Date().toISOString(),
     })
 
-    render(<IntakeForm authToken="test-token" />)
+    render(<IntakeForm />)
 
     fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
     fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
@@ -73,14 +73,16 @@ describe('IntakeForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
 
     await waitFor(() => {
-      expect(startDiscovery).toHaveBeenCalledWith({
-        language_mode: 'ar-EG',
-        intake: {
-          business_name: 'Test Cafe',
-          business_type: 'Cafe',
-          city: 'Cairo',
-        }
-      }, 'test-token')
+      expect(startDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          language_mode: 'ar-EG',
+          intake: expect.objectContaining({
+            business_name: 'Test Cafe',
+            business_type: 'Cafe',
+            city: 'Cairo',
+          }),
+        }),
+      )
       expect(mockRouterPush).toHaveBeenCalledWith('/discovery/test-session-123')
     })
   })
@@ -88,7 +90,7 @@ describe('IntakeForm', () => {
   it('maps API errors to typed translation keys', async () => {
     vi.mocked(startDiscovery).mockRejectedValueOnce({ status: 422, code: 'VALIDATION_FAILED', message: 'bad' })
 
-    render(<IntakeForm authToken="test-token" />)
+    render(<IntakeForm />)
 
     fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
     fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })

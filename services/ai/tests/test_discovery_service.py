@@ -125,7 +125,7 @@ def test_mock_start_supports_english() -> None:
 
     assert result.action == "ask_next_question"
     assert result.next_question is not None
-    assert "busy day at Koshary Corner" in result.next_question
+    assert "busy moment at Koshary Corner" in result.next_question
     assert "target audience" not in result.next_question.lower()
 
 
@@ -203,7 +203,7 @@ def test_mock_ignores_prompt_injection() -> None:
 
     assert result.action == "ask_clarification"
     assert result.next_question is not None
-    assert "busy day at Koshary Corner" in result.next_question
+    assert "busy moment at Koshary Corner" in result.next_question
 
 
 def test_summarize_builds_backend_profile_draft() -> None:
@@ -305,7 +305,7 @@ def test_internal_start_endpoint_uses_mock_without_llm_key() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["action"] == "ask_next_question"
-    assert "busy day at Koshary Corner" in body["next_question"]
+    assert "busy moment at Koshary Corner" in body["next_question"]
     assert "target audience" not in body["next_question"].lower()
     assert "price_range" not in body["updated_known_facts"]["offer"]
     assert "profile_draft" not in body

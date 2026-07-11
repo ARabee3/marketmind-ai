@@ -1,15 +1,173 @@
 import anyio
 import pytest
+from fastapi.testclient import TestClient
 
+from app.core.config import Settings, get_settings
+from app.main import create_app
 from app.providers.base import ProviderError
+from app.search.llm_query_planner import (
+    GeminiQueryPlanner,
+    OpenRouterQueryPlanner,
+    QUERY_PLAN_SYSTEM_PROMPT,
+    create_llm_query_planner,
+)
 from app.search.query_planning_service import QueryPlanningService
 from app.search.schemas import QueryPlan, QueryPlanningRequest
 from test_query_planning_fixtures import (
+    FakeGeminiClient,
     bad_competitor_provider_order_plan,
     complete_llm_plan,
     competitor_only_plan,
     payload,
 )
+
+
+@pytest.mark.anyio
+async def test_query_planner_includes_competitor_and_social_queries() -> None:
+    request = QueryPlanningRequest.model_validate(payload())
+
+    plan = await QueryPlanningService().plan(request)
+
+    assert plan.source == "deterministic"
+    assert [query.intent for query in plan.queries] == [
+        "business_match",
+        "competitor_discovery",
+        "market_context",
+        "review_presence",
+        "social_profile",
+        "competitor_discovery",
+        "competitor_discovery",
+    ]
+    assert plan.queries[1].provider_hints == [
+        "apify_google_maps",
+        "serpapi",
+        "duckduckgo",
+    ]
+    assert plan.queries[-1].metadata == {"owner_provided_competitor": True}
+
+
+@pytest.mark.anyio
+async def test_query_planner_supports_arabic_queries() -> None:
+    request = QueryPlanningRequest.model_validate(payload("ar-EG"))
+
+    plan = await QueryPlanningService().plan(request)
+
+    assert plan.queries[1].query == (
+        "أفضل quick service restaurant في Nasr City, Cairo منافسين"
+    )
+    assert plan.queries[2].query == (
+        "اتجاهات سوق quick service restaurant في Nasr City, Cairo"
+    )
+
+
+def test_internal_query_plan_endpoint() -> None:
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
+
+    response = client.post("/internal/v1/ai/search/query-plan", json=payload())
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "deterministic"
+    assert body["queries"][1]["intent"] == "competitor_discovery"
+
+
+def test_llm_query_prompt_is_industry_neutral() -> None:
+    assert "Egyptian SME" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "business_type" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "city/area" in QUERY_PLAN_SYSTEM_PROMPT
+    assert "Egyptian cafe/restaurant" not in QUERY_PLAN_SYSTEM_PROMPT
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("language_mode", "business_type", "location", "forbidden_terms"),
+    [
+        ("en", "pharmacy retail", "Heliopolis, Cairo", ["restaurant", "cafe"]),
+        ("mixed", "accounting office", "Maadi, Cairo", ["restaurant", "cafe"]),
+        ("ar-EG", "مركز تعليم لغات", "سموحة, الإسكندرية", ["مطعم", "كافيه", "مقهى"]),
+    ],
+)
+async def test_query_planner_uses_actual_non_hospitality_business_type(
+    language_mode: str,
+    business_type: str,
+    location: str,
+    forbidden_terms: list[str],
+) -> None:
+    request_payload = payload(language_mode)
+    request_payload["intake"].update(
+        {
+            "business_name": "Representative SME",
+            "business_type": business_type,
+            "city": location.split(", ")[1],
+            "area": location.split(", ")[0],
+            "known_competitors_text": "",
+            "social_links": [],
+        }
+    )
+    request = QueryPlanningRequest.model_validate(request_payload)
+
+    plan = await QueryPlanningService().plan(request)
+
+    query_text = "\n".join(query.query for query in plan.queries).lower()
+    assert business_type.lower() in query_text
+    assert location.lower() in query_text
+    assert all(term not in query_text for term in forbidden_terms)
+
+
+def test_internal_query_plan_endpoint_uses_configured_llm_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google import genai
+
+    monkeypatch.setattr(genai, "Client", FakeGeminiClient)
+
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        ai_provider_mode="gemini_dev",
+        ai_request_timeout_ms=30_000,
+        gemini_api_key="test-key",
+        gemini_model="gemini-test",
+    )
+    client = TestClient(app)
+
+    response = client.post("/internal/v1/ai/search/query-plan", json=payload())
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "llm"
+    assert body["queries"][0]["query"] == "llm-business_match"
+
+
+def test_gemini_query_planner_keeps_timeout_in_milliseconds() -> None:
+    planner = create_llm_query_planner(
+        Settings(
+            ai_provider_mode="gemini_dev",
+            ai_request_timeout_ms=30_000,
+            gemini_api_key="test-key",
+            gemini_model="gemini-test",
+        )
+    )
+
+    assert isinstance(planner, GeminiQueryPlanner)
+    assert planner.timeout_ms == 13_500
+
+
+def test_openrouter_query_planner_is_selected_from_provider_mode() -> None:
+    planner = create_llm_query_planner(
+        Settings(
+            ai_provider_mode="openrouter",
+            ai_request_timeout_ms=30_000,
+            open_router_api_key="test-key",
+            open_router_model="openrouter-test",
+        )
+    )
+
+    assert isinstance(planner, OpenRouterQueryPlanner)
+    assert planner.timeout_seconds == 13.5
 
 
 @pytest.mark.anyio

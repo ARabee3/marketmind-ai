@@ -11,22 +11,33 @@
     "agent:setup": "node scripts/agent-tools/setup.mjs",
     "agent:doctor": "node scripts/agent-tools/doctor.mjs",
     "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check -w @marketmind/web",
-    "check:ai": "cd services/ai && uv run pytest"
+    "check:ai": "cd services/ai && uv run pytest",
+    "docker:up": "docker compose -f infra/docker/docker-compose.local.yml up -d && wait-on tcp:5433 tcp:6379",
+    "prisma:deploy": "npm run prisma:migrate:deploy -w @marketmind/api",
+    "dev": "npm run docker:up && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\"",
+    "dev:full": "npm run docker:up && npm run prisma:deploy && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\""
   },
   "overrides": {
     "multer": "2.2.0"
   },
   "dependencies": {
     "@swc/helpers": "0.5.23",
-    "next-intl": "^4.13.1"
+    "class-variance-authority": "^0.7.1",
+    "next-intl": "^4.13.1",
+    "object-keys": "^1.1.1",
+    "strip-literal": "^3.1.0",
+    "symbol-tree": "^3.2.4",
+    "tinyglobby": "^0.2.17"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.2.4",
     "eslint-config-next": "^16.2.10",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "wait-on": "^8.0.5"
   }
 }

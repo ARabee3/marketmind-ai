@@ -162,17 +162,17 @@ class MockDiscoveryProvider(DiscoveryProvider):
     ) -> str:
         if language_mode == "ar-EG":
             return (
-                f"تخيل يوم زحمة في {business_name}: مين غالبا بيكون موجود، "
-                "وبيطلبوا إيه وفي أي وقت؟"
+                f"تخيل وقت شغل زحمة في {business_name}: مين غالبا الناس اللي "
+                "بتخدمهم، وبيحتاجوا إيه وفي أي وقت؟"
             )
         if language_mode == "mixed":
             return (
-                f"Think of a busy day at {business_name}: مين غالبا بيطلب، "
-                "وبيختاروا إيه وفي أي وقت؟"
+                f"Think of a busy moment at {business_name}: مين العملاء أو clients "
+                "اللي بتخدمهم، what do they need, and when?"
             )
         return (
-            f"Think about a busy day at {business_name}: who is usually ordering, "
-            "what do they tend to choose, and around what time?"
+            f"Think about a busy moment at {business_name}: who are the people you "
+            "serve, what do they usually need, and around what time?"
         )
 
     def _question_for_gap(
@@ -185,10 +185,16 @@ class MockDiscoveryProvider(DiscoveryProvider):
             return self._safe_discovery_question(language_mode, business_name)
         if field_key in {"best_selling_items", "core_offerings"}:
             if language_mode == "ar-EG":
-                return "لما الدنيا بتكون زحمة، إيه الطلبات اللي بتطلع أكتر حاجة؟"
+                return "وقت الزحمة، إيه المنتجات أو الخدمات اللي الناس بترجع لها أكتر؟"
             if language_mode == "mixed":
-                return "وقت الزحمة، which orders keep showing up again and again؟"
-            return "When things get busy, which orders keep showing up again and again?"
+                return (
+                    "وقت الزحمة، which products or services keep showing up again "
+                    "and again؟"
+                )
+            return (
+                "When things get busy, which products or services keep showing up "
+                "again and again?"
+            )
         if field_key in {"competitors", "known_competitors"}:
             if language_mode == "ar-EG":
                 return "لما عميل يحتار بينكم وبين مكان قريب، بيختاركم عادة بسبب إيه؟"
@@ -202,11 +208,11 @@ class MockDiscoveryProvider(DiscoveryProvider):
 
     def _differentiation_question(self, language_mode: str) -> str:
         if language_mode == "ar-EG":
-            return "لما عميل يجربكم ويرجع تاني، إيه السبب اللي بيقوله لكم غالبا؟"
+            return "لما حد يتعامل معاكم ويرجع تاني، إيه السبب اللي بيقوله لكم غالبا؟"
         if language_mode == "mixed":
-            return "لما عميل يجربكم ويرجع تاني، what reason do they usually give؟"
+            return "لما حد يتعامل معاكم ويرجع تاني، what reason do they usually give؟"
         return (
-            "When a customer tries you and comes back, "
+            "When someone chooses you and comes back, "
             "what reason do they usually give?"
         )
 
@@ -234,16 +240,16 @@ class MockDiscoveryProvider(DiscoveryProvider):
         if language_mode == "ar-EG":
             return (
                 "هنوصل للاستراتيجية بعد تأكيد البروفايل. دلوقتي تخيل يوم زحمة: "
-                "مين بيطلب غالبا وبيختار إيه؟"
+                "مين بتخدموا غالبا وبيحتاجوا إيه؟"
             )
         if language_mode == "mixed":
             return (
                 "Strategy comes after profile confirmation. دلوقتي في يوم زحمة، "
-                "مين بيطلب وبيختار إيه غالبا؟"
+                "who do you serve and what do they usually need؟"
             )
         return (
             "Strategy comes after profile confirmation. For now, think about a busy day: "
-            "who tends to order, and what do they usually choose?"
+            "who do you usually serve, and what do they usually need?"
         )
 
     def _scores(self, readiness: float) -> dict[str, float]:
