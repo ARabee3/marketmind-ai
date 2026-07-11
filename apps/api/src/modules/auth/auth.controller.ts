@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -30,6 +31,10 @@ import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { AuthenticatedUser } from './interfaces/jwt-payload.interface';
+import { OAuthStateService } from './oauth-state.service';
+import { GoogleOAuthClient } from './google-oauth.client';
+import { OAuthAccountPolicyService } from './oauth-account-policy.service';
+import { OAuthException } from './exceptions/oauth.exception';
 import { MailDeliveryError } from '../mail/mail-delivery.error';
 
 interface RequestWithUser extends Request {
@@ -46,6 +51,9 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly authRateLimiter: AuthRateLimiterService,
+    private readonly oauthState: OAuthStateService,
+    private readonly googleOAuth: GoogleOAuthClient,
+    private readonly oauthAccountPolicy: OAuthAccountPolicyService,
   ) {}
 
   @Post('register')
@@ -54,7 +62,10 @@ export class AuthController {
   async register(@Body() dto: RegisterDto): Promise<SafeUser> {
     const allowed = await this.authRateLimiter.checkLimit('register', dto.email);
     if (!allowed) {
-      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     return this.authService.register(dto);
@@ -69,7 +80,10 @@ export class AuthController {
   ): Promise<LoginResponse> {
     const allowed = await this.authRateLimiter.checkLimit('login', dto.email);
     if (!allowed) {
-      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const { accessToken, rawRefreshToken, user } = await this.authService.login(dto);
@@ -109,13 +123,83 @@ export class AuthController {
     return { user };
   }
 
+  @Get('google')
+  @Throttle({ default: { limit: 10, ttl: 900000 } })
+  async googleAuth(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const ip = req.ip ?? 'unknown';
+    const allowed = await this.authRateLimiter.checkLimit('oauth-initiate', ip);
+    if (!allowed) {
+      throw new HttpException(
+        { code: 'AUTH_RATE_LIMITED', message: 'Too many OAuth attempts' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const state = await this.oauthState.createState('google');
+    const url = this.googleOAuth.getAuthorizationUrl(state);
+    res.redirect(url);
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('state') state?: string,
+    @Query('code') code?: string,
+    @Query('error') providerError?: string,
+  ): Promise<void> {
+    const ip = req.ip ?? 'unknown';
+    const redirectBase = this.oauthRedirectUrl();
+
+    const allowed = await this.authRateLimiter.checkLimit('oauth-callback', ip);
+    if (!allowed) {
+      return this.redirectWithError(
+        res,
+        redirectBase,
+        'AUTH_RATE_LIMITED',
+        'Too many callback attempts',
+      );
+    }
+
+    try {
+      if (providerError) {
+        throw new OAuthException(
+          'OAUTH_PROVIDER_ERROR',
+          `Google OAuth error: ${providerError}`,
+        );
+      }
+
+      await this.oauthState.consumeState(state);
+
+      if (!code) {
+        throw new OAuthException(
+          'OAUTH_PROVIDER_ERROR',
+          'Missing authorization code',
+        );
+      }
+
+      const profile = await this.googleOAuth.exchangeCode(code);
+      const result = await this.oauthAccountPolicy.signInWithGoogle(profile);
+
+      this.setRefreshCookie(res, result.rawRefreshToken);
+      res.redirect(`${redirectBase}?status=success`);
+    } catch (error) {
+      this.logger.warn('Google OAuth callback failed', error);
+      const { code: errorCode, message } = this.normalizeOAuthError(error);
+      this.redirectWithError(res, redirectBase, errorCode, message);
+    }
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 900000 } })
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
     const allowed = await this.authRateLimiter.checkLimit('password-reset', dto.email);
     if (!allowed) {
-      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     try {
@@ -144,7 +228,10 @@ export class AuthController {
     const prefix = dto.token.substring(0, 8);
     const allowed = await this.authRateLimiter.checkLimit('verify-email', prefix);
     if (!allowed) {
-      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     await this.authService.verifyEmail(dto.token);
@@ -158,7 +245,10 @@ export class AuthController {
   async resendVerification(@Req() req: RequestWithUser): Promise<{ message: string }> {
     const allowed = await this.authRateLimiter.checkLimit('verify-email', req.user.id);
     if (!allowed) {
-      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     try {
@@ -196,9 +286,45 @@ export class AuthController {
   }
 
   private refreshTokenMaxAge(): number {
-    // Convert refresh token expiry (e.g. "7d") to milliseconds for the cookie.
     const expiresIn = this.configService.get<string>('jwt.refreshExpiresIn', '7d');
     return ms(expiresIn);
+  }
+
+  private oauthRedirectUrl(): string {
+    const origin = this.configService.get<string>('cors.origin') ?? 'http://localhost:3000';
+    return `${origin.replace(/\/$/, '')}/oauth/callback`;
+  }
+
+  private redirectWithError(
+    res: Response,
+    base: string,
+    code: string,
+    message: string,
+  ): void {
+    const url = new URL(base);
+    url.searchParams.set('error', code);
+    url.searchParams.set('message', message);
+    res.redirect(url.toString());
+  }
+
+  private normalizeOAuthError(error: unknown): { code: string; message: string } {
+    if (error instanceof OAuthException) {
+      return { code: error.code, message: error.message };
+    }
+
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (typeof response === 'object' && response !== null && 'code' in response) {
+        return {
+          code: (response as { code: string }).code,
+          message: (response as { message?: string }).message ?? error.message,
+        };
+      }
+      return { code: 'OAUTH_PROVIDER_ERROR', message: error.message };
+    }
+
+    const message = error instanceof Error ? error.message : 'OAuth failed';
+    return { code: 'SERVER_ERROR', message };
   }
 }
 
@@ -208,7 +334,6 @@ function ms(value: string): number {
 
   const amount = parseInt(match[1], 10);
   const unit = (match[2] ?? 'ms').toLowerCase();
-
   const multipliers: Record<string, number> = {
     ms: 1,
     s: 1000,

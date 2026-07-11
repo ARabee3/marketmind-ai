@@ -1,4 +1,3 @@
-
 import {
   ConflictException,
   Injectable,
@@ -10,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ActionTokenType, Prisma, Role } from '@prisma/client';
+import { ActionTokenType, Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
@@ -20,7 +19,6 @@ import { ActionTokenService, ActionTokenError } from './action-token.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload, AuthenticatedUser } from './interfaces/jwt-payload.interface';
-
 
 /** Public login response — refresh token is sent as HttpOnly cookie, never in body. */
 export interface LoginResponse {
@@ -51,9 +49,7 @@ export interface SafeUser {
   updatedAt: Date;
 }
 
-
 const BCRYPT_ROUNDS = 12;
-
 
 @Injectable()
 export class AuthService {
@@ -67,7 +63,6 @@ export class AuthService {
     private readonly mailService: MailService,
   ) {}
 
-
   /**
    * Creates a new user account.
    *
@@ -75,10 +70,9 @@ export class AuthService {
    * - Hashes the password with bcrypt before persistence.
    * - Returns the safe user profile; never returns the password hash.
    *
-   * @throws ConflictException  if the email is already registered.
+   * @throws ConflictException if the email is already registered.
    */
   async register(dto: RegisterDto): Promise<SafeUser> {
-  
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: { id: true },
@@ -125,21 +119,12 @@ export class AuthService {
    *
    * Uses a generic "Invalid credentials" error for BOTH "user not found"
    * and "wrong password" cases to prevent user enumeration attacks.
-   *
-   * The raw refresh token is returned separately so the controller can send it
-   * as an HttpOnly cookie; it must never be included in the JSON response body.
-   *
-   * @throws UnauthorizedException on any credential mismatch.
    */
   async login(dto: LoginDto): Promise<LoginResponse & TokenPair> {
-    // 1. Look up the user.
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
 
-    // 2. Validate password — even if user is null we still call bcrypt.compare
-    //    with a dummy hash so the response time is indistinguishable from a
-    //    real failure, defeating timing-based user enumeration.
     const DUMMY_HASH = '$2b$12$invalidhashfortimingattackprevention00000000000000000000';
     const passwordToCheck = user?.password ?? DUMMY_HASH;
     const passwordMatches = await bcrypt.compare(dto.password, passwordToCheck);
@@ -148,7 +133,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // 3. Guard: email must be verified.
     if (!user.isEmailVerified) {
       throw new UnauthorizedException({
         code: 'EMAIL_NOT_VERIFIED',
@@ -156,10 +140,7 @@ export class AuthService {
       });
     }
 
-    // 4. Issue tokens.
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
-
-    // 4. Persist the hashed refresh token and update lastLoginAt atomically.
     await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
       lastLoginAt: new Date(),
     });
@@ -172,18 +153,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Issues a new token pair (token rotation).
-   *
-   * The raw refresh token and database hash comparison has already been
-   * performed by JwtRefreshStrategy.validate() before this method is called.
-   * Here we only generate new tokens and update the DB.
-   *
-   * The raw refresh token is returned separately so the controller can send it
-   * as an HttpOnly cookie; it must never be included in the JSON response body.
-   *
-   * @param user - The AuthenticatedUser populated by JwtRefreshStrategy.
-   */
+  /** Issues a new token pair using refresh-token rotation. */
   async refresh(user: AuthenticatedUser): Promise<TokenPair> {
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
     await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken);
@@ -191,12 +161,36 @@ export class AuthService {
     return tokens;
   }
 
+  /** Issues tokens for an already-verified local user after OAuth sign-in. */
+  async issueTokensForUser(
+    user: Pick<
+      User,
+      | 'id'
+      | 'email'
+      | 'roles'
+      | 'fullName'
+      | 'isEmailVerified'
+      | 'lastLoginAt'
+      | 'createdAt'
+      | 'updatedAt'
+    >,
+  ): Promise<LoginResponse & TokenPair> {
+    const tokens = await this.generateTokens(user.id, user.email, user.roles);
+    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
+      lastLoginAt: new Date(),
+    });
+
+    this.logger.log(`Tokens issued for user: ${user.id}`);
+    return {
+      accessToken: tokens.accessToken,
+      rawRefreshToken: tokens.rawRefreshToken,
+      user: this.toSafeUser(user),
+    };
+  }
+
   async logout(userId: string): Promise<void> {
     await this.prisma.user.updateMany({
-      where: {
-        id: userId,
-        refreshToken: { not: null },
-      },
+      where: { id: userId, refreshToken: { not: null } },
       data: { refreshToken: null },
     });
 
@@ -204,12 +198,10 @@ export class AuthService {
   }
 
   async getMe(userId: string): Promise<SafeUser> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
-    throw new UnauthorizedException('User no longer exists');
+      throw new UnauthorizedException('User no longer exists');
     }
 
     return this.toSafeUser(user);
@@ -248,7 +240,6 @@ export class AuthService {
       user.id,
       ActionTokenType.PASSWORD_RESET,
     );
-
     const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
     const link = `${appUrl}/reset-password?token=${rawToken}`;
 
@@ -268,10 +259,7 @@ export class AuthService {
       userId = await this.actionTokenService.consume(token, ActionTokenType.PASSWORD_RESET);
     } catch (error) {
       if (error instanceof ActionTokenError) {
-        throw new UnprocessableEntityException({
-          code: error.code,
-          message: error.message,
-        });
+        throw new UnprocessableEntityException({ code: error.code, message: error.message });
       }
       throw error;
     }
@@ -281,14 +269,9 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
-        data: {
-          password: hashedPassword,
-          refreshToken: null,
-        },
+        data: { password: hashedPassword, refreshToken: null },
       }),
-      this.prisma.refreshSession.deleteMany({
-        where: { userId },
-      }),
+      this.prisma.refreshSession.deleteMany({ where: { userId } }),
     ]);
 
     this.logger.log(`Password reset for user ${userId}`);
@@ -301,10 +284,7 @@ export class AuthService {
       userId = await this.actionTokenService.consume(token, ActionTokenType.EMAIL_VERIFICATION);
     } catch (error) {
       if (error instanceof ActionTokenError) {
-        throw new UnprocessableEntityException({
-          code: error.code,
-          message: error.message,
-        });
+        throw new UnprocessableEntityException({ code: error.code, message: error.message });
       }
       throw error;
     }
@@ -317,13 +297,8 @@ export class AuthService {
     this.logger.log(`Email verified for user ${userId}`);
   }
 
-  private async generateTokens(
-    userId: string,
-    email: string,
-    roles: Role[],
-  ): Promise<TokenPair> {
+  private async generateTokens(userId: string, email: string, roles: Role[]): Promise<TokenPair> {
     const payload: JwtPayload = { sub: userId, email, roles };
-
     const accessOptions: JwtSignOptions = {
       secret: this.configService.getOrThrow<string>('jwt.accessSecret'),
       expiresIn: this.configService.get<string>('jwt.accessExpiresIn') as JwtSignOptions['expiresIn'],
@@ -341,7 +316,6 @@ export class AuthService {
     return { accessToken, rawRefreshToken };
   }
 
- 
   private async updateRefreshTokenHash(
     userId: string,
     rawRefreshToken: string,
@@ -354,7 +328,6 @@ export class AuthService {
     });
   }
 
- 
   private toSafeUser(user: {
     id: string;
     email: string;

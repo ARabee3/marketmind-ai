@@ -27,6 +27,12 @@ export const configuration = () => ({
     origin: process.env.WEB_ORIGIN || "http://localhost:3000",
   },
 
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    callbackUrl: process.env.GOOGLE_CALLBACK_URL || "",
+  },
+
   redis: {
     url: process.env.REDIS_URL || "redis://localhost:6379",
   },

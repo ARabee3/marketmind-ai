@@ -22,10 +22,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    // CI runs the production build to avoid React Strict Mode double-mounts
+    // that would duplicate GET /status calls in the dev server. Local runs keep
+    // the fast dev server for iterative debugging.
+    command: process.env.CI ? 'npm run build && npm run start' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     cwd: '.',
-    timeout: 120_000,
+    timeout: process.env.CI ? 300_000 : 120_000,
   },
 })

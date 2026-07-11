@@ -44,6 +44,17 @@ export function envSchema(
     errors.push("REDIS_URL is required (e.g. redis://localhost:6379)");
   }
 
+  // Google OAuth — required for federated sign-in (Issue #48)
+  if (!config.GOOGLE_CLIENT_ID) {
+    errors.push("GOOGLE_CLIENT_ID is required");
+  }
+  if (!config.GOOGLE_CLIENT_SECRET) {
+    errors.push("GOOGLE_CLIENT_SECRET is required");
+  }
+  if (!config.GOOGLE_CALLBACK_URL) {
+    errors.push("GOOGLE_CALLBACK_URL is required (e.g. http://localhost:3001/api/v1/auth/google/callback)");
+  }
+
   // RESEND_API_KEY — required in production
   if (config.NODE_ENV === "production" && !config.RESEND_API_KEY) {
     errors.push("RESEND_API_KEY is required in production");

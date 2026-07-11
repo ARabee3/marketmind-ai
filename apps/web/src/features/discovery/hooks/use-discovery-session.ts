@@ -79,10 +79,12 @@ export function useDiscoverySession({ sessionId }: Options) {
 
   const setPending = useCallback((value: boolean) => {
     pendingRef.current = value
+    if (!mountedRef.current) return
     setState((prev) => ({ ...prev, pending: value }))
   }, [])
 
   const loadStatus = useCallback(async (): Promise<DiscoveryStatusResponse | null> => {
+    if (!mountedRef.current) return null
     setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
     try {
       const res = await getDiscoveryStatus(sessionId)

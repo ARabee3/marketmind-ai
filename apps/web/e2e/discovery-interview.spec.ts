@@ -4,6 +4,7 @@ import type {
   DiscoveryMessage,
   BusinessProfileDraft,
 } from '@marketmind/contracts'
+import { mockAuthRefresh, mockAuthMe, mockUser, mockAccessToken } from './fixtures/auth'
 
 const sessionId = 'test-session-interview'
 
@@ -178,6 +179,10 @@ function makeDraft(overrides: Partial<BusinessProfileDraft> = {}): BusinessProfi
 
 test.describe('Discovery Interview & Review', () => {
   test.beforeEach(async ({ page }) => {
+    // Discovery session pages are protected; provide an active session.
+    await mockAuthRefresh(page, mockAccessToken)
+    await mockAuthMe(page, mockUser)
+
     // Default status mock
     await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
       await route.fulfill({
