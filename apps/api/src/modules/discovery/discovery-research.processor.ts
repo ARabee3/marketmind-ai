@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { externalProviderConfig } from "../../common/config/external-provider.config";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
@@ -130,6 +130,14 @@ export class DiscoveryResearchProcessor {
         observation_count: intelligence.research_observations.length,
       },
     });
+    if (intelligence.status === "failed") {
+      await this.discoveryRepository.updateStatusIfCurrent(
+        sessionId,
+        ["researching"],
+        "research_failed",
+      );
+      return;
+    }
     await this.recordProgress(sessionId, {
       stage: "ai_discovery",
       status: "started",
@@ -137,17 +145,25 @@ export class DiscoveryResearchProcessor {
       messageText: "Preparing the first discovery question.",
     });
     const aiStarted = await this.startAiDiscovery(sessionId, dto, intelligence);
+    if (aiStarted === "already_started") {
+      return;
+    }
     await this.recordProgress(sessionId, {
       stage: "ai_discovery",
-      status: aiStarted ? "completed" : "failed",
-      messageKey: aiStarted
+      status: aiStarted === "started" ? "completed" : "failed",
+      messageKey: aiStarted === "started"
         ? "discovery.ai.completed"
         : "discovery.ai.provider_unavailable",
-      messageText: aiStarted
+      messageText: aiStarted === "started"
         ? "First discovery question is ready."
         : "AI discovery provider is not available yet.",
     });
-    if (!aiStarted) {
+    if (aiStarted !== "started") {
+      await this.discoveryRepository.updateStatusIfCurrent(
+        sessionId,
+        ["researching"],
+        "partial_ready",
+      );
       return;
     }
     await this.recordProgress(sessionId, {
@@ -162,7 +178,7 @@ export class DiscoveryResearchProcessor {
     sessionId: string,
     dto: StartDiscoveryDto,
     intelligence: Awaited<ReturnType<IntelligenceGathererService["gather"]>>,
-  ): Promise<boolean> {
+  ): Promise<"started" | "unavailable" | "already_started"> {
     try {
       const result = await this.aiDiscoveryClient.start(
         sessionId,
@@ -170,7 +186,7 @@ export class DiscoveryResearchProcessor {
         intelligence,
       );
       if (result.safe_error || !result.next_question) {
-        return false;
+        return "unavailable";
       }
       await this.conversationRepository.recordInitialAssistantQuestion(
         sessionId,
@@ -178,10 +194,14 @@ export class DiscoveryResearchProcessor {
         dto.language_mode ?? LanguageModeDto.Mixed,
         this.readinessService.evaluate(result, 0),
       );
-      return true;
+      return "started";
     } catch (error) {
       if (error instanceof ProviderError) {
-        return false;
+        return "unavailable";
+      }
+      if (error instanceof ConflictException) {
+        this.logger.log(`Discovery initial question already recorded for ${sessionId}`);
+        return "already_started";
       }
       throw error;
     }

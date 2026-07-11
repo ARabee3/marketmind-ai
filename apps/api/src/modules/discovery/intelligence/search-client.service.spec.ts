@@ -46,12 +46,42 @@ describe("SearchClientService", () => {
     jest.resetAllMocks();
   });
 
+  it("respects provider hint order before Apify Maps fallback", async () => {
+    serpApi.search.mockResolvedValue([]);
+    apifyMaps.search.mockResolvedValue([mapsResult]);
+
+    await expect(
+      service.search("koshary cairo", [
+        "serpapi",
+        "apify_google_maps",
+        "duckduckgo",
+      ]),
+    ).resolves.toMatchObject({
+      results: [mapsResult],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "empty", result_count: 0 },
+        {
+          provider: "apify_google_maps",
+          outcome: "succeeded",
+          result_count: 1,
+        },
+      ],
+    });
+    expect(
+      serpApi.search.mock.invocationCallOrder[0],
+    ).toBeLessThan(apifyMaps.search.mock.invocationCallOrder[0]);
+    expect(duckDuckGo.search).not.toHaveBeenCalled();
+  });
+
   it("uses SerpApi results first", async () => {
     serpApi.search.mockResolvedValue([serpResult]);
 
     await expect(service.search("koshary cairo")).resolves.toEqual({
       results: [serpResult],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     });
     expect(duckDuckGo.search).not.toHaveBeenCalled();
   });
@@ -61,7 +91,54 @@ describe("SearchClientService", () => {
 
     await expect(
       service.search("koshary cairo", ["apify_google_maps", "serpapi"]),
-    ).resolves.toEqual({ results: [mapsResult], provider_warnings: [] });
+    ).resolves.toEqual({
+      results: [mapsResult],
+      provider_warnings: [],
+      provider_attempts: [
+        {
+          provider: "apify_google_maps",
+          outcome: "succeeded",
+          result_count: 1,
+        },
+      ],
+    });
+    expect(serpApi.search).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates provider hints without changing order", async () => {
+    serpApi.search.mockResolvedValue([]);
+    duckDuckGo.search.mockResolvedValue([duckResult]);
+
+    await expect(
+      service.search("koshary cairo", ["serpapi", "serpapi", "duckduckgo"]),
+    ).resolves.toMatchObject({
+      results: [duckResult],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "empty", result_count: 0 },
+        { provider: "duckduckgo", outcome: "succeeded", result_count: 1 },
+      ],
+    });
+    expect(serpApi.search).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips metadata-only hints without network search", async () => {
+    await expect(service.search("koshary cairo", ["metadata"])).resolves.toEqual({
+      results: [],
+      provider_warnings: [],
+      provider_attempts: [],
+    });
+    expect(serpApi.search).not.toHaveBeenCalled();
+    expect(apifyMaps.search).not.toHaveBeenCalled();
+    expect(duckDuckGo.search).not.toHaveBeenCalled();
+  });
+
+  it("honors an aborted signal before network search", async () => {
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await expect(
+      service.search("koshary cairo", ["serpapi"], abortController.signal),
+    ).rejects.toThrow();
     expect(serpApi.search).not.toHaveBeenCalled();
   });
 
@@ -76,6 +153,15 @@ describe("SearchClientService", () => {
     ).resolves.toMatchObject({
       results: [serpResult],
       provider_warnings: [{ code: "APIFY_NOT_CONFIGURED" }],
+      provider_attempts: [
+        {
+          provider: "apify_google_maps",
+          outcome: "failed",
+          result_count: 0,
+          error_code: "APIFY_NOT_CONFIGURED",
+        },
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     });
   });
 
@@ -88,6 +174,15 @@ describe("SearchClientService", () => {
     await expect(service.search("koshary cairo")).resolves.toMatchObject({
       results: [duckResult],
       provider_warnings: [{ code: "SERPAPI_NOT_CONFIGURED" }],
+      provider_attempts: [
+        {
+          provider: "serpapi",
+          outcome: "failed",
+          result_count: 0,
+          error_code: "SERPAPI_NOT_CONFIGURED",
+        },
+        { provider: "duckduckgo", outcome: "succeeded", result_count: 1 },
+      ],
     });
   });
 
@@ -98,10 +193,14 @@ describe("SearchClientService", () => {
     await expect(service.search("koshary cairo")).resolves.toEqual({
       results: [duckResult],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "empty", result_count: 0 },
+        { provider: "duckduckgo", outcome: "succeeded", result_count: 1 },
+      ],
     });
   });
 
-  it("returns fallback results with provider warnings", async () => {
+  it("does not add default fallbacks after an explicit provider fails", async () => {
     apifyMaps.search.mockRejectedValue(
       new ProviderError("APIFY_MAPS_ERROR", "Maps failed.", true),
     );
@@ -112,12 +211,21 @@ describe("SearchClientService", () => {
 
     await expect(
       service.search("koshary cairo", ["apify_google_maps"]),
-    ).resolves.toMatchObject({
-      results: [duckResult],
+    ).resolves.toEqual({
+      results: [],
       provider_warnings: [
-        { code: "APIFY_MAPS_ERROR" },
-        { code: "SERPAPI_SEARCH_FAILED" },
+        { code: "APIFY_MAPS_ERROR", message: "Maps failed.", retryable: true },
+      ],
+      provider_attempts: [
+        {
+          provider: "apify_google_maps",
+          outcome: "failed",
+          result_count: 0,
+          error_code: "APIFY_MAPS_ERROR",
+        },
       ],
     });
+    expect(serpApi.search).not.toHaveBeenCalled();
+    expect(duckDuckGo.search).not.toHaveBeenCalled();
   });
 });

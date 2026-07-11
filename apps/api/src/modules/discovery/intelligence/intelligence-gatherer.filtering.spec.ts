@@ -6,6 +6,7 @@ import { IntelligenceGathererService } from "./intelligence-gatherer.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
+import { SourceEnrichmentService } from "./source-enrichment.service";
 
 describe("IntelligenceGathererService filtering", () => {
   const queryPlanner = {
@@ -17,6 +18,9 @@ describe("IntelligenceGathererService filtering", () => {
   const metadataExtractor = {
     extract: jest.fn(),
   } as unknown as jest.Mocked<MetadataExtractorService>;
+  const sourceEnrichment = {
+    enrich: jest.fn(),
+  } as unknown as jest.Mocked<SourceEnrichmentService>;
   const evidenceTriage = {
     triage: jest.fn(),
   } as unknown as jest.Mocked<EvidenceTriageService>;
@@ -37,6 +41,7 @@ describe("IntelligenceGathererService filtering", () => {
       queryPlanner,
       searchClient,
       metadataExtractor,
+      sourceEnrichment,
       evidenceTriage,
       new IntelligenceContractMapper(),
     );
@@ -44,6 +49,7 @@ describe("IntelligenceGathererService filtering", () => {
       source_refs: [],
       research_observations: [],
     });
+    sourceEnrichment.enrich.mockImplementation(async (results) => results);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [],
       research_observations: [],
@@ -78,6 +84,9 @@ describe("IntelligenceGathererService filtering", () => {
         },
       ],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     } as never);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [
@@ -157,6 +166,9 @@ describe("IntelligenceGathererService filtering", () => {
         },
       ],
       provider_warnings: [],
+      provider_attempts: [
+        { provider: "serpapi", outcome: "succeeded", result_count: 1 },
+      ],
     } as never);
     evidenceTriage.triage.mockResolvedValue({
       source_refs: [

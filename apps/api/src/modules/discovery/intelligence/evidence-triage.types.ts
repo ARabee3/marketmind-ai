@@ -42,6 +42,7 @@ export type EvidenceTriageDecision = {
   readonly reason: string;
   readonly candidate_facts: Record<string, string>;
   readonly suggested_owner_question?: string;
+  readonly synthesized_observation?: string;
 };
 
 export type EvidenceTriageResult = {

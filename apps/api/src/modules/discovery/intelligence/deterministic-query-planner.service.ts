@@ -12,14 +12,14 @@ export class DeterministicQueryPlannerService {
   plan(dto: StartDiscoveryDto): QueryPlan {
     const language = dto.language_mode ?? LanguageModeDto.Mixed;
     const intake = dto.intake;
-    const queries: PlannedSearchQuery[] = [
+    const queries: PlannedSearchQuery[] = uniqueByQuery([
       this.businessMatch(intake, language),
       this.competitors(intake, language),
       this.marketContext(intake, language),
       this.reviewPresence(intake, language),
-      ...this.knownCompetitorQueries(intake, language),
       ...this.socialQueries(intake, language),
-    ];
+      ...this.knownCompetitorQueries(intake, language),
+    ]).slice(0, 8);
 
     return {
       source: "deterministic",
@@ -59,7 +59,7 @@ export class DeterministicQueryPlannerService {
       query,
       language,
       priority: 95,
-      provider_hints: ["serpapi", "apify_google_maps", "duckduckgo"],
+      provider_hints: ["apify_google_maps", "serpapi", "duckduckgo"],
     };
   }
 
@@ -105,7 +105,7 @@ export class DeterministicQueryPlannerService {
         query: quoted([competitor, locationText(intake), intake.business_type]),
         language,
         priority: 90 - index,
-        provider_hints: ["serpapi", "apify_google_maps", "duckduckgo"],
+        provider_hints: ["apify_google_maps", "serpapi", "duckduckgo"],
         metadata: { owner_provided_competitor: true },
       }),
     );
@@ -116,17 +116,11 @@ export class DeterministicQueryPlannerService {
     language: LanguageModeDto,
   ): readonly PlannedSearchQuery[] {
     return (intake.social_links ?? []).map((link, index) => ({
-      intent:
-        link.platform === SocialPlatformDto.GoogleMaps
-          ? "review_presence"
-          : "social_profile",
+      intent: "social_profile",
       query: `${quoted([intake.business_name, locationText(intake)])} ${link.platform}`,
       language,
       priority: 80 - index,
-      provider_hints:
-        link.platform === SocialPlatformDto.GoogleMaps
-          ? ["apify_google_maps", "serpapi"]
-          : ["metadata", "serpapi"],
+      provider_hints: ["metadata", "serpapi"],
       metadata: {
         owner_provided_url: link.url,
         platform: link.platform,
@@ -148,8 +142,26 @@ function quoted(parts: readonly string[]): string {
 
 function splitKnownCompetitors(value?: string): readonly string[] {
   return (value ?? "")
-    .split(/[,،\n]/)
+    .split(/[,;،\n]/)
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 5);
+}
+
+function uniqueByQuery(queries: readonly PlannedSearchQuery[]): PlannedSearchQuery[] {
+  const seen = new Set<string>();
+
+  return queries.filter((query) => {
+    const key = query.query
+      .normalize("NFKC")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }

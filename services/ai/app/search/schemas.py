@@ -46,7 +46,7 @@ class PlannedSearchQuery(StrictModel):
 
 class QueryPlan(StrictModel):
     source: QueryPlanSource
-    queries: list[PlannedSearchQuery] = Field(min_length=1)
+    queries: list[PlannedSearchQuery] = Field(min_length=1, max_length=8)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -77,6 +77,7 @@ class EvidenceTriageDecision(StrictModel):
     reason: str = Field(min_length=1)
     candidate_facts: dict[str, str] = Field(default_factory=dict)
     suggested_owner_question: str | None = None
+    synthesized_observation: str | None = None
 
 
 class EvidenceTriageResult(StrictModel):

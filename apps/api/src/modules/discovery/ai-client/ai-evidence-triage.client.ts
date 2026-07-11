@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { externalProviderConfig } from "../../../common/config/external-provider.config";
 import { ProviderError } from "../../../common/errors/provider-error";
+import { delay } from "../../../common/http/delay";
 import { postExternalJson } from "../../../common/http/external-http-client";
 import {
   EvidenceTriageDecision,
@@ -24,34 +25,56 @@ export class AiEvidenceTriageClient {
       );
     }
 
-    try {
-      const response = await postExternalJson<unknown>(
-        `${config.aiServiceBaseUrl}/internal/v1/ai/search/evidence-triage`,
-        request,
-        { timeoutMs: config.discoveryTriageTimeoutMs, signal },
-      );
+    let lastError: ProviderError | undefined;
 
-      return parseTriageResult(response);
-    } catch (error) {
-      if (error instanceof ProviderError) {
-        throw error;
-      }
-
-      if (error instanceof DOMException && error.name === "TimeoutError") {
-        throw new ProviderError(
-          "AI_TRIAGE_TIMEOUT",
-          `AI evidence triage timed out after ${config.discoveryTriageTimeoutMs}ms.`,
-          true,
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await postExternalJson<unknown>(
+          `${config.aiServiceBaseUrl}/internal/v1/ai/search/evidence-triage`,
+          request,
+          { timeoutMs: config.discoveryTriageTimeoutMs, signal },
         );
-      }
 
-      throw new ProviderError(
-        "AI_TRIAGE_PROVIDER_ERROR",
-        "AI evidence triage provider failed.",
-        true,
-      );
+        return parseTriageResult(response);
+      } catch (error) {
+        signal?.throwIfAborted();
+        lastError = triageProviderError(
+          error,
+          config.discoveryTriageTimeoutMs,
+        );
+        if (!lastError.retryable) {
+          throw lastError;
+        }
+        if (attempt < 1) {
+          await delay(config.aiProviderRetryDelayMs, signal);
+        }
+      }
     }
+
+    throw (
+      lastError ?? triageProviderError(undefined, config.discoveryTriageTimeoutMs)
+    );
   }
+}
+
+function triageProviderError(error: unknown, timeoutMs: number): ProviderError {
+  if (error instanceof ProviderError) {
+    return error;
+  }
+
+  if (error instanceof DOMException && error.name === "TimeoutError") {
+    return new ProviderError(
+      "AI_TRIAGE_TIMEOUT",
+      `AI evidence triage timed out after ${timeoutMs}ms.`,
+      true,
+    );
+  }
+
+  return new ProviderError(
+    "AI_TRIAGE_PROVIDER_ERROR",
+    "AI evidence triage provider failed.",
+    true,
+  );
 }
 
 function parseTriageResult(value: unknown): EvidenceTriageResult {

@@ -16,6 +16,18 @@ from app.search.schemas import (
     EvidenceTriageResult,
 )
 
+def _strip_additional_properties(schema: dict[str, Any]) -> dict[str, Any]:
+    schema.pop("additionalProperties", None)
+    for value in schema.values():
+        if isinstance(value, dict):
+            _strip_additional_properties(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _strip_additional_properties(item)
+    return schema
+
+
 TRIAGE_SYSTEM_PROMPT: Final = """
 You classify MarketMind IntelligenceGatherer search evidence.
 Return an EvidenceTriageResult JSON object only.
@@ -27,6 +39,11 @@ Rules:
 - Use needs_confirmation for plausible but unverified data the owner should confirm.
 - Do not turn unconfirmed search evidence into confirmed owner facts.
 - Return one decision for every candidate index.
+- For each candidate, include a `synthesized_observation` field with a single sentence
+  in the business's language (use the language_mode from the request) summarizing the
+  key evidence finding. Example: "قصر نابولي has 8 branches in Assiut, operates since
+  2000, and delivers via Talabat with a 4.3★ rating from 1500+ reviews."
+  If the candidate is discarded or has no useful information, set it to null.
 """
 
 
@@ -126,12 +143,16 @@ class GeminiEvidenceTriagePlanner:
 
         def call_gemini() -> EvidenceTriageResult:
             client = genai.Client(api_key=self.api_key)
+            triage_schema = _strip_additional_properties(
+                EvidenceTriageResult.model_json_schema(),
+            )
             response = client.models.generate_content(
                 model=self.model,
                 contents=[_triage_context(request)],
                 config=types.GenerateContentConfig(
                     system_instruction=TRIAGE_SYSTEM_PROMPT,
                     response_mime_type="application/json",
+                    response_schema=triage_schema,
                     http_options=types.HttpOptions(timeout=self.timeout_ms),
                 ),
             )
@@ -217,18 +238,21 @@ def _mock_decision(candidate: EvidenceTriageCandidate) -> EvidenceTriageDecision
         case unreachable:
             assert_never(unreachable)
 
+    snippet = candidate.snippet or candidate.title or ""
     return EvidenceTriageDecision(
         index=candidate.index,
         classification=classification,
         evidence_tier=tier,
         confidence=candidate.provider_confidence,
-        reason=candidate.snippet or candidate.title or "Evidence candidate reviewed.",
+        reason=snippet or "Evidence candidate reviewed.",
         suggested_owner_question=None if tier == "confirmed_signal" else "Is this finding accurate?",
+        synthesized_observation=snippet[:200] if snippet else None,
     )
 
 
 def _triage_context(request: EvidenceTriageRequest) -> str:
     return (
+        f"language_mode: {request.language_mode}\n"
         "Classify every candidate. Return one decision per candidate index.\n"
         f"{request.model_dump_json()}"
     )

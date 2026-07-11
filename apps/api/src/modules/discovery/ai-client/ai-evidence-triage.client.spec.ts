@@ -10,11 +10,13 @@ describe("AiEvidenceTriageClient", () => {
     jest.resetAllMocks();
     global.fetch = fetchMock;
     process.env.AI_SERVICE_BASE_URL = "http://ai-service";
+    process.env.AI_PROVIDER_RETRY_DELAY_MS = "1";
     process.env.DISCOVERY_TRIAGE_TIMEOUT_MS = "120000";
   });
 
   afterEach(() => {
     delete process.env.AI_SERVICE_BASE_URL;
+    delete process.env.AI_PROVIDER_RETRY_DELAY_MS;
     delete process.env.DISCOVERY_TRIAGE_TIMEOUT_MS;
   });
 
@@ -104,5 +106,54 @@ describe("AiEvidenceTriageClient", () => {
         true,
       ),
     );
+  });
+
+  it("retries a transient triage provider failure once", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          source: "llm",
+          decisions: [
+            {
+              index: 0,
+              classification: "competitor",
+              evidence_tier: "confirmed_signal",
+              confidence: 0.88,
+              reason: "Arabic local competitor evidence.",
+              candidate_facts: {},
+            },
+          ],
+        }),
+      } as Response);
+
+    const result = await new AiEvidenceTriageClient().triage({
+      language_mode: LanguageModeDto.ArabicEgypt,
+      intake: {
+        business_name: "قصر نابولي",
+        business_type: "محل حلويات",
+        city: "اسيوط",
+        area: "مدينة اسيوط",
+      },
+      candidates: [
+        {
+          index: 0,
+          intent: "competitor_discovery",
+          provider: "serpapi",
+          title: "حلواني اخر ساعة",
+          query: "منافسين محل حلويات اسيوط",
+          rank: 1,
+          provider_confidence: 0.9,
+          metadata: {},
+        },
+      ],
+    });
+
+    expect(result.decisions[0]).toMatchObject({
+      classification: "competitor",
+      evidence_tier: "confirmed_signal",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

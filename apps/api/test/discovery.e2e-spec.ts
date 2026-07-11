@@ -27,6 +27,7 @@ process.env.JWT_ACCESS_SECRET = TEST_ACCESS_SECRET;
 process.env.JWT_REFRESH_SECRET = "discovery-e2e-refresh-secret";
 process.env.JWT_ACCESS_EXPIRES_IN = "15m";
 process.env.JWT_REFRESH_EXPIRES_IN = "7d";
+process.env.REDIS_URL = "redis://localhost:6379";
 
 describe("Discovery public contract (e2e)", () => {
   let app: INestApplication;
