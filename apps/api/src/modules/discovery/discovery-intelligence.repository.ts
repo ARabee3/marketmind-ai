@@ -2,10 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { IntelligenceResult } from "./discovery-state";
-import {
-  metadataForPrisma,
-  sessionStatusForIntelligence,
-} from "./discovery-persistence.mapper";
+import { metadataForPrisma } from "./discovery-persistence.mapper";
 
 @Injectable()
 export class DiscoveryIntelligenceRepository {
@@ -49,10 +46,6 @@ export class DiscoveryIntelligenceRepository {
         observationIdByContractId,
       );
       await this.createKnowledgeGaps(tx, sessionId, intelligence);
-      await tx.discoverySession.updateMany({
-        where: { id: sessionId, status: "researching" },
-        data: { status: sessionStatusForIntelligence(intelligence) },
-      });
     });
   }
 

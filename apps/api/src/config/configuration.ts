@@ -43,6 +43,12 @@ export const configuration = () => ({
       parseInt(process.env.DISCOVERY_WORKER_CONCURRENCY || "2", 10) || 2,
   },
 
+  mail: {
+    resendApiKey: process.env.RESEND_API_KEY || "",
+    from: process.env.MAIL_FROM || "noreply@marketmind.ai",
+    appUrl: process.env.APP_URL || "http://localhost:3000",
+  },
+
   app: {
     nodeEnv: process.env.NODE_ENV || "development",
   },

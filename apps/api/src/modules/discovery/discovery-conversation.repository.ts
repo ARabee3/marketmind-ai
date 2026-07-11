@@ -235,7 +235,7 @@ export class DiscoveryConversationRepository {
   ): Promise<DiscoveryMessage> {
     const message = await this.completeConversationTurn(
       sessionId,
-      ["partial_ready", "ready_for_chat", "research_failed"],
+      ["researching"],
       "in_progress",
       content,
       undefined,

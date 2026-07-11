@@ -55,6 +55,11 @@ export function envSchema(
     errors.push("GOOGLE_CALLBACK_URL is required (e.g. http://localhost:3001/api/v1/auth/google/callback)");
   }
 
+  // RESEND_API_KEY — required in production
+  if (config.NODE_ENV === "production" && !config.RESEND_API_KEY) {
+    errors.push("RESEND_API_KEY is required in production");
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Environment validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,

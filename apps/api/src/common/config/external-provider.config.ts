@@ -4,12 +4,14 @@ export type ExternalProviderConfig = {
   readonly apifyToken?: string;
   readonly discoverySearchTimeoutMs: number;
   readonly aiRequestTimeoutMs: number;
+  readonly aiProviderRetryDelayMs: number;
   readonly discoveryResearchTimeoutMs: number;
   readonly discoveryTriageTimeoutMs: number;
 };
 
 export const DEFAULT_DISCOVERY_SEARCH_TIMEOUT_MS = 8000;
 export const DEFAULT_AI_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_AI_PROVIDER_RETRY_DELAY_MS = 3000;
 export const DEFAULT_DISCOVERY_RESEARCH_TIMEOUT_MS = 180_000;
 export const DEFAULT_DISCOVERY_TRIAGE_TIMEOUT_MS = 120_000;
 
@@ -28,6 +30,10 @@ export function externalProviderConfig(): ExternalProviderConfig {
     aiRequestTimeoutMs: positiveIntegerEnv(
       process.env.AI_REQUEST_TIMEOUT_MS,
       DEFAULT_AI_REQUEST_TIMEOUT_MS,
+    ),
+    aiProviderRetryDelayMs: positiveIntegerEnv(
+      process.env.AI_PROVIDER_RETRY_DELAY_MS,
+      DEFAULT_AI_PROVIDER_RETRY_DELAY_MS,
     ),
     discoveryResearchTimeoutMs: positiveIntegerEnv(
       process.env.DISCOVERY_RESEARCH_TIMEOUT_MS,

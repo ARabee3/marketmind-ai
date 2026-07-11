@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { externalProviderConfig } from "../../../common/config/external-provider.config";
 import { ProviderError } from "../../../common/errors/provider-error";
+import { delay } from "../../../common/http/delay";
 import { postExternalJson } from "../../../common/http/external-http-client";
 import {
   AiDiscoveryResult,
@@ -14,6 +15,8 @@ import {
   StartDiscoveryDto,
 } from "../dto/start-discovery.dto";
 import { parseAiDiscoveryResult } from "./ai-discovery-response.parser";
+
+const AI_DISCOVERY_ATTEMPTS = 5;
 
 @Injectable()
 export class AiDiscoveryClient {
@@ -80,24 +83,56 @@ export class AiDiscoveryClient {
       );
     }
 
-    try {
-      const response = await postExternalJson<unknown>(
-        `${config.aiServiceBaseUrl}/internal/v1/ai/discovery${path}`,
-        payload,
-        { timeoutMs: config.aiRequestTimeoutMs },
-      );
+    let lastError: ProviderError | undefined;
+    let lastResult: AiDiscoveryResult | undefined;
 
-      return parseAiDiscoveryResult(response);
-    } catch (error) {
-      if (error instanceof ProviderError) {
-        throw error;
+    for (let attempt = 0; attempt < AI_DISCOVERY_ATTEMPTS; attempt += 1) {
+      try {
+        const response = await postExternalJson<unknown>(
+          `${config.aiServiceBaseUrl}/internal/v1/ai/discovery${path}`,
+          payload,
+          { timeoutMs: config.aiRequestTimeoutMs },
+        );
+
+        const result = parseAiDiscoveryResult(response);
+        if (!result.safe_error) {
+          return result;
+        }
+
+        lastResult = result;
+        if (!result.safe_error.retryable) {
+          return result;
+        }
+        if (attempt < AI_DISCOVERY_ATTEMPTS - 1) {
+          await delay(config.aiProviderRetryDelayMs);
+        }
+      } catch (error) {
+        lastError = discoveryProviderError(error);
+        if (!lastError.retryable) {
+          throw lastError;
+        }
+        if (attempt < AI_DISCOVERY_ATTEMPTS - 1) {
+          await delay(config.aiProviderRetryDelayMs);
+        }
       }
-
-      throw new ProviderError(
-        "AI_DISCOVERY_PROVIDER_ERROR",
-        "AI discovery provider failed.",
-        true,
-      );
     }
+
+    if (lastResult) {
+      return lastResult;
+    }
+
+    throw lastError ?? discoveryProviderError(undefined);
   }
+}
+
+function discoveryProviderError(error: unknown): ProviderError {
+  if (error instanceof ProviderError) {
+    return error;
+  }
+
+  return new ProviderError(
+    "AI_DISCOVERY_PROVIDER_ERROR",
+    "AI discovery provider failed.",
+    true,
+  );
 }

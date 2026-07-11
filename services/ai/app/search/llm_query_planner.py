@@ -11,6 +11,18 @@ from app.providers.openrouter_provider import OPENROUTER_BASE_URL
 from app.search.query_planning_service import LlmQueryPlanner
 from app.search.schemas import QueryPlan, QueryPlanningRequest
 
+def _strip_additional_properties(schema: dict[str, Any]) -> dict[str, Any]:
+    schema.pop("additionalProperties", None)
+    for value in schema.values():
+        if isinstance(value, dict):
+            _strip_additional_properties(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _strip_additional_properties(item)
+    return schema
+
+
 QUERY_PLAN_SYSTEM_PROMPT: Final = """
 You generate web search queries for MarketMind's IntelligenceGatherer.
 Return a QueryPlan JSON object only.
@@ -19,13 +31,21 @@ Rules:
 - Ground queries in request.intake.business_type, city/area, and relevant
   owner-supplied context.
 - Do not default to any industry-specific framing unless the owner supplied it.
-- Always include at least one competitor_discovery query when city or area exists.
-- Prefer serpapi for broad web search and apify_google_maps for local competitors/reviews.
+- Always include business_match, competitor_discovery, market_context, and review_presence.
+- Include social_profile when social links exist.
+- Prefer serpapi for broad web search; use apify_google_maps first only for competitor_discovery.
 - Include owner-provided competitors and social links when present.
+- Keep query plans to 4 to 8 unique queries.
 - Do not invent facts; only generate queries.
 """
+QUERY_PLAN_TIMEOUT_RATIO: Final = 0.45
 JsonPrimitive = str | int | float | bool | None
 JsonValue = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
+GEMINI_SCHEMA_REJECTION_MARKERS: Final = (
+    "additionalProperties",
+    "response_schema",
+    "response schema",
+)
 
 
 def create_llm_query_planner(settings: Settings) -> LlmQueryPlanner | None:
@@ -58,9 +78,14 @@ class OpenAIQueryPlanner:
     def __init__(self, api_key: str, model: str, timeout_ms: int) -> None:
         self.api_key = api_key
         self.model = model
-        self.timeout_seconds = timeout_ms / 1000
+        self.request_timeout_seconds = timeout_ms / 1000
+        self.timeout_seconds = _scaled_timeout_seconds(timeout_ms)
 
-    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+    async def plan(
+        self,
+        request: QueryPlanningRequest,
+        correction_context: str | None = None,
+    ) -> QueryPlan:
         if not self.api_key:
             raise ProviderConfigError("OPENAI_API_KEY is required for query planning.")
         if not self.model:
@@ -72,19 +97,23 @@ class OpenAIQueryPlanner:
             raise ProviderConfigError("The openai package is not installed.") from exc
 
         def call_openai() -> QueryPlan:
-            client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
+            client = OpenAI(
+                api_key=self.api_key,
+                timeout=self.timeout_seconds,
+                max_retries=0,
+            )
             response = client.responses.parse(
                 model=self.model,
                 input=[
                     {"role": "system", "content": QUERY_PLAN_SYSTEM_PROMPT},
-                    {"role": "user", "content": _query_context(request)},
+                    {"role": "user", "content": _query_context(request, correction_context)},
                 ],
                 text_format=QueryPlan,
             )
             return _normalize_query_plan(response.output_parsed)
 
         try:
-            return await to_thread.run_sync(call_openai)
+            return await to_thread.run_sync(call_openai, abandon_on_cancel=True)
         except ProviderError:
             raise
         except OpenAIError as exc:
@@ -105,9 +134,14 @@ class GeminiQueryPlanner:
     def __init__(self, api_key: str, model: str, timeout_ms: int) -> None:
         self.api_key = api_key
         self.model = model
-        self.timeout_ms = timeout_ms
+        self.request_timeout_seconds = timeout_ms / 1000
+        self.timeout_ms = _scaled_timeout_ms(timeout_ms)
 
-    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+    async def plan(
+        self,
+        request: QueryPlanningRequest,
+        correction_context: str | None = None,
+    ) -> QueryPlan:
         if not self.api_key:
             raise ProviderConfigError("GEMINI_API_KEY is required for query planning.")
         if not self.model:
@@ -121,19 +155,43 @@ class GeminiQueryPlanner:
 
         def call_gemini() -> QueryPlan:
             client = genai.Client(api_key=self.api_key)
-            response = client.models.generate_content(
-                model=self.model,
-                contents=[_query_context(request)],
-                config=types.GenerateContentConfig(
-                    system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
-                    response_mime_type="application/json",
-                    http_options=types.HttpOptions(timeout=self.timeout_ms),
-                ),
+            plan_schema = _strip_additional_properties(
+                QueryPlan.model_json_schema(),
             )
+            contents = [_query_context(request, correction_context)]
+            try:
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        response_schema=plan_schema,
+                        http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    ),
+                )
+            except ValueError as exc:
+                if not _is_gemini_schema_rejection(exc):
+                    raise
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=[
+                        *contents,
+                        (
+                            "Return JSON matching this schema exactly:\n"
+                            f"{json.dumps(plan_schema, ensure_ascii=False)}"
+                        ),
+                    ],
+                    config=types.GenerateContentConfig(
+                        system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    ),
+                )
             return _normalize_query_plan(json.loads(response.text or "{}"))
 
         try:
-            return await to_thread.run_sync(call_gemini)
+            return await to_thread.run_sync(call_gemini, abandon_on_cancel=True)
         except ProviderError:
             raise
         except (
@@ -159,9 +217,14 @@ class OpenRouterQueryPlanner:
     def __init__(self, api_key: str, model: str, timeout_ms: int) -> None:
         self.api_key = api_key
         self.model = model
-        self.timeout_seconds = timeout_ms / 1000
+        self.request_timeout_seconds = timeout_ms / 1000
+        self.timeout_seconds = _scaled_timeout_seconds(timeout_ms)
 
-    async def plan(self, request: QueryPlanningRequest) -> QueryPlan:
+    async def plan(
+        self,
+        request: QueryPlanningRequest,
+        correction_context: str | None = None,
+    ) -> QueryPlan:
         if not self.api_key:
             raise ProviderConfigError("OPEN_ROUTER_API_KEY is required for query planning.")
         if not self.model:
@@ -177,12 +240,13 @@ class OpenRouterQueryPlanner:
                 api_key=self.api_key,
                 base_url=OPENROUTER_BASE_URL,
                 timeout=self.timeout_seconds,
+                max_retries=0,
             )
             response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": QUERY_PLAN_SYSTEM_PROMPT},
-                    {"role": "user", "content": _query_context(request)},
+                    {"role": "user", "content": _query_context(request, correction_context)},
                 ],
                 response_format={
                     "type": "json_schema",
@@ -196,7 +260,7 @@ class OpenRouterQueryPlanner:
             return _normalize_query_plan(json.loads(_message_content(response)))
 
         try:
-            return await to_thread.run_sync(call_openrouter)
+            return await to_thread.run_sync(call_openrouter, abandon_on_cancel=True)
         except ProviderError:
             raise
         except OpenAIError as exc:
@@ -213,17 +277,29 @@ class OpenRouterQueryPlanner:
             ) from exc
 
 
-def _query_context(request: QueryPlanningRequest) -> str:
-    return (
-        "Generate 4 to 8 search queries for this discovery intake. "
+def _query_context(
+    request: QueryPlanningRequest,
+    correction_context: str | None = None,
+) -> str:
+    context = (
+        "Generate 4 to 8 unique search queries for this discovery intake. "
         "Use the provided language mode for query text when useful.\n"
         f"{request.model_dump_json()}"
     )
+    if correction_context is not None:
+        context = f"{context}\n{correction_context}"
+
+    return context
 
 
 def _normalize_query_plan(raw_plan: QueryPlan | JsonValue) -> QueryPlan:
     parsed = QueryPlan.model_validate(raw_plan)
     return QueryPlan(source="llm", queries=parsed.queries, warnings=parsed.warnings)
+
+
+def _is_gemini_schema_rejection(error: ValueError) -> bool:
+    message = str(error)
+    return any(marker in message for marker in GEMINI_SCHEMA_REJECTION_MARKERS)
 
 
 def _message_content(response: Any) -> str:
@@ -244,3 +320,11 @@ def _message_content(response: Any) -> str:
         )
 
     return content
+
+
+def _scaled_timeout_ms(timeout_ms: int) -> int:
+    return int(timeout_ms * QUERY_PLAN_TIMEOUT_RATIO)
+
+
+def _scaled_timeout_seconds(timeout_ms: int) -> float:
+    return _scaled_timeout_ms(timeout_ms) / 1000

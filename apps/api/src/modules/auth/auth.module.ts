@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config";
 
 import { PrismaModule } from "../../common/persistence/prisma.module";
 import { RedisModule } from "../redis/redis.module";
+import { MailModule } from "../mail/mail.module";
 
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
@@ -24,6 +25,7 @@ import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
     JwtModule.register({}),
     PrismaModule,
     RedisModule,
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [

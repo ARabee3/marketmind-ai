@@ -17,9 +17,17 @@ export type SearchProviderWarning = {
   readonly retryable: boolean;
 };
 
+export type SearchProviderAttempt = {
+  readonly provider: SearchProviderName;
+  readonly outcome: "succeeded" | "empty" | "failed";
+  readonly result_count: number;
+  readonly error_code?: string;
+};
+
 export type SearchResponse = {
   readonly results: readonly SearchResultCandidate[];
   readonly provider_warnings: readonly SearchProviderWarning[];
+  readonly provider_attempts: readonly SearchProviderAttempt[];
 };
 
 export interface SearchProvider {

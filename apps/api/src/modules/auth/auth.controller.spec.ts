@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
 import { AuthController, REFRESH_TOKEN_COOKIE } from './auth.controller';
-import { AuthService, LoginResponse, RefreshResponse, SafeUser } from './auth.service';
+import { AuthService, SafeUser } from './auth.service';
 import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { OAuthStateService } from './oauth-state.service';
 import { GoogleOAuthClient } from './google-oauth.client';
@@ -45,7 +45,7 @@ describe('AuthController', () => {
   });
 
   const createMockRateLimiter = () => ({
-    checkLimit: jest.fn(),
+    checkLimit: jest.fn().mockResolvedValue(true),
   });
 
   const createMockOAuthState = () => ({
@@ -80,6 +80,10 @@ describe('AuthController', () => {
       logout: jest.fn(),
       register: jest.fn(),
       getMe: jest.fn(),
+      forgotPassword: jest.fn(),
+      resetPassword: jest.fn(),
+      verifyEmail: jest.fn(),
+      sendVerificationEmail: jest.fn(),
     };
 
     rateLimiter = createMockRateLimiter();
@@ -104,7 +108,7 @@ describe('AuthController', () => {
 
   describe('login', () => {
     it('sets an HttpOnly SameSite=Lax Secure Path=/ refresh token cookie and returns accessToken + user', async () => {
-      authService.login.mockResolvedValue({
+      authService.login!.mockResolvedValue({
         accessToken: 'access-token',
         rawRefreshToken: 'raw-refresh-token',
         user: mockSafeUser,
@@ -117,7 +121,6 @@ describe('AuthController', () => {
 
       expect(result).toEqual({ accessToken: 'access-token', user: mockSafeUser });
       expect(result).not.toHaveProperty('refreshToken');
-
       expect(cookies[REFRESH_TOKEN_COOKIE]).toBeDefined();
       expect(cookies[REFRESH_TOKEN_COOKIE].value).toBe('raw-refresh-token');
       expect(cookies[REFRESH_TOKEN_COOKIE].options).toMatchObject({
@@ -131,7 +134,7 @@ describe('AuthController', () => {
 
   describe('refresh', () => {
     it('sets a rotated HttpOnly refresh cookie and returns only accessToken', async () => {
-      authService.refresh.mockResolvedValue({
+      authService.refresh!.mockResolvedValue({
         accessToken: 'new-access-token',
         rawRefreshToken: 'new-raw-refresh-token',
       });
@@ -149,7 +152,7 @@ describe('AuthController', () => {
 
   describe('logout', () => {
     it('clears the refresh token cookie and logs the user out', async () => {
-      authService.logout.mockResolvedValue(undefined);
+      authService.logout!.mockResolvedValue(undefined);
 
       await controller.logout(
         { user: { id: 'uuid-1234', email: 'test@marketmind.ai', roles: [Role.OWNER] } } as never,
@@ -159,6 +162,143 @@ describe('AuthController', () => {
       expect(authService.logout).toHaveBeenCalledWith('uuid-1234');
       expect(cookies[REFRESH_TOKEN_COOKIE]).toBeDefined();
       expect(cookies[REFRESH_TOKEN_COOKIE].options.maxAge).toBe(0);
+    });
+  });
+
+  describe('register', () => {
+    it('delegates to authService.register and returns safe user', async () => {
+      authService.register!.mockResolvedValue(mockSafeUser);
+
+      const result = await controller.register({
+        email: 'new@marketmind.ai',
+        password: 'Password123!',
+        fullName: 'New User',
+      });
+
+      expect(authService.register).toHaveBeenCalledWith({
+        email: 'new@marketmind.ai',
+        password: 'Password123!',
+        fullName: 'New User',
+      });
+      expect(result).toEqual(mockSafeUser);
+    });
+
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      rateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(
+        controller.register({ email: 'spam@marketmind.ai', password: 'Password123!', fullName: 'Spam' }),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+
+      expect(authService.register).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('login — rate limit', () => {
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      rateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(
+        controller.login({ email: 'test@marketmind.ai', password: 'Password123!' }, response),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
+
+      expect(authService.login).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forgot-password', () => {
+    it('returns a generic success message regardless of whether the email exists', async () => {
+      authService.forgotPassword!.mockResolvedValue(undefined);
+
+      const result = await controller.forgotPassword({ email: 'anyone@example.com' });
+
+      expect(result.message).toContain('If an account with that email exists');
+      expect(authService.forgotPassword).toHaveBeenCalledWith('anyone@example.com');
+    });
+
+    it('returns 429 when per-email rate limit is exceeded', async () => {
+      rateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(controller.forgotPassword({ email: 'spam@example.com' })).rejects.toThrow(
+        expect.objectContaining({ status: 429 }),
+      );
+
+      expect(authService.forgotPassword).not.toHaveBeenCalled();
+    });
+
+    it('still returns generic success when mail delivery fails', async () => {
+      const { MailDeliveryError } = jest.requireActual('../mail/mail-delivery.error') as typeof import('../mail/mail-delivery.error');
+      authService.forgotPassword!.mockRejectedValue(new MailDeliveryError('SMTP down'));
+
+      const result = await controller.forgotPassword({ email: 'valid@example.com' });
+
+      expect(result.message).toContain('If an account with that email exists');
+    });
+  });
+
+  describe('reset-password', () => {
+    it('delegates to authService.resetPassword and returns success', async () => {
+      authService.resetPassword!.mockResolvedValue(undefined);
+
+      const result = await controller.resetPassword({ token: 'valid-token', newPassword: 'NewPass456!' });
+
+      expect(authService.resetPassword).toHaveBeenCalledWith('valid-token', 'NewPass456!');
+      expect(result.message).toContain('Password has been reset');
+    });
+  });
+
+  describe('verify-email', () => {
+    it('delegates to authService.verifyEmail and returns success', async () => {
+      authService.verifyEmail!.mockResolvedValue(undefined);
+
+      const result = await controller.verifyEmail({ token: 'abcdef1234567890' });
+
+      expect(authService.verifyEmail).toHaveBeenCalledWith('abcdef1234567890');
+      expect(result.message).toContain('Email verified');
+    });
+
+    it('returns 429 when per-token rate limit is exceeded', async () => {
+      rateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(controller.verifyEmail({ token: 'abcdef1234567890' })).rejects.toThrow(
+        expect.objectContaining({ status: 429 }),
+      );
+
+      expect(authService.verifyEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resend-verification', () => {
+    const mockReq = {
+      user: { id: 'uuid-1234', email: 'test@marketmind.ai', roles: [Role.OWNER] },
+    } as never;
+
+    it('delegates to authService.sendVerificationEmail and returns success', async () => {
+      authService.sendVerificationEmail!.mockResolvedValue(undefined);
+
+      const result = await controller.resendVerification(mockReq);
+
+      expect(authService.sendVerificationEmail).toHaveBeenCalledWith('uuid-1234', 'test@marketmind.ai');
+      expect(result.message).toContain('Verification email sent');
+    });
+
+    it('returns 429 when per-user rate limit is exceeded', async () => {
+      rateLimiter.checkLimit.mockResolvedValueOnce(false);
+
+      await expect(controller.resendVerification(mockReq)).rejects.toThrow(
+        expect.objectContaining({ status: 429 }),
+      );
+
+      expect(authService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('returns 503 when mail delivery fails', async () => {
+      const { MailDeliveryError } = jest.requireActual('../mail/mail-delivery.error') as typeof import('../mail/mail-delivery.error');
+      authService.sendVerificationEmail!.mockRejectedValue(new MailDeliveryError('SMTP down'));
+
+      await expect(controller.resendVerification(mockReq)).rejects.toThrow(
+        expect.objectContaining({ status: 503 }),
+      );
     });
   });
 
@@ -174,10 +314,7 @@ describe('AuthController', () => {
 
       await controller.googleAuth(mockRequest, response);
 
-      expect(rateLimiter.checkLimit).toHaveBeenCalledWith(
-        'oauth-initiate',
-        '127.0.0.1',
-      );
+      expect(rateLimiter.checkLimit).toHaveBeenCalledWith('oauth-initiate', '127.0.0.1');
       expect(oauthState.createState).toHaveBeenCalledWith('google');
       expect(googleOAuth.getAuthorizationUrl).toHaveBeenCalledWith('state-nonce');
       expect(response.redirect).toHaveBeenCalledWith(
@@ -217,16 +354,10 @@ describe('AuthController', () => {
         rawRefreshToken: 'raw-refresh-token',
       });
 
-      await controller.googleCallback(
-        mockRequest,
-        response,
-        'state-nonce',
-        'auth-code',
-      );
+      await controller.googleCallback(mockRequest, response, 'state-nonce', 'auth-code');
 
       expect(oauthState.consumeState).toHaveBeenCalledWith('state-nonce');
       expect(googleOAuth.exchangeCode).toHaveBeenCalledWith('auth-code');
-      expect(cookies[REFRESH_TOKEN_COOKIE]).toBeDefined();
       expect(cookies[REFRESH_TOKEN_COOKIE].value).toBe('raw-refresh-token');
       expect(response.redirect).toHaveBeenCalledWith(
         'http://localhost:3000/oauth/callback?status=success',
@@ -235,16 +366,9 @@ describe('AuthController', () => {
 
     it('redirects with error when state is invalid', async () => {
       const { OAuthException } = await import('./exceptions/oauth.exception');
-      oauthState.consumeState.mockRejectedValue(
-        new OAuthException('OAUTH_STATE_MISMATCH', 'Invalid state'),
-      );
+      oauthState.consumeState.mockRejectedValue(new OAuthException('OAUTH_STATE_MISMATCH', 'Invalid state'));
 
-      await controller.googleCallback(
-        mockRequest,
-        response,
-        'bad-state',
-        'auth-code',
-      );
+      await controller.googleCallback(mockRequest, response, 'bad-state', 'auth-code');
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_STATE_MISMATCH');
@@ -252,13 +376,7 @@ describe('AuthController', () => {
     });
 
     it('redirects with error when Google returns an error query param', async () => {
-      await controller.googleCallback(
-        mockRequest,
-        response,
-        'state-nonce',
-        undefined,
-        'access_denied',
-      );
+      await controller.googleCallback(mockRequest, response, 'state-nonce', undefined, 'access_denied');
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_PROVIDER_ERROR');
@@ -275,18 +393,10 @@ describe('AuthController', () => {
         rawProfile: {},
       });
       oauthAccountPolicy.signInWithGoogle.mockRejectedValue(
-        new OAuthException(
-          'OAUTH_EMAIL_ALREADY_USED_PASSWORD',
-          'An account with this email already exists',
-        ),
+        new OAuthException('OAUTH_EMAIL_ALREADY_USED_PASSWORD', 'An account with this email already exists'),
       );
 
-      await controller.googleCallback(
-        mockRequest,
-        response,
-        'state-nonce',
-        'auth-code',
-      );
+      await controller.googleCallback(mockRequest, response, 'state-nonce', 'auth-code');
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_EMAIL_ALREADY_USED_PASSWORD');
@@ -295,12 +405,7 @@ describe('AuthController', () => {
     it('redirects with AUTH_RATE_LIMITED when callback is rate limited', async () => {
       rateLimiter.checkLimit.mockResolvedValue(false);
 
-      await controller.googleCallback(
-        mockRequest,
-        response,
-        'state-nonce',
-        'auth-code',
-      );
+      await controller.googleCallback(mockRequest, response, 'state-nonce', 'auth-code');
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=AUTH_RATE_LIMITED');

@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common";
+import { ConflictException, Logger } from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -128,6 +128,82 @@ describe("DiscoveryResearchProcessor", () => {
         status: "completed",
         messageKey: "discovery.ready_for_chat",
       }),
+    );
+  });
+
+  it("does not call AI when intelligence fails", async () => {
+    repository.findSessionStatus.mockResolvedValue({ status: "researching" });
+    gatherer.gather.mockResolvedValue({
+      ...emptyIntelligence(),
+      status: "failed",
+      safe_error: {
+        code: "SEARCH_FAILED",
+        message: "Search failed.",
+        retryable: true,
+      },
+    });
+
+    await processor.process(SESSION_ID, 1, 3);
+
+    expect(aiDiscoveryClient.start).not.toHaveBeenCalled();
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "research_failed",
+    );
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("keeps chat unavailable when AI start returns a safe error", async () => {
+    repository.findSessionStatus.mockResolvedValue({ status: "researching" });
+    gatherer.gather.mockResolvedValue(emptyIntelligence());
+    aiDiscoveryClient.start.mockResolvedValue({
+      ...aiQuestion(),
+      action: "safe_failure",
+      next_question: undefined,
+      safe_error: {
+        code: "AI_PROVIDER_FAILURE",
+        message: "Provider unavailable.",
+        retryable: true,
+      },
+    });
+
+    await processor.process(SESSION_ID, 1, 3);
+
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).not.toHaveBeenCalled();
+    expect(repository.updateStatusIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      ["researching"],
+      "partial_ready",
+    );
+    expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.objectContaining({ messageKey: "discovery.ready_for_chat" }),
+    );
+  });
+
+  it("treats duplicate initial question persistence as an idempotent no-op", async () => {
+    repository.findSessionStatus.mockResolvedValue({ status: "researching" });
+    gatherer.gather.mockResolvedValue(emptyIntelligence());
+    aiDiscoveryClient.start.mockResolvedValue(aiQuestion());
+    conversationRepository.recordInitialAssistantQuestion.mockRejectedValue(
+      new ConflictException("Already started."),
+    );
+
+    await processor.process(SESSION_ID, 1, 3);
+
+    expect(repository.updateStatusIfCurrent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.any(Array),
+      "failed",
+    );
+    expect(repository.appendProgressEvent).not.toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.objectContaining({ messageKey: "discovery.ready_for_chat" }),
     );
   });
 

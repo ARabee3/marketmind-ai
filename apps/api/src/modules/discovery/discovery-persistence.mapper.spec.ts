@@ -1,10 +1,6 @@
 import "reflect-metadata";
 import { Prisma } from "@prisma/client";
-import {
-  intelligenceFromPersistence,
-  sessionStatusForIntelligence,
-} from "./discovery-persistence.mapper";
-import { IntelligenceResult } from "./discovery-state";
+import { intelligenceFromPersistence } from "./discovery-persistence.mapper";
 
 describe("discovery persistence mapper", () => {
   it("maps persisted intelligence rows into the API contract", () => {
@@ -82,23 +78,4 @@ describe("discovery persistence mapper", () => {
     });
   });
 
-  it("maps intelligence status into session status", () => {
-    const intelligence = {
-      search_mode: "free_search",
-      source_refs: [],
-      research_observations: [],
-      conversation_hooks: [],
-      knowledge_gaps: [],
-    } satisfies Omit<IntelligenceResult, "status">;
-
-    expect(
-      sessionStatusForIntelligence({ ...intelligence, status: "complete" }),
-    ).toBe("ready_for_chat");
-    expect(
-      sessionStatusForIntelligence({ ...intelligence, status: "partial" }),
-    ).toBe("partial_ready");
-    expect(
-      sessionStatusForIntelligence({ ...intelligence, status: "failed" }),
-    ).toBe("research_failed");
-  });
 });

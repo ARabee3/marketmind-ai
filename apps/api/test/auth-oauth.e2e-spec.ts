@@ -20,6 +20,7 @@ process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 process.env.JWT_ACCESS_EXPIRES_IN = "15m";
 process.env.JWT_REFRESH_EXPIRES_IN = "7d";
+process.env.WEB_ORIGIN = "http://localhost:3000";
 
 // Google OAuth env vars are required by env.schema.ts even though we mock
 // the Google client for E2E tests.
