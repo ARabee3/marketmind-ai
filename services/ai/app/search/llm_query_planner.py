@@ -37,6 +37,11 @@ Rules:
 QUERY_PLAN_TIMEOUT_RATIO: Final = 0.45
 JsonPrimitive = str | int | float | bool | None
 JsonValue = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
+GEMINI_SCHEMA_REJECTION_MARKERS: Final = (
+    "additionalProperties",
+    "response_schema",
+    "response schema",
+)
 
 
 def create_llm_query_planner(settings: Settings) -> LlmQueryPlanner | None:
@@ -149,16 +154,36 @@ class GeminiQueryPlanner:
             plan_schema = _strip_additional_properties(
                 QueryPlan.model_json_schema(),
             )
-            response = client.models.generate_content(
-                model=self.model,
-                contents=[_query_context(request, correction_context)],
-                config=types.GenerateContentConfig(
-                    system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
-                    response_mime_type="application/json",
-                    response_schema=plan_schema,
-                    http_options=types.HttpOptions(timeout=self.timeout_ms),
-                ),
-            )
+            contents = [_query_context(request, correction_context)]
+            try:
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        response_schema=plan_schema,
+                        http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    ),
+                )
+            except ValueError as exc:
+                if not _is_gemini_schema_rejection(exc):
+                    raise
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=[
+                        *contents,
+                        (
+                            "Return JSON matching this schema exactly:\n"
+                            f"{json.dumps(plan_schema, ensure_ascii=False)}"
+                        ),
+                    ],
+                    config=types.GenerateContentConfig(
+                        system_instruction=QUERY_PLAN_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    ),
+                )
             return _normalize_query_plan(json.loads(response.text or "{}"))
 
         try:
@@ -266,6 +291,11 @@ def _query_context(
 def _normalize_query_plan(raw_plan: QueryPlan | JsonValue) -> QueryPlan:
     parsed = QueryPlan.model_validate(raw_plan)
     return QueryPlan(source="llm", queries=parsed.queries, warnings=parsed.warnings)
+
+
+def _is_gemini_schema_rejection(error: ValueError) -> bool:
+    message = str(error)
+    return any(marker in message for marker in GEMINI_SCHEMA_REJECTION_MARKERS)
 
 
 def _message_content(response: Any) -> str:

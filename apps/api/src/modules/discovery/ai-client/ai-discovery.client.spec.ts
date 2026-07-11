@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { ProviderError } from "../../../common/errors/provider-error";
 import { IntelligenceResult } from "../discovery-state";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
 import {
@@ -31,6 +32,7 @@ describe("AiDiscoveryClient", () => {
     process.env = {
       ...originalEnv,
       AI_SERVICE_BASE_URL: "http://ai-service",
+      AI_PROVIDER_RETRY_DELAY_MS: "1",
       DISCOVERY_SEARCH_TIMEOUT_MS: "8000",
     };
     fetchMock.mockReset();
@@ -160,5 +162,121 @@ describe("AiDiscoveryClient", () => {
     expect(result.source_refs).toHaveLength(1);
     expect(result.research_observations).toHaveLength(1);
     expect(result.research_observations[0]?.source_ref_id).toBe("source_ref_1");
+  });
+
+  it("retries a transient discovery provider failure once", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          action: "ask_next_question",
+          next_question: "مين أكتر ناس بتشتري من قصر نابولي؟",
+          updated_known_facts: emptyMarketAwareBusinessFacts(),
+          updated_uncertainties: [],
+          research_observations: [],
+          source_refs: [],
+          domain_scores: emptyDiscoveryDomainScores(),
+          ready_to_summarize: false,
+        }),
+      } as Response);
+
+    const result = await new AiDiscoveryClient().start(
+      "11111111-1111-4111-8111-111111111111",
+      dto,
+      intelligence,
+    );
+
+    expect(result.next_question).toBe("مين أكتر ناس بتشتري من قصر نابولي؟");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry non-retryable discovery errors", async () => {
+    fetchMock.mockRejectedValue(
+      new ProviderError(
+        "AI_SERVICE_NOT_CONFIGURED",
+        "AI discovery service is not configured.",
+        false,
+      ),
+    );
+
+    await expect(
+      new AiDiscoveryClient().start(
+        "11111111-1111-4111-8111-111111111111",
+        dto,
+        intelligence,
+      ),
+    ).rejects.toEqual(
+      new ProviderError(
+        "AI_SERVICE_NOT_CONFIGURED",
+        "AI discovery service is not configured.",
+        false,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries retryable discovery safe errors before returning success", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          action: "safe_failure",
+          next_question: null,
+          updated_known_facts: emptyMarketAwareBusinessFacts(),
+          updated_uncertainties: [],
+          research_observations: [],
+          source_refs: [],
+          domain_scores: emptyDiscoveryDomainScores(),
+          ready_to_summarize: false,
+          safe_error: {
+            code: "AI_PROVIDER_FAILURE",
+            message: "Gemini provider call failed.",
+            retryable: true,
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          action: "safe_failure",
+          next_question: null,
+          updated_known_facts: emptyMarketAwareBusinessFacts(),
+          updated_uncertainties: [],
+          research_observations: [],
+          source_refs: [],
+          domain_scores: emptyDiscoveryDomainScores(),
+          ready_to_summarize: false,
+          safe_error: {
+            code: "AI_PROVIDER_FAILURE",
+            message: "Gemini provider call failed.",
+            retryable: true,
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          action: "ask_next_question",
+          next_question: "إيه أكتر منتج حلويات بيطلبه عملاء قصر نابولي؟",
+          updated_known_facts: emptyMarketAwareBusinessFacts(),
+          updated_uncertainties: [],
+          research_observations: [],
+          source_refs: [],
+          domain_scores: emptyDiscoveryDomainScores(),
+          ready_to_summarize: false,
+        }),
+      } as Response);
+
+    const result = await new AiDiscoveryClient().start(
+      "11111111-1111-4111-8111-111111111111",
+      dto,
+      intelligence,
+    );
+
+    expect(result.next_question).toBe(
+      "إيه أكتر منتج حلويات بيطلبه عملاء قصر نابولي؟",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

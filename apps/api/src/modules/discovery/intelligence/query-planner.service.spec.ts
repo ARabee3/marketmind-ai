@@ -25,7 +25,12 @@ describe("QueryPlannerService", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    process.env.AI_PROVIDER_RETRY_DELAY_MS = "1";
     service = new QueryPlannerService(aiClient, deterministicPlanner);
+  });
+
+  afterEach(() => {
+    delete process.env.AI_PROVIDER_RETRY_DELAY_MS;
   });
 
   it("uses the AI query plan when the AI client succeeds", async () => {
@@ -127,6 +132,42 @@ describe("QueryPlannerService", () => {
         "AI_SERVICE_NOT_CONFIGURED: AI query planning is not configured.",
       ],
     });
+  });
+
+  it("retries retryable AI provider errors before deterministic fallback", async () => {
+    const aiPlan = {
+      source: "llm",
+      queries: [
+        {
+          intent: "business_match",
+          query: '"Koshary Corner" "restaurant" "Cairo"',
+          language: LanguageModeDto.Mixed,
+          priority: 100,
+          provider_hints: ["serpapi"],
+        },
+      ],
+      warnings: [],
+    } as const;
+    aiClient.plan
+      .mockRejectedValueOnce(
+        new ProviderError(
+          "AI_QUERY_PLAN_PROVIDER_ERROR",
+          "AI query planning provider failed.",
+          true,
+        ),
+      )
+      .mockRejectedValueOnce(
+        new ProviderError(
+          "AI_QUERY_PLAN_PROVIDER_ERROR",
+          "AI query planning provider failed.",
+          true,
+        ),
+      )
+      .mockResolvedValueOnce(aiPlan);
+
+    await expect(service.plan(dto)).resolves.toBe(aiPlan);
+    expect(aiClient.plan).toHaveBeenCalledTimes(3);
+    expect(deterministicPlanner.plan).not.toHaveBeenCalled();
   });
 
   it("rethrows unexpected errors instead of hiding code bugs", async () => {
