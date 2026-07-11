@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
@@ -167,6 +167,39 @@ export class AuthService {
     await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken);
     this.logger.log(`Tokens rotated for user: ${user.id}`);
     return tokens;
+  }
+
+  /**
+   * Issues a token pair for an already-verified user.
+   *
+   * Used by OAuth flows after the provider profile has been validated and
+   * the local user account has been located or created.
+   */
+  async issueTokensForUser(
+    user: Pick<
+      User,
+      | "id"
+      | "email"
+      | "roles"
+      | "fullName"
+      | "isEmailVerified"
+      | "lastLoginAt"
+      | "createdAt"
+      | "updatedAt"
+    >,
+  ): Promise<LoginResponse & TokenPair> {
+    const tokens = await this.generateTokens(user.id, user.email, user.roles);
+
+    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
+      lastLoginAt: new Date(),
+    });
+
+    this.logger.log(`Tokens issued for user: ${user.id}`);
+    return {
+      accessToken: tokens.accessToken,
+      rawRefreshToken: tokens.rawRefreshToken,
+      user: this.toSafeUser(user),
+    };
   }
 
   async logout(userId: string): Promise<void> {

@@ -13,6 +13,7 @@ import { FederatedIdentityService } from "./federated-identity.service";
 import { AuthRateLimiterService } from "./auth-rate-limiter.service";
 import { OAuthStateService } from "./oauth-state.service";
 import { GoogleOAuthClient } from "./google-oauth.client";
+import { OAuthAccountPolicyService } from "./oauth-account-policy.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
 
@@ -32,6 +33,7 @@ import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
     AuthRateLimiterService,
     OAuthStateService,
     GoogleOAuthClient,
+    OAuthAccountPolicyService,
     JwtStrategy,
     JwtRefreshStrategy,
   ],
@@ -42,6 +44,7 @@ import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
     AuthRateLimiterService,
     OAuthStateService,
     GoogleOAuthClient,
+    OAuthAccountPolicyService,
   ],
 })
 export class AuthModule {}
