@@ -156,6 +156,47 @@ describe('AuthController', () => {
   // =========================================================================
 
   // =========================================================================
+  // forgot-password
+  // =========================================================================
+
+  describe('forgot-password', () => {
+    it('returns a generic success message regardless of whether the email exists', async () => {
+      authService.forgotPassword!.mockResolvedValue(undefined);
+
+      const result = await controller.forgotPassword({ email: 'anyone@example.com' });
+
+      expect(result.message).toContain('If an account with that email exists');
+      expect(authService.forgotPassword).toHaveBeenCalledWith('anyone@example.com');
+    });
+
+
+    it('still returns generic success when mail delivery fails', async () => {
+      const { MailDeliveryError } = jest.requireActual('../mail/mail-delivery.error') as typeof import('../mail/mail-delivery.error');
+      authService.forgotPassword!.mockRejectedValue(new MailDeliveryError('SMTP down'));
+
+      const result = await controller.forgotPassword({ email: 'valid@example.com' });
+
+      // Must NOT expose the delivery failure to the client
+      expect(result.message).toContain('If an account with that email exists');
+    });
+  });
+
+  // =========================================================================
+  // reset-password
+  // =========================================================================
+
+  describe('reset-password', () => {
+    it('delegates to authService.resetPassword and returns success', async () => {
+      authService.resetPassword!.mockResolvedValue(undefined);
+
+      const result = await controller.resetPassword({ token: 'valid-token', newPassword: 'NewPass456!' });
+
+      expect(authService.resetPassword).toHaveBeenCalledWith('valid-token', 'NewPass456!');
+      expect(result.message).toContain('Password has been reset');
+    });
+  });
+
+  // =========================================================================
   // verify-email
   // =========================================================================
 

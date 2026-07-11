@@ -21,6 +21,8 @@ import {
   RefreshResponse,
   SafeUser,
 } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -95,6 +97,34 @@ export class AuthController {
   async getMe(@Req() req: RequestWithUser): Promise<{ user: SafeUser }> {
     const user = await this.authService.getMe(req.user.id);
     return { user };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const allowed = await this.authRateLimiter.checkLimit('password-reset', dto.email);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    try {
+      await this.authService.forgotPassword(dto.email);
+    } catch (error) {
+      if (error instanceof MailDeliveryError) {
+        this.logger.warn(`Password reset mail delivery failed: ${error.message}`);
+      }
+    }
+
+    return { message: 'If an account with that email exists, a password reset link has been sent' };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return { message: 'Password has been reset successfully' };
   }
 
   @Post('verify-email')

@@ -502,6 +502,62 @@ describe('AuthService', () => {
   });
 
   // =========================================================================
+  // forgotPassword()
+  // =========================================================================
+
+  describe('forgotPassword()', () => {
+    it('should issue a PASSWORD_RESET token and send mail when user exists', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: MOCK_USER_ID, email: MOCK_EMAIL });
+      jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
+        rawToken: 'reset-token',
+        expiresAt: new Date(),
+      });
+
+      await service.forgotPassword(MOCK_EMAIL);
+
+      expect(actionTokenService.issue).toHaveBeenCalledWith(MOCK_USER_ID, 'PASSWORD_RESET');
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        MOCK_EMAIL,
+        expect.any(String),
+        expect.stringContaining('reset-token'),
+      );
+    });
+
+    it('should silently succeed when the email is unknown', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.forgotPassword('unknown@example.com')).resolves.toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // resetPassword()
+  // =========================================================================
+
+  describe('resetPassword()', () => {
+    it('should consume token, hash password, update DB, and revoke sessions', async () => {
+      jest.spyOn(actionTokenService, 'consume').mockResolvedValue(MOCK_USER_ID);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
+      prisma.refreshSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      const bcryptSpy = jest.spyOn(bcrypt, 'hash');
+
+      await service.resetPassword('valid-token', 'NewSecurePass456');
+
+      expect(actionTokenService.consume).toHaveBeenCalledWith('valid-token', 'PASSWORD_RESET');
+      expect(bcryptSpy).toHaveBeenCalledWith('NewSecurePass456', 12);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: MOCK_USER_ID },
+        data: { password: expect.any(String), refreshToken: null },
+      });
+      // Sessions must be revoked after a successful password reset
+      expect(prisma.refreshSession.deleteMany).toHaveBeenCalledWith({
+        where: { userId: MOCK_USER_ID },
+      });
+    });
+  });
+
+  // =========================================================================
   // verifyEmail()
   // =========================================================================
 

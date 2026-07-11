@@ -233,6 +233,67 @@ export class AuthService {
     this.logger.log(`Verification email sent to user ${userId}`);
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      this.logger.warn(`Password reset requested for unknown email: ${email}`);
+      return;
+    }
+
+    const { rawToken } = await this.actionTokenService.issue(
+      user.id,
+      ActionTokenType.PASSWORD_RESET,
+    );
+
+    const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
+    const link = `${appUrl}/reset-password?token=${rawToken}`;
+
+    await this.mailService.sendMail(
+      user.email,
+      'Reset your password',
+      `<p>Click <a href="${link}">here</a> to reset your password. This link expires in 30 minutes.</p>`,
+    );
+
+    this.logger.log(`Password reset email sent to user ${user.id}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    let userId: string;
+
+    try {
+      userId = await this.actionTokenService.consume(token, ActionTokenType.PASSWORD_RESET);
+    } catch (error) {
+      if (error instanceof ActionTokenError) {
+        throw new UnprocessableEntityException({
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          password: hashedPassword,
+          refreshToken: null,
+        },
+      }),
+      this.prisma.refreshSession.deleteMany({
+        where: { userId },
+      }),
+    ]);
+
+    this.logger.log(`Password reset for user ${userId}`);
+  }
+
   async verifyEmail(token: string): Promise<void> {
     let userId: string;
 
