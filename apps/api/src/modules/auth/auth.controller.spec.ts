@@ -379,15 +379,19 @@ describe('AuthController', () => {
       );
     });
 
-    it('redirects with error when state is invalid', async () => {
+    it('redirects with error and clears the cookie when matching state is expired', async () => {
       const { OAuthException } = await import('./exceptions/oauth.exception');
       oauthState.consumeState.mockRejectedValue(new OAuthException('OAUTH_STATE_MISMATCH', 'Invalid state'));
 
-      await controller.googleCallback(mockRequest, response, 'bad-state', 'auth-code');
+      await controller.googleCallback(mockRequest, response, 'state-nonce', 'auth-code');
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_STATE_MISMATCH');
       expect(redirectUrl).not.toContain('message=');
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        OAUTH_STATE_COOKIE,
+        expect.objectContaining({ path: '/', sameSite: 'lax' }),
+      );
     });
 
     it('rejects a callback whose state does not match the initiating browser cookie', async () => {
@@ -397,6 +401,7 @@ describe('AuthController', () => {
       expect(redirectUrl).toContain('error=OAUTH_STATE_MISMATCH');
       expect(oauthState.consumeState).not.toHaveBeenCalled();
       expect(googleOAuth.exchangeCode).not.toHaveBeenCalled();
+      expect(response.clearCookie).not.toHaveBeenCalled();
     });
 
     it('redirects with error when Google returns an error query param', async () => {
@@ -406,6 +411,10 @@ describe('AuthController', () => {
       expect(redirectUrl).toContain('error=OAUTH_PROVIDER_ERROR');
       expect(redirectUrl).not.toContain('access_denied');
       expect(oauthState.consumeState).toHaveBeenCalledWith('state-nonce');
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        OAUTH_STATE_COOKIE,
+        expect.objectContaining({ path: '/', sameSite: 'lax' }),
+      );
     });
 
     it('redirects with error for same-email password conflict', async () => {
@@ -435,6 +444,18 @@ describe('AuthController', () => {
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=AUTH_RATE_LIMITED');
       expect(redirectUrl).not.toContain('message=');
+      expect(response.clearCookie).toHaveBeenCalledWith(
+        OAUTH_STATE_COOKIE,
+        expect.objectContaining({ path: '/', sameSite: 'lax' }),
+      );
+    });
+
+    it('preserves the active cookie when a mismatched callback is rate limited', async () => {
+      rateLimiter.checkLimit.mockResolvedValue(false);
+
+      await controller.googleCallback(mockRequest, response, 'different-state', 'auth-code');
+
+      expect(response.clearCookie).not.toHaveBeenCalled();
     });
   });
 });

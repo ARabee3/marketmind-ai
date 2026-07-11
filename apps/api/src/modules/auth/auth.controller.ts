@@ -152,10 +152,14 @@ export class AuthController {
   ): Promise<void> {
     const ip = req.ip ?? 'unknown';
     const redirectBase = this.oauthRedirectUrl();
+    const browserState = req.cookies?.[OAUTH_STATE_COOKIE];
+    const browserStateMatches = Boolean(state && state === browserState);
 
     const allowed = await this.authRateLimiter.checkLimit('oauth-callback', ip);
     if (!allowed) {
-      this.clearOAuthStateCookie(res);
+      if (browserStateMatches) {
+        this.clearOAuthStateCookie(res);
+      }
       return this.redirectWithError(
         res,
         redirectBase,
@@ -164,8 +168,7 @@ export class AuthController {
     }
 
     try {
-      const browserState = req.cookies?.[OAUTH_STATE_COOKIE];
-      if (!state || state !== browserState) {
+      if (!browserStateMatches) {
         throw new OAuthException(
           'OAUTH_STATE_MISMATCH',
           'OAuth state does not match the initiating browser',
@@ -197,7 +200,9 @@ export class AuthController {
     } catch (error) {
       this.logger.warn('Google OAuth callback failed', error);
       const errorCode = this.normalizeOAuthError(error);
-      this.clearOAuthStateCookie(res);
+      if (browserStateMatches) {
+        this.clearOAuthStateCookie(res);
+      }
       this.redirectWithError(res, redirectBase, errorCode);
     }
   }

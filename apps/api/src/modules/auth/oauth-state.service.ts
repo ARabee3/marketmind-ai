@@ -54,7 +54,7 @@ export class OAuthStateService {
   /**
    * Validate and consume an OAuth state nonce.
    *
-   * The state is retrieved and deleted in one atomic pipeline. If the state
+   * The state is retrieved and deleted with Redis GETDEL. If the state
    * is missing, expired, malformed, or bound to a different fingerprint,
    * an OAuthException with code OAUTH_STATE_MISMATCH is thrown.
    *
