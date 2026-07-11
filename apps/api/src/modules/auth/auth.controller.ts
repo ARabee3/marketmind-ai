@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
+  Logger,
   Post,
   Req,
   Res,
@@ -19,11 +21,14 @@ import {
   RefreshResponse,
   SafeUser,
 } from './auth.service';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { AuthenticatedUser } from './interfaces/jwt-payload.interface';
+import { MailDeliveryError } from '../mail/mail-delivery.error';
 
 interface RequestWithUser extends Request {
   user: AuthenticatedUser;
@@ -33,9 +38,12 @@ export const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly authRateLimiter: AuthRateLimiterService,
   ) {}
 
   @Post('register')
@@ -87,6 +95,45 @@ export class AuthController {
   async getMe(@Req() req: RequestWithUser): Promise<{ user: SafeUser }> {
     const user = await this.authService.getMe(req.user.id);
     return { user };
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {
+    const prefix = dto.token.substring(0, 8);
+    const allowed = await this.authRateLimiter.checkLimit('verify-email', prefix);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    await this.authService.verifyEmail(dto.token);
+    return { message: 'Email verified successfully' };
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  async resendVerification(@Req() req: RequestWithUser): Promise<{ message: string }> {
+    const allowed = await this.authRateLimiter.checkLimit('verify-email', req.user.id);
+    if (!allowed) {
+      throw new HttpException({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    try {
+      await this.authService.sendVerificationEmail(req.user.id, req.user.email);
+    } catch (error) {
+      if (error instanceof MailDeliveryError) {
+        throw new HttpException(
+          { code: 'MAIL_DELIVERY_FAILED', message: 'Failed to send verification email' },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw error;
+    }
+
+    return { message: 'Verification email sent' };
   }
 
   private setRefreshCookie(res: Response, token: string): void {
