@@ -44,6 +44,11 @@ export function envSchema(
     errors.push("REDIS_URL is required (e.g. redis://localhost:6379)");
   }
 
+  // RESEND_API_KEY — required in production
+  if (config.NODE_ENV === "production" && !config.RESEND_API_KEY) {
+    errors.push("RESEND_API_KEY is required in production");
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Environment validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
