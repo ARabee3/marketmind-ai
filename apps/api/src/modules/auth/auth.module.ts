@@ -11,6 +11,7 @@ import { AuthService } from "./auth.service";
 import { ActionTokenService } from "./action-token.service";
 import { FederatedIdentityService } from "./federated-identity.service";
 import { AuthRateLimiterService } from "./auth-rate-limiter.service";
+import { OAuthStateService } from "./oauth-state.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
 
@@ -28,6 +29,7 @@ import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
     ActionTokenService,
     FederatedIdentityService,
     AuthRateLimiterService,
+    OAuthStateService,
     JwtStrategy,
     JwtRefreshStrategy,
   ],
@@ -36,6 +38,7 @@ import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
     ActionTokenService,
     FederatedIdentityService,
     AuthRateLimiterService,
+    OAuthStateService,
   ],
 })
 export class AuthModule {}
