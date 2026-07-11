@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { RegisterForm } from '@/features/auth/register-form'
+import { GoogleAuthButton } from '@/features/auth/google-auth-button'
 import {
   Card,
   CardContent,
@@ -25,6 +26,9 @@ export default async function RegisterPage() {
           <CardTitle>{t('registerTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <GoogleAuthButton />
+          </div>
           <RegisterForm />
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {t('registerHaveAccount')}{' '}

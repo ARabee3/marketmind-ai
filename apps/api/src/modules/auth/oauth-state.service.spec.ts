@@ -3,25 +3,15 @@ import { OAuthException } from "./exceptions/oauth.exception";
 
 describe("OAuthStateService", () => {
   let service: OAuthStateService;
-  let mockPipeline: {
-    get: jest.Mock;
-    del: jest.Mock;
-    exec: jest.Mock;
-  };
   let mockRedisClient: {
     setex: jest.Mock;
-    pipeline: jest.Mock;
+    getdel: jest.Mock;
   };
 
   beforeEach(() => {
-    mockPipeline = {
-      get: jest.fn().mockReturnThis(),
-      del: jest.fn().mockReturnThis(),
-      exec: jest.fn(),
-    };
     mockRedisClient = {
       setex: jest.fn(),
-      pipeline: jest.fn().mockReturnValue(mockPipeline),
+      getdel: jest.fn(),
     };
 
     const mockRedisService = { getClient: () => mockRedisClient } as any;
@@ -63,13 +53,12 @@ describe("OAuthStateService", () => {
         provider: "google",
         fingerprint: "fp-123",
       };
-      mockPipeline.exec.mockResolvedValue([[null, JSON.stringify(payload)], [null, 1]]);
+      mockRedisClient.getdel.mockResolvedValue(JSON.stringify(payload));
 
       const result = await service.consumeState("valid-state-nonce-123456789", "fp-123");
 
       expect(result).toEqual(payload);
-      expect(mockPipeline.get).toHaveBeenCalledWith("oauth:state:valid-state-nonce-123456789");
-      expect(mockPipeline.del).toHaveBeenCalledWith("oauth:state:valid-state-nonce-123456789");
+      expect(mockRedisClient.getdel).toHaveBeenCalledWith("oauth:state:valid-state-nonce-123456789");
     });
 
     it("rejects a missing state", async () => {
@@ -80,7 +69,7 @@ describe("OAuthStateService", () => {
     });
 
     it("rejects a state that does not exist in Redis", async () => {
-      mockPipeline.exec.mockResolvedValue([[null, null], [null, 0]]);
+      mockRedisClient.getdel.mockResolvedValue(null);
 
       await expect(service.consumeState("unknown-state")).rejects.toThrow(
         OAuthException,
@@ -89,9 +78,9 @@ describe("OAuthStateService", () => {
 
     it("rejects a replayed state after it has been consumed", async () => {
       const payload: OAuthStatePayload = { provider: "google" };
-      mockPipeline.exec
-        .mockResolvedValueOnce([[null, JSON.stringify(payload)], [null, 1]])
-        .mockResolvedValueOnce([[null, null], [null, 0]]);
+      mockRedisClient.getdel
+        .mockResolvedValueOnce(JSON.stringify(payload))
+        .mockResolvedValueOnce(null);
 
       await service.consumeState("one-time-state-nonce-123456");
       await expect(service.consumeState("one-time-state-nonce-123456")).rejects.toThrow(
@@ -100,7 +89,7 @@ describe("OAuthStateService", () => {
     });
 
     it("rejects a corrupted payload", async () => {
-      mockPipeline.exec.mockResolvedValue([[null, "not-json"], [null, 1]]);
+      mockRedisClient.getdel.mockResolvedValue("not-json");
 
       await expect(service.consumeState("corrupt-state")).rejects.toThrow(
         OAuthException,
@@ -112,7 +101,7 @@ describe("OAuthStateService", () => {
         provider: "google",
         fingerprint: "fp-original",
       };
-      mockPipeline.exec.mockResolvedValue([[null, JSON.stringify(payload)], [null, 1]]);
+      mockRedisClient.getdel.mockResolvedValue(JSON.stringify(payload));
 
       await expect(
         service.consumeState("valid-state-fp-check-123456", "fp-different"),
@@ -121,23 +110,23 @@ describe("OAuthStateService", () => {
 
     it("allows consumption when no fingerprint was stored", async () => {
       const payload: OAuthStatePayload = { provider: "google" };
-      mockPipeline.exec.mockResolvedValue([[null, JSON.stringify(payload)], [null, 1]]);
+      mockRedisClient.getdel.mockResolvedValue(JSON.stringify(payload));
 
       const result = await service.consumeState("valid-state-no-fp-123456", "fp-any");
 
       expect(result.provider).toBe("google");
     });
 
-    it("rejects when the Redis pipeline fails", async () => {
-      mockPipeline.exec.mockResolvedValue(null);
+    it("rejects when Redis cannot return the state", async () => {
+      mockRedisClient.getdel.mockRejectedValue(new Error("Redis unavailable"));
 
-      await expect(service.consumeState("any-state")).rejects.toThrow(
-        OAuthException,
+      await expect(service.consumeState("any-state-nonce-123456")).rejects.toThrow(
+        "Redis unavailable",
       );
     });
 
     it("exposes OAUTH_STATE_MISMATCH code on errors", async () => {
-      mockPipeline.exec.mockResolvedValue([[null, null], [null, 0]]);
+      mockRedisClient.getdel.mockResolvedValue(null);
 
       await expect(service.consumeState("missing")).rejects.toMatchObject({
         code: "OAUTH_STATE_MISMATCH",

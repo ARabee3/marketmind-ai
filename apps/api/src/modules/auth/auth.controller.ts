@@ -42,6 +42,7 @@ interface RequestWithUser extends Request {
 }
 
 export const REFRESH_TOKEN_COOKIE = 'refreshToken';
+export const OAUTH_STATE_COOKIE = 'oauthState';
 
 @Controller('auth')
 export class AuthController {
@@ -136,6 +137,7 @@ export class AuthController {
     }
 
     const state = await this.oauthState.createState('google');
+    this.setOAuthStateCookie(res, state);
     const url = this.googleOAuth.getAuthorizationUrl(state);
     res.redirect(url);
   }
@@ -150,26 +152,37 @@ export class AuthController {
   ): Promise<void> {
     const ip = req.ip ?? 'unknown';
     const redirectBase = this.oauthRedirectUrl();
+    const browserState = req.cookies?.[OAUTH_STATE_COOKIE];
+    const browserStateMatches = Boolean(state && state === browserState);
 
     const allowed = await this.authRateLimiter.checkLimit('oauth-callback', ip);
     if (!allowed) {
+      if (browserStateMatches) {
+        this.clearOAuthStateCookie(res);
+      }
       return this.redirectWithError(
         res,
         redirectBase,
         'AUTH_RATE_LIMITED',
-        'Too many callback attempts',
       );
     }
 
     try {
-      if (providerError) {
+      if (!browserStateMatches) {
         throw new OAuthException(
-          'OAUTH_PROVIDER_ERROR',
-          `Google OAuth error: ${providerError}`,
+          'OAUTH_STATE_MISMATCH',
+          'OAuth state does not match the initiating browser',
         );
       }
 
       await this.oauthState.consumeState(state);
+
+      if (providerError) {
+        throw new OAuthException(
+          'OAUTH_PROVIDER_ERROR',
+          'Google OAuth provider denied or cancelled the request',
+        );
+      }
 
       if (!code) {
         throw new OAuthException(
@@ -182,11 +195,15 @@ export class AuthController {
       const result = await this.oauthAccountPolicy.signInWithGoogle(profile);
 
       this.setRefreshCookie(res, result.rawRefreshToken);
+      this.clearOAuthStateCookie(res);
       res.redirect(`${redirectBase}?status=success`);
     } catch (error) {
       this.logger.warn('Google OAuth callback failed', error);
-      const { code: errorCode, message } = this.normalizeOAuthError(error);
-      this.redirectWithError(res, redirectBase, errorCode, message);
+      const errorCode = this.normalizeOAuthError(error);
+      if (browserStateMatches) {
+        this.clearOAuthStateCookie(res);
+      }
+      this.redirectWithError(res, redirectBase, errorCode);
     }
   }
 
@@ -276,6 +293,25 @@ export class AuthController {
     });
   }
 
+  private setOAuthStateCookie(res: Response, state: string): void {
+    res.cookie(OAUTH_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: this.configService.get<boolean>('cookies.secure', false),
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 10 * 60 * 1000,
+    });
+  }
+
+  private clearOAuthStateCookie(res: Response): void {
+    res.clearCookie(OAUTH_STATE_COOKIE, {
+      httpOnly: true,
+      secure: this.configService.get<boolean>('cookies.secure', false),
+      sameSite: 'lax',
+      path: '/',
+    });
+  }
+
   private clearRefreshCookie(res: Response): void {
     res.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
@@ -299,32 +335,26 @@ export class AuthController {
     res: Response,
     base: string,
     code: string,
-    message: string,
   ): void {
     const url = new URL(base);
     url.searchParams.set('error', code);
-    url.searchParams.set('message', message);
     res.redirect(url.toString());
   }
 
-  private normalizeOAuthError(error: unknown): { code: string; message: string } {
+  private normalizeOAuthError(error: unknown): string {
     if (error instanceof OAuthException) {
-      return { code: error.code, message: error.message };
+      return error.code;
     }
 
     if (error instanceof HttpException) {
       const response = error.getResponse();
       if (typeof response === 'object' && response !== null && 'code' in response) {
-        return {
-          code: (response as { code: string }).code,
-          message: (response as { message?: string }).message ?? error.message,
-        };
+        return (response as { code: string }).code;
       }
-      return { code: 'OAUTH_PROVIDER_ERROR', message: error.message };
+      return 'OAUTH_PROVIDER_ERROR';
     }
 
-    const message = error instanceof Error ? error.message : 'OAuth failed';
-    return { code: 'SERVER_ERROR', message };
+    return 'SERVER_ERROR';
   }
 }
 

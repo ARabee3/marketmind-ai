@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { LoginForm } from '@/features/auth/login-form'
+import { GoogleAuthButton } from '@/features/auth/google-auth-button'
 import {
   Card,
   CardContent,
@@ -26,6 +27,9 @@ export default async function LoginPage() {
           <CardTitle>{t('loginTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <GoogleAuthButton />
+          </div>
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>

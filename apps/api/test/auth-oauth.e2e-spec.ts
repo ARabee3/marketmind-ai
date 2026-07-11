@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { INestApplication } from "@nestjs/common";
 import { Role } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import * as cookieParser from "cookie-parser";
 import * as request from "supertest";
 
 import { configuration } from "../src/config/configuration";
@@ -21,6 +22,8 @@ process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 process.env.JWT_ACCESS_EXPIRES_IN = "15m";
 process.env.JWT_REFRESH_EXPIRES_IN = "7d";
 process.env.WEB_ORIGIN = "http://localhost:3000";
+process.env.COOKIE_SECURE = "false";
+process.env.COOKIE_SAME_SITE = "lax";
 
 // Google OAuth env vars are required by env.schema.ts even though we mock
 // the Google client for E2E tests.
@@ -85,7 +88,6 @@ class PermissiveRateLimiter {
 describe("OAuth (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let oauthState: OAuthStateService;
   let googleOAuthMock: {
     getAuthorizationUrl: jest.Mock;
     exchangeCode: jest.Mock;
@@ -119,10 +121,10 @@ describe("OAuth (e2e)", () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix("api/v1");
+    app.use(cookieParser());
     await app.init();
 
     prisma = app.get(PrismaService);
-    oauthState = app.get(OAuthStateService);
   });
 
   afterAll(async () => {
@@ -143,24 +145,31 @@ describe("OAuth (e2e)", () => {
     await prisma.user.deleteMany({ where: { email: PASSWORD_EMAIL } });
   });
 
+  async function startGoogleOAuth() {
+    const agent = request.agent(app.getHttpServer());
+    const initiationResponse = await agent
+      .get("/api/v1/auth/google")
+      .expect(302)
+      .expect("Location", /accounts\.google\.com/);
+    const calls = googleOAuthMock.getAuthorizationUrl.mock.calls;
+    const state = calls[calls.length - 1][0] as string;
+    return { agent, initiationResponse, state };
+  }
+
   // ========================================================================
   // GET /api/v1/auth/google
   // ========================================================================
 
   describe("GET /api/v1/auth/google", () => {
     it("redirects to Google with a stored state", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/auth/google")
-        .expect(302)
-        .expect("Location", /accounts\.google\.com/);
+      const { initiationResponse, state } = await startGoogleOAuth();
 
       expect(googleOAuthMock.getAuthorizationUrl).toHaveBeenCalledTimes(1);
-      const state = googleOAuthMock.getAuthorizationUrl.mock.calls[0][0];
       expect(state).toBeTruthy();
-
-      // The state should be consumable from the in-memory store.
-      const payload = await oauthState.consumeState(state);
-      expect(payload.provider).toBe("google");
+      const cookies = initiationResponse.headers["set-cookie"] as unknown as string[];
+      const stateCookie = cookies.find((cookie) => cookie.startsWith("oauthState="));
+      expect(stateCookie).toContain("HttpOnly");
+      expect(stateCookie).toContain("SameSite=Lax");
     });
   });
 
@@ -171,9 +180,9 @@ describe("OAuth (e2e)", () => {
   describe("GET /api/v1/auth/google/callback", () => {
     it("creates a new verified owner and redirects to success", async () => {
       googleOAuthMock.exchangeCode.mockResolvedValue(mockGoogleProfile);
-      const state = await oauthState.createState("google");
+      const { agent, state } = await startGoogleOAuth();
 
-      await request(app.getHttpServer())
+      await agent
         .get(`/api/v1/auth/google/callback?state=${state}&code=valid-code`)
         .expect(302)
         .expect("Location", /\/oauth\/callback\?status=success/)
@@ -204,10 +213,10 @@ describe("OAuth (e2e)", () => {
 
     it("signs in a returning identity without creating a duplicate user", async () => {
       googleOAuthMock.exchangeCode.mockResolvedValue(mockGoogleProfile);
-      const state = await oauthState.createState("google");
+      const { agent, state } = await startGoogleOAuth();
 
       // First callback creates the account.
-      await request(app.getHttpServer())
+      await agent
         .get(`/api/v1/auth/google/callback?state=${state}&code=valid-code`)
         .expect(302);
 
@@ -217,9 +226,9 @@ describe("OAuth (e2e)", () => {
       expect(firstUser).not.toBeNull();
 
       // Second callback with a fresh state should sign in the same user.
-      const state2 = await oauthState.createState("google");
-      await request(app.getHttpServer())
-        .get(`/api/v1/auth/google/callback?state=${state2}&code=valid-code`)
+      const secondFlow = await startGoogleOAuth();
+      await secondFlow.agent
+        .get(`/api/v1/auth/google/callback?state=${secondFlow.state}&code=valid-code`)
         .expect(302)
         .expect("Location", /\/oauth\/callback\?status=success/);
 
@@ -240,9 +249,9 @@ describe("OAuth (e2e)", () => {
         ...mockGoogleProfile,
         email: PASSWORD_EMAIL,
       });
-      const state = await oauthState.createState("google");
+      const { agent, state } = await startGoogleOAuth();
 
-      await request(app.getHttpServer())
+      await agent
         .get(`/api/v1/auth/google/callback?state=${state}&code=valid-code`)
         .expect(302)
         .expect((res) => {
@@ -253,21 +262,33 @@ describe("OAuth (e2e)", () => {
     });
 
     it("redirects with OAUTH_STATE_MISMATCH for an invalid state", async () => {
-      await request(app.getHttpServer())
+      googleOAuthMock.exchangeCode.mockResolvedValue(mockGoogleProfile);
+      const { agent, state } = await startGoogleOAuth();
+
+      await agent
         .get("/api/v1/auth/google/callback?state=invalid-state&code=valid-code")
         .expect(302)
         .expect((res) => {
           expect(res.headers.location).toContain("error=OAUTH_STATE_MISMATCH");
         });
+
+      // A mismatched callback must not clear the active browser-bound state.
+      await agent
+        .get(`/api/v1/auth/google/callback?state=${state}&code=valid-code`)
+        .expect(302)
+        .expect("Location", /\/oauth\/callback\?status=success/);
     });
 
     it("redirects with OAUTH_PROVIDER_ERROR when Google returns an error", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/auth/google/callback?state=any&error=access_denied")
+      const { agent, state } = await startGoogleOAuth();
+
+      await agent
+        .get(`/api/v1/auth/google/callback?state=${state}&error=access_denied`)
         .expect(302)
         .expect((res) => {
           expect(res.headers.location).toContain("error=OAUTH_PROVIDER_ERROR");
-          expect(res.headers.location).toContain("access_denied");
+          expect(res.headers.location).not.toContain("access_denied");
+          expect(res.headers.location).not.toContain("message=");
         });
     });
 
