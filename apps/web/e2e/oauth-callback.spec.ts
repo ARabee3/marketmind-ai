@@ -57,7 +57,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
       await expect(page.getByRole('heading')).toContainText(
@@ -71,7 +71,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(new RegExp(`/${locale}/oauth/callback`))
       await expect(page.getByText(
@@ -87,7 +87,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page.getByRole('button', { name: /Retry|إعادة المحاولة/i })).toBeVisible()
       await page.getByRole('button', { name: /Retry|إعادة المحاولة/i }).click()
@@ -104,7 +104,7 @@ for (const locale of locales) {
       })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(new RegExp(`/${locale}/oauth/callback`))
       await expect(page.getByText(
@@ -121,7 +121,7 @@ for (const locale of locales) {
       })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page.getByText(
         locale === 'ar'
@@ -149,7 +149,7 @@ for (const locale of locales) {
       })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await page.getByRole('link', { name: /Back to sign in|العودة إلى تسجيل الدخول/i }).click()
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
@@ -161,7 +161,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
       expect(new URL(page.url()).pathname.startsWith(`/${locale}/`)).toBe(true)
@@ -173,7 +173,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
 
@@ -188,7 +188,7 @@ for (const locale of locales) {
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
 
       await page.goto(`/${locale}/login`)
-      await page.getByRole('button', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
+      await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
 

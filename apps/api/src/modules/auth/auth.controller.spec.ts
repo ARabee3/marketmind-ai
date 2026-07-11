@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
-import { AuthController, REFRESH_TOKEN_COOKIE } from './auth.controller';
+import {
+  AuthController,
+  OAUTH_STATE_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+} from './auth.controller';
 import { AuthService, SafeUser } from './auth.service';
 import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { OAuthStateService } from './oauth-state.service';
@@ -316,6 +320,14 @@ describe('AuthController', () => {
 
       expect(rateLimiter.checkLimit).toHaveBeenCalledWith('oauth-initiate', '127.0.0.1');
       expect(oauthState.createState).toHaveBeenCalledWith('google');
+      expect(cookies[OAUTH_STATE_COOKIE]).toMatchObject({
+        value: 'state-nonce',
+        options: expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+        }),
+      });
       expect(googleOAuth.getAuthorizationUrl).toHaveBeenCalledWith('state-nonce');
       expect(response.redirect).toHaveBeenCalledWith(
         'https://accounts.google.com/o/oauth2/v2/auth?state=state-nonce',
@@ -333,7 +345,10 @@ describe('AuthController', () => {
   });
 
   describe('googleCallback', () => {
-    const mockRequest = { ip: '127.0.0.1' } as Request;
+    const mockRequest = {
+      ip: '127.0.0.1',
+      cookies: { [OAUTH_STATE_COOKIE]: 'state-nonce' },
+    } as unknown as Request;
 
     beforeEach(() => {
       rateLimiter.checkLimit.mockResolvedValue(true);
@@ -372,7 +387,16 @@ describe('AuthController', () => {
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_STATE_MISMATCH');
-      expect(redirectUrl).toContain('message=Invalid+state');
+      expect(redirectUrl).not.toContain('message=');
+    });
+
+    it('rejects a callback whose state does not match the initiating browser cookie', async () => {
+      await controller.googleCallback(mockRequest, response, 'different-state', 'auth-code');
+
+      const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
+      expect(redirectUrl).toContain('error=OAUTH_STATE_MISMATCH');
+      expect(oauthState.consumeState).not.toHaveBeenCalled();
+      expect(googleOAuth.exchangeCode).not.toHaveBeenCalled();
     });
 
     it('redirects with error when Google returns an error query param', async () => {
@@ -380,7 +404,8 @@ describe('AuthController', () => {
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_PROVIDER_ERROR');
-      expect(redirectUrl).toContain('access_denied');
+      expect(redirectUrl).not.toContain('access_denied');
+      expect(oauthState.consumeState).toHaveBeenCalledWith('state-nonce');
     });
 
     it('redirects with error for same-email password conflict', async () => {
@@ -409,6 +434,7 @@ describe('AuthController', () => {
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=AUTH_RATE_LIMITED');
+      expect(redirectUrl).not.toContain('message=');
     });
   });
 });

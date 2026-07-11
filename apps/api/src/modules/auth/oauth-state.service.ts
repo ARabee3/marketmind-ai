@@ -74,24 +74,10 @@ export class OAuthStateService {
     }
 
     const key = `${this.keyPrefix}${state}`;
-    const client = this.redis.getClient();
+    // GETDEL is atomic in Redis, so a state nonce can only be consumed once.
+    const raw = await this.redis.getClient().getdel(key);
 
-    // GET + DEL in a pipeline atomically reads and removes the state.
-    const pipeline = client.pipeline();
-    pipeline.get(key);
-    pipeline.del(key);
-    const results = await pipeline.exec();
-
-    if (!results) {
-      this.logger.warn("OAuth state pipeline returned no results");
-      throw new OAuthException(
-        "OAUTH_STATE_MISMATCH",
-        "OAuth state validation failed",
-      );
-    }
-
-    const [getErr, raw] = results[0];
-    if (getErr || !raw) {
+    if (!raw) {
       this.logger.warn("OAuth state missing or expired");
       throw new OAuthException(
         "OAUTH_STATE_MISMATCH",

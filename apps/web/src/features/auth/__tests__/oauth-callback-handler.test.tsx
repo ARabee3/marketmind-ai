@@ -5,7 +5,7 @@ import { OAuthCallbackHandler } from '../oauth-callback-handler'
 import { useSession } from '../session-provider'
 
 const authMessages: Record<string, string> = {
-  oauthCompletingSignIn: 'Completing sign in...',
+  oauthCompletingSignIn: 'Completing sign in…',
   oauthRetryTitle: 'Could not complete sign in',
   oauthRetryDescription: 'Your session could not be restored. Please try again.',
   oauthRetryButton: 'Retry',
@@ -32,7 +32,7 @@ const authMessages: Record<string, string> = {
 }
 
 const commonMessages: Record<string, string> = {
-  loading: 'Loading...',
+  loading: 'Loading…',
 }
 
 vi.mock('next-intl', () => ({
@@ -59,10 +59,6 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('../session-provider', () => ({
   useSession: vi.fn(),
-}))
-
-vi.mock('../google-auth', () => ({
-  signInWithGoogle: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({

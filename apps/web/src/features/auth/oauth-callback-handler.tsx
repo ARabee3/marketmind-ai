@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useSession } from './session-provider'
-import { signInWithGoogle } from './google-auth'
+import { GoogleAuthButton } from './google-auth-button'
 
 type OAuthErrorCode =
   | 'OAUTH_STATE_MISMATCH'
@@ -77,6 +77,8 @@ export function OAuthCallbackHandler() {
       if (token) {
         router.replace('/dashboard')
       }
+    } catch {
+      // Keep the recovery screen visible and let the owner retry explicitly.
     } finally {
       setIsRetrying(false)
     }
@@ -164,14 +166,7 @@ export function OAuthCallbackHandler() {
           >
             {t('oauthBackToSignIn')}
           </Link>
-          <Button
-            variant="outline"
-            onClick={signInWithGoogle}
-            className="w-full"
-            aria-label={t('continueWithGoogle')}
-          >
-            {t('continueWithGoogle')}
-          </Button>
+          <GoogleAuthButton showDivider={false} />
         </CardContent>
       </Card>
     </div>

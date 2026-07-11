@@ -45,7 +45,11 @@ export async function mockAuthGoogleRedirect(
   query: Record<string, string>,
 ) {
   const params = new URLSearchParams(query)
-  const location = `http://localhost:3000/${locale}/oauth/callback?${params.toString()}`
+  const location = `http://localhost:3000/oauth/callback?${params.toString()}`
+
+  await page.context().addCookies([
+    { name: 'NEXT_LOCALE', value: locale, url: 'http://localhost:3000' },
+  ])
 
   await routeFor(page, '**/auth/google', async (route, request) => {
     if (request.method() !== 'GET') {
