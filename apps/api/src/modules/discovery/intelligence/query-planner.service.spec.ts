@@ -48,6 +48,56 @@ describe("QueryPlannerService", () => {
     expect(deterministicPlanner.plan).not.toHaveBeenCalled();
   });
 
+  it("preserves a deterministic fallback plan returned by the AI service", async () => {
+    const aiPlan = {
+      source: "deterministic",
+      queries: [
+        {
+          intent: "business_match",
+          query: '"Koshary Corner" "restaurant" "Cairo"',
+          language: LanguageModeDto.Mixed,
+          priority: 100,
+          provider_hints: ["serpapi"],
+        },
+        {
+          intent: "competitor_discovery",
+          query: "restaurants near Koshary Corner Cairo",
+          language: LanguageModeDto.Mixed,
+          priority: 90,
+          provider_hints: ["apify_google_maps", "serpapi"],
+        },
+        {
+          intent: "market_context",
+          query: "restaurant market Cairo",
+          language: LanguageModeDto.Mixed,
+          priority: 80,
+          provider_hints: ["serpapi"],
+        },
+        {
+          intent: "review_presence",
+          query: '"Koshary Corner" reviews',
+          language: LanguageModeDto.Mixed,
+          priority: 70,
+          provider_hints: ["serpapi"],
+        },
+        {
+          intent: "social_profile",
+          query: '"Koshary Corner" social media',
+          language: LanguageModeDto.Mixed,
+          priority: 60,
+          provider_hints: ["serpapi"],
+        },
+      ],
+      warnings: [
+        "LLM_QUERY_PLAN_INCOMPLETE: Missing required intents after 2 attempts: market_context.",
+      ],
+    } as const;
+    aiClient.plan.mockResolvedValue(aiPlan);
+
+    await expect(service.plan(dto)).resolves.toBe(aiPlan);
+    expect(deterministicPlanner.plan).not.toHaveBeenCalled();
+  });
+
   it("falls back to deterministic planning when the AI client has a provider error", async () => {
     aiClient.plan.mockRejectedValue(
       new ProviderError(

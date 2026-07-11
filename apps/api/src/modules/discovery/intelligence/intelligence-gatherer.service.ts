@@ -16,7 +16,7 @@ import { SearchClientService } from "./search-client.service";
 import { SearchProviderWarning } from "./search-result.types";
 import { SourceEnrichmentService } from "./source-enrichment.service";
 
-const MAX_QUERIES_PER_RUN = 4;
+const MAX_QUERIES_PER_RUN = 8;
 
 @Injectable()
 export class IntelligenceGathererService {
@@ -68,6 +68,7 @@ export class IntelligenceGathererService {
     const sourceCandidates: IntelligenceSourceCandidate[] = [];
     const observationCandidates: IntelligenceObservationCandidate[] = [];
     const providerWarnings: SearchProviderWarning[] = [];
+    let triageProviderFailed = false;
 
     try {
       sourceCandidates.push(...metadata.source_refs);
@@ -146,12 +147,44 @@ export class IntelligenceGathererService {
           messageText: "AI is reviewing search evidence.",
           payload: { intent: plannedQuery.intent, phase: "llm_triage" },
         });
-        const filtered = await this.evidenceTriage.triage({
-          dto,
-          intent: plannedQuery.intent,
-          results: enrichedResults,
-          sourceStartIndex,
-        }, signal);
+        let filtered;
+        try {
+          filtered = await this.evidenceTriage.triage(
+            {
+              dto,
+              intent: plannedQuery.intent,
+              results: enrichedResults,
+              sourceStartIndex,
+            },
+            signal,
+          );
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (!(error instanceof ProviderError)) {
+            throw error;
+          }
+          triageProviderFailed = true;
+          await onProgress?.({
+            stage: "filtering",
+            status: "failed",
+            messageKey: "discovery.triage.failed",
+            messageText: "AI evidence review failed.",
+            payload: {
+              intent: plannedQuery.intent,
+              phase: "llm_triage",
+              error_code: error.code,
+              provider_attempts: searchResponse.provider_attempts,
+              result_count: enrichedResults.length,
+            },
+          });
+          throw error.code === "AI_TRIAGE_TIMEOUT"
+            ? new ProviderError(
+                "AI_TRIAGE_PROVIDER_ERROR",
+                error.message,
+                error.retryable,
+              )
+            : error;
+        }
         sourceCandidates.push(...filtered.source_refs);
         observationCandidates.push(...filtered.research_observations);
         await onProgress?.({
@@ -210,7 +243,10 @@ export class IntelligenceGathererService {
       }
 
       return this.mapper.toIntelligenceResult({
-        status: sourceCandidates.length > 0 ? "partial" : "failed",
+        status:
+          triageProviderFailed || sourceCandidates.length > 0
+            ? "partial"
+            : "failed",
         source_refs: sourceCandidates,
         research_observations: observationCandidates,
         safe_error: safeError(error.code, error.message, error.retryable),
