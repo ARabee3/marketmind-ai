@@ -15,6 +15,10 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../common/persistence/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { MailDeliveryError } from '../mail/mail-delivery.error';
+import {
+  renderVerifyEmail,
+  renderResetPassword,
+} from '../mail/mail-templates';
 import { ActionTokenService, ActionTokenError } from './action-token.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -215,14 +219,37 @@ export class AuthService {
 
     const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
     const link = `${appUrl}/verify-email?token=${rawToken}`;
+    const { subject, html } = renderVerifyEmail({ link, appUrl });
 
-    await this.mailService.sendMail(
-      email,
-      'Verify your email address',
-      `<p>Click <a href="${link}">here</a> to verify your email. This link expires in 12 hours.</p>`,
-    );
+    await this.mailService.sendMail(email, subject, html);
 
     this.logger.log(`Verification email sent to user ${userId}`);
+  }
+
+  /**
+   * Re-issues a verification link for an unverified user identified by email.
+   *
+   * Used by unauthenticated users who lost or expired their original link:
+   * login refuses to issue tokens to unverified accounts, so this public path
+   * is the only recovery route. Returns silently (no-op) when the email is
+   * unknown or already verified, to prevent user enumeration (mirrors
+   * `forgotPassword`). Issuing a new token invalidates any prior unconsumed
+   * verification token for the user (see `ActionTokenService.issue`).
+   */
+  async resendVerificationByEmail(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, isEmailVerified: true },
+    });
+
+    if (!user || user.isEmailVerified) {
+      this.logger.warn(
+        `Verification resend requested for ${user ? 'already-verified' : 'unknown'} email: ${email}`,
+      );
+      return;
+    }
+
+    await this.sendVerificationEmail(user.id, user.email);
   }
 
   async forgotPassword(email: string): Promise<void> {
@@ -242,12 +269,9 @@ export class AuthService {
     );
     const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
     const link = `${appUrl}/reset-password?token=${rawToken}`;
+    const { subject, html } = renderResetPassword({ link, appUrl });
 
-    await this.mailService.sendMail(
-      user.email,
-      'Reset your password',
-      `<p>Click <a href="${link}">here</a> to reset your password. This link expires in 30 minutes.</p>`,
-    );
+    await this.mailService.sendMail(user.email, subject, html);
 
     this.logger.log(`Password reset email sent to user ${user.id}`);
   }

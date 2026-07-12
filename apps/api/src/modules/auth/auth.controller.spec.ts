@@ -88,6 +88,7 @@ describe('AuthController', () => {
       resetPassword: jest.fn(),
       verifyEmail: jest.fn(),
       sendVerificationEmail: jest.fn(),
+      resendVerificationByEmail: jest.fn(),
     };
 
     rateLimiter = createMockRateLimiter();
@@ -273,36 +274,32 @@ describe('AuthController', () => {
   });
 
   describe('resend-verification', () => {
-    const mockReq = {
-      user: { id: 'uuid-1234', email: 'test@marketmind.ai', roles: [Role.OWNER] },
-    } as never;
+    it('delegates to authService.resendVerificationByEmail and returns generic success', async () => {
+      authService.resendVerificationByEmail!.mockResolvedValue(undefined);
 
-    it('delegates to authService.sendVerificationEmail and returns success', async () => {
-      authService.sendVerificationEmail!.mockResolvedValue(undefined);
+      const result = await controller.resendVerification({ email: 'someone@example.com' });
 
-      const result = await controller.resendVerification(mockReq);
-
-      expect(authService.sendVerificationEmail).toHaveBeenCalledWith('uuid-1234', 'test@marketmind.ai');
-      expect(result.message).toContain('Verification email sent');
+      expect(authService.resendVerificationByEmail).toHaveBeenCalledWith('someone@example.com');
+      expect(result.message).toContain('verification link has been sent');
     });
 
-    it('returns 429 when per-user rate limit is exceeded', async () => {
+    it('returns 429 when per-email rate limit is exceeded', async () => {
       rateLimiter.checkLimit.mockResolvedValueOnce(false);
 
-      await expect(controller.resendVerification(mockReq)).rejects.toThrow(
-        expect.objectContaining({ status: 429 }),
-      );
+      await expect(
+        controller.resendVerification({ email: 'spam@example.com' }),
+      ).rejects.toThrow(expect.objectContaining({ status: 429 }));
 
-      expect(authService.sendVerificationEmail).not.toHaveBeenCalled();
+      expect(authService.resendVerificationByEmail).not.toHaveBeenCalled();
     });
 
-    it('returns 503 when mail delivery fails', async () => {
+    it('still returns generic success when mail delivery fails (anti-enumeration)', async () => {
       const { MailDeliveryError } = jest.requireActual('../mail/mail-delivery.error') as typeof import('../mail/mail-delivery.error');
-      authService.sendVerificationEmail!.mockRejectedValue(new MailDeliveryError('SMTP down'));
+      authService.resendVerificationByEmail!.mockRejectedValue(new MailDeliveryError('SMTP down'));
 
-      await expect(controller.resendVerification(mockReq)).rejects.toThrow(
-        expect.objectContaining({ status: 503 }),
-      );
+      const result = await controller.resendVerification({ email: 'valid@example.com' });
+
+      expect(result.message).toContain('verification link has been sent');
     });
   });
 

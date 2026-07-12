@@ -33,7 +33,15 @@ export default async function LoginPage() {
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-2 text-center text-sm">
+            <Link
+              href="/forgot-password"
+              className="font-medium text-action hover:underline"
+            >
+              {t('loginForgotPassword')}
+            </Link>
+          </p>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             {t('loginNoAccount')}{' '}
             <Link
               href="/register"

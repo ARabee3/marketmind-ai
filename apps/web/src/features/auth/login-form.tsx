@@ -3,7 +3,7 @@
 import { useState, useCallback, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useSession } from './session-provider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +19,10 @@ import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
 type LoginFormErrors = {
   email?: ValidationErrorKey
   password?: ValidationErrorKey
-  root?: 'errorLoginFailed' | 'errorInvalidCredentials'
+  root?:
+    | 'errorLoginFailed'
+    | 'errorInvalidCredentials'
+    | 'errorEmailNotVerified'
 }
 
 function stripLocalePrefix(path: string): string {
@@ -39,6 +42,7 @@ export function LoginForm() {
   const [errors, setErrors] = useState<LoginFormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isRegistered = searchParams.get('registered') === 'true'
+  const isReset = searchParams.get('reset') === 'true'
 
   const validate = useCallback((): boolean => {
     const next: LoginFormErrors = {}
@@ -94,16 +98,33 @@ export function LoginForm() {
           role="status"
           className="rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground"
         >
-          {t('registerSuccess')}
+          {t('loginRegisteredConfirmation')}
+        </div>
+      )}
+
+      {isReset && !isRegistered && (
+        <div
+          role="status"
+          className="rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground"
+        >
+          {t('loginResetConfirmation')}
         </div>
       )}
 
       {errors.root && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="flex flex-col gap-1 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
-          {t(errors.root)}
+          <span>{t(errors.root)}</span>
+          {errors.root === 'errorEmailNotVerified' && (
+            <Link
+              href="/resend-verification"
+              className="font-medium underline underline-offset-2"
+            >
+              {t('loginResendVerification')}
+            </Link>
+          )}
         </div>
       )}
 

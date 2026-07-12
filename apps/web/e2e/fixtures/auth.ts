@@ -236,3 +236,153 @@ export async function mockProtectedResource(
 
   return { authorizationHeaders }
 }
+
+/**
+ * Controls the response to POST /auth/forgot-password. Pass an empty string to
+ * hit a generic success; pass 'RATE_LIMIT_EXCEEDED' to surface a 429. Subsequent
+ * changes to `mode` after the mock is installed are not honored — re-mock per test.
+ */
+export async function mockAuthForgotPassword(
+  page: Page,
+  mode: 'success' | 'rateLimited' = 'success',
+) {
+  await routeFor(page, '**/auth/forgot-password', async (route, request) => {
+    if (request.method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    if (mode === 'rateLimited') {
+      await route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'RATE_LIMIT_EXCEEDED' }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        message:
+          'If an account with that email exists, a password reset link has been sent',
+      }),
+    })
+  })
+}
+
+/**
+ * Controls the response to POST /auth/reset-password based on the token in the
+ * request body. `token` -> 200; `expired` -> ACTION_TOKEN_EXPIRED; `consumed` ->
+ * ACTION_TOKEN_CONSUMED; `invalid` -> ACTION_TOKEN_INVALID. Unknown tokens fall
+ * back to invalid so tests fail loudly on typos.
+ */
+export async function mockAuthResetPassword(page: Page) {
+  await routeFor(page, '**/auth/reset-password', async (route, request) => {
+    if (request.method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    const body = await request.postDataJSON()
+    const codeByToken: Record<string, string> = {
+      expired: 'ACTION_TOKEN_EXPIRED',
+      consumed: 'ACTION_TOKEN_CONSUMED',
+      invalid: 'ACTION_TOKEN_INVALID',
+    }
+    const code = codeByToken[body.token]
+    if (code) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({ code }),
+      })
+      return
+    }
+    if (!body.token) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'ACTION_TOKEN_INVALID' }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Password has been reset successfully' }),
+    })
+  })
+}
+
+/**
+ * Controls the response to POST /auth/verify-email based on the token in the
+ * request body, mirroring mockAuthResetPassword.
+ */
+export async function mockAuthVerifyEmail(page: Page) {
+  await routeFor(page, '**/auth/verify-email', async (route, request) => {
+    if (request.method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    const body = await request.postDataJSON()
+    const codeByToken: Record<string, string> = {
+      expired: 'ACTION_TOKEN_EXPIRED',
+      consumed: 'ACTION_TOKEN_CONSUMED',
+      invalid: 'ACTION_TOKEN_INVALID',
+      rateLimited: 'RATE_LIMIT_EXCEEDED',
+    }
+    const code = codeByToken[body.token]
+    if (code) {
+      await route.fulfill({
+        status: code === 'RATE_LIMIT_EXCEEDED' ? 429 : 422,
+        contentType: 'application/json',
+        body: JSON.stringify({ code }),
+      })
+      return
+    }
+    if (!body.token) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'ACTION_TOKEN_INVALID' }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Email verified successfully' }),
+    })
+  })
+}
+
+/**
+ * Controls the response to POST /auth/resend-verification. Mirrors
+ * mockAuthForgotPassword's mode contract.
+ */
+export async function mockAuthResendVerification(
+  page: Page,
+  mode: 'success' | 'rateLimited' = 'success',
+) {
+  await routeFor(page, '**/auth/resend-verification', async (route, request) => {
+    if (request.method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    if (mode === 'rateLimited') {
+      await route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'RATE_LIMIT_EXCEEDED' }),
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        message:
+          'If an unverified account with that email exists, a new verification link has been sent',
+      }),
+    })
+  })
+}

@@ -1,18 +1,18 @@
 import { Global, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 
-import { BrevoMailProvider } from "./brevo-mail.provider";
 import { MAIL_PROVIDER, MailProvider, MailProviderName } from "./mail-provider";
 import { MailService } from "./mail.service";
 import { MockMailProvider } from "./mock-mail.provider";
+import { SmtpMailProvider } from "./smtp-mail.provider";
 
 export function selectMailProvider(
   providerName: MailProviderName,
   mockProvider: MockMailProvider,
-  brevoProvider: BrevoMailProvider,
+  smtpProvider: SmtpMailProvider,
 ): MailProvider {
-  if (providerName === "brevo") {
-    return brevoProvider;
+  if (providerName === "smtp") {
+    return smtpProvider;
   }
 
   return mockProvider;
@@ -24,19 +24,19 @@ export function selectMailProvider(
   providers: [
     MailService,
     MockMailProvider,
-    BrevoMailProvider,
+    SmtpMailProvider,
     {
       provide: MAIL_PROVIDER,
-      inject: [ConfigService, MockMailProvider, BrevoMailProvider],
+      inject: [ConfigService, MockMailProvider, SmtpMailProvider],
       useFactory: (
         configService: ConfigService,
         mockProvider: MockMailProvider,
-        brevoProvider: BrevoMailProvider,
+        smtpProvider: SmtpMailProvider,
       ) =>
         selectMailProvider(
           configService.get<MailProviderName>("mail.provider") ?? "mock",
           mockProvider,
-          brevoProvider,
+          smtpProvider,
         ),
     },
   ],

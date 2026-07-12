@@ -20,12 +20,15 @@ describe("envSchema mail configuration", () => {
     expect(envSchema(config)).toBe(config);
   });
 
-  it("accepts a completely configured Brevo provider", () => {
+  it("accepts a completely configured SMTP provider", () => {
     const config = {
       ...validConfig(),
-      MAIL_PROVIDER: "brevo",
-      BREVO_API_KEY: "brevo-api-key",
-      MAIL_FROM: "team@example.com",
+      MAIL_PROVIDER: "smtp",
+      SMTP_HOST: "smtp.gmail.com",
+      SMTP_PORT: "587",
+      SMTP_USER: "team@example.com",
+      SMTP_PASS: "app-password",
+      MAIL_FROM: "no-reply@example.com",
     };
 
     expect(envSchema(config)).toBe(config);
@@ -34,13 +37,13 @@ describe("envSchema mail configuration", () => {
   it("rejects an unknown provider", () => {
     expect(() =>
       envSchema({ ...validConfig(), MAIL_PROVIDER: "unknown" }),
-    ).toThrow("MAIL_PROVIDER must be one of: mock, brevo");
+    ).toThrow("MAIL_PROVIDER must be one of: mock, smtp");
   });
 
-  it("rejects incomplete Brevo configuration", () => {
+  it("rejects incomplete SMTP configuration", () => {
     expect(() =>
-      envSchema({ ...validConfig(), MAIL_PROVIDER: "brevo" }),
-    ).toThrow("BREVO_API_KEY is required when MAIL_PROVIDER=brevo");
+      envSchema({ ...validConfig(), MAIL_PROVIDER: "smtp" }),
+    ).toThrow("SMTP_HOST is required when MAIL_PROVIDER=smtp");
   });
 
   it("requires explicit provider selection in production", () => {

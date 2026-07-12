@@ -575,4 +575,60 @@ describe('AuthService', () => {
       });
     });
   });
+
+  // =========================================================================
+  // resendVerificationByEmail()
+  // =========================================================================
+
+  describe('resendVerificationByEmail()', () => {
+    it('should resend a verification email when the user is unverified', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: MOCK_USER_ID,
+        email: MOCK_EMAIL,
+        isEmailVerified: false,
+      });
+      jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
+        rawToken: 'new-verify-token',
+        expiresAt: new Date(),
+      });
+
+      await service.resendVerificationByEmail(MOCK_EMAIL);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: MOCK_EMAIL },
+        select: { id: true, email: true, isEmailVerified: true },
+      });
+      expect(actionTokenService.issue).toHaveBeenCalledWith(
+        MOCK_USER_ID,
+        'EMAIL_VERIFICATION',
+      );
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        MOCK_EMAIL,
+        expect.any(String),
+        expect.stringContaining('new-verify-token'),
+      );
+    });
+
+    it('should silently no-op when the email is unknown (anti-enumeration)', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await service.resendVerificationByEmail('unknown@example.com');
+
+      expect(actionTokenService.issue).not.toHaveBeenCalled();
+      expect(mailService.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('should silently no-op when the user is already verified', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: MOCK_USER_ID,
+        email: MOCK_EMAIL,
+        isEmailVerified: true,
+      });
+
+      await service.resendVerificationByEmail(MOCK_EMAIL);
+
+      expect(actionTokenService.issue).not.toHaveBeenCalled();
+      expect(mailService.sendMail).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -12,9 +12,16 @@ const authMessages: Record<string, string> = {
   loginPasswordPlaceholder: '••••••••',
   loginSubmit: 'Sign in',
   registerSuccess: 'Account created. Please sign in.',
+  loginRegisteredConfirmation:
+    'Account created. We sent a verification link to your email.',
+  loginResetConfirmation:
+    'Your password has been reset. Please sign in with your new password.',
+  loginResendVerification: 'Resend verification email',
   validationEmailRequired: 'Email address is required',
   validationPasswordRequired: 'Password is required',
   errorInvalidCredentials: 'Incorrect email or password',
+  errorEmailNotVerified: 'Please verify your email before signing in.',
+  errorLoginFailed: 'Could not sign in. Please try again.',
 }
 
 const commonMessages: Record<string, string> = {
@@ -46,6 +53,18 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string
+    children: React.ReactNode
+  } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }))
 
 const mockedUseSession = vi.mocked(useSession)
@@ -94,7 +113,7 @@ describe('LoginForm', () => {
     )
   })
 
-  it('shows a success message after registration', () => {
+  it('shows a verification-confirmation banner after registration', () => {
     mockedUseSearchParams.mockReturnValue(
       new URLSearchParams({
         email: 'ahmed@example.com',
@@ -104,7 +123,23 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
 
-    expect(screen.getByText(/account created/i)).toBeDefined()
+    expect(
+      screen.getByText(/we sent a verification link to your email/i),
+    ).toBeDefined()
+  })
+
+  it('shows a password-reset confirmation banner', () => {
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({
+        reset: 'true',
+      }) as unknown as ReturnType<typeof useSearchParams>,
+    )
+
+    render(<LoginForm />)
+
+    expect(
+      screen.getByText(/your password has been reset/i),
+    ).toBeDefined()
   })
 
   it('shows validation errors for empty fields', async () => {
@@ -151,5 +186,32 @@ describe('LoginForm', () => {
     await waitFor(() => {
       expect(screen.getByText(/incorrect email or password/i)).toBeDefined()
     })
+  })
+
+  it('shows a resend-verification link when login returns EMAIL_NOT_VERIFIED', async () => {
+    login.mockRejectedValue({
+      response: new Response(
+        JSON.stringify({ code: 'EMAIL_NOT_VERIFIED' }),
+        { status: 401 },
+      ),
+    })
+
+    render(<LoginForm />)
+
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/please verify your email before signing in/i),
+      ).toBeDefined()
+    })
+    const resendLink = screen.getByRole('link', {
+      name: /resend verification email/i,
+    })
+    expect((resendLink as HTMLAnchorElement).getAttribute('href')).toContain(
+      '/resend-verification',
+    )
   })
 })
