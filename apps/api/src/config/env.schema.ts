@@ -61,20 +61,26 @@ export function envSchema(
   const nodeEnv = (config.NODE_ENV as string | undefined) ?? "development";
   const mailProvider = config.MAIL_PROVIDER as string | undefined;
 
-  if (mailProvider && !["mock", "brevo"].includes(mailProvider)) {
-    errors.push("MAIL_PROVIDER must be one of: mock, brevo");
+  if (mailProvider && !["mock", "smtp"].includes(mailProvider)) {
+    errors.push("MAIL_PROVIDER must be one of: mock, smtp");
   }
 
   if (!["development", "test"].includes(nodeEnv) && !mailProvider) {
     errors.push("MAIL_PROVIDER is required outside development and test");
   }
 
-  if (mailProvider === "brevo") {
-    if (!config.BREVO_API_KEY) {
-      errors.push("BREVO_API_KEY is required when MAIL_PROVIDER=brevo");
+  if (mailProvider === "smtp") {
+    if (!config.SMTP_HOST) {
+      errors.push("SMTP_HOST is required when MAIL_PROVIDER=smtp");
+    }
+    if (!config.SMTP_USER) {
+      errors.push("SMTP_USER is required when MAIL_PROVIDER=smtp");
+    }
+    if (!config.SMTP_PASS) {
+      errors.push("SMTP_PASS is required when MAIL_PROVIDER=smtp");
     }
     if (!config.MAIL_FROM) {
-      errors.push("MAIL_FROM is required when MAIL_PROVIDER=brevo");
+      errors.push("MAIL_FROM is required when MAIL_PROVIDER=smtp");
     }
   }
 
