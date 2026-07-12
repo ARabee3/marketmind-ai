@@ -20,7 +20,8 @@ export const configuration = () => ({
 
   cookies: {
     secure: process.env.COOKIE_SECURE === "true",
-    sameSite: (process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none") || "lax",
+    sameSite:
+      (process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none") || "lax",
   },
 
   cors: {
@@ -44,8 +45,9 @@ export const configuration = () => ({
   },
 
   mail: {
-    resendApiKey: process.env.RESEND_API_KEY || "",
-    from: process.env.MAIL_FROM || "noreply@marketmind.ai",
+    provider: process.env.MAIL_PROVIDER || "mock",
+    brevoApiKey: process.env.BREVO_API_KEY || "",
+    from: process.env.MAIL_FROM || "",
     appUrl: process.env.APP_URL || "http://localhost:3000",
   },
 

@@ -1,98 +1,46 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from "@nestjs/testing";
 
-import { MailService } from './mail.service';
-import { ResendAdapter } from './resend.adapter';
-import { MailDeliveryError } from './mail-delivery.error';
+import { MailDeliveryError } from "./mail-delivery.error";
+import { MAIL_PROVIDER, MailProvider } from "./mail-provider";
+import { MailService } from "./mail.service";
 
-const createMockResendAdapter = () => ({
+const createMockMailProvider = (): jest.Mocked<MailProvider> => ({
   send: jest.fn(),
 });
 
-const createMockConfigService = (nodeEnv: string) => ({
-  get: jest.fn((key: string) => {
-    if (key === 'app.nodeEnv') return nodeEnv;
-    return undefined;
-  }),
-});
+describe("MailService", () => {
+  let service: MailService;
+  let provider: jest.Mocked<MailProvider>;
 
-describe('MailService', () => {
-  afterEach(() => jest.clearAllMocks());
+  beforeEach(async () => {
+    provider = createMockMailProvider();
 
-  // =========================================================================
-  // Development / test mode — console mock
-  // =========================================================================
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [MailService, { provide: MAIL_PROVIDER, useValue: provider }],
+    }).compile();
 
-  describe('in development mode', () => {
-    let service: MailService;
-    let adapter: ReturnType<typeof createMockResendAdapter>;
-
-    beforeEach(async () => {
-      adapter = createMockResendAdapter();
-
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          MailService,
-          { provide: ResendAdapter, useValue: adapter },
-          { provide: ConfigService, useValue: createMockConfigService('development') },
-        ],
-      }).compile();
-
-      service = module.get<MailService>(MailService);
-    });
-
-    it('should NOT call ResendAdapter.send when in development mode', async () => {
-      await service.sendMail('user@example.com', 'Hello', '<p>World</p>');
-      expect(adapter.send).not.toHaveBeenCalled();
-    });
-
-    it('should resolve without throwing when in development mode', async () => {
-      await expect(
-        service.sendMail('user@example.com', 'Hello', '<p>World</p>'),
-      ).resolves.toBeUndefined();
-    });
+    service = module.get<MailService>(MailService);
   });
 
-  // =========================================================================
-  // Production mode — delegates to ResendAdapter
-  // =========================================================================
+  afterEach(() => jest.clearAllMocks());
 
-  describe('in production mode', () => {
-    let service: MailService;
-    let adapter: ReturnType<typeof createMockResendAdapter>;
+  it("delegates email delivery to the injected provider", async () => {
+    provider.send.mockResolvedValue(undefined);
 
-    beforeEach(async () => {
-      adapter = createMockResendAdapter();
+    await service.sendMail("user@example.com", "Subject", "<p>body</p>");
 
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          MailService,
-          { provide: ResendAdapter, useValue: adapter },
-          { provide: ConfigService, useValue: createMockConfigService('production') },
-        ],
-      }).compile();
+    expect(provider.send).toHaveBeenCalledWith(
+      "user@example.com",
+      "Subject",
+      "<p>body</p>",
+    );
+  });
 
-      service = module.get<MailService>(MailService);
-    });
+  it("propagates normalized delivery failures", async () => {
+    provider.send.mockRejectedValue(new MailDeliveryError("Provider failed"));
 
-    it('should delegate to ResendAdapter.send in production mode', async () => {
-      adapter.send.mockResolvedValue(undefined);
-
-      await service.sendMail('user@example.com', 'Subject', '<p>body</p>');
-
-      expect(adapter.send).toHaveBeenCalledWith(
-        'user@example.com',
-        'Subject',
-        '<p>body</p>',
-      );
-    });
-
-    it('should propagate MailDeliveryError from adapter', async () => {
-      adapter.send.mockRejectedValue(new MailDeliveryError('Resend API error'));
-
-      await expect(
-        service.sendMail('user@example.com', 'Subject', '<p>body</p>'),
-      ).rejects.toBeInstanceOf(MailDeliveryError);
-    });
+    await expect(
+      service.sendMail("user@example.com", "Subject", "<p>body</p>"),
+    ).rejects.toBeInstanceOf(MailDeliveryError);
   });
 });

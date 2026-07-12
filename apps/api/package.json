@@ -24,6 +24,7 @@
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^6.0.2",
     "@marketmind/contracts": "0.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -46,7 +47,6 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.0",
-    "resend": "^6.17.2",
     "rxjs": "^7.8.0",
     "socket.io": "^4.8.3"
   },
