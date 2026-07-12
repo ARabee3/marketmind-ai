@@ -100,6 +100,32 @@ for (const locale of locales) {
       )
     })
 
+    test('shows the unverified-account recovery link on EMAIL_NOT_VERIFIED', async ({ page }) => {
+      await page.route('**/auth/login', async (route, request) => {
+        if (request.method() !== 'POST') {
+          await route.fallback()
+          return
+        }
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ code: 'EMAIL_NOT_VERIFIED' }),
+        })
+      })
+
+await page.goto(`/${locale}/login`)
+      await page.getByLabel(/Email address|البريد الإلكتروني/i).fill(mockUser.email)
+      await page.getByLabel(/^Password$|^كلمة المرور$/i).fill('Password123!')
+      await page.getByRole('button', { name: /Sign in|تسجيل الدخول/i }).click()
+
+      await expect(page.locator('form [role="alert"]')).toContainText(
+        locale === 'ar' ? 'تأكيد بريدك الإلكتروني' : 'Please verify your email',
+      )
+      await expect(
+        page.getByRole('link', { name: /Resend verification email|إعادة إرسال رسالة التأكيد/ }),
+      ).toHaveAttribute('href', new RegExp(`/${locale}/resend-verification`))
+    })
+
     test('shows validation errors for empty form submission', async ({ page }) => {
       await page.goto(`/${locale}/login`)
       await page.getByRole('button', { name: /Sign in|تسجيل الدخول/i }).click()

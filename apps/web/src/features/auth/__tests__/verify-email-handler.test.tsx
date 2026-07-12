@@ -34,9 +34,8 @@ const authMessages: Record<string, string> = {
 }
 
 vi.mock('next-intl', () => ({
-  useTranslations: (namespace: string) => {
-    const messages = authMessages
-    return (key: string) => messages[key] ?? key
+  useTranslations: () => {
+    return (key: string) => authMessages[key] ?? key
   },
 }))
 
