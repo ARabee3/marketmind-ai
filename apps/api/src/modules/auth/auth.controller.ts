@@ -27,6 +27,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
@@ -256,11 +257,10 @@ export class AuthController {
   }
 
   @Post('resend-verification')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
-  async resendVerification(@Req() req: RequestWithUser): Promise<{ message: string }> {
-    const allowed = await this.authRateLimiter.checkLimit('verify-email', req.user.id);
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<{ message: string }> {
+    const allowed = await this.authRateLimiter.checkLimit('verify-email', dto.email);
     if (!allowed) {
       throw new HttpException(
         { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests' },
@@ -269,18 +269,17 @@ export class AuthController {
     }
 
     try {
-      await this.authService.sendVerificationEmail(req.user.id, req.user.email);
+      await this.authService.resendVerificationByEmail(dto.email);
     } catch (error) {
       if (error instanceof MailDeliveryError) {
-        throw new HttpException(
-          { code: 'MAIL_DELIVERY_FAILED', message: 'Failed to send verification email' },
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
+        this.logger.warn(`Verification resend mail delivery failed: ${error.message}`);
       }
-      throw error;
     }
 
-    return { message: 'Verification email sent' };
+    return {
+      message:
+        'If an unverified account with that email exists, a new verification link has been sent',
+    };
   }
 
   private setRefreshCookie(res: Response, token: string): void {

@@ -225,6 +225,32 @@ export class AuthService {
     this.logger.log(`Verification email sent to user ${userId}`);
   }
 
+  /**
+   * Re-issues a verification link for an unverified user identified by email.
+   *
+   * Used by unauthenticated users who lost or expired their original link:
+   * login refuses to issue tokens to unverified accounts, so this public path
+   * is the only recovery route. Returns silently (no-op) when the email is
+   * unknown or already verified, to prevent user enumeration (mirrors
+   * `forgotPassword`). Issuing a new token invalidates any prior unconsumed
+   * verification token for the user (see `ActionTokenService.issue`).
+   */
+  async resendVerificationByEmail(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, isEmailVerified: true },
+    });
+
+    if (!user || user.isEmailVerified) {
+      this.logger.warn(
+        `Verification resend requested for ${user ? 'already-verified' : 'unknown'} email: ${email}`,
+      );
+      return;
+    }
+
+    await this.sendVerificationEmail(user.id, user.email);
+  }
+
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
