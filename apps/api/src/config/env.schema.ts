@@ -52,12 +52,30 @@ export function envSchema(
     errors.push("GOOGLE_CLIENT_SECRET is required");
   }
   if (!config.GOOGLE_CALLBACK_URL) {
-    errors.push("GOOGLE_CALLBACK_URL is required (e.g. http://localhost:3001/api/v1/auth/google/callback)");
+    errors.push(
+      "GOOGLE_CALLBACK_URL is required (e.g. http://localhost:3001/api/v1/auth/google/callback)",
+    );
   }
 
-  // RESEND_API_KEY — required in production
-  if (config.NODE_ENV === "production" && !config.RESEND_API_KEY) {
-    errors.push("RESEND_API_KEY is required in production");
+  // Mail delivery uses an explicit provider in deployed environments.
+  const nodeEnv = (config.NODE_ENV as string | undefined) ?? "development";
+  const mailProvider = config.MAIL_PROVIDER as string | undefined;
+
+  if (mailProvider && !["mock", "brevo"].includes(mailProvider)) {
+    errors.push("MAIL_PROVIDER must be one of: mock, brevo");
+  }
+
+  if (!["development", "test"].includes(nodeEnv) && !mailProvider) {
+    errors.push("MAIL_PROVIDER is required outside development and test");
+  }
+
+  if (mailProvider === "brevo") {
+    if (!config.BREVO_API_KEY) {
+      errors.push("BREVO_API_KEY is required when MAIL_PROVIDER=brevo");
+    }
+    if (!config.MAIL_FROM) {
+      errors.push("MAIL_FROM is required when MAIL_PROVIDER=brevo");
+    }
   }
 
   if (errors.length > 0) {
