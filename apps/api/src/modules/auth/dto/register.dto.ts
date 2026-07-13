@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsIn, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
@@ -33,4 +33,14 @@ export class RegisterDto {
   @MinLength(8, { message: 'password must be at least 8 characters long' })
   @MaxLength(72, { message: 'password must not exceed 72 characters' })
   password: string;
+
+  /**
+   * UI locale of the user at registration time. Persisted to
+   * `User.preferredLocale` so subsequent transactional emails (verification,
+   * password reset, resend) are sent in the same language. Defaults to "ar"
+   * (Arabic-first product) when omitted or invalid.
+   */
+  @IsOptional()
+  @IsIn(['en', 'ar'], { message: 'locale must be one of: en, ar' })
+  locale?: 'en' | 'ar';
 }

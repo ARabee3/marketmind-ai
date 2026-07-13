@@ -35,6 +35,7 @@ const mockDbUser = {
   refreshToken: MOCK_HASHED_REFRESH,
   isEmailVerified: false,
   lastLoginAt: null,
+  preferredLocale: 'ar-EG',
   createdAt: new Date('2024-01-01T00:00:00Z'),
   updatedAt: new Date('2024-01-01T00:00:00Z'),
 };
@@ -507,7 +508,11 @@ describe('AuthService', () => {
 
   describe('forgotPassword()', () => {
     it('should issue a PASSWORD_RESET token and send mail when user exists', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: MOCK_USER_ID, email: MOCK_EMAIL });
+      prisma.user.findUnique.mockResolvedValue({
+        id: MOCK_USER_ID,
+        email: MOCK_EMAIL,
+        preferredLocale: 'ar-EG',
+      });
       jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
         rawToken: 'reset-token',
         expiresAt: new Date(),
@@ -586,6 +591,7 @@ describe('AuthService', () => {
         id: MOCK_USER_ID,
         email: MOCK_EMAIL,
         isEmailVerified: false,
+        preferredLocale: 'ar-EG',
       });
       jest.spyOn(actionTokenService, 'issue').mockResolvedValue({
         rawToken: 'new-verify-token',
@@ -596,7 +602,7 @@ describe('AuthService', () => {
 
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: MOCK_EMAIL },
-        select: { id: true, email: true, isEmailVerified: true },
+        select: { id: true, email: true, isEmailVerified: true, preferredLocale: true },
       });
       expect(actionTokenService.issue).toHaveBeenCalledWith(
         MOCK_USER_ID,
@@ -623,6 +629,7 @@ describe('AuthService', () => {
         id: MOCK_USER_ID,
         email: MOCK_EMAIL,
         isEmailVerified: true,
+        preferredLocale: 'ar-EG',
       });
 
       await service.resendVerificationByEmail(MOCK_EMAIL);
