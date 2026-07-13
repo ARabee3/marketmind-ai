@@ -18,6 +18,8 @@ import { MailDeliveryError } from '../mail/mail-delivery.error';
 import {
   renderVerifyEmail,
   renderResetPassword,
+  normalizeLocale,
+  type MailLocale,
 } from '../mail/mail-templates';
 import { ActionTokenService, ActionTokenError } from './action-token.service';
 import { RegisterDto } from './dto/register.dto';
@@ -88,19 +90,22 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
+    const locale: MailLocale = normalizeLocale(dto.locale);
+
     try {
       const user = await this.prisma.user.create({
         data: {
           email: dto.email,
           password: hashedPassword,
           fullName: dto.fullName,
+          preferredLocale: locale,
         },
       });
 
       this.logger.log(`New user registered: ${user.id}`);
 
       try {
-        await this.sendVerificationEmail(user.id, user.email);
+        await this.sendVerificationEmail(user.id, user.email, locale);
       } catch (error) {
         this.logger.warn(`Verification email failed for user ${user.id}: ${error}`);
       }
@@ -211,7 +216,11 @@ export class AuthService {
     return this.toSafeUser(user);
   }
 
-  async sendVerificationEmail(userId: string, email: string): Promise<void> {
+  async sendVerificationEmail(
+    userId: string,
+    email: string,
+    locale: MailLocale = 'en',
+  ): Promise<void> {
     const { rawToken } = await this.actionTokenService.issue(
       userId,
       ActionTokenType.EMAIL_VERIFICATION,
@@ -219,7 +228,7 @@ export class AuthService {
 
     const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
     const link = `${appUrl}/verify-email?token=${rawToken}`;
-    const { subject, html } = renderVerifyEmail({ link, appUrl });
+    const { subject, html } = renderVerifyEmail({ link, appUrl }, locale);
 
     await this.mailService.sendMail(email, subject, html);
 
@@ -239,7 +248,7 @@ export class AuthService {
   async resendVerificationByEmail(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, isEmailVerified: true },
+      select: { id: true, email: true, isEmailVerified: true, preferredLocale: true },
     });
 
     if (!user || user.isEmailVerified) {
@@ -249,13 +258,17 @@ export class AuthService {
       return;
     }
 
-    await this.sendVerificationEmail(user.id, user.email);
+    await this.sendVerificationEmail(
+      user.id,
+      user.email,
+      normalizeLocale(user.preferredLocale),
+    );
   }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true },
+      select: { id: true, email: true, preferredLocale: true },
     });
 
     if (!user) {
@@ -263,13 +276,14 @@ export class AuthService {
       return;
     }
 
+    const locale = normalizeLocale(user.preferredLocale);
     const { rawToken } = await this.actionTokenService.issue(
       user.id,
       ActionTokenType.PASSWORD_RESET,
     );
     const appUrl = this.configService.get<string>('mail.appUrl') ?? 'http://localhost:3000';
     const link = `${appUrl}/reset-password?token=${rawToken}`;
-    const { subject, html } = renderResetPassword({ link, appUrl });
+    const { subject, html } = renderResetPassword({ link, appUrl }, locale);
 
     await this.mailService.sendMail(user.email, subject, html);
 
