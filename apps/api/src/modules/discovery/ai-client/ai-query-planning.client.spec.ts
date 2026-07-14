@@ -29,21 +29,23 @@ describe("AiQueryPlanningClient", () => {
   });
 
   it("posts query planning requests to the internal AI search endpoint", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        source: "deterministic",
-        queries: [
-          {
-            intent: "competitor_discovery",
-            query: "best restaurants in Cairo competitors",
-            language: "mixed",
-            priority: 100,
-            provider_hints: ["serpapi"],
-          },
-        ],
-      }),
-    } as Response);
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          source: "deterministic",
+          queries: [
+            {
+              intent: "competitor_discovery",
+              query: "best restaurants in Cairo competitors",
+              language: "mixed",
+              priority: 100,
+              provider_hints: ["serpapi"],
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
 
     const plan = await new AiQueryPlanningClient().plan(dto);
 

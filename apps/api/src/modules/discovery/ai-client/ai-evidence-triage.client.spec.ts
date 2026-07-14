@@ -21,9 +21,8 @@ describe("AiEvidenceTriageClient", () => {
   });
 
   it("calls the evidence triage endpoint with the dedicated timeout", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         source: "llm",
         decisions: [
           {
@@ -36,7 +35,7 @@ describe("AiEvidenceTriageClient", () => {
           },
         ],
       }),
-    } as Response);
+    );
 
     const result = await new AiEvidenceTriageClient().triage({
       language_mode: LanguageModeDto.Mixed,
@@ -111,9 +110,8 @@ describe("AiEvidenceTriageClient", () => {
   it("retries a transient triage provider failure once", async () => {
     fetchMock
       .mockRejectedValueOnce(new TypeError("fetch failed"))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      .mockResolvedValueOnce(
+        jsonResponse({
           source: "llm",
           decisions: [
             {
@@ -126,7 +124,7 @@ describe("AiEvidenceTriageClient", () => {
             },
           ],
         }),
-      } as Response);
+      );
 
     const result = await new AiEvidenceTriageClient().triage({
       language_mode: LanguageModeDto.ArabicEgypt,
@@ -157,3 +155,10 @@ describe("AiEvidenceTriageClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}

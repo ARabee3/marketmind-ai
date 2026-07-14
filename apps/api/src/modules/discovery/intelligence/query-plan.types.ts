@@ -15,6 +15,11 @@ export type SearchProviderHint =
   | "apify_google_maps"
   | "metadata";
 
+export type ResearchProviderName =
+  | SearchProviderHint
+  | "apify_facebook_pages"
+  | "apify_facebook_posts";
+
 export type PlannedSearchQuery = {
   readonly intent: SearchQueryIntent;
   readonly query: string;

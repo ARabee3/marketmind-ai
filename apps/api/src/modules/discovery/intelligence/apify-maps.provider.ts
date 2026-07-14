@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { externalProviderConfig } from "../../../common/config/external-provider.config";
 import { ProviderError } from "../../../common/errors/provider-error";
-import { postExternalJson } from "../../../common/http/external-http-client";
+import { ApifyActorClient } from "./apify/apify-actor.client";
 import { SearchProvider, SearchResultCandidate } from "./search-result.types";
 
 const GOOGLE_MAPS_ACTOR_ID = "nwua9Gu5YrADL7ZDj";
@@ -9,47 +8,40 @@ const MAX_MAPS_RESULTS = 5;
 
 @Injectable()
 export class ApifyMapsProvider implements SearchProvider {
+  constructor(private readonly actorClient: ApifyActorClient) {}
+
   async search(
     query: string,
     signal?: AbortSignal,
   ): Promise<readonly SearchResultCandidate[]> {
-    const config = externalProviderConfig();
-
-    if (!config.apifyToken) {
-      throw new ProviderError(
-        "APIFY_NOT_CONFIGURED",
-        "APIFY_TOKEN is not configured.",
-        false,
-      );
-    }
-
     try {
-      const url = new URL(
-        `https://api.apify.com/v2/actors/${GOOGLE_MAPS_ACTOR_ID}/run-sync-get-dataset-items`,
-      );
-      url.searchParams.set("timeout", "60");
-      url.searchParams.set("maxItems", String(MAX_MAPS_RESULTS));
-
-      const response = await postExternalJson<unknown>(
-        url.toString(),
+      const response = await this.actorClient.runDatasetItems(
         {
-          searchStringsArray: [query],
-          maxCrawledPlacesPerSearch: MAX_MAPS_RESULTS,
-          language: "ar",
-        },
-        {
-          headers: {
-            authorization: `Bearer ${config.apifyToken}`,
+          actorId: GOOGLE_MAPS_ACTOR_ID,
+          input: {
+            searchStringsArray: [query],
+            maxCrawledPlacesPerSearch: MAX_MAPS_RESULTS,
+            language: "ar",
           },
-          timeoutMs: Math.max(config.discoverySearchTimeoutMs, 60_000),
-          signal,
+          maxItems: MAX_MAPS_RESULTS,
+          timeoutMs: 60_000,
         },
+        signal,
       );
 
       return parseApifyMapsResults(response, query);
     } catch (error) {
+      signal?.throwIfAborted();
       if (error instanceof ProviderError) {
-        throw error;
+        throw new ProviderError(
+          error.code === "APIFY_NOT_CONFIGURED"
+            ? error.code
+            : "APIFY_MAPS_ERROR",
+          error.code === "APIFY_NOT_CONFIGURED"
+            ? error.message
+            : "Apify Google Maps search failed.",
+          error.retryable,
+        );
       }
 
       throw new ProviderError(

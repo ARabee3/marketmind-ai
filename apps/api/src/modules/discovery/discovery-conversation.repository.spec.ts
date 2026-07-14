@@ -85,6 +85,47 @@ describe("DiscoveryConversationRepository", () => {
     expect(prisma.tx.discoveryMessage.create).not.toHaveBeenCalled();
   });
 
+  it("reloads owner-submitted social links with the discovery intake", async () => {
+    const prisma = {
+      preparedDiscoveryIntake: {
+        findUnique: jest.fn().mockResolvedValue({
+          businessName: "Koshary Corner",
+          businessType: "restaurant",
+          city: "Cairo",
+          area: "Nasr City",
+          addressText: null,
+          ownerGoalText: null,
+          knownCompetitorsText: null,
+          targetAudienceText: null,
+          notes: null,
+        }),
+      },
+      socialLink: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            platform: "facebook",
+            url: "https://facebook.com/kosharycorner",
+          },
+        ]),
+      },
+    };
+    const repository = new DiscoveryConversationRepository(prisma as never);
+
+    const result = await repository.getIntake("session-id");
+
+    expect(result.social_links).toEqual([
+      {
+        platform: "facebook",
+        url: "https://facebook.com/kosharycorner",
+      },
+    ]);
+    expect(prisma.socialLink.findMany).toHaveBeenCalledWith({
+      where: { sessionId: "session-id", ownerSubmitted: true },
+      orderBy: { createdAt: "asc" },
+      select: { platform: true, url: true },
+    });
+  });
+
   it("returns the existing confirmed version for an identical retry", async () => {
     const confirmedAt = new Date("2026-06-29T10:10:00.000Z");
     const tx = {

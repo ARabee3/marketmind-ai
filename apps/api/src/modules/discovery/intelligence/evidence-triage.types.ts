@@ -1,5 +1,5 @@
 import { StartDiscoveryDto } from "../dto/start-discovery.dto";
-import { SearchQueryIntent, SearchProviderHint } from "./query-plan.types";
+import { ResearchProviderName, SearchQueryIntent } from "./query-plan.types";
 
 export type EvidenceClassification =
   | "own_business"
@@ -17,7 +17,7 @@ export type EvidenceTier =
 export type EvidenceTriageCandidate = {
   readonly index: number;
   readonly intent: SearchQueryIntent;
-  readonly provider: SearchProviderHint;
+  readonly provider: ResearchProviderName;
   readonly title?: string;
   readonly url?: string;
   readonly snippet?: string;

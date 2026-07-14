@@ -18,6 +18,14 @@ SearchProviderHint = Literal[
     "apify_google_maps",
     "metadata",
 ]
+ResearchProviderName = Literal[
+    "serpapi",
+    "duckduckgo",
+    "apify_google_maps",
+    "metadata",
+    "apify_facebook_pages",
+    "apify_facebook_posts",
+]
 MetadataValue = str | int | float | bool
 EvidenceClassification = Literal[
     "own_business",
@@ -53,7 +61,7 @@ class QueryPlan(StrictModel):
 class EvidenceTriageCandidate(StrictModel):
     index: int = Field(ge=0)
     intent: SearchQueryIntent
-    provider: SearchProviderHint
+    provider: ResearchProviderName
     title: str | None = None
     url: str | None = None
     snippet: str | None = None

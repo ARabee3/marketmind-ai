@@ -56,3 +56,44 @@ describe("envSchema mail configuration", () => {
     );
   });
 });
+
+describe("envSchema Facebook enrichment configuration", () => {
+  it("accepts the documented bounded actor configuration", () => {
+    const config = {
+      ...validConfig(),
+      DISCOVERY_FACEBOOK_ENRICHMENT_ENABLED: "true",
+      DISCOVERY_FACEBOOK_POSTS_ENABLED: "true",
+      DISCOVERY_FACEBOOK_MAX_PAGES: "1",
+      DISCOVERY_FACEBOOK_MAX_POSTS: "5",
+      DISCOVERY_FACEBOOK_TIMEOUT_MS: "60000",
+      DISCOVERY_FACEBOOK_SESSION_MAX_CHARGE_USD: "0.05",
+      DISCOVERY_FACEBOOK_PAGES_MAX_CHARGE_USD: "0.02",
+      DISCOVERY_FACEBOOK_POSTS_MAX_CHARGE_USD: "0.03",
+    };
+
+    expect(envSchema(config)).toBe(config);
+  });
+
+  it("rejects actor allocations above the Facebook session cap", () => {
+    expect(() =>
+      envSchema({
+        ...validConfig(),
+        DISCOVERY_FACEBOOK_SESSION_MAX_CHARGE_USD: "0.05",
+        DISCOVERY_FACEBOOK_PAGES_MAX_CHARGE_USD: "0.03",
+        DISCOVERY_FACEBOOK_POSTS_MAX_CHARGE_USD: "0.03",
+      }),
+    ).toThrow(
+      "Facebook actor charge allocations must not exceed the session cap",
+    );
+  });
+
+  it.each([
+    ["DISCOVERY_FACEBOOK_MAX_PAGES", "2", "between 1 and 1"],
+    ["DISCOVERY_FACEBOOK_MAX_POSTS", "6", "between 1 and 5"],
+    ["DISCOVERY_FACEBOOK_TIMEOUT_MS", "60001", "between 1 and 60000"],
+  ])("rejects an unsafe %s limit", (key, value, message) => {
+    expect(() => envSchema({ ...validConfig(), [key]: value })).toThrow(
+      message,
+    );
+  });
+});

@@ -18,7 +18,10 @@ import {
   messageFromPersistence,
   profileDraftFromPersistence,
 } from "./discovery-conversation.mapper";
-import { PreparedDiscoveryIntakeDto } from "./dto/start-discovery.dto";
+import {
+  PreparedDiscoveryIntakeDto,
+  SocialPlatformDto,
+} from "./dto/start-discovery.dto";
 
 type MessageInput = {
   readonly role: DiscoveryMessage["role"];
@@ -256,9 +259,16 @@ export class DiscoveryConversationRepository {
   }
 
   async getIntake(sessionId: string): Promise<PreparedDiscoveryIntakeDto> {
-    const intake = await this.prisma.preparedDiscoveryIntake.findUnique({
-      where: { sessionId },
-    });
+    const [intake, socialLinks] = await Promise.all([
+      this.prisma.preparedDiscoveryIntake.findUnique({
+        where: { sessionId },
+      }),
+      this.prisma.socialLink.findMany({
+        where: { sessionId, ownerSubmitted: true },
+        orderBy: { createdAt: "asc" },
+        select: { platform: true, url: true },
+      }),
+    ]);
 
     if (!intake) {
       throw new NotFoundException("Discovery intake not found");
@@ -274,6 +284,10 @@ export class DiscoveryConversationRepository {
       known_competitors_text: intake.knownCompetitorsText ?? undefined,
       target_audience_text: intake.targetAudienceText ?? undefined,
       notes: intake.notes ?? undefined,
+      social_links: socialLinks.flatMap((link) => {
+        const platform = socialPlatformFromPersistence(link.platform);
+        return platform ? [{ platform, url: link.url }] : [];
+      }),
     };
   }
 
@@ -431,6 +445,23 @@ export class DiscoveryConversationRepository {
       confirmed_at: version.confirmedAt.toISOString(),
       strategy_locked: false,
     };
+  }
+}
+
+function socialPlatformFromPersistence(
+  platform: string,
+): SocialPlatformDto | null {
+  switch (platform) {
+    case SocialPlatformDto.Facebook:
+    case SocialPlatformDto.Instagram:
+    case SocialPlatformDto.Tiktok:
+    case SocialPlatformDto.Website:
+    case SocialPlatformDto.GoogleMaps:
+    case SocialPlatformDto.Delivery:
+    case SocialPlatformDto.Other:
+      return platform;
+    default:
+      return null;
   }
 }
 
