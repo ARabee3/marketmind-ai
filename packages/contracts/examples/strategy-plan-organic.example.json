@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "title": "Helwan Bakery — Organic-Only Strategy Plan",
+    "description": "Organic-only plan for a fictional bakery in Helwan. No paid media budget. Focuses on Google Maps and word-of-mouth.",
+    "business": "Helwan Bakery",
+    "scenario": "Small bakery with zero marketing budget. Organic growth only."
+  },
+  "id": "d0000000-0000-4000-8000-000000000002",
+  "strategy_id": "a0000000-0000-4000-8000-000000000002",
+  "version": 1,
+  "contract_version": "strategy-v1",
+  "brief_id": "b0000000-0000-4000-8000-000000000010",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffff10",
+    "confirmed_at": "2026-07-01T10:00:00.000Z",
+    "version": 1
+  },
+  "retrieval_run_id": "c0000000-0000-4000-8000-000000000010",
+  "executive_summary": {
+    "text": "Organic-only marketing leveraging Google Maps optimization, customer reviews, and Instagram organic posting.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "situation_diagnosis": {
+    "text": "Small bakery in Helwan with no online advertising experience. Currently relies on walk-in customers and word-of-mouth.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "primary_objective": "awareness",
+  "funnel_stage": "awareness",
+  "target_audience": {
+    "text": "Residents of Helwan and surrounding neighborhoods, families looking for fresh bread and pastries.",
+    "source": "confirmed_fact",
+    "citation_ids": []
+  },
+  "positioning": {
+    "text": "Helwan Bakery — fresh bread baked daily in your neighborhood.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "selected_channels": [
+    {
+      "channel": "google_maps",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.8,
+        "audience_fit": 0.9,
+        "existing_presence": 0.5,
+        "asset_format_fit": 0.4,
+        "team_capacity": 1.0,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.7,
+        "measurement_readiness": 0.6
+      },
+      "total_score": 5.9,
+      "rationale": {
+        "text": "Google Maps is free and essential for local discovery.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      },
+      "excluded_reason": null
+    },
+    {
+      "channel": "instagram",
+      "role": "supporting",
+      "scores": {
+        "objective_fit": 0.7,
+        "audience_fit": 0.6,
+        "existing_presence": 0.0,
+        "asset_format_fit": 0.8,
+        "team_capacity": 0.5,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.0,
+        "measurement_readiness": 0.4
+      },
+      "total_score": 4.0,
+      "rationale": {
+        "text": "Instagram is free but requires content creation effort.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      },
+      "excluded_reason": null
+    }
+  ],
+  "all_channel_scores": [
+    {
+      "channel": "google_maps",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.8,
+        "audience_fit": 0.9,
+        "existing_presence": 0.5,
+        "asset_format_fit": 0.4,
+        "team_capacity": 1.0,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.7,
+        "measurement_readiness": 0.6
+      },
+      "total_score": 5.9,
+      "rationale": {
+        "text": "Best free channel for local visibility.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      },
+      "excluded_reason": null
+    },
+    {
+      "channel": "instagram",
+      "role": "supporting",
+      "scores": {
+        "objective_fit": 0.7,
+        "audience_fit": 0.6,
+        "existing_presence": 0.0,
+        "asset_format_fit": 0.8,
+        "team_capacity": 0.5,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.0,
+        "measurement_readiness": 0.4
+      },
+      "total_score": 4.0,
+      "rationale": {
+        "text": "Can be built over time with zero cost.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      },
+      "excluded_reason": null
+    }
+  ],
+  "tone": {
+    "text": "Friendly, warm, community-focused. Egyptian Arabic.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "plan_language": "ar-EG",
+  "content_strategy": {
+    "pillars": [
+      {
+        "text": "Fresh bread daily — show baking process and finished products.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "Community connection — feature customer favorites and neighborhood moments.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "Quality ingredients — highlight sourcing and traditional baking methods.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      }
+    ],
+    "format_mix": [
+      {
+        "text": "Photos of fresh bread and pastries: 60%",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "Short Reels of baking process: 40%",
+        "source": "model_synthesis",
+        "citation_ids": []
+      }
+    ],
+    "weekly_cadence": "2 posts per week on Instagram. Update Google Maps photos monthly.",
+    "weeks": [
+      { "week_number": 1, "theme": "افتتاح الحساب", "formats": ["photo"] },
+      { "week_number": 2, "theme": "الخبز اليومي", "formats": ["photo", "reels"] },
+      { "week_number": 3, "theme": "منتجاتنا", "formats": ["photo"] },
+      { "week_number": 4, "theme": "فريق العمل", "formats": ["photo"] },
+      { "week_number": 5, "theme": "الزبائن", "formats": ["photo"] },
+      { "week_number": 6, "theme": "وصفات", "formats": ["reels"] },
+      { "week_number": 7, "theme": "الخبز الطازج", "formats": ["photo"] },
+      { "week_number": 8, "theme": "المناسبات", "formats": ["photo", "reels"] },
+      { "week_number": 9, "theme": "جودة المنتج", "formats": ["reels"] },
+      { "week_number": 10, "theme": "أوقات الذروة", "formats": ["photo"] },
+      { "week_number": 11, "theme": "شكراً للزبائن", "formats": ["photo"] },
+      { "week_number": 12, "theme": "حصيلة 12 أسبوع", "formats": ["photo"] }
+    ],
+    "experiments": []
+  },
+  "budget_mode": "organic_only",
+  "budget_scenarios": null,
+  "kpi_targets": [
+    {
+      "metric": "Google Maps profile views",
+      "funnel_stage": "awareness",
+      "target_mode": "establish_baseline",
+      "measurement_method": "Google Business Profile insights",
+      "notes": {
+        "text": "Establish baseline for first-time visibility tracking.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      }
+    }
+  ],
+  "assumptions": [
+    {
+      "text": "Owner can dedicate 1-2 hours per week to social media.",
+      "source": "owner_input",
+      "citation_ids": []
+    }
+  ],
+  "risks": [
+    {
+      "text": "Organic growth is slow — owner may lose motivation without quick results.",
+      "source": "model_synthesis",
+      "citation_ids": []
+    }
+  ],
+  "knowledge_gaps": [],
+  "blockers": [],
+  "citations": [],
+  "created_at": "2026-07-05T08:00:00.000Z"
+}

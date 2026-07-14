@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Retrieval Knowledge Pack",
+    "description": "Full retrieval pack for Koshary Corner. Contains reviewed marketing guidance for QSR (quick service restaurant) in Egypt.",
+    "business": "Koshary Corner"
+  },
+  "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+  "query_summary": "Marketing benchmarks and guidance for a Cairo-based quick service restaurant targeting office workers during weekday lunch",
+  "query_context": {
+    "business_type": "quick service restaurant",
+    "market": "egypt",
+    "locale": "ar-EG",
+    "objective": "acquisition",
+    "funnel_stage": "awareness_to_purchase",
+    "active_channels": ["instagram", "google_maps"],
+    "asset_capability": ["instagram_page", "google_maps_listing"],
+    "team_capacity": "مالك وفرد واحد في المطبخ",
+    "budget_mode": "monthly_amount",
+    "industry": null
+  },
+  "profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  "brief_id": "b0000000-0000-4000-8000-000000000001",
+  "items": [
+    {
+      "chunk_id": "cccccccc-0001-4000-8000-000000000001",
+      "entry_id": "eeeeeeee-0001-4000-8000-000000000001",
+      "entry_version": 2,
+      "title": "Instagram Engagement Benchmarks for Egyptian QSR 2026",
+      "excerpt": "Quick service restaurants in Cairo achieve 2.1-3.8% engagement rate on Instagram. Lunch-hour posts (11am-1pm) perform 40% better than evening posts for food businesses.",
+      "kind": "benchmark_report",
+      "tags": {
+        "industry": ["qsr", "food_beverage"],
+        "channel": ["instagram"],
+        "market": ["egypt", "cairo"],
+        "metric": ["engagement_rate"]
+      },
+      "relevance_score": 0.89,
+      "source_quality": {
+        "evidence_tier": "verified_benchmark",
+        "source_references": [
+          "Egypt Digital Marketing Report 2026",
+          "Meta Business Benchmark Data Q1 2026"
+        ],
+        "effective_at": "2026-01-01T00:00:00.000Z",
+        "expires_at": "2027-01-01T00:00:00.000Z",
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0002-4000-8000-000000000002",
+      "entry_id": "eeeeeeee-0002-4000-8000-000000000002",
+      "entry_version": 1,
+      "title": "Facebook Ads Cost per Click: Egypt 2026",
+      "excerpt": "Average CPC for food and beverage in Egypt ranges from 1.20 to 2.50 EGP. Cairo metro area is on the higher end of this range.",
+      "kind": "benchmark_report",
+      "tags": {
+        "industry": ["food_beverage", "qsr"],
+        "channel": ["facebook", "instagram"],
+        "market": ["egypt"],
+        "metric": ["cpc", "cpm"]
+      },
+      "relevance_score": 0.78,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "Social Media Ad Costs MENA 2026"
+        ],
+        "effective_at": "2026-02-01T00:00:00.000Z",
+        "expires_at": "2026-12-31T00:00:00.000Z",
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0003-4000-8000-000000000003",
+      "entry_id": "eeeeeeee-0003-4000-8000-000000000003",
+      "entry_version": 1,
+      "title": "Google Maps Optimization for Egyptian Restaurants",
+      "excerpt": "Completing your Google Business profile with menu photos and weekly posts increases discovery by 35%. Restaurants with 50+ reviews see 2x the call-to-action clicks.",
+      "kind": "guidance_article",
+      "tags": {
+        "industry": ["qsr", "restaurant"],
+        "channel": ["google_maps"],
+        "market": ["egypt"],
+        "topic": ["optimization", "local_seo"]
+      },
+      "relevance_score": 0.85,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "Google Business Profile Best Practices 2026"
+        ],
+        "effective_at": "2026-03-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0004-4000-8000-000000000004",
+      "entry_id": "eeeeeeee-0004-4000-8000-000000000004",
+      "entry_version": 1,
+      "title": "Content Marketing for Small Food Businesses",
+      "excerpt": "Small food businesses benefit most from showcasing preparation process and customer moments. User-generated content outperforms branded content 2.3x in food and beverage.",
+      "kind": "guidance_article",
+      "tags": {
+        "industry": ["food_beverage"],
+        "channel": ["instagram", "facebook"],
+        "topic": ["content_strategy", "ugc"],
+        "market": ["global"]
+      },
+      "relevance_score": 0.72,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "Content Marketing Institute Food Report 2025"
+        ],
+        "effective_at": "2025-06-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0005-4000-8000-000000000005",
+      "entry_id": "eeeeeeee-0005-4000-8000-000000000005",
+      "entry_version": 1,
+      "title": "Small Marketing Team Capacity Planning",
+      "excerpt": "Businesses with 1-2 people on marketing should focus on 1-2 channels maximum. Recommended weekly content output is 3-4 posts when team has no dedicated marketer.",
+      "kind": "guidance_article",
+      "tags": {
+        "topic": ["capacity_planning", "team_scaling"],
+        "industry": ["general"],
+        "market": ["global"]
+      },
+      "relevance_score": 0.65,
+      "source_quality": {
+        "evidence_tier": "contextual_note",
+        "source_references": [
+          "SME Marketing Capacity Guide 2025"
+        ],
+        "effective_at": "2025-03-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "category": "competitor_benchmarks",
+      "description": "No verified benchmark data for koshary-specific pricing or promotion effectiveness in Nasr City.",
+      "severity": "non_critical"
+    },
+    {
+      "category": "local_demand_data",
+      "description": "No foot traffic data available for Makram Ebeid Street lunch crowd size or competitor density.",
+      "severity": "blocking"
+    }
+  ],
+  "retrieval_metadata": {
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimensions": 1536,
+    "collection_name": "marketing_knowledge_v1",
+    "retrieval_latency_ms": 342
+  },
+  "retrieved_at": "2026-07-02T08:00:00.000Z"
+}

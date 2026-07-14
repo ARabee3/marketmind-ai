@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Strategy Brief (Arabic)",
+    "description": "Complete strategy brief for the fictional Koshary Corner cafe. The business profile version references the confirmed profile from the discovery journey.",
+    "business": "Koshary Corner",
+    "language": "ar-EG",
+    "scenario": "Owner wants to attract more lunch customers from nearby offices with a small marketing budget."
+  },
+  "id": "b0000000-0000-4000-8000-000000000001",
+  "strategy_id": "a0000000-0000-4000-8000-000000000001",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "acquisition",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "plan_language": "ar-EG",
+  "paid_media_allowed": true,
+  "external_budget_mode": "monthly_amount",
+  "external_budget_egp": 3000,
+  "team_capacity": "المالك يدير المحل ويساعده فرد واحد في المطبخ. لا يوجد متخصص تسويق.",
+  "constraints": [
+    "لا يوجد وقت كاف لإنشاء محتوى يومي",
+    "الميزانية الشهرية محدودة بـ 3000 جنيه كحد أقصى",
+    "التوصيل متاح فقط عبر الوسائل التقليدية حالياً"
+  ],
+  "clarification_answers": [
+    {
+      "question_id": "q0000000-0000-4000-8000-000000000001",
+      "question_text": "هل لديك حساب بنكي أو محفظة رقمية للإنفاق على الإعلانات؟",
+      "answer_text": "نعم، لدي حساب بنكي تجاري.",
+      "answered_at": "2026-07-01T12:00:00.000Z"
+    },
+    {
+      "question_id": "q0000000-0000-4000-8000-000000000002",
+      "question_text": "كم من الوقت يمكنك تخصيصه أسبوعياً لمتابعة حملات التسويق؟",
+      "answer_text": "حوالي 2-3 ساعات في الأسبوع.",
+      "answered_at": "2026-07-01T12:05:00.000Z"
+    }
+  ],
+  "created_at": "2026-07-01T12:00:00.000Z",
+  "updated_at": "2026-07-01T12:05:00.000Z"
+}

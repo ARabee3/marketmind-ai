@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "title": "Invalid: Benchmark KPI Without Verified Citation",
+    "description": "A KpiTarget with target_mode 'verified_benchmark_range' must have a non-null benchmark_citation_id. This one has no citation.",
+    "expected_failure": "benchmark_citation_id must be non-null when target_mode is verified_benchmark_range"
+  },
+  "id": "d-invalid-0003",
+  "strategy_id": "a-invalid-0005",
+  "version": 1,
+  "contract_version": "strategy-v1",
+  "brief_id": "b-invalid-0005",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "retrieval_run_id": "c-invalid-0005",
+  "executive_summary": {
+    "text": "Plan with invalid benchmark KPI.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "situation_diagnosis": {
+    "text": "Test.",
+    "source": "confirmed_fact",
+    "citation_ids": []
+  },
+  "primary_objective": "awareness",
+  "funnel_stage": "awareness",
+  "target_audience": {
+    "text": "Test",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "positioning": {
+    "text": "Test",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "selected_channels": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": { "objective_fit": 0.8, "audience_fit": 0.8, "existing_presence": 0.5, "asset_format_fit": 0.8, "team_capacity": 0.5, "budget_fit": 0.8, "evidence_strength": 0.7, "measurement_readiness": 0.6 },
+      "total_score": 5.5,
+      "rationale": { "text": "Test", "source": "model_synthesis", "citation_ids": [] },
+      "excluded_reason": null
+    }
+  ],
+  "all_channel_scores": [],
+  "tone": {
+    "text": "Test",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "plan_language": "ar-EG",
+  "content_strategy": {
+    "pillars": [{ "text": "Test", "source": "model_synthesis", "citation_ids": [] }],
+    "format_mix": [{ "text": "Test", "source": "model_synthesis", "citation_ids": [] }],
+    "weekly_cadence": "1 per week",
+    "weeks": [{ "week_number": 1, "theme": "test", "formats": ["photo"] }],
+    "experiments": []
+  },
+  "budget_mode": "organic_only",
+  "budget_scenarios": null,
+  "kpi_targets": [
+    {
+      "metric": "engagement_rate",
+      "funnel_stage": "awareness",
+      "target_mode": "verified_benchmark_range",
+      "target_value": "2-4%",
+      "benchmark_citation_id": null,
+      "measurement_method": "Insights",
+      "notes": {
+        "text": "Missing citation for benchmark range.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      }
+    }
+  ],
+  "assumptions": [],
+  "risks": [],
+  "knowledge_gaps": [],
+  "blockers": [],
+  "citations": [],
+  "created_at": "2026-07-05T08:00:00.000Z"
+}

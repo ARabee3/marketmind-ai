@@ -1,0 +1,417 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Complete Strategy Plan",
+    "description": "Full strategy plan for the fictional Koshary Corner. 12-week plan with Instagram as primary channel, paid media budget of 3000 EGP/month, and office worker acquisition objective.",
+    "business": "Koshary Corner"
+  },
+  "id": "d0000000-0000-4000-8000-000000000001",
+  "strategy_id": "a0000000-0000-4000-8000-000000000001",
+  "version": 1,
+  "contract_version": "strategy-v1",
+  "brief_id": "b0000000-0000-4000-8000-000000000001",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+  "executive_summary": {
+    "text": "ركز على إنستجرام وجوجل مابز لاستهداف موظفي المكاتب في مدينة نصر. الميزانية الشهرية 3000 جنيه للإعلانات. المحتوى يعتمد على الفيديو القصير لتحضير الكشري وأوقات الذروة.",
+    "source": "model_synthesis",
+    "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+  },
+  "situation_diagnosis": {
+    "text": "مطعم كشري في مدينة نصر يستهدف موظفي المكاتب في وجبة الغداء. الصفحة الحالية على إنستجرام غير نشطة (آخر منشور منذ أكثر من 40 يوماً). التقييم على جوجل مابز 3.8 نجوم من 124 تقييماً. لا توجد منافسة مباشرة محددة.",
+    "source": "model_synthesis",
+    "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+  },
+  "primary_objective": "acquisition",
+  "funnel_stage": "awareness_to_purchase",
+  "target_audience": {
+    "text": "موظفو المكاتب في مدينة نصر، أعمار 22-45، يبحثون عن وجبة غداء سريعة ومشبعة بتكلفة 30-60 جنيهاً.",
+    "source": "confirmed_fact",
+    "citation_ids": []
+  },
+  "positioning": {
+    "text": "Koshary Corner هو الكشري السريع والمشبع في مدينة نصر، قريب من مكتبك، بجودة منزلية وسعر مناسب.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "selected_channels": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.9,
+        "audience_fit": 0.85,
+        "existing_presence": 0.4,
+        "asset_format_fit": 0.8,
+        "team_capacity": 0.6,
+        "budget_fit": 0.85,
+        "evidence_strength": 0.89,
+        "measurement_readiness": 0.7
+      },
+      "total_score": 7.09,
+      "rationale": {
+        "text": "إنستجرام هو القناة الوحيدة التي لدى المطعم وجود مسبق عليها. الجمهور المستهدف (موظفي المكاتب) نشط على إنستجرام. فيديوهات الطعام تحقق تفاعل 2.1-3.8% في مصر.",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+      },
+      "excluded_reason": null
+    },
+    {
+      "channel": "google_maps",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.75,
+        "audience_fit": 0.9,
+        "existing_presence": 0.72,
+        "asset_format_fit": 0.5,
+        "team_capacity": 0.7,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.85,
+        "measurement_readiness": 0.8
+      },
+      "total_score": 7.47,
+      "rationale": {
+        "text": "جوجل مابز قناة مجانية بمردود عالي. 124 تقييماً موجودة بالفعل. إكمال الملف الشخصي يزيد الاكتشاف بنسبة 35%.",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000003"]
+      },
+      "excluded_reason": null
+    }
+  ],
+  "all_channel_scores": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.9,
+        "audience_fit": 0.85,
+        "existing_presence": 0.4,
+        "asset_format_fit": 0.8,
+        "team_capacity": 0.6,
+        "budget_fit": 0.85,
+        "evidence_strength": 0.89,
+        "measurement_readiness": 0.7
+      },
+      "total_score": 7.09,
+      "rationale": {
+        "text": "إنستجرام هو الخيار الأفضل مع وجود مسبق وجمهور نشط.",
+        "source": "deterministic_result",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+      },
+      "excluded_reason": null
+    },
+    {
+      "channel": "google_maps",
+      "role": "primary",
+      "scores": {
+        "objective_fit": 0.75,
+        "audience_fit": 0.9,
+        "existing_presence": 0.72,
+        "asset_format_fit": 0.5,
+        "team_capacity": 0.7,
+        "budget_fit": 1.0,
+        "evidence_strength": 0.85,
+        "measurement_readiness": 0.8
+      },
+      "total_score": 7.47,
+      "rationale": {
+        "text": "جوجل مابز أساسي للوجود المحلي.",
+        "source": "deterministic_result",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000003"]
+      },
+      "excluded_reason": null
+    },
+    {
+      "channel": "facebook",
+      "role": "supporting",
+      "scores": {
+        "objective_fit": 0.6,
+        "audience_fit": 0.65,
+        "existing_presence": 0.0,
+        "asset_format_fit": 0.5,
+        "team_capacity": 0.3,
+        "budget_fit": 0.5,
+        "evidence_strength": 0.78,
+        "measurement_readiness": 0.5
+      },
+      "total_score": 5.16,
+      "rationale": {
+        "text": "فيسبوك يوفر جمهور أوسع لكن لا يوجد وجود مسبق وفريق التسويق صغير جداً.",
+        "source": "model_synthesis",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000002"]
+      },
+      "excluded_reason": "الفريق صغير ولا يمكن إدارة ثلاث قنوات في وقت واحد. الميزانية غير كافية لتغطية فيسبوك كمصدر إضافي."
+    },
+    {
+      "channel": "tiktok",
+      "role": "supporting",
+      "scores": {
+        "objective_fit": 0.7,
+        "audience_fit": 0.5,
+        "existing_presence": 0.0,
+        "asset_format_fit": 0.6,
+        "team_capacity": 0.2,
+        "budget_fit": 0.0,
+        "evidence_strength": 0.0,
+        "measurement_readiness": 0.3
+      },
+      "total_score": 3.69,
+      "rationale": {
+        "text": "تيك توك مناسب لفيديو الطعام لكن المحتوى اليومي يتطلب وقتاً وجهداً غير متاحين.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      "excluded_reason": "لا يوجد وجود مسبق، الفريق ليس لديه القدرة على إنتاج محتوى تيك توك يومي."
+    }
+  ],
+  "tone": {
+    "text": "ودود، غير رسمي، يركز على الجودة والسعر المناسب. استخدام مزيج من الفصحى والعامية المصرية.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "plan_language": "ar-EG",
+  "content_strategy": {
+    "pillars": [
+      {
+        "text": "وجبة الغداء المثالية: محتوى يظهر تحضير الكشري في وقت الذروة وسرعة التقديم.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "لحظات العملاء: إعادة نشر محتوى من العملاء الراضين وتشجيع التفاعل على المنشورات.",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000004"]
+      },
+      {
+        "text": "وراء الكواليس: نظرة على المطبخ وطريقة التحضير لبناء الثقة.",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "عروض وتحديثات: إعلانات عن العروض اليومية والأوقات الأقل ازدحاماً.",
+        "source": "owner_input",
+        "citation_ids": []
+      }
+    ],
+    "format_mix": [
+      {
+        "text": "فيديو قصير (Reels) للوجبات والتحضير: 50% من المحتوى",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+      },
+      {
+        "text": "صور مع نص قصير للعروض والوجبات الجديدة: 30% من المحتوى",
+        "source": "model_synthesis",
+        "citation_ids": []
+      },
+      {
+        "text": "منشورات تفاعلية (استفتاءات، أسئلة) لزيادة التفاعل: 20% من المحتوى",
+        "source": "model_synthesis",
+        "citation_ids": []
+      }
+    ],
+    "weekly_cadence": "3 منشورات في الأسبوع (واحد Reels، واحد صور، واحد تفاعلي). النشر بين 11 صباحاً و1 ظهراً لاستهداف وقت الغداء.",
+    "weeks": [
+      { "week_number": 1, "theme": "التعريف بالمطعم", "formats": ["reels", "photo", "poll"] },
+      { "week_number": 2, "theme": "وراء الكواليس", "formats": ["reels", "photo"] },
+      { "week_number": 3, "theme": "قائمة الطعام", "formats": ["reels", "photo", "story"] },
+      { "week_number": 4, "theme": "تقييمات العملاء", "formats": ["reels", "story"] },
+      { "week_number": 5, "theme": "عرض الغداء", "formats": ["reels", "photo", "poll"] },
+      { "week_number": 6, "theme": "نصائح التغذية", "formats": ["reels", "quiz"] },
+      { "week_number": 7, "theme": "المكونات الطازجة", "formats": ["reels", "photo"] },
+      { "week_number": 8, "theme": "تحدي العملاء", "formats": ["reels", "story", "poll"] },
+      { "week_number": 9, "theme": "أوقات الذروة", "formats": ["photo", "story"] },
+      { "week_number": 10, "theme": "عرض خاص", "formats": ["reels", "photo"] },
+      { "week_number": 11, "theme": "تطور المطعم", "formats": ["reels", "photo", "story"] },
+      { "week_number": 12, "theme": "ختام 12 أسبوعاً", "formats": ["reels", "poll", "photo"] }
+    ],
+    "experiments": [
+      {
+        "id": "x0000000-0000-4000-8000-000000000001",
+        "hypothesis": "فيديو Reels لتحضير الكشري في وقت الذروة يحقق تفاعلاً أعلى بنسبة 50% من الصور الثابتة.",
+        "method": "نشر 4 Reels و 4 صور بالتناوب لمدة أسبوعين وقياس التفاعل لكل منهم.",
+        "success_criteria": "متوسط التفاعل على Reels يتجاوز الصور بنسبة 30% خلال أسبوعين.",
+        "week_range": [3, 4]
+      },
+      {
+        "id": "x0000000-0000-4000-8000-000000000002",
+        "hypothesis": "إعلان مستهدف بقيمة 50 جنيهاً يومياً لموظفي مدينة نصر يحقق تكلفة اكتساب عميل أقل من 15 جنيهاً.",
+        "method": "تشغيل إعلان إنستجرام لمدة أسبوعين يستهدف منطقة مدينة نصر (نصف قطر 3 كم).",
+        "success_criteria": "تكلفة النقرة أقل من 2.50 جنيه وتكلفة التحويل أقل من 15 جنيهاً.",
+        "week_range": [5, 6]
+      }
+    ]
+  },
+  "budget_mode": "monthly_amount",
+  "budget_scenarios": [
+    {
+      "scenario_type": "conservative",
+      "total_egp": 2000,
+      "currency": "EGP",
+      "channel_allocations": [
+        { "channel": "instagram", "amount_egp": 1500, "percentage": 75 },
+        { "channel": "google_maps", "amount_egp": 500, "percentage": 25 }
+      ],
+      "notes": {
+        "text": "السيناريو المتحفظ يركز على إنستجرام فقط بميزانية إعلانية محدودة.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      }
+    },
+    {
+      "scenario_type": "base",
+      "total_egp": 3000,
+      "currency": "EGP",
+      "channel_allocations": [
+        { "channel": "instagram", "amount_egp": 2400, "percentage": 80 },
+        { "channel": "google_maps", "amount_egp": 600, "percentage": 20 }
+      ],
+      "notes": {
+        "text": "السيناريو الأساسي يستخدم الميزانية الكاملة 3000 جنيه شهرياً مع توزيع 80-20.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      }
+    },
+    {
+      "scenario_type": "growth",
+      "total_egp": 4500,
+      "currency": "EGP",
+      "channel_allocations": [
+        { "channel": "instagram", "amount_egp": 3500, "percentage": 77.8 },
+        { "channel": "google_maps", "amount_egp": 1000, "percentage": 22.2 }
+      ],
+      "notes": {
+        "text": "سيناريو النمو يتطلب زيادة الميزانية الشهرية إلى 4500 جنيه ويضيف جوجل مابز أدز.",
+        "source": "deterministic_result",
+        "citation_ids": []
+      }
+    }
+  ],
+  "kpi_targets": [
+    {
+      "metric": "Instagram engagement rate",
+      "funnel_stage": "awareness",
+      "target_mode": "verified_benchmark_range",
+      "target_value": "2.1-3.8%",
+      "benchmark_citation_id": "c1000000-0000-4000-8000-000000000001",
+      "measurement_method": "Instagram Insights weekly tracking",
+      "notes": {
+        "text": "معدل التفاعل المستهدف يستند إلى معايير QSR في مصر 2026.",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
+      }
+    },
+    {
+      "metric": "Google Maps profile views",
+      "funnel_stage": "awareness",
+      "target_mode": "baseline_improvement",
+      "target_value": "زيادة 35% في 12 أسبوعاً",
+      "measurement_method": "Google Business Profile insights",
+      "notes": {
+        "text": "تحسين الملف الشخصي يزيد الاكتشاف بنسبة 35% حسب الإرشادات.",
+        "source": "retrieved_evidence",
+        "citation_ids": ["c1000000-0000-4000-8000-000000000003"]
+      }
+    },
+    {
+      "metric": "متابعين جدد على إنستجرام",
+      "funnel_stage": "acquisition",
+      "target_mode": "owner_target",
+      "target_value": "500 متابع جديد في 12 أسبوعاً",
+      "measurement_method": "Instagram Insights متابعات أسبوعية",
+      "notes": {
+        "text": "هدف وضعه صاحب المطعم لزيادة الوعي بالمكان.",
+        "source": "owner_input",
+        "citation_ids": []
+      }
+    }
+  ],
+  "assumptions": [
+    {
+      "text": "يفضل موظفو المكاتب في مدينة نصر وجبة الغداء بين 1 و 3 ظهراً (مؤكد من المالك).",
+      "source": "confirmed_fact",
+      "citation_ids": []
+    },
+    {
+      "text": "متوسط الإنفاق للفرد يتراوح بين 30 و 60 جنيهاً.",
+      "source": "confirmed_fact",
+      "citation_ids": []
+    },
+    {
+      "text": "المالك يمكنه تخصيص 2-3 ساعات أسبوعياً للتسويق.",
+      "source": "owner_input",
+      "citation_ids": []
+    }
+  ],
+  "risks": [
+    {
+      "text": "المالك ليس لديه خبرة سابقة في الإعلانات المدفوعة — قد يحتاج إلى توجيه إضافي.",
+      "source": "model_synthesis",
+      "citation_ids": []
+    },
+    {
+      "text": "آخر منشور على إنستجرام كان منذ أكثر من 40 يوماً — استعادة النشاط تحتاج وقتاً.",
+      "source": "confirmed_fact",
+      "citation_ids": []
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "category": "competitor_benchmarks",
+      "description": "لا توجد بيانات موثوقة عن أسعار الكشري أو العروض الترويجية في مدينة نصر.",
+      "severity": "non_critical"
+    },
+    {
+      "category": "local_demand_data",
+      "description": "لا توجد بيانات حركة المرور لشارع مكرم عبيد أو كثافة المنافسين.",
+      "severity": "blocking"
+    }
+  ],
+  "blockers": [],
+  "citations": [
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000001",
+      "chunk_id": "cccccccc-0001-4000-8000-000000000001",
+      "entry_id": "eeeeeeee-0001-4000-8000-000000000001",
+      "entry_version": 2,
+      "title": "Instagram Engagement Benchmarks for Egyptian QSR 2026",
+      "excerpt": "Quick service restaurants in Cairo achieve 2.1-3.8% engagement rate on Instagram.",
+      "evidence_tier": "verified_benchmark",
+      "relevance_score": 0.89
+    },
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000002",
+      "chunk_id": "cccccccc-0002-4000-8000-000000000002",
+      "entry_id": "eeeeeeee-0002-4000-8000-000000000002",
+      "entry_version": 1,
+      "title": "Facebook Ads Cost per Click: Egypt 2026",
+      "excerpt": "Average CPC for food and beverage in Egypt ranges from 1.20 to 2.50 EGP.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.78
+    },
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000003",
+      "chunk_id": "cccccccc-0003-4000-8000-000000000003",
+      "entry_id": "eeeeeeee-0003-4000-8000-000000000003",
+      "entry_version": 1,
+      "title": "Google Maps Optimization for Egyptian Restaurants",
+      "excerpt": "Completing your Google Business profile with menu photos and weekly posts increases discovery by 35%.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.85
+    },
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000004",
+      "chunk_id": "cccccccc-0004-4000-8000-000000000004",
+      "entry_id": "eeeeeeee-0004-4000-8000-000000000004",
+      "entry_version": 1,
+      "title": "Content Marketing for Small Food Businesses",
+      "excerpt": "User-generated content outperforms branded content 2.3x in food and beverage.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.72
+    }
+  ],
+  "created_at": "2026-07-02T09:00:00.000Z"
+}

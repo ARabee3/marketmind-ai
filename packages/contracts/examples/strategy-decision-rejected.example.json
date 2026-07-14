@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "title": "Alexandria Reads — Owner Decision: Rejected",
+    "description": "Owner rejected the strategy plan requesting a revision with specific notes.",
+    "business": "Alexandria Reads"
+  },
+  "id": "e0000000-0000-4000-8000-000000000002",
+  "strategy_id": "a2000000-0000-4000-8000-000000000002",
+  "strategy_version": 1,
+  "decision": "rejected",
+  "revision_notes": "الميزانية المقترحة عالية جداً بالنسبة لدخل المكتبة. أرجو إعادة النظر في التوزيع وتقليل الاعتماد على الإعلانات المدفوعة والتركيز أكثر على التسويق عبر البريد الإلكتروني والمحتوى المجاني.",
+  "decided_by_user_id": "dddddddd-dddd-4ddd-8ddd-ddddddddd002",
+  "decided_at": "2026-07-08T16:30:00.000Z"
+}

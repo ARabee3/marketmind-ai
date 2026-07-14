@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "title": "Invalid: Retrieval Item With Past Expiry",
+    "description": "An item in the retrieval pack has expires_at in the past. Source quality review_status should be 'expired' or item should be excluded.",
+    "expected_failure": "item with past expires_at should have review_status 'expired'"
+  },
+  "retrieval_run_id": "c-invalid-0006",
+  "query_summary": "Invalid retrieval pack with expired content.",
+  "query_context": {
+    "business_type": "restaurant",
+    "market": "egypt",
+    "locale": "ar-EG",
+    "objective": "awareness",
+    "funnel_stage": "awareness",
+    "active_channels": ["instagram"],
+    "asset_capability": ["page"],
+    "team_capacity": "owner",
+    "budget_mode": "organic_only",
+    "industry": null
+  },
+  "profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  "brief_id": "b-invalid-0006",
+  "items": [
+    {
+      "chunk_id": "cccccccc-9999-4000-8000-000000000001",
+      "entry_id": "eeeeeeee-9999-4000-8000-000000000001",
+      "entry_version": 1,
+      "title": "Outdated Benchmark Report",
+      "excerpt": "This data expired last year.",
+      "kind": "benchmark_report",
+      "tags": {},
+      "relevance_score": 0.5,
+      "source_quality": {
+        "evidence_tier": "verified_benchmark",
+        "source_references": ["Old Report 2024"],
+        "effective_at": "2024-01-01T00:00:00.000Z",
+        "expires_at": "2025-01-01T00:00:00.000Z",
+        "review_status": "approved"
+      }
+    }
+  ],
+  "knowledge_gaps": [],
+  "retrieval_metadata": {
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimensions": 1536,
+    "collection_name": "marketing_knowledge_v1",
+    "retrieval_latency_ms": 100
+  },
+  "retrieved_at": "2026-07-05T08:00:00.000Z"
+}

@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "Invalid: Empty Retrieval Result With No Error",
+    "description": "Retrieval returned zero items with no error metadata. This should be flagged as a retrieval failure condition.",
+    "expected_failure": "empty items array with no error indicates retrieval failure"
+  },
+  "retrieval_run_id": "c-invalid-0007",
+  "query_summary": "Failed retrieval returning no results.",
+  "query_context": {
+    "business_type": "unknown",
+    "market": "unknown",
+    "locale": "ar-EG",
+    "objective": "awareness",
+    "funnel_stage": "awareness",
+    "active_channels": [],
+    "asset_capability": [],
+    "team_capacity": "unknown",
+    "budget_mode": "organic_only",
+    "industry": null
+  },
+  "profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  "brief_id": "b-invalid-0008",
+  "items": [],
+  "knowledge_gaps": [],
+  "retrieval_metadata": {
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimensions": 1536,
+    "collection_name": "marketing_knowledge_v1",
+    "retrieval_latency_ms": 0
+  },
+  "retrieved_at": "2026-07-05T08:00:00.000Z"
+}
