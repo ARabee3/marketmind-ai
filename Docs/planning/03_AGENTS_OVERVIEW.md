@@ -94,9 +94,10 @@ Turn the confirmed profile and research into a practical marketing plan.
 
 Input:
 
-- Business Profile
-- Research Pack
-- owner goals and limits
+- complete confirmed Business Profile from PostgreSQL
+- Strategy Brief with owner goals and limits
+- retrieved, cited marketing playbooks from curated RAG
+- Research Pack when the separate Research Agent is available
 
 Output:
 
@@ -109,6 +110,7 @@ Allowed:
 - suggest themes and campaign direction
 - create four-week plan and twelve-week overview
 - connect recommendations to sources
+- show retrieved evidence, assumptions, knowledge gaps, and blockers
 
 Forbidden:
 
@@ -120,6 +122,21 @@ Forbidden:
 Approval point:
 
 Owner approves or requests edits to the strategy.
+
+### Curated RAG used by Strategy
+
+RAG is shared retrieval infrastructure, not another agent. It searches approved
+marketing frameworks, channel playbooks, budget methods, measurement guidance,
+local context, and verified benchmarks before Strategy generation.
+
+The complete Business Profile remains a direct, structured PostgreSQL input. It
+is not stored in the shared Qdrant collection. Relevant profile fields build the
+retrieval query, and Qdrant returns reviewed marketing knowledge with citations.
+PostgreSQL remains the source of truth for knowledge versions, approval, sources,
+and expiry; Qdrant is a rebuildable vector index.
+
+See `sprint-4/STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md` for the complete
+architecture and acceptance criteria.
 
 ## 4. Content Agent
 
@@ -217,4 +234,3 @@ Forbidden:
 If an action can affect the real business account, real content, real publishing, or real strategy direction, human approval is required.
 
 أي حاجة ممكن تأثر على البيزنس الحقيقي لازم موافقة إنسان واضحة.
-
