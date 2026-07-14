@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MarketMind color system preview</title>
+  <style>
+    :root {
+      --color-bg: #F7F8FA;
+      --color-surface: #FFFFFF;
+      --color-navy: #102A43;
+      --color-primary: #0B6F71;
+      --color-action: #246BFD;
+      --color-warning: #A15C00;
+      --color-danger: #B42318;
+      --color-border: #D9E2EC;
+      --color-secondary: #E6F2F2;
+      --color-muted: #E9EEF3;
+      --color-muted-foreground: #5B6B7B;
+      --shadow-soft: 0 14px 40px rgba(16, 42, 67, .08);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: light; scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--color-navy);
+      background: var(--color-bg);
+      font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    button { font: inherit; }
+    button:focus-visible, a:focus-visible { outline: 3px solid var(--color-action); outline-offset: 3px; }
+    .page { max-width: 1440px; margin: 0 auto; padding: 28px 42px 64px; }
+    .eyebrow, .section-kicker, .token-role, .nav-label, .metric-label {
+      font-size: .69rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .eyebrow { color: var(--color-primary); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 850px; margin-bottom: 18px; font-size: clamp(2.5rem, 5vw, 5.2rem); line-height: .98; letter-spacing: -.055em; }
+    h2 { margin-bottom: 10px; font-size: clamp(1.55rem, 2.6vw, 2.35rem); line-height: 1.05; letter-spacing: -.035em; }
+    h3 { margin-bottom: 7px; font-size: 1rem; }
+    .lede { max-width: 720px; color: var(--color-muted-foreground); font-size: 1.04rem; }
+    .arabic { color: var(--color-primary); font-family: "SF Arabic", "Geeza Pro", Tahoma, sans-serif; direction: rtl; }
+
+    .masthead { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 24px; align-items: end; padding: 28px 0 48px; border-bottom: 1px solid var(--color-border); }
+    .masthead-mark { justify-self: end; width: min(100%, 440px); min-height: 220px; padding: 26px; color: white; background: var(--color-navy); border-radius: var(--radius-xl); position: relative; overflow: hidden; box-shadow: var(--shadow-soft); }
+    .masthead-mark::before, .masthead-mark::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; }
+    .masthead-mark::before { inset: 22px 42px -82px 108px; }
+    .masthead-mark::after { inset: -76px 90px 38px -38px; }
+    .mark-copy { position: relative; z-index: 1; }
+    .mark-number { display: block; margin-bottom: 62px; color: #8CD7CC; font-size: 4.6rem; font-weight: 800; letter-spacing: -.08em; line-height: .8; }
+    .mark-copy strong { display: block; font-size: 1.2rem; }
+    .mark-copy span { color: #B8CDD9; font-size: .84rem; }
+
+    .section { padding-top: 54px; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .section-kicker { color: var(--color-primary); margin-bottom: 9px; }
+    .section-note { max-width: 420px; color: var(--color-muted-foreground); font-size: .88rem; }
+
+    .token-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .token-card { min-height: 204px; padding: 15px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: 0 4px 18px rgba(16,42,67,.035); transition: transform .18s ease, box-shadow .18s ease; }
+    .token-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-soft); }
+    .swatch { height: 78px; margin-bottom: 14px; background: var(--token); border-radius: var(--radius-md); border: 1px solid rgba(16,42,67,.12); position: relative; overflow: hidden; }
+    .swatch::after { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 48%, rgba(255,255,255,.24) 49%, transparent 51%); opacity: .8; }
+    .token-top { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+    .token-name { margin: 0; font-size: .98rem; letter-spacing: -.015em; }
+    .token-role { color: var(--color-muted-foreground); font-size: .6rem; text-align: right; }
+    .hex { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--color-muted-foreground); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; }
+    .copy { border: 0; padding: 0; color: var(--color-primary); background: transparent; cursor: pointer; font-size: .72rem; font-weight: 700; }
+    .copy:hover { text-decoration: underline; }
+    .token-use { margin: 10px 0 0; color: var(--color-muted-foreground); font-size: .8rem; }
+
+    .surface-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .surface { min-height: 112px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--surface); }
+    .surface strong { display: block; margin-bottom: 5px; font-size: .84rem; }
+    .surface code { color: var(--color-muted-foreground); font-size: .68rem; }
+
+    .lab { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 510px; overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); box-shadow: var(--shadow-soft); }
+    .lab-nav { padding: 22px 14px; color: white; background: var(--color-navy); }
+    .brand { display: flex; gap: 9px; align-items: center; margin-bottom: 44px; padding: 0 10px; font-weight: 800; letter-spacing: -.02em; }
+    .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; color: var(--color-navy); background: #8CD7CC; border-radius: 8px; font-size: .78rem; }
+    .nav-group { display: grid; gap: 5px; }
+    .nav-item { display: flex; align-items: center; gap: 9px; padding: 11px 10px; color: #B8CDD9; border-radius: var(--radius-sm); font-size: .78rem; }
+    .nav-item.active { color: white; background: rgba(11,111,113,.42); }
+    .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .lab-main { padding: 28px; background: var(--color-bg); }
+    .lab-toolbar { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 26px; }
+    .lab-title { margin-bottom: 5px; font-size: 1.5rem; letter-spacing: -.03em; }
+    .lab-subtitle { margin: 0; color: var(--color-muted-foreground); font-size: .82rem; }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { min-height: 38px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-md); cursor: pointer; font-size: .76rem; font-weight: 800; }
+    .btn-primary { color: white; background: var(--color-primary); }
+    .btn-action { color: white; background: var(--color-action); }
+    .btn-quiet { color: var(--color-primary); background: var(--color-secondary); border-color: #B7DCD8; }
+    .demo-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 13px; }
+    .demo-card { padding: 18px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+    .demo-card h3 { color: var(--color-navy); }
+    .metric-card { grid-column: span 4; }
+    .metric { font-size: 2rem; font-weight: 800; letter-spacing: -.06em; }
+    .metric-label { color: var(--color-muted-foreground); font-size: .58rem; }
+    .metric-delta { color: var(--color-primary); font-size: .74rem; font-weight: 800; }
+    .progress-card { grid-column: span 8; }
+    .progress-track { height: 9px; margin: 23px 0 10px; overflow: hidden; background: var(--color-muted); border-radius: 99px; }
+    .progress-bar { width: 68%; height: 100%; background: var(--color-primary); border-radius: inherit; }
+    .progress-foot { display: flex; justify-content: space-between; color: var(--color-muted-foreground); font-size: .72rem; }
+    .status-card { grid-column: span 6; }
+    .alert-card { grid-column: span 6; padding: 14px 16px; border-radius: var(--radius-md); }
+    .alert-card strong { display: block; margin-bottom: 3px; font-size: .8rem; }
+    .alert-card p { margin: 0; font-size: .75rem; }
+    .alert-warning { color: #5F3800; background: #FFF1DD; border: 1px solid #E8B36D; }
+    .alert-danger { color: #7D1B14; background: #FCE9E7; border: 1px solid #E8A19A; }
+
+    .contrast-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .contrast { min-height: 156px; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+    .contrast-demo { padding: 15px; border-radius: var(--radius-md); font-weight: 800; font-size: .92rem; }
+    .contrast small { color: var(--color-muted-foreground); font-size: .72rem; }
+    .pass { color: var(--color-primary); font-weight: 800; }
+    .attention { color: var(--color-warning); font-weight: 800; }
+
+    .review { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .review-card { padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-surface); }
+    .review-card strong { display: block; margin-bottom: 8px; }
+    .review-card p { margin: 0; color: var(--color-muted-foreground); font-size: .84rem; }
+    .decision { color: white; background: var(--color-navy); border-color: var(--color-navy); }
+    .decision p { color: #B8CDD9; }
+    footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 56px; padding-top: 18px; color: var(--color-muted-foreground); border-top: 1px solid var(--color-border); font-size: .74rem; }
+    #toast { position: fixed; right: 24px; bottom: 24px; padding: 11px 15px; color: white; background: var(--color-navy); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); opacity: 0; transform: translateY(8px); pointer-events: none; transition: .2s ease; font-size: .78rem; }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 980px) {
+      .masthead { grid-template-columns: 1fr; }
+      .masthead-mark { justify-self: stretch; }
+      .token-grid, .contrast-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .surface-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .review { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .page { padding: 20px 18px 48px; }
+      .masthead { padding-top: 12px; }
+      .section-head, .lab-toolbar, footer { display: block; }
+      .section-note { margin-top: 12px; }
+      .token-grid, .contrast-grid, .surface-strip { grid-template-columns: 1fr; }
+      .lab { grid-template-columns: 1fr; }
+      .lab-nav { display: none; }
+      .lab-main { padding: 18px; }
+      .lab-toolbar .button-row { margin-top: 16px; }
+      .metric-card, .progress-card, .status-card, .alert-card { grid-column: span 12; }
+      footer > * + * { margin-top: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div>
+        <div class="eyebrow">MarketMind / Palette review</div>
+        <h1>Does this color system feel trustworthy enough to build on?</h1>
+        <p class="lede">A visual decision board for the proposed light workspace palette. It shows the raw tokens, semantic surfaces, and the combinations people will actually see in the product.</p>
+        <p class="arabic" lang="ar">لوحة مراجعة بصرية لنظام الألوان المقترح</p>
+      </div>
+      <aside class="masthead-mark" aria-label="MarketMind visual direction">
+        <div class="mark-copy">
+          <span class="mark-number">01</span>
+          <strong>Grounded by design.</strong>
+          <span>Calm surfaces. Clear actions. Evidence before spectacle.</span>
+        </div>
+      </aside>
+    </header>
+
+    <section class="section" id="tokens">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">01 / Brand tokens</div>
+          <h2>The palette, without abstraction</h2>
+        </div>
+        <p class="section-note">Click any hex value to copy it. The role labels describe where each color should earn its place.</p>
+      </div>
+      <div class="token-grid">
+        <article class="token-card" style="--token: var(--color-bg)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Background</h3><span class="token-role">Canvas</span></div><div class="hex">#F7F8FA <button class="copy" data-copy="#F7F8FA">copy</button></div><p class="token-use">Quiet page background; keeps the workspace bright without stark white.</p></article>
+        <article class="token-card" style="--token: var(--color-surface)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Surface</h3><span class="token-role">Cards</span></div><div class="hex">#FFFFFF <button class="copy" data-copy="#FFFFFF">copy</button></div><p class="token-use">Cards, sheets, and modals; creates a clean reading layer.</p></article>
+        <article class="token-card" style="--token: var(--color-navy)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Navy</h3><span class="token-role">Text</span></div><div class="hex">#102A43 <button class="copy" data-copy="#102A43">copy</button></div><p class="token-use">Headings, primary text, navigation, and trust-building anchors.</p></article>
+        <article class="token-card" style="--token: var(--color-primary)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Primary teal</h3><span class="token-role">Brand action</span></div><div class="hex">#0B6F71 <button class="copy" data-copy="#0B6F71">copy</button></div><p class="token-use">Buttons, links, active states, and the signature MarketMind signal.</p></article>
+        <article class="token-card" style="--token: var(--color-action)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Action blue</h3><span class="token-role">CTA</span></div><div class="hex">#246BFD <button class="copy" data-copy="#246BFD">copy</button></div><p class="token-use">High-attention calls to action and interactive emphasis.</p></article>
+        <article class="token-card" style="--token: var(--color-warning)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Warning</h3><span class="token-role">Caution</span></div><div class="hex">#A15C00 <button class="copy" data-copy="#A15C00">copy</button></div><p class="token-use">Warnings, pending review, and decisions that need attention.</p></article>
+        <article class="token-card" style="--token: var(--color-danger)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Danger</h3><span class="token-role">Destructive</span></div><div class="hex">#B42318 <button class="copy" data-copy="#B42318">copy</button></div><p class="token-use">Errors, rejected drafts, and destructive actions.</p></article>
+        <article class="token-card" style="--token: var(--color-border)"><div class="swatch"></div><div class="token-top"><h3 class="token-name">Border</h3><span class="token-role">Structure</span></div><div class="hex">#D9E2EC <button class="copy" data-copy="#D9E2EC">copy</button></div><p class="token-use">Dividers, inputs, focus-adjacent structure, and card strokes.</p></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><div class="section-kicker">02 / Semantic surfaces</div><h2>Soft layers for a working interface</h2></div>
+        <p class="section-note">These are the supporting tones already mapped in <code>globals.css</code>. They keep the brand palette from doing every job at full intensity.</p>
+      </div>
+      <div class="surface-strip">
+        <div class="surface" style="--surface: var(--color-secondary)"><strong>Secondary</strong><code>#E6F2F2</code></div>
+        <div class="surface" style="--surface: var(--color-muted)"><strong>Muted</strong><code>#E9EEF3</code></div>
+        <div class="surface" style="--surface: #E6F2F2"><strong>Accent</strong><code>#E6F2F2</code></div>
+        <div class="surface" style="--surface: #FCE9E7"><strong>Danger tint</strong><code>state surface</code></div>
+        <div class="surface" style="--surface: #FFF1DD"><strong>Warning tint</strong><code>state surface</code></div>
+      </div>
+    </section>
+
+    <section class="section" id="context">
+      <div class="section-head">
+        <div><div class="section-kicker">03 / In context</div><h2>What the palette feels like in the workspace</h2></div>
+        <p class="section-note">This is the important test: can someone understand the next action, the current state, and the risk without visual noise?</p>
+      </div>
+      <div class="lab">
+        <aside class="lab-nav">
+          <div class="brand"><span class="brand-mark">M</span>MarketMind</div>
+          <div class="nav-group" aria-label="Example navigation">
+            <div class="nav-item active"><span class="nav-dot"></span>Overview</div>
+            <div class="nav-item"><span class="nav-dot"></span>Discovery</div>
+            <div class="nav-item"><span class="nav-dot"></span>Strategy</div>
+            <div class="nav-item"><span class="nav-dot"></span>Content</div>
+          </div>
+        </aside>
+        <div class="lab-main">
+          <div class="lab-toolbar">
+            <div><div class="eyebrow">Workspace / readiness</div><h3 class="lab-title">Your next marketing decision</h3><p class="lab-subtitle">A calm surface for evidence, progress, and owner control.</p></div>
+            <div class="button-row"><button class="btn btn-quiet">Review evidence</button><button class="btn btn-action">Approve plan</button></div>
+          </div>
+          <div class="demo-grid">
+            <article class="demo-card metric-card"><span class="metric-label">Profile readiness</span><div class="metric">68%</div><span class="metric-delta">+12% this week</span></article>
+            <article class="demo-card metric-card"><span class="metric-label">Open decisions</span><div class="metric">04</div><span class="metric-delta">2 need owner review</span></article>
+            <article class="demo-card metric-card"><span class="metric-label">Evidence coverage</span><div class="metric">8/10</div><span class="metric-delta">Strong foundation</span></article>
+            <article class="demo-card progress-card"><h3>Strategy readiness</h3><p class="lab-subtitle">The teal bar is progress, not decoration. The next step is legible.</p><div class="progress-track"><div class="progress-bar"></div></div><div class="progress-foot"><span>Profile confirmed</span><strong>68%</strong></div></article>
+            <article class="demo-card status-card"><h3>Approval state</h3><div class="alert-card" style="padding: 12px 0; border: 0; background: transparent;"><strong style="color: var(--color-primary)">Ready for owner review</strong><p style="color: var(--color-muted-foreground)">Sources and assumptions are visible before approval.</p></div></article>
+            <article class="alert-card alert-warning"><strong>Needs attention</strong><p>A benchmark is expired. The plan can continue, but the gap stays visible.</p></article>
+            <article class="alert-card alert-danger"><strong>Blocked</strong><p>Publishing remains unavailable until the owner approves the strategy.</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><div class="section-kicker">04 / Contrast check</div><h2>Does the text stay readable?</h2></div>
+        <p class="section-note">These pairings use the actual tokens. The ratio labels are a fast design-review signal, not a substitute for testing the final components.</p>
+      </div>
+      <div class="contrast-grid">
+        <article class="contrast"><div class="contrast-demo" style="color: var(--color-navy); background: var(--color-bg)">Navy on background</div><small>13.78:1 <span class="pass">AA / AAA</span></small></article>
+        <article class="contrast"><div class="contrast-demo" style="color: white; background: var(--color-primary)">White on primary</div><small>5.95:1 <span class="pass">AA</span></small></article>
+        <article class="contrast"><div class="contrast-demo" style="color: white; background: var(--color-action)">White on action</div><small>4.57:1 <span class="pass">AA</span></small></article>
+        <article class="contrast"><div class="contrast-demo" style="color: white; background: var(--color-warning)">White on warning</div><small>5.19:1 <span class="pass">AA</span></small></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><div class="section-kicker">05 / Team decision</div><h2>What should we keep an eye on?</h2></div>
+        <p class="section-note">Use this section in the review meeting. The palette is only good if it supports the product’s promise: grounded, explainable growth.</p>
+      </div>
+      <div class="review">
+        <article class="review-card"><strong>What already works</strong><p>Navy and teal create a trustworthy operational core. The light gray background separates the workspace from the white content surfaces without feeling sterile.</p></article>
+        <article class="review-card"><strong>What to test in UI</strong><p>Check whether action blue is reserved enough to remain meaningful. Test warning and danger in dense dashboards so state colors do not become visual wallpaper.</p></article>
+        <article class="review-card decision"><strong>Meeting prompt</strong><p>Does this feel like a practical growth workspace for an Egyptian SME owner—not a generic AI dashboard?</p></article>
+      </div>
+    </section>
+
+    <footer>
+      <span>MarketMind AI · color system preview · source: <code>apps/web/src/app/globals.css</code></span>
+      <span class="arabic" lang="ar">واضح، عملي، مبني على الدليل</span>
+    </footer>
+  </main>
+  <div id="toast" role="status" aria-live="polite">Copied</div>
+  <script>
+    const toast = document.querySelector('#toast');
+    let toastTimer;
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const value = button.dataset.copy;
+        toast.textContent = `${value} copied`;
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+        try { await navigator.clipboard.writeText(value); } catch (_) { /* Clipboard is optional in local previews. */ }
+      });
+    });
+  </script>
+</body>
+</html>

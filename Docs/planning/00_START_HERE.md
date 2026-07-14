@@ -66,6 +66,8 @@ Recommended order:
 7. Use `06_GLOSSARY_AND_CHECKLIST.md` before coding and before demo.
 8. Read `07_GIT_CONVENTIONS.md` before opening implementation PRs.
 9. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.
+10. Read `sprint-4/STRATEGY_AGENT_TEAM_GUIDE.md` before starting Sprint 4 issues.
+11. Use `sprint-4/STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md` as the detailed source of truth for the Strategy Agent and required RAG vertical slice.
 
 ## Important team rule
 

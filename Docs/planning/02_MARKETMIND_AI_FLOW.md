@@ -52,7 +52,7 @@ Collect useful evidence for strategy.
 
 The system should use:
 
-1. trusted project/system documents first
+1. curated RAG over approved project/system marketing knowledge first
 2. limited trusted web research only when needed
 
 Output:
@@ -75,6 +75,10 @@ Goal:
 
 Create a practical marketing strategy for the business.
 
+The complete confirmed Business Profile is read directly from PostgreSQL. Its
+relevant fields are also used to retrieve approved marketing playbooks from
+Qdrant. The profile itself is not stored in the shared vector collection.
+
 The strategy should include:
 
 - primary goal
@@ -87,10 +91,15 @@ The strategy should include:
 - budget direction
 - KPIs
 - citations
+- visible assumptions, knowledge gaps, and blockers
 
 Output:
 
 `StrategyPlan`
+
+Detailed architecture:
+
+`sprint-4/STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md`
 
 Approval:
 
@@ -238,4 +247,3 @@ Optimization suggests:
 
 - create more short Reels
 - repeat weekday bundle content with a different hook
-
