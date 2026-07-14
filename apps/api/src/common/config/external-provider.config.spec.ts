@@ -41,4 +41,21 @@ describe("externalProviderConfig", () => {
     expect(externalProviderConfig().aiProviderRetryDelayMs).toBe(3000);
     expect(externalProviderConfig().discoveryResearchTimeoutMs).toBe(180000);
   });
+
+  it("uses bounded Facebook enrichment defaults", () => {
+    expect(externalProviderConfig()).toMatchObject({
+      facebook: {
+        enrichmentEnabled: false,
+        postsEnabled: false,
+        pageActorId: "apify~facebook-pages-scraper",
+        postActorId: "apify~facebook-posts-scraper",
+        maxPages: 1,
+        maxPosts: 5,
+        timeoutMs: 60000,
+        maxSessionChargeUsd: 0.05,
+        maxPageChargeUsd: 0.02,
+        maxPostChargeUsd: 0.03,
+      },
+    });
+  });
 });

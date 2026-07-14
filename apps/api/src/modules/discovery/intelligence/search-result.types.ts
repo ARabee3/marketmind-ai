@@ -1,7 +1,12 @@
-export type SearchProviderName = "serpapi" | "duckduckgo" | "apify_google_maps";
+import type {
+  ResearchProviderName,
+  SearchProviderHint,
+} from "./query-plan.types";
+
+export type SearchProviderName = Exclude<SearchProviderHint, "metadata">;
 
 export type SearchResultCandidate = {
-  readonly provider: SearchProviderName;
+  readonly provider: ResearchProviderName;
   readonly title?: string;
   readonly url?: string;
   readonly snippet?: string;

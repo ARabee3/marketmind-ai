@@ -19,9 +19,8 @@ describe("SerpApiSearchProvider", () => {
   });
 
   it("calls SerpApi Google search and normalizes organic results", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         organic_results: [
           {
             title: "Koshary Corner",
@@ -31,7 +30,7 @@ describe("SerpApiSearchProvider", () => {
           },
         ],
       }),
-    } as Response);
+    );
 
     const results = await new SerpApiSearchProvider().search("koshary cairo");
 
@@ -54,9 +53,8 @@ describe("SerpApiSearchProvider", () => {
   });
 
   it("normalizes local place results when SerpApi omits organic results", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         local_results: {
           places: [
             {
@@ -72,7 +70,7 @@ describe("SerpApiSearchProvider", () => {
           ],
         },
       }),
-    } as Response);
+    );
 
     const results = await new SerpApiSearchProvider().search(
       "best cafe in Nasr City competitors",
@@ -83,7 +81,8 @@ describe("SerpApiSearchProvider", () => {
         provider: "serpapi",
         title: "Daily Dose Cafe",
         url: "https://example.com/daily-dose",
-        snippet: "Nasr City, Cairo · tel: +20 100 000 0000 · rating: 4.5 · reviews: 320",
+        snippet:
+          "Nasr City, Cairo · tel: +20 100 000 0000 · rating: 4.5 · reviews: 320",
         rank: 1,
         query: "best cafe in Nasr City competitors",
         confidence: 0.95,
@@ -114,3 +113,10 @@ describe("SerpApiSearchProvider", () => {
     });
   });
 });
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}

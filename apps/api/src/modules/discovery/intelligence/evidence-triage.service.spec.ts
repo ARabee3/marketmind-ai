@@ -173,4 +173,45 @@ describe("EvidenceTriageService", () => {
       }),
     });
   });
+
+  it("forwards Facebook evidence provider provenance to AI triage", async () => {
+    aiClient.triage.mockResolvedValue({
+      source: "llm",
+      decisions: [
+        {
+          index: 0,
+          classification: "social_signal",
+          evidence_tier: "needs_confirmation",
+          confidence: 0.7,
+          reason: "The owner-submitted Facebook Page may match the business.",
+          candidate_facts: {},
+        },
+      ],
+    });
+
+    await new EvidenceTriageService(aiClient).triage({
+      dto,
+      intent: "social_profile",
+      sourceStartIndex: 0,
+      results: [
+        {
+          provider: "apify_facebook_pages",
+          title: "Koshary Corner",
+          url: "https://facebook.com/kosharycorner",
+          rank: 1,
+          query: "owner submitted Facebook Page",
+          confidence: 0.8,
+        },
+      ],
+    });
+
+    expect(aiClient.triage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidates: [
+          expect.objectContaining({ provider: "apify_facebook_pages" }),
+        ],
+      }),
+      undefined,
+    );
+  });
 });

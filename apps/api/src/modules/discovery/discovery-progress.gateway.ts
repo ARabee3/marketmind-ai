@@ -23,6 +23,10 @@ function discoveryCorsOrigin(
   origin: string | undefined,
   callback: (err: Error | null, allow?: boolean) => void,
 ): void {
+  // Allow all origins in development mode for testing (tester, web, etc.)
+  if (process.env.NODE_ENV === "development") {
+    return callback(null, true);
+  }
   const allowedOrigin = process.env.WEB_ORIGIN;
   if (!allowedOrigin) {
     return callback(new Error("WEB_ORIGIN is not configured"));

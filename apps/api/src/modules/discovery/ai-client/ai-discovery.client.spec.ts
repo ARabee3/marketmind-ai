@@ -44,9 +44,8 @@ describe("AiDiscoveryClient", () => {
   });
 
   it("posts discovery start requests to the internal AI discovery endpoint", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         action: "ask_next_question",
         next_question: "Who are your best current customers?",
         updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -56,7 +55,7 @@ describe("AiDiscoveryClient", () => {
         domain_scores: emptyDiscoveryDomainScores(),
         ready_to_summarize: false,
       }),
-    } as Response);
+    );
 
     const result = await new AiDiscoveryClient().start(
       "11111111-1111-4111-8111-111111111111",
@@ -94,9 +93,8 @@ describe("AiDiscoveryClient", () => {
     process.env.DISCOVERY_SEARCH_TIMEOUT_MS = "1";
     process.env.AI_REQUEST_TIMEOUT_MS = "30000";
     const timeoutSpy = jest.spyOn(AbortSignal, "timeout");
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         action: "ask_next_question",
         next_question: "Who are your best current customers?",
         updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -106,7 +104,7 @@ describe("AiDiscoveryClient", () => {
         domain_scores: emptyDiscoveryDomainScores(),
         ready_to_summarize: false,
       }),
-    } as Response);
+    );
 
     await new AiDiscoveryClient().start(
       "11111111-1111-4111-8111-111111111111",
@@ -119,9 +117,8 @@ describe("AiDiscoveryClient", () => {
   });
 
   it("preserves AI discovery source and observation arrays", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValue(
+      jsonResponse({
         action: "ask_next_question",
         next_question: "Who buys most often?",
         updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -151,7 +148,7 @@ describe("AiDiscoveryClient", () => {
         domain_scores: emptyDiscoveryDomainScores(),
         ready_to_summarize: false,
       }),
-    } as Response);
+    );
 
     const result = await new AiDiscoveryClient().start(
       "11111111-1111-4111-8111-111111111111",
@@ -167,9 +164,8 @@ describe("AiDiscoveryClient", () => {
   it("retries a transient discovery provider failure once", async () => {
     fetchMock
       .mockRejectedValueOnce(new TypeError("fetch failed"))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      .mockResolvedValueOnce(
+        jsonResponse({
           action: "ask_next_question",
           next_question: "مين أكتر ناس بتشتري من قصر نابولي؟",
           updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -179,7 +175,7 @@ describe("AiDiscoveryClient", () => {
           domain_scores: emptyDiscoveryDomainScores(),
           ready_to_summarize: false,
         }),
-      } as Response);
+      );
 
     const result = await new AiDiscoveryClient().start(
       "11111111-1111-4111-8111-111111111111",
@@ -218,9 +214,8 @@ describe("AiDiscoveryClient", () => {
 
   it("retries retryable discovery safe errors before returning success", async () => {
     fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      .mockResolvedValueOnce(
+        jsonResponse({
           action: "safe_failure",
           next_question: null,
           updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -235,10 +230,9 @@ describe("AiDiscoveryClient", () => {
             retryable: true,
           },
         }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
           action: "safe_failure",
           next_question: null,
           updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -253,10 +247,9 @@ describe("AiDiscoveryClient", () => {
             retryable: true,
           },
         }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
           action: "ask_next_question",
           next_question: "إيه أكتر منتج حلويات بيطلبه عملاء قصر نابولي؟",
           updated_known_facts: emptyMarketAwareBusinessFacts(),
@@ -266,7 +259,7 @@ describe("AiDiscoveryClient", () => {
           domain_scores: emptyDiscoveryDomainScores(),
           ready_to_summarize: false,
         }),
-      } as Response);
+      );
 
     const result = await new AiDiscoveryClient().start(
       "11111111-1111-4111-8111-111111111111",
@@ -280,3 +273,10 @@ describe("AiDiscoveryClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}

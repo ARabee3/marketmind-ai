@@ -12,7 +12,7 @@ import {
   IntelligenceObservationCandidate,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
-import { SearchQueryIntent, SearchProviderHint } from "./query-plan.types";
+import { SearchQueryIntent } from "./query-plan.types";
 import { SearchResultCandidate } from "./search-result.types";
 
 type TriageInput = {
@@ -84,9 +84,7 @@ export class EvidenceTriageService {
       const sourceIndex = input.sourceStartIndex + index;
       const context = { fetchedAt, sourceIndex, status };
       sourceRefs.push(sourceCandidate(result, decision, context));
-      observations.push(
-        observationCandidate(result, decision, context),
-      );
+      observations.push(observationCandidate(result, decision, context));
     });
 
     const acceptedCount = observations.filter(
@@ -160,9 +158,11 @@ function observationCandidate(
     statement: statementText(result, decision),
     source_index: context.sourceIndex,
     confidence: decision.confidence,
-    visibility: decision.classification === "competitor" ? "owner_visible" : "internal",
+    visibility:
+      decision.classification === "competitor" ? "owner_visible" : "internal",
     status: context.status,
-    discard_reason: context.status === "discarded" ? decision.reason : undefined,
+    discard_reason:
+      context.status === "discarded" ? decision.reason : undefined,
     metadata: {
       provider: result.provider,
       rank: result.rank,
@@ -215,8 +215,9 @@ function primitiveMetadata(
   metadata: Record<string, unknown>,
 ): Record<string, string | number | boolean> {
   return Object.fromEntries(
-    Object.entries(metadata).filter((entry): entry is [string, string | number | boolean] =>
-      ["string", "number", "boolean"].includes(typeof entry[1]),
+    Object.entries(metadata).filter(
+      (entry): entry is [string, string | number | boolean] =>
+        ["string", "number", "boolean"].includes(typeof entry[1]),
     ),
   );
 }

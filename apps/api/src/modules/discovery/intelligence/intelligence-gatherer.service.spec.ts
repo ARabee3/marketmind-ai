@@ -8,8 +8,10 @@ import {
 import { ApifyMapsProvider } from "./apify-maps.provider";
 import { DuckDuckGoSearchProvider } from "./duckduckgo-search.provider";
 import { EvidenceTriageService } from "./evidence-triage.service";
+import { FacebookIntelligenceService } from "./facebook-intelligence.service";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
+import { IntelligenceSourceConsolidator } from "./intelligence-source.consolidator";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -32,6 +34,11 @@ describe("IntelligenceGathererService", () => {
   const evidenceTriage = {
     triage: jest.fn(),
   } as unknown as jest.Mocked<EvidenceTriageService>;
+  const facebookIntelligence = {
+    start: jest.fn(),
+    complete: jest.fn(),
+    abort: jest.fn(),
+  } as unknown as jest.Mocked<FacebookIntelligenceService>;
   const dto: StartDiscoveryDto = {
     language_mode: LanguageModeDto.Mixed,
     intake: {
@@ -52,6 +59,8 @@ describe("IntelligenceGathererService", () => {
       sourceEnrichment,
       evidenceTriage,
       new IntelligenceContractMapper(),
+      facebookIntelligence,
+      new IntelligenceSourceConsolidator(),
     );
     metadataExtractor.extract.mockResolvedValue({
       source_refs: [],
@@ -64,6 +73,23 @@ describe("IntelligenceGathererService", () => {
       accepted_count: 0,
       discarded_count: 0,
     });
+    facebookIntelligence.start.mockResolvedValue({
+      enabled: false,
+      abort: jest.fn(),
+      result: Promise.resolve({
+        candidates: [],
+        provider_warnings: [],
+        provider_attempts: [],
+      }),
+    });
+    facebookIntelligence.complete.mockResolvedValue({
+      source_refs: [],
+      research_observations: [],
+      accepted_count: 0,
+      discarded_count: 0,
+      provider_warnings: [],
+    });
+    facebookIntelligence.abort.mockResolvedValue(undefined);
   });
 
   it("maps planned search results into contract-safe intelligence", async () => {
@@ -438,6 +464,8 @@ describe("IntelligenceGathererService", () => {
       sourceEnrichment,
       evidenceTriage,
       new IntelligenceContractMapper(),
+      facebookIntelligence,
+      new IntelligenceSourceConsolidator(),
     );
     const queries = [
       arabicPlanQuery("business_match", "مطعم كشري التحرير مدينة نصر", 100),
@@ -448,11 +476,17 @@ describe("IntelligenceGathererService", () => {
         ["apify_google_maps", "serpapi"],
       ),
       arabicPlanQuery("review_presence", "تقييمات كشري التحرير مدينة نصر", 85),
-      arabicPlanQuery("market_context", "اتجاهات سوق مطاعم الكشري في مدينة نصر", 70),
+      arabicPlanQuery(
+        "market_context",
+        "اتجاهات سوق مطاعم الكشري في مدينة نصر",
+        70,
+      ),
       arabicPlanQuery("social_profile", "كشري التحرير مدينة نصر Instagram", 60),
     ];
     queryPlanner.plan.mockResolvedValue({ source: "llm", queries });
-    const intentByQuery = new Map(queries.map((query) => [query.query, query.intent]));
+    const intentByQuery = new Map(
+      queries.map((query) => [query.query, query.intent]),
+    );
     serpApi.search.mockImplementation(async (query) => {
       const intent = intentByQuery.get(query);
       if (!intent || intent === "competitor_discovery") {
@@ -516,7 +550,9 @@ describe("IntelligenceGathererService", () => {
                 ? "social_signal"
                 : "digital_presence";
         const evidenceTier =
-          intent === "social_profile" ? "needs_confirmation" : "confirmed_signal";
+          intent === "social_profile"
+            ? "needs_confirmation"
+            : "confirmed_signal";
         const metadata = {
           triage_source: "llm",
           provider: candidate.provider,
@@ -541,7 +577,8 @@ describe("IntelligenceGathererService", () => {
           research_observations: [
             {
               kind,
-              statement: candidate.snippet ?? candidate.title ?? candidate.query,
+              statement:
+                candidate.snippet ?? candidate.title ?? candidate.query,
               source_index: sourceStartIndex,
               confidence: candidate.confidence,
               status: "accepted",
@@ -573,7 +610,9 @@ describe("IntelligenceGathererService", () => {
     expect(evidenceTriage.triage).toHaveBeenCalledTimes(5);
     expect(
       evidenceTriage.triage.mock.calls.every(([input]) =>
-        input.results.every((candidate) => candidate.metadata?.enriched === true),
+        input.results.every(
+          (candidate) => candidate.metadata?.enriched === true,
+        ),
       ),
     ).toBe(true);
     const intents = [
@@ -584,10 +623,14 @@ describe("IntelligenceGathererService", () => {
       "social_profile",
     ] as const;
     for (const intent of intents) {
-      const provider = intent === "competitor_discovery" ? "apify_google_maps" : "serpapi";
+      const provider =
+        intent === "competitor_discovery" ? "apify_google_maps" : "serpapi";
       expect(progress).toHaveBeenCalledWith(
         expect.objectContaining({
-          stage: intent === "competitor_discovery" ? "competitor_searching" : "search",
+          stage:
+            intent === "competitor_discovery"
+              ? "competitor_searching"
+              : "search",
           status: "completed",
           payload: expect.objectContaining({
             intent,
@@ -599,14 +642,18 @@ describe("IntelligenceGathererService", () => {
       );
     }
     expect(result.status).toBe("complete");
-    expect(new Set(result.source_refs.map((source) => source.platform))).toEqual(
-      new Set(["serpapi", "apify_google_maps"]),
-    );
-    expect(new Set(result.source_refs.map((source) => source.metadata?.intent))).toEqual(
-      new Set(intents),
-    );
     expect(
-      new Set(result.research_observations.map((observation) => observation.metadata?.intent)),
+      new Set(result.source_refs.map((source) => source.platform)),
+    ).toEqual(new Set(["serpapi", "apify_google_maps"]));
+    expect(
+      new Set(result.source_refs.map((source) => source.metadata?.intent)),
+    ).toEqual(new Set(intents));
+    expect(
+      new Set(
+        result.research_observations.map(
+          (observation) => observation.metadata?.intent,
+        ),
+      ),
     ).toEqual(new Set(intents));
     expect(result.research_observations).toHaveLength(5);
     expect(result.research_observations).toEqual(
@@ -755,7 +802,9 @@ describe("IntelligenceGathererService", () => {
         business_type: "محل حلويات",
         city: "اسيوط",
         area: "مدينة اسيوط",
-        social_links: [{ platform: SocialPlatformDto.Facebook, url: facebookUrl }],
+        social_links: [
+          { platform: SocialPlatformDto.Facebook, url: facebookUrl },
+        ],
       },
     });
 
@@ -783,28 +832,19 @@ describe("IntelligenceGathererService", () => {
       }),
       undefined,
     );
-    expect(result.source_refs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          source_type: "owner_link",
-          platform: "facebook",
-          url: facebookUrl,
-          metadata: expect.objectContaining({
-            metadata_fetch_status: "failed",
-            owner_submitted: true,
-          }),
-        }),
-        expect.objectContaining({
-          source_type: "search_result",
-          platform: "serpapi",
-          url: facebookUrl,
-          metadata: expect.objectContaining({
-            intent: "social_profile",
-            evidence_tier: "needs_confirmation",
-          }),
-        }),
-      ]),
-    );
+    expect(result.source_refs).toHaveLength(1);
+    expect(result.source_refs[0]).toMatchObject({
+      source_type: "owner_link",
+      platform: "facebook",
+      url: facebookUrl,
+      metadata: expect.objectContaining({
+        metadata_fetch_status: "failed",
+        owner_submitted: true,
+        provider: "serpapi",
+        intent: "social_profile",
+        evidence_tier: "needs_confirmation",
+      }),
+    });
     expect(result.research_observations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

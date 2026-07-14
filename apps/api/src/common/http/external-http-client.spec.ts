@@ -1,4 +1,4 @@
-import { getExternalText } from "./external-http-client";
+import { getExternalText, postExternalJson } from "./external-http-client";
 
 describe("external HTTP client", () => {
   const fetchMock = jest.spyOn(global, "fetch");
@@ -43,6 +43,28 @@ describe("external HTTP client", () => {
         maxBodyBytes: 10,
         validateUrl: false,
       }),
+    ).rejects.toThrow("External response exceeded 10 bytes");
+  });
+
+  it("rejects oversized streamed JSON responses", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('{"ok":'));
+        controller.enqueue(encoder.encode('"oversized"}'));
+        controller.close();
+      },
+    });
+
+    fetchMock.mockResolvedValue(
+      new Response(body, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await expect(
+      postExternalJson("https://example.com", {}, { maxBodyBytes: 10 }),
     ).rejects.toThrow("External response exceeded 10 bytes");
   });
 

@@ -7,6 +7,20 @@ export type ExternalProviderConfig = {
   readonly aiProviderRetryDelayMs: number;
   readonly discoveryResearchTimeoutMs: number;
   readonly discoveryTriageTimeoutMs: number;
+  readonly facebook: FacebookEnrichmentConfig;
+};
+
+export type FacebookEnrichmentConfig = {
+  readonly enrichmentEnabled: boolean;
+  readonly postsEnabled: boolean;
+  readonly pageActorId: string;
+  readonly postActorId: string;
+  readonly maxPages: number;
+  readonly maxPosts: number;
+  readonly timeoutMs: number;
+  readonly maxSessionChargeUsd: number;
+  readonly maxPageChargeUsd: number;
+  readonly maxPostChargeUsd: number;
 };
 
 export const DEFAULT_DISCOVERY_SEARCH_TIMEOUT_MS = 8000;
@@ -43,7 +57,41 @@ export function externalProviderConfig(): ExternalProviderConfig {
       process.env.DISCOVERY_TRIAGE_TIMEOUT_MS,
       DEFAULT_DISCOVERY_TRIAGE_TIMEOUT_MS,
     ),
+    facebook: {
+      enrichmentEnabled: booleanEnv(
+        process.env.DISCOVERY_FACEBOOK_ENRICHMENT_ENABLED,
+      ),
+      postsEnabled: booleanEnv(process.env.DISCOVERY_FACEBOOK_POSTS_ENABLED),
+      pageActorId:
+        process.env.APIFY_FACEBOOK_PAGES_ACTOR_ID ??
+        "apify~facebook-pages-scraper",
+      postActorId:
+        process.env.APIFY_FACEBOOK_POSTS_ACTOR_ID ??
+        "apify~facebook-posts-scraper",
+      maxPages: positiveIntegerEnv(process.env.DISCOVERY_FACEBOOK_MAX_PAGES, 1),
+      maxPosts: positiveIntegerEnv(process.env.DISCOVERY_FACEBOOK_MAX_POSTS, 5),
+      timeoutMs: positiveIntegerEnv(
+        process.env.DISCOVERY_FACEBOOK_TIMEOUT_MS,
+        60_000,
+      ),
+      maxSessionChargeUsd: positiveNumberEnv(
+        process.env.DISCOVERY_FACEBOOK_SESSION_MAX_CHARGE_USD,
+        0.05,
+      ),
+      maxPageChargeUsd: positiveNumberEnv(
+        process.env.DISCOVERY_FACEBOOK_PAGES_MAX_CHARGE_USD,
+        0.02,
+      ),
+      maxPostChargeUsd: positiveNumberEnv(
+        process.env.DISCOVERY_FACEBOOK_POSTS_MAX_CHARGE_USD,
+        0.03,
+      ),
+    },
   };
+}
+
+function booleanEnv(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === "true";
 }
 
 function positiveIntegerEnv(
@@ -51,6 +99,15 @@ function positiveIntegerEnv(
   fallback: number,
 ): number {
   const parsed = Number.parseInt(value ?? "", 10);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function positiveNumberEnv(
+  value: string | undefined,
+  fallback: number,
+): number {
+  const parsed = Number.parseFloat(value ?? "");
 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

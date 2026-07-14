@@ -1,4 +1,5 @@
 import { ApifyMapsProvider } from "./apify-maps.provider";
+import { ApifyActorClient } from "./apify/apify-actor.client";
 
 describe("ApifyMapsProvider", () => {
   const originalEnv = process.env;
@@ -19,20 +20,24 @@ describe("ApifyMapsProvider", () => {
   });
 
   it("runs the Google Maps actor and normalizes place results", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => [
-        {
-          title: "Koshary Corner",
-          address: "Nasr City, Cairo",
-          phone: "01000000000",
-          averageRating: 4.5,
-          placeId: "place-1",
-        },
-      ],
-    } as Response);
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            title: "Koshary Corner",
+            address: "Nasr City, Cairo",
+            phone: "01000000000",
+            averageRating: 4.5,
+            placeId: "place-1",
+          },
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
 
-    const results = await new ApifyMapsProvider().search("koshary cairo");
+    const results = await new ApifyMapsProvider(new ApifyActorClient()).search(
+      "koshary cairo",
+    );
 
     expect(results).toEqual([
       {
@@ -53,8 +58,13 @@ describe("ApifyMapsProvider", () => {
       },
     ]);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "/actors/nwua9Gu5YrADL7ZDj/run-sync-get-dataset-items",
+      "/acts/nwua9Gu5YrADL7ZDj/run-sync-get-dataset-items",
     );
+    expect(
+      new URL(String(fetchMock.mock.calls[0]?.[0])).searchParams.has(
+        "maxTotalChargeUsd",
+      ),
+    ).toBe(false);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({

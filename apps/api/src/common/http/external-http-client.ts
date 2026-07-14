@@ -23,7 +23,7 @@ export async function getExternalJson<T>(
     throw new Error(`External request failed with ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  return JSON.parse(await responseText(response, options.maxBodyBytes)) as T;
 }
 
 export async function getExternalText(
@@ -62,7 +62,7 @@ export async function postExternalJson<T>(
     throw new Error(`External request failed with ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  return JSON.parse(await responseText(response, options.maxBodyBytes)) as T;
 }
 
 async function fetchExternal(

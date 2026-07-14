@@ -84,6 +84,39 @@ export function envSchema(
     }
   }
 
+  boundedNumber(config, "DISCOVERY_FACEBOOK_MAX_PAGES", 1, 1, errors);
+  boundedNumber(config, "DISCOVERY_FACEBOOK_MAX_POSTS", 1, 5, errors);
+  boundedNumber(config, "DISCOVERY_FACEBOOK_TIMEOUT_MS", 1, 60_000, errors);
+  const sessionCap = boundedNumber(
+    config,
+    "DISCOVERY_FACEBOOK_SESSION_MAX_CHARGE_USD",
+    Number.EPSILON,
+    1,
+    errors,
+    0.05,
+  );
+  const pageCap = boundedNumber(
+    config,
+    "DISCOVERY_FACEBOOK_PAGES_MAX_CHARGE_USD",
+    Number.EPSILON,
+    1,
+    errors,
+    0.02,
+  );
+  const postCap = boundedNumber(
+    config,
+    "DISCOVERY_FACEBOOK_POSTS_MAX_CHARGE_USD",
+    Number.EPSILON,
+    1,
+    errors,
+    0.03,
+  );
+  if (pageCap + postCap > sessionCap + Number.EPSILON) {
+    errors.push(
+      "Facebook actor charge allocations must not exceed the session cap",
+    );
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Environment validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
@@ -91,4 +124,25 @@ export function envSchema(
   }
 
   return config;
+}
+
+function boundedNumber(
+  config: Record<string, unknown>,
+  key: string,
+  minimum: number,
+  maximum: number,
+  errors: string[],
+  fallback = minimum,
+): number {
+  const raw = config[key];
+  if (raw === undefined || raw === "") {
+    return fallback;
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    errors.push(`${key} must be between ${minimum} and ${maximum}`);
+    return fallback;
+  }
+  return value;
 }

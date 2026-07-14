@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.core.config import Settings, get_settings
 from app.main import create_app
@@ -8,7 +9,7 @@ from app.search.llm_evidence_triage import (
 )
 
 
-def payload() -> dict[str, object]:
+def payload(provider: str = "serpapi") -> dict[str, object]:
     return {
         "language_mode": "mixed",
         "intake": {
@@ -22,7 +23,7 @@ def payload() -> dict[str, object]:
             {
                 "index": 0,
                 "intent": "competitor_discovery",
-                "provider": "serpapi",
+                "provider": provider,
                 "title": "Nearby restaurant",
                 "url": "https://example.com/nearby",
                 "snippet": "Popular restaurant in Nasr City Cairo.",
@@ -48,6 +49,35 @@ def test_internal_evidence_triage_endpoint_uses_mock_ai_decision() -> None:
     assert body["source"] == "llm"
     assert body["decisions"][0]["classification"] == "competitor"
     assert body["decisions"][0]["evidence_tier"] == "confirmed_signal"
+
+
+@pytest.mark.parametrize(
+    "provider",
+    ["apify_facebook_pages", "apify_facebook_posts"],
+)
+def test_internal_evidence_triage_accepts_facebook_provider(provider: str) -> None:
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(ai_provider_mode="mock")
+    client = TestClient(app)
+
+    response = client.post(
+        "/internal/v1/ai/search/evidence-triage",
+        json=payload(provider),
+    )
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+
+
+def test_internal_evidence_triage_rejects_unknown_provider() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/internal/v1/ai/search/evidence-triage",
+        json=payload("unknown_provider"),
+    )
+
+    assert response.status_code == 422
 
 
 def test_openrouter_triage_uses_dedicated_timeout() -> None:

@@ -1,23 +1,26 @@
 import { Injectable } from "@nestjs/common";
 import { ProviderError } from "../../../common/errors/provider-error";
-import { safeError } from "../../../common/errors/safe-error";
 import { IntelligenceResult } from "../discovery-state";
 import { StartDiscoveryDto } from "../dto/start-discovery.dto";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
+import {
+  completedIntelligenceInput,
+  failedIntelligenceInput,
+} from "./intelligence-outcome";
+import { IntelligenceSourceConsolidator } from "./intelligence-source.consolidator";
 import {
   IntelligenceObservationCandidate,
   IntelligenceProgressCallback,
   IntelligenceSourceCandidate,
 } from "./intelligence.types";
 import { EvidenceTriageService } from "./evidence-triage.service";
+import { FacebookIntelligenceService } from "./facebook-intelligence.service";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
 import { SearchProviderWarning } from "./search-result.types";
 import { SourceEnrichmentService } from "./source-enrichment.service";
-
 const MAX_QUERIES_PER_RUN = 8;
-
 @Injectable()
 export class IntelligenceGathererService {
   constructor(
@@ -27,6 +30,8 @@ export class IntelligenceGathererService {
     private readonly sourceEnrichment: SourceEnrichmentService,
     private readonly evidenceTriage: EvidenceTriageService,
     private readonly mapper: IntelligenceContractMapper,
+    private readonly facebookIntelligence: FacebookIntelligenceService,
+    private readonly sourceConsolidator: IntelligenceSourceConsolidator,
   ) {}
 
   async gather(
@@ -65,6 +70,11 @@ export class IntelligenceGathererService {
       messageText: "Owner-submitted links were checked.",
       payload: { source_count: metadata.source_refs.length },
     });
+    const facebookRun = await this.facebookIntelligence.start(
+      dto,
+      onProgress,
+      signal,
+    );
     const sourceCandidates: IntelligenceSourceCandidate[] = [];
     const observationCandidates: IntelligenceObservationCandidate[] = [];
     const providerWarnings: SearchProviderWarning[] = [];
@@ -201,56 +211,40 @@ export class IntelligenceGathererService {
         });
       }
 
+      const social = await this.facebookIntelligence.complete(
+        facebookRun,
+        dto,
+        sourceCandidates.length,
+        onProgress,
+        signal,
+      );
       signal?.throwIfAborted();
-      const firstWarning = providerWarnings[0];
-      const acceptedSourceCount = sourceCandidates.filter(
-        (source) => source.status !== "discarded",
-      ).length;
-      return this.mapper.toIntelligenceResult({
-        status:
-          acceptedSourceCount > 0
-            ? firstWarning
-              ? "partial"
-              : "complete"
-            : firstWarning
-              ? "failed"
-              : "partial",
-        source_refs: sourceCandidates,
-        research_observations: observationCandidates,
-        safe_error: firstWarning
-          ? safeError(
-              firstWarning.code,
-              firstWarning.message,
-              firstWarning.retryable,
-            )
-          : undefined,
-        knowledge_gaps:
-          acceptedSourceCount > 0 || firstWarning
-            ? []
-            : [
-                {
-                  field_key: "search_sources",
-                  question_hint:
-                    "I could not find enough public search data. Which links or competitors should I check?",
-                  priority: 2,
-                },
-              ],
-      });
+      providerWarnings.push(...social.provider_warnings);
+      sourceCandidates.push(...social.source_refs);
+      observationCandidates.push(...social.research_observations);
+
+      signal?.throwIfAborted();
+      const consolidated = this.sourceConsolidator.consolidate(
+        sourceCandidates,
+        observationCandidates,
+      );
+      return this.mapper.toIntelligenceResult(
+        completedIntelligenceInput(consolidated, providerWarnings),
+      );
     } catch (error) {
+      await this.facebookIntelligence.abort(facebookRun, error);
       signal?.throwIfAborted();
       if (!(error instanceof ProviderError)) {
         throw error;
       }
 
-      return this.mapper.toIntelligenceResult({
-        status:
-          triageProviderFailed || sourceCandidates.length > 0
-            ? "partial"
-            : "failed",
-        source_refs: sourceCandidates,
-        research_observations: observationCandidates,
-        safe_error: safeError(error.code, error.message, error.retryable),
-      });
+      const consolidated = this.sourceConsolidator.consolidate(
+        sourceCandidates,
+        observationCandidates,
+      );
+      return this.mapper.toIntelligenceResult(
+        failedIntelligenceInput(consolidated, error, triageProviderFailed),
+      );
     }
   }
 }

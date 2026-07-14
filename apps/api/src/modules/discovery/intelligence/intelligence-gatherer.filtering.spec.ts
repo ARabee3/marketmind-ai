@@ -1,8 +1,10 @@
 import "reflect-metadata";
 import { LanguageModeDto, StartDiscoveryDto } from "../dto/start-discovery.dto";
 import { EvidenceTriageService } from "./evidence-triage.service";
+import { FacebookIntelligenceService } from "./facebook-intelligence.service";
 import { IntelligenceContractMapper } from "./intelligence-contract.mapper";
 import { IntelligenceGathererService } from "./intelligence-gatherer.service";
+import { IntelligenceSourceConsolidator } from "./intelligence-source.consolidator";
 import { MetadataExtractorService } from "./metadata-extractor.service";
 import { QueryPlannerService } from "./query-planner.service";
 import { SearchClientService } from "./search-client.service";
@@ -24,6 +26,11 @@ describe("IntelligenceGathererService filtering", () => {
   const evidenceTriage = {
     triage: jest.fn(),
   } as unknown as jest.Mocked<EvidenceTriageService>;
+  const facebookIntelligence = {
+    start: jest.fn(),
+    complete: jest.fn(),
+    abort: jest.fn(),
+  } as unknown as jest.Mocked<FacebookIntelligenceService>;
   const dto: StartDiscoveryDto = {
     language_mode: LanguageModeDto.Mixed,
     intake: {
@@ -44,6 +51,8 @@ describe("IntelligenceGathererService filtering", () => {
       sourceEnrichment,
       evidenceTriage,
       new IntelligenceContractMapper(),
+      facebookIntelligence,
+      new IntelligenceSourceConsolidator(),
     );
     metadataExtractor.extract.mockResolvedValue({
       source_refs: [],
@@ -56,6 +65,23 @@ describe("IntelligenceGathererService filtering", () => {
       accepted_count: 0,
       discarded_count: 0,
     });
+    facebookIntelligence.start.mockResolvedValue({
+      enabled: false,
+      abort: jest.fn(),
+      result: Promise.resolve({
+        candidates: [],
+        provider_warnings: [],
+        provider_attempts: [],
+      }),
+    });
+    facebookIntelligence.complete.mockResolvedValue({
+      source_refs: [],
+      research_observations: [],
+      accepted_count: 0,
+      discarded_count: 0,
+      provider_warnings: [],
+    });
+    facebookIntelligence.abort.mockResolvedValue(undefined);
   });
 
   it("reports competitor and filtering progress for competitor research", async () => {
