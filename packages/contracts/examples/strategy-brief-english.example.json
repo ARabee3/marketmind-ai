@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "title": "Alexandria Bookshop — Strategy Brief (English)",
+    "description": "Strategy brief for an English-language SME. Fictional independent bookshop in Alexandria.",
+    "business": "Alexandria Reads",
+    "language": "en",
+    "scenario": "Independent bookshop wants to grow online sales and social media presence."
+  },
+  "id": "b2000000-0000-4000-8000-000000000002",
+  "strategy_id": "a2000000-0000-4000-8000-000000000002",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffff02",
+    "confirmed_at": "2026-06-28T14:00:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "conversion",
+  "start_date": "2026-07-13T00:00:00.000Z",
+  "plan_language": "en",
+  "paid_media_allowed": true,
+  "external_budget_mode": "three_month_amount",
+  "external_budget_egp": 15000,
+  "team_capacity": "Owner and one part-time assistant. No marketing experience.",
+  "constraints": [
+    "No graphic design skills in-house",
+    "Limited product photography equipment",
+    "Shop open 10am-9pm, staff have limited daytime availability"
+  ],
+  "clarification_answers": [
+    {
+      "question_id": "q2000000-0000-4000-8000-000000000001",
+      "question_text": "Do you currently run any email newsletter?",
+      "answer_text": "No, but I have collected about 50 emails from customers manually.",
+      "answered_at": "2026-07-05T10:00:00.000Z"
+    }
+  ],
+  "created_at": "2026-07-04T10:00:00.000Z",
+  "updated_at": "2026-07-05T10:00:00.000Z"
+}

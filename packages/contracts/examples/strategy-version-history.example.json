@@ -1,0 +1,33 @@
+[
+  {
+    "meta": {
+      "title": "Koshary Corner — Version History",
+      "description": "Strategy version history showing initial draft, approval, and rejected revision attempt."
+    }
+  },
+  {
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "version": 1,
+    "status": "approved",
+    "brief_id": "b0000000-0000-4000-8000-000000000001",
+    "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+    "created_at": "2026-07-02T09:00:00.000Z",
+    "decision": {
+      "id": "e0000000-0000-4000-8000-000000000001",
+      "strategy_id": "a0000000-0000-4000-8000-000000000001",
+      "strategy_version": 1,
+      "decision": "approved",
+      "revision_notes": null,
+      "decided_by_user_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      "decided_at": "2026-07-03T14:00:00.000Z"
+    }
+  },
+  {
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "version": 2,
+    "status": "draft",
+    "brief_id": "b0000000-0000-4000-8000-000000000001",
+    "retrieval_run_id": "c0000000-0000-4000-8000-000000000002",
+    "created_at": "2026-07-10T09:00:00.000Z"
+  }
+]

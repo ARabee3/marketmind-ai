@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "title": "Invalid: Paid Media Disallowed But Budget Mode Implies Spend",
+    "description": "paid_media_allowed is false but external_budget_mode is 'monthly_amount', which implies paid advertising. This should fail.",
+    "expected_failure": "paid_media_allowed must be true when budget mode requires spend"
+  },
+  "id": "b-invalid-0002",
+  "strategy_id": "a-invalid-0002",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "awareness",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "plan_language": "ar-EG",
+  "paid_media_allowed": false,
+  "external_budget_mode": "monthly_amount",
+  "external_budget_egp": 3000,
+  "team_capacity": "المالك فقط",
+  "constraints": [],
+  "clarification_answers": [],
+  "created_at": "2026-07-01T12:00:00.000Z",
+  "updated_at": "2026-07-01T12:00:00.000Z"
+}

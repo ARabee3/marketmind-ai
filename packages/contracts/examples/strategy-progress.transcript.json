@@ -1,0 +1,143 @@
+[
+  {
+    "meta": {
+      "title": "Koshary Corner — Strategy Progress Transcript",
+      "description": "Full progress event sequence for a strategy generation run."
+    }
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 1,
+    "stage": "queued",
+    "status": "started",
+    "message_key": "strategy.queued",
+    "message_text": "Strategy generation has been queued.",
+    "retryable": false,
+    "payload": {},
+    "created_at": "2026-07-02T08:00:00.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 2,
+    "stage": "query_planning",
+    "status": "started",
+    "message_key": "strategy.query_planning",
+    "message_text": "Preparing retrieval query from brief and profile.",
+    "payload": {},
+    "created_at": "2026-07-02T08:00:05.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 3,
+    "stage": "query_planning",
+    "status": "complete",
+    "message_key": "strategy.query_planned",
+    "message_text": "Retrieval query prepared. 5 knowledge categories identified.",
+    "payload": { "category_count": 5 },
+    "created_at": "2026-07-02T08:00:08.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 4,
+    "stage": "retrieval",
+    "status": "started",
+    "message_key": "strategy.retrieval.started",
+    "message_text": "Searching marketing library for relevant benchmarks and guidance.",
+    "payload": {},
+    "created_at": "2026-07-02T08:00:10.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 5,
+    "stage": "retrieval",
+    "status": "progress",
+    "message_key": "strategy.retrieval.items_found",
+    "message_text": "Found 5 relevant entries from the marketing library.",
+    "payload": { "item_count": 5, "gap_count": 2 },
+    "created_at": "2026-07-02T08:00:15.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 6,
+    "stage": "retrieval",
+    "status": "complete",
+    "message_key": "strategy.retrieval.complete",
+    "message_text": "Retrieval complete. 5 items retrieved in 342ms.",
+    "payload": { "latency_ms": 342, "item_count": 5 },
+    "created_at": "2026-07-02T08:00:16.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 7,
+    "stage": "generating",
+    "status": "started",
+    "message_key": "strategy.generating",
+    "message_text": "Generating strategy plan from brief, profile, and retrieved knowledge.",
+    "payload": {},
+    "created_at": "2026-07-02T08:00:20.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 8,
+    "stage": "generating",
+    "status": "complete",
+    "message_key": "strategy.generated",
+    "message_text": "Strategy plan draft generated successfully.",
+    "payload": {
+      "sections": [
+        "executive_summary",
+        "situation_diagnosis",
+        "target_audience",
+        "positioning",
+        "channel_scores",
+        "content_strategy",
+        "budget_scenarios",
+        "kpi_targets"
+      ]
+    },
+    "created_at": "2026-07-02T08:01:30.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 9,
+    "stage": "validating",
+    "status": "started",
+    "message_key": "strategy.validating",
+    "message_text": "Validating strategy plan structure, citations, and arithmetic.",
+    "payload": {},
+    "created_at": "2026-07-02T08:01:32.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 10,
+    "stage": "validating",
+    "status": "complete",
+    "message_key": "strategy.validated",
+    "message_text": "All validations passed. Strategy is ready for owner review.",
+    "payload": {
+      "checks_passed": ["schema", "citation_integrity", "budget_arithmetic", "channel_limits", "paid_media_compliance"]
+    },
+    "created_at": "2026-07-02T08:01:35.000Z"
+  },
+  {
+    "type": "strategy_progress",
+    "strategy_id": "a0000000-0000-4000-8000-000000000001",
+    "seq": 11,
+    "stage": "ready",
+    "status": "complete",
+    "message_key": "strategy.ready",
+    "message_text": "Strategy plan is ready for owner review.",
+    "payload": { "plan_id": "d0000000-0000-4000-8000-000000000001" },
+    "created_at": "2026-07-02T08:01:40.000Z"
+  }
+]

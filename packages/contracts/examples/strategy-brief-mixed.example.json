@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "title": "Dokki Dental Clinic — Strategy Brief (Mixed)",
+    "description": "Mixed-language brief for a fictional dental clinic in Dokki, Giza. The owner communicates in both Arabic and English.",
+    "business": "دكتورة نادين عيادة أسنان / Dr. Nadine Dental Clinic",
+    "language": "mixed",
+    "scenario": "New clinic wants to build patient awareness in Dokki area."
+  },
+  "id": "b3000000-0000-4000-8000-000000000003",
+  "strategy_id": "a3000000-0000-4000-8000-000000000003",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffff03",
+    "confirmed_at": "2026-07-01T09:00:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "awareness",
+  "start_date": "2026-07-20T00:00:00.000Z",
+  "plan_language": "mixed",
+  "paid_media_allowed": true,
+  "external_budget_mode": "monthly_amount",
+  "external_budget_egp": 5000,
+  "team_capacity": "طبيبة واحدة وسكرتيرة استقبال. الدكتور نادين تدير صفحة الفيسبوك بنفسها.",
+  "constraints": [
+    "العيادة جديدة ومازالت تبني سمعتها",
+    "The clinic cannot offer discounts due to pricing regulations",
+    "Most content must be in Arabic with English options for expat patients"
+  ],
+  "clarification_answers": [],
+  "created_at": "2026-07-10T11:00:00.000Z",
+  "updated_at": "2026-07-10T11:00:00.000Z"
+}

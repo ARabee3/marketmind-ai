@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Owner Decision: Approved",
+    "description": "Owner approved the strategy plan with no revision notes.",
+    "business": "Koshary Corner"
+  },
+  "id": "e0000000-0000-4000-8000-000000000001",
+  "strategy_id": "a0000000-0000-4000-8000-000000000001",
+  "strategy_version": 1,
+  "decision": "approved",
+  "revision_notes": null,
+  "decided_by_user_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "decided_at": "2026-07-03T14:00:00.000Z"
+}

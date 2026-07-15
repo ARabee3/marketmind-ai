@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "title": "Invalid: Citation References Non-Existent Chunk",
+    "description": "A SourcedClaim references citation_id 'c9999999-9999-4999-8999-999999999999' which does not exist in citations[]. The citation's chunk_id also does not exist in any retrieval pack item.",
+    "expected_failure": "citation_id must exist in citations array"
+  },
+  "id": "d-invalid-0002",
+  "strategy_id": "a-invalid-0004",
+  "version": 1,
+  "contract_version": "strategy-v1",
+  "brief_id": "b-invalid-0004",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "retrieval_run_id": "c-invalid-0004",
+  "channel_score_rule_version": "strategy-channel-score-v1",
+  "executive_summary": {
+    "text": "Plan with an invalid citation reference.",
+    "source": "retrieved_evidence",
+    "citation_ids": ["c9999999-9999-4999-8999-999999999999"]
+  },
+  "situation_diagnosis": {
+    "text": "Test data.",
+    "source": "confirmed_fact",
+    "citation_ids": []
+  },
+  "primary_objective": "awareness",
+  "funnel_stage": "awareness",
+  "target_audience": {
+    "text": "Test.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "positioning": {
+    "text": "Test.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "selected_channels": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": { "objective_fit": 0.8, "audience_fit": 0.8, "existing_presence": 0.5, "asset_format_fit": 0.8, "team_capacity": 0.5, "budget_fit": 0.8, "evidence_strength": 0.7, "measurement_readiness": 0.6 },
+      "total_score": 5.5,
+      "rationale": { "text": "Test", "source": "model_synthesis", "citation_ids": [] },
+      "excluded_reason": null
+    }
+  ],
+  "all_channel_scores": [],
+  "tone": {
+    "text": "Test.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "plan_language": "ar-EG",
+  "content_strategy": {
+    "pillars": [{ "text": "Test", "source": "model_synthesis", "citation_ids": [] }],
+    "format_mix": [{ "text": "Test", "source": "model_synthesis", "citation_ids": [] }],
+    "weekly_cadence": "1 per week",
+    "weeks": [{ "week_number": 1, "theme": "Test", "formats": ["photo"] }],
+    "experiments": []
+  },
+  "budget_mode": "organic_only",
+  "budget_scenarios": null,
+  "kpi_targets": [],
+  "assumptions": [],
+  "risks": [],
+  "knowledge_gaps": [],
+  "blockers": [],
+  "citations": [],
+  "created_at": "2026-07-05T08:00:00.000Z"
+}

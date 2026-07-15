@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Retrieval Knowledge Pack",
+    "description": "Synthetic contract fixture for the fictional Koshary Corner. All titles, sources, and numeric values below are test data and are not approved real-world marketing evidence.",
+    "business": "Koshary Corner",
+    "synthetic_evidence": true
+  },
+  "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+  "query_summary": "Marketing benchmarks and guidance for a Cairo-based quick service restaurant targeting office workers during weekday lunch",
+  "query_context": {
+    "business_type": "quick service restaurant",
+    "market": "egypt",
+    "locale": "ar-EG",
+    "objective": "acquisition",
+    "funnel_stage": "awareness_to_purchase",
+    "active_channels": ["instagram", "google_maps"],
+    "asset_capability": ["instagram_page", "google_maps_listing"],
+    "team_capacity": "مالك وفرد واحد في المطبخ",
+    "budget_mode": "monthly_amount",
+    "industry": null
+  },
+  "profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+  "brief_id": "b0000000-0000-4000-8000-000000000001",
+  "items": [
+    {
+      "chunk_id": "cccccccc-0001-4000-8000-000000000001",
+      "entry_id": "eeeeeeee-0001-4000-8000-000000000001",
+      "entry_version": 2,
+      "title": "[SYNTHETIC FIXTURE] Instagram Engagement Range",
+      "excerpt": "Synthetic test range: 2.1-3.8% engagement. This value exists only to exercise verified-benchmark contract validation.",
+      "kind": "benchmark_report",
+      "tags": {
+        "industry": ["qsr", "food_beverage"],
+        "channel": ["instagram"],
+        "market": ["egypt", "cairo"],
+        "metric": ["engagement_rate"]
+      },
+      "relevance_score": 0.89,
+      "source_quality": {
+        "evidence_tier": "verified_benchmark",
+        "source_references": [
+          "synthetic-fixture://instagram-engagement-range"
+        ],
+        "effective_at": "2026-01-01T00:00:00.000Z",
+        "expires_at": "2027-01-01T00:00:00.000Z",
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0002-4000-8000-000000000002",
+      "entry_id": "eeeeeeee-0002-4000-8000-000000000002",
+      "entry_version": 1,
+      "title": "[SYNTHETIC FIXTURE] Paid Social Cost Range",
+      "excerpt": "Synthetic test range: 1.20-2.50 EGP. This is not a real Egypt platform benchmark.",
+      "kind": "benchmark_report",
+      "tags": {
+        "industry": ["food_beverage", "qsr"],
+        "channel": ["facebook", "instagram"],
+        "market": ["egypt"],
+        "metric": ["cpc", "cpm"]
+      },
+      "relevance_score": 0.78,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "synthetic-fixture://paid-social-cost-range"
+        ],
+        "effective_at": "2026-02-01T00:00:00.000Z",
+        "expires_at": "2026-12-31T00:00:00.000Z",
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0003-4000-8000-000000000003",
+      "entry_id": "eeeeeeee-0003-4000-8000-000000000003",
+      "entry_version": 1,
+      "title": "[SYNTHETIC FIXTURE] Local Listing Improvement Example",
+      "excerpt": "Synthetic test improvement value: 35%. This value is not real market evidence.",
+      "kind": "guidance_article",
+      "tags": {
+        "industry": ["qsr", "restaurant"],
+        "channel": ["google_maps"],
+        "market": ["egypt"],
+        "topic": ["optimization", "local_seo"]
+      },
+      "relevance_score": 0.85,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "synthetic-fixture://local-listing-improvement"
+        ],
+        "effective_at": "2026-03-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0004-4000-8000-000000000004",
+      "entry_id": "eeeeeeee-0004-4000-8000-000000000004",
+      "entry_version": 1,
+      "title": "[SYNTHETIC FIXTURE] Food Content Guidance",
+      "excerpt": "Synthetic test guidance for preparation-process and customer-moment content. It contains no real performance claim.",
+      "kind": "guidance_article",
+      "tags": {
+        "industry": ["food_beverage"],
+        "channel": ["instagram", "facebook"],
+        "topic": ["content_strategy", "ugc"],
+        "market": ["global"]
+      },
+      "relevance_score": 0.72,
+      "source_quality": {
+        "evidence_tier": "reviewed_guidance",
+        "source_references": [
+          "synthetic-fixture://food-content-guidance"
+        ],
+        "effective_at": "2025-06-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    },
+    {
+      "chunk_id": "cccccccc-0005-4000-8000-000000000005",
+      "entry_id": "eeeeeeee-0005-4000-8000-000000000005",
+      "entry_version": 1,
+      "title": "[SYNTHETIC FIXTURE] Small-Team Capacity Guidance",
+      "excerpt": "Synthetic test guidance: constrain the channel count when the owner has no dedicated marketer.",
+      "kind": "guidance_article",
+      "tags": {
+        "topic": ["capacity_planning", "team_scaling"],
+        "industry": ["general"],
+        "market": ["global"]
+      },
+      "relevance_score": 0.65,
+      "source_quality": {
+        "evidence_tier": "contextual_note",
+        "source_references": [
+          "synthetic-fixture://small-team-capacity"
+        ],
+        "effective_at": "2025-03-01T00:00:00.000Z",
+        "expires_at": null,
+        "review_status": "approved"
+      }
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "category": "competitor_benchmarks",
+      "description": "No verified benchmark data for koshary-specific pricing or promotion effectiveness in Nasr City.",
+      "severity": "non_critical"
+    },
+    {
+      "category": "local_demand_data",
+      "description": "No foot traffic data available for Makram Ebeid Street lunch crowd size or competitor density.",
+      "severity": "non_critical"
+    }
+  ],
+  "retrieval_metadata": {
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimensions": 1536,
+    "collection_name": "marketing_knowledge_v1",
+    "retrieval_latency_ms": 342
+  },
+  "retrieved_at": "2026-07-02T08:00:00.000Z"
+}

@@ -1,0 +1,100 @@
+{
+  "meta": {
+    "title": "Invalid: Profile Version Does Not Match Brief",
+    "description": "The plan's profile_version has a higher version number than the one referenced in the brief. This should fail staleness check.",
+    "expected_failure": "profile_version must match the version referenced in the brief"
+  },
+  "id": "d-invalid-0004",
+  "strategy_id": "a-invalid-0006",
+  "version": 1,
+  "contract_version": "strategy-v1",
+  "brief_id": "b-invalid-0007",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffff99",
+    "confirmed_at": "2026-07-10T10:00:00.000Z",
+    "version": 2
+  },
+  "retrieval_run_id": "c-invalid-0006",
+  "channel_score_rule_version": "strategy-channel-score-v1",
+  "executive_summary": {
+    "text": "Plan created after profile was updated — stale reference.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "situation_diagnosis": {
+    "text": "Test.",
+    "source": "confirmed_fact",
+    "citation_ids": []
+  },
+  "primary_objective": "awareness",
+  "funnel_stage": "awareness",
+  "target_audience": {
+    "text": "Test.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "positioning": {
+    "text": "Test.",
+    "source": "model_synthesis",
+    "citation_ids": []
+  },
+  "selected_channels": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": { "objective_fit": 0.8, "audience_fit": 0.8, "existing_presence": 0.5, "asset_format_fit": 0.8, "team_capacity": 0.5, "budget_fit": 0.8, "evidence_strength": 0.7, "measurement_readiness": 0.6 },
+      "total_score": 5.5,
+      "rationale": { "text": "Test", "source": "model_synthesis", "citation_ids": [] },
+      "excluded_reason": null
+    }
+  ],
+  "all_channel_scores": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": { "objective_fit": 0.8, "audience_fit": 0.8, "existing_presence": 0.5, "asset_format_fit": 0.8, "team_capacity": 0.5, "budget_fit": 0.8, "evidence_strength": 0.7, "measurement_readiness": 0.6 },
+      "total_score": 5.5,
+      "rationale": { "text": "Test", "source": "model_synthesis", "citation_ids": [] },
+      "excluded_reason": null
+    }
+  ],
+  "tone": {
+    "text": "Test",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "plan_language": "ar-EG",
+  "content_strategy": {
+    "pillars": [
+      { "text": "P1", "source": "model_synthesis", "citation_ids": [] },
+      { "text": "P2", "source": "model_synthesis", "citation_ids": [] },
+      { "text": "P3", "source": "model_synthesis", "citation_ids": [] }
+    ],
+    "format_mix": [{ "text": "Test", "source": "model_synthesis", "citation_ids": [] }],
+    "weekly_cadence": "1 per week",
+    "weeks": [
+      { "week_number": 1, "theme": "test", "formats": ["photo"] },
+      { "week_number": 2, "theme": "test", "formats": ["photo"] },
+      { "week_number": 3, "theme": "test", "formats": ["photo"] },
+      { "week_number": 4, "theme": "test", "formats": ["photo"] },
+      { "week_number": 5, "theme": "test", "formats": ["photo"] },
+      { "week_number": 6, "theme": "test", "formats": ["photo"] },
+      { "week_number": 7, "theme": "test", "formats": ["photo"] },
+      { "week_number": 8, "theme": "test", "formats": ["photo"] },
+      { "week_number": 9, "theme": "test", "formats": ["photo"] },
+      { "week_number": 10, "theme": "test", "formats": ["photo"] },
+      { "week_number": 11, "theme": "test", "formats": ["photo"] },
+      { "week_number": 12, "theme": "test", "formats": ["photo"] }
+    ],
+    "experiments": []
+  },
+  "budget_mode": "organic_only",
+  "budget_scenarios": null,
+  "kpi_targets": [],
+  "assumptions": [],
+  "risks": [],
+  "knowledge_gaps": [],
+  "blockers": [],
+  "citations": [],
+  "created_at": "2026-07-05T08:00:00.000Z"
+}

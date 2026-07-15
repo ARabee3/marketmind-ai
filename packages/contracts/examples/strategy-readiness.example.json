@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Readiness Check",
+    "description": "Strategy readiness check showing no blockers and current profile version.",
+    "business": "Koshary Corner"
+  },
+  "ready": true,
+  "blockers": [],
+  "profile_version_current": true
+}
