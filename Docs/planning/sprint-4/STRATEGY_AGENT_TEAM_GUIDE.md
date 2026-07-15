@@ -185,16 +185,19 @@ progress.
 
 ### Parallel frontend refinement
 
-These two issues complete the other agreed Sprint 4 track. They improve the
+These three issues complete the other agreed Sprint 4 track. They improve the
 existing product foundation while the four-person AI team builds Strategy:
 
 - [#51 — Rich public landing page and verified-owner launchpad](https://github.com/ARabee3/marketmind-ai/issues/51), owned by Merzek;
-- [#81 — Distinctive visual system and existing journey refinement](https://github.com/ARabee3/marketmind-ai/issues/81), owned by Ahmed.
+- [#81 — Distinctive visual system and existing journey refinement](https://github.com/ARabee3/marketmind-ai/issues/81), owned by Ahmed;
+- [#86 — shadcn-first agent component policy](https://github.com/ARabee3/marketmind-ai/issues/86), owned by Ahmed.
 
 Issue #51 gives visitors the marketing explanation before the authenticated
 workspace. Issue #81 refines the shared app shell, shadcn-based primitives,
 authentication, and Discovery surfaces so the new Strategy UI builds on a
-coherent product language.
+coherent product language. Issue #86 makes the component boundary explicit:
+agents reuse accessible shadcn foundations before creating standard controls,
+while MarketMind-specific patterns carry the product identity.
 
 ## 9. Definition of Done for the full agent
 

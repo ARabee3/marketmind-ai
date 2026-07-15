@@ -20,6 +20,21 @@ Egyptian SME owners across retail, services, hospitality, education, healthcare,
 - Visible readiness, progress, evidence, citations, review, and approval.
 - Clear owner control and recovery paths.
 
+## Component language
+
+Use shadcn/ui as the accessible foundation for standard interactions, not as a
+visual identity or page-composition generator. Prefer semantic HTML, then an
+existing local primitive, then the smallest missing official shadcn primitive.
+All primitives are local code and must use MarketMind tokens, bilingual
+content, structural RTL behavior, and intentional focus and error states.
+
+MarketMind-specific components should encode product meaning that a generic
+primitive cannot: decision trails, evidence and source provenance, readiness
+and blockers, guided journey progress, and explicit owner decisions. Keep
+those product patterns visually distinctive and keep their underlying controls
+conventional. Do not create a custom control merely for novelty, bulk-install
+registry components, or make `Card` the default wrapper for every section.
+
 ## Avoid
 
 - Purple gradients, glassmorphism, excessive floating cards, sparkle or robot imagery, and sci-fi styling.

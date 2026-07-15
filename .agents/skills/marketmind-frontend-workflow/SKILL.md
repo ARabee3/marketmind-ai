@@ -16,6 +16,7 @@ Read `apps/web/AGENTS.md` before writing frontend code. It defines i18n ownershi
 | Phase | Required skill or tool | Reference |
 | --- | --- | --- |
 | Product direction or UI styling | `frontend-design` | `references/product-visual-brief.md` |
+| Component selection or primitive addition | shadcn-first policy in `apps/web/AGENTS.md`; `vercel-react-best-practices` for implementation | `apps/web/components.json` and `references/product-visual-brief.md` |
 | Next.js routing, layouts, RSC, fonts, and data patterns | Version-matched docs in `node_modules/next/dist/docs/01-app` | `apps/web/AGENTS.md` |
 | React components, state, composition, or performance | `vercel-react-best-practices` | Installed upstream skill |
 | Version-specific library or API uncertainty | Context7 MCP | `references/approved-tools.md` |
@@ -25,6 +26,12 @@ Read `apps/web/AGENTS.md` before writing frontend code. It defines i18n ownershi
 | Repeatable regression protection | Committed Vitest and Playwright tests | `references/frontend-definition-of-done.md` |
 
 `frontend-design` is required whenever a task designs or styles UI. Pair it with `references/product-visual-brief.md` so the output follows MarketMind's product voice instead of becoming a generic SaaS dashboard.
+
+For component work, apply the shadcn-first selection order in
+`apps/web/AGENTS.md` before designing a new component API. shadcn supplies
+standard interaction foundations; it does not supply MarketMind's page
+hierarchy or product identity. Add official primitives individually, then
+customize and verify them against the product brief.
 
 ## Routing examples
 
@@ -40,9 +47,11 @@ Read `apps/web/AGENTS.md` before writing frontend code. It defines i18n ownershi
 1. If approved skills have not been installed for this checkout, stop and show `npm run agent:setup -- --agent <agent>`. Never discover or silently install a substitute.
 2. Run `npm run agent:doctor -- --available-mcp context7` and include any other approved MCP names the agent exposes.
 3. Classify the task into one phase, or occasionally two adjacent phases.
-4. Load only the named skill, MCP, and reference for that phase.
-5. Convert exploratory MCP findings into committed code or tests; MCP output is not regression coverage.
-6. Follow `references/frontend-definition-of-done.md` before declaring the work complete.
-7. Propose changes to `references/approved-tools.md` for review when a genuinely new capability is needed. Do not edit the approved inventory merely because an agent discovered a tool.
+4. For component work, record which step of the shadcn-first selection order
+   applies before creating or adding a primitive.
+5. Load only the named skill, MCP, and reference for that phase.
+6. Convert exploratory MCP findings into committed code or tests; MCP output is not regression coverage.
+7. Follow `references/frontend-definition-of-done.md` before declaring the work complete.
+8. Propose changes to `references/approved-tools.md` for review when a genuinely new capability is needed. Do not edit the approved inventory merely because an agent discovered a tool.
 
 Do not use this skill for NestJS API, FastAPI AI service, contracts, or infrastructure work. Follow the root `AGENTS.md` and any directory-local instructions for those areas.
