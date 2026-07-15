@@ -15,6 +15,7 @@
     "version": 2
   },
   "retrieval_run_id": "c-invalid-0006",
+  "channel_score_rule_version": "strategy-channel-score-v1",
   "executive_summary": {
     "text": "Plan created after profile was updated — stale reference.",
     "source": "model_synthesis",
@@ -47,7 +48,16 @@
       "excluded_reason": null
     }
   ],
-  "all_channel_scores": [],
+  "all_channel_scores": [
+    {
+      "channel": "instagram",
+      "role": "primary",
+      "scores": { "objective_fit": 0.8, "audience_fit": 0.8, "existing_presence": 0.5, "asset_format_fit": 0.8, "team_capacity": 0.5, "budget_fit": 0.8, "evidence_strength": 0.7, "measurement_readiness": 0.6 },
+      "total_score": 5.5,
+      "rationale": { "text": "Test", "source": "model_synthesis", "citation_ids": [] },
+      "excluded_reason": null
+    }
+  ],
   "tone": {
     "text": "Test",
     "source": "owner_input",

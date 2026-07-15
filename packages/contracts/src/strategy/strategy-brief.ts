@@ -24,6 +24,13 @@ export const EXTERNAL_BUDGET_MODES = [
 
 export type ExternalBudgetMode = (typeof EXTERNAL_BUDGET_MODES)[number];
 
+export interface ExternalBudgetRangeEgp {
+  min_egp: number;
+  max_egp: number;
+}
+
+export type ExternalBudgetEgp = number | ExternalBudgetRangeEgp | null;
+
 export interface StrategyClarification {
   question_id: UUID;
   question_text: string;
@@ -40,7 +47,7 @@ export interface StrategyBrief {
   plan_language: LanguageMode;
   paid_media_allowed: boolean;
   external_budget_mode: ExternalBudgetMode;
-  external_budget_egp: number | null;
+  external_budget_egp: ExternalBudgetEgp;
   team_capacity: string;
   constraints: string[];
   clarification_answers: StrategyClarification[];

@@ -1,64 +1,128 @@
 # Strategy Agent Contract
 
-This is the canonical contract documentation for the MarketMind Strategy Agent (Issue #67).
+This package is the canonical cross-service contract for Strategy Agent issue
+#67. TypeScript defines the shared application types and executable policy;
+Pydantic mirrors the consumer models. The same fixtures, policy mutations, and
+snapshot checks run from the normal `@marketmind/contracts` check.
 
-The Strategy Agent connects the confirmed Business Profile with owner budget/goals to generate a structured, deterministically scored marketing plan.
+## Inputs stay separate
 
-## 1. Flow Overview
+Strategy generation receives four distinct inputs:
 
-1. **Intake**: Owner submits a `StrategyBrief` referencing a confirmed `BusinessProfileVersion`.
-2. **Retrieval**: The system queries the Qdrant `marketing_knowledge_v1` collection to build a `RetrievedKnowledgePack`.
-3. **Planning**: The AI combines the brief, the immutable profile reference, and the retrieval pack to generate a `StrategyPlan`.
-4. **Validation**: The plan must pass strict constraints (channel limits, budget arithmetic, 12-week roadmap, 3-5 pillars) enforced at the schema level.
-5. **Review**: The owner reviews the plan and submits an `OwnerDecision` (approved, rejected, or revision_requested).
+1. the complete immutable confirmed `BusinessProfile` directly from NestJS;
+2. the owner-controlled `StrategyBrief`;
+3. the persisted `RetrievedKnowledgePack` produced by curated RAG;
+4. deterministic channel scorecards.
 
-## 2. Shared Types
+The complete profile is never stored in or reconstructed from Qdrant. Only the
+privacy-minimized `RetrievalQueryContext` is sent to knowledge retrieval.
 
-- `ContractVersionLiteral`: Always `"strategy-v1"`
-- `CurrencyCodeLiteral`: Always `"EGP"`
-- `BusinessProfileVersionRef`: Reference to the confirmed business profile used (`business_profile_version_id`, `version`, `confirmed_at`).
+`StrategyGenerateRequest` and `StrategyReviseRequest` encode this boundary for
+the internal FastAPI endpoints. Public request types cover create, brief update,
+generate/retry, decision submission, and Strategy resource reads.
 
-## 3. Core Models
+## Version and identity semantics
 
-### 3.1. StrategyBrief
-The initial owner input for the strategy phase.
-- **`primary_objective`**: `awareness`, `acquisition`, `conversion`, `retention`, or `launch`
-- **`external_budget_mode`**: `organic_only`, `monthly_amount`, `three_month_amount`, or `scenario_only`
-- **`paid_media_allowed`**: Boolean. If `false`, budget mode must be `organic_only` or `scenario_only`.
-- **`external_budget_egp`**: Must be a positive number if budget mode is monthly or three_month.
+- Contract version is always `strategy-v1`.
+- Strategy, brief, profile-version, retrieval-run, and plan-version identities
+  are separate.
+- The profile ID, version number, and confirmation timestamp must match across
+  the complete profile, brief, retrieval pack, and plan.
+- Revision uses a new immutable plan version and retrieval run. It never mutates
+  an approved or rejected version.
 
-### 3.2. RetrievedKnowledgePack
-The curated, privacy-minimized knowledge pack injected into the AI context.
-- **`items`**: `RetrievedKnowledgeItem` elements with relevance scores and `SourceQuality` limits.
-- **`knowledge_gaps`**: Identified missing context areas.
-- **`retrieval_metadata`**: Including embedding dimensions, provider, latency, and `collection_name` (`marketing_knowledge_v1`).
+## Strategy Brief
 
-### 3.3. StrategyPlan
-The deterministically validated output from the Strategy Agent.
-- **Provenance**: Every AI generated claim is wrapped in a `SourcedClaim`, recording its origin (`owner_input`, `retrieved_evidence`, `deterministic_result`, etc.) and `citation_ids` pointing to the retrieval pack.
-- **Channel Limits**: At most 2 `primary` channels and 1 `supporting` channel.
-- **Budget Validation**: Channel allocations must sum to `total_egp` exactly.
-- **Roadmap Constraint**: Content strategy must contain 3-5 pillars and exactly 12 weeks.
-- **Benchmarks**: If a KPI uses `verified_benchmark_range`, a `benchmark_citation_id` is required.
+- `primary_objective`: `awareness`, `acquisition`, `conversion`, `retention`, or
+  `launch`.
+- `external_budget_mode`: `organic_only`, `monthly_amount`,
+  `three_month_amount`, or `scenario_only`.
+- `external_budget_egp`: external marketing spend only. It accepts a positive
+  owner amount or `{min_egp, max_egp}` range and is null for organic-only plans.
+- `paid_media_allowed`: planning may not include paid-spend scenarios when this
+  is false.
+- `team_capacity`, constraints, and clarification answers remain owner inputs;
+  they are not inferred from retrieval.
 
-## 4. Lifecycle & Events
+## Curated retrieval
 
-The Strategy flow emits `StrategyProgressEvent` messages over WebSocket:
-- **`stage`**: `queued`, `query_planning`, `retrieval`, `generating`, `validating`, `ready`, `failed`.
-- **`status`**: `started`, `progress`, `complete`, `failed`.
+A live `RetrievedKnowledgePack` contains only knowledge that is:
 
-Allowed state transitions are strictly governed:
-- `needs_brief` -> `ready`
-- `ready` -> `retrieving`
-- `retrieving` -> `queued`
-- `queued` -> `generating`
-- `generating` -> `validating`
-- `validating` -> `draft`
-- `draft` -> `approved` | `rejected`
+- approved;
+- already effective at retrieval time;
+- unexpired at retrieval time;
+- hydrated from PostgreSQL after Qdrant candidate selection.
 
-## 5. Errors
-All Strategy error codes start with `STRATEGY_`. Examples:
-- `STRATEGY_BRIEF_INVALID`: Brief fails validation.
-- `STRATEGY_PROFILE_STALE`: Brief references an outdated profile version.
-- `STRATEGY_BUDGET_MISMATCH`: Budget allocations don't sum to total.
-- `STRATEGY_CHANNEL_LIMIT_EXCEEDED`: Too many primary/supporting channels.
+Valid evidence tiers are `verified_benchmark`, `reviewed_guidance`, and
+`contextual_note`. Model synthesis is plan provenance, never library evidence.
+Every plan citation must resolve exactly to an item in the persisted pack by
+chunk ID, entry ID, entry version, and evidence tier.
+
+## Deterministic channel policy
+
+`strategy-channel-score-v1` scores eight dimensions from 0 through 1:
+
+- objective fit;
+- audience fit;
+- existing presence;
+- asset/format fit;
+- team capacity;
+- budget fit;
+- evidence strength;
+- measurement readiness.
+
+Version 1 uses the rounded sum of those dimensions, producing a total from 0
+through 8. `selected_channels` must reuse entries from `all_channel_scores`
+without changing numbers. A plan may select at most two primary and one
+supporting channel. The LLM may explain a score but cannot modify it.
+
+## Budget, roadmap, KPI, and approval rules
+
+- Scenario amounts are EGP external spend and declare whether they cover one
+  month or the full 12-week period.
+- Allocation amounts must equal the scenario total and percentages must equal 100.
+- The base scenario equals the owner-confirmed amount. A scenario above that
+  amount is clearly marked `requires_owner_budget_approval`; plan approval is
+  guidance and never authorizes spending.
+- Content strategy contains three to five pillars and each week number 1–12
+  exactly once.
+- `verified_benchmark_range` requires a target value and a citation that resolves
+  to a current retrieved `verified_benchmark` item.
+- Assumptions, risks, knowledge gaps, and blockers are separate arrays.
+- A blocking gap, blocker, stale profile, invalid citation, invalid score, or
+  arithmetic failure prevents an `approved` owner decision.
+
+## Lifecycle
+
+```text
+needs_brief -> ready -> retrieving -> queued -> generating -> validating
+             -> draft -> approved | rejected | failed
+```
+
+`revision_requested` is an owner decision. It returns the Strategy journey to
+`ready` and produces a new immutable version after a new retrieval run.
+
+## Stable validation errors
+
+The shared error registry and `StrategyValidationIssue` use stable codes such
+as:
+
+- `STRATEGY_PROFILE_STALE`;
+- `STRATEGY_EVIDENCE_NOT_APPROVED`;
+- `STRATEGY_INVALID_CITATION`;
+- `STRATEGY_INVALID_BENCHMARK`;
+- `STRATEGY_SCORE_MISMATCH`;
+- `STRATEGY_BUDGET_MISMATCH`;
+- `STRATEGY_ARITHMETIC_FAILURE`;
+- `STRATEGY_CHANNEL_LIMIT_EXCEEDED`;
+- `STRATEGY_APPROVAL_BLOCKED`.
+
+Each executable policy issue includes a stable code, field path, and safe
+message. HTTP layers map those issues into the repository error envelope.
+
+## Fixture policy
+
+Koshary Corner and every other example business are fictional. Any benchmark
+or market number used to test citation behavior is labeled
+`[SYNTHETIC FIXTURE]` and uses a `synthetic-fixture://` source reference. Fixture
+values are never approved MarketMind knowledge and must not be ingested.

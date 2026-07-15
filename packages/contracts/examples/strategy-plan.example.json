@@ -1,8 +1,9 @@
 {
   "meta": {
     "title": "Koshary Corner — Complete Strategy Plan",
-    "description": "Full strategy plan for the fictional Koshary Corner. 12-week plan with Instagram as primary channel, paid media budget of 3000 EGP/month, and office worker acquisition objective.",
-    "business": "Koshary Corner"
+    "description": "Synthetic contract fixture for the fictional Koshary Corner. Benchmark values and citations are test-only and must never be treated as approved real-world evidence.",
+    "business": "Koshary Corner",
+    "synthetic_evidence": true
   },
   "id": "d0000000-0000-4000-8000-000000000001",
   "strategy_id": "a0000000-0000-4000-8000-000000000001",
@@ -15,6 +16,7 @@
     "version": 1
   },
   "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+  "channel_score_rule_version": "strategy-channel-score-v1",
   "executive_summary": {
     "text": "ركز على إنستجرام وجوجل مابز لاستهداف موظفي المكاتب في مدينة نصر. الميزانية الشهرية 3000 جنيه للإعلانات. المحتوى يعتمد على الفيديو القصير لتحضير الكشري وأوقات الذروة.",
     "source": "model_synthesis",
@@ -51,9 +53,9 @@
         "evidence_strength": 0.89,
         "measurement_readiness": 0.7
       },
-      "total_score": 7.09,
+      "total_score": 5.99,
       "rationale": {
-        "text": "إنستجرام هو القناة الوحيدة التي لدى المطعم وجود مسبق عليها. الجمهور المستهدف (موظفي المكاتب) نشط على إنستجرام. فيديوهات الطعام تحقق تفاعل 2.1-3.8% في مصر.",
+        "text": "إنستجرام هو القناة الوحيدة التي لدى المطعم وجود مسبق عليها. نطاق التفاعل 2.1-3.8% هنا قيمة اصطناعية لاختبار عقد الاستشهاد فقط، وليس معياراً حقيقياً للسوق المصري.",
         "source": "retrieved_evidence",
         "citation_ids": ["c1000000-0000-4000-8000-000000000001"]
       },
@@ -72,9 +74,9 @@
         "evidence_strength": 0.85,
         "measurement_readiness": 0.8
       },
-      "total_score": 7.47,
+      "total_score": 6.22,
       "rationale": {
-        "text": "جوجل مابز قناة مجانية بمردود عالي. 124 تقييماً موجودة بالفعل. إكمال الملف الشخصي يزيد الاكتشاف بنسبة 35%.",
+        "text": "جوجل مابز قناة مجانية ولدى النشاط 124 تقييماً بالفعل. نسبة 35% هنا قيمة اصطناعية لاختبار العقد وليست ادعاءً سوقياً حقيقياً.",
         "source": "retrieved_evidence",
         "citation_ids": ["c1000000-0000-4000-8000-000000000003"]
       },
@@ -95,7 +97,7 @@
         "evidence_strength": 0.89,
         "measurement_readiness": 0.7
       },
-      "total_score": 7.09,
+      "total_score": 5.99,
       "rationale": {
         "text": "إنستجرام هو الخيار الأفضل مع وجود مسبق وجمهور نشط.",
         "source": "deterministic_result",
@@ -116,7 +118,7 @@
         "evidence_strength": 0.85,
         "measurement_readiness": 0.8
       },
-      "total_score": 7.47,
+      "total_score": 6.22,
       "rationale": {
         "text": "جوجل مابز أساسي للوجود المحلي.",
         "source": "deterministic_result",
@@ -137,7 +139,7 @@
         "evidence_strength": 0.78,
         "measurement_readiness": 0.5
       },
-      "total_score": 5.16,
+      "total_score": 3.83,
       "rationale": {
         "text": "فيسبوك يوفر جمهور أوسع لكن لا يوجد وجود مسبق وفريق التسويق صغير جداً.",
         "source": "model_synthesis",
@@ -158,7 +160,7 @@
         "evidence_strength": 0.0,
         "measurement_readiness": 0.3
       },
-      "total_score": 3.69,
+      "total_score": 2.3,
       "rationale": {
         "text": "تيك توك مناسب لفيديو الطعام لكن المحتوى اليومي يتطلب وقتاً وجهداً غير متاحين.",
         "source": "model_synthesis",
@@ -249,12 +251,14 @@
   "budget_scenarios": [
     {
       "scenario_type": "conservative",
+      "period": "monthly",
       "total_egp": 2000,
       "currency": "EGP",
       "channel_allocations": [
         { "channel": "instagram", "amount_egp": 1500, "percentage": 75 },
         { "channel": "google_maps", "amount_egp": 500, "percentage": 25 }
       ],
+      "requires_owner_budget_approval": false,
       "notes": {
         "text": "السيناريو المتحفظ يركز على إنستجرام فقط بميزانية إعلانية محدودة.",
         "source": "deterministic_result",
@@ -263,12 +267,14 @@
     },
     {
       "scenario_type": "base",
+      "period": "monthly",
       "total_egp": 3000,
       "currency": "EGP",
       "channel_allocations": [
         { "channel": "instagram", "amount_egp": 2400, "percentage": 80 },
         { "channel": "google_maps", "amount_egp": 600, "percentage": 20 }
       ],
+      "requires_owner_budget_approval": false,
       "notes": {
         "text": "السيناريو الأساسي يستخدم الميزانية الكاملة 3000 جنيه شهرياً مع توزيع 80-20.",
         "source": "deterministic_result",
@@ -277,12 +283,14 @@
     },
     {
       "scenario_type": "growth",
+      "period": "monthly",
       "total_egp": 4500,
       "currency": "EGP",
       "channel_allocations": [
         { "channel": "instagram", "amount_egp": 3500, "percentage": 77.8 },
         { "channel": "google_maps", "amount_egp": 1000, "percentage": 22.2 }
       ],
+      "requires_owner_budget_approval": true,
       "notes": {
         "text": "سيناريو النمو يتطلب زيادة الميزانية الشهرية إلى 4500 جنيه ويضيف جوجل مابز أدز.",
         "source": "deterministic_result",
@@ -308,10 +316,10 @@
       "metric": "Google Maps profile views",
       "funnel_stage": "awareness",
       "target_mode": "baseline_improvement",
-      "target_value": "زيادة 35% في 12 أسبوعاً",
+      "target_value": "قيمة اختبارية اصطناعية: زيادة 35% في 12 أسبوعاً",
       "measurement_method": "Google Business Profile insights",
       "notes": {
-        "text": "تحسين الملف الشخصي يزيد الاكتشاف بنسبة 35% حسب الإرشادات.",
+        "text": "نستخدم زيادة 35% كقيمة اصطناعية لاختبار وضع baseline_improvement فقط.",
         "source": "retrieved_evidence",
         "citation_ids": ["c1000000-0000-4000-8000-000000000003"]
       }
@@ -331,18 +339,8 @@
   ],
   "assumptions": [
     {
-      "text": "يفضل موظفو المكاتب في مدينة نصر وجبة الغداء بين 1 و 3 ظهراً (مؤكد من المالك).",
-      "source": "confirmed_fact",
-      "citation_ids": []
-    },
-    {
-      "text": "متوسط الإنفاق للفرد يتراوح بين 30 و 60 جنيهاً.",
-      "source": "confirmed_fact",
-      "citation_ids": []
-    },
-    {
-      "text": "المالك يمكنه تخصيص 2-3 ساعات أسبوعياً للتسويق.",
-      "source": "owner_input",
+      "text": "نفترض أن عرض الغداء السريع سيكون أكثر جاذبية من خصم عام طوال اليوم؛ يجب اختبار ذلك في أول أسبوعين.",
+      "source": "model_synthesis",
       "citation_ids": []
     }
   ],
@@ -367,7 +365,7 @@
     {
       "category": "local_demand_data",
       "description": "لا توجد بيانات حركة المرور لشارع مكرم عبيد أو كثافة المنافسين.",
-      "severity": "blocking"
+      "severity": "non_critical"
     }
   ],
   "blockers": [],
@@ -377,8 +375,8 @@
       "chunk_id": "cccccccc-0001-4000-8000-000000000001",
       "entry_id": "eeeeeeee-0001-4000-8000-000000000001",
       "entry_version": 2,
-      "title": "Instagram Engagement Benchmarks for Egyptian QSR 2026",
-      "excerpt": "Quick service restaurants in Cairo achieve 2.1-3.8% engagement rate on Instagram.",
+      "title": "[SYNTHETIC FIXTURE] Instagram Engagement Range",
+      "excerpt": "Synthetic test range: 2.1-3.8% engagement.",
       "evidence_tier": "verified_benchmark",
       "relevance_score": 0.89
     },
@@ -387,8 +385,8 @@
       "chunk_id": "cccccccc-0002-4000-8000-000000000002",
       "entry_id": "eeeeeeee-0002-4000-8000-000000000002",
       "entry_version": 1,
-      "title": "Facebook Ads Cost per Click: Egypt 2026",
-      "excerpt": "Average CPC for food and beverage in Egypt ranges from 1.20 to 2.50 EGP.",
+      "title": "[SYNTHETIC FIXTURE] Paid Social Cost Range",
+      "excerpt": "Synthetic test range: 1.20-2.50 EGP.",
       "evidence_tier": "reviewed_guidance",
       "relevance_score": 0.78
     },
@@ -397,8 +395,8 @@
       "chunk_id": "cccccccc-0003-4000-8000-000000000003",
       "entry_id": "eeeeeeee-0003-4000-8000-000000000003",
       "entry_version": 1,
-      "title": "Google Maps Optimization for Egyptian Restaurants",
-      "excerpt": "Completing your Google Business profile with menu photos and weekly posts increases discovery by 35%.",
+      "title": "[SYNTHETIC FIXTURE] Local Listing Improvement Example",
+      "excerpt": "Synthetic test improvement value: 35%.",
       "evidence_tier": "reviewed_guidance",
       "relevance_score": 0.85
     },
@@ -407,8 +405,8 @@
       "chunk_id": "cccccccc-0004-4000-8000-000000000004",
       "entry_id": "eeeeeeee-0004-4000-8000-000000000004",
       "entry_version": 1,
-      "title": "Content Marketing for Small Food Businesses",
-      "excerpt": "User-generated content outperforms branded content 2.3x in food and beverage.",
+      "title": "[SYNTHETIC FIXTURE] Food Content Guidance",
+      "excerpt": "Synthetic test guidance without a real performance claim.",
       "evidence_tier": "reviewed_guidance",
       "relevance_score": 0.72
     }

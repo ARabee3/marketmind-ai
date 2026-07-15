@@ -5,10 +5,14 @@
   "type": "module",
   "types": "./src/index.ts",
   "scripts": {
-    "check": "npm run typecheck && node scripts/validate-examples.mjs",
+    "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:policy && npm run check:snapshot && npm run check:python",
+    "check:policy": "tsx scripts/validate-strategy-policy.ts",
+    "check:snapshot": "node scripts/test-snapshot.mjs",
+    "check:python": "uv run --project ../../services/ai python python/test_strategy_contracts.py",
     "typecheck": "tsc --project tsconfig.json"
   },
   "devDependencies": {
+    "tsx": "^4.23.0",
     "typescript": "^5.7.0"
   }
 }

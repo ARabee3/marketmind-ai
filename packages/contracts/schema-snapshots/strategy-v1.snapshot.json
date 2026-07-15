@@ -24,6 +24,7 @@
     "brief_id",
     "profile_version",
     "retrieval_run_id",
+    "channel_score_rule_version",
     "executive_summary",
     "situation_diagnosis",
     "primary_objective",

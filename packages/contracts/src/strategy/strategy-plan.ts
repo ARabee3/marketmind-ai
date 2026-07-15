@@ -3,7 +3,10 @@ import type {
   IsoDateTime,
   LanguageMode,
 } from "../discovery/prepared-discovery-contracts";
-import type { ContractVersion, BusinessProfileVersionRef } from "./strategy-ids";
+import type {
+  ContractVersion,
+  BusinessProfileVersionRef,
+} from "./strategy-ids";
 import type {
   StrategyObjective,
   ExternalBudgetMode,
@@ -32,6 +35,21 @@ export const CHANNEL_ROLES = ["primary", "supporting"] as const;
 
 export type ChannelRole = (typeof CHANNEL_ROLES)[number];
 
+export const CHANNEL_SCORE_RULE_VERSION = "strategy-channel-score-v1" as const;
+
+export const CHANNEL_SCORE_DIMENSIONS = [
+  "objective_fit",
+  "audience_fit",
+  "existing_presence",
+  "asset_format_fit",
+  "team_capacity",
+  "budget_fit",
+  "evidence_strength",
+  "measurement_readiness",
+] as const;
+
+export type ChannelScoreDimension = (typeof CHANNEL_SCORE_DIMENSIONS)[number];
+
 export interface ChannelDimensionScores {
   objective_fit: number;
   audience_fit: number;
@@ -43,13 +61,17 @@ export interface ChannelDimensionScores {
   measurement_readiness: number;
 }
 
-export interface ChannelScorecard {
+export interface DeterministicChannelScorecard {
   channel: string;
   role: ChannelRole;
   scores: ChannelDimensionScores;
   total_score: number;
-  rationale: SourcedClaim;
   excluded_reason: string | null;
+}
+
+export interface ChannelScorecard extends DeterministicChannelScorecard {
+  /** LLM explanation of immutable deterministic numbers. */
+  rationale: SourcedClaim;
 }
 
 export const KPI_TARGET_MODES = [
@@ -79,9 +101,12 @@ export interface ChannelAllocation {
 
 export interface BudgetScenario {
   scenario_type: "conservative" | "base" | "growth";
+  period: "monthly" | "twelve_week";
   total_egp: number;
   currency: "EGP";
   channel_allocations: ChannelAllocation[];
+  /** True when the scenario exceeds the amount currently confirmed by the owner. */
+  requires_owner_budget_approval: boolean;
   notes: SourcedClaim;
 }
 
@@ -116,6 +141,7 @@ export interface StrategyPlan {
   brief_id: UUID;
   profile_version: BusinessProfileVersionRef;
   retrieval_run_id: UUID;
+  channel_score_rule_version: typeof CHANNEL_SCORE_RULE_VERSION;
   executive_summary: SourcedClaim;
   situation_diagnosis: SourcedClaim;
   primary_objective: StrategyObjective;

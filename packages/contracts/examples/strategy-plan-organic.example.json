@@ -16,6 +16,7 @@
     "version": 1
   },
   "retrieval_run_id": "c0000000-0000-4000-8000-000000000010",
+  "channel_score_rule_version": "strategy-channel-score-v1",
   "executive_summary": {
     "text": "Organic-only marketing leveraging Google Maps optimization, customer reviews, and Instagram organic posting.",
     "source": "model_synthesis",

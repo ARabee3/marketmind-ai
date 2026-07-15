@@ -95,6 +95,12 @@ const errorCodes = new Set([
   "STRATEGY_BRIEF_INCOMPLETE",
   "STRATEGY_NOT_FOUND",
   "STRATEGY_STATE_CONFLICT",
+  "STRATEGY_BRIEF_INVALID",
+  "STRATEGY_BUDGET_MISMATCH",
+  "STRATEGY_CHANNEL_LIMIT_EXCEEDED",
+  "STRATEGY_EVIDENCE_NOT_APPROVED",
+  "STRATEGY_SCORE_MISMATCH",
+  "STRATEGY_APPROVAL_BLOCKED",
 ]);
 
 const strategyObjectives = new Set([
@@ -108,7 +114,7 @@ const strategyStatuses = new Set([
   "validating", "draft", "approved", "rejected", "failed",
 ]);
 const evidenceTiers = new Set([
-  "verified_benchmark", "reviewed_guidance", "contextual_note", "model_synthesis",
+  "verified_benchmark", "reviewed_guidance", "contextual_note",
 ]);
 const claimSources = new Set([
   "confirmed_fact", "owner_input", "retrieved_evidence", "deterministic_result", "model_synthesis",
@@ -124,7 +130,7 @@ const strategyProgressStages = new Set([
 ]);
 const strategyProgressStatuses = new Set(["started", "progress", "complete", "failed"]);
 const languageModes = new Set(["ar-EG", "en", "mixed"]);
-const reviewStatuses = new Set(["approved", "retired", "expired"]);
+const reviewStatuses = new Set(["approved"]);
 const scenarioTypes = new Set(["conservative", "base", "growth"]);
 const decisionTypes = new Set(["approved", "rejected", "revision_requested"]);
 
@@ -682,11 +688,21 @@ function assertStrategyBrief(brief, label) {
     brief.external_budget_mode === "monthly_amount" ||
     brief.external_budget_mode === "three_month_amount"
   ) {
+    const budget = brief.external_budget_egp;
     assert(
-      brief.external_budget_egp !== null &&
-        typeof brief.external_budget_egp === "number" &&
-        brief.external_budget_egp > 0,
-      `${label}.external_budget_egp must be a positive number when mode requires it`,
+      (typeof budget === "number" && budget > 0) ||
+        (typeof budget === "object" &&
+          budget !== null &&
+          typeof budget.min_egp === "number" &&
+          typeof budget.max_egp === "number" &&
+          budget.min_egp > 0 &&
+          budget.max_egp >= budget.min_egp),
+      `${label}.external_budget_egp must be a positive amount or valid EGP range`,
+    );
+  } else if (brief.external_budget_mode === "organic_only") {
+    assert(
+      brief.external_budget_egp === null,
+      `${label}.external_budget_egp must be null for organic_only`,
     );
   }
   if (brief.paid_media_allowed === false) {
@@ -751,6 +767,7 @@ function assertRetrievedKnowledgePack(pack, label) {
     Array.isArray(pack.items),
     `${label}.items must be an array`,
   );
+  const retrievedTime = new Date(pack.retrieved_at).getTime();
   pack.items.forEach((item, idx) => {
     const itemLabel = `${label}.items[${idx}]`;
     assertString(item.chunk_id, `${itemLabel}.chunk_id`);
@@ -787,17 +804,19 @@ function assertRetrievedKnowledgePack(pack, label) {
     assertString(item.source_quality.effective_at, `${itemLabel}.source_quality.effective_at`);
     assert(
       reviewStatuses.has(item.source_quality.review_status),
-      `${itemLabel}.source_quality.review_status is invalid`,
+      `${itemLabel}.source_quality.review_status must be approved`,
+    );
+    const effectiveTime = new Date(item.source_quality.effective_at).getTime();
+    assert(
+      Number.isFinite(effectiveTime) && effectiveTime <= retrievedTime,
+      `${itemLabel}.source_quality.effective_at must be current at retrieval time`,
     );
     if (item.source_quality.expires_at) {
       const expiresTime = new Date(item.source_quality.expires_at).getTime();
-      const retrievedTime = new Date(pack.retrieved_at).getTime();
-      if (expiresTime < retrievedTime) {
-        assert(
-          item.source_quality.review_status === "expired" || item.source_quality.review_status === "retired",
-          `${itemLabel}.source_quality.review_status must be expired or retired since expires_at (${item.source_quality.expires_at}) is before retrieved_at (${pack.retrieved_at})`
-        );
-      }
+      assert(
+        Number.isFinite(expiresTime) && expiresTime >= retrievedTime,
+        `${itemLabel}.source_quality.expires_at must not precede retrieved_at`,
+      );
     }
   });
   assert(
@@ -851,8 +870,10 @@ function assertChannelScorecard(channel, label) {
     );
   });
   assert(
-    typeof channel.total_score === "number",
-    `${label}.total_score must be a number`,
+    typeof channel.total_score === "number" &&
+      channel.total_score ===
+        Math.round(dims.reduce((total, dim) => total + scores[dim], 0) * 100) / 100,
+    `${label}.total_score must equal the rounded sum of deterministic dimensions`,
   );
   assertSourcedClaim(channel.rationale, `${label}.rationale`);
 }
@@ -871,6 +892,10 @@ function assertKpiTarget(kpi, label) {
 function assertBudgetScenario(scenario, label) {
   assert(scenarioTypes.has(scenario.scenario_type), `${label}.scenario_type is invalid`);
   assert(
+    scenario.period === "monthly" || scenario.period === "twelve_week",
+    `${label}.period is invalid`,
+  );
+  assert(
     typeof scenario.total_egp === "number" && scenario.total_egp > 0,
     `${label}.total_egp must be a positive number`,
   );
@@ -880,6 +905,7 @@ function assertBudgetScenario(scenario, label) {
     `${label}.channel_allocations must be an array`,
   );
   let totalAllocated = 0;
+  let totalPercentage = 0;
   scenario.channel_allocations.forEach((alloc, idx) => {
     assertString(alloc.channel, `${label}.channel_allocations[${idx}].channel`);
     assert(
@@ -891,10 +917,19 @@ function assertBudgetScenario(scenario, label) {
       `${label}.channel_allocations[${idx}].percentage must be between 0 and 100`,
     );
     totalAllocated += alloc.amount_egp;
+    totalPercentage += alloc.percentage;
   });
   assert(
     Math.abs(totalAllocated - scenario.total_egp) < 0.01,
     `${label}: channel allocations must sum to total_egp (${totalAllocated} !== ${scenario.total_egp})`,
+  );
+  assert(
+    Math.abs(totalPercentage - 100) < 0.01,
+    `${label}: channel allocation percentages must sum to 100`,
+  );
+  assert(
+    typeof scenario.requires_owner_budget_approval === "boolean",
+    `${label}.requires_owner_budget_approval must be boolean`,
   );
   assertSourcedClaim(scenario.notes, `${label}.notes`);
 }
@@ -911,6 +946,10 @@ function assertContentStrategyRoadmap(cs, label) {
   assertString(cs.weekly_cadence, `${label}.weekly_cadence`);
   assert(Array.isArray(cs.weeks), `${label}.weeks must be an array`);
   assert(cs.weeks.length === 12, `${label}.weeks must have 12 entries`);
+  assert(
+    new Set(cs.weeks.map((week) => week.week_number)).size === 12,
+    `${label}.weeks must contain each week number exactly once`,
+  );
   cs.weeks.forEach((w, i) => {
     assert(
       Number.isInteger(w.week_number) && w.week_number >= 1 && w.week_number <= 12,
@@ -928,6 +967,12 @@ function assertContentStrategyRoadmap(cs, label) {
     assert(
       Array.isArray(e.week_range) && e.week_range.length === 2,
       `${label}.experiments[${i}].week_range must be a tuple of 2`,
+    );
+    assert(
+      e.week_range[0] >= 1 &&
+        e.week_range[1] <= 12 &&
+        e.week_range[0] <= e.week_range[1],
+      `${label}.experiments[${i}].week_range must be ordered within weeks 1-12`,
     );
   });
 }
@@ -968,6 +1013,10 @@ function assertStrategyPlan(plan, label) {
   assertString(plan.brief_id, `${label}.brief_id`);
   assertBusinessProfileVersionRef(plan.profile_version, `${label}.profile_version`);
   assertString(plan.retrieval_run_id, `${label}.retrieval_run_id`);
+  assert(
+    plan.channel_score_rule_version === "strategy-channel-score-v1",
+    `${label}.channel_score_rule_version is invalid`,
+  );
   assertSourcedClaim(plan.executive_summary, `${label}.executive_summary`);
   assertSourcedClaim(plan.situation_diagnosis, `${label}.situation_diagnosis`);
   assert(
@@ -1001,6 +1050,31 @@ function assertStrategyPlan(plan, label) {
   plan.all_channel_scores.forEach((ch, i) =>
     assertChannelScorecard(ch, `${label}.all_channel_scores[${i}]`),
   );
+  assert(
+    new Set(plan.all_channel_scores.map((channel) => channel.channel)).size ===
+      plan.all_channel_scores.length,
+    `${label}.all_channel_scores must not contain duplicate channels`,
+  );
+  assert(
+    new Set(plan.selected_channels.map((channel) => channel.channel)).size ===
+      plan.selected_channels.length,
+    `${label}.selected_channels must not contain duplicate channels`,
+  );
+  plan.selected_channels.forEach((selected, index) => {
+    const canonical = plan.all_channel_scores.find(
+      (channel) => channel.channel === selected.channel,
+    );
+    assert(
+      canonical &&
+        canonical.role === selected.role &&
+        canonical.total_score === selected.total_score &&
+        canonical.excluded_reason === selected.excluded_reason &&
+        Object.keys(selected.scores).every(
+          (dimension) => canonical.scores[dimension] === selected.scores[dimension],
+        ),
+      `${label}.selected_channels[${index}] must reuse deterministic all_channel_scores`,
+    );
+  });
 
   assertSourcedClaim(plan.tone, `${label}.tone`);
   assert(
@@ -1022,6 +1096,14 @@ function assertStrategyPlan(plan, label) {
     assert(
       Array.isArray(plan.budget_scenarios),
       `${label}.budget_scenarios must be an array when mode is not organic_only`,
+    );
+    const scenarioTypesInPlan = plan.budget_scenarios.map(
+      (scenario) => scenario.scenario_type,
+    );
+    assert(
+      scenarioTypesInPlan.includes("base") &&
+        new Set(scenarioTypesInPlan).size === scenarioTypesInPlan.length,
+      `${label}.budget_scenarios needs one unique base scenario`,
     );
     plan.budget_scenarios.forEach((s, i) =>
       assertBudgetScenario(s, `${label}.budget_scenarios[${i}]`),
@@ -1057,6 +1139,7 @@ function assertStrategyPlan(plan, label) {
 
   assert(Array.isArray(plan.citations), `${label}.citations must be an array`);
   const citationIds = new Set(plan.citations.map((c) => c.citation_id));
+  const citationsById = new Map(plan.citations.map((c) => [c.citation_id, c]));
   plan.citations.forEach((c, i) =>
     assertPlanCitation(c, `${label}.citations[${i}]`),
   );
@@ -1077,6 +1160,18 @@ function assertStrategyPlan(plan, label) {
     ...plan.all_channel_scores.map((ch) => ch.rationale),
   ];
   allClaims.forEach((claim, idx) => {
+    if (claim.source === "retrieved_evidence") {
+      assert(
+        claim.citation_ids.length > 0,
+        `${label}: retrieved_evidence claim[${idx}] needs a citation`,
+      );
+    }
+    if (claim.source === "confirmed_fact" || claim.source === "owner_input") {
+      assert(
+        claim.citation_ids.length === 0,
+        `${label}: ${claim.source} claim[${idx}] cannot cite retrieval knowledge`,
+      );
+    }
     if (claim && claim.citation_ids) {
       claim.citation_ids.forEach((cid) => {
         assert(
@@ -1086,6 +1181,29 @@ function assertStrategyPlan(plan, label) {
       });
     }
   });
+  plan.kpi_targets.forEach((target, index) => {
+    if (target.target_mode !== "verified_benchmark_range") return;
+    const citation = citationsById.get(target.benchmark_citation_id);
+    assertString(target.target_value, `${label}.kpi_targets[${index}].target_value`);
+    assert(
+      citation?.evidence_tier === "verified_benchmark",
+      `${label}.kpi_targets[${index}] must reference a verified benchmark citation`,
+    );
+  });
+
+  const blockingGaps = plan.knowledge_gaps.filter(
+    (gap) => gap.severity === "blocking",
+  );
+  if (blockingGaps.length > 0) {
+    assert(
+      plan.blockers.some(
+        (blocker) =>
+          blocker.code === "STRATEGY_KNOWLEDGE_GAP" &&
+          blocker.severity === "blocking",
+      ),
+      `${label} needs a blocking STRATEGY_KNOWLEDGE_GAP blocker`,
+    );
+  }
 
   assertString(plan.created_at, `${label}.created_at`);
 }
@@ -1101,6 +1219,12 @@ function assertOwnerDecision(decision, label) {
     decisionTypes.has(decision.decision),
     `${label}.decision is invalid`,
   );
+  if (decision.decision === "revision_requested") {
+    assertString(
+      decision.revision_notes,
+      `${label}.revision_notes is required for revision_requested`,
+    );
+  }
   assertString(decision.decided_by_user_id, `${label}.decided_by_user_id`);
   assertString(decision.decided_at, `${label}.decided_at`);
 }

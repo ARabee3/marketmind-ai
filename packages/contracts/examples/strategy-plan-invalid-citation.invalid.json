@@ -15,6 +15,7 @@
     "version": 1
   },
   "retrieval_run_id": "c-invalid-0004",
+  "channel_score_rule_version": "strategy-channel-score-v1",
   "executive_summary": {
     "text": "Plan with an invalid citation reference.",
     "source": "retrieved_evidence",

@@ -1,21 +1,23 @@
 import fs from "fs/promises";
-import path from "path";
 import assert from "assert";
 
-const SNAPSHOT_PATH = path.join(process.cwd(), "packages/contracts/schema-snapshots/strategy-v1.snapshot.json");
-const EXAMPLES_DIR = path.join(process.cwd(), "packages/contracts/examples");
+const SNAPSHOT_PATH = new URL(
+  "../schema-snapshots/strategy-v1.snapshot.json",
+  import.meta.url,
+);
+const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
 
 async function run() {
   const snapshotData = await fs.readFile(SNAPSHOT_PATH, "utf-8");
   const snapshot = JSON.parse(snapshotData);
 
-  const briefData = await fs.readFile(path.join(EXAMPLES_DIR, "strategy-brief.example.json"), "utf-8");
+  const briefData = await fs.readFile(new URL("strategy-brief.example.json", EXAMPLES_DIR), "utf-8");
   const brief = JSON.parse(briefData);
 
-  const planData = await fs.readFile(path.join(EXAMPLES_DIR, "strategy-plan.example.json"), "utf-8");
+  const planData = await fs.readFile(new URL("strategy-plan.example.json", EXAMPLES_DIR), "utf-8");
   const plan = JSON.parse(planData);
 
-  const packData = await fs.readFile(path.join(EXAMPLES_DIR, "strategy-retrieval-pack.example.json"), "utf-8");
+  const packData = await fs.readFile(new URL("strategy-retrieval-pack.example.json", EXAMPLES_DIR), "utf-8");
   const pack = JSON.parse(packData);
 
   // Assert backward compatibility (fields in snapshot must exist in current schema)

@@ -21,7 +21,6 @@ export const EVIDENCE_TIERS = [
   "verified_benchmark",
   "reviewed_guidance",
   "contextual_note",
-  "model_synthesis",
 ] as const;
 
 export type EvidenceTier = (typeof EVIDENCE_TIERS)[number];
@@ -31,7 +30,8 @@ export interface SourceQuality {
   source_references: string[];
   effective_at: IsoDateTime;
   expires_at: IsoDateTime | null;
-  review_status: "approved" | "retired" | "expired";
+  /** Live retrieval packs may only contain currently approved knowledge. */
+  review_status: "approved";
 }
 
 export interface RetrievedKnowledgeItem {
