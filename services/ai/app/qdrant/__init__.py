@@ -11,6 +11,7 @@ from app.qdrant.collection import (
     delete_collection,
     ensure_collection,
     get_collection_info,
+    validate_collection_compatibility,
 )
 from app.qdrant.indexes import create_payload_indexes
 from app.qdrant.points import (
@@ -42,4 +43,5 @@ __all__ = [
     "qdrant_client_context",
     "search_points",
     "upsert_points",
+    "validate_collection_compatibility",
 ]
