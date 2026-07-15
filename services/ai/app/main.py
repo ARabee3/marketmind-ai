@@ -10,9 +10,8 @@ from app.qdrant import create_qdrant_client, ensure_collection
 from app.rag import get_rag_config
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan: ensure Qdrant collection exists on startup."""
+async def _ensure_qdrant_collection_on_startup() -> None:
+    """Ensure the configured Qdrant collection exists; log on failure."""
     config = get_rag_config()
     client = create_qdrant_client()
     try:
@@ -31,6 +30,12 @@ async def lifespan(app: FastAPI):
         logger.warning("Qdrant collection check failed on startup: %s", exc)
     finally:
         await client.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: ensure Qdrant collection exists on startup."""
+    await _ensure_qdrant_collection_on_startup()
     yield
 
 

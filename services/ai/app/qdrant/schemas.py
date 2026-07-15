@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ReviewStatus = Literal["approved", "draft", "retired", "expired"]
 EvidenceTier = Literal["verified_benchmark", "reviewed_guidance", "contextual_note"]
@@ -14,6 +14,8 @@ class QdrantKnowledgePoint(BaseModel):
     Mirrors the curated RAG architecture: the vector lives in Qdrant, but all
     governance and approval metadata is authoritative in PostgreSQL.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     chunk_id: UUID
     entry_id: UUID
