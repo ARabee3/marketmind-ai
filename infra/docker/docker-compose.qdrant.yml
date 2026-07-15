@@ -9,7 +9,7 @@
 
 services:
   qdrant:
-    image: qdrant/qdrant:v1.13.0
+    image: qdrant/qdrant:v1.18.0
     container_name: marketmind-qdrant
     restart: unless-stopped
     ports:

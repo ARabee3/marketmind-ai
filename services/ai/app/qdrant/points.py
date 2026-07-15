@@ -71,15 +71,16 @@ async def search_points(
 ) -> list[ScoredPoint]:
     """Run a semantic search with optional metadata filters."""
     try:
-        return await client.search(
+        response = await client.query_points(
             collection_name=collection_name,
-            query_vector=vector,
+            query=vector,
             query_filter=query_filter,
             limit=limit,
             with_payload=with_payload,
-            with_vector=with_vector,
+            with_vectors=with_vector,
             search_params=search_params,
         )
+        return response.points
     except Exception as exc:
         raise QdrantCollectionError(
             f"Failed to search Qdrant collection {collection_name}: {exc}"

@@ -79,9 +79,9 @@ async def get_collection_info(
         info = await client.get_collection(collection_name=collection_name)
         return {
             "status": info.status,
-            "vectors_count": info.vectors_count,
             "indexed_vectors_count": info.indexed_vectors_count,
             "points_count": info.points_count,
+            "segments_count": info.segments_count,
             "vector_size": info.config.params.vectors.size,
             "distance": info.config.params.vectors.distance,
         }
