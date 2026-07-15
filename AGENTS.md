@@ -98,6 +98,11 @@ npm run check
 
 - **Responsive app shell:** sidebar nav on desktop, bottom nav on mobile; max-width
   1200px content area centred in the viewport.
+- **Component selection:** under `apps/web`, follow the local shadcn-first
+  policy: semantic HTML, existing local primitive, the smallest missing
+  official shadcn primitive, then a custom component only for justified
+  MarketMind product semantics. Do not bulk-import registries or default every
+  page section to a card.
 - **Approved colour palette:**
 
   | Token | Hex | Usage |

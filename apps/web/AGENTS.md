@@ -36,9 +36,32 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - Components go in `src/components/`, co-located with their unit test in `src/components/__tests__/`.
 - Feature-specific components go in `src/features/{feature}/`.
-- UI primitives (buttons, inputs, dialogs) use `src/components/ui/` once shadcn/ui is configured.
 - Each component file exports a single named function, not a default export.
 - Use the `cn()` helper from `@/lib/utils` for conditional class merging.
+
+### shadcn-first selection policy
+
+shadcn/ui is already configured in `components.json`; `src/components/ui/` is
+the owned local primitive boundary. Use this order for every component choice:
+
+1. Use semantic HTML when it already provides the required behavior.
+2. Reuse an existing local primitive from `src/components/ui/`.
+3. For a standard interaction that is still missing, add the smallest relevant
+   official shadcn primitive through the existing configuration, one component
+   at a time.
+4. Create a shared MarketMind component only when product semantics and real
+   reuse justify it, such as a decision trail, evidence treatment,
+   readiness/blocker state, journey progress, or owner-action bar.
+5. Keep a composition inside `src/features/{feature}/` until cross-feature
+   reuse is demonstrated.
+
+Treat generated shadcn source as code the project owns: adapt it to the
+MarketMind semantic tokens, bilingual content, RTL behavior, focus behavior,
+and tests. Do not bulk-import registry blocks, add a second UI system, copy an
+unreviewed registry, or preserve default shadcn styling when it conflicts with
+the product brief. `Card` is not a default page-section wrapper; prefer
+semantic grouping, headings, whitespace, and dividers unless a bounded surface
+has a real information or interaction purpose.
 
 ## Accessibility
 

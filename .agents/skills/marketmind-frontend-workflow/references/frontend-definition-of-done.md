@@ -10,6 +10,24 @@ A frontend change under `apps/web` is done only when all applicable checks below
 - No new TypeScript `any` is introduced without justification.
 - Every semantic token used by `src/components/ui` is defined in `src/app/globals.css` and verified visually.
 
+## Component reuse and ownership
+
+- The change follows the shadcn-first order in `apps/web/AGENTS.md`: semantic
+  HTML, existing local primitive, smallest missing official shadcn primitive,
+  justified shared product pattern, then feature-local composition.
+- New standard controls are not rebuilt when an existing local or official
+  shadcn primitive provides the required accessible behavior.
+- Official shadcn primitives are added individually through the existing
+  `components.json`, then reviewed as owned project code.
+- No bulk registry dump, second UI system, or unreviewed component dependency
+  is introduced.
+- New shared components have demonstrated reuse or clear MarketMind semantics;
+  speculative abstractions remain feature-local.
+- Primitive changes preserve semantic tokens, keyboard and focus behavior,
+  English/Arabic content, and structural RTL behavior, with affected tests.
+- `Card` is used only for a meaningful bounded surface, not as the automatic
+  wrapper for every section or dashboard cell.
+
 ## Internationalization
 
 - User-visible strings, labels, placeholders, accessibility labels, errors, loading states, and empty states come from `messages/en.json` and `messages/ar.json`.
@@ -48,6 +66,8 @@ A frontend change under `apps/web` is done only when all applicable checks below
 - Avoid generic AI decoration such as purple gradients, glassmorphism, sparkle or robot imagery, and sci-fi styling.
 - Avoid hospitality-specific decoration: MarketMind serves SMEs across industries.
 - Follow the approved palette, type, density, and component guidance in `product-visual-brief.md`.
+- Standard shadcn interactions are customized into the MarketMind system; the
+  default shadcn composition is not treated as the product's visual direction.
 
 ## Product trust
 
