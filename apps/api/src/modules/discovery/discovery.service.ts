@@ -16,6 +16,7 @@ import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { LanguageModeDto } from "./dto/start-discovery.dto";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
+import { suggestedAnswersFromMetadata } from "./discovery-suggested-answers";
 
 @Injectable()
 export class DiscoveryService {
@@ -121,6 +122,10 @@ export class DiscoveryService {
       language_mode:
         (session.languageMode as LanguageModeDto) ?? LanguageModeDto.Mixed,
       current_question: session.currentQuestion ?? undefined,
+      current_suggested_answers: currentSuggestedAnswers(
+        messages,
+        session.currentQuestion,
+      ),
       intake_summary: {
         business_name: intake?.businessName ?? "",
         business_type: intake?.businessType ?? "",
@@ -135,4 +140,24 @@ export class DiscoveryService {
       strategy_locked: session.status !== "confirmed",
     };
   }
+}
+
+function currentSuggestedAnswers(
+  messages: readonly {
+    readonly role: string;
+    readonly content: string;
+    readonly suggested_answers?: readonly string[];
+  }[],
+  currentQuestion: string | null,
+): string[] | undefined {
+  const current = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        message.role === "assistant" &&
+        (!currentQuestion || message.content === currentQuestion),
+    );
+  return suggestedAnswersFromMetadata({
+    suggested_answers: current?.suggested_answers,
+  });
 }

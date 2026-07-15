@@ -7,6 +7,7 @@
     "content": "When the lunch rush starts, which orders keep showing up again and again?",
     "language": "mixed",
     "source": "chat",
+    "suggested_answers": ["individual koshary bowls", "family trays", "delivery orders"],
     "created_at": "2026-06-25T10:02:00.000Z"
   },
   "updated_known_facts": {

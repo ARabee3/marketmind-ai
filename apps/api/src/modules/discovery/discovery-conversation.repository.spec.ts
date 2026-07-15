@@ -64,6 +64,43 @@ describe("DiscoveryConversationRepository", () => {
     expect(prisma.tx.discoveryMessage.create).toHaveBeenCalledTimes(1);
   });
 
+  it("stores suggested answers in initial assistant message metadata", async () => {
+    const prisma = transactionPrisma({
+      discoverySession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      discoveryMessage: {
+        create: jest.fn().mockResolvedValue({
+          id: "message-id",
+          role: "assistant",
+          content: "Who are your best current customers?",
+          language: "mixed",
+          source: "chat",
+          metadata: { suggested_answers: ["Families", "Office workers"] },
+          createdAt: new Date("2026-06-29T10:01:00.000Z"),
+        }),
+      },
+    });
+    const repository = new DiscoveryConversationRepository(prisma as never);
+
+    const message = await repository.recordInitialAssistantQuestion(
+      "session-id",
+      "Who are your best current customers?",
+      LanguageModeDto.Mixed,
+      undefined,
+      { suggested_answers: ["Families", "Office workers"] },
+    );
+
+    expect(message.suggested_answers).toEqual(["Families", "Office workers"]);
+    expect(prisma.tx.discoveryMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: { suggested_answers: ["Families", "Office workers"] },
+        }),
+      }),
+    );
+  });
+
   it("does not store a question after a conflicting transition", async () => {
     const prisma = transactionPrisma({
       discoverySession: {

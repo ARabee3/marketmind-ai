@@ -26,6 +26,7 @@ function baseStatus(overrides: Partial<DiscoveryStatusResponse> = {}): Discovery
     status: 'in_progress',
     language_mode: 'en',
     current_question: 'What is your best selling product?',
+    current_suggested_answers: ['Espresso', 'I am not sure yet'],
     intake_summary: { business_name: 'Test Cafe', business_type: 'Cafe', city: 'Cairo' },
     intelligence: {
       status: 'complete',
@@ -293,8 +294,10 @@ test.describe('Discovery Interview & Review', () => {
 
     // Interview phase
     await expect(page.getByText('Welcome! What is your best selling product?')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Espresso' })).toBeVisible()
 
-    await page.getByPlaceholder('Type your answer here…').fill('Espresso')
+    await page.getByRole('button', { name: 'Espresso' }).click()
+    await expect(page.getByPlaceholder('Type your answer here…')).toHaveValue('Espresso')
     await page.getByRole('button', { name: 'Submit' }).click()
 
     await expect.poll(() => turnCount).toBeGreaterThanOrEqual(2)

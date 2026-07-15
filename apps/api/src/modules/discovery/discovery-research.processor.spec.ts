@@ -131,6 +131,33 @@ describe("DiscoveryResearchProcessor", () => {
     );
   });
 
+  it("stores initial suggested answers from AI discovery", async () => {
+    repository.findSessionStatus.mockResolvedValue({ status: "researching" });
+    gatherer.gather.mockResolvedValue(emptyIntelligence());
+    aiDiscoveryClient.start.mockResolvedValue({
+      ...aiQuestion(),
+      suggested_answers: ["Families", "Office workers"],
+    });
+    conversationRepository.recordInitialAssistantQuestion.mockResolvedValue({
+      ...assistantMessage(),
+      suggested_answers: ["Families", "Office workers"],
+    });
+
+    await processor.process(SESSION_ID, 1, 3);
+
+    expect(
+      conversationRepository.recordInitialAssistantQuestion,
+    ).toHaveBeenCalledWith(
+      SESSION_ID,
+      "Who are your best current customers?",
+      LanguageModeDto.Mixed,
+      expect.any(Object),
+      {
+        suggested_answers: ["Families", "Office workers"],
+      },
+    );
+  });
+
   it("does not call AI when intelligence fails", async () => {
     repository.findSessionStatus.mockResolvedValue({ status: "researching" });
     gatherer.gather.mockResolvedValue({

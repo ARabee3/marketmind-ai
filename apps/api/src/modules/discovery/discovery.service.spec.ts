@@ -102,6 +102,7 @@ describe("DiscoveryService", () => {
         content: "Who are your customers?",
         language: LanguageModeDto.Mixed,
         source: "chat",
+        suggested_answers: ["Families", "Office workers"],
         created_at: "2026-06-29T10:02:00.000Z",
       },
     ]);
@@ -121,6 +122,10 @@ describe("DiscoveryService", () => {
     });
     expect(status.intelligence).toEqual(intelligence);
     expect(status.messages).toHaveLength(1);
+    expect(status.current_suggested_answers).toEqual([
+      "Families",
+      "Office workers",
+    ]);
     expect(status.strategy_locked).toBe(true);
     expect(status.progress_events).toEqual([
       {

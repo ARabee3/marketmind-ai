@@ -3,6 +3,7 @@
   "status": "partial_ready",
   "language_mode": "mixed",
   "current_question": "Who are your best current customers: students, office workers, families, or another group?",
+  "current_suggested_answers": ["students", "office workers", "families"],
   "intake_summary": {
     "business_name": "Koshary Corner",
     "business_type": "quick service restaurant",
@@ -92,6 +93,7 @@
       "content": "Who are your best current customers: students, office workers, families, or another group?",
       "language": "mixed",
       "source": "chat",
+      "suggested_answers": ["students", "office workers", "families"],
       "created_at": "2026-06-25T10:00:21.000Z"
     }
   ],

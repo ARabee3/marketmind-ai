@@ -4,6 +4,7 @@ from app.discovery.schemas import (
     UncertaintyInput,
 )
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest
+from app.providers.mock_suggestions import suggested_answers_for_question
 
 
 class MockDiscoveryProvider(DiscoveryProvider):
@@ -51,31 +52,46 @@ class MockDiscoveryProvider(DiscoveryProvider):
 
         owner_text = str(request.payload.get("owner_message", {}).get("content", ""))
         if self._is_strategy_request(owner_text):
+            next_question = self._boundary_question(request.language_mode)
             return DiscoveryModelOutput(
                 action="ask_clarification",
                 ready_to_summarize=False,
-                next_question=self._boundary_question(request.language_mode),
+                next_question=next_question,
+                suggested_answers=suggested_answers_for_question(
+                    next_question,
+                    request.language_mode,
+                ),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[],
                 domain_scores=self._scores(0.35),
             )
         if self._is_prompt_injection(owner_text):
+            next_question = self._safe_discovery_question(
+                request.language_mode,
+                str(intake["business_name"]),
+            )
             return DiscoveryModelOutput(
                 action="ask_clarification",
                 ready_to_summarize=False,
-                next_question=self._safe_discovery_question(
+                next_question=next_question,
+                suggested_answers=suggested_answers_for_question(
+                    next_question,
                     request.language_mode,
-                    str(intake["business_name"]),
                 ),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[],
                 domain_scores=self._scores(0.35),
             )
         if self._is_unknown(owner_text):
+            next_question = self._next_question(request)
             return DiscoveryModelOutput(
                 action="ask_next_question",
                 ready_to_summarize=False,
-                next_question=self._next_question(request),
+                next_question=next_question,
+                suggested_answers=suggested_answers_for_question(
+                    next_question,
+                    request.language_mode,
+                ),
                 updated_known_facts=known_facts,
                 updated_uncertainties=[
                     UncertaintyInput(
@@ -90,10 +106,15 @@ class MockDiscoveryProvider(DiscoveryProvider):
                 ],
                 domain_scores=self._scores(0.3),
             )
+        next_question = self._next_question(request)
         return DiscoveryModelOutput(
             action="ask_next_question",
             ready_to_summarize=False,
-            next_question=self._next_question(request),
+            next_question=next_question,
+            suggested_answers=suggested_answers_for_question(
+                next_question,
+                request.language_mode,
+            ),
             updated_known_facts=known_facts,
             updated_uncertainties=[],
             owner_goals=[intake["owner_goal_text"]] if intake.get("owner_goal_text") else [],
@@ -267,7 +288,17 @@ class MockDiscoveryProvider(DiscoveryProvider):
 
     def _is_unknown(self, text: str) -> bool:
         lowered = text.lower()
-        return any(token in lowered for token in ["i don't know", "dont know", "not sure", "معرفش", "مش عارف", "لا اعرف"])
+        return any(
+            token in lowered
+            for token in [
+                "i don't know",
+                "dont know",
+                "not sure",
+                "معرفش",
+                "مش عارف",
+                "لا اعرف",
+            ]
+        )
 
     def _is_strategy_request(self, text: str) -> bool:
         lowered = text.lower()

@@ -9,6 +9,7 @@ import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
 import { DiscoveryProgressInput } from "./discovery-state";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
+import { metadataForSuggestedAnswers } from "./discovery-suggested-answers";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 
 /**
@@ -193,6 +194,7 @@ export class DiscoveryResearchProcessor {
         result.next_question,
         dto.language_mode ?? LanguageModeDto.Mixed,
         this.readinessService.evaluate(result, 0),
+        metadataForSuggestedAnswers(result.suggested_answers),
       );
       return "started";
     } catch (error) {

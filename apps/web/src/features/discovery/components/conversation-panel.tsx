@@ -62,6 +62,7 @@ function CurrentQuestionBubble({
 export function ConversationPanel({
   messages,
   currentQuestion,
+  suggestedAnswers,
   pending,
   error,
   errorTranslationKey,
@@ -71,6 +72,7 @@ export function ConversationPanel({
 }: {
   messages: DiscoveryMessage[]
   currentQuestion?: string
+  suggestedAnswers?: readonly string[]
   pending: boolean
   error: string | null
   errorTranslationKey: TranslationKey | null
@@ -95,6 +97,17 @@ export function ConversationPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const logRef = useRef<HTMLDivElement>(null)
   const lastMessageCountRef = useRef(messages.length)
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === 'assistant')
+  const latestAssistantSuggestions =
+    latestAssistantMessage && (!currentQuestion || latestAssistantMessage.content === currentQuestion)
+      ? latestAssistantMessage.suggested_answers
+      : undefined
+  const activeSuggestedAnswers =
+    suggestedAnswers ??
+    latestAssistantSuggestions ??
+    []
 
   // Scroll to bottom when new assistant message arrives
   useEffect(() => {
@@ -126,6 +139,11 @@ export function ConversationPanel({
     },
     [handleSubmit],
   )
+
+  const chooseSuggestedAnswer = useCallback((answer: string) => {
+    setInput(answer)
+    textareaRef.current?.focus()
+  }, [])
 
   const isLastAssistantSameAsCurrent =
     currentQuestion &&
@@ -197,6 +215,31 @@ export function ConversationPanel({
 
         {/* Composer */}
         <div className="space-y-2 pt-2 border-t border-border">
+          {activeSuggestedAnswers.length > 0 && (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label={t('suggestedAnswersLabel')}
+            >
+              {activeSuggestedAnswers.map((answer) => (
+                <button
+                  key={answer}
+                  type="button"
+                  onClick={() => chooseSuggestedAnswer(answer)}
+                  disabled={disabled || pending}
+                  className={cn(
+                    'min-h-9 max-w-full rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors',
+                    'hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    'disabled:pointer-events-none disabled:opacity-50',
+                  )}
+                >
+                  <span className="break-words" dir="auto">
+                    <bdi>{answer}</bdi>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <Label htmlFor="discovery-answer" className="text-sm font-medium">
             {t('composerLabel')}
           </Label>

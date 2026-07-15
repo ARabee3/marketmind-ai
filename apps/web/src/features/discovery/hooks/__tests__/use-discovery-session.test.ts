@@ -74,13 +74,20 @@ describe('useDiscoverySession', () => {
   })
 
   it('hydrates from /status on mount', async () => {
-    vi.mocked(getDiscoveryStatus).mockResolvedValueOnce(makeStatus({ status: 'in_progress' }))
+    vi.mocked(getDiscoveryStatus).mockResolvedValueOnce(makeStatus({
+      status: 'in_progress',
+      current_suggested_answers: ['Families', 'Office workers'],
+    }))
 
     const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
 
     await waitFor(() => expect(result.current.phase).toBe('interview'))
     expect(result.current.status).not.toBeNull()
     expect(result.current.status?.status).toBe('in_progress')
+    expect(result.current.status?.current_suggested_answers).toEqual([
+      'Families',
+      'Office workers',
+    ])
   })
 
   it('shows load_error when /status fails', async () => {

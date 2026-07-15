@@ -123,6 +123,11 @@ class DiscoveryService:
         return AiDiscoveryResult(
             action=output.action,
             next_question=output.next_question,
+            suggested_answers=(
+                output.suggested_answers
+                if output.action in {"ask_next_question", "ask_clarification"}
+                else []
+            ),
             updated_known_facts=normalized_facts,
             updated_uncertainties=output.updated_uncertainties,
             research_observations=accepted_observations,
@@ -179,6 +184,7 @@ class DiscoveryService:
         return AiDiscoveryResult(
             action="safe_failure",
             next_question=None,
+            suggested_answers=[],
             updated_known_facts=self._normalize_facts(
                 request,
                 DiscoveryModelOutput(

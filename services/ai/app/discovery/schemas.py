@@ -1,6 +1,12 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.core.errors import ErrorBody
 
@@ -147,6 +153,7 @@ class DiscoveryMessage(StrictModel):
     content: str
     language: LanguageMode
     source: Literal["chat", "research_hook", "summary"]
+    suggested_answers: list[str] = Field(default_factory=list, max_length=4)
     created_at: IsoDateTime
 
 
@@ -315,12 +322,18 @@ class AiDiscoverySummarizeRequest(StrictModel):
 class DiscoveryModelOutput(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
+    suggested_answers: list[str] = Field(default_factory=list, max_length=4)
     updated_known_facts: MarketAwareBusinessFacts
     updated_uncertainties: list[UncertaintyInput]
     owner_goals: list[str] = Field(default_factory=list)
     strategy_relevant_notes: list[str] = Field(default_factory=list)
     domain_scores: DiscoveryDomainScores
     ready_to_summarize: bool
+
+    @field_validator("suggested_answers")
+    @classmethod
+    def normalize_suggested_answers(cls, value: list[str]) -> list[str]:
+        return _clean_suggested_answers(value)
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> "DiscoveryModelOutput":
@@ -332,6 +345,7 @@ class DiscoveryModelOutput(StrictModel):
 class AiDiscoveryResult(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None
+    suggested_answers: list[str] = Field(default_factory=list, max_length=4)
     updated_known_facts: MarketAwareBusinessFacts
     updated_uncertainties: list[UncertaintyInput]
     research_observations: list[ResearchObservation]
@@ -340,3 +354,12 @@ class AiDiscoveryResult(StrictModel):
     ready_to_summarize: bool
     profile_draft: BusinessProfileDraft | None = None
     safe_error: ErrorBody | None = None
+
+
+def _clean_suggested_answers(value: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    for answer in value:
+        normalized = answer.strip()
+        if normalized and normalized not in cleaned:
+            cleaned.append(normalized)
+    return cleaned[:4]
