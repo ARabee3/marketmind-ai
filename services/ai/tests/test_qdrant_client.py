@@ -30,10 +30,10 @@ async def test_create_and_delete_collection(
     qdrant_test_client, test_collection_name: str
 ) -> None:
     assert not await collection_exists(qdrant_test_client, test_collection_name)
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
     assert await collection_exists(qdrant_test_client, test_collection_name)
     info = await get_collection_info(qdrant_test_client, test_collection_name)
-    assert info["vector_size"] == 1536
+    assert info["vector_size"] == 3072
     await delete_collection(qdrant_test_client, test_collection_name)
     assert not await collection_exists(qdrant_test_client, test_collection_name)
 
@@ -42,7 +42,7 @@ async def test_create_and_delete_collection(
 async def test_ensure_collection_creates_when_missing(
     qdrant_test_client, test_collection_name: str
 ) -> None:
-    name = await ensure_collection(qdrant_test_client, test_collection_name, 1536)
+    name = await ensure_collection(qdrant_test_client, test_collection_name, 3072)
     assert name == test_collection_name
     assert await collection_exists(qdrant_test_client, test_collection_name)
 
@@ -51,7 +51,7 @@ async def test_ensure_collection_creates_when_missing(
 async def test_payload_indexes_are_created(
     qdrant_test_client, test_collection_name: str
 ) -> None:
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
     await create_payload_indexes(qdrant_test_client, test_collection_name)
     info = await get_collection_info(qdrant_test_client, test_collection_name)
     assert info["status"] is not None
@@ -62,7 +62,7 @@ async def test_upsert_and_search_roundtrip(
     qdrant_test_client, test_collection_name: str
 ) -> None:
     provider = get_embedding_provider()
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
     await create_payload_indexes(qdrant_test_client, test_collection_name)
 
     chunk_id = uuid4()
@@ -106,7 +106,7 @@ async def test_filtered_search(
     qdrant_test_client, test_collection_name: str
 ) -> None:
     provider = get_embedding_provider()
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
     await create_payload_indexes(qdrant_test_client, test_collection_name)
 
     texts = ["Instagram for cafés", "Facebook for retail"]
@@ -161,7 +161,7 @@ async def test_idempotent_upsert(
     qdrant_test_client, test_collection_name: str
 ) -> None:
     provider = get_embedding_provider()
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
 
     chunk_id = uuid4()
     entry_id = uuid4()
@@ -199,7 +199,7 @@ async def test_delete_points_by_chunk_ids(
     qdrant_test_client, test_collection_name: str
 ) -> None:
     provider = get_embedding_provider()
-    await create_collection(qdrant_test_client, test_collection_name, vector_size=1536)
+    await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
 
     chunk_id = uuid4()
     entry_id = uuid4()
@@ -236,7 +236,7 @@ async def test_dimension_mismatch_guard(
     await create_collection(qdrant_test_client, test_collection_name, vector_size=768)
     with pytest.raises(QdrantCollectionError) as exc_info:
         await validate_collection_compatibility(
-            qdrant_test_client, test_collection_name, expected_size=1536
+            qdrant_test_client, test_collection_name, expected_size=3072
         )
     assert "vector size 768" in str(exc_info.value)
-    assert "configured dimensions are 1536" in str(exc_info.value)
+    assert "configured dimensions are 3072" in str(exc_info.value)

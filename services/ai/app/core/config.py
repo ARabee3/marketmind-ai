@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     open_router_model: str = ""
 
     # Embedding provider configuration
+    # Default production configuration per STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md.
     embedding_provider_mode: EmbeddingProviderMode = "fake"
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimensions: int = Field(default=1536, ge=1, le=16_000)
+    embedding_model: str = "text-embedding-3-large"
+    embedding_dimensions: int = Field(default=3072, ge=1, le=16_000)
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
     embedding_request_timeout_ms: int = Field(default=60_000, ge=1_000, le=300_000)
 

@@ -5,10 +5,16 @@ Sprint 4 curated RAG pipeline for the Strategy Agent.
 
 ## Run locally
 
-Start the local dependencies (PostgreSQL, Redis, Qdrant):
+Start the required local dependencies (PostgreSQL, Redis):
 
 ```bash
 docker compose -f infra/docker/docker-compose.local.yml up -d
+```
+
+If you are working on Sprint 4 RAG, start Qdrant separately:
+
+```bash
+docker compose -f infra/docker/docker-compose.qdrant.yml up -d
 ```
 
 Then run the AI service:
@@ -36,11 +42,16 @@ Copy `.env.example` to `.env` and configure the providers you need:
 
 - `EMBEDDING_PROVIDER_MODE=fake`: deterministic local/test behavior (default).
 - `EMBEDDING_PROVIDER_MODE=openai`: requires `OPENAI_API_KEY`.
-  - Default model: `text-embedding-3-small` (1536 dims).
-  - Override with `EMBEDDING_MODEL=text-embedding-3-large` and
-    `EMBEDDING_DIMENSIONS=3072` for production.
+  - Default production model: `text-embedding-3-large` (3072 dims).
+  - Use `text-embedding-3-small` (1536 dims) for faster/cheaper local development.
 
-### Qdrant
+### Qdrant (optional)
+
+Qdrant is required only for Sprint 4 RAG/vector retrieval. Start it with:
+
+```bash
+docker compose -f infra/docker/docker-compose.qdrant.yml up -d
+```
 
 Default local connection:
 
@@ -50,10 +61,11 @@ QDRANT_PORT=6333
 QDRANT_COLLECTION_NAME=marketing_knowledge_v1
 ```
 
-The service ensures the configured collection exists on startup. If the
-existing collection has a different vector size than `EMBEDDING_DIMENSIONS`,
-startup logs a clear error so you can delete the mismatched collection or
-change the embedding configuration.
+The service attempts to ensure the configured collection exists on startup.
+If Qdrant is not running, the failure is logged but non-fatal so Discovery
+remains available. If the existing collection has a different vector size than
+`EMBEDDING_DIMENSIONS`, startup logs a clear error so you can delete the
+mismatched collection or change the embedding configuration.
 
 Do not commit real keys.
 

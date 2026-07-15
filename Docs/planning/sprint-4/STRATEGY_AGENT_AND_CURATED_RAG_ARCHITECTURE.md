@@ -326,13 +326,11 @@ The idempotent ingestion command performs:
 9. mark removed or superseded versions unavailable;
 10. write an ingestion report and fail visibly on partial indexing.
 
-The canonical default embedding configuration is `text-embedding-3-small`
-(1536 dimensions) for cost-effective local development and CI. Production can
-opt into `text-embedding-3-large` (3072 dimensions) by setting
-`EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`. Tests use a deterministic fake
-embedding provider. The provider and dimensions are configuration values;
-changing either creates a new collection version and a full re-index rather
-than mixing incompatible vectors.
+The default production embedding configuration is
+`text-embedding-3-large`, chosen for English and non-English retrieval. Tests
+use a deterministic fake embedding provider. The provider and dimensions are
+configuration values; changing either creates a new collection version and a
+full re-index rather than mixing incompatible vectors.
 
 ## 10. Qdrant derived index
 

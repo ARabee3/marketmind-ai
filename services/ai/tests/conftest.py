@@ -1,5 +1,4 @@
 import uuid
-from dataclasses import dataclass
 
 import pytest
 
@@ -13,8 +12,8 @@ from app.qdrant import create_qdrant_client
 def embedding_config() -> EmbeddingConfig:
     return EmbeddingConfig(
         provider="fake",
-        model="text-embedding-3-small",
-        dimensions=1536,
+        model="text-embedding-3-large",
+        dimensions=3072,
         batch_size=32,
     )
 
@@ -27,15 +26,14 @@ def fake_embedding_provider(embedding_config: EmbeddingConfig) -> EmbeddingProvi
 @pytest.fixture
 def qdrant_test_settings() -> Settings:
     """Return settings with a unique test collection name."""
-    settings = Settings(
+    return Settings(
         embedding_provider_mode="fake",
-        embedding_model="text-embedding-3-small",
-        embedding_dimensions=1536,
+        embedding_model="text-embedding-3-large",
+        embedding_dimensions=3072,
         qdrant_host="localhost",
         qdrant_port=6333,
         qdrant_collection_name=f"test_marketing_knowledge_{uuid.uuid4().hex[:12]}",
     )
-    return settings
 
 
 @pytest.fixture

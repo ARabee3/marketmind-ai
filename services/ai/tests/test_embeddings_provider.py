@@ -11,8 +11,8 @@ from app.embeddings.openai_provider import OpenAIEmbeddingProvider
 def fake_config() -> EmbeddingConfig:
     return EmbeddingConfig(
         provider="fake",
-        model="text-embedding-3-small",
-        dimensions=1536,
+        model="text-embedding-3-large",
+        dimensions=3072,
         batch_size=32,
     )
 
@@ -23,7 +23,7 @@ async def test_fake_provider_returns_unit_vectors(fake_config: EmbeddingConfig) 
     response = await provider.embed(EmbedRequest(texts=["hello"]))
     assert len(response.embeddings) == 1
     vector = response.embeddings[0].vector
-    assert len(vector) == 1536
+    assert len(vector) == 3072
 
 
 @pytest.mark.anyio
@@ -46,7 +46,7 @@ async def test_fake_provider_different_texts_different_vectors(
 def test_factory_returns_fake_provider_by_default() -> None:
     provider = EmbeddingProviderFactory.from_settings()
     assert provider.name == "fake"
-    assert provider.config.model == "text-embedding-3-small"
+    assert provider.config.model == "text-embedding-3-large"
 
 
 def test_openai_provider_requires_api_key(fake_config: EmbeddingConfig) -> None:
