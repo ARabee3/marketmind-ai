@@ -39,7 +39,29 @@ Connection URL:
 postgresql://marketmind:marketmind_dev@localhost:5432/marketmind_dev?schema=public
 ```
 
+### Qdrant
+
+Qdrant is started alongside PostgreSQL and Redis by the same local compose file.
+
+```bash
+docker compose -f infra/docker/docker-compose.local.yml up -d
+```
+
+Connection details:
+
+| Setting | Value              |
+|---------|--------------------|
+| Host    | localhost          |
+| REST    | http://localhost:6333 |
+| gRPC    | localhost:6334     |
+| Storage | Named volume `marketmind_qdrant_storage` |
+
+Health endpoint:
+```
+GET http://localhost:6333/healthz
+```
+
 ## Notes
 
-- Sprint 1 uses PostgreSQL only. Qdrant is not required.
+- Qdrant is enabled for Sprint 4 RAG/vector retrieval.
 - No Terraform or production cloud IaC in Sprint 1.

@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
+EmbeddingProviderMode = Literal["openai", "fake"]
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,22 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     open_router_api_key: str = ""
     open_router_model: str = ""
+
+    # Embedding provider configuration
+    embedding_provider_mode: EmbeddingProviderMode = "fake"
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = Field(default=1536, ge=1, le=16_000)
+    embedding_batch_size: int = Field(default=32, ge=1, le=256)
+    embedding_request_timeout_ms: int = Field(default=60_000, ge=1_000, le=300_000)
+
+    # Qdrant vector database configuration
+    qdrant_host: str = "localhost"
+    qdrant_port: int = Field(default=6333, ge=1, le=65_535)
+    qdrant_grpc_port: int = Field(default=6334, ge=1, le=65_535)
+    qdrant_collection_name: str = "marketing_knowledge_v1"
+    qdrant_api_key: str | None = None
+    qdrant_timeout_ms: int = Field(default=10_000, ge=1_000, le=60_000)
+    qdrant_use_grpc: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
