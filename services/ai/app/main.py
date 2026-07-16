@@ -6,12 +6,17 @@ from app.api.health import router as health_router
 from app.api.internal_v1.discovery import router as discovery_router
 from app.api.internal_v1.search import router as search_router
 from app.core.logging import configure_logging
-from app.qdrant import create_qdrant_client, ensure_collection
+from app.qdrant import (
+    create_payload_indexes,
+    create_qdrant_client,
+    ensure_collection,
+    validate_collection_compatibility,
+)
 from app.rag import get_rag_config
 
 
 async def _ensure_qdrant_collection_on_startup() -> None:
-    """Ensure the configured Qdrant collection exists; log on failure."""
+    """Ensure the configured Qdrant collection exists, is compatible, and has payload indexes; log on failure."""
     config = get_rag_config()
     client = create_qdrant_client()
     try:
@@ -19,6 +24,15 @@ async def _ensure_qdrant_collection_on_startup() -> None:
             client,
             collection_name=config.qdrant.collection_name,
             vector_size=config.embedding.dimensions,
+        )
+        await validate_collection_compatibility(
+            client,
+            collection_name=config.qdrant.collection_name,
+            expected_size=config.embedding.dimensions,
+        )
+        await create_payload_indexes(
+            client,
+            collection_name=config.qdrant.collection_name,
         )
     except Exception as exc:
         # Log but do not crash: discovery endpoints remain available while
