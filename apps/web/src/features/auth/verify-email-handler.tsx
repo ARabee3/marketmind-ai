@@ -9,12 +9,9 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { parseBackendErrorCode } from './auth-errors'
 import { ResendVerificationForm } from './resend-verification-form'
+import { authStyles } from './auth-styles'
 
 type VerifyState = 'verifying' | 'success' | 'expired' | 'invalid' | 'rateLimited' | 'missing'
-
-const simpleAlert = 'flex flex-col gap-3 rounded-md px-3 py-3 text-sm'
-const destructiveAlert = `${simpleAlert} bg-destructive/10 text-destructive`
-const successAlert = `${simpleAlert} bg-secondary text-secondary-foreground`
 
 export function VerifyEmailHandler() {
   const t = useTranslations('Auth')
@@ -72,7 +69,7 @@ export function VerifyEmailHandler() {
 
   if (state === 'success') {
     return (
-      <div role="status" className={successAlert}>
+      <div role="status" className={authStyles.success}>
         <p className="font-medium">{t('verifyEmailSuccessTitle')}</p>
         <p>{t('verifyEmailSuccessBody')}</p>
         <Link href="/login" className={cn(buttonVariants(), 'mt-1 w-full')}>
@@ -84,9 +81,9 @@ export function VerifyEmailHandler() {
 
   if (state === 'missing') {
     return (
-      <div role="alert" className={destructiveAlert}>
+      <div role="alert" className={authStyles.alert}>
         <p>{t('verifyEmailMissingTokenBody')}</p>
-        <Link href="/login" className="font-medium text-action hover:underline">
+        <Link href="/login" className={authStyles.actionLink}>
           {t('verifyEmailSignIn')}
         </Link>
       </div>
@@ -95,10 +92,10 @@ export function VerifyEmailHandler() {
 
   if (state === 'rateLimited') {
     return (
-      <div role="alert" className={destructiveAlert}>
+      <div role="alert" className={authStyles.alert}>
         <p className="font-medium">{t('verifyEmailRateLimitedTitle')}</p>
         <p>{t('verifyEmailRateLimitedBody')}</p>
-        <Link href="/login" className="font-medium text-action hover:underline">
+        <Link href="/login" className={authStyles.actionLink}>
           {t('verifyEmailSignIn')}
         </Link>
       </div>
@@ -113,7 +110,7 @@ export function VerifyEmailHandler() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div role="alert" className={destructiveAlert}>
+      <div role="alert" className={authStyles.alert}>
         <p className="font-medium">{t(titleKey)}</p>
         <p>{t(bodyKey)}</p>
       </div>
@@ -134,7 +131,7 @@ export function VerifyEmailHandler() {
           </Button>
           <Link
             href="/login"
-            className="text-center text-sm text-muted-foreground hover:underline"
+            className={authStyles.quietLink}
           >
             {t('verifyEmailSignIn')}
           </Link>
