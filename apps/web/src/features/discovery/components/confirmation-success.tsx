@@ -39,7 +39,7 @@ export function ConfirmationSuccess({
             className="p-4 rounded-md bg-primary/10 text-primary border border-primary/20"
             role="status"
           >
-            <p className="text-sm font-medium">{t('strategyUnlocked')}</p>
+            <p className="text-sm font-medium">{t('profileConfirmedStatus')}</p>
           </div>
 
           <p className="text-sm text-muted-foreground">{t('confirmedDescription')}</p>

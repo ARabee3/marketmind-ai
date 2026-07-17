@@ -1,4 +1,6 @@
 import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 import { resolve } from 'path'
 
 type Messages = Record<string, string | Record<string, unknown>>
@@ -17,6 +19,7 @@ function flattenKeys(obj: Messages, prefix = ''): string[] {
 }
 
 function loadMessages(locale: string): Messages {
+  const __dirname = dirname(fileURLToPath(import.meta.url))
   const path = resolve(__dirname, '..', 'messages', `${locale}.json`)
   return JSON.parse(readFileSync(path, 'utf-8'))
 }

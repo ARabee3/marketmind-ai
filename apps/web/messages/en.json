@@ -19,7 +19,134 @@
     "navDiscovery": "Discovery",
     "navDashboard": "Dashboard",
     "primaryNavLabel": "Primary",
-    "mobileNavLabel": "Mobile primary"
+    "mobileNavLabel": "Mobile primary",
+    "workspaceLabel": "Workspace",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation",
+    "ownerControlHint": "Every important step waits for a clear owner decision before the system moves."
+  },
+  "Dashboard": {
+    "eyebrow": "Owner workspace",
+    "title": "Your growth journey starts here",
+    "titleWithName": "Welcome back, {name}",
+    "welcomeBack": "Welcome back,",
+    "subtitle": "See the next useful step, what MarketMind already understands, and what is still locked until you confirm the business profile.",
+    "loadingTitle": "Preparing your workspace",
+    "loadingBody": "Loading the latest Discovery state and owner controls.",
+    "retry": "Try again",
+    "loadError": "We could not load your latest journey. You can start a new Discovery or try again.",
+    "nextStepLabel": "Next step",
+    "snapshotLabel": "Business understanding",
+    "snapshotEmptyTitle": "No business profile yet",
+    "businessType": "Business type",
+    "location": "Location",
+    "readiness": "Profile readiness",
+    "readinessValue": "{value}%",
+    "profileVersion": "Confirmed version",
+    "profileVersionValue": "Version {value}",
+    "notAvailable": "Not available yet",
+    "journeyLabel": "Journey map",
+    "journeyTitle": "What opens after each owner decision",
+    "state": {
+      "empty": {
+        "title": "Start Discovery",
+        "body": "Tell MarketMind about the business. We will research public evidence, ask focused questions, and build the profile before any strategy work starts."
+      },
+      "active": {
+        "title": "Continue Discovery",
+        "body": "Research or interview work is already in progress. Continue from the same session so the profile keeps the evidence and answers together."
+      },
+      "review": {
+        "title": "Review the business profile",
+        "body": "Discovery has enough information to prepare a draft. Review it carefully before unlocking future strategy work."
+      },
+      "confirmed": {
+        "title": "Discovery is confirmed",
+        "body": "The business profile is saved. Strategy is shown as the next product phase, but it is not active in this sprint."
+      },
+      "unavailable": {
+        "title": "Discovery needs attention",
+        "body": "The previous journey is unavailable or failed. Start a new Discovery to rebuild the business context."
+      }
+    },
+    "actions": {
+      "start_discovery": "Start Discovery",
+      "continue_discovery": "Continue Discovery",
+      "review_profile": "Review profile",
+      "view_discovery": "View Discovery",
+      "none": "No action"
+    },
+    "strategy": {
+      "discovery_required": "Strategy stays locked until Discovery produces a profile.",
+      "profile_review_required": "Strategy stays locked until you confirm the profile.",
+      "strategy_not_active": "Strategy is planned next, but not available in this sprint."
+    },
+    "phase": {
+      "discovery": {
+        "number": "1",
+        "title": "Discovery",
+        "done": "Research and chat started",
+        "active": "Start here",
+        "locked": "Waiting"
+      },
+      "review": {
+        "number": "2",
+        "title": "Profile review",
+        "done": "Confirmed by owner",
+        "active": "Needs owner review",
+        "locked": "After Discovery"
+      },
+      "strategy": {
+        "number": "3",
+        "title": "Strategy",
+        "done": "Not active yet",
+        "active": "Next planned phase",
+        "locked": "Locked"
+      },
+      "content": {
+        "number": "4",
+        "title": "Content",
+        "done": "Not active yet",
+        "active": "Not active yet",
+        "locked": "Future phase"
+      },
+      "results": {
+        "number": "5",
+        "title": "Results",
+        "done": "Not active yet",
+        "active": "Not active yet",
+        "locked": "Future phase"
+      }
+    },
+    "onboarding": {
+      "replay": "How MarketMind works",
+      "eyebrow": "Step {current} of {total}",
+      "progressLabel": "Onboarding progress",
+      "skip": "Skip",
+      "back": "Back",
+      "next": "Next",
+      "start": "Start",
+      "steps": {
+        "control": {
+          "title": "You stay in control",
+          "body": "MarketMind does not publish, launch strategy, or invent business facts without your confirmation. The dashboard always shows the next owner decision."
+        },
+        "profile": {
+          "title": "Build the business profile first",
+          "body": "Discovery turns your intake, public sources, and chat answers into one business profile. This profile becomes the base for later strategy work."
+        },
+        "evidence": {
+          "title": "Research and chat work together",
+          "body": "The system can mention public evidence it found, then ask focused questions when the evidence is missing, weak, or needs owner confirmation."
+        },
+        "confirm": {
+          "title": "Confirm before the next phase",
+          "body": "When Discovery is ready, review the profile. Strategy remains locked until the profile is confirmed and the next product phase is active."
+        }
+      }
+    }
   },
   "Auth": {
     "loginTitle": "Sign in to your account",
@@ -352,8 +479,8 @@
     "confirmProfile": "Confirm profile",
     "confirmingLabel": "Confirming…",
     "confirmedTitle": "Profile confirmed",
-    "strategyUnlocked": "Strategy is now unlocked",
-    "confirmedDescription": "Your business profile has been confirmed. You can now proceed to Strategy.",
+    "profileConfirmedStatus": "Business profile confirmed",
+    "confirmedDescription": "Your business profile has been confirmed. Strategy is planned next, but it is not active in this sprint.",
     "carriedForwardGaps": "Carried forward gaps",
     "refreshStatus": "Refresh status",
     "domainIdentity": "Identity",
