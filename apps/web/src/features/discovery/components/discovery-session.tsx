@@ -255,6 +255,7 @@ export function DiscoverySession({
           <ConversationPanel
             messages={status.messages ?? []}
             currentQuestion={status.current_question}
+            suggestedAnswers={status.current_suggested_answers}
             pending={pending}
             error={session.error}
             errorTranslationKey={session.errorTranslationKey}

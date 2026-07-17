@@ -29,6 +29,7 @@ import {
 } from "./discovery-state";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { MAX_DISCOVERY_OWNER_TURNS } from "./market-profile";
+import { metadataForSuggestedAnswers } from "./discovery-suggested-answers";
 
 const CONVERSATION_STATUSES: readonly DiscoverySessionStatus[] = [
   "partial_ready",
@@ -129,6 +130,7 @@ export class DiscoveryConversationService {
           content: result.next_question!,
           language: languageMode,
           source: "chat",
+          metadata: metadataForSuggestedAnswers(result.suggested_answers),
         },
         profileState,
         true,

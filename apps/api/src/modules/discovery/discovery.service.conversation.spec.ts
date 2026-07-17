@@ -60,6 +60,7 @@ describe("DiscoveryService conversation", () => {
         content: message.content,
         language: message.language,
         source: message.source,
+        suggested_answers: suggestedAnswersFromMetadata(message.metadata),
         created_at: "2026-06-29T10:05:00.000Z",
       }),
     );
@@ -79,6 +80,7 @@ describe("DiscoveryService conversation", () => {
               content: message.content,
               language: message.language,
               source: message.source,
+              suggested_answers: suggestedAnswersFromMetadata(message.metadata),
               created_at: "2026-06-29T10:05:00.000Z",
             }
           : undefined,
@@ -99,6 +101,7 @@ describe("DiscoveryService conversation", () => {
           content: message.content,
           language: message.language,
           source: message.source,
+          suggested_answers: suggestedAnswersFromMetadata(message.metadata),
           created_at: "2026-06-29T10:06:00.000Z",
         },
       }),
@@ -153,6 +156,50 @@ describe("DiscoveryService conversation", () => {
     expect(response.assistant_message?.content).toBe(
       "What offer sells best today?",
     );
+  });
+
+  it("stores suggested answers on the next assistant question", async () => {
+    aiDiscoveryClient.respond.mockResolvedValue({
+      ...aiResult(),
+      next_question: "What usually makes customers choose you?",
+      suggested_answers: [
+        "Fresh products",
+        "Close to home",
+        "Good prices",
+      ],
+    });
+
+    const response = await service.respondToDiscovery(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      { message: "Families buy most often.", language: LanguageModeDto.Mixed },
+    );
+
+    expect(
+      conversationRepository.completeConversationTurn,
+    ).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      "in_progress",
+      "What usually makes customers choose you?",
+      undefined,
+      expect.objectContaining({
+        metadata: {
+          suggested_answers: [
+            "Fresh products",
+            "Close to home",
+            "Good prices",
+          ],
+        },
+      }),
+      expect.any(Object),
+      true,
+    );
+    expect(response.assistant_message?.suggested_answers).toEqual([
+      "Fresh products",
+      "Close to home",
+      "Good prices",
+    ]);
   });
 
   it("does not mark AI safe failures as in progress", async () => {
@@ -467,6 +514,15 @@ function aiResult(): AiDiscoveryResult {
     domain_scores: emptyDiscoveryDomainScores(),
     ready_to_summarize: false,
   };
+}
+
+function suggestedAnswersFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+): string[] | undefined {
+  const value = metadata?.["suggested_answers"];
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? value
+    : undefined;
 }
 
 function profileDraft(): BusinessProfileDraft {

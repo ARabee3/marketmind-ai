@@ -144,6 +144,53 @@ describe('ConversationPanel', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('my answer'))
   })
 
+  it('fills the composer from a suggested answer and submits normally', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve({ accepted: true }))
+    render(
+      <ConversationPanel
+        messages={[]}
+        currentQuestion="Who buys most often?"
+        suggestedAnswers={['Families', 'Office workers']}
+        pending={false}
+        error={null}
+        errorTranslationKey={null}
+        onSubmit={onSubmit}
+        onRetryStatus={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Families' }))
+    const textarea = screen.getByPlaceholderText('answerPlaceholder') as HTMLTextAreaElement
+    expect(textarea.value).toBe('Families')
+
+    fireEvent.click(screen.getByRole('button', { name: 'submitLabel' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Families'))
+  })
+
+  it('uses assistant message suggestions when status suggestions are absent', () => {
+    render(
+      <ConversationPanel
+        messages={[
+          makeMessage({
+            id: '1',
+            role: 'assistant',
+            content: 'Who buys most often?',
+            suggested_answers: ['شباب وعائلات'],
+          }),
+        ]}
+        currentQuestion="Who buys most often?"
+        pending={false}
+        error={null}
+        errorTranslationKey={null}
+        onSubmit={vi.fn(() => Promise.resolve({ accepted: true }))}
+        onRetryStatus={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'شباب وعائلات' })).toBeDefined()
+  })
+
   it('does not submit on Shift+Enter', () => {
     const onSubmit = vi.fn(() => Promise.resolve({ accepted: true }))
     render(

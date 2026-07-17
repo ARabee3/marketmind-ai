@@ -236,6 +236,7 @@ export interface DiscoveryMessage {
   content: string;
   language: LanguageMode;
   source: "chat" | "research_hook" | "summary";
+  suggested_answers?: string[];
   created_at: IsoDateTime;
 }
 
@@ -270,6 +271,7 @@ export interface DiscoveryStatusResponse {
   status: DiscoverySessionStatus;
   language_mode: LanguageMode;
   current_question?: string;
+  current_suggested_answers?: string[];
   intake_summary: Pick<
     PreparedDiscoveryIntake,
     "business_name" | "business_type" | "city" | "area"
@@ -357,6 +359,7 @@ export interface AiDiscoverySummarizeRequest {
 export interface AiDiscoveryResult {
   action: AiDiscoveryAction;
   next_question?: string;
+  suggested_answers?: string[];
   updated_known_facts: MarketAwareBusinessFacts;
   updated_uncertainties: UncertaintyInput[];
   research_observations: ResearchObservation[];

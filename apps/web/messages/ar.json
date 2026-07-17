@@ -258,6 +258,7 @@
     "ownerLabel": "أنت",
     "assistantLabel": "المساعد",
     "systemLabel": "النظام",
+    "suggestedAnswersLabel": "إجابات مقترحة",
     "composerLabel": "إجابتك",
     "composerHint": "اضغط Enter للإرسال. Shift+Enter لسطر جديد.",
     "submitLabel": "إرسال",

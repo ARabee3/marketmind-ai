@@ -15,6 +15,40 @@ describe("parseAiDiscoveryResult", () => {
     });
   });
 
+  it("accepts contextual suggested answers for question responses", () => {
+    expect(
+      parseAiDiscoveryResult({
+        ...questionResult(),
+        suggested_answers: [
+          "Families buying weekend meals",
+          "Office workers at lunch",
+        ],
+      }),
+    ).toMatchObject({
+      suggested_answers: [
+        "Families buying weekend meals",
+        "Office workers at lunch",
+      ],
+    });
+  });
+
+  it("rejects malformed suggested answers", () => {
+    expectInvalid({
+      ...questionResult(),
+      suggested_answers: ["Valid answer", ""],
+    });
+    expectInvalid({
+      ...questionResult(),
+      suggested_answers: [
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+      ],
+    });
+  });
+
   it("rejects question actions without a question", () => {
     expectInvalid({
       ...questionResult(),

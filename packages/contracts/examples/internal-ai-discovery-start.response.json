@@ -1,6 +1,7 @@
 {
   "action": "ask_next_question",
   "next_question": "Think about a busy day at Koshary Corner: who is usually ordering, what do they tend to choose, and around what time?",
+  "suggested_answers": ["office workers at lunch", "students after classes", "families in the evening"],
   "updated_known_facts": {
     "identity": {
       "business_name": "Koshary Corner",

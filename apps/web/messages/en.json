@@ -258,6 +258,7 @@
     "ownerLabel": "You",
     "assistantLabel": "Assistant",
     "systemLabel": "System",
+    "suggestedAnswersLabel": "Suggested answers",
     "composerLabel": "Your answer",
     "composerHint": "Press Enter to submit. Shift+Enter for a new line.",
     "submitLabel": "Submit",

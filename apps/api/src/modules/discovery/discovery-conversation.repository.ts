@@ -235,6 +235,7 @@ export class DiscoveryConversationRepository {
     content: string,
     language: DiscoveryMessage["language"],
     profileState?: DiscoveryProfileState,
+    metadata?: Record<string, unknown>,
   ): Promise<DiscoveryMessage> {
     const message = await this.completeConversationTurn(
       sessionId,
@@ -247,6 +248,7 @@ export class DiscoveryConversationRepository {
         content,
         language,
         source: "chat",
+        metadata,
       },
       profileState,
     );

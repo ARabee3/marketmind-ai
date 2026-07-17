@@ -32,6 +32,7 @@ export function parseAiDiscoveryResult(value: unknown): AiDiscoveryResult {
       typeof value["next_question"] === "string"
         ? value["next_question"]
         : undefined,
+    suggested_answers: suggestedAnswers(value["suggested_answers"]),
     updated_known_facts: value["updated_known_facts"],
     updated_uncertainties: uncertainties(value["updated_uncertainties"]),
     research_observations: researchObservations(value["research_observations"]),
@@ -124,6 +125,29 @@ function safeError(value: unknown): AiDiscoveryResult["safe_error"] {
     message: value["message"],
     retryable: value["retryable"],
   };
+}
+
+function suggestedAnswers(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.length > 4) {
+    throw invalidOutput();
+  }
+
+  const answers: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") {
+      throw invalidOutput();
+    }
+    const answer = item.trim();
+    if (!answer || answers.includes(answer)) {
+      throw invalidOutput();
+    }
+    answers.push(answer);
+  }
+
+  return answers.length ? answers : undefined;
 }
 
 function isProfileUncertainty(value: unknown): value is ProfileUncertainty {
@@ -506,6 +530,9 @@ function assertActionInvariants(result: AiDiscoveryResult): void {
     throw invalidOutput();
   }
   if (asksQuestion && result.profile_draft) {
+    throw invalidOutput();
+  }
+  if (!asksQuestion && result.suggested_answers?.length) {
     throw invalidOutput();
   }
   if (result.action === "produce_profile_draft" && !result.profile_draft) {

@@ -117,6 +117,8 @@ def test_mock_start_supports_arabic() -> None:
     assert result.action == "ask_next_question"
     assert result.next_question is not None
     assert "مين" in result.next_question
+    assert result.suggested_answers
+    assert "مش متأكد" in result.suggested_answers
 
 
 def test_mock_start_supports_english() -> None:

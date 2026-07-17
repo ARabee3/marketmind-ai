@@ -17,6 +17,7 @@ import {
   marketContextFromObservations,
   MAX_DISCOVERY_OWNER_TURNS,
 } from "./market-profile";
+import { suggestedAnswersFromMetadata } from "./discovery-suggested-answers";
 
 export type PersistedDiscoveryMessage = {
   readonly id: string;
@@ -24,6 +25,7 @@ export type PersistedDiscoveryMessage = {
   readonly content: string;
   readonly language: string;
   readonly source: string;
+  readonly metadata: Prisma.JsonValue;
   readonly createdAt: Date;
 };
 
@@ -46,12 +48,14 @@ export type PersistedBusinessProfileDraft = {
 export function messageFromPersistence(
   message: PersistedDiscoveryMessage,
 ): DiscoveryMessage {
+  const suggestedAnswers = suggestedAnswersFromMetadata(message.metadata);
   return {
     id: message.id,
     role: messageRole(message.role),
     content: message.content,
     language: languageMode(message.language),
     source: messageSource(message.source),
+    ...(suggestedAnswers ? { suggested_answers: suggestedAnswers } : {}),
     created_at: message.createdAt.toISOString(),
   };
 }
