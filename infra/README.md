@@ -72,8 +72,10 @@ Connection details:
 | Storage | Named volume `marketmind_qdrant_storage` |
 
 Health endpoint:
-```
-GET http://localhost:6333/healthz
+
+```bash
+curl --fail --retry 10 --retry-connrefused --retry-delay 1 \
+  http://localhost:6333/healthz
 ```
 
 ## Notes

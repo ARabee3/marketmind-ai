@@ -15,6 +15,8 @@ If you are working on Sprint 4 RAG, start Qdrant separately:
 
 ```bash
 docker compose -f infra/docker/docker-compose.qdrant.yml up -d
+curl --fail --retry 10 --retry-connrefused --retry-delay 1 \
+  http://localhost:6333/healthz
 ```
 
 Then run the AI service:
@@ -63,9 +65,10 @@ QDRANT_COLLECTION_NAME=marketing_knowledge_v1
 
 The service attempts to ensure the configured collection exists on startup.
 If Qdrant is not running, the failure is logged but non-fatal so Discovery
-remains available. If the existing collection has a different vector size than
-`EMBEDDING_DIMENSIONS`, startup logs a clear error so you can delete the
-mismatched collection or change the embedding configuration.
+remains available. The collection records its embedding provider, model,
+dimensions, and configuration version. If any value differs from the live
+configuration, startup logs a clear error requiring a new collection version
+and full re-index.
 
 Do not commit real keys.
 

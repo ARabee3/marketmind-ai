@@ -11,7 +11,10 @@ async def test_lifespan_ensures_collection_on_startup() -> None:
     mock_client = AsyncMock()
     mock_config = MagicMock()
     mock_config.qdrant.collection_name = "test_collection"
+    mock_config.embedding.provider = "fake"
+    mock_config.embedding.model = "text-embedding-3-large"
     mock_config.embedding.dimensions = 3072
+    mock_config.embedding.version = "embedding-v1"
 
     with (
         patch("app.main.get_rag_config", return_value=mock_config),
@@ -26,11 +29,17 @@ async def test_lifespan_ensures_collection_on_startup() -> None:
         mock_client,
         collection_name="test_collection",
         vector_size=3072,
+        embedding_provider="fake",
+        embedding_model="text-embedding-3-large",
+        embedding_version="embedding-v1",
     )
     mock_validate.assert_awaited_once_with(
         mock_client,
         collection_name="test_collection",
         expected_size=3072,
+        expected_provider="fake",
+        expected_model="text-embedding-3-large",
+        expected_version="embedding-v1",
     )
     mock_indexes.assert_awaited_once_with(
         mock_client,
@@ -44,7 +53,10 @@ async def test_lifespan_logs_warning_when_qdrant_unreachable() -> None:
     mock_client = AsyncMock()
     mock_config = MagicMock()
     mock_config.qdrant.collection_name = "test_collection"
+    mock_config.embedding.provider = "fake"
+    mock_config.embedding.model = "text-embedding-3-large"
     mock_config.embedding.dimensions = 3072
+    mock_config.embedding.version = "embedding-v1"
 
     with (
         patch("app.main.get_rag_config", return_value=mock_config),

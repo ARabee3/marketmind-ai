@@ -62,19 +62,20 @@ class EmbeddingProvider(ABC):
         """Embed a batch of texts."""
         raise NotImplementedError
 
-    def _validate_dimensions(self, vector: list[float], text: str) -> None:
+    def _validate_dimensions(self, vector: list[float], index: int) -> None:
         actual = len(vector)
         expected = self.config.dimensions
         if actual != expected:
             raise EmbeddingProviderError(
                 "EMBEDDING_DIMENSION_MISMATCH",
-                f"Expected {expected} dimensions for {self.config.model}, got {actual} for text: {text[:40]!r}",
+                f"Expected {expected} dimensions for {self.config.model}, "
+                f"got {actual} at embedding index {index}",
                 retryable=False,
             )
 
     def _validate_response(self, response: EmbedResponse) -> None:
         for embedding in response.embeddings:
-            self._validate_dimensions(embedding.vector, embedding.text)
+            self._validate_dimensions(embedding.vector, embedding.index)
 
     def dump_config(self) -> dict[str, Any]:
         return {

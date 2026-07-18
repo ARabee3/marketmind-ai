@@ -1,7 +1,16 @@
+from unittest.mock import AsyncMock, patch
+
+import httpx
 import pytest
+from openai import APITimeoutError, AuthenticationError, InternalServerError
 
 from app.embeddings import EmbedRequest
-from app.embeddings.base import EmbeddingConfig, EmbeddingProviderError
+from app.embeddings.base import (
+    EmbedResponse,
+    EmbeddingConfig,
+    EmbeddingProviderError,
+    EmbeddingVector,
+)
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.embeddings.fake_provider import DeterministicFakeEmbeddingProvider
 from app.embeddings.openai_provider import OpenAIEmbeddingProvider
@@ -61,3 +70,71 @@ async def test_dimension_validation(fake_config: EmbeddingConfig) -> None:
     provider = DeterministicFakeEmbeddingProvider(fake_config)
     response = await provider.embed(EmbedRequest(texts=["test"]))
     assert len(response.embeddings[0].vector) == fake_config.dimensions
+
+
+def test_dimension_error_does_not_expose_input_text(
+    fake_config: EmbeddingConfig,
+) -> None:
+    provider = DeterministicFakeEmbeddingProvider(fake_config)
+    private_text = "private customer revenue and contact details"
+    response = EmbedResponse(
+        embeddings=[
+            EmbeddingVector(text=private_text, vector=[0.1], index=0),
+        ],
+        model=fake_config.model,
+        dimensions=1,
+        provider="fake",
+    )
+
+    with pytest.raises(EmbeddingProviderError) as exc_info:
+        provider._validate_response(response)
+
+    assert private_text not in str(exc_info.value)
+    assert not exc_info.value.retryable
+
+
+def _status_error(error_type, status_code: int):
+    request = httpx.Request("POST", "https://api.openai.com/v1/embeddings")
+    response = httpx.Response(
+        status_code,
+        request=request,
+        headers={"x-request-id": "req_test"},
+    )
+    return error_type("provider details must stay private", response=response, body=None)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("provider_error", "expected_retryable"),
+    [
+        (
+            APITimeoutError(
+                httpx.Request("POST", "https://api.openai.com/v1/embeddings")
+            ),
+            True,
+        ),
+        (_status_error(AuthenticationError, 401), False),
+        (_status_error(InternalServerError, 500), True),
+        (ValueError("private input must not be logged"), False),
+    ],
+)
+async def test_openai_provider_maps_retryability_without_exposing_details(
+    fake_config: EmbeddingConfig,
+    provider_error: Exception,
+    expected_retryable: bool,
+) -> None:
+    provider = OpenAIEmbeddingProvider(fake_config, api_key="test-key")
+
+    with patch.object(
+        provider._client.embeddings,
+        "create",
+        AsyncMock(side_effect=provider_error),
+    ):
+        with pytest.raises(EmbeddingProviderError) as exc_info:
+            await provider.embed(EmbedRequest(texts=["private customer data"]))
+
+    assert exc_info.value.retryable is expected_retryable
+    assert "private customer data" not in str(exc_info.value)
+    assert "provider details must stay private" not in str(exc_info.value)
+    assert "private input must not be logged" not in str(exc_info.value)
+    assert exc_info.value.__cause__ is None

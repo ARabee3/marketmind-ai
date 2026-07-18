@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -20,6 +21,7 @@ from app.qdrant import (
     upsert_points,
     validate_collection_compatibility,
 )
+from app.qdrant.indexes import PAYLOAD_INDEXED_FIELDS
 
 
 pytestmark = pytest.mark.anyio
@@ -34,6 +36,12 @@ async def test_create_and_delete_collection(
     assert await collection_exists(qdrant_test_client, test_collection_name)
     info = await get_collection_info(qdrant_test_client, test_collection_name)
     assert info["vector_size"] == 3072
+    assert info["metadata"] == {
+        "embedding_provider": "fake",
+        "embedding_model": "text-embedding-3-large",
+        "embedding_dimensions": 3072,
+        "embedding_version": "embedding-v1",
+    }
     await delete_collection(qdrant_test_client, test_collection_name)
     assert not await collection_exists(qdrant_test_client, test_collection_name)
 
@@ -53,8 +61,13 @@ async def test_payload_indexes_are_created(
 ) -> None:
     await create_collection(qdrant_test_client, test_collection_name, vector_size=3072)
     await create_payload_indexes(qdrant_test_client, test_collection_name)
-    info = await get_collection_info(qdrant_test_client, test_collection_name)
-    assert info["status"] is not None
+    await create_payload_indexes(qdrant_test_client, test_collection_name)
+
+    info = await qdrant_test_client.get_collection(
+        collection_name=test_collection_name
+    )
+    expected_fields = {field_name for field_name, _ in PAYLOAD_INDEXED_FIELDS}
+    assert expected_fields <= set(info.payload_schema)
 
 
 @pytest.mark.integration
@@ -238,5 +251,45 @@ async def test_dimension_mismatch_guard(
         await validate_collection_compatibility(
             qdrant_test_client, test_collection_name, expected_size=3072
         )
-    assert "vector size 768" in str(exc_info.value)
-    assert "configured dimensions are 3072" in str(exc_info.value)
+    assert "embedding_dimensions: stored=768, configured=3072" in str(exc_info.value)
+    assert "new collection version" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("expected_provider", "expected_model"),
+    [
+        ("openai", "text-embedding-3-large"),
+        ("fake", "text-embedding-3-small"),
+    ],
+)
+async def test_collection_compatibility_rejects_same_size_vector_space_changes(
+    expected_provider: str,
+    expected_model: str,
+) -> None:
+    client = AsyncMock()
+    client.collection_exists.return_value = True
+    stored_info = {
+        "vector_size": 3072,
+        "metadata": {
+            "embedding_provider": "fake",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_dimensions": 3072,
+            "embedding_version": "embedding-v1",
+        },
+    }
+
+    with patch(
+        "app.qdrant.collection.get_collection_info",
+        AsyncMock(return_value=stored_info),
+    ):
+        with pytest.raises(QdrantCollectionError) as exc_info:
+            await validate_collection_compatibility(
+                client,
+                "marketing_knowledge_v1",
+                expected_size=3072,
+                expected_provider=expected_provider,
+                expected_model=expected_model,
+            )
+
+    assert "incompatible embedding configuration" in str(exc_info.value)
+    assert "full re-index" in str(exc_info.value)

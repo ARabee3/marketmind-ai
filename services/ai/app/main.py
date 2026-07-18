@@ -24,11 +24,17 @@ async def _ensure_qdrant_collection_on_startup() -> None:
             client,
             collection_name=config.qdrant.collection_name,
             vector_size=config.embedding.dimensions,
+            embedding_provider=config.embedding.provider,
+            embedding_model=config.embedding.model,
+            embedding_version=config.embedding.version,
         )
         await validate_collection_compatibility(
             client,
             collection_name=config.qdrant.collection_name,
             expected_size=config.embedding.dimensions,
+            expected_provider=config.embedding.provider,
+            expected_model=config.embedding.model,
+            expected_version=config.embedding.version,
         )
         await create_payload_indexes(
             client,

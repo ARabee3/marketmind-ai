@@ -17,11 +17,6 @@ services:
       - "6334:6334"
     volumes:
       - marketmind_qdrant_storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6333/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   marketmind_qdrant_storage:
