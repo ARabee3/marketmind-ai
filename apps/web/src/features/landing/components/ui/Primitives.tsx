@@ -69,7 +69,7 @@ export function Chip({
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2.5 py-1 font-latin text-[11px] font-semibold ${tones[tone]} ${className}`}>
-      
+
       {children}
     </span>);
 
@@ -84,7 +84,7 @@ export function Eyebrow({
   return (
     <span
       className={`inline-block text-[12px] font-bold tracking-[0.12em] ${inverse ? 'text-journey-mint' : 'text-primary'}`}>
-      
+
       {children}
     </span>);
 
@@ -114,7 +114,7 @@ export function Section({
     <section
       id={id}
       className={`relative w-full scroll-mt-24 ${SECTION_BG[tone]} px-4 py-[72px] sm:px-6 md:py-[96px] ${className}`}>
-      
+
       <div className="mx-auto w-full max-w-content">{children}</div>
     </section>);
 

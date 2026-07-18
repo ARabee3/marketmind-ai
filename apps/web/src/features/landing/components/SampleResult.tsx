@@ -45,7 +45,7 @@ export async function SampleResult() {
                 <StatusBadge kind="accepted" label={status('accepted')} />
               </div>
               <p className="flex items-start gap-2 text-[14px] leading-relaxed text-ink-soft">
-                <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                 {t('acceptedText')}
               </p>
             </div>
@@ -55,7 +55,7 @@ export async function SampleResult() {
                 <StatusBadge kind="discard" label={status('discard')} />
               </div>
               <p className="flex items-start gap-2 text-[14px] leading-relaxed text-ink-soft">
-                <XIcon className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                <XIcon className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
                 {t('discardedText')}
               </p>
             </div>
@@ -77,7 +77,7 @@ export async function SampleResult() {
               </div>
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-              <TargetIcon className="h-4 w-4 text-muted" />
+              <TargetIcon className="h-4 w-4 text-muted" aria-hidden />
               {sourceNotes.map((note) => (
                 <span key={note} className="rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-ink-soft">
                   {note}
@@ -104,12 +104,9 @@ function ChatBubble({ side, children }: { side: 'ai' | 'owner'; children: React.
 
 function AssistedReply({ children }: { children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      className="rounded-full border border-primary/25 bg-soft-teal px-3 py-1.5 text-[12px] font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
-    >
+    <span className="rounded-full border border-primary/25 bg-soft-teal px-3 py-1.5 text-[12px] font-semibold text-primary">
       {children}
-    </button>
+    </span>
   )
 }
 
@@ -138,9 +135,9 @@ function AnswerComposer({
           placeholder={placeholder}
           className="min-h-10 flex-1 rounded-card border border-border bg-surface px-3 text-[12px] text-ink-soft outline-none placeholder:text-muted focus:ring-2 focus:ring-action"
         />
-        <button type="button" className="rounded-full bg-primary px-4 py-2 text-[12px] font-bold text-white">
+        <span className="rounded-full bg-primary px-4 py-2 text-center text-[12px] font-bold text-white">
           {send}
-        </button>
+        </span>
       </div>
     </div>
   )

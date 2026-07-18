@@ -19,7 +19,7 @@ export const REFRESH_TOKEN_COOKIE = 'refreshToken'
 
 function refreshCookieHeader(token: string): Record<string, string> {
   return {
-    'Set-Cookie': `${REFRESH_TOKEN_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/`,
+    'Set-Cookie': `${REFRESH_TOKEN_COOKIE}=e2e-${token}; HttpOnly; SameSite=Lax; Path=/`,
   }
 }
 
@@ -166,6 +166,21 @@ export async function mockAuthRefresh(
 ): Promise<AuthFixture> {
   const tokens = Array.isArray(token) ? token : token === null ? [] : [token]
   const rotation: TokenRotation = { calls: 0, tokens: [] }
+
+  const initialToken = Array.isArray(token) ? token[0] : token
+  if (initialToken) {
+    await page.context().addCookies([
+      {
+        name: REFRESH_TOKEN_COOKIE,
+        value: `e2e-${initialToken}`,
+        url: 'http://localhost:3000',
+        httpOnly: true,
+        sameSite: 'Lax',
+      },
+    ])
+  } else {
+    await page.context().clearCookies({ name: REFRESH_TOKEN_COOKIE })
+  }
 
   await routeFor(page, '**/auth/refresh', async (route, request) => {
     if (request.method() !== 'POST') {

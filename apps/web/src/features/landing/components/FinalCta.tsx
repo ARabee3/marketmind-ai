@@ -14,7 +14,7 @@ export async function FinalCta() {
         <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link href="/register" className="cta-solid-dark w-full gap-2 px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('primary')}
-            <ArrowLeftIcon className="h-4 w-4" />
+            <ArrowLeftIcon className="h-4 w-4" aria-hidden />
           </Link>
           <a href="#sample" className="cta-secondary w-full px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('secondary')}

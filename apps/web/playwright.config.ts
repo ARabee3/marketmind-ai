@@ -21,14 +21,25 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
   ],
-  webServer: {
-    // CI runs the production build to avoid React Strict Mode double-mounts
-    // that would duplicate GET /status calls in the dev server. Local runs keep
-    // the fast dev server for iterative debugging.
-    command: process.env.CI ? 'npm run build && npm run start' : 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    cwd: '.',
-    timeout: process.env.CI ? 300_000 : 120_000,
-  },
+  webServer: [
+    {
+      command: 'node e2e/support/session-server.mjs',
+      url: 'http://localhost:3101/health',
+      reuseExistingServer: !process.env.CI,
+      cwd: '.',
+    },
+    {
+      // CI runs the production build to avoid React Strict Mode double-mounts
+      // that would duplicate GET /status calls in the dev server. Local runs keep
+      // the fast dev server for iterative debugging.
+      command: process.env.CI ? 'npm run build && npm run start' : 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      cwd: '.',
+      env: {
+        NEXT_PUBLIC_API_URL: 'http://localhost:3101/api/v1',
+      },
+      timeout: process.env.CI ? 300_000 : 120_000,
+    },
+  ],
 })

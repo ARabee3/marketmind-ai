@@ -180,11 +180,14 @@ describe('AppShell', () => {
     const dialog = screen.getByLabelText('Mobile primary').closest('[role="dialog"]')!
     expect(dialog).not.toBeNull()
     expect(dialog.getAttribute('aria-modal')).toBe('true')
+    const workspace = baseElement.querySelector<HTMLElement>('main#main-content')?.parentElement
+    expect(workspace?.inert).toBe(true)
 
     // Escape closes the drawer and returns focus to the trigger.
     fireEvent.keyDown(document, { key: 'Escape' })
 
     expect(screen.queryByLabelText('Mobile primary')).toBeNull()
+    expect(workspace?.inert).toBe(false)
     expect(baseElement.ownerDocument.activeElement).toBe(trigger)
   })
 })

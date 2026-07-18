@@ -17,7 +17,7 @@ export async function ResearchTimeline() {
           <h2 className="mt-4 text-[clamp(2.3rem,6vw,4.4rem)] font-bold leading-[1.03] text-white">{t('title')}</h2>
           <p className="mt-4 max-w-read text-[1rem] leading-[1.85] text-white/75">{t('body')}</p>
           <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-journey-mint/40 bg-white/[0.06] px-3 py-1.5 text-[12px] font-bold text-journey-mint">
-            <span className="h-2 w-2 rounded-full bg-journey-mint" />
+            <span className="h-2 w-2 rounded-full bg-journey-mint" aria-hidden />
             {t('status')}
           </div>
         </Reveal>
@@ -35,7 +35,7 @@ export async function ResearchTimeline() {
                 style={{ insetInlineStart: '-1.5px', top: '4px' }}
                 aria-hidden
               >
-                <CheckIcon className="h-2.5 w-2.5 text-navy" />
+                <CheckIcon className="h-2.5 w-2.5 text-navy" aria-hidden />
               </span>
               <Reveal delay={index * 0.04} y={12} viewportMargin="-15%" className="rounded-card border border-white/[0.14] bg-white/[0.06] p-3">
                 <details>

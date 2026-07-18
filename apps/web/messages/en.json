@@ -825,7 +825,7 @@
       "eyebrow": "Research progress preview",
       "title": "Watch real work happen step by step",
       "body": "Each stage moves only when there is actual work behind it — no fake counter and no made-up percentage.",
-      "status": "Connected — receiving updates",
+      "status": "Illustrative preview — example stages",
       "stages": [
         {
           "label": "Request received",
@@ -884,7 +884,7 @@
       ],
       "inputLabel": "Write your answer",
       "inputValue": "No, we open at 10 AM and close at midnight.",
-      "inputPlaceholder": "Or write your answer here...",
+      "inputPlaceholder": "Or write your answer here…",
       "send": "Send"
     },
     "faq": {

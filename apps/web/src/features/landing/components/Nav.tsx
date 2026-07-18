@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { MenuIcon, XIcon } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { inertOutside } from '@/lib/a11y/inert-outside'
 import { EASE, useReducedMotion } from '../lib/motion'
 
 type NavLink = { href: string; label: string }
@@ -42,6 +43,7 @@ export function Nav() {
     if (!drawerOpen) return
 
     const drawer = drawerRef.current
+    const restoreOutsideInteraction = inertOutside(drawer?.parentElement ?? null)
     const previouslyFocused = document.activeElement as HTMLElement | null
     const previousOverflow = document.body.style.overflow
 
@@ -75,6 +77,7 @@ export function Nav() {
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      restoreOutsideInteraction()
       previouslyFocused?.focus?.()
     }
   }, [drawerOpen])
@@ -172,7 +175,7 @@ export function Nav() {
               animate={{ opacity: 1, x: 0 }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, x: slideFrom }}
               transition={{ duration: 0.24, ease: EASE.decel }}
-              className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(78vw,320px)] border-e border-white/10 bg-[#050807] px-8 pb-8 pt-28 text-white shadow-[28px_0_80px_rgb(0_0_0_/_35%)]"
+              className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(78vw,320px)] overscroll-contain border-e border-white/10 bg-[#050807] px-8 pb-8 pt-28 text-white shadow-[28px_0_80px_rgb(0_0_0_/_35%)]"
               onClick={(event) => event.stopPropagation()}
             >
               <ul className="space-y-0 text-right">

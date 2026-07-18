@@ -57,7 +57,7 @@ export async function Hero() {
             <div className="relative h-14 w-14">
               <div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/35" />
               <div className="absolute inset-[5px] flex items-center justify-center rounded-full bg-surface">
-                <SearchIcon className="h-5 w-5 text-primary" />
+                <SearchIcon className="h-5 w-5 text-primary" aria-hidden />
               </div>
             </div>
           </div>

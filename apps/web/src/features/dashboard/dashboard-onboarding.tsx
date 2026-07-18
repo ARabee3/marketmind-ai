@@ -73,7 +73,7 @@ export function DashboardOnboarding({ userId }: { readonly userId: string | null
             aria-describedby="dashboard-onboarding-body"
             tabIndex={-1}
             onKeyDown={handleDialogKeyDown}
-            className="w-full max-w-xl rounded-lg border border-border bg-surface p-4 shadow-xl md:p-6"
+            className="w-full max-w-xl overscroll-contain rounded-lg border border-border bg-surface p-4 shadow-xl md:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="grid gap-2">

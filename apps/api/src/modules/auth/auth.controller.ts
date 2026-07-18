@@ -136,7 +136,7 @@ export class AuthController {
   @Get('session')
   @UseGuards(JwtRefreshGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Throttle({ default: { limit: 30, ttl: 900000 } })
+  @Throttle({ default: { limit: 300, ttl: 900000 } })
   async session(): Promise<void> {
     return;
   }

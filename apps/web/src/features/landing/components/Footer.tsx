@@ -14,7 +14,7 @@ export async function Footer() {
       <div className="mx-auto grid max-w-content gap-10 md:grid-cols-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full border-[3px] border-surface bg-primary" />
+            <span className="h-3 w-3 rounded-full border-[3px] border-surface bg-primary" aria-hidden />
             <span translate="no" className="font-latin text-[18px] font-bold text-navy">
               MarketMind
             </span>
@@ -42,7 +42,7 @@ export async function Footer() {
             href="mailto:hello@marketmind.ai"
             className="mt-3 inline-flex items-center gap-2 rounded text-[14px] text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
-            <MailIcon className="h-4 w-4" />
+            <MailIcon className="h-4 w-4" aria-hidden />
             <span className="bidi-iso font-latin">hello@marketmind.ai</span>
           </a>
         </div>

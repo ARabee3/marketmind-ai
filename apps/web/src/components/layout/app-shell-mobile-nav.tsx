@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
+import { inertOutside } from '@/lib/a11y/inert-outside'
 import {
   AppShellCloseIcon,
   AppShellMenuIcon,
@@ -49,6 +50,7 @@ export function AppShellMobileNav({
     if (!open) return
 
     const dialog = dialogRef.current
+    const restoreOutsideInteraction = inertOutside(dialog?.parentElement ?? null)
     const previouslyFocused = document.activeElement as HTMLElement | null
     const previousOverflow = document.body.style.overflow
 
@@ -92,6 +94,7 @@ export function AppShellMobileNav({
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      restoreOutsideInteraction()
       // Restore focus to the trigger that opened the drawer.
       previouslyFocused?.focus?.()
     }
@@ -128,7 +131,7 @@ export function AppShellMobileNav({
             role="dialog"
             aria-modal="true"
             aria-label={t('mobileNavLabel')}
-            className="relative flex h-full w-[min(84vw,320px)] flex-col border-e border-border bg-surface p-4 shadow-header"
+            className="relative flex h-full w-[min(84vw,320px)] flex-col overscroll-contain border-e border-border bg-surface p-4 shadow-header"
           >
             <div className="flex items-center justify-between gap-3">
               <Link

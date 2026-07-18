@@ -185,7 +185,7 @@ function DesktopSidebar({
                   aria-current={active ? 'page' : undefined}
                   title={collapsed ? t(item.labelKey) : undefined}
                   className={cn(
-                    'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-all focus-visible:ring-3 focus-visible:ring-ring/40',
+                    'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-[color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-ring/40',
                     collapsed && 'justify-center',
                     active
                       ? 'bg-primary text-primary-foreground shadow-sm'

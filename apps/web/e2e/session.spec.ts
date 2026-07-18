@@ -18,9 +18,9 @@ for (const locale of locales) {
       await page.goto(`/${locale}/dashboard`)
 
       await expect(page).toHaveURL(`/${locale}/dashboard`)
-      await expect(page.getByRole('heading')).toContainText(
-        locale === 'ar' ? 'ماركت مايند' : 'MarketMind',
-      )
+      await expect(
+        page.getByRole('heading', { name: dashboardTitle(locale), exact: true }),
+      ).toBeVisible()
       expect(rotation.calls).toBe(1)
     })
 
@@ -46,7 +46,6 @@ for (const locale of locales) {
       // The dashboard loads via /auth/me. The first call uses the login token
       // and is rejected, triggering refresh. The retry uses the rotated token.
       await expect.poll(() => authorizationHeaders.length).toBeGreaterThanOrEqual(2)
-      console.log('headers:', authorizationHeaders, 'rotation:', rotation)
       expect(rotation.calls).toBe(2)
       expect(authorizationHeaders[0]).toBe(`Bearer mock-access-token`)
       expect(authorizationHeaders.at(-1)).toBe(`Bearer ${rotatedToken}`)
@@ -83,7 +82,25 @@ for (const locale of locales) {
 
       await expect(page).toHaveURL(`/${locale}/dashboard`)
 
-      await page.getByRole('button', { name: /Sign out|تسجيل الخروج/i }).click()
+      const onboarding = page.getByRole('dialog')
+      await expect(onboarding).toBeVisible()
+      await onboarding
+        .getByRole('button', { name: onboardingSkip(locale), exact: true })
+        .first()
+        .click()
+
+      const openNavigation = page.getByRole('button', {
+        name: openNavigationLabel(locale),
+        exact: true,
+      })
+      if (await openNavigation.isVisible()) {
+        await openNavigation.focus()
+        await page.keyboard.press('Enter')
+      }
+
+      const signOut = page.getByRole('button', { name: /Sign out|تسجيل الخروج/i })
+      await signOut.focus()
+      await page.keyboard.press('Enter')
 
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
 
@@ -100,4 +117,16 @@ for (const locale of locales) {
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
     })
   })
+}
+
+function dashboardTitle(locale: 'en' | 'ar') {
+  return locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here'
+}
+
+function onboardingSkip(locale: 'en' | 'ar') {
+  return locale === 'ar' ? 'تخطي' : 'Skip'
+}
+
+function openNavigationLabel(locale: 'en' | 'ar') {
+  return locale === 'ar' ? 'فتح التنقل' : 'Open navigation'
 }

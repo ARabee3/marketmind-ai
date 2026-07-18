@@ -82,12 +82,12 @@ for (const locale of locales) {
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await expect(page.getByRole('heading', { name: onboardingTitle(locale, 'control') })).toBeVisible()
-      await page.getByRole('button', { name: onboardingNext(locale) }).click()
+      await dialog.getByRole('button', { name: onboardingNext(locale), exact: true }).click()
       await expect(page.getByRole('heading', { name: onboardingTitle(locale, 'profile') })).toBeVisible()
-      await page.getByRole('button', { name: onboardingNext(locale) }).click()
-      await page.getByRole('button', { name: onboardingNext(locale) }).click()
+      await dialog.getByRole('button', { name: onboardingNext(locale), exact: true }).click()
+      await dialog.getByRole('button', { name: onboardingNext(locale), exact: true }).click()
       await expect(page.getByRole('heading', { name: onboardingTitle(locale, 'confirm') })).toBeVisible()
-      await page.getByRole('button', { name: onboardingStart(locale) }).click()
+      await dialog.getByRole('button', { name: onboardingStart(locale), exact: true }).click()
 
       await expect(dialog).toHaveCount(0)
       await expect(
