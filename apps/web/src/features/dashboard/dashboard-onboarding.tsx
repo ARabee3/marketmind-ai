@@ -84,7 +84,7 @@ export function DashboardOnboarding({ userId }: { readonly userId: string | null
                   {t(`steps.${step}.title`)}
                 </h2>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={dismiss}>
+              <Button type="button" variant="secondary" size="sm" onClick={dismiss}>
                 {t('skip')}
               </Button>
             </div>
@@ -112,14 +112,14 @@ export function DashboardOnboarding({ userId }: { readonly userId: string | null
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 disabled={stepIndex === 0}
                 onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
               >
                 {t('back')}
               </Button>
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={dismiss}>
+                <Button type="button" variant="secondary" onClick={dismiss}>
                   {t('skip')}
                 </Button>
                 <Button

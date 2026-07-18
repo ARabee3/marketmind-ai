@@ -15,6 +15,7 @@ import {
   type ValidationErrorKey,
 } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { authStyles } from './auth-styles'
 
 type LoginFormErrors = {
   email?: ValidationErrorKey
@@ -89,14 +90,14 @@ export function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={authStyles.form}
       noValidate
       aria-label={t('loginTitle')}
     >
       {isRegistered && (
         <div
           role="status"
-          className="rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground"
+          className={authStyles.success}
         >
           {t('loginRegisteredConfirmation')}
         </div>
@@ -105,7 +106,7 @@ export function LoginForm() {
       {isReset && !isRegistered && (
         <div
           role="status"
-          className="rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground"
+          className={authStyles.success}
         >
           {t('loginResetConfirmation')}
         </div>
@@ -114,13 +115,13 @@ export function LoginForm() {
       {errors.root && (
         <div
           role="alert"
-          className="flex flex-col gap-1 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className={authStyles.alert}
         >
           <span>{t(errors.root)}</span>
           {errors.root === 'errorEmailNotVerified' && (
             <Link
               href="/resend-verification"
-              className="font-medium underline underline-offset-2"
+              className={authStyles.actionLink}
             >
               {t('loginResendVerification')}
             </Link>
@@ -128,7 +129,7 @@ export function LoginForm() {
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="email">{t('loginEmailLabel')}</Label>
         <Input
           id="email"
@@ -136,6 +137,7 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           placeholder={t('loginEmailPlaceholder')}
+          className={authStyles.input}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={errors.email ? 'true' : 'false'}
@@ -148,7 +150,7 @@ export function LoginForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="password">{t('loginPasswordLabel')}</Label>
         <Input
           id="password"
@@ -156,6 +158,7 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           placeholder={t('loginPasswordPlaceholder')}
+          className={authStyles.input}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           aria-invalid={errors.password ? 'true' : 'false'}
@@ -168,7 +171,7 @@ export function LoginForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+      <Button type="submit" className={authStyles.primaryButton} disabled={isSubmitting}>
         {isSubmitting ? tCommon('loading') : t('loginSubmit')}
       </Button>
     </form>

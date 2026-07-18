@@ -16,6 +16,7 @@ import {
   type ValidationErrorKey,
 } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { authStyles } from './auth-styles'
 
 type RegisterFormErrors = {
   name?: ValidationErrorKey
@@ -97,20 +98,20 @@ export function RegisterForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={authStyles.form}
       noValidate
       aria-label={t('registerTitle')}
     >
       {errors.root && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className={authStyles.alert}
         >
           {t(errors.root)}
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="name">{t('registerNameLabel')}</Label>
         <Input
           id="name"
@@ -118,6 +119,7 @@ export function RegisterForm() {
           type="text"
           autoComplete="name"
           placeholder={t('registerNamePlaceholder')}
+          className={authStyles.input}
           value={name}
           onChange={(event) => setName(event.target.value)}
           aria-invalid={errors.name ? 'true' : 'false'}
@@ -130,7 +132,7 @@ export function RegisterForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="email">{t('registerEmailLabel')}</Label>
         <Input
           id="email"
@@ -138,6 +140,7 @@ export function RegisterForm() {
           type="email"
           autoComplete="email"
           placeholder={t('registerEmailPlaceholder')}
+          className={authStyles.input}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={errors.email ? 'true' : 'false'}
@@ -150,7 +153,7 @@ export function RegisterForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="password">{t('registerPasswordLabel')}</Label>
         <Input
           id="password"
@@ -158,6 +161,7 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t('registerPasswordPlaceholder')}
+          className={authStyles.input}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           aria-invalid={errors.password ? 'true' : 'false'}
@@ -170,7 +174,7 @@ export function RegisterForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="confirmPassword">
           {t('registerConfirmPasswordLabel')}
         </Label>
@@ -180,6 +184,7 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t('registerConfirmPasswordPlaceholder')}
+          className={authStyles.input}
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
           aria-invalid={errors.confirmPassword ? 'true' : 'false'}
@@ -194,7 +199,7 @@ export function RegisterForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+      <Button type="submit" className={authStyles.primaryButton} disabled={isSubmitting}>
         {isSubmitting ? tCommon('loading') : t('registerSubmit')}
       </Button>
     </form>

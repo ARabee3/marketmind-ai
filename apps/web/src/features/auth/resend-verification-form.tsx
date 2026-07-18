@@ -9,16 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { validateEmail, type ValidationErrorKey } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { authStyles } from './auth-styles'
 
 type ResendVerificationFormErrors = {
   email?: ValidationErrorKey
   root?: 'errorRateLimited' | 'errorResendFailed'
 }
-
-const styles = {
-  wrapper: 'flex flex-col gap-4 rounded-md bg-secondary px-3 py-3 text-sm text-secondary-foreground',
-  alert: 'rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive',
-} as const
 
 type ResendVerificationMode = 'standalone' | 'inline'
 
@@ -85,13 +81,13 @@ export function ResendVerificationForm({
 
   if (isSuccess) {
     return (
-      <div role="status" className={styles.wrapper}>
+      <div role="status" className={authStyles.success}>
         <p className="font-medium">{t('resendVerificationSuccessTitle')}</p>
         <p>{t('resendVerificationSuccessBody')}</p>
         {mode === 'standalone' && (
           <Link
             href="/login"
-            className="font-medium text-action hover:underline"
+            className={authStyles.actionLink}
           >
             {t('resendVerificationBackToLogin')}
           </Link>
@@ -103,23 +99,17 @@ export function ResendVerificationForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={authStyles.form}
       noValidate
       aria-label={t('resendVerificationTitle')}
     >
-      {mode === 'standalone' && (
-        <p className="text-sm text-muted-foreground">
-          {t('resendVerificationDescription')}
-        </p>
-      )}
-
       {errors.root && (
-        <div role="alert" className={styles.alert}>
+        <div role="alert" className={authStyles.alert}>
           {t(errors.root)}
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="email">{t('resendVerificationEmailLabel')}</Label>
         <Input
           id="email"
@@ -127,6 +117,7 @@ export function ResendVerificationForm({
           type="email"
           autoComplete="email"
           placeholder={t('resendVerificationEmailPlaceholder')}
+          className={authStyles.input}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={errors.email ? 'true' : 'false'}
@@ -139,14 +130,14 @@ export function ResendVerificationForm({
         )}
       </div>
 
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+      <Button type="submit" className={authStyles.primaryButton} disabled={isSubmitting}>
         {isSubmitting ? tCommon('loading') : t('resendVerificationSubmit')}
       </Button>
 
       {mode === 'standalone' && (
         <Link
           href="/login"
-          className="text-center text-sm text-muted-foreground hover:underline"
+          className={authStyles.quietLink}
         >
           {t('resendVerificationBackToLogin')}
         </Link>

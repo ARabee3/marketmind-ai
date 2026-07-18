@@ -15,6 +15,7 @@ import {
   type ValidationErrorKey,
 } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { authStyles } from './auth-styles'
 
 type ResetPasswordFormErrors = {
   password?: ValidationErrorKey
@@ -97,13 +98,13 @@ export function ResetPasswordForm() {
     return (
       <div
         role="alert"
-        className="flex flex-col gap-3 rounded-md bg-destructive/10 px-3 py-3 text-sm text-destructive"
+        className={authStyles.alert}
       >
         <p className="font-medium">{t('resetPasswordMissingTokenTitle')}</p>
         <p>{t('resetPasswordMissingTokenBody')}</p>
         <Link
           href="/forgot-password"
-          className="font-medium text-action hover:underline"
+          className={authStyles.actionLink}
         >
           {t('resetPasswordRequestNew')}
         </Link>
@@ -124,13 +125,13 @@ export function ResetPasswordForm() {
     return (
       <div
         role="alert"
-        className="flex flex-col gap-3 rounded-md bg-destructive/10 px-3 py-3 text-sm text-destructive"
+        className={authStyles.alert}
       >
         <p className="font-medium">{t(titleKey)}</p>
         <p>{t(bodyKey)}</p>
         <Link
           href="/forgot-password"
-          className="font-medium text-action hover:underline"
+          className={authStyles.actionLink}
         >
           {t('resetPasswordRequestNew')}
         </Link>
@@ -142,13 +143,13 @@ export function ResetPasswordForm() {
     return (
       <div
         role="status"
-        className="flex flex-col gap-3 rounded-md bg-secondary px-3 py-3 text-sm text-secondary-foreground"
+        className={authStyles.success}
       >
         <p className="font-medium">{t('resetPasswordSuccessTitle')}</p>
         <p>{t('resetPasswordSuccessBody')}</p>
         <Button
           type="button"
-          className="mt-1 w-full"
+          className={authStyles.primaryButton}
           onClick={() => router.push('/login?reset=true')}
         >
           {t('resetPasswordSignIn')}
@@ -160,20 +161,20 @@ export function ResetPasswordForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={authStyles.form}
       noValidate
       aria-label={t('resetPasswordTitle')}
     >
       {errors.root && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className={authStyles.alert}
         >
           {t(errors.root)}
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="password">{t('resetPasswordPasswordLabel')}</Label>
         <Input
           id="password"
@@ -181,6 +182,7 @@ export function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t('resetPasswordPasswordPlaceholder')}
+          className={authStyles.input}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           aria-invalid={errors.password ? 'true' : 'false'}
@@ -193,7 +195,7 @@ export function ResetPasswordForm() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="confirmPassword">
           {t('resetPasswordConfirmPasswordLabel')}
         </Label>
@@ -203,6 +205,7 @@ export function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t('resetPasswordConfirmPasswordPlaceholder')}
+          className={authStyles.input}
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
           aria-invalid={errors.confirmPassword ? 'true' : 'false'}
@@ -217,7 +220,7 @@ export function ResetPasswordForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+      <Button type="submit" className={authStyles.primaryButton} disabled={isSubmitting}>
         {isSubmitting ? tCommon('loading') : t('resetPasswordSubmit')}
       </Button>
     </form>

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { validateEmail, type ValidationErrorKey } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { authStyles } from './auth-styles'
 
 type ForgotPasswordFormErrors = {
   email?: ValidationErrorKey
@@ -66,13 +67,13 @@ export function ForgotPasswordForm() {
     return (
       <div
         role="status"
-        className="flex flex-col gap-4 rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground"
+        className={authStyles.success}
       >
         <p className="font-medium">{t('forgotPasswordSuccessTitle')}</p>
         <p>{t('forgotPasswordSuccessBody')}</p>
         <Link
           href="/login"
-          className="font-medium text-action hover:underline"
+          className={authStyles.actionLink}
         >
           {t('forgotPasswordBackToLogin')}
         </Link>
@@ -83,24 +84,20 @@ export function ForgotPasswordForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4"
+      className={authStyles.form}
       noValidate
       aria-label={t('forgotPasswordTitle')}
     >
-      <p className="text-sm text-muted-foreground">
-        {t('forgotPasswordDescription')}
-      </p>
-
       {errors.root && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className={authStyles.alert}
         >
           {t(errors.root)}
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
+      <div className={authStyles.field}>
         <Label htmlFor="email">{t('forgotPasswordEmailLabel')}</Label>
         <Input
           id="email"
@@ -108,6 +105,7 @@ export function ForgotPasswordForm() {
           type="email"
           autoComplete="email"
           placeholder={t('forgotPasswordEmailPlaceholder')}
+          className={authStyles.input}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={errors.email ? 'true' : 'false'}
@@ -120,13 +118,13 @@ export function ForgotPasswordForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+      <Button type="submit" className={authStyles.primaryButton} disabled={isSubmitting}>
         {isSubmitting ? tCommon('loading') : t('forgotPasswordSubmit')}
       </Button>
 
       <Link
         href="/login"
-        className="text-center text-sm text-muted-foreground hover:underline"
+        className={authStyles.quietLink}
       >
         {t('forgotPasswordBackToLogin')}
       </Link>
