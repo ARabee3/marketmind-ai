@@ -883,7 +883,7 @@
       "items": [
         {
           "q": "How do you protect my data?",
-          "a": "Your data is used only to build your own business profile. We do not share it with other parties, and you control what gets saved."
+          "a": "MarketMind uses your business data to build your profile. To run research and the interview, your data is processed by approved service providers (search and AI) on MarketMind's behalf. We do not sell your data, and you control what gets saved. The full privacy policy, including retention and deletion, is being finalized and will be published before launch."
         },
         {
           "q": "Where does the information come from?",
@@ -891,7 +891,7 @@
         },
         {
           "q": "How long does research take?",
-          "a": "Most initial research runs finish within minutes. You can watch the stages progress without a fake timer."
+          "a": "Research timing varies with the business and the sources we check. You can watch each stage move only when there is real work behind it — no fake timer or made-up percentage."
         },
         {
           "q": "Can I continue later if I leave?",

@@ -1,4 +1,4 @@
-import { FacebookIcon, InstagramIcon, MailIcon } from 'lucide-react'
+import { MailIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { FooterLocaleSwitch } from './FooterLocaleSwitch'
 
@@ -45,34 +45,12 @@ export async function Footer() {
             <MailIcon className="h-4 w-4" />
             <span className="bidi-iso font-latin">hello@marketmind.ai</span>
           </a>
-          <div className="mt-4 flex items-center gap-3">
-            <a
-              href="#"
-              aria-label={footer('facebook')}
-              className="rounded-full border border-border bg-surface p-2 text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
-            >
-              <FacebookIcon className="h-4 w-4" />
-            </a>
-            <a
-              href="#"
-              aria-label={footer('instagram')}
-              className="rounded-full border border-border bg-surface p-2 text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
-            >
-              <InstagramIcon className="h-4 w-4" />
-            </a>
-          </div>
         </div>
       </div>
       <div className="mx-auto mt-12 flex max-w-content flex-col items-center justify-between gap-3 border-t border-primary/15 pt-6 text-[12px] text-muted sm:flex-row">
         <span>{footer('sourceLine')}</span>
         <div className="flex items-center gap-4">
           <FooterLocaleSwitch label={nav('language')} />
-          <a href="#" className="rounded hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action">
-            {footer('privacy')}
-          </a>
-          <a href="#" className="rounded hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action">
-            {footer('terms')}
-          </a>
         </div>
       </div>
     </footer>
