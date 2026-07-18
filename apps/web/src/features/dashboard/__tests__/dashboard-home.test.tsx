@@ -22,16 +22,28 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...props}>{children}</a>
   ),
+  useRouter: () => ({ replace: vi.fn() }),
 }))
 
 vi.mock('@/lib/api/journey', () => ({
   getCurrentJourney: vi.fn(),
 }))
 
+const logoutMock = vi.fn()
+
 vi.mock('@/features/auth/session-provider', () => ({
   useSession: () => ({
     user: { id: 'owner-id', email: 'owner@example.com', fullName: 'Ahmed Hassan' },
+    logout: logoutMock,
   }),
+}))
+
+vi.mock('@/features/auth/logout-button', () => ({
+  LogoutButton: () => <button type="button">logout</button>,
+}))
+
+vi.mock('@/features/auth/resend-verification-form', () => ({
+  ResendVerificationForm: () => <form aria-label="resend-verification">resend</form>,
 }))
 
 const mockedGetCurrentJourney = vi.mocked(getCurrentJourney)
@@ -112,7 +124,66 @@ describe('DashboardHome', () => {
     })
     expect(await screen.findByRole('heading', { name: 'state.empty.title' })).not.toBeNull()
   })
+
+  it('renders a verification panel and no journey CTA when the owner email is unverified', async () => {
+    mockedGetCurrentJourney.mockResolvedValue(responseWithUnverifiedOwner())
+
+    render(<DashboardHome />)
+
+    expect(await screen.findByText('body')).not.toBeNull()
+    expect(screen.queryByRole('link', { name: 'actions.start_discovery' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'actions.continue_discovery' })).toBeNull()
+  })
+
+  it('clears the session and redirects to login on a 401 journey response', async () => {
+    mockedGetCurrentJourney.mockRejectedValueOnce(apiError(401))
+
+    render(<DashboardHome />)
+
+    await waitFor(() => expect(logoutMock).toHaveBeenCalledTimes(1))
+    expect(mockedGetCurrentJourney).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows verification guidance on a 403 journey response, with no journey CTA', async () => {
+    mockedGetCurrentJourney.mockRejectedValueOnce(apiError(403))
+
+    render(<DashboardHome />)
+
+    expect(await screen.findByText('body')).not.toBeNull()
+    expect(screen.queryByRole('link', { name: 'actions.start_discovery' })).toBeNull()
+  })
+
+  it('shows a retryable error state without a Start Discovery action on a 500 response', async () => {
+    mockedGetCurrentJourney.mockRejectedValueOnce(apiError(500))
+
+    render(<DashboardHome />)
+
+    expect(await screen.findByText('loadError')).not.toBeNull()
+    expect(screen.queryByRole('link', { name: 'actions.start_discovery' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'retry' })).not.toBeNull()
+  })
 })
+
+function responseWithUnverifiedOwner(): CurrentJourneyResponse {
+  return {
+    owner: {
+      user_id: 'owner-id',
+      full_name: 'Ahmed Hassan',
+      email: 'owner@example.com',
+      email_verified: false,
+    },
+    journey: { state: 'no_journey', discovery: null, profile: null },
+    future_phase: futurePhase('discovery_required'),
+    primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+    generated_at: '2026-07-17T10:00:00.000Z',
+  }
+}
+
+function apiError(status: number): Error & { status: number } {
+  const error = new Error(`request failed with ${status}`) as Error & { status: number }
+  error.status = status
+  return error
+}
 
 function responseWithNoJourney(): CurrentJourneyResponse {
   return {

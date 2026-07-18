@@ -69,7 +69,17 @@
       "unavailable": {
         "title": "Discovery needs attention",
         "body": "The previous journey is unavailable or failed. Start a new Discovery to rebuild the business context."
+      },
+      "error": {
+        "title": "Could not load your journey",
+        "body": "Something went wrong while loading your latest journey. Try again — your journey has not been removed."
       }
+    },
+    "verification": {
+      "title": "Verify your email to continue",
+      "body": "We sent a verification link to your email address. Please confirm it before starting or continuing Discovery.",
+      "resendPrompt": "Didn't get the email or the link expired?",
+      "logout": "Sign out"
     },
     "actions": {
       "start_discovery": "Start Discovery",

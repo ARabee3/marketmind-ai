@@ -7,7 +7,7 @@ import type {
   CurrentJourneyResponse,
   UnavailableDiscoveryStatus,
 } from '@marketmind/contracts'
-import { mapCurrentJourney, unavailableDashboardState } from '../dashboard-state'
+import { mapCurrentJourney, errorDashboardState } from '../dashboard-state'
 
 describe('mapCurrentJourney', () => {
   it('maps no journey to the discovery start action', () => {
@@ -62,11 +62,12 @@ describe('mapCurrentJourney', () => {
     },
   )
 
-  it('returns a safe unavailable state for failed API loading', () => {
-    const state = unavailableDashboardState()
+  it('returns a retryable error state with no Start Discovery action for failed API loading', () => {
+    const state = errorDashboardState()
 
-    expect(state.kind).toBe('unavailable')
-    expect(state.primaryActionType).toBe('start_discovery')
+    expect(state.kind).toBe('error')
+    expect(state.primaryActionType).toBe('none')
+    expect(state.primaryHref).toBeNull()
   })
 })
 

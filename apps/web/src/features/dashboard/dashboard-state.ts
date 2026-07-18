@@ -6,6 +6,7 @@ export type DashboardJourneyKind =
   | 'review'
   | 'confirmed'
   | 'unavailable'
+  | 'error'
 
 export type DashboardPrimaryActionType =
   CurrentJourneyResponse['primary_action']['type']
@@ -55,17 +56,23 @@ export function mapCurrentJourney(
   }
 }
 
-export function unavailableDashboardState(): DashboardJourneyState {
+/**
+ * Retryable failure state shown when the journey endpoint could not be reached
+ * or returned a server/network error. Intentionally exposes NO Start
+ * Discovery action — a failed dashboard load must not be presented as the
+ * journey being unavailable. The only recovery is Retry.
+ */
+export function errorDashboardState(): DashboardJourneyState {
   return {
-    kind: 'unavailable',
+    kind: 'error',
     ownerName: null,
     businessName: null,
     businessType: null,
     location: null,
     readinessPercent: null,
     profileVersion: null,
-    primaryActionType: 'start_discovery',
-    primaryHref: '/discovery/new',
+    primaryActionType: 'none',
+    primaryHref: null,
     strategyLockedReason: 'discovery_required',
   }
 }
