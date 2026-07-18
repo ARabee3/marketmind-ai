@@ -1,0 +1,22 @@
+# MarketMind AI — Optional Qdrant Local Service
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.qdrant.yml up -d
+#
+# Qdrant is required only for Sprint 4 RAG/vector retrieval.
+# This file is optional and is not started by docker-compose.local.yml.
+# Do not use this for production.
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    container_name: marketmind-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - marketmind_qdrant_storage:/qdrant/storage
+
+volumes:
+  marketmind_qdrant_storage:
