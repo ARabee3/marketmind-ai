@@ -164,4 +164,27 @@ describe('AppShell', () => {
     expect(main?.parentElement?.className).toMatch(/md:ms-\[84px\]/)
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy()
   })
+
+  it('locks the drawer as a focus-trapped dialog and restores focus on close', () => {
+    const { baseElement } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Open navigation' })
+    trigger.focus()
+
+    fireEvent.click(trigger)
+
+    const dialog = screen.getByLabelText('Mobile primary').closest('[role="dialog"]')!
+    expect(dialog).not.toBeNull()
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+
+    // Escape closes the drawer and returns focus to the trigger.
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByLabelText('Mobile primary')).toBeNull()
+    expect(baseElement.ownerDocument.activeElement).toBe(trigger)
+  })
 })
