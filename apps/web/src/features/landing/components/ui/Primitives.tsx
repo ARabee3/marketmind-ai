@@ -6,7 +6,6 @@ import {
   MessageSquareTextIcon,
   type LucideIcon } from
 'lucide-react';
-import { useLandingCopy } from '../../landing-copy-provider';
 type StatusKind = 'accepted' | 'review' | 'discard' | 'inference';
 const STATUS_MAP: Record<
   StatusKind,
@@ -40,16 +39,16 @@ export function StatusBadge({
 
 
 
-}: {kind: StatusKind;label?: string;className?: string;}) {
-  const copy = useLandingCopy();
+
+}: {kind: StatusKind;label: string;className?: string;}) {
   const cfg = STATUS_MAP[kind];
   const Icon = cfg.icon;
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${cfg.className} ${className}`}>
-      
+
       <Icon className="h-3 w-3 shrink-0" aria-hidden />
-      <span>{label ?? copy.status[kind]}</span>
+      <span>{label}</span>
     </span>);
 
 }

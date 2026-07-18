@@ -1,5 +1,3 @@
-'use client'
-
 import { CapabilityMarquee } from './components/CapabilityMarquee'
 import { DiscoveryJourney } from './components/DiscoveryJourney'
 import { EvidenceCloud } from './components/EvidenceCloud'
@@ -11,7 +9,7 @@ import { Roadmap } from './components/Roadmap'
 import { SampleResult } from './components/SampleResult'
 import { WhyEvidence } from './components/WhyEvidence'
 
-export function LandingPageContent() {
+export async function LandingPageContent() {
   return (
     <>
       <Hero />
