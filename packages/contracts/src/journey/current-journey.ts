@@ -44,9 +44,9 @@ export type CurrentJourneyDiscoveryReadiness = {
 };
 
 export type CurrentJourneyBusinessSummary = {
-  readonly business_name: string;
-  readonly business_type: string;
-  readonly city: string;
+  readonly business_name: string | null;
+  readonly business_type: string | null;
+  readonly city: string | null;
   readonly area: string | null;
 };
 

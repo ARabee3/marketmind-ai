@@ -121,6 +121,28 @@ describe("JourneyService", () => {
     expect(response.journey.discovery).toBeNull();
     expect(response.primary_action.type).toBe("start_discovery");
   });
+
+  it("keeps missing business facts null instead of fabricating Unknown values", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "failed",
+        intake: null,
+        confirmedProfile: null,
+      }),
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.journey.state).toBe("discovery_unavailable");
+    const summary = response.journey.discovery!.business_summary;
+    expect(summary.business_name).toBeNull();
+    expect(summary.business_type).toBeNull();
+    expect(summary.city).toBeNull();
+    expect(summary.area).toBeNull();
+    expect(JSON.stringify(summary)).not.toContain("Unknown");
+  });
 });
 
 function ownerRecord(): JourneyCurrentRecord["owner"] {

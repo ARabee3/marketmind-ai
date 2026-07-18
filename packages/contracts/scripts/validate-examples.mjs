@@ -216,9 +216,9 @@ function assertCurrentJourney(value, label) {
     assertString(value.journey.discovery.session_id, `${label}.journey.discovery.session_id`);
     assertStatus(value.journey.discovery.status, `${label}.journey.discovery.status`);
     assert(languageModes.has(value.journey.discovery.language_mode), `${label}.journey.discovery.language_mode is invalid`);
-    assertString(value.journey.discovery.business_summary.business_name, `${label}.journey.discovery.business_summary.business_name`);
-    assertString(value.journey.discovery.business_summary.business_type, `${label}.journey.discovery.business_summary.business_type`);
-    assertString(value.journey.discovery.business_summary.city, `${label}.journey.discovery.business_summary.city`);
+    assertNullableString(value.journey.discovery.business_summary.business_name, `${label}.journey.discovery.business_summary.business_name`);
+    assertNullableString(value.journey.discovery.business_summary.business_type, `${label}.journey.discovery.business_summary.business_type`);
+    assertNullableString(value.journey.discovery.business_summary.city, `${label}.journey.discovery.business_summary.city`);
     assertNullableString(value.journey.discovery.business_summary.area, `${label}.journey.discovery.business_summary.area`);
     assertNumber(value.journey.discovery.readiness.profile_readiness, `${label}.journey.discovery.readiness.profile_readiness`);
     assertNumber(value.journey.discovery.readiness.owner_turn_count, `${label}.journey.discovery.readiness.owner_turn_count`);
@@ -1606,6 +1606,25 @@ progressEventsOnly.forEach((event, index) =>
 
 const currentJourney = await loadJson("current-journey.response.json");
 assertCurrentJourney(currentJourney, "currentJourney");
+
+// Missing business facts must remain null rather than fabricated "Unknown" values.
+const missingBusinessJourney = await loadJson(
+  "current-journey.missing-business.response.json",
+);
+assertCurrentJourney(missingBusinessJourney, "missingBusinessJourney");
+assert(
+  missingBusinessJourney.journey.state === "discovery_unavailable",
+  "missingBusinessJourney.journey.state must be discovery_unavailable",
+);
+const missingSummary = missingBusinessJourney.journey.discovery.business_summary;
+assert(missingSummary.business_name === null, "missing business_name must be null");
+assert(missingSummary.business_type === null, "missing business_type must be null");
+assert(missingSummary.city === null, "missing city must be null");
+assert(missingSummary.area === null, "missing area must be null");
+assert(
+  missingBusinessJourney.primary_action.type === "start_discovery",
+  "missing-data journey must still offer start_discovery",
+);
 
 // Invalid fixture tests
 async function assertInvalidFixtureFails(filename, assertFn) {

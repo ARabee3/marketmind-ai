@@ -132,9 +132,9 @@ function businessSummary(
 
   const business = session.confirmedProfile?.business;
   return {
-    business_name: business?.displayName ?? "Unknown business",
-    business_type: business?.businessType ?? "Unknown type",
-    city: business?.city ?? "Unknown city",
+    business_name: business?.displayName ?? null,
+    business_type: business?.businessType ?? null,
+    city: business?.city ?? null,
     area: business?.area ?? null,
   };
 }
