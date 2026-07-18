@@ -8,6 +8,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
+import { JourneyModule } from "./modules/journey/journey.module";
 import { RedisModule } from "./modules/redis/redis.module";
 import { MailModule } from "./modules/mail/mail.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
@@ -45,6 +46,7 @@ import { AppController } from "./app.controller";
     UsersModule,
     RbacModule,
     DiscoveryModule,
+    JourneyModule,
   ],
   controllers: [AppController],
 })

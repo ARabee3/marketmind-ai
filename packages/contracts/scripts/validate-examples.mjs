@@ -133,6 +133,20 @@ const languageModes = new Set(["ar-EG", "en", "mixed"]);
 const reviewStatuses = new Set(["approved"]);
 const scenarioTypes = new Set(["conservative", "base", "growth"]);
 const decisionTypes = new Set(["approved", "rejected", "revision_requested"]);
+const currentJourneyStates = new Set([
+  "no_journey",
+  "discovery_active",
+  "discovery_summary_review",
+  "discovery_confirmed",
+  "discovery_unavailable",
+]);
+const currentJourneyActions = new Set([
+  "start_discovery",
+  "continue_discovery",
+  "review_profile",
+  "view_discovery",
+  "none",
+]);
 
 async function loadJson(name) {
   const raw = await readFile(new URL(name, examplesUrl), "utf8");
@@ -171,11 +185,75 @@ function assertStringArray(value, label) {
   value.forEach((item, index) => assertString(item, `${label}[${index}]`));
 }
 
+function assertNumber(value, label) {
+  assert(typeof value === "number", `${label} must be a number`);
+}
+
 function assertStatus(value, label) {
   assert(
     discoveryStatuses.has(value),
     `${label} has unsupported status: ${value}`,
   );
+}
+
+function assertCurrentJourney(value, label) {
+  assertString(value.owner.user_id, `${label}.owner.user_id`);
+  assertString(value.owner.email, `${label}.owner.email`);
+  assertNullableString(value.owner.full_name, `${label}.owner.full_name`);
+  assert(
+    typeof value.owner.email_verified === "boolean",
+    `${label}.owner.email_verified must be boolean`,
+  );
+  assert(
+    currentJourneyStates.has(value.journey.state),
+    `${label}.journey.state is invalid`,
+  );
+
+  if (value.journey.state === "no_journey") {
+    assert(value.journey.discovery === null, `${label}.journey.discovery must be null`);
+    assert(value.journey.profile === null, `${label}.journey.profile must be null`);
+  } else {
+    assertString(value.journey.discovery.session_id, `${label}.journey.discovery.session_id`);
+    assertStatus(value.journey.discovery.status, `${label}.journey.discovery.status`);
+    assert(languageModes.has(value.journey.discovery.language_mode), `${label}.journey.discovery.language_mode is invalid`);
+    assertNullableString(value.journey.discovery.business_summary.business_name, `${label}.journey.discovery.business_summary.business_name`);
+    assertNullableString(value.journey.discovery.business_summary.business_type, `${label}.journey.discovery.business_summary.business_type`);
+    assertNullableString(value.journey.discovery.business_summary.city, `${label}.journey.discovery.business_summary.city`);
+    assertNullableString(value.journey.discovery.business_summary.area, `${label}.journey.discovery.business_summary.area`);
+    assertNumber(value.journey.discovery.readiness.profile_readiness, `${label}.journey.discovery.readiness.profile_readiness`);
+    assertNumber(value.journey.discovery.readiness.owner_turn_count, `${label}.journey.discovery.readiness.owner_turn_count`);
+    assertNumber(value.journey.discovery.readiness.max_owner_turns, `${label}.journey.discovery.readiness.max_owner_turns`);
+  }
+
+  if (value.journey.profile !== null) {
+    assertString(value.journey.profile.business_profile_version_id, `${label}.journey.profile.business_profile_version_id`);
+    assertString(value.journey.profile.business_id, `${label}.journey.profile.business_id`);
+    assertNumber(value.journey.profile.version, `${label}.journey.profile.version`);
+    assertString(value.journey.profile.business_name, `${label}.journey.profile.business_name`);
+    assertString(value.journey.profile.business_type, `${label}.journey.profile.business_type`);
+    assertString(value.journey.profile.city, `${label}.journey.profile.city`);
+    assertNullableString(value.journey.profile.area, `${label}.journey.profile.area`);
+    assertString(value.journey.profile.confirmed_at, `${label}.journey.profile.confirmed_at`);
+  }
+
+  assert(value.future_phase.phase === "strategy", `${label}.future_phase.phase is invalid`);
+  assert(
+    value.future_phase.availability === "locked" ||
+      value.future_phase.availability === "unavailable",
+    `${label}.future_phase.availability is invalid`,
+  );
+  assert(value.future_phase.status === "needs_brief", `${label}.future_phase.status is invalid`);
+  assert(value.future_phase.destination === null, `${label}.future_phase.destination must be null`);
+  assert(
+    currentJourneyActions.has(value.primary_action.type),
+    `${label}.primary_action.type is invalid`,
+  );
+  if (value.primary_action.type === "none") {
+    assert(value.primary_action.destination === null, `${label}.primary_action.destination must be null`);
+  } else {
+    assertString(value.primary_action.destination, `${label}.primary_action.destination`);
+  }
+  assertString(value.generated_at, `${label}.generated_at`);
 }
 
 function assertUncertainty(uncertainty, label, persisted = true) {
@@ -1524,6 +1602,28 @@ const progressStrategyId = "a0000000-0000-4000-8000-000000000001";
 const progressEventsOnly = progressTranscriptEvents.filter((e) => e.type === "strategy_progress");
 progressEventsOnly.forEach((event, index) =>
   assertStrategyProgressEvent(event, index, progressStrategyId),
+);
+
+const currentJourney = await loadJson("current-journey.response.json");
+assertCurrentJourney(currentJourney, "currentJourney");
+
+// Missing business facts must remain null rather than fabricated "Unknown" values.
+const missingBusinessJourney = await loadJson(
+  "current-journey.missing-business.response.json",
+);
+assertCurrentJourney(missingBusinessJourney, "missingBusinessJourney");
+assert(
+  missingBusinessJourney.journey.state === "discovery_unavailable",
+  "missingBusinessJourney.journey.state must be discovery_unavailable",
+);
+const missingSummary = missingBusinessJourney.journey.discovery.business_summary;
+assert(missingSummary.business_name === null, "missing business_name must be null");
+assert(missingSummary.business_type === null, "missing business_type must be null");
+assert(missingSummary.city === null, "missing city must be null");
+assert(missingSummary.area === null, "missing area must be null");
+assert(
+  missingBusinessJourney.primary_action.type === "start_discovery",
+  "missing-data journey must still offer start_discovery",
 );
 
 // Invalid fixture tests

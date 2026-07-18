@@ -2,6 +2,7 @@
   "name": "@marketmind/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,6 +20,8 @@
     "@marketmind/contracts": "*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.522.0",
     "next": "16.2.10",
     "next-intl": "^4.0.0",
     "react": "19.2.4",

@@ -155,6 +155,16 @@ describe('AuthController', () => {
     });
   });
 
+  describe('session', () => {
+    it('returns void without rotating the refresh cookie or issuing an access token', async () => {
+      const result = await controller.session();
+
+      expect(result).toBeUndefined();
+      expect(authService.refresh).not.toHaveBeenCalled();
+      expect(cookies[REFRESH_TOKEN_COOKIE]).toBeUndefined();
+    });
+  });
+
   describe('logout', () => {
     it('clears the refresh token cookie and logs the user out', async () => {
       authService.logout!.mockResolvedValue(undefined);

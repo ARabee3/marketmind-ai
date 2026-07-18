@@ -1,0 +1,45 @@
+{
+  "owner": {
+    "user_id": "11111111-1111-4111-8111-111111111111",
+    "full_name": "Ahmed Hassan",
+    "email": "owner@example.com",
+    "email_verified": true
+  },
+  "journey": {
+    "state": "discovery_unavailable",
+    "discovery": {
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "status": "failed",
+      "language_mode": "ar-EG",
+      "business_summary": {
+        "business_name": null,
+        "business_type": null,
+        "city": null,
+        "area": null
+      },
+      "readiness": {
+        "ready": false,
+        "profile_readiness": 0,
+        "owner_turn_count": 0,
+        "max_owner_turns": 15
+      },
+      "profile_draft_id": null,
+      "confirmed_profile_version_id": null,
+      "updated_at": "2026-07-17T10:00:00.000Z",
+      "completed_at": "2026-07-17T10:03:00.000Z"
+    },
+    "profile": null
+  },
+  "future_phase": {
+    "phase": "strategy",
+    "availability": "locked",
+    "status": "needs_brief",
+    "reason": "discovery_required",
+    "destination": null
+  },
+  "primary_action": {
+    "type": "start_discovery",
+    "destination": "/discovery/new"
+  },
+  "generated_at": "2026-07-17T10:06:00.000Z"
+}

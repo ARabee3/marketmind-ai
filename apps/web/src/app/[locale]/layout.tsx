@@ -3,7 +3,6 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google'
 import { routing } from '@/i18n/routing'
-import { AppShell } from '@/components/layout/app-shell'
 import { SessionProvider } from '@/features/auth/session-provider'
 import '../globals.css'
 
@@ -44,7 +43,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params
   const messages = await getMessages()
-  const t = await getTranslations({ locale, namespace: 'Common' })
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
 
   return (
@@ -55,9 +53,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     >
       <body className="min-h-dvh bg-background font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
-          <SessionProvider>
-            <AppShell brandName={t('appName')}>{children}</AppShell>
-          </SessionProvider>
+          <SessionProvider>{children}</SessionProvider>
         </NextIntlClientProvider>
       </body>
     </html>
