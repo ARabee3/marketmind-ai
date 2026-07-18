@@ -515,5 +515,434 @@
     "sessionExpired": "Your session has expired. Please sign in again.",
     "validationError": "Please check the form for errors.",
     "serverError": "Server error. Please try again later."
+  },
+  "Landing": {
+    "nav": {
+      "links": [
+        {
+          "href": "#roadmap",
+          "label": "Full journey"
+        },
+        {
+          "href": "#discovery",
+          "label": "How it works"
+        },
+        {
+          "href": "#sample",
+          "label": "Sample"
+        },
+        {
+          "href": "#faq",
+          "label": "FAQ"
+        }
+      ],
+      "aria": "Primary navigation",
+      "login": "Log in",
+      "signup": "Create account",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "language": "AR",
+      "languageLabel": "العربية"
+    },
+    "shell": {
+      "skip": "Skip to content"
+    },
+    "hero": {
+      "badge": "A clear growth journey",
+      "title": "From understanding your business to improving marketing",
+      "body": "MarketMind turns your business data and owner context into a complete marketing journey: clear understanding, a growth plan, reviewable content, and continuous improvement based on real results.",
+      "note": "You stay the decision-maker at every stage: confirm facts, review the plan, and approve before execution.",
+      "noteLink": "See the full journey",
+      "primary": "Start building the growth plan",
+      "secondary": "Explore the full journey",
+      "preview": {
+        "steps": [
+          {
+            "step": "1",
+            "title": "Business understanding",
+            "mono": "Profile",
+            "text": "Confirmed facts about your business and market"
+          },
+          {
+            "step": "2",
+            "title": "Growth plan",
+            "mono": "Strategy",
+            "text": "Clear goals, channels, and priorities"
+          },
+          {
+            "step": "3",
+            "title": "Reviewable execution",
+            "mono": "Content",
+            "text": "Content and campaigns ready before publishing"
+          },
+          {
+            "step": "4",
+            "title": "Continuous improvement",
+            "mono": "Improve",
+            "text": "Results guide the next question and next step"
+          }
+        ]
+      }
+    },
+    "capability": {
+      "eyebrow": "What MarketMind checks",
+      "row1": [
+        {
+          "label": "Public research sources",
+          "latin": null
+        },
+        {
+          "label": "Trusted local directories",
+          "latin": null
+        },
+        {
+          "label": "Fallback sources",
+          "latin": null
+        },
+        {
+          "label": "Official business links",
+          "latin": null
+        },
+        {
+          "label": "Competitor analysis",
+          "latin": null
+        },
+        {
+          "label": "Local context",
+          "latin": null
+        }
+      ],
+      "row2": [
+        {
+          "label": "Identity",
+          "latin": null
+        },
+        {
+          "label": "Offers and services",
+          "latin": null
+        },
+        {
+          "label": "Customers",
+          "latin": null
+        },
+        {
+          "label": "Differentiation",
+          "latin": null
+        },
+        {
+          "label": "Current marketing",
+          "latin": null
+        },
+        {
+          "label": "Goals",
+          "latin": null
+        },
+        {
+          "label": "Market context",
+          "latin": null
+        }
+      ]
+    },
+    "evidence": {
+      "title": "Evidence before decisions.",
+      "body": "Each tag above is something MarketMind really checks — a research source or a part of your business profile.",
+      "tags": [
+        {
+          "label": "Public search source",
+          "type": "provider"
+        },
+        {
+          "label": "Local directory",
+          "type": "provider"
+        },
+        {
+          "label": "Fallback source",
+          "type": "provider"
+        },
+        {
+          "label": "Official owner link",
+          "type": "provider"
+        },
+        {
+          "label": "Identity",
+          "type": "known"
+        },
+        {
+          "label": "Offers",
+          "type": "known"
+        },
+        {
+          "label": "Customers",
+          "type": "review"
+        },
+        {
+          "label": "Competitors",
+          "type": "review"
+        }
+      ]
+    },
+    "why": {
+      "eyebrow": "Why evidence matters",
+      "title": "Research can suggest. You confirm.",
+      "body": "Every business fact stays a research suggestion until you review it. The visual state makes the difference clear at a glance.",
+      "before": "Before confirmation",
+      "beforeText": "The business opens from 9 AM to 11 PM",
+      "transition": "↓ Reviewed and confirmed",
+      "after": "After confirmation",
+      "afterText": "The business opens from 10 AM to midnight"
+    },
+    "roadmap": {
+      "eyebrow": "Full journey",
+      "title": "From understanding to improvement",
+      "body": "You can start with Discovery now. The rest of the journey is designed as clear, reviewable steps.",
+      "hint": "Scroll to see how each stage hands off to the next",
+      "aria": "MarketMind journey phases",
+      "liveCta": "Start now",
+      "cards": [
+        {
+          "no": "01",
+          "title": "Discover",
+          "en": "Discover",
+          "output": "BusinessProfile",
+          "desc": "Build an evidence-backed view of your business through real research and a conversation with you.",
+          "status": "live",
+          "statusLabel": "Available now"
+        },
+        {
+          "no": "02",
+          "title": "Research",
+          "en": "Research",
+          "output": "ResearchPack",
+          "desc": "Collect market and competitor evidence in a clear review pack.",
+          "status": "planned",
+          "statusLabel": "Next phase"
+        },
+        {
+          "no": "03",
+          "title": "Strategize",
+          "en": "Strategize",
+          "output": "StrategyPlan",
+          "desc": "Turn the confirmed profile into priorities, channels, and metrics.",
+          "status": "planned",
+          "statusLabel": "In the journey"
+        },
+        {
+          "no": "04",
+          "title": "Create",
+          "en": "Create",
+          "output": "ContentPack",
+          "desc": "Prepare content that fits the goal and context before execution.",
+          "status": "planned",
+          "statusLabel": "In the journey"
+        },
+        {
+          "no": "05",
+          "title": "Publish or export",
+          "en": "Publish or export",
+          "output": "Publication Result",
+          "desc": "Safe publishing or export only after owner approval.",
+          "status": "planned",
+          "statusLabel": "In the journey"
+        },
+        {
+          "no": "06",
+          "title": "Monitor",
+          "en": "Monitor",
+          "output": "MetricSnapshot",
+          "desc": "Show a clear performance snapshot without inventing unavailable metrics.",
+          "status": "planned",
+          "statusLabel": "In the journey"
+        },
+        {
+          "no": "07",
+          "title": "Improve",
+          "en": "Improve",
+          "output": "OptimizationProposal",
+          "desc": "Suggest reviewable improvements before any change is made.",
+          "status": "planned",
+          "statusLabel": "In the journey"
+        }
+      ]
+    },
+    "discovery": {
+      "eyebrow": "Discovery journey — phase one in detail",
+      "title": "Five steps, all working now",
+      "body": "This is the fully available flow: from entering your business name to reviewing a confirmed profile.",
+      "aria": "Discovery journey steps",
+      "steps": [
+        {
+          "no": "01",
+          "label": "Receive business data",
+          "desc": "You enter your business name, category, and location — the starting point for research.",
+          "chips": [
+            "Name",
+            "Category",
+            "Location"
+          ]
+        },
+        {
+          "no": "02",
+          "label": "Plan and run research",
+          "desc": "We turn your intake into search queries and run them against real sources.",
+          "chips": [
+            "Search sources",
+            "Local directories",
+            "Fallbacks"
+          ]
+        },
+        {
+          "no": "03",
+          "label": "Filter evidence",
+          "desc": "We remove unrelated results and keep relevant findings with their sources.",
+          "chips": [
+            "Filtering",
+            "Source mapping"
+          ]
+        },
+        {
+          "no": "04",
+          "label": "First research-backed question",
+          "desc": "We ask a question that completes the picture, based on what was found.",
+          "chips": [
+            "Smart question",
+            "Research context"
+          ]
+        },
+        {
+          "no": "05",
+          "label": "Confirmed profile",
+          "desc": "Every fact you confirm is saved as a trusted business profile fact.",
+          "chips": [
+            "Owner confirmation",
+            "Evidence saved"
+          ]
+        }
+      ]
+    },
+    "research": {
+      "eyebrow": "Research progress preview",
+      "title": "Watch real work happen step by step",
+      "body": "Each stage moves only when there is actual work behind it — no fake counter and no made-up percentage.",
+      "status": "Connected — receiving updates",
+      "stages": [
+        {
+          "label": "Request received",
+          "detail": "The research request was accepted and queued."
+        },
+        {
+          "label": "Query planning",
+          "detail": "Business data is turned into focused search queries."
+        },
+        {
+          "label": "Owner link check",
+          "detail": "Facebook and submitted links are reviewed."
+        },
+        {
+          "label": "Competitor search",
+          "detail": "Similar businesses in the same area are identified."
+        },
+        {
+          "label": "Market search",
+          "detail": "Local context and demand signals are collected."
+        },
+        {
+          "label": "Filtering",
+          "detail": "Unrelated results are removed."
+        },
+        {
+          "label": "Evidence saved",
+          "detail": "Each result is stored with its source."
+        },
+        {
+          "label": "First question ready",
+          "detail": "A question is drafted from what was found."
+        },
+        {
+          "label": "Ready",
+          "detail": "The initial profile is ready for your review."
+        }
+      ]
+    },
+    "sample": {
+      "sourceNotes": [
+        "Public search source",
+        "Local directory",
+        "Official link",
+        "Review question"
+      ],
+      "eyebrow": "Illustrative sample",
+      "name": "Rose & Sugar Sweets",
+      "meta": "A fictional sweets shop in a fictional city —",
+      "metaEmphasis": "example only",
+      "fileLabel": "Sample evidence file",
+      "imageAlt": "Fictional sweets shop storefront with a dessert display",
+      "sourceNote": "Research can reach public sources, but final truth stays with the business owner.",
+      "acceptedTitle": "Accepted result",
+      "acceptedText": "The shop appears in a public local directory with reviews, customer photos, and clear opening hours.",
+      "discardedTitle": "Discarded result",
+      "discardedText": "A result with a similar name in another city was discarded because the activity and location are different.",
+      "competitorTitle": "Potential competitor",
+      "competitorName": "Neighborhood Blossom Sweets — same area",
+      "chatTitle": "Sample conversation",
+      "aiQuestion": "I found public hours from 9 AM to 11 PM. Is that correct?",
+      "suggested": [
+        "Yes, correct",
+        "I want to edit the hours",
+        "Hours change in Ramadan"
+      ],
+      "inputLabel": "Write your answer",
+      "inputValue": "No, we open at 10 AM and close at midnight.",
+      "inputPlaceholder": "Or write your answer here...",
+      "send": "Send"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Everything is clear before you start",
+      "items": [
+        {
+          "q": "How do you protect my data?",
+          "a": "Your data is used only to build your own business profile. We do not share it with other parties, and you control what gets saved."
+        },
+        {
+          "q": "Where does the information come from?",
+          "a": "From public search sources and official links for your business. Every result appears with its source, and nothing becomes a fact until you confirm it."
+        },
+        {
+          "q": "How long does research take?",
+          "a": "Most initial research runs finish within minutes. You can watch the stages progress without a fake timer."
+        },
+        {
+          "q": "Can I continue later if I leave?",
+          "a": "Yes. Discovery progress is saved, and you can return to continue from the same point."
+        },
+        {
+          "q": "Who controls the final information?",
+          "a": "You do. Research can suggest, but you confirm or reject every fact before it enters your profile."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Ready to understand your business?",
+      "body": "Start Discovery now — real research, questions based on findings, and a profile you confirm.",
+      "primary": "Start business discovery",
+      "secondary": "See a full example"
+    },
+    "footer": {
+      "body": "Understand your business and market with evidence before marketing starts.",
+      "navAria": "Site links",
+      "linksTitle": "Links",
+      "contactTitle": "Contact",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "sourceLine": "MarketMind — every result has a source.",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "status": {
+      "accepted": "Confirmed",
+      "review": "Needs review",
+      "discard": "Discarded",
+      "inference": "Research suggestion"
+    }
   }
 }
