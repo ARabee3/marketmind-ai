@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, CheckCircle2Icon, CircleIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { Eyebrow, Latin, Section } from './ui/Primitives'
 import { Reveal } from './Reveal'
 
@@ -41,10 +42,10 @@ function PhaseCard({ card, liveCta }: { readonly card: RoadmapCard; readonly liv
       </span>
       <p className={`mt-4 text-[15px] leading-[1.8] ${live ? 'text-white/85' : 'text-ink-soft'}`}>{card.desc}</p>
       {live && (
-        <a href="#start" className="cta-secondary mt-auto self-start px-4 py-2 text-[13px] font-bold">
+        <Link href="/register" className="cta-secondary mt-auto self-start px-4 py-2 text-[13px] font-bold">
           {liveCta}
           <ArrowLeftIcon className="mr-2 h-4 w-4" aria-hidden />
-        </a>
+        </Link>
       )}
     </div>
   )

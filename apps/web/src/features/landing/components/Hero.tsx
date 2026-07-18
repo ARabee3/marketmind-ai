@@ -1,5 +1,6 @@
 import { ArrowDownIcon, MessageCircleIcon, SearchIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { Latin } from './ui/Primitives'
 import { Reveal } from './Reveal'
 
@@ -43,9 +44,9 @@ export async function Hero() {
         </p>
 
         <Reveal delay={0.2} className="mt-7 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <a href="#start" className="cta-solid w-full px-7 py-3 text-[15px] font-bold sm:w-auto">
+          <Link href="/register" className="cta-solid w-full px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('primary')}
-          </a>
+          </Link>
           <a href="#roadmap" className="cta-secondary w-full px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('secondary')}
           </a>
