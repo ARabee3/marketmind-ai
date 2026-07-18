@@ -604,10 +604,6 @@
           "latin": null
         },
         {
-          "label": "Competitor analysis",
-          "latin": null
-        },
-        {
           "label": "Local context",
           "latin": null
         }
@@ -673,10 +669,6 @@
         },
         {
           "label": "Customers",
-          "type": "review"
-        },
-        {
-          "label": "Competitors",
           "type": "review"
         }
       ]
@@ -838,14 +830,6 @@
           "detail": "Facebook and submitted links are reviewed."
         },
         {
-          "label": "Competitor search",
-          "detail": "Similar businesses in the same area are identified."
-        },
-        {
-          "label": "Market search",
-          "detail": "Local context and demand signals are collected."
-        },
-        {
           "label": "Filtering",
           "detail": "Unrelated results are removed."
         },
@@ -881,8 +865,6 @@
       "acceptedText": "The shop appears in a public local directory with reviews, customer photos, and clear opening hours.",
       "discardedTitle": "Discarded result",
       "discardedText": "A result with a similar name in another city was discarded because the activity and location are different.",
-      "competitorTitle": "Potential competitor",
-      "competitorName": "Neighborhood Blossom Sweets — same area",
       "chatTitle": "Sample conversation",
       "aiQuestion": "I found public hours from 9 AM to 11 PM. Is that correct?",
       "suggested": [

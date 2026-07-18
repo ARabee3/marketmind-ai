@@ -1,7 +1,7 @@
 import { CheckIcon, TargetIcon, XIcon } from 'lucide-react'
 import Image from 'next/image'
 import { getTranslations } from 'next-intl/server'
-import { Chip, Eyebrow, Section, StatusBadge } from './ui/Primitives'
+import { Eyebrow, Section, StatusBadge } from './ui/Primitives'
 import { Reveal } from './Reveal'
 
 const SHOP_IMG = '/63d36b5c-0e3c-405d-a588-dfb4af2f657c.jpg'
@@ -58,12 +58,6 @@ export async function SampleResult() {
                 <XIcon className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 {t('discardedText')}
               </p>
-            </div>
-            <div className="mt-5">
-              <span className="text-[12px] font-semibold text-muted">{t('competitorTitle')}</span>
-              <div className="mt-2">
-                <Chip tone="competitor">{t('competitorName')}</Chip>
-              </div>
             </div>
             <div className="mt-5 rounded-card border border-border bg-surface p-4">
               <p className="mb-3 text-[12px] font-bold text-muted">{t('chatTitle')}</p>
