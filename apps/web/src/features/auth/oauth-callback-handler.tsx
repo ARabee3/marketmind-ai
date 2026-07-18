@@ -6,15 +6,11 @@ import { useSearchParams } from 'next/navigation'
 import { useRouter, Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useSession } from './session-provider'
 import { GoogleAuthButton } from './google-auth-button'
+import { AuthCard } from './auth-card'
+import { authStyles } from './auth-styles'
 
 type OAuthErrorCode =
   | 'OAUTH_STATE_MISMATCH'
@@ -87,16 +83,12 @@ export function OAuthCallbackHandler() {
   if (status === 'success') {
     if (isLoading) {
       return (
-        <div
-          className="mx-auto flex min-h-[60vh] w-full max-w-sm items-center justify-center px-4"
-          role="status"
-          aria-live="polite"
-        >
-          <Card className="w-full">
-            <CardHeader className="text-center">
-              <CardTitle>{t('oauthCompletingSignIn')}</CardTitle>
-            </CardHeader>
-          </Card>
+        <div role="status" aria-live="polite">
+          <AuthCard title={t('oauthCompletingSignIn')}>
+            <div className="flex justify-center py-4">
+              <span aria-hidden className="size-7 animate-pulse rounded-full bg-primary/40" />
+            </div>
+          </AuthCard>
         </div>
       )
     }
@@ -108,33 +100,27 @@ export function OAuthCallbackHandler() {
     }
 
     return (
-      <div
-        className="mx-auto flex min-h-[60vh] w-full max-w-sm items-center justify-center px-4"
-        role="alert"
-      >
-        <Card className="w-full">
-          <CardHeader className="text-center">
-            <CardTitle>{t('oauthRetryTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              {t('oauthRetryDescription')}
-            </p>
+      <div role="alert">
+        <AuthCard
+          title={t('oauthRetryTitle')}
+          description={t('oauthRetryDescription')}
+        >
+          <div className="flex flex-col gap-4">
             <Button
               onClick={handleRetry}
               disabled={isRetrying}
-              className="w-full"
+              className={authStyles.primaryButton}
             >
               {isRetrying ? tCommon('loading') : t('oauthRetryButton')}
             </Button>
             <Link
               href="/login"
-              className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
+              className={cn(buttonVariants({ variant: 'outline' }), authStyles.outlineButton)}
             >
               {t('oauthBackToSignIn')}
             </Link>
-          </CardContent>
-        </Card>
+          </div>
+        </AuthCard>
       </div>
     )
   }
@@ -148,27 +134,21 @@ export function OAuthCallbackHandler() {
         } as const)
 
   return (
-    <div
-      className="mx-auto flex min-h-[60vh] w-full max-w-sm items-center justify-center px-4"
-      role="alert"
-    >
-      <Card className="w-full">
-        <CardHeader className="text-center">
-          <CardTitle>{t(errorKeys.title)}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            {t(errorKeys.description)}
-          </p>
+    <div role="alert">
+      <AuthCard
+        title={t(errorKeys.title)}
+        description={t(errorKeys.description)}
+      >
+        <div className="flex flex-col gap-4">
           <Link
             href="/login"
-            className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
+            className={cn(buttonVariants({ variant: 'outline' }), authStyles.outlineButton)}
           >
             {t('oauthBackToSignIn')}
           </Link>
           <GoogleAuthButton showDivider={false} />
-        </CardContent>
-      </Card>
+        </div>
+      </AuthCard>
     </div>
   )
 }

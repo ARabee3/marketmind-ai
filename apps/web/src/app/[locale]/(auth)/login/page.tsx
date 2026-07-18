@@ -3,12 +3,8 @@ import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { LoginForm } from '@/features/auth/login-form'
 import { GoogleAuthButton } from '@/features/auth/google-auth-button'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { AuthCard } from '@/features/auth/auth-card'
+import { authStyles } from '@/features/auth/auth-styles'
 
 export async function generateMetadata() {
   const t = await getTranslations('Auth')
@@ -21,37 +17,29 @@ export default async function LoginPage() {
   const t = await getTranslations('Auth')
 
   return (
-    <div className="mx-auto flex min-h-[60vh] w-full max-w-sm items-center justify-center px-4">
-      <Card className="w-full">
-        <CardHeader className="text-center">
-          <CardTitle>{t('loginTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <GoogleAuthButton />
-          </div>
-          <Suspense fallback={null}>
-            <LoginForm />
-          </Suspense>
-          <p className="mt-2 text-center text-sm">
-            <Link
-              href="/forgot-password"
-              className="font-medium text-action hover:underline"
-            >
-              {t('loginForgotPassword')}
-            </Link>
-          </p>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {t('loginNoAccount')}{' '}
-            <Link
-              href="/register"
-              className="font-medium text-action hover:underline"
-            >
-              {t('registerSubmit')}
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthCard
+      title={t('loginTitle')}
+      description={t('loginDescription')}
+      footer={
+        <>
+          {t('loginNoAccount')}{' '}
+          <Link href="/register" className={authStyles.actionLink}>
+            {t('registerSubmit')}
+          </Link>
+        </>
+      }
+    >
+      <div className="mb-4">
+        <GoogleAuthButton />
+      </div>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
+      <p className="mt-3 text-center text-sm">
+        <Link href="/forgot-password" className={authStyles.actionLink}>
+          {t('loginForgotPassword')}
+        </Link>
+      </p>
+    </AuthCard>
   )
 }
