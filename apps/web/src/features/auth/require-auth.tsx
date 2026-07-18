@@ -9,6 +9,16 @@ export type RequireAuthProps = {
   children: ReactNode
 }
 
+/**
+ * Client-side auth UX layer for the workspace shell: avoids flashing protected
+ * content and drives a localized redirect after a session expires mid-session.
+ *
+ * This is NOT the authorization boundary. Workspace authorization is enforced
+ * server-side by the prefilter in `src/proxy.ts`, which validates the HttpOnly
+ * refresh cookie via the non-rotating `/auth/session` endpoint before any
+ * workspace Server Component renders. Nest JWT/RBAC guards remain the final
+ * data-access boundary. This component only smooths the client experience.
+ */
 export function RequireAuth({ children }: RequireAuthProps) {
   const t = useTranslations('Common')
   const { isLoading, isAuthenticated } = useSession()

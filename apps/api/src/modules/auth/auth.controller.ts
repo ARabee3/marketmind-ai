@@ -125,6 +125,22 @@ export class AuthController {
     return { user };
   }
 
+  /**
+   * Non-rotating session check backed by the HttpOnly refresh cookie.
+   *
+   * Returns 204 when the refresh cookie is present, valid, and matches the
+   * stored hash; 401 otherwise. Issues no access token and rotates no cookie,
+   * so it is safe for the Next.js workspace prefilter to call on every
+   * navigation. Nest JWT/RBAC guards remain the data-access boundary.
+   */
+  @Get('session')
+  @UseGuards(JwtRefreshGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 900000 } })
+  async session(): Promise<void> {
+    return;
+  }
+
   @Get('google')
   @Throttle({ default: { limit: 10, ttl: 900000 } })
   async googleAuth(@Req() req: Request, @Res() res: Response): Promise<void> {
