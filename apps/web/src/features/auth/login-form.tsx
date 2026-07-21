@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useCallback, useRef, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Link, useRouter } from '@/i18n/navigation'
@@ -38,6 +38,9 @@ export function LoginForm() {
   const router = useRouter()
   const { login } = useSession()
 
+  const emailRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<LoginFormErrors>({})
@@ -54,6 +57,11 @@ export function LoginForm() {
     if (passwordError) next.password = passwordError
 
     setErrors(next)
+    if (next.email) {
+      emailRef.current?.focus()
+    } else if (next.password) {
+      passwordRef.current?.focus()
+    }
     return Object.keys(next).length === 0
   }, [email, password])
 
@@ -132,10 +140,15 @@ export function LoginForm() {
       <div className={authStyles.field}>
         <Label htmlFor="email">{t('loginEmailLabel')}</Label>
         <Input
+          ref={emailRef}
           id="email"
           name="email"
           type="email"
+          dir="ltr"
           autoComplete="email"
+          spellCheck={false}
+          autoCapitalize="none"
+          inputMode="email"
           placeholder={t('loginEmailPlaceholder')}
           className={authStyles.input}
           value={email}
@@ -144,7 +157,7 @@ export function LoginForm() {
           aria-describedby={errors.email ? 'email-error' : undefined}
         />
         {errors.email && (
-          <p id="email-error" className="text-sm text-destructive">
+          <p id="email-error" role="alert" className="text-sm text-destructive">
             {t(errors.email)}
           </p>
         )}
@@ -153,6 +166,7 @@ export function LoginForm() {
       <div className={authStyles.field}>
         <Label htmlFor="password">{t('loginPasswordLabel')}</Label>
         <Input
+          ref={passwordRef}
           id="password"
           name="password"
           type="password"
@@ -165,7 +179,7 @@ export function LoginForm() {
           aria-describedby={errors.password ? 'password-error' : undefined}
         />
         {errors.password && (
-          <p id="password-error" className="text-sm text-destructive">
+          <p id="password-error" role="alert" className="text-sm text-destructive">
             {t(errors.password, { min: MIN_PASSWORD_LENGTH })}
           </p>
         )}

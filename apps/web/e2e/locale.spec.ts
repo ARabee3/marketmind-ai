@@ -6,14 +6,18 @@ test.describe('Locale rendering', () => {
     await page.goto('/en')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
-    await expect(page.locator('h1')).toContainText('MarketMind AI')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Better marketing starts with understanding your business',
+    )
   })
 
   test('renders Arabic page under /ar', async ({ page }) => {
     await page.goto('/ar')
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-    await expect(page.locator('h1')).toContainText('ماركت مايند')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'التسويق الأفضل بيبدأ بفهم نشاطك',
+    )
   })
 })
 
@@ -61,14 +65,14 @@ test.describe('Locale detection (proxy.ts)', () => {
 test.describe('Language switcher preserves route (both directions)', () => {
   test('switches /en -> /ar', async ({ page }) => {
     await page.goto('/en')
-    await page.getByRole('button', { name: /Arabic|العربية/i }).click()
+    await page.getByRole('contentinfo').getByRole('link', { name: 'AR', exact: true }).click()
     await expect(page).toHaveURL(/\/ar(\b|$)/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
   })
 
   test('switches /ar -> /en', async ({ page }) => {
     await page.goto('/ar')
-    await page.getByRole('button', { name: /English|الإنجليزية/i }).click()
+    await page.getByRole('contentinfo').getByRole('link', { name: 'EN', exact: true }).click()
     await expect(page).toHaveURL(/\/en(\b|$)/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })

@@ -20,7 +20,7 @@ export function AuthCard({
           {title}
         </h1>
         {description ? (
-          <p className="mx-auto max-w-sm text-sm leading-6 text-muted-foreground">
+          <p className="mx-auto max-w-sm min-h-[1.25rem] text-sm leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}

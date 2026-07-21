@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { Viewport } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google'
@@ -29,6 +30,10 @@ type Props = {
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
+}
+
+export const viewport: Viewport = {
+  themeColor: '#F7F8FA',
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {

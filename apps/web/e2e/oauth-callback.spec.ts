@@ -60,8 +60,8 @@ for (const locale of locales) {
       await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
-      await expect(page.getByRole('heading')).toContainText(
-        locale === 'ar' ? 'ماركت مايند' : 'MarketMind',
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
       )
       expect(rotation.calls).toBe(2)
     })
@@ -192,6 +192,18 @@ for (const locale of locales) {
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
 
+      const onboarding = page.getByRole('dialog')
+      await expect(onboarding).toBeVisible()
+      await onboarding
+        .getByRole('button', { name: /Skip|تخطي/i })
+        .first()
+        .click()
+
+      if ((page.viewportSize()?.width ?? 1280) < 768) {
+        await page
+          .getByRole('button', { name: /Open navigation|فتح التنقل/i })
+          .click()
+      }
       await page.getByRole('button', { name: /Sign out|تسجيل الخروج/i }).click()
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
 

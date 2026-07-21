@@ -48,10 +48,9 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ href, children }: { href: string; children: ReactNode }) => (
-    <a href={href}>{children}</a>
+  Link: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
   ),
-  buttonVariants: () => '',
 }))
 
 vi.mock('@/components/ui/button', () => ({
@@ -68,7 +67,7 @@ vi.mock('@/components/ui/button', () => ({
       {children}
     </button>
   ),
-  buttonVariants: () => '',
+  buttonVariants: () => 'bg-primary text-primary-foreground',
 }))
 
 vi.mock('@/lib/utils', () => ({
@@ -126,9 +125,8 @@ describe('VerifyEmailHandler', () => {
     await waitFor(() => {
       expect(screen.getByText(/email verified/i)).toBeDefined()
     })
-    expect(
-      screen.getByRole('link', { name: /go to sign in/i }),
-    ).toBeDefined()
+    const signInLink = screen.getByRole('link', { name: /go to sign in/i })
+    expect(signInLink.className).toContain('bg-primary')
   })
 
   it('switches to the expired state and exposes an inline resend trigger on ACTION_TOKEN_EXPIRED', async () => {

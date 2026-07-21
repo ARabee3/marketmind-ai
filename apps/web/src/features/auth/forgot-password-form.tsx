@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useCallback, useRef, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { publicRequest } from '@/lib/api'
@@ -19,6 +19,7 @@ type ForgotPasswordFormErrors = {
 export function ForgotPasswordForm() {
   const t = useTranslations('Auth')
   const tCommon = useTranslations('Common')
+  const emailRef = useRef<HTMLInputElement>(null)
   const [email, setEmail] = useState('')
   const [errors, setErrors] = useState<ForgotPasswordFormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -29,6 +30,9 @@ export function ForgotPasswordForm() {
     const emailError = validateEmail(email)
     if (emailError) next.email = emailError
     setErrors(next)
+    if (next.email) {
+      emailRef.current?.focus()
+    }
     return Object.keys(next).length === 0
   }, [email])
 
@@ -100,10 +104,15 @@ export function ForgotPasswordForm() {
       <div className={authStyles.field}>
         <Label htmlFor="email">{t('forgotPasswordEmailLabel')}</Label>
         <Input
+          ref={emailRef}
           id="email"
           name="email"
           type="email"
+          dir="ltr"
           autoComplete="email"
+          spellCheck={false}
+          autoCapitalize="none"
+          inputMode="email"
           placeholder={t('forgotPasswordEmailPlaceholder')}
           className={authStyles.input}
           value={email}
@@ -112,7 +121,7 @@ export function ForgotPasswordForm() {
           aria-describedby={errors.email ? 'email-error' : undefined}
         />
         {errors.email && (
-          <p id="email-error" className="text-sm text-destructive">
+          <p id="email-error" role="alert" className="text-sm text-destructive">
             {t(errors.email)}
           </p>
         )}
