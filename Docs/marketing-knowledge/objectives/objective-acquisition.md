@@ -2,30 +2,38 @@
 slug: objective-acquisition
 version: 1
 kind: objective_playbook
-title: "Acquisition Objective Playbook"
+title: Acquisition Objective Playbook
 summary: >
-  When the acquisition objective is the right choice now, when it is a poor
-  fit, the funnel stage it owns, what a 12-week acquisition plan usually
-  prioritizes, and the risks of choosing acquisition when it does not fit.
+  When the acquisition objective is the right choice now, when it is a poor fit,
+  the funnel stage it owns, what a 12-week acquisition plan usually prioritizes,
+  and the risks of choosing acquisition when it does not fit.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [acquisition]
-funnel_stages: [consideration, conversion]
+objectives:
+  - acquisition
+funnel_stages:
+  - consideration
+  - conversion
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 81d1ea8fae57409a140a6e005ff00983f42fde26013ca70fcdd35d5ef9abd5bb
 ---
 
 ## Fit signals (when this objective is right now)

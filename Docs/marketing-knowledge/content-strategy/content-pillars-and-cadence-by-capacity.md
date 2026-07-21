@@ -2,30 +2,41 @@
 slug: content-pillars-and-cadence-by-capacity
 version: 1
 kind: content_strategy_playbook
-title: "Content Pillars and Cadence by Capacity"
+title: Content Pillars and Cadence by Capacity
 summary: >
-  How to choose a small set of content pillars and a posting cadence that
-  fits the SME's real team capacity, so a plan produces consistent content
-  rather than an abandoned burst.
+  How to choose a small set of content pillars and a posting cadence that fits
+  the SME's real team capacity, so a plan produces consistent content rather
+  than an abandoned burst.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, retention]
-funnel_stages: [awareness, consideration, retention]
+objectives:
+  - awareness
+  - acquisition
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - retention
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 34ee2f0876c05aa243e5eb0b4a145d704cbe296d0384d33ceac9d6d68cc1649a
 ---
 
 ## When useful

@@ -2,30 +2,48 @@
 slug: sector-note-retail
 version: 1
 kind: sector_note
-title: "Sector Note: Retail"
+title: 'Sector Note: Retail'
 summary: >
-  A starting-point contextual note for retail SMEs in Egypt — when it is
-  useful, its poor-fit conditions, and 3–5 concrete observations. Not a
-  complete retail strategy.
+  A starting-point contextual note for retail SMEs in Egypt — when it is useful,
+  its poor-fit conditions, and 3–5 concrete observations. Not a complete retail
+  strategy.
 locale: mixed
-markets: [egypt, mena]
-industries: [retail]
-business_models: [ecommerce]
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [awareness, consideration, conversion]
+markets:
+  - egypt
+  - mena
+industries:
+  - retail
+business_models:
+  - ecommerce
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
 channels: []
-seasons: [ramadan, eid_al_fitr, eid_al_adha, back_to_school, winter_holidays]
-budget_modes: [organic_only, monthly_amount]
+seasons:
+  - ramadan
+  - eid_al_fitr
+  - eid_al_adha
+  - back_to_school
+  - winter_holidays
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 40b1663acc400a0aeb1bd37d95817183ba2881ecdb960d7fc22dcd36b1c60558
 ---
 
 ## When useful

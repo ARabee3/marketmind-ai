@@ -2,30 +2,38 @@
 slug: objective-retention-repeat
 version: 1
 kind: objective_playbook
-title: "Retention / Repeat Objective Playbook"
+title: Retention / Repeat Objective Playbook
 summary: >
-  When the retention objective is the right choice now, when it is a poor
-  fit, the funnel stage it owns, what a 12-week retention plan usually
-  prioritizes, and the risks of choosing retention when it does not fit.
+  When the retention objective is the right choice now, when it is a poor fit,
+  the funnel stage it owns, what a 12-week retention plan usually prioritizes,
+  and the risks of choosing retention when it does not fit.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [retention]
-funnel_stages: [retention, advocacy]
+objectives:
+  - retention
+funnel_stages:
+  - retention
+  - advocacy
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 44bb31050440dbdd998282c56b1e7dd344a5b5e956eadd9c47406ed5403f6826
 ---
 
 ## Fit signals (when this objective is right now)

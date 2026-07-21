@@ -2,33 +2,40 @@
 slug: engagement-rate-benchmark-caveat
 version: 1
 kind: measurement_playbook
-title: "Engagement-Rate / CPC / CPM Benchmark Caveat"
+title: Engagement-Rate / CPC / CPM Benchmark Caveat
 summary: >
-  A documented knowledge gap: no reliable Egypt-specific engagement-rate,
-  CPC, or CPM benchmark exists, and the global figures that do exist
-  disagree by an order of magnitude depending on methodology. Treat any
-  externally-quoted figure as unverifiable and use baseline/owner-target
-  KPI modes instead.
+  A documented knowledge gap: no reliable Egypt-specific engagement-rate, CPC,
+  or CPM benchmark exists, and the global figures that do exist disagree by an
+  order of magnitude depending on methodology. Treat any externally-quoted
+  figure as unverifiable and use baseline/owner-target KPI modes instead.
 locale: en
-markets: [global]
-industries: [general]
+markets:
+  - global
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [awareness, consideration]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
 channels: []
 seasons: []
 budget_modes: []
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "https://www.rivaliq.com/blog/social-media-industry-benchmark-report/"
-  - "https://www.socialinsider.io/blog/social-media-engagement-rates/"
-effective_at: "2026-07-21"
-expires_at: "2027-07-21"
-author: "abdulazimRabie"
+  - 'https://www.rivaliq.com/blog/social-media-industry-benchmark-report/'
+  - 'https://www.socialinsider.io/blog/social-media-engagement-rates/'
+effective_at: '2026-07-21'
+expires_at: '2027-07-21'
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: bc637df57e5611599a1112c58387e5e542a7aae085b94b18112b72f1147a6a1a
 ---
 
 ## When useful

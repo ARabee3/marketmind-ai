@@ -2,30 +2,50 @@
 slug: sector-note-services
 version: 1
 kind: sector_note
-title: "Sector Note: Services"
+title: 'Sector Note: Services'
 summary: >
   A starting-point contextual note for services SMEs in Egypt — when it is
-  useful, its poor-fit conditions, and 3–5 concrete observations. Not a
-  complete services strategy.
+  useful, its poor-fit conditions, and 3–5 concrete observations. Not a complete
+  services strategy.
 locale: mixed
-markets: [egypt, mena]
-industries: [services]
-business_models: [professional_services, home_services, salon]
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [awareness, consideration, conversion, retention]
-channels: [google_business_profile, facebook, website, instagram]
+markets:
+  - egypt
+  - mena
+industries:
+  - services
+business_models:
+  - professional_services
+  - home_services
+  - salon
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+channels:
+  - google_business_profile
+  - facebook
+  - website
+  - instagram
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 00186c2663a4ad94b377d7365ba66453686c0b6ba7d09bd5aac3cd43ca9c526a
 ---
 
 ## When useful

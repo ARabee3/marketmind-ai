@@ -2,30 +2,44 @@
 slug: regional-language-tone-and-seasonal-calendar
 version: 1
 kind: regional_guidance
-title: "Arabic Language, Tone, and Egyptian Seasonal Calendar"
+title: 'Arabic Language, Tone, and Egyptian Seasonal Calendar'
 summary: >
-  Concrete, decision-oriented guidance for language/tone choice and the
-  Egyptian seasonal calendar (Ramadan, Eids, back-to-school, summer),
-  including explicit poor-fit conditions for non-seasonal businesses.
+  Concrete, decision-oriented guidance for language/tone choice and the Egyptian
+  seasonal calendar (Ramadan, Eids, back-to-school, summer), including explicit
+  poor-fit conditions for non-seasonal businesses.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
 funnel_stages: []
 channels: []
-seasons: [ramadan, eid_al_fitr, eid_al_adha, back_to_school, summer, winter_holidays]
+seasons:
+  - ramadan
+  - eid_al_fitr
+  - eid_al_adha
+  - back_to_school
+  - summer
+  - winter_holidays
 budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 1e5da243fa6fdbd0777439207d5ee798dc325f95706fec19c7a9bf84bcebd825
 ---
 
 ## When useful

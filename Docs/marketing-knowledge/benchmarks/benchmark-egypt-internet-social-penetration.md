@@ -2,30 +2,34 @@
 slug: benchmark-egypt-internet-social-penetration
 version: 1
 kind: benchmark_report
-title: "Egypt Internet and Social Penetration — End of 2025"
+title: Egypt Internet and Social Penetration — End of 2025
 summary: >
   Verified, single-source figures for internet users, social media user
-  identities, and cellular mobile connections in Egypt at the end of 2025,
-  with methodology and explicit do/don't for use in strategy planning.
+  identities, and cellular mobile connections in Egypt at the end of 2025, with
+  methodology and explicit do/don't for use in strategy planning.
 locale: en
-markets: [egypt]
-industries: [general]
+markets:
+  - egypt
+industries:
+  - general
 business_models: []
-objectives: [awareness]
-funnel_stages: [awareness]
+objectives:
+  - awareness
+funnel_stages:
+  - awareness
 channels: []
 seasons: []
 budget_modes: []
 evidence_tier: verified_benchmark
 review_status: draft
 source_references:
-  - "https://datareportal.com/reports/digital-2026-egypt"
-effective_at: "2026-01-01"
-expires_at: "2026-12-31"
-author: "abdulazimRabie"
+  - 'https://datareportal.com/reports/digital-2026-egypt'
+effective_at: '2026-01-01'
+expires_at: '2026-12-31'
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 1c63c32e25bfda4fb04e358f8d54492762ff1b391cc392395fc9aa0d0cd7c4a0
 ---
 
 ## The exact figure(s)

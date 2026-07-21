@@ -2,30 +2,50 @@
 slug: sector-note-education
 version: 1
 kind: sector_note
-title: "Sector Note: Education"
+title: 'Sector Note: Education'
 summary: >
   A starting-point contextual note for education SMEs in Egypt — when it is
-  useful, its poor-fit conditions, and 3–5 concrete observations. Not a
-  complete education strategy.
+  useful, its poor-fit conditions, and 3–5 concrete observations. Not a complete
+  education strategy.
 locale: mixed
-markets: [egypt, mena]
-industries: [education]
-business_models: [tutoring_center]
-objectives: [awareness, acquisition, retention, launch]
-funnel_stages: [awareness, consideration, conversion, retention]
-channels: [facebook, instagram, google_business_profile, website]
-seasons: [back_to_school, ramadan]
-budget_modes: [organic_only, monthly_amount]
+markets:
+  - egypt
+  - mena
+industries:
+  - education
+business_models:
+  - tutoring_center
+objectives:
+  - awareness
+  - acquisition
+  - retention
+  - launch
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+channels:
+  - facebook
+  - instagram
+  - google_business_profile
+  - website
+seasons:
+  - back_to_school
+  - ramadan
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: b74ba59b2cf2f8063e6a320b0f7dea6f4ef98ce9001cb2ad5859c7d1d71992d9
 ---
 
 ## When useful

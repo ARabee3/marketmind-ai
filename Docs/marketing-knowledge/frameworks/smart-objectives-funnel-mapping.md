@@ -2,30 +2,42 @@
 slug: smart-objectives-funnel-mapping
 version: 1
 kind: framework
-title: "SMART Objectives and Funnel Mapping"
+title: SMART Objectives and Funnel Mapping
 summary: >
-  A framework that converts a vague goal ("more sales") into one SMART
-  objective tied to a funnel stage, so the next plan has a single thing it
-  is trying to move and a single way to know if it worked.
+  A framework that converts a vague goal ("more sales") into one SMART objective
+  tied to a funnel stage, so the next plan has a single thing it is trying to
+  move and a single way to know if it worked.
 locale: mixed
-markets: [global]
-industries: [general]
+markets:
+  - global
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
-funnel_stages: [awareness, consideration, conversion, retention, advocacy]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+  - advocacy
 channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: b2f3623ea236b119610aa850142e30a5a67526457b4f244528b54d8a632e3d2d
 ---
 
 ## When to use it

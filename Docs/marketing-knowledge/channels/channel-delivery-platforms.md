@@ -2,30 +2,45 @@
 slug: channel-delivery-platforms
 version: 1
 kind: channel_playbook
-title: "Delivery Platforms Fit, Poor-Fit, and Measurement Guide"
+title: 'Delivery Platforms Fit, Poor-Fit, and Measurement Guide'
 summary: >
   When being on a third-party delivery platform is a useful channel for an
   Egyptian SME, when it is a poor fit, the required assets, capacity
   implications, organic vs. paid role, budget notes, measurement, and risks.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
-business_models: [qsr, food_beverage, cafe, bakery]
-objectives: [acquisition, conversion, retention]
-funnel_stages: [conversion, retention]
-channels: [delivery_platforms]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
+business_models:
+  - qsr
+  - food_beverage
+  - cafe
+  - bakery
+objectives:
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - conversion
+  - retention
+channels:
+  - delivery_platforms
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: e5943fcedeb8e7f9532848ec6443d228541ade617ef1ec1f13b55e55006f72ba
 ---
 
 ## Use cases (fit)

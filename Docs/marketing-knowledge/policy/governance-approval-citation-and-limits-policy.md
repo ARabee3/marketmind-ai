@@ -2,17 +2,24 @@
 slug: governance-approval-citation-and-limits-policy
 version: 1
 kind: policy
-title: "Governance: Approval, Citation, and Limits Policy"
+title: 'Governance: Approval, Citation, and Limits Policy'
 summary: >
   The corpus-level policy that every knowledge entry must be approved before
-  live retrieval, that every numeric claim must be cited and tier-honest,
-  and that channel/budget/plan structure respects code-enforced limits
-  already guaranteed by validators.
+  live retrieval, that every numeric claim must be cited and tier-honest, and
+  that channel/budget/plan structure respects code-enforced limits already
+  guaranteed by validators.
 locale: en
-markets: [global]
-industries: [general]
+markets:
+  - global
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
 funnel_stages: []
 channels: []
 seasons: []
@@ -20,13 +27,13 @@ budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 0b8b4a5a02b157a62d25fca24fd1480cfd260b00018c6e8e5ac546f4a9b66319
 ---
 
 ## The rule in plain language

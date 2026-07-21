@@ -2,30 +2,42 @@
 slug: kpi-modes-and-vanity-vs-business-metrics
 version: 1
 kind: measurement_playbook
-title: "KPI Modes and Vanity vs. Business Metrics"
+title: KPI Modes and Vanity vs. Business Metrics
 summary: >
-  How to choose a KPI that measures the business outcome rather than a
-  vanity metric, with the canonical KPI modes and a worked illustrative
-  micro-example.
+  How to choose a KPI that measures the business outcome rather than a vanity
+  metric, with the canonical KPI modes and a worked illustrative micro-example.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
-funnel_stages: [awareness, consideration, conversion, retention, advocacy]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+  - advocacy
 channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 0062d58185b13d622029de67114373d28c3778101de58a5a72b6b218651f6d92
 ---
 
 ## When useful

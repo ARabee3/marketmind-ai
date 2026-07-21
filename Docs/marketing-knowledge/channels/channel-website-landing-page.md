@@ -2,30 +2,50 @@
 slug: channel-website-landing-page
 version: 1
 kind: channel_playbook
-title: "Website / Landing Page Fit, Poor-Fit, and Measurement Guide"
+title: 'Website / Landing Page Fit, Poor-Fit, and Measurement Guide'
 summary: >
-  When an owned website or landing page is a useful channel for an Egyptian
-  SME, when it is a poor fit, the required assets, capacity implications,
-  organic vs. paid role, budget notes, measurement, and risks.
+  When an owned website or landing page is a useful channel for an Egyptian SME,
+  when it is a poor fit, the required assets, capacity implications, organic vs.
+  paid role, budget notes, measurement, and risks.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
-business_models: [ecommerce, professional_services, clinic, tutoring_center, home_services, food_beverage]
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [consideration, conversion, retention]
-channels: [website]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
+business_models:
+  - ecommerce
+  - professional_services
+  - clinic
+  - tutoring_center
+  - home_services
+  - food_beverage
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - consideration
+  - conversion
+  - retention
+channels:
+  - website
 seasons: []
-budget_modes: [organic_only, monthly_amount, scenario_only]
+budget_modes:
+  - organic_only
+  - monthly_amount
+  - scenario_only
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: a0ac061ab65c2b2b383098be1ef06c04dcc44aad8643954892939b843147d3af
 ---
 
 ## Use cases (fit)

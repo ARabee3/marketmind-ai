@@ -2,30 +2,49 @@
 slug: channel-facebook
 version: 1
 kind: channel_playbook
-title: "Facebook Fit, Poor-Fit, and Measurement Guide"
+title: 'Facebook Fit, Poor-Fit, and Measurement Guide'
 summary: >
-  When Facebook is a useful primary or supporting channel for an Egyptian
-  SME, when it is a poor fit, the required assets, capacity implications,
-  organic vs. paid role, budget notes, measurement, and risks.
+  When Facebook is a useful primary or supporting channel for an Egyptian SME,
+  when it is a poor fit, the required assets, capacity implications, organic vs.
+  paid role, budget notes, measurement, and risks.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
-business_models: [qsr, food_beverage, ecommerce, salon, professional_services, home_services]
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [awareness, consideration, conversion]
-channels: [facebook]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
+business_models:
+  - qsr
+  - food_beverage
+  - ecommerce
+  - salon
+  - professional_services
+  - home_services
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+channels:
+  - facebook
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 7fc05765d64782745455e84da58a938eb831d479c1b05ab12186968c01345848
 ---
 
 ## Use cases (fit)

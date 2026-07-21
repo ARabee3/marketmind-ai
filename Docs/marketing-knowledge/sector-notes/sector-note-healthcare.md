@@ -2,30 +2,47 @@
 slug: sector-note-healthcare
 version: 1
 kind: sector_note
-title: "Sector Note: Healthcare (Clinics, clinics, wellness)"
+title: 'Sector Note: Healthcare (Clinics, clinics, wellness)'
 summary: >
   A starting-point contextual note for healthcare SMEs in Egypt — when it is
-  useful, its poor-fit conditions, and 3–5 concrete observations. Not a
-  complete healthcare strategy.
+  useful, its poor-fit conditions, and 3–5 concrete observations. Not a complete
+  healthcare strategy.
 locale: mixed
-markets: [egypt, mena]
-industries: [healthcare]
-business_models: [clinic]
-objectives: [awareness, acquisition, retention]
-funnel_stages: [awareness, consideration, conversion, retention]
-channels: [google_business_profile, facebook, website, instagram]
+markets:
+  - egypt
+  - mena
+industries:
+  - healthcare
+business_models:
+  - clinic
+objectives:
+  - awareness
+  - acquisition
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+channels:
+  - google_business_profile
+  - facebook
+  - website
+  - instagram
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 9cb0c7f48fc4c0280934b4edd859f7ea889239ae1dc9f6e7b4e7407d2308cc50
 ---
 
 ## When useful

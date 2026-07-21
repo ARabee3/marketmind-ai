@@ -2,15 +2,17 @@
 slug: situation-diagnosis-5cs-swot
 version: 1
 kind: framework
-title: "Situation Diagnosis: 5Cs and SWOT"
+title: 'Situation Diagnosis: 5Cs and SWOT'
 summary: >
-  A lightweight situation-diagnosis framework that helps an SME owner
-  understand where they stand before any objective is chosen. Combines the
-  5Cs (Company, Customers, Competitors, Collaborators, Context) with a SWOT
-  grid, distilled for solo-owner and small-team businesses.
+  A lightweight situation-diagnosis framework that helps an SME owner understand
+  where they stand before any objective is chosen. Combines the 5Cs (Company,
+  Customers, Competitors, Collaborators, Context) with a SWOT grid, distilled
+  for solo-owner and small-team businesses.
 locale: mixed
-markets: [global]
-industries: [general]
+markets:
+  - global
+industries:
+  - general
 business_models: []
 objectives: []
 funnel_stages: []
@@ -20,13 +22,13 @@ budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 0325cd00d195ef9ab280198c554a2cc25dd1547f8b61b7bf8763ff2c55312ee8
 ---
 
 ## When to use it

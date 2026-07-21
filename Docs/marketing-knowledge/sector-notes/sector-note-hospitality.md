@@ -2,30 +2,55 @@
 slug: sector-note-hospitality
 version: 1
 kind: sector_note
-title: "Sector Note: Hospitality (F&B, Cafés, QSR)"
+title: 'Sector Note: Hospitality (F&B, Cafés, QSR)'
 summary: >
-  A starting-point contextual note for hospitality/F&B SMEs in Egypt — when
-  it is useful, its poor-fit conditions, and 3–5 concrete observations. Not
-  a complete hospitality strategy.
+  A starting-point contextual note for hospitality/F&B SMEs in Egypt — when it
+  is useful, its poor-fit conditions, and 3–5 concrete observations. Not a
+  complete hospitality strategy.
 locale: mixed
-markets: [egypt, mena]
-industries: [hospitality]
-business_models: [qsr, food_beverage, cafe, bakery]
-objectives: [awareness, acquisition, conversion, retention]
-funnel_stages: [awareness, consideration, conversion, retention]
-channels: [facebook, instagram, google_business_profile, delivery_platforms]
-seasons: [ramadan, eid_al_fitr, summer, winter_holidays]
-budget_modes: [organic_only, monthly_amount]
+markets:
+  - egypt
+  - mena
+industries:
+  - hospitality
+business_models:
+  - qsr
+  - food_beverage
+  - cafe
+  - bakery
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+funnel_stages:
+  - awareness
+  - consideration
+  - conversion
+  - retention
+channels:
+  - facebook
+  - instagram
+  - google_business_profile
+  - delivery_platforms
+seasons:
+  - ramadan
+  - eid_al_fitr
+  - summer
+  - winter_holidays
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: contextual_note
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 4f4c2eb65a3c26e5eca94526f7659d852c468181aa93263e727ecedbefa7c0db
 ---
 
 ## When useful

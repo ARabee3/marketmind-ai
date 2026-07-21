@@ -2,30 +2,35 @@
 slug: benchmark-egypt-instagram-reach
 version: 1
 kind: benchmark_report
-title: "Egypt Instagram Reach — June 2026"
+title: Egypt Instagram Reach — June 2026
 summary: >
-  Verified, single-source figure for Instagram users in Egypt in June 2026,
-  with age and gender breakdown, methodology, and explicit do/don't for
-  use in strategy planning.
+  Verified, single-source figure for Instagram users in Egypt in June 2026, with
+  age and gender breakdown, methodology, and explicit do/don't for use in
+  strategy planning.
 locale: en
-markets: [egypt]
-industries: [general]
+markets:
+  - egypt
+industries:
+  - general
 business_models: []
-objectives: [awareness]
-funnel_stages: [awareness]
-channels: [instagram]
+objectives:
+  - awareness
+funnel_stages:
+  - awareness
+channels:
+  - instagram
 seasons: []
 budget_modes: []
 evidence_tier: verified_benchmark
 review_status: draft
 source_references:
-  - "https://stats.napoleoncat.com/social-media-users-in-egypt/"
-effective_at: "2026-06-01"
-expires_at: "2026-12-01"
-author: "abdulazimRabie"
+  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/'
+effective_at: '2026-06-01'
+expires_at: '2026-12-01'
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 7688d50ffdd363cb9853255b7a97b41058409b009661a6335467710dcf7f4629
 ---
 
 ## The exact figure(s)

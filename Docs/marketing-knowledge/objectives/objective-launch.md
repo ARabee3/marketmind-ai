@@ -2,30 +2,39 @@
 slug: objective-launch
 version: 1
 kind: objective_playbook
-title: "Launch Objective Playbook"
+title: Launch Objective Playbook
 summary: >
-  When the launch objective is the right choice now, when it is a poor fit,
-  the funnel stage it owns, what a 12-week launch plan usually prioritizes,
-  and the risks of choosing launch when it does not fit.
+  When the launch objective is the right choice now, when it is a poor fit, the
+  funnel stage it owns, what a 12-week launch plan usually prioritizes, and the
+  risks of choosing launch when it does not fit.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [launch]
-funnel_stages: [awareness, conversion]
+objectives:
+  - launch
+funnel_stages:
+  - awareness
+  - conversion
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount, scenario_only]
+budget_modes:
+  - organic_only
+  - monthly_amount
+  - scenario_only
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 5fdcc2cd87447d83e4b71937601d35be0b4eae62a1f7a4cb41c2b0f94b2a51fb
 ---
 
 ## Fit signals (when this objective is right now)

@@ -2,30 +2,37 @@
 slug: objective-conversion-sales
 version: 1
 kind: objective_playbook
-title: "Conversion / Sales Objective Playbook"
+title: Conversion / Sales Objective Playbook
 summary: >
-  When the conversion objective is the right choice now, when it is a poor
-  fit, the funnel stage it owns, what a 12-week conversion plan usually
-  prioritizes, and the risks of choosing conversion when it does not fit.
+  When the conversion objective is the right choice now, when it is a poor fit,
+  the funnel stage it owns, what a 12-week conversion plan usually prioritizes,
+  and the risks of choosing conversion when it does not fit.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [conversion]
-funnel_stages: [conversion]
+objectives:
+  - conversion
+funnel_stages:
+  - conversion
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 74b903c474c551bfa69962c8f23bf438f356fe4d8e4b4bd6607d10221180bc81
 ---
 
 ## Fit signals (when this objective is right now)

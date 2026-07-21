@@ -2,16 +2,24 @@
 slug: content-agent-handoff-boundary
 version: 1
 kind: content_strategy_playbook
-title: "Content Agent Handoff Boundary"
+title: Content Agent Handoff Boundary
 summary: >
   Where the Strategy step's content plan stops and the Content Agent's
-  generation starts, so no agent silently produces finished, published
-  posts and the owner always approves before anything goes live.
+  generation starts, so no agent silently produces finished, published posts and
+  the owner always approves before anything goes live.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
 funnel_stages: []
 channels: []
 seasons: []
@@ -19,13 +27,13 @@ budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 2af8015e3e93007108c3f321ee20ff2608fac6012f14c675a30e6201ae50493d
 ---
 
 ## When useful

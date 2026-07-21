@@ -2,30 +2,39 @@
 slug: content-experiments-and-format-mix
 version: 1
 kind: content_strategy_playbook
-title: "Content Experiments and Format Mix"
+title: Content Experiments and Format Mix
 summary: >
   How to run lightweight content experiments and decide a format mix under
-  capacity constraints, so a plan learns what works instead of guessing
-  once and committing.
+  capacity constraints, so a plan learns what works instead of guessing once and
+  committing.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition]
-funnel_stages: [awareness, consideration]
+objectives:
+  - awareness
+  - acquisition
+funnel_stages:
+  - awareness
+  - consideration
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 889857c18b7d581899ea9a1f1c85abcc271ece1a834b2812874e1b7875591ab7
 ---
 
 ## When useful

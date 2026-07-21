@@ -2,30 +2,42 @@
 slug: budget-planning-organic-and-scenarios
 version: 1
 kind: budget_playbook
-title: "Budget Planning: Organic and Scenarios"
+title: 'Budget Planning: Organic and Scenarios'
 summary: >
   How to plan a budget for the four canonical budget modes so an SME plan
   matches the owner's real spend capacity, with a worked illustrative
   micro-example.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition, conversion, retention, launch]
+objectives:
+  - awareness
+  - acquisition
+  - conversion
+  - retention
+  - launch
 funnel_stages: []
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount, three_month_amount, scenario_only]
+budget_modes:
+  - organic_only
+  - monthly_amount
+  - three_month_amount
+  - scenario_only
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: a9ad3e8ba6d21a21782dc6c1a1fff0fbb0cc71c81a54f488483832fe5d8b425e
 ---
 
 ## When useful

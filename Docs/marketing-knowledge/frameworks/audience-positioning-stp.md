@@ -2,30 +2,36 @@
 slug: audience-positioning-stp
 version: 1
 kind: framework
-title: "Audience and Positioning: STP"
+title: 'Audience and Positioning: STP'
 summary: >
-  A segmentation-targeting-positioning framework that turns the customer
-  answer from situation diagnosis into one actionable persona and a one-line
+  A segmentation-targeting-positioning framework that turns the customer answer
+  from situation diagnosis into one actionable persona and a one-line
   positioning statement an SME can actually use in copy.
 locale: mixed
-markets: [global]
-industries: [general]
+markets:
+  - global
+industries:
+  - general
 business_models: []
-objectives: [awareness, acquisition]
-funnel_stages: [awareness, consideration]
+objectives:
+  - awareness
+  - acquisition
+funnel_stages:
+  - awareness
+  - consideration
 channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: f4e3a228f0522cee515c10d3c89968b16735539574666ab53eaa02205d8fef4b
 ---
 
 ## When to use it

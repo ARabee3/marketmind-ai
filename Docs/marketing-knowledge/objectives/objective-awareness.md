@@ -2,30 +2,37 @@
 slug: objective-awareness
 version: 1
 kind: objective_playbook
-title: "Awareness Objective Playbook"
+title: Awareness Objective Playbook
 summary: >
-  When the awareness objective is the right choice now, when it is a poor
-  fit, the funnel stage it owns, what a 12-week awareness plan usually
-  prioritizes, and the risks of choosing awareness when it does not fit.
+  When the awareness objective is the right choice now, when it is a poor fit,
+  the funnel stage it owns, what a 12-week awareness plan usually prioritizes,
+  and the risks of choosing awareness when it does not fit.
 locale: mixed
-markets: [egypt, mena]
-industries: [general]
+markets:
+  - egypt
+  - mena
+industries:
+  - general
 business_models: []
-objectives: [awareness]
-funnel_stages: [awareness]
+objectives:
+  - awareness
+funnel_stages:
+  - awareness
 channels: []
 seasons: []
-budget_modes: [organic_only, monthly_amount]
+budget_modes:
+  - organic_only
+  - monthly_amount
 evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
-  - "internal:reviewed-marketing-methodology"
-effective_at: "2026-07-21"
+  - 'internal:reviewed-marketing-methodology'
+effective_at: '2026-07-21'
 expires_at: null
-author: "abdulazimRabie"
+author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: ""
+checksum: 681efe2a357b341bbc46871c9bce2561211374ac58d243ab6ffd5c3c86757215
 ---
 
 ## Fit signals (when this objective is right now)
