@@ -464,17 +464,38 @@ async function main() {
     return;
   }
 
-  // Write manifest
-  const manifest = buildManifest(entries);
-  await mkdir(KNOWLEDGE_ROOT, { recursive: true });
-  await writeFile(
-    MANIFEST_PATH,
-    JSON.stringify(manifest, null, 2) + "\n",
-    "utf8",
-  );
+  // Write manifest (stable: preserve generated_at and skip rewrite when the
+  // entry set is unchanged so re-running with no edits produces no diff).
+  const newManifest = buildManifest(entries);
+  let wroteManifest = false;
+  let manifestChanged = true;
+  if (existsSync(MANIFEST_PATH)) {
+    let existing;
+    try {
+      existing = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+      const existingEntries = JSON.stringify(existing.entries);
+      const newEntries = JSON.stringify(newManifest.entries);
+      if (existingEntries === newEntries) {
+        manifestChanged = false;
+      }
+    } catch {
+      manifestChanged = true;
+    }
+  }
+  if (manifestChanged) {
+    await mkdir(KNOWLEDGE_ROOT, { recursive: true });
+    await writeFile(
+      MANIFEST_PATH,
+      JSON.stringify(newManifest, null, 2) + "\n",
+      "utf8",
+    );
+    wroteManifest = true;
+  }
 
   console.log(
-    `OK: validated ${entries.length} entries; ${fixtureResults.length} fixture(s) confirmed unavailable-for-retrieval; MANIFEST.json regenerated.`,
+    `OK: validated ${entries.length} entries; ${fixtureResults.length} fixture(s) confirmed unavailable-for-retrieval; MANIFEST.json ${
+      wroteManifest ? "regenerated" : "unchanged (in sync)"
+    }.`,
   );
   for (const fx of fixtureResults) {
     for (const a of fx.availability || []) console.log(`  fixture ${fx.path}: ${a}`);
