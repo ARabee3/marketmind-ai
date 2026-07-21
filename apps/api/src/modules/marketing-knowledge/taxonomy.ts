@@ -132,7 +132,6 @@ export type IngestionRunStatus = (typeof INGESTION_RUN_STATUSES)[number];
 export const ARRAY_TAXONOMY_FIELDS = {
   markets: KNOWLEDGE_MARKETS,
   industries: KNOWLEDGE_INDUSTRIES,
-  businessModels: KNOWLEDGE_BUSINESS_MODELS,
   objectives: KNOWLEDGE_OBJECTIVES,
   funnelStages: KNOWLEDGE_FUNNEL_STAGES,
   channels: KNOWLEDGE_CHANNELS,
