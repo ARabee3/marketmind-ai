@@ -406,6 +406,8 @@ async function main() {
     return (
       !rel.startsWith("_schema/") &&
       rel !== "README.md" &&
+      rel !== "APPROVAL_RECORD.md" &&
+      rel !== "LIVE_READINESS.md" &&
       rel !== "MANIFEST.json" &&
       rel !== "seed-retrieval-queries.json"
     );
@@ -450,6 +452,11 @@ async function main() {
       // Fixture availability notes are informational; we assert they ARE flagged
       // unavailable, i.e. there must be at least one availability note.
       // No error here — they are expected to be unavailable.
+    } else {
+      collectedErrors.push({
+        path: fx.path,
+        errs: ["fixture was expected to be unavailable for live retrieval"],
+      });
     }
   }
 
