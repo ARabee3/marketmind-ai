@@ -11,9 +11,9 @@ generated content live here.
 
 ## What's inside
 
-- 30 entries across 10 categories (`frameworks`, `objectives`, `channels`,
-  `benchmarks`, `content-strategy`, `budget-measurement`, `regional`,
-  `sector-notes`, `policy`).
+- 30 entries across 9 directories and 10 knowledge kinds (`frameworks`,
+  `objectives`, `channels`, `benchmarks`, `content-strategy`,
+  `budget-measurement`, `regional`, `sector-notes`, `policy`).
 - `_schema/FRONT_MATTER_SCHEMA.md` — normative field-by-field front-matter
   spec.
 - `_schema/TAXONOMY.md` — every controlled vocabulary list.
