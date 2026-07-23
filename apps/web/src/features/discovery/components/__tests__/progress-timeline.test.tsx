@@ -6,6 +6,7 @@ import * as HookParams from '../../hooks/use-discovery-progress'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
+  useFormatter: () => ({ number: (value: number) => `${Math.round(value * 100)}%` }),
 }))
 
 // Mock the hook entirely
@@ -29,11 +30,13 @@ function baseState(
 }
 
 describe('ProgressTimeline', () => {
-  it('renders waiting state when no events exist', () => {
+  it('renders a queued research state when no events exist', () => {
     vi.mocked(HookParams.useDiscoveryProgress).mockReturnValue(baseState())
+    vi.mocked(HookParams.canOpenInterview).mockReturnValue(false)
 
     render(<ProgressTimeline sessionId="test" />)
-    expect(screen.getByText('waitingForUpdates')).toBeDefined()
+    expect(screen.getAllByText('stageQueued').length).toBeGreaterThan(0)
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('4')
   })
 
   it('renders events in order using real backend keys', () => {
@@ -65,7 +68,7 @@ describe('ProgressTimeline', () => {
 
     render(<ProgressTimeline sessionId="test" />)
 
-    expect(screen.getByText('connectionReconnecting')).toBeDefined()
+    expect(screen.getAllByText('connectionReconnecting').length).toBeGreaterThan(0)
     expect(screen.getByText('titleReconnecting')).toBeDefined()
   })
 
@@ -96,7 +99,7 @@ describe('ProgressTimeline', () => {
     render(<ProgressTimeline sessionId="test" />)
 
     expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByText('readyForInterview')).toBeDefined()
+    expect(screen.getByText('estimateComplete')).toBeDefined()
   })
 
   it('keeps research warning visible while reconnecting', () => {
@@ -112,6 +115,6 @@ describe('ProgressTimeline', () => {
     render(<ProgressTimeline sessionId="test" />)
 
     expect(screen.getByText('errorPartialResearch')).toBeDefined()
-    expect(screen.getByText('connectionReconnecting')).toBeDefined()
+    expect(screen.getAllByText('connectionReconnecting').length).toBeGreaterThan(0)
   })
 })
