@@ -27,7 +27,7 @@ describe('IntakeForm', () => {
 
   it('validates required fields', async () => {
     render(<IntakeForm />)
-    fireEvent.click(screen.getByRole('button', { name: 'submit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
 
     // First missing field is business name
     expect(await screen.findByText('DiscoveryIntake.validationNameRequired')).toBeDefined()
@@ -38,9 +38,12 @@ describe('IntakeForm', () => {
     render(<IntakeForm />)
 
     // Fill required
-    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test' } })
-    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
-    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+    fireEvent.change(screen.getByPlaceholderText('businessNamePlaceholder'), { target: { value: 'Test' } })
+    fireEvent.change(screen.getByPlaceholderText('businessTypePlaceholder'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('cityPlaceholder'), { target: { value: 'Cairo' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
 
     // Add invalid social link
     fireEvent.click(screen.getByRole('button', { name: 'addSocialLink' }))
@@ -63,9 +66,12 @@ describe('IntakeForm', () => {
 
     render(<IntakeForm />)
 
-    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
-    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
-    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+    fireEvent.change(screen.getByPlaceholderText('businessNamePlaceholder'), { target: { value: 'Test Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('businessTypePlaceholder'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('cityPlaceholder'), { target: { value: 'Cairo' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
 
     // Select Arabic language mode explicitly
     fireEvent.click(screen.getByLabelText('languageModeAr'))
@@ -92,9 +98,12 @@ describe('IntakeForm', () => {
 
     render(<IntakeForm />)
 
-    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
-    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
-    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+    fireEvent.change(screen.getByPlaceholderText('businessNamePlaceholder'), { target: { value: 'Test Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('businessTypePlaceholder'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('cityPlaceholder'), { target: { value: 'Cairo' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
 
@@ -110,11 +119,22 @@ describe('IntakeForm', () => {
 
     render(<IntakeForm />)
 
-    fireEvent.change(screen.getByLabelText('businessNameLabel *'), { target: { value: 'Test Cafe' } })
-    fireEvent.change(screen.getByLabelText('businessTypeLabel *'), { target: { value: 'Cafe' } })
-    fireEvent.change(screen.getByLabelText('cityLabel *'), { target: { value: 'Cairo' } })
+    fireEvent.change(screen.getByPlaceholderText('businessNamePlaceholder'), { target: { value: 'Test Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('businessTypePlaceholder'), { target: { value: 'Cafe' } })
+    fireEvent.change(screen.getByPlaceholderText('cityPlaceholder'), { target: { value: 'Cairo' } })
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
+    fireEvent.click(screen.getByRole('button', { name: 'nextStep' }))
     fireEvent.click(screen.getByRole('button', { name: 'submit' }))
 
     expect(await screen.findByText('DiscoveryProgress.errorRedisFailure')).toBeDefined()
+  })
+
+  it('shows field guidance with an example', () => {
+    render(<IntakeForm />)
+
+    fireEvent.click(screen.getByLabelText('fieldHelpLabel: businessNameLabel'))
+
+    expect(screen.getByText('businessNameHelp')).toBeDefined()
+    expect(screen.getByText(/businessNameExample/)).toBeDefined()
   })
 })

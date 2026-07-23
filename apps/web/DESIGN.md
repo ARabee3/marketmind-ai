@@ -104,6 +104,20 @@ All spacing follows a 4px rhythm.
 - **Motion**: `transform: scaleY()` for the line and transform/opacity for step emphasis.
 - **Accessibility**: cards remain readable without animation and reduced motion shows the full path.
 
+### Guided Intake Form
+
+- **Structure**: three short steps inside one persistent form surface, with progress and back/next controls.
+- **Help**: every business field has an adjacent, keyboard-accessible help control with a plain explanation and concrete example.
+- **Validation**: required business identity is checked before advancing; optional context never blocks progress.
+- **Mobile**: one column, 48px controls, and navigation actions remain visible at the bottom of the form surface.
+
+### Live Research Room
+
+- **Structure**: navy status header, one primary progress bar, current-stage and approximate-time summary, then the full research checklist.
+- **Truthfulness**: stage and connection state come from WebSocket/status data; time remaining is explicitly labeled as an estimate.
+- **Recovery**: reconnecting, restored, partial, and failed states remain visible and actionable.
+- **Motion**: the progress fill uses `scaleX()` and active stage icons use reduced-motion-aware rotation.
+
 ## 6. Motion & Interaction
 
 ### Timing

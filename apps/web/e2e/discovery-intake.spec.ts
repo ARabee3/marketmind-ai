@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import type {
   DiscoveryProgressEvent,
   DiscoverySessionStatus,
@@ -65,6 +65,14 @@ const queuedEvent: DiscoveryProgressEvent = {
   created_at: new Date().toISOString(),
 }
 
+async function reachEnglishSourcesStep(page: Page) {
+  await page.getByRole('textbox', { name: 'Business name', exact: true }).fill('Test Cafe')
+  await page.getByRole('textbox', { name: 'Business type', exact: true }).fill('Cafe')
+  await page.getByRole('textbox', { name: 'City', exact: true }).fill('Cairo')
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+}
+
 test.describe('Discovery Intake & Progress Workflow', () => {
   test.beforeEach(async ({ page }) => {
     // Discovery is now a protected journey; provide an active session.
@@ -101,9 +109,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     await page.goto('/en/discovery/new')
 
-    await page.getByLabel('Business name *').fill('Test Cafe')
-    await page.getByLabel('Business type *').fill('Cafe')
-    await page.getByLabel('City *').fill('Cairo')
+    await reachEnglishSourcesStep(page)
     await page.getByRole('button', { name: 'Start Discovery' }).click()
 
     const startRequest = await discoveryStartRequest
@@ -119,13 +125,10 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await page.goto('/en/discovery/new')
 
     // Empty submit triggers validation
-    await page.getByRole('button', { name: 'Start Discovery' }).click()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
     await expect(page.getByText('Business name is required')).toBeVisible()
 
-    // Fill form
-    await page.getByLabel('Business name *').fill('Test Cafe')
-    await page.getByLabel('Business type *').fill('Cafe')
-    await page.getByLabel('City *').fill('Cairo')
+    await reachEnglishSourcesStep(page)
 
     // Submit
     await page.getByRole('button', { name: 'Start Discovery' }).click()
@@ -141,9 +144,11 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await page.goto('/ar/discovery/new')
 
     // Fill form (using AR labels)
-    await page.getByLabel('اسم النشاط التجاري *').fill('مقهى الاختبار')
-    await page.getByLabel('نوع النشاط *').fill('مقهى')
-    await page.getByLabel('المدينة *').fill('القاهرة')
+    await page.getByRole('textbox', { name: 'اسم النشاط التجاري', exact: true }).fill('مقهى الاختبار')
+    await page.getByRole('textbox', { name: 'نوع النشاط', exact: true }).fill('مقهى')
+    await page.getByRole('textbox', { name: 'المدينة', exact: true }).fill('القاهرة')
+    await page.getByRole('button', { name: 'التالي', exact: true }).click()
+    await page.getByRole('button', { name: 'التالي', exact: true }).click()
 
     // Explicitly choose mixed language
     await page.getByLabel('مختلطة (عربي + إنجليزي)').check()
@@ -181,6 +186,8 @@ test.describe('Discovery Intake & Progress Workflow', () => {
   test('respects the maximum of 8 social links', async ({ page }) => {
     await page.goto('/en/discovery/new')
 
+    await reachEnglishSourcesStep(page)
+
     const addButton = page.getByRole('button', { name: 'Add another link' })
 
     // Click "Add another link" 8 times
@@ -190,7 +197,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // After 8 clicks, the button should be hidden
     await expect(addButton).not.toBeVisible()
-    await expect(page.getByLabel('URL')).toHaveCount(8)
+    await expect(page.getByRole('textbox', { name: 'URL', exact: true })).toHaveCount(8)
   })
 
   test('Recovers session status on refresh', async ({ page }) => {
@@ -248,9 +255,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     })
 
     await page.goto('/en/discovery/new')
-    await page.getByLabel('Business name *').fill('Test Cafe')
-    await page.getByLabel('Business type *').fill('Cafe')
-    await page.getByLabel('City *').fill('Cairo')
+    await reachEnglishSourcesStep(page)
     await page.getByRole('button', { name: 'Start Discovery' }).click()
 
     await expect(page.getByText('Research could not be queued. Please try again.')).toBeVisible()
