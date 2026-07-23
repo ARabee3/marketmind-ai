@@ -64,4 +64,4 @@ Every entry starts as `draft`. Live retrieval packs may only ever contain
 `approved` entries with non-null `reviewer`/`reviewed_at`. Self-approval is
 not allowed — see the governance policy under `policy/`.
 
-See `Docs/ISSUE_68_IMPLEMENTATION_PLAN.md` §8 for the full review workflow.
+See `APPROVAL_RECORD.md` for the per-entry checklist and approval record.
