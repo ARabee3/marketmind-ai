@@ -534,6 +534,9 @@ model MarketingKnowledgeSourceRef {
   @@map("marketing_knowledge_source_refs")
 }
 
+// NOTE: id uses application-layer @default(uuid()). Revisit
+// @default(dbgenerated("gen_random_uuid()")) here if #71's bulk
+// ingestion benchmarks show round-trip overhead — see PR #94 review.
 model MarketingKnowledgeChunk {
   id                   String    @id @default(uuid()) @db.Uuid
   entryVersionId       String    @map("entry_version_id") @db.Uuid
