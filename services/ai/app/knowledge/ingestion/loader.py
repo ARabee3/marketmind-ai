@@ -516,6 +516,10 @@ async def load_marketing_knowledge_entries(
         issues_by_path[rel_path] = []
         try:
             raw_text = file_path.read_text(encoding="utf-8")
+            # Strip a leading UTF-8 BOM so files written by Windows tools still
+            # parse correctly.
+            if raw_text.startswith("\ufeff"):
+                raw_text = raw_text[1:]
             post = frontmatter.loads(raw_text)
         except Exception as exc:
             issues_by_path[rel_path].append(

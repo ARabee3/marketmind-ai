@@ -5,7 +5,7 @@ The AI service reads/writes them directly using the physical snake_case table an
 column names as the stable contract. See apps/api/prisma/MARKETING_KNOWLEDGE_SCHEMA.md.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
 
@@ -22,6 +22,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+def _utc_now_naive() -> datetime:
+    """Return the current UTC time as a timezone-naive datetime.
+
+    PostgreSQL columns are TIMESTAMP WITHOUT TIME ZONE, so SQLAlchemy expects
+    naive datetimes for them.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -35,7 +44,7 @@ class MarketingKnowledgeEntry(Base):
     slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     latest_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     versions: Mapped[List["MarketingKnowledgeEntryVersion"]] = relationship(
@@ -75,7 +84,7 @@ class MarketingKnowledgeEntryVersion(Base):
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     checksum: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     entry: Mapped["MarketingKnowledgeEntry"] = relationship(back_populates="versions")
@@ -101,7 +110,7 @@ class MarketingKnowledgeSourceRef(Base):
     reference: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     entry_version: Mapped["MarketingKnowledgeEntryVersion"] = relationship(back_populates="source_refs")
@@ -113,6 +122,7 @@ class MarketingKnowledgeChunk(Base):
     __tablename__ = "marketing_knowledge_chunks"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    chunk_id: Mapped[UUID] = mapped_column(Uuid, unique=True, nullable=False)
     entry_version_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("marketing_knowledge_entry_versions.id", ondelete="CASCADE"),
@@ -130,7 +140,7 @@ class MarketingKnowledgeChunk(Base):
     qdrant_collection_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     indexed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     entry_version: Mapped["MarketingKnowledgeEntryVersion"] = relationship(back_populates="chunks")
@@ -151,11 +161,11 @@ class MarketingKnowledgeIngestionRun(Base):
     skipped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     errors: Mapped[List["MarketingKnowledgeIngestionError"]] = relationship(
@@ -179,7 +189,7 @@ class MarketingKnowledgeIngestionError(Base):
     error_code: Mapped[str] = mapped_column(Text, nullable=False)
     error_message: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, default=datetime.utcnow
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
     )
 
     run: Mapped["MarketingKnowledgeIngestionRun"] = relationship(back_populates="errors")

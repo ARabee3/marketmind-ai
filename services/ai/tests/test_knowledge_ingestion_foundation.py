@@ -13,20 +13,24 @@ from app.knowledge.ingestion.schemas import IngestionReport
 
 
 def test_to_asyncpg_url_converts_standard_url():
-    assert (
-        _to_asyncpg_url("postgresql://user:pass@localhost:5432/db")
-        == "postgresql+asyncpg://user:pass@localhost:5432/db"
-    )
+    url, connect_args = _to_asyncpg_url("postgresql://user:pass@localhost:5432/db")
+    assert url == "postgresql+asyncpg://user:pass@localhost:5432/db"
+    assert connect_args == {}
 
 
 def test_to_asyncpg_url_leaves_asyncpg_url_unchanged():
-    url = "postgresql+asyncpg://user:pass@localhost:5432/db"
-    assert _to_asyncpg_url(url) == url
+    url_in = "postgresql+asyncpg://user:pass@localhost:5432/db"
+    url, connect_args = _to_asyncpg_url(url_in)
+    assert url == url_in
+    assert connect_args == {}
 
 
-def test_to_asyncpg_url_preserves_query_params():
-    url = "postgresql://user:pass@localhost:5432/db?schema=public"
-    assert _to_asyncpg_url(url) == "postgresql+asyncpg://user:pass@localhost:5432/db?schema=public"
+def test_to_asyncpg_url_extracts_schema_param():
+    url, connect_args = _to_asyncpg_url(
+        "postgresql://user:pass@localhost:5432/db?schema=public"
+    )
+    assert url == "postgresql+asyncpg://user:pass@localhost:5432/db"
+    assert connect_args == {"server_settings": {"search_path": "public"}}
 
 
 def test_marketing_knowledge_entry_instantiation():
@@ -56,6 +60,7 @@ def test_marketing_knowledge_version_instantiation():
 
 def test_marketing_knowledge_chunk_instantiation():
     chunk = MarketingKnowledgeChunk(
+        chunk_id=uuid4(),
         entry_version_id=uuid4(),
         chunk_order=0,
         text="chunk text",
