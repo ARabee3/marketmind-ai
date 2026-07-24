@@ -15,8 +15,9 @@ import pytest
 
 from app.core.config import Settings
 from app.db.client import create_async_engine_from_settings
-from app.knowledge.ingestion.pipeline import run_ingestion_pipeline
+from app.knowledge.ingestion.pipeline import _persist_entry, run_ingestion_pipeline
 from app.qdrant.client import create_qdrant_client
+from app.qdrant.points import count_points, search_points
 
 
 pytestmark = pytest.mark.integration
@@ -325,3 +326,225 @@ async def test_pipeline_retires_removed_entries(
     )
     assert second.status == "succeeded"
     assert any(e.status == "retired" for e in second.entries)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_qdrant_roundtrip_after_ingest(
+    tmp_path: Path,
+    pipeline_test_settings: Settings,
+    clean_db: Any,
+    pipeline_qdrant_client: Any,
+) -> None:
+    """After ingestion, Qdrant contains the expected points with payloads."""
+    slug = f"qdrant-roundtrip-{uuid.uuid4().hex[:8]}"
+    _write_corpus(tmp_path, {f"{slug}.md": _SAMPLE_ENTRY.format(slug=slug)})
+    settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+
+    report = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        settings=settings,
+    )
+    assert report.status == "succeeded"
+    chunk_count = report.entries[0].chunk_count
+    assert chunk_count > 0
+
+    client = create_qdrant_client(settings)
+    try:
+        total = await count_points(client, settings.qdrant_collection_name)
+        assert total == chunk_count
+
+        # Search with a zero vector should return the chunk(s).
+        points = await search_points(
+            client,
+            settings.qdrant_collection_name,
+            vector=[0.0] * settings.embedding_dimensions,
+            limit=10,
+        )
+        assert len(points) == chunk_count
+        assert points[0].payload is not None
+        assert points[0].payload.get("text")
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_retired_entry_not_in_approved_search(
+    tmp_path: Path,
+    pipeline_test_settings: Settings,
+    clean_db: Any,
+    pipeline_qdrant_client: Any,
+) -> None:
+    """A retired entry's Qdrant points are not returned by approved-only search."""
+    slug = f"retired-search-{uuid.uuid4().hex[:8]}"
+    _write_corpus(tmp_path, {f"{slug}.md": _SAMPLE_ENTRY.format(slug=slug)})
+    settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+
+    first = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        settings=settings,
+    )
+    assert first.status == "succeeded"
+
+    # Remove the entry from the corpus so it gets retired.
+    _write_corpus(tmp_path, {})
+    second = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        settings=settings,
+    )
+    assert second.status == "succeeded"
+
+    client = create_qdrant_client(settings)
+    try:
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        approved_count = await count_points(
+            client,
+            settings.qdrant_collection_name,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="review_status",
+                        match=MatchValue(value="approved"),
+                    ),
+                    FieldCondition(
+                        key="slug",
+                        match=MatchValue(value=slug),
+                    ),
+                ]
+            ),
+        )
+        assert approved_count == 0
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_strict_sources_fails_on_unresolvable_url(
+    tmp_path: Path,
+    pipeline_test_settings: Settings,
+    clean_db: Any,
+    pipeline_qdrant_client: Any,
+) -> None:
+    """Strict source resolution fails the run when a URL cannot be reached."""
+    slug = f"strict-sources-{uuid.uuid4().hex[:8]}"
+    content = _SAMPLE_ENTRY.format(slug=slug).replace(
+        "internal:reviewed-marketing-methodology",
+        "https://example.invalid/surely-does-not-resolve-12345",
+    )
+    _write_corpus(tmp_path, {f"{slug}.md": content})
+    settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+    settings.knowledge_strict_sources = True
+
+    report = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        strict_sources=True,
+        settings=settings,
+    )
+
+    assert report.status == "failed"
+    assert any(
+        e["code"] == "SOURCE_RESOLUTION_FAILED" for e in report.errors
+    )
+
+
+@pytest.mark.asyncio
+async def test_pipeline_partial_failure_continues_for_other_entries(
+    tmp_path: Path,
+    pipeline_test_settings: Settings,
+    clean_db: Any,
+    pipeline_qdrant_client: Any,
+    monkeypatch: Any,
+) -> None:
+    """If one entry fails to persist, the pipeline continues with the others."""
+    good_slug = f"good-{uuid.uuid4().hex[:8]}"
+    bad_slug = f"bad-{uuid.uuid4().hex[:8]}"
+    _write_corpus(
+        tmp_path,
+        {
+            f"{good_slug}.md": _SAMPLE_ENTRY.format(slug=good_slug),
+            f"{bad_slug}.md": _SAMPLE_ENTRY.format(slug=bad_slug),
+        },
+    )
+    settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+
+    original_persist = _persist_entry
+
+    async def failing_persist(*args, **kwargs):
+        # args[1] is the parsed entry in the current signature.
+        parsed = args[1]
+        if parsed.slug == bad_slug:
+            raise RuntimeError("simulated persist failure")
+        return await original_persist(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "app.knowledge.ingestion.pipeline._persist_entry", failing_persist
+    )
+
+    report = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        settings=settings,
+    )
+
+    assert report.status == "partial_failure"
+    assert report.entered_count == 1
+    assert report.failed_count == 1
+    assert any(e["slug"] == bad_slug for e in report.errors)
+    assert any(e.slug == good_slug and e.status == "new" for e in report.entries)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_rebuild_reindexes_approved_versions(
+    tmp_path: Path,
+    pipeline_test_settings: Settings,
+    clean_db: Any,
+    pipeline_qdrant_client: Any,
+) -> None:
+    """The rebuild command re-indexes approved live versions into Qdrant."""
+    slug = f"rebuild-{uuid.uuid4().hex[:8]}"
+    _write_corpus(tmp_path, {f"{slug}.md": _SAMPLE_ENTRY.format(slug=slug)})
+    settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+
+    ingest_report = await run_ingestion_pipeline(
+        cli_token="test-token",
+        actor="tester",
+        repo_root=str(tmp_path),
+        settings=settings,
+    )
+    assert ingest_report.status == "succeeded"
+
+    # Reset Qdrant collection so rebuild has work to do.
+    client = create_qdrant_client(settings)
+    try:
+        await client.delete_collection(collection_name=settings.qdrant_collection_name)
+    finally:
+        await client.close()
+
+    from app.knowledge.ingestion.rebuild import rebuild_qdrant_index
+
+    rebuild_report = await rebuild_qdrant_index(
+        cli_token="test-token",
+        actor="tester",
+        collection_name=settings.qdrant_collection_name,
+        settings=settings,
+    )
+
+    assert rebuild_report.status == "succeeded"
+    assert rebuild_report.entries_processed == 1
+    assert rebuild_report.chunks_processed == ingest_report.entries[0].chunk_count
+
+    client = create_qdrant_client(settings)
+    try:
+        total = await count_points(client, settings.qdrant_collection_name)
+        assert total == ingest_report.entries[0].chunk_count
+    finally:
+        await client.close()
