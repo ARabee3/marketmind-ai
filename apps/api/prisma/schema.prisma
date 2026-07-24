@@ -530,6 +530,7 @@ model MarketingKnowledgeSourceRef {
   entryVersion MarketingKnowledgeEntryVersion @relation(fields: [entryVersionId], references: [id], onDelete: Cascade)
 
   @@index([entryVersionId])
+  @@unique([entryVersionId, reference])
   @@map("marketing_knowledge_source_refs")
 }
 

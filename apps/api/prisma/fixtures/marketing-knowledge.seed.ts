@@ -260,14 +260,18 @@ export async function seedMarketingKnowledge(
     reviewedAt: past,
     checksum: "fixture:benchmark:v1",
   });
-  // The source ref table has no business unique key, so we make the
-  // benchmark citation idempotent by deleting existing refs for this
-  // version and recreating a single one.
-  await prisma.marketingKnowledgeSourceRef.deleteMany({
-    where: { entryVersionId: benchmarkVersion.id },
-  });
-  await prisma.marketingKnowledgeSourceRef.create({
-    data: {
+  // The compound unique (entry_version_id, reference) now exists, so a
+  // single upsert by entryVersionId_reference keeps the benchmark citation
+  // idempotent on re-run — no delete-then-create workaround needed.
+  await prisma.marketingKnowledgeSourceRef.upsert({
+    where: {
+      entryVersionId_reference: {
+        entryVersionId: benchmarkVersion.id,
+        reference: "https://example.com/benchmark-q1-2026.pdf",
+      },
+    },
+    update: { note: "Q1 2026 CPC benchmark — verified source." },
+    create: {
       entryVersionId: benchmarkVersion.id,
       reference: "https://example.com/benchmark-q1-2026.pdf",
       note: "Q1 2026 CPC benchmark — verified source.",

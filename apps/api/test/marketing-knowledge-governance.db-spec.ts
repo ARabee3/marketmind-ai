@@ -215,6 +215,65 @@ describe("Marketing knowledge governance DB (issue #69)", () => {
     });
   });
 
+  describe("source ref unique constraint", () => {
+    let entryId: string;
+
+    beforeAll(async () => {
+      entryId = (await makeEntry(`${RUN}/source-ref-unique`)).id;
+    });
+
+    it("rejects a duplicate (entry_version_id, reference) pair with P2002", async () => {
+      const version = await prisma.marketingKnowledgeEntryVersion.create({
+        data: {
+          entryId,
+          version: 1,
+          kind: "benchmark_report",
+          title: "source ref unique",
+          summary: "s",
+          body: "b",
+          locale: "en",
+          markets: ["egypt"],
+          industries: ["retail"],
+          businessModels: [],
+          objectives: ["conversion"],
+          funnelStages: ["conversion"],
+          channels: ["facebook"],
+          seasons: [],
+          budgetModes: ["monthly_amount"],
+          evidenceTier: "verified_benchmark",
+          reviewStatus: "approved",
+          effectiveAt: PAST,
+          expiresAt: null,
+          author: "db-tester",
+          reviewer: "db-reviewer",
+          reviewedAt: PAST,
+          checksum: "source-ref-unique-chk",
+        } as never,
+      });
+
+      await prisma.marketingKnowledgeSourceRef.create({
+        data: {
+          entryVersionId: version.id,
+          reference: "https://example.com/duplicate-citation.pdf",
+          note: "first insert",
+        },
+      });
+
+      await expect(
+        prisma.marketingKnowledgeSourceRef.create({
+          data: {
+            entryVersionId: version.id,
+            reference: "https://example.com/duplicate-citation.pdf",
+            note: "second insert should fail",
+          },
+        }),
+      ).rejects.toMatchObject({
+        code: "P2002",
+        message: expect.stringMatching(/Unique constraint/),
+      });
+    });
+  });
+
   describe("eligibility boundary", () => {
     let entryId: string;
     let versionCounter = 100;
