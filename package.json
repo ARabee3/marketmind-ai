@@ -10,7 +10,8 @@
   "scripts": {
     "agent:setup": "node scripts/agent-tools/setup.mjs",
     "agent:doctor": "node scripts/agent-tools/doctor.mjs",
-    "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check -w @marketmind/web",
+    "check:marketing-knowledge": "node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
+    "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check -w @marketmind/web && npm run check:marketing-knowledge",
     "check:ai": "cd services/ai && uv run pytest",
     "docker:up": "docker compose -f infra/docker/docker-compose.local.yml up -d && wait-on tcp:5433 tcp:6379",
     "prisma:deploy": "npm run prisma:migrate:deploy -w @marketmind/api",
@@ -37,6 +38,7 @@
     "concurrently": "^9.2.4",
     "eslint-config-next": "^16.2.10",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "gray-matter": "^4.0.3",
     "vitest": "^4.1.9",
     "wait-on": "^8.0.5"
   }

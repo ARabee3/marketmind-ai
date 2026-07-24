@@ -1,0 +1,177 @@
+[
+  {
+    "query": "How do I diagnose where my business stands before picking a marketing objective?",
+    "expected_top_slugs": ["situation-diagnosis-5cs-swot", "smart-objectives-funnel-mapping"],
+    "notes": "Tests retrieval of the situation-diagnosis framework; secondary hit is the objective-mapping framework that follows it."
+  },
+  {
+    "query": "How do I turn a vague goal like 'more sales' into one measurable objective?",
+    "expected_top_slugs": ["smart-objectives-funnel-mapping", "kpi-modes-and-vanity-vs-business-metrics"],
+    "notes": "Bridges SMART objectives to KPI choice."
+  },
+  {
+    "query": "I sell to everyone; how do I pick one target customer and write a positioning line?",
+    "expected_top_slugs": ["audience-positioning-stp"],
+    "notes": "STP framework entry."
+  },
+  {
+    "query": "When is the awareness objective the right priority for my business?",
+    "expected_top_slugs": ["objective-awareness", "channel-google-business-profile"],
+    "notes": "Awareness objective playbook, with GBP as a low-cost awareness channel."
+  },
+  {
+    "query": "We already get traffic but few new customers — which objective fits?",
+    "expected_top_slugs": ["objective-acquisition", "objective-conversion-sales"],
+    "notes": "Acquisition vs conversion distinction; retrieval should surface both so the owner can read fit signals."
+  },
+  {
+    "query": "People visit my website but don't buy; what objective and what do I fix first?",
+    "expected_top_slugs": ["objective-conversion-sales", "channel-website-landing-page"],
+    "notes": "Conversion objective + the website channel's measurement/fix-first guidance."
+  },
+  {
+    "query": "My customers buy once and never come back — what objective do I choose?",
+    "expected_top_slugs": ["objective-retention-repeat"],
+    "notes": "Retention objective playbook."
+  },
+  {
+    "query": "I'm opening a new branch next month; what should my 12-week plan prioritise?",
+    "expected_top_slugs": ["objective-launch", "regional-language-tone-and-seasonal-calendar"],
+    "notes": "Launch objective + seasonal/calendar timing for the opening window."
+  },
+  {
+    "query": "Is Facebook a good fit for a small Cairo restaurant with one part-time social media helper and a monthly budget under 3000 EGP?",
+    "expected_top_slugs": ["channel-facebook", "budget-planning-organic-and-scenarios"],
+    "notes": "Tests channel fit + capacity + budget-mode filtering together (mirrors the architecture doc's multi-subquery retrieval)."
+  },
+  {
+    "query": "متى يعتبر انستجرام اختيار مناسب لمحل حلويات صغير في مصر، ومتى لا يكون مناسباً؟",
+    "expected_top_slugs": ["channel-instagram", "benchmark-egypt-instagram-reach"],
+    "notes": "Arabic-language query (instance of required bilingual examples); Instagram channel fit + its Egypt reach figure."
+  },
+  {
+    "query": "Should I put my café on TikTok if I have no budget but I'm willing to film?",
+    "expected_top_slugs": ["channel-tiktok", "objective-awareness"],
+    "notes": "TikTok organic-only fit driven by willingness-to-film and capacity."
+  },
+  {
+    "query": "How do I show up when people search 'restaurant near me' in my area?",
+    "expected_top_slugs": ["channel-google-business-profile"],
+    "notes": "GBP as the intent channel; no Egypt reach benchmark exists for it."
+  },
+  {
+    "query": "I waste ad budget sending people to my website; what should I fix first?",
+    "expected_top_slugs": ["channel-website-landing-page", "objective-conversion-sales"],
+    "notes": "Website channel + conversion objective: fix the destination before paying for traffic."
+  },
+  {
+    "query": "Is being on a delivery platform worth it after commission for a one-kitchen QSR?",
+    "expected_top_slugs": ["channel-delivery-platforms", "sector-note-hospitality"],
+    "notes": "Delivery platforms unit economics + hospitality sector note."
+  },
+  {
+    "query": "How many Facebook users are there in Egypt and what age group is biggest?",
+    "expected_top_slugs": ["benchmark-egypt-facebook-reach"],
+    "notes": "Verified numeric benchmark retrieval; must surface the single cited source."
+  },
+  {
+    "query": "What is the Instagram reach in Egypt compared to Facebook as of 2026?",
+    "expected_top_slugs": ["benchmark-egypt-instagram-reach", "benchmark-egypt-facebook-reach"],
+    "notes": "Comparison of two verified benchmarks; retrieval should avoid inventing a comparison number not in the corpus."
+  },
+  {
+    "query": "How many people in Egypt are online and how many use social media?",
+    "expected_top_slugs": ["benchmark-egypt-internet-social-penetration"],
+    "notes": "Macro penetration benchmark; tests that mobile-connections figure is not misreported as unique subscribers."
+  },
+  {
+    "query": "I don't know what to post; how do I pick content topics and how often?",
+    "expected_top_slugs": ["content-pillars-and-cadence-by-capacity", "audience-positioning-stp"],
+    "notes": "Pillars derive from positioning; cadence derives from real capacity."
+  },
+  {
+    "query": "How do I test which content format works without wasting my helper's time?",
+    "expected_top_slugs": ["content-experiments-and-format-mix", "content-pillars-and-cadence-by-capacity"],
+    "notes": "Format experiments sit on top of pillars/cadence."
+  },
+  {
+    "query": "Does the Strategy step generate the actual captions and posts, or stop at the plan?",
+    "expected_top_slugs": ["content-agent-handoff-boundary"],
+    "notes": "Handoff boundary; tests that planning vs generation vs approval roles are not collapsed."
+  },
+  {
+    "query": "How do I plan a small monthly ad budget in EGP without inventing CPC assumptions?",
+    "expected_top_slugs": ["budget-planning-organic-and-scenarios", "engagement-rate-benchmark-caveat"],
+    "notes": "Budget planning + the explicit gap that no Egypt CPC/CPM benchmark exists."
+  },
+  {
+    "query": "\"likes\" are growing but orders are flat — am I measuring the wrong thing?",
+    "expected_top_slugs": ["kpi-modes-and-vanity-vs-business-metrics", "engagement-rate-benchmark-caveat"],
+    "notes": "Vanity-vs-business KPIs plus the engagement-rate caveat."
+  },
+  {
+    "query": "Can I set my Instagram engagement target from a published global benchmark?",
+    "expected_top_slugs": ["engagement-rate-benchmark-caveat"],
+    "notes": "Must produce the knowledge-gap entry, not an invented figure."
+  },
+  {
+    "query": "مفروظ أعمل إعلانات في رمضان وإلا لأ؟ وإزاي أختار نبرة الكلام للمشروع؟",
+    "expected_top_slugs": ["regional-language-tone-and-seasonal-calendar"],
+    "notes": "Arabic-language query on seasonal cadence and tone; tests regional guidance retrieval including poor-fit for non-seasonal businesses."
+  },
+  {
+    "query": "I run a small retail shop — what seasonal windows should my 12-week plan plan around?",
+    "expected_top_slugs": ["sector-note-retail", "regional-language-tone-and-seasonal-calendar"],
+    "notes": "Sector note + the calendar that lists the windows."
+  },
+  {
+    "query": "What's different about marketing a restaurant versus a retail shop?",
+    "expected_top_slugs": ["sector-note-hospitality", "sector-note-retail"],
+    "notes": "Multi-entry sector comparison."
+  },
+  {
+    "query": "I'm a salon owner with spare appointment slots — should I run ads or fix retention?",
+    "expected_top_slugs": ["sector-note-services", "objective-retention-repeat", "objective-acquisition"],
+    "notes": "Services sector note leans retention over acquisition when capacity is the constraint."
+  },
+  {
+    "query": "I run a tutoring center — when should I push for new students vs renew current ones?",
+    "expected_top_slugs": ["sector-note-education", "objective-acquisition", "objective-retention-repeat"],
+    "notes": "Education intake-windows drive acquisition timing; retention = term renewal."
+  },
+  {
+    "query": "How do I market a small clinic without making medical claims I can't back?",
+    "expected_top_slugs": ["sector-note-healthcare", "governance-approval-citation-and-limits-policy"],
+    "notes": "Healthcare ethical-claim limits + the citation-honesty governance policy."
+  },
+  {
+    "query": "What are the rules every knowledge entry must follow before it can be cited in a live plan?",
+    "expected_top_slugs": ["governance-approval-citation-and-limits-policy"],
+    "notes": "Corpus governance policy."
+  },
+  {
+    "query": "أنا عندي مطعم صغير وعايز أعرف هل أعمل إعلانات شهرية بميزانية 2000 جنيه ولا أركزس على أورجانك؟",
+    "expected_top_slugs": ["budget-planning-organic-and-scenarios", "sector-note-hospitality", "channel-facebook"],
+    "notes": "Arabic query folding budget mode + hospitality sector + a channel; mirrors multi-subquery Strategy retrieval."
+  },
+  {
+    "query": "I want to launch a new menu next month — what knowledge should my plan pull together?",
+    "expected_top_slugs": ["objective-launch", "content-agent-handoff-boundary", "regional-language-tone-and-seasonal-calendar", "content-pillars-and-cadence-by-capacity"],
+    "notes": "A multi-entry retrieval mimicking the Strategy step's combined subquery construction."
+  },
+  {
+    "query": "Give me a complete small-business campaign: objective, channel, budget, KPI, and content plan in one go.",
+    "expected_top_slugs": ["smart-objectives-funnel-mapping", "channel-facebook", "budget-planning-organic-and-scenarios", "kpi-modes-and-vanity-vs-business-metrics", "content-pillars-and-cadence-by-capacity"],
+    "notes": "Explicit multi-entry retrieval testing the architecture doc's §11 query construction across categories."
+  },
+  {
+    "query": "What is the verified TikTok reach benchmark for Egypt in 2026?",
+    "expected_top_slugs": [],
+    "notes": "Intentional no-result / knowledge-gap seed: no verified Egypt TikTok reach benchmark exists; #75 must assert the system returns a knowledge_gap, not a fabricated number."
+  },
+  {
+    "query": "What is the current Egypt-specific CPC and CPM I should use to set my paid budget?",
+    "expected_top_slugs": [],
+    "notes": "Intentional no-result seed: no verified Egypt CPC/CPM benchmark exists; relevant entry (engagement-rate-benchmark-caveat) explains the gap rather than supplying a number. #75 should treat presence of the caveat entry + absence of a numeric entry as the expected honest behaviour."
+  }
+]

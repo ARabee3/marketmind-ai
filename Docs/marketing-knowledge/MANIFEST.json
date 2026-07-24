@@ -1,0 +1,901 @@
+{
+  "generated_at": "2026-07-21T04:35:14.981Z",
+  "entry_count": 30,
+  "entries": [
+    {
+      "slug": "audience-positioning-stp",
+      "version": 1,
+      "kind": "framework",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition"
+        ]
+      },
+      "checksum": "sha256:f4e3a228f0522cee515c10d3c89968b16735539574666ab53eaa02205d8fef4b",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "frameworks/audience-positioning-stp.md"
+    },
+    {
+      "slug": "benchmark-egypt-facebook-reach",
+      "version": 1,
+      "kind": "benchmark_report",
+      "review_status": "draft",
+      "evidence_tier": "verified_benchmark",
+      "locale": "en",
+      "tags": {
+        "markets": [
+          "egypt"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "facebook"
+        ],
+        "objectives": [
+          "awareness"
+        ]
+      },
+      "checksum": "sha256:1890f75eb8e89f94dbf46e7d5705066343de932a569d2f326516ce7f85881838",
+      "effective_at": "2026-06-01",
+      "expires_at": "2026-12-01",
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "benchmarks/benchmark-egypt-facebook-reach.md"
+    },
+    {
+      "slug": "benchmark-egypt-instagram-reach",
+      "version": 1,
+      "kind": "benchmark_report",
+      "review_status": "draft",
+      "evidence_tier": "verified_benchmark",
+      "locale": "en",
+      "tags": {
+        "markets": [
+          "egypt"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "instagram"
+        ],
+        "objectives": [
+          "awareness"
+        ]
+      },
+      "checksum": "sha256:7688d50ffdd363cb9853255b7a97b41058409b009661a6335467710dcf7f4629",
+      "effective_at": "2026-06-01",
+      "expires_at": "2026-12-01",
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "benchmarks/benchmark-egypt-instagram-reach.md"
+    },
+    {
+      "slug": "benchmark-egypt-internet-social-penetration",
+      "version": 1,
+      "kind": "benchmark_report",
+      "review_status": "draft",
+      "evidence_tier": "verified_benchmark",
+      "locale": "en",
+      "tags": {
+        "markets": [
+          "egypt"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness"
+        ]
+      },
+      "checksum": "sha256:1c63c32e25bfda4fb04e358f8d54492762ff1b391cc392395fc9aa0d0cd7c4a0",
+      "effective_at": "2026-01-01",
+      "expires_at": "2026-12-31",
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "benchmarks/benchmark-egypt-internet-social-penetration.md"
+    },
+    {
+      "slug": "budget-planning-organic-and-scenarios",
+      "version": 1,
+      "kind": "budget_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:a9ad3e8ba6d21a21782dc6c1a1fff0fbb0cc71c81a54f488483832fe5d8b425e",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "budget-measurement/budget-planning-organic-and-scenarios.md"
+    },
+    {
+      "slug": "channel-delivery-platforms",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "delivery_platforms"
+        ],
+        "objectives": [
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:e5943fcedeb8e7f9532848ec6443d228541ade617ef1ec1f13b55e55006f72ba",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-delivery-platforms.md"
+    },
+    {
+      "slug": "channel-facebook",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "facebook"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:7fc05765d64782745455e84da58a938eb831d479c1b05ab12186968c01345848",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-facebook.md"
+    },
+    {
+      "slug": "channel-google-business-profile",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "google_business_profile"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion"
+        ]
+      },
+      "checksum": "sha256:05e46f63be938a3c009747bff17fe2b4ebecd846406fb49e1f63b76ac66119e3",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-google-business-profile.md"
+    },
+    {
+      "slug": "channel-instagram",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "instagram"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:04d20992a587c2d64f4d00e8265e09485fd172c9dc744eb011235ecf7fee4cb6",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-instagram.md"
+    },
+    {
+      "slug": "channel-tiktok",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "tiktok"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition"
+        ]
+      },
+      "checksum": "sha256:34363c6718999f8004118bae36742bef20d945305fcb00470ee93df40e857430",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-tiktok.md"
+    },
+    {
+      "slug": "channel-website-landing-page",
+      "version": 1,
+      "kind": "channel_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [
+          "website"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:a0ac061ab65c2b2b383098be1ef06c04dcc44aad8643954892939b843147d3af",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "channels/channel-website-landing-page.md"
+    },
+    {
+      "slug": "content-agent-handoff-boundary",
+      "version": 1,
+      "kind": "content_strategy_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:2af8015e3e93007108c3f321ee20ff2608fac6012f14c675a30e6201ae50493d",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "content-strategy/content-agent-handoff-boundary.md"
+    },
+    {
+      "slug": "content-experiments-and-format-mix",
+      "version": 1,
+      "kind": "content_strategy_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition"
+        ]
+      },
+      "checksum": "sha256:889857c18b7d581899ea9a1f1c85abcc271ece1a834b2812874e1b7875591ab7",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "content-strategy/content-experiments-and-format-mix.md"
+    },
+    {
+      "slug": "content-pillars-and-cadence-by-capacity",
+      "version": 1,
+      "kind": "content_strategy_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:34ee2f0876c05aa243e5eb0b4a145d704cbe296d0384d33ceac9d6d68cc1649a",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "content-strategy/content-pillars-and-cadence-by-capacity.md"
+    },
+    {
+      "slug": "engagement-rate-benchmark-caveat",
+      "version": 1,
+      "kind": "measurement_playbook",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "en",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:bc637df57e5611599a1112c58387e5e542a7aae085b94b18112b72f1147a6a1a",
+      "effective_at": "2026-07-21",
+      "expires_at": "2027-07-21",
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "budget-measurement/engagement-rate-benchmark-caveat.md"
+    },
+    {
+      "slug": "governance-approval-citation-and-limits-policy",
+      "version": 1,
+      "kind": "policy",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "en",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:0b8b4a5a02b157a62d25fca24fd1480cfd260b00018c6e8e5ac546f4a9b66319",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "policy/governance-approval-citation-and-limits-policy.md"
+    },
+    {
+      "slug": "kpi-modes-and-vanity-vs-business-metrics",
+      "version": 1,
+      "kind": "measurement_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:0062d58185b13d622029de67114373d28c3778101de58a5a72b6b218651f6d92",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "budget-measurement/kpi-modes-and-vanity-vs-business-metrics.md"
+    },
+    {
+      "slug": "objective-acquisition",
+      "version": 1,
+      "kind": "objective_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "acquisition"
+        ]
+      },
+      "checksum": "sha256:81d1ea8fae57409a140a6e005ff00983f42fde26013ca70fcdd35d5ef9abd5bb",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "objectives/objective-acquisition.md"
+    },
+    {
+      "slug": "objective-awareness",
+      "version": 1,
+      "kind": "objective_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness"
+        ]
+      },
+      "checksum": "sha256:681efe2a357b341bbc46871c9bce2561211374ac58d243ab6ffd5c3c86757215",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "objectives/objective-awareness.md"
+    },
+    {
+      "slug": "objective-conversion-sales",
+      "version": 1,
+      "kind": "objective_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "conversion"
+        ]
+      },
+      "checksum": "sha256:74b903c474c551bfa69962c8f23bf438f356fe4d8e4b4bd6607d10221180bc81",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "objectives/objective-conversion-sales.md"
+    },
+    {
+      "slug": "objective-launch",
+      "version": 1,
+      "kind": "objective_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "launch"
+        ]
+      },
+      "checksum": "sha256:5fdcc2cd87447d83e4b71937601d35be0b4eae62a1f7a4cb41c2b0f94b2a51fb",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "objectives/objective-launch.md"
+    },
+    {
+      "slug": "objective-retention-repeat",
+      "version": 1,
+      "kind": "objective_playbook",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "retention"
+        ]
+      },
+      "checksum": "sha256:44bb31050440dbdd998282c56b1e7dd344a5b5e956eadd9c47406ed5403f6826",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "objectives/objective-retention-repeat.md"
+    },
+    {
+      "slug": "regional-language-tone-and-seasonal-calendar",
+      "version": 1,
+      "kind": "regional_guidance",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:1e5da243fa6fdbd0777439207d5ee798dc325f95706fec19c7a9bf84bcebd825",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "regional/regional-language-tone-and-seasonal-calendar.md"
+    },
+    {
+      "slug": "sector-note-education",
+      "version": 1,
+      "kind": "sector_note",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "education"
+        ],
+        "channels": [
+          "facebook",
+          "instagram",
+          "google_business_profile",
+          "website"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:b74ba59b2cf2f8063e6a320b0f7dea6f4ef98ce9001cb2ad5859c7d1d71992d9",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "sector-notes/sector-note-education.md"
+    },
+    {
+      "slug": "sector-note-healthcare",
+      "version": 1,
+      "kind": "sector_note",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "healthcare"
+        ],
+        "channels": [
+          "google_business_profile",
+          "facebook",
+          "website",
+          "instagram"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:9cb0c7f48fc4c0280934b4edd859f7ea889239ae1dc9f6e7b4e7407d2308cc50",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "sector-notes/sector-note-healthcare.md"
+    },
+    {
+      "slug": "sector-note-hospitality",
+      "version": 1,
+      "kind": "sector_note",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "hospitality"
+        ],
+        "channels": [
+          "facebook",
+          "instagram",
+          "google_business_profile",
+          "delivery_platforms"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:4f4c2eb65a3c26e5eca94526f7659d852c468181aa93263e727ecedbefa7c0db",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "sector-notes/sector-note-hospitality.md"
+    },
+    {
+      "slug": "sector-note-retail",
+      "version": 1,
+      "kind": "sector_note",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "retail"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:40b1663acc400a0aeb1bd37d95817183ba2881ecdb960d7fc22dcd36b1c60558",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "sector-notes/sector-note-retail.md"
+    },
+    {
+      "slug": "sector-note-services",
+      "version": 1,
+      "kind": "sector_note",
+      "review_status": "draft",
+      "evidence_tier": "contextual_note",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "egypt",
+          "mena"
+        ],
+        "industries": [
+          "services"
+        ],
+        "channels": [
+          "google_business_profile",
+          "facebook",
+          "website",
+          "instagram"
+        ],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention"
+        ]
+      },
+      "checksum": "sha256:00186c2663a4ad94b377d7365ba66453686c0b6ba7d09bd5aac3cd43ca9c526a",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "sector-notes/sector-note-services.md"
+    },
+    {
+      "slug": "situation-diagnosis-5cs-swot",
+      "version": 1,
+      "kind": "framework",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": []
+      },
+      "checksum": "sha256:0325cd00d195ef9ab280198c554a2cc25dd1547f8b61b7bf8763ff2c55312ee8",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "frameworks/situation-diagnosis-5cs-swot.md"
+    },
+    {
+      "slug": "smart-objectives-funnel-mapping",
+      "version": 1,
+      "kind": "framework",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:b2f3623ea236b119610aa850142e30a5a67526457b4f244528b54d8a632e3d2d",
+      "effective_at": "2026-07-21",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "frameworks/smart-objectives-funnel-mapping.md"
+    }
+  ]
+}
