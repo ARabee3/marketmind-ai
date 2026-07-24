@@ -1,13 +1,13 @@
 ---
 slug: channel-tiktok
-version: 1
+version: 2
 kind: channel_playbook
 title: 'TikTok Fit, Poor-Fit, and Measurement Guide'
 summary: >
   When TikTok is a useful channel for an Egyptian SME, when it is a poor fit,
   the required assets, capacity implications, organic vs. paid role, budget
-  notes, measurement, and risks. No verified Egypt reach benchmark is available
-  for TikTok.
+  notes, measurement, and risks, with paid reach planning pointed to the
+  verified Egypt TikTok benchmark.
 locale: mixed
 markets:
   - egypt
@@ -39,22 +39,25 @@ evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - 'https://datareportal.com/reports/digital-2026-egypt'
+  - >-
+    https://ads.tiktok.com/help/article/reach-estimator-for-brand-auction?lang=en
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2026-12-31'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 34363c6718999f8004118bae36742bef20d945305fcb00470ee93df40e857430
+checksum: 1b1356f1b7626820be97d881427e7555615ee0b2631cf1b507f9dd250a33c850
 ---
 
 ## Use cases (fit)
 
-TikTok is a useful awareness channel when the target segment skews young
+TikTok is a useful awareness test when the target segment skews young
 and the business can show itself in motion — short, real, behind-the-scenes
 or satisfying-process video (food being made, a salon transformation, a
-gym session, a tutor explaining one thing). It fits visual, energetic,
-younger-skewing businesses best, and can drive disproportionate discovery
-because the algorithm pushes content beyond followers.
+gym session, a tutor explaining one thing). It is a better fit for visual,
+energetic, younger-skewing businesses when the owner can publish real short
+video and provide a clear conversion offramp.
 
 ## Poor-fit conditions
 
@@ -75,25 +78,30 @@ phone and a person willing to be in the frame is the minimum.
 
 ## Team effort / capacity implications
 
-TikTok is capacity-intensive because it rewards cadence (several videos
-per week) and responsiveness. It is rarely a solo-owner channel unless the
-owner genuinely enjoys making the content. For most SMEs it should be a
-deliberate add-on with clear weekly time set aside, not a half-managed
-extra.
+TikTok is capacity-intensive because it rewards repeated short-video testing
+and responsiveness. Cadence should be sized to the owner's real filming time,
+not a fixed weekly quota. Solo-owner fit depends on whether the owner genuinely
+enjoys making the content. It should be a deliberate add-on with clear weekly
+time set aside, not a half-managed extra.
 
 ## Organic vs. paid role
 
-TikTok organic can produce large reach without paid spend — that is its
-primary draw for SMEs without budget. Paid TikTok ads extend control over
-targeting and reach but require a real budget and creative; for small
-budgets the organic upside is usually the better first bet.
+TikTok organic is worth a fit test when the business can make real short video
+and measure whether views produce profile visits, clicks, DMs, or orders.
+Paid TikTok ads extend control over targeting and reach but require a real
+budget and creative. For paid planning, use
+`benchmark-egypt-tiktok-reach.md` only as an adult ad-audience reach
+benchmark, not as a guarantee of campaign delivery or outcomes.
 
 ## Budget notes
 
-Organic-only is a legitimate budget mode on TikTok. For paid, no verified
-Egypt-specific reach, CPC, or CPM benchmark is available (see
-`engagement-rate-benchmark-caveat.md`), so budget planning again starts from
-a small test and a measured cost per outcome, not from an assumed rate.
+Organic-only can be tested on TikTok when the owner has video capacity and a
+business-action measurement path. For paid, Egypt reach planning may use
+`benchmark-egypt-tiktok-reach.md`, but no verified
+Egypt-specific CPC, CPM, or cost per outcome performance benchmark is
+available (see `engagement-rate-benchmark-caveat.md`). Budget planning still
+starts from a small test and a measured cost per outcome, not from an assumed
+rate.
 
 ## Measurement
 
@@ -113,5 +121,8 @@ business and sets expectations the experience cannot meet.
 ## Sources
 
 - `internal:reviewed-marketing-methodology` — team-synthesized channel
-  fit guidance. No verified Egypt TikTok reach benchmark was found; see
-  `engagement-rate-benchmark-caveat.md`.
+  fit guidance.
+- `benchmark-egypt-tiktok-reach.md` — DataReportal/TikTok adult ad-audience
+  reach benchmark for Egypt, with TikTok estimator caveats.
+- `engagement-rate-benchmark-caveat.md` — unresolved CPC, CPM, engagement,
+  and cost per outcome gaps.

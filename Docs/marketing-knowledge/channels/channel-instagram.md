@@ -1,6 +1,6 @@
 ---
 slug: channel-instagram
-version: 1
+version: 2
 kind: channel_playbook
 title: 'Instagram Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -41,20 +41,22 @@ evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2026-12-31'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 04d20992a587c2d64f4d00e8265e09485fd172c9dc744eb011235ecf7fee4cb6
+checksum: 1625235a35f5a8802eee067ad8ef76b7a1a6a3f02847039994382450259167ee
 ---
 
 ## Use cases (fit)
 
 Instagram is a useful lead channel for visual businesses where the
 product or storefront is the story — food, cafés, bakeries, salons, gyms,
-fashion ecommerce, tutorable before/after education services. It fits an
-audience that skews younger and adult (18–34 being the largest cohort in
+fashion ecommerce, and education providers with non-identifying
+classroom/process proof. It fits an
+audience that skews younger and adult (18–24 is the largest single cohort in
 Egypt per `benchmark-egypt-instagram-reach.md`) and where visual
 presentation is the differentiator. Direct messages and the link-in-bio /
 link stickers also make it a workable acquisition path to a WhatsApp or

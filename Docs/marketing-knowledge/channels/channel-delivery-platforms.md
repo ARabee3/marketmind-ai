@@ -1,6 +1,6 @@
 ---
 slug: channel-delivery-platforms
-version: 1
+version: 2
 kind: channel_playbook
 title: 'Delivery Platforms Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -35,12 +35,17 @@ evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - >-
+    https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
+  - 'https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf'
+  - 'https://www.talabat.com/egypt/terms'
+  - 'https://www.talabat.com/egypt/privacy'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: e5943fcedeb8e7f9532848ec6443d228541ade617ef1ec1f13b55e55006f72ba
+checksum: b54430c7f2dfe47d5bf13c7f827322d56a62bcd08c752f1b1115f4c2d5108206
 ---
 
 ## Use cases (fit)
@@ -66,10 +71,11 @@ policy changes can wipe out the model — concentration risk.
 ## Required assets
 
 A listed menu with accurate prices and photos, a reliable packaging setup,
-capacity to fulfill delivery orders at the agreed time, and a way to use the
-delivery order to capture a direct contact for future direct orders (a
-note, a card, a follow-back) — because the platform's customer is the
-platform's, not the business's.
+capacity to fulfill delivery orders at the agreed time, and a
+platform-permitted opt-in path for owned follow-up. Do not reuse a phone
+number obtained only for order fulfilment. Any marketing contact must use
+separate consent that states the marketing purpose, sender identity, and an
+easy opt-out or withdrawal route.
 
 ## Team effort / capacity implications
 
@@ -98,21 +104,31 @@ count.
 
 Measure weekly order volume, average order value, margin per order after
 commission, fulfillment metrics (acceptance rate, on-time), and the count
-of direct (off-platform) captures from delivery customers. The most
-misleading metric is gross order volume growing while per-order margin is
-negative — a growing loss is not success. Track unit economics, not just
-volume.
+of platform-permitted opt-ins from delivery customers. The most misleading
+metric is gross order volume growing while per-order margin is negative — a
+growing loss is not success. Track unit economics, not just volume.
 
 ## Risks
 
 The principal risks are margin erosion through commission, depending on a
-single platform (concentration), and treating the platform's customers as
-the business's customers — without capturing a direct contact, the
-platform owns the relationship and can raise its rates later. A third risk
-is operational quality dropping under delivery volume, which harms the
-dine-in brand too.
+single platform (concentration), and treating fulfilment contact data as a
+marketing list. Delivery-platform data use must stay within platform terms
+and local consent law; build owned channels only through explicit opt-in
+with a clear marketing purpose, sender identity, and opt-out/withdrawal
+path. A third risk is operational quality dropping under delivery volume,
+which harms the dine-in brand too.
 
 ## Sources
 
 - `internal:reviewed-marketing-methodology` — team-synthesized channel
   fit guidance.
+- NATLEX, `Law 151/2020 on the Protection of Personal Data` — Egypt legal
+  source for personal-data rights and controller obligations:
+  https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
+- PDPC, `Data Subject Consent Guidelines` — consent purpose, identity, and
+  withdrawal guidance:
+  https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf
+- Talabat Egypt, `Terms and Conditions` and `Privacy Policy` — platform
+  ordering, fulfilment, and personal-data context:
+  https://www.talabat.com/egypt/terms and
+  https://www.talabat.com/egypt/privacy

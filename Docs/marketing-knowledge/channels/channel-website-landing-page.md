@@ -1,6 +1,6 @@
 ---
 slug: channel-website-landing-page
-version: 1
+version: 2
 kind: channel_playbook
 title: 'Website / Landing Page Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -45,7 +45,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: a0ac061ab65c2b2b383098be1ef06c04dcc44aad8643954892939b843147d3af
+checksum: 4fe9a41e1f5844e4f136264fc725b7e631b9fd61c61a11bed10df34c3742820f
 ---
 
 ## Use cases (fit)
@@ -56,8 +56,9 @@ organic posts where the call-to-action is clear and uninterrupted. It fits
 businesses with a product catalogue (ecommerce), a service that needs
 explanation (professional services, clinics, tutoring, home services), or
 any business whose conversion path should not rely on a third-party app's
-inbox. It is also the destination every other channel's offramp should point
-to.
+inbox. It is one valid conversion destination, not the default for every
+channel: WhatsApp, phone, Google Business Profile, or a platform order flow
+can be the better endpoint when that is where customers already convert.
 
 ## Poor-fit conditions
 
@@ -65,9 +66,10 @@ A website is a poor fit when the owner has no one to maintain it and it
 will go stale, or when the business converts entirely inside another app
 (a one-product café that takes orders only via WhatsApp and has no catalog
 does not need a curated site — a strong GBP and a pinned WhatsApp link will
-do). It is also a poor fit when the budget cannot sustain hosting and a
-basics update, producing a broken site that reads as abandoned (worse than
-no site).
+do). It is also a poor fit when phone, Google Business Profile, or a
+platform order flow already handles conversion better than a site the owner
+cannot maintain. A broken site that reads as abandoned is worse than no
+site.
 
 ## Required assets
 
@@ -87,7 +89,7 @@ responsible for content and stock updates, comparable to a half-channel.
 ## Organic vs. paid role
 
 A website can earn organic traffic via SEO and local search (especially with
-a linked GBP), but for most SMEs it is primarily a destination that other
+a linked GBP), but it is often primarily a destination that other
 channels drive traffic to. Paid traffic without a working site is wasted
 budget; fix the site before paying to send people to it.
 
