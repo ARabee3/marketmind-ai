@@ -6,6 +6,7 @@ Integration tests exercise real pipeline runs via the CLI.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from pathlib import Path
@@ -16,6 +17,8 @@ from typer.testing import CliRunner
 
 from app.core.config import Settings
 from app.knowledge.ingestion.cli import app
+from app.qdrant.client import create_qdrant_client
+from app.qdrant.points import count_points
 
 
 runner = CliRunner()
@@ -236,3 +239,104 @@ Body content.
     assert data["status"] == "dry_run"
     assert data["entered_count"] == 1
     assert data["entries"][0]["slug"] == slug
+
+
+@pytest.mark.integration
+def test_cli_rebuild_command_reindexes_approved_versions(
+    tmp_path: Path,
+    monkeypatch,
+    clean_db: Any,
+) -> None:
+    """Integration: the rebuild command re-indexes the approved corpus."""
+    slug = f"cli-rebuild-{uuid.uuid4().hex[:8]}"
+    source = """---
+slug: {slug}
+version: 1
+kind: framework
+title: CLI Rebuild Entry
+summary: A short entry.
+locale: en
+markets: [egypt]
+industries: [retail]
+business_models: [b2c]
+objectives: [awareness]
+funnel_stages: [awareness]
+channels: [facebook]
+seasons: []
+budget_modes: []
+evidence_tier: reviewed_guidance
+review_status: approved
+source_references:
+  - internal:reviewed-marketing-methodology
+effective_at: "2026-01-01"
+expires_at: "2027-01-01"
+author: tester
+reviewer: reviewer-1
+reviewed_at: "2026-01-01"
+checksum: ""
+---
+
+# CLI Rebuild Entry
+
+Body content for the rebuild integration test.
+
+- Point one
+- Point two
+""".format(slug=slug)
+
+    knowledge_dir = tmp_path / "knowledge"
+    knowledge_dir.mkdir()
+    (knowledge_dir / f"{slug}.md").write_text(source, encoding="utf-8")
+
+    collection = f"test_cli_rebuild_{uuid.uuid4().hex[:8]}"
+    monkeypatch.setenv("KNOWLEDGE_INTERNAL_CLI_TOKEN", "test-token")
+    monkeypatch.setenv("QDRANT_COLLECTION_NAME", collection)
+
+    ingest_result = runner.invoke(
+        app,
+        [
+            "ingest",
+            "--source-dir",
+            "knowledge",
+            "--repo-root",
+            str(tmp_path),
+            "--no-strict-sources",
+            "--skip-db-ready",
+        ],
+    )
+    assert ingest_result.exit_code == 0, ingest_result.output
+    ingest_data = json.loads(ingest_result.output)
+    assert ingest_data["status"] == "succeeded"
+    expected_chunks = ingest_data["entries"][0]["chunk_count"]
+
+    async def _reset_qdrant() -> None:
+        client = create_qdrant_client(Settings())
+        try:
+            await client.delete_collection(collection_name=collection)
+        finally:
+            await client.close()
+
+    asyncio.run(_reset_qdrant())
+
+    rebuild_result = runner.invoke(
+        app,
+        [
+            "rebuild",
+            "--skip-db-ready",
+        ],
+    )
+    assert rebuild_result.exit_code == 0, rebuild_result.output
+    rebuild_data = json.loads(rebuild_result.output)
+    assert rebuild_data["status"] == "succeeded"
+    assert rebuild_data["entries_processed"] == 1
+    assert rebuild_data["chunks_processed"] == expected_chunks
+
+    async def _verify_qdrant() -> None:
+        client = create_qdrant_client(Settings())
+        try:
+            total = await count_points(client, collection)
+            assert total == expected_chunks
+        finally:
+            await client.close()
+
+    asyncio.run(_verify_qdrant())

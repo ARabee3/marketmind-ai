@@ -21,6 +21,7 @@ from app.db.models import (
     MarketingKnowledgeEntry,
     MarketingKnowledgeEntryVersion,
 )
+from app.embeddings.base import EmbedRequest
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.knowledge.ingestion.errors import IngestionError, IngestionErrorCode
 from app.knowledge.ingestion.qdrant_sync import upsert_chunk_embeddings_to_qdrant
@@ -153,8 +154,6 @@ async def rebuild_qdrant_index(
             try:
                 async with session.begin_nested():
                     texts = [chunk.text for chunk in chunks]
-                    from app.embeddings.base import EmbedRequest
-
                     response = await provider.embed(EmbedRequest(texts=texts))
                     vectors_by_chunk_id = {
                         chunks[embedding.index].chunk_id: embedding.vector

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
@@ -372,7 +373,6 @@ async def run_ingestion_pipeline(
     repo_root: Optional[str] = None,
     dry_run: bool = False,
     resume: bool = False,
-    rebuild: bool = False,
     settings: Optional[Settings] = None,
 ) -> IngestionReport:
     """Run the full knowledge ingestion pipeline.
@@ -382,15 +382,12 @@ async def run_ingestion_pipeline(
         actor: Who initiated the run.
         commit_sha: Optional git commit SHA.
         source_dir: Override knowledge source directory.
-        strict_sources: Override source resolution strictness.
+        strict_sources: Override source reference resolution strictness.
         repo_root: Optional repository root used to resolve a relative source_dir.
         dry_run: If True, validate and report only; no DB writes or embeddings.
         resume: If True, resume from a previous failed run (placeholder).
-        rebuild: If True, re-embed and re-upsert approved live versions.
         settings: Optional Settings override.
     """
-    from pathlib import Path
-
     settings = settings or get_settings()
     _verify_cli_token(settings, cli_token)
 
