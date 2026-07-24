@@ -34,6 +34,7 @@ For each entry, reviewers should confirm:
 | `benchmark-egypt-facebook-reach` | Pending | Pending | Pending | Pending | Verified benchmark entry |
 | `benchmark-egypt-instagram-reach` | Pending | Pending | Pending | Pending | Verified benchmark entry |
 | `benchmark-egypt-internet-social-penetration` | Pending | Pending | Pending | Pending | Verified benchmark entry |
+| `benchmark-egypt-tiktok-reach` | Pending | Pending | Pending | Pending | Verified benchmark entry |
 | `budget-planning-organic-and-scenarios` | Pending | Pending | Pending | Pending | Budget playbook |
 | `channel-delivery-platforms` | Pending | Pending | Pending | Pending | Channel playbook |
 | `channel-facebook` | Pending | Pending | Pending | Pending | Channel playbook |
@@ -44,6 +45,7 @@ For each entry, reviewers should confirm:
 | `content-agent-handoff-boundary` | Pending | Pending | Pending | Pending | Content boundary |
 | `content-experiments-and-format-mix` | Pending | Pending | Pending | Pending | Content playbook |
 | `content-pillars-and-cadence-by-capacity` | Pending | Pending | Pending | Pending | Content playbook |
+| `customer-needs-value-proposition-relevant-7ps` | Pending | Pending | Pending | Pending | Framework entry |
 | `engagement-rate-benchmark-caveat` | Pending | Pending | Pending | Pending | Measurement caveat |
 | `governance-approval-citation-and-limits-policy` | Pending | Pending | Pending | Pending | Policy entry |
 | `kpi-modes-and-vanity-vs-business-metrics` | Pending | Pending | Pending | Pending | Measurement playbook |

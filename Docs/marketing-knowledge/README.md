@@ -11,7 +11,7 @@ generated content live here.
 
 ## What's inside
 
-- 30 entries across 9 directories and 10 knowledge kinds (`frameworks`,
+- 32 entries across 9 directories and 10 knowledge kinds (`frameworks`,
   `objectives`, `channels`, `benchmarks`, `content-strategy`,
   `budget-measurement`, `regional`, `sector-notes`, `policy`).
 - `_schema/FRONT_MATTER_SCHEMA.md` — normative field-by-field front-matter
@@ -19,7 +19,7 @@ generated content live here.
 - `_schema/TAXONOMY.md` — every controlled vocabulary list.
 - `_schema/validate-knowledge.mjs` — authoring-time validator that checks
   every entry, computes SHA-256 checksums, resolves external source URLs,
-  regenerates `MANIFEST.json`, and confirms the two intentional fixtures
+  regenerates `MANIFEST.json`, and confirms the three intentional fixtures
   are unavailable for live retrieval.
 - `MANIFEST.json` — auto-generated index (do not hand-edit; the validator
   regenerates it).
