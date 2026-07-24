@@ -19,11 +19,17 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.db.client import create_async_engine_from_settings
-from app.db.models import Base, MarketingKnowledgeEntry
+from app.db.models import (
+    Base,
+    MarketingKnowledgeChunk,
+    MarketingKnowledgeEntry,
+    MarketingKnowledgeEntryVersion,
+)
 from app.embeddings.base import EmbedRequest, EmbeddingConfig, EmbeddingProvider
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.knowledge.ingestion.chunker import MarkdownChunker
@@ -53,8 +59,9 @@ from app.knowledge.ingestion.schemas import (
     ParsedKnowledgeEntry,
 )
 from app.qdrant.client import create_qdrant_client
-from app.qdrant.collection import ensure_collection
+from app.qdrant.collection import ensure_collection, validate_collection_compatibility
 from app.qdrant.indexes import create_payload_indexes
+from app.qdrant.points import delete_points_by_chunk_ids
 
 
 logger = logging.getLogger(__name__)
@@ -239,11 +246,22 @@ async def _embed_chunks_in_batches(
     return vectors
 
 
-async def _ensure_qdrant_collection_and_indexes(settings: Settings) -> None:
-    """Ensure the configured Qdrant collection and payload indexes exist."""
-    config = _embedding_config_from_settings(settings)
-    client = create_qdrant_client()
+async def _ensure_qdrant_collection_and_indexes(settings: Settings, config: EmbeddingConfig) -> None:
+    """Ensure the configured Qdrant collection and payload indexes exist.
+
+    Validates that an existing collection's embedding fingerprint matches the
+    current configuration so incompatible vectors are not mixed.
+    """
+    client = create_qdrant_client(settings)
     try:
+        await validate_collection_compatibility(
+            client,
+            collection_name=settings.qdrant_collection_name,
+            expected_size=config.dimensions,
+            expected_provider=config.provider,
+            expected_model=config.model,
+            expected_version=config.version,
+        )
         await ensure_collection(
             client,
             collection_name=settings.qdrant_collection_name,
@@ -258,16 +276,15 @@ async def _ensure_qdrant_collection_and_indexes(settings: Settings) -> None:
 
 
 async def _upsert_entry_to_qdrant(
-    settings: Settings,
-    version,
-    db_chunks,
+    session_factory: async_sessionmaker,
+    version: MarketingKnowledgeEntryVersion,
+    db_chunks: list[MarketingKnowledgeChunk],
     vectors_by_chunk_id: dict[UUID, list[float]],
     entry_slug: str,
+    embedding_config: EmbeddingConfig,
+    qdrant_collection_name: str,
 ) -> None:
     """Upsert one entry's chunks into Qdrant and mark them indexed."""
-    from app.db.client import create_async_engine_from_settings
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
     chunks_with_embeddings = [
         (chunk, vectors_by_chunk_id[chunk.chunk_id])
         for chunk in db_chunks
@@ -280,19 +297,68 @@ async def _upsert_entry_to_qdrant(
     await upsert_chunk_embeddings_to_qdrant(
         chunks_with_embeddings,
         versions_by_chunk_id,
-        settings.qdrant_collection_name,
-        _embedding_config_from_settings(settings),
+        qdrant_collection_name,
+        embedding_config,
     )
 
-    engine = create_async_engine_from_settings(settings)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         await mark_chunks_indexed(
             session,
             [chunk.id for chunk, _ in chunks_with_embeddings],
         )
         await session.commit()
-    await engine.dispose()
+
+
+async def _cleanup_retired_qdrant_points(
+    session_factory: async_sessionmaker,
+    settings: Settings,
+) -> None:
+    """Delete Qdrant points for all retired entry versions.
+
+    When version retirement happens in PostgreSQL (via retire_previous_versions
+    or retire_removed_entries), the Qdrant points are not updated in the same
+    session.  This function queries all retired versions, collects their chunks,
+    and deletes them from Qdrant with the stable point IDs.
+
+    If the Qdrant collection does not exist or Qdrant is unreachable, the error
+    is logged but not fatal — a subsequent `rebuild` will recover.
+    """
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(MarketingKnowledgeEntryVersion.id, MarketingKnowledgeEntryVersion.version)
+            .where(MarketingKnowledgeEntryVersion.review_status == "retired")
+        )
+        retired = list(result.all())
+
+    if not retired:
+        return
+
+    client = create_qdrant_client(settings)
+    try:
+        for version_id, version_num in retired:
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(MarketingKnowledgeChunk)
+                    .where(MarketingKnowledgeChunk.entry_version_id == version_id)
+                )
+                chunks = list(result.scalars().all())
+                if not chunks:
+                    continue
+                chunk_ids = [c.chunk_id for c in chunks]
+                try:
+                    await delete_points_by_chunk_ids(
+                        client,
+                        settings.qdrant_collection_name,
+                        chunk_ids,
+                        version_num,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to delete Qdrant points for retired version %s", version_id
+                    )
+    finally:
+        await client.close()
 
 
 async def run_ingestion_pipeline(
@@ -383,6 +449,15 @@ async def run_ingestion_pipeline(
             ],
         )
 
+    # Embedding configuration — created once so the provider and metadata
+    # use the same EmbeddingConfig instance.
+    embedding_config = _embedding_config_from_settings(settings)
+    provider = EmbeddingProviderFactory.from_settings(settings)
+
+    # Verify Qdrant is reachable and the collection is compatible *before*
+    # we create the ingestion run, so we can fail fast.
+    await _ensure_qdrant_collection_and_indexes(settings, embedding_config)
+
     # Database setup.
     engine = create_async_engine_from_settings(settings)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -409,12 +484,7 @@ async def run_ingestion_pipeline(
         report.skipped_count = len(classified.unchanged)
 
         chunker = _create_chunker(settings)
-        embedding_config = _embedding_config_from_settings(settings)
-        provider = EmbeddingProviderFactory.from_settings(settings)
         qdrant_collection_name = settings.qdrant_collection_name
-
-        # Ensure Qdrant collection is ready.
-        await _ensure_qdrant_collection_and_indexes(settings)
 
         # Process new and changed entries.
         all_chunks_for_embedding: list[KnowledgeChunk] = []
@@ -518,9 +588,6 @@ async def run_ingestion_pipeline(
         version_ids = [vid for vid, _ in version_and_chunks_for_qdrant]
         db_chunks_by_version: dict[UUID, list] = {}
         if version_ids:
-            from sqlalchemy import select
-            from app.db.models import MarketingKnowledgeChunk
-
             result = await session.execute(
                 select(MarketingKnowledgeChunk)
                 .where(MarketingKnowledgeChunk.entry_version_id.in_(version_ids))
@@ -530,10 +597,8 @@ async def run_ingestion_pipeline(
                 db_chunks_by_version.setdefault(chunk.entry_version_id, []).append(chunk)
 
         # Load versions for Qdrant payload assembly.
-        version_rows: dict[UUID, object] = {}
+        version_rows: dict[UUID, MarketingKnowledgeEntryVersion] = {}
         if version_ids:
-            from app.db.models import MarketingKnowledgeEntryVersion
-
             result = await session.execute(
                 select(MarketingKnowledgeEntryVersion)
                 .where(MarketingKnowledgeEntryVersion.id.in_(version_ids))
@@ -586,11 +651,13 @@ async def run_ingestion_pipeline(
         entry_slug = entry_slugs_by_id.get(version.entry_id, "unknown")
         try:
             await _upsert_entry_to_qdrant(
-                settings,
+                session_factory,
                 version,
                 db_chunks,
                 vectors_by_chunk_id,
                 entry_slug,
+                embedding_config,
+                qdrant_collection_name,
             )
         except Exception as exc:
             logger.exception("Qdrant upsert failed for version %s", version_id)
@@ -610,6 +677,12 @@ async def run_ingestion_pipeline(
                 }
             )
             report.failed_count += 1
+
+    # Delete Qdrant points for versions retired during this run.
+    try:
+        await _cleanup_retired_qdrant_points(session_factory, settings)
+    except Exception as exc:
+        logger.exception("Failed to clean up retired Qdrant points: %s", exc)
 
     # Determine final run status.
     if report.errors:

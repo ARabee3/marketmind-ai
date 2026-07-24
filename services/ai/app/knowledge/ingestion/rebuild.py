@@ -176,7 +176,6 @@ async def rebuild_qdrant_index(
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
                 for chunk in chunks:
                     chunk.indexed_at = now
-                    chunk.indexed_by = actor
                 await session.flush()
 
                 report.entries_processed += 1
