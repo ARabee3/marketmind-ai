@@ -455,3 +455,143 @@ model FederatedIdentity {
   @@index([userId])
   @@map("federated_identities")
 }
+
+// ── Marketing Knowledge Governance ─────────────────────────────────────
+// Authoritative, versioned, auditable store for the curated RAG knowledge
+// library. Qdrant (see services/ai/app/qdrant) is a rebuildable derived
+// index over MarketingKnowledgeChunk rows — never the other way around.
+// This schema is shared-knowledge only: no Business Profile data here.
+
+model MarketingKnowledgeEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  latestVersion Int      @default(0) @map("latest_version")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  versions MarketingKnowledgeEntryVersion[]
+
+  @@map("marketing_knowledge_entries")
+}
+
+model MarketingKnowledgeEntryVersion {
+  id             String    @id @default(uuid()) @db.Uuid
+  entryId        String    @map("entry_id") @db.Uuid
+  version        Int
+  kind           String
+  title          String
+  summary        String
+  body           String    @db.Text
+  locale         String
+  markets        String[]
+  industries     String[]
+  businessModels String[]  @map("business_models")
+  objectives     String[]
+  funnelStages   String[]  @map("funnel_stages")
+  channels       String[]
+  seasons        String[]
+  budgetModes    String[]  @map("budget_modes")
+  evidenceTier   String    @map("evidence_tier")
+  reviewStatus   String    @default("draft") @map("review_status")
+  effectiveAt    DateTime  @map("effective_at")
+  expiresAt      DateTime? @map("expires_at")
+  author         String
+  reviewer       String?
+  reviewedAt     DateTime? @map("reviewed_at")
+  checksum       String
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  entry   MarketingKnowledgeEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  sources MarketingKnowledgeSourceRef[]
+  chunks  MarketingKnowledgeChunk[]
+
+  @@unique([entryId, version])
+  @@index([reviewStatus, effectiveAt, expiresAt])
+  @@index([kind])
+  @@index([locale])
+  @@index([evidenceTier])
+  @@index([markets], type: Gin)
+  @@index([industries], type: Gin)
+  @@index([businessModels], type: Gin)
+  @@index([objectives], type: Gin)
+  @@index([funnelStages], type: Gin)
+  @@index([channels], type: Gin)
+  @@index([seasons], type: Gin)
+  @@index([budgetModes], type: Gin)
+  @@map("marketing_knowledge_entry_versions")
+}
+
+model MarketingKnowledgeSourceRef {
+  id             String   @id @default(uuid()) @db.Uuid
+  entryVersionId String   @map("entry_version_id") @db.Uuid
+  reference      String
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  entryVersion MarketingKnowledgeEntryVersion @relation(fields: [entryVersionId], references: [id], onDelete: Cascade)
+
+  @@index([entryVersionId])
+  @@unique([entryVersionId, reference])
+  @@map("marketing_knowledge_source_refs")
+}
+
+// NOTE: id uses application-layer @default(uuid()). Revisit
+// @default(dbgenerated("gen_random_uuid()")) here if #71's bulk
+// ingestion benchmarks show round-trip overhead — see PR #94 review.
+model MarketingKnowledgeChunk {
+  id                   String    @id @default(uuid()) @db.Uuid
+  entryVersionId       String    @map("entry_version_id") @db.Uuid
+  chunkOrder           Int       @map("chunk_order")
+  text                 String    @db.Text
+  tokenCount           Int       @map("token_count")
+  checksum             String
+  embeddingProvider    String    @map("embedding_provider")
+  embeddingModel       String    @map("embedding_model")
+  embeddingDimensions  Int       @map("embedding_dimensions")
+  embeddingVersion     String    @map("embedding_version")
+  qdrantPointId        String?   @map("qdrant_point_id") @db.Uuid
+  qdrantCollectionName String?   @map("qdrant_collection_name")
+  indexedAt            DateTime? @map("indexed_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  entryVersion MarketingKnowledgeEntryVersion @relation(fields: [entryVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([entryVersionId, chunkOrder])
+  @@unique([checksum, embeddingProvider, embeddingModel, embeddingDimensions, embeddingVersion], name: "chunk_idempotency_key")
+  @@index([entryVersionId])
+  @@map("marketing_knowledge_chunks")
+}
+
+model MarketingKnowledgeIngestionRun {
+  id            String    @id @default(uuid()) @db.Uuid
+  status        String    @default("pending")
+  actor         String
+  commitSha     String?   @map("commit_sha")
+  configuration Json      @default("{}")
+  enteredCount  Int       @default(0) @map("entered_count")
+  updatedCount  Int       @default(0) @map("updated_count")
+  skippedCount  Int       @default(0) @map("skipped_count")
+  failedCount   Int       @default(0) @map("failed_count")
+  startedAt     DateTime  @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  errors MarketingKnowledgeIngestionError[]
+
+  @@index([status, startedAt])
+  @@map("marketing_knowledge_ingestion_runs")
+}
+
+model MarketingKnowledgeIngestionError {
+  id           String   @id @default(uuid()) @db.Uuid
+  runId        String   @map("run_id") @db.Uuid
+  slug         String?
+  version      Int?
+  errorCode    String   @map("error_code")
+  errorMessage String   @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  run MarketingKnowledgeIngestionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("marketing_knowledge_ingestion_errors")
+}

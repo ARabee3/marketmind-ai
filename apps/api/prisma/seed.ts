@@ -5,6 +5,7 @@ import {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
 } from "../src/modules/rbac/rbac.constants";
+import { seedMarketingKnowledge } from "./fixtures/marketing-knowledge.seed";
 
 /**
  * Prisma seed script.
@@ -102,6 +103,9 @@ async function main() {
   console.log(
     "Seeded RBAC: 3 roles, 7 permissions, and role-permission mappings.",
   );
+
+  // Marketing knowledge governance fixtures (issue #69). Idempotent.
+  await seedMarketingKnowledge(prisma);
 }
 
 main()
