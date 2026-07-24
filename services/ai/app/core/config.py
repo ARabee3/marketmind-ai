@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
-EmbeddingProviderMode = Literal["openai", "fake"]
+EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
 
 
 class Settings(BaseSettings):

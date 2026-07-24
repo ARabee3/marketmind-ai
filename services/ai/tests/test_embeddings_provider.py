@@ -13,6 +13,7 @@ from app.embeddings.base import (
 )
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.embeddings.fake_provider import DeterministicFakeEmbeddingProvider
+from app.embeddings.gemini_provider import GeminiEmbeddingProvider
 from app.embeddings.openai_provider import OpenAIEmbeddingProvider
 
 
@@ -138,3 +139,81 @@ async def test_openai_provider_maps_retryability_without_exposing_details(
     assert "provider details must stay private" not in str(exc_info.value)
     assert "private input must not be logged" not in str(exc_info.value)
     assert exc_info.value.__cause__ is None
+
+
+def test_gemini_provider_requires_api_key(fake_config: EmbeddingConfig) -> None:
+    with pytest.raises(EmbeddingProviderError) as exc_info:
+        GeminiEmbeddingProvider(fake_config, api_key="")
+    assert exc_info.value.code == "EMBEDDING_PROVIDER_NOT_CONFIGURED"
+    assert not exc_info.value.retryable
+
+
+@pytest.mark.anyio
+async def test_gemini_provider_embeds_texts(fake_config: EmbeddingConfig) -> None:
+    config = fake_config.model_copy(update={"provider": "gemini", "dimensions": 768})
+    provider = GeminiEmbeddingProvider(config, api_key="test-key")
+
+    class FakeEmbedding:
+        def __init__(self, values: list[float]) -> None:
+            self.values = values
+
+    class FakeResponse:
+        def __init__(self) -> None:
+            self.embeddings = [
+                FakeEmbedding([0.1] * 768),
+                FakeEmbedding([0.2] * 768),
+            ]
+
+    def _fake_embed(*args, **kwargs):
+        return FakeResponse()
+
+    with patch("google.genai.Client") as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.models.embed_content.side_effect = _fake_embed
+        response = await provider.embed(EmbedRequest(texts=["hello", "world"]))
+
+    assert response.provider == "gemini"
+    assert response.model == config.model
+    assert response.dimensions == 768
+    assert len(response.embeddings) == 2
+    assert response.embeddings[0].text == "hello"
+    assert response.embeddings[1].text == "world"
+    assert len(response.embeddings[0].vector) == 768
+
+
+@pytest.mark.anyio
+async def test_gemini_provider_maps_errors_without_exposing_input(
+    fake_config: EmbeddingConfig,
+) -> None:
+    config = fake_config.model_copy(update={"provider": "gemini", "dimensions": 768})
+    provider = GeminiEmbeddingProvider(config, api_key="test-key")
+
+    with patch("google.genai.Client") as mock_client_cls:
+        mock_client = mock_client_cls.return_value
+        mock_client.models.embed_content.side_effect = RuntimeError("boom")
+
+        with pytest.raises(EmbeddingProviderError) as exc_info:
+            await provider.embed(EmbedRequest(texts=["private customer data"]))
+
+    assert exc_info.value.code == "EMBEDDING_PROVIDER_ERROR"
+    assert exc_info.value.retryable
+    assert "private customer data" not in str(exc_info.value)
+
+
+def test_factory_returns_gemini_provider_when_configured() -> None:
+    with patch("app.embeddings.factory.get_settings") as mock_get_settings:
+        mock_get_settings.return_value = type(
+            "Settings",
+            (),
+            {
+                "embedding_provider_mode": "gemini",
+                "embedding_model": "text-embedding-004",
+                "embedding_dimensions": 768,
+                "embedding_batch_size": 32,
+                "embedding_request_timeout_ms": 60000,
+                "gemini_api_key": "test-key",
+            },
+        )()
+        provider = EmbeddingProviderFactory.from_settings()
+        assert provider.name == "gemini"
+        assert provider.config.model == "text-embedding-004"
