@@ -32,3 +32,6 @@ npm-debug.log*
 # Agent skill lockfile (references local/temp paths; reinstall via npm run agent:setup)
 skills-lock.json
 __pycache__/
+
+# Orchestration / review session artifacts
+.omo/
