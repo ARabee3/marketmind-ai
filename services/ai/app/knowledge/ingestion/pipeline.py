@@ -109,16 +109,20 @@ def _embedding_config_from_settings(settings: Settings) -> EmbeddingConfig:
     )
 
 
-def _pipeline_config(settings: Settings) -> dict:
+def _pipeline_config(
+    settings: Settings,
+    source_dir: Optional[str] = None,
+    qdrant_collection_name: Optional[str] = None,
+) -> dict:
     """Return a serializable configuration snapshot for the ingestion run."""
     return {
-        "source_dir": settings.knowledge_source_dir,
+        "source_dir": source_dir or settings.knowledge_source_dir,
         "chunk_min_tokens": settings.knowledge_chunk_min_tokens,
         "chunk_max_tokens": settings.knowledge_chunk_max_tokens,
         "chunk_overlap_tokens": settings.knowledge_chunk_overlap_tokens,
         "strict_sources": settings.knowledge_strict_sources,
         "embedding": EmbeddingProviderFactory.from_settings(settings).dump_config(),
-        "qdrant_collection": settings.qdrant_collection_name,
+        "qdrant_collection": qdrant_collection_name or settings.qdrant_collection_name,
     }
 
 
@@ -341,7 +345,7 @@ async def run_ingestion_pipeline(
             status="failed",
             actor=actor,
             commit_sha=commit_sha,
-            configuration=_pipeline_config(settings),
+            configuration=_pipeline_config(settings, source_dir=source_dir),
             errors=[
                 {
                     "slug": e.slug,
@@ -361,7 +365,7 @@ async def run_ingestion_pipeline(
             status="dry_run",
             actor=actor,
             commit_sha=commit_sha,
-            configuration=_pipeline_config(settings),
+            configuration=_pipeline_config(settings, source_dir=source_dir),
             entered_count=len(entries),
             updated_count=0,
             skipped_count=0,
@@ -388,7 +392,7 @@ async def run_ingestion_pipeline(
             session,
             actor=actor,
             commit_sha=commit_sha,
-            configuration=_pipeline_config(settings),
+            configuration=_pipeline_config(settings, source_dir=source_dir),
         )
         await session.commit()
 
@@ -439,7 +443,9 @@ async def run_ingestion_pipeline(
                         version_and_chunks_for_qdrant.append((outcome.version_id, chunks))
                 except Exception as exc:
                     logger.exception("Failed to persist entry %s", entry.slug)
-                    await session.rollback()
+                    # The begin_nested() context manager rolls back the savepoint
+                    # automatically when the exception propagates; do not call
+                    # session.rollback() while still inside the context manager.
                     error = IngestionError(
                         code=IngestionErrorCode.DB_WRITE_FAILED,
                         message=str(exc),
@@ -483,7 +489,8 @@ async def run_ingestion_pipeline(
                         )
         except Exception as exc:
             logger.exception("Failed to retire removed entries")
-            await session.rollback()
+            # The begin_nested() context manager rolls back the savepoint
+            # automatically when the exception propagates.
             error = IngestionError(
                 code=IngestionErrorCode.DB_WRITE_FAILED,
                 message=f"Failed to retire removed entries: {exc}",
