@@ -58,6 +58,24 @@ renaming — only chunking, embedding, and Postgres ID assignment.
    to `approved` and fill in `reviewer` (GitHub handle, no `@`) and
    `reviewed_at` (ISO date), then re-run the validator and commit.
 
+## Publishing to the retrieval index
+
+Once entries are `approved`, run the Python ingestion CLI from
+`services/ai`:
+
+```powershell
+# Dry-run first to see what will change
+uv run python -m app.knowledge.ingestion.cli dry-run
+
+# Ingest the approved corpus into PostgreSQL and Qdrant
+uv run python -m app.knowledge.ingestion.cli ingest --commit-sha (git rev-parse HEAD)
+```
+
+The CLI validates the corpus, persists new/updated versions to Postgres,
+generates embeddings, and upserts chunks to Qdrant. See
+`services/ai/app/knowledge/ingestion/README.md` for full CLI reference,
+environment variables, rollback, and troubleshooting.
+
 ## Review workflow
 
 Every entry starts as `draft`. Live retrieval packs may only ever contain
