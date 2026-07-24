@@ -1,13 +1,13 @@
 ---
 slug: engagement-rate-benchmark-caveat
-version: 1
+version: 2
 kind: measurement_playbook
 title: Engagement-Rate / CPC / CPM Benchmark Caveat
 summary: >
   A documented knowledge gap: no reliable Egypt-specific engagement-rate, CPC,
-  or CPM benchmark exists, and the global figures that do exist disagree by an
-  order of magnitude depending on methodology. Treat any externally-quoted
-  figure as unverifiable and use baseline/owner-target KPI modes instead.
+  or CPM benchmark exists, and the global figures that do exist differ by
+  methodology and sample. Treat any externally-quoted figure as unverifiable and
+  use baseline/owner-target KPI modes instead.
 locale: en
 markets:
   - global
@@ -35,7 +35,7 @@ expires_at: '2027-07-21'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: bc637df57e5611599a1112c58387e5e542a7aae085b94b18112b72f1147a6a1a
+checksum: af56867494dd48120d3ea687e7fec725c37c08278c0a61039da488139ea6c006
 ---
 
 ## When useful
@@ -65,15 +65,14 @@ baseline, not to a global number.
 ## The documented gap
 
 **No Egypt-specific engagement-rate, CPC, or CPM benchmark was found in
-the research for this corpus.** The global figures that do exist disagree
-by an order of magnitude depending on methodology. For example, **Rival IQ
+the research for this corpus.** The global figures that do exist differ by
+methodology and sample. For example, **Rival IQ
 reports a 0.30% median Instagram engagement rate by followers**, while
 **Socialinsider reports 0.48% using the same "by followers" formula on a
 different sample** — same metric, same platform, same window, two
-publishers, ~1.6x apart. At the industry level, comparisons between
-publishers reporting on the same platform in the same year can differ by
-**more than 10x**, driven entirely by sample composition (which accounts
-are included, follower-size buckets, public vs. private, geography).
+publishers, about **1.6x apart**. That is enough to make a single global
+figure a weak target for an Egyptian SME unless the source, formula, sample,
+and geography match the plan.
 
 These disagreements are not minor rounding; they mean a single externally
 quoted engagement/CPC/CPM number is not a stable reference point — using it
