@@ -1,6 +1,6 @@
 ---
 slug: content-experiments-and-format-mix
-version: 1
+version: 2
 kind: content_strategy_playbook
 title: Content Experiments and Format Mix
 summary: >
@@ -34,7 +34,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 889857c18b7d581899ea9a1f1c85abcc271ece1a834b2812874e1b7875591ab7
+checksum: 2d843843b4c7d7b00251422260794c127dea10cfc16416b7e8c862f09ee88ace
 ---
 
 ## When useful
@@ -57,13 +57,14 @@ unresolvable.
 
 ## Capacity implications
 
-Run one experiment at a time, with two or three variants, over at least two
-weeks. More variants than that cannot be read at SME volume — the signal
+Run one experiment at a time, with two or three variants. A two-week window is
+an example, not a rule; set the duration from outcome volume, spend, sales
+cycle, and how quickly the channel produces enough observations to read. More
+variants than that often cannot be read at SME volume because the signal
 drowns in noise. Keep the chosen metrics minimal: one awareness proxy
 (reach/views/profile visits) and one conversion proxy (click/DM/business
-action), measured per format. Do not run multi-format experiments while
-also changing offers, captions, or audience targeting — isolate one
-variable.
+action), measured per format. Do not run multi-format experiments while also
+changing offers, captions, or audience targeting — isolate one variable.
 
 ## How it hands off to the Content Agent
 

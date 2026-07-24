@@ -1,12 +1,11 @@
 ---
 slug: content-pillars-and-cadence-by-capacity
-version: 1
+version: 2
 kind: content_strategy_playbook
 title: Content Pillars and Cadence by Capacity
 summary: >
-  How to choose a small set of content pillars and a posting cadence that fits
-  the SME's real team capacity, so a plan produces consistent content rather
-  than an abandoned burst.
+  How to keep Strategy's three to five content pillars while choosing an active
+  weekly subset and posting cadence that fit the SME's real team capacity.
 locale: mixed
 markets:
   - egypt
@@ -36,7 +35,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 34ee2f0876c05aa243e5eb0b4a145d704cbe296d0384d33ceac9d6d68cc1649a
+checksum: 633adb16fe00da87f99ebb2c0b9735b77a00d36a3e310edbcf30fca9bc89ee3f
 ---
 
 ## When useful
@@ -57,21 +56,27 @@ cadence, not a one-window campaign.
 
 ## Capacity implications
 
-The single most important variable is honest team capacity. Pick one of
-three realistic cadence tiers based on real weekly hours, not aspiration:
+Strategy still defines three to five content pillars. A key capacity variable
+is how many of those pillars can be active in a given week. Use these
+illustrative cadence tiers as starting points based on real weekly hours, not
+aspiration:
 
-- **Solo owner, ~1 hour/week** — one post per week plus daily replies; one
-  pillar only (e.g. "what we sell and how to order").
-- **Solo owner + part-time helper, ~3–5 hours/week** — two-to-three posts
-  plus one reel per week; two pillars (e.g. the product + the people/behind
-  the scenes).
-- **Dedicated one-person social role, ~10+ hours/week** — four-to-five posts
-  plus two reels/stories per week; three pillars maximum.
+- **Solo owner, ~1 hour/week** — for example, one post per week plus daily
+  replies; rotate one active pillar at a time (e.g. "what we sell and how to
+  order").
+- **Solo owner + part-time helper, ~3–5 hours/week** — for example,
+  two-to-three posts plus one reel per week; keep a two-pillar active weekly
+  subset (e.g. the product + the people/behind the scenes).
+- **Dedicated one-person social role, ~10+ hours/week** — for example,
+  four-to-five posts plus two reels/stories per week; cover the full three to
+  five content pillars across the month.
 
-Choose two-to-three pillars, not more. A pillar each for the product
-(what it is, how to order), the proof (reviews, photos, results), and the
-person (the owner, the space, behind the scenes) covers most SMEs. Going
-above three pillars with low capacity simply produces broken cadence.
+Capacity changes weekly output and cadence, not the Strategy output contract.
+A pillar each for the product (what it is, how to order), the proof (reviews,
+photos, results), and the person (the owner, the space, behind the scenes)
+covers many SMEs, while higher-capacity teams may add extra pillars within the
+three-to-five-pillar strategy. Low capacity should rotate the active weekly
+subset rather than delete pillars from the plan.
 
 ## How it hands off to the Content Agent
 
