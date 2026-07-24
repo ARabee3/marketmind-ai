@@ -1,6 +1,6 @@
 ---
 slug: sector-note-education
-version: 1
+version: 2
 kind: sector_note
 title: 'Sector Note: Education'
 summary: >
@@ -40,12 +40,14 @@ evidence_tier: contextual_note
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - 'https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf'
+  - 'https://moe.gov.eg/en/what-s-on/news/18-9-25/'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: b74ba59b2cf2f8063e6a320b0f7dea6f4ef98ce9001cb2ad5859c7d1d71992d9
+checksum: ce6924dbaf5f1c61a678d10a9242b0e60deb5d974acde2af877759a6366733a2
 ---
 
 ## When useful
@@ -65,26 +67,43 @@ fills waiting lists.
 
 ## Concrete sector-specific observations
 
-1. **Intake windows dictate everything.** the strongest windows are
-   back-to-school (late August–September) and the start of the second term
-   (around January/February); acquisition paid outside intake windows
-   mainly fills future waiting lists, so plan timing against intake, not
-   against a generic monthly budget.
+1. **Intake windows dictate timing.** verify the official school calendar and
+   each center's intake policy before spending. For the cited 2025/2026 cycle,
+   the Ministry of Education scheduled the new academic year to begin on
+   September 20, 2025; acquisition outside active intake windows may mainly
+   fill future waiting lists, so plan timing against intake, not against a
+   generic monthly budget.
 2. **The decision-maker is usually a parent, not the student.** for K-12
    and tutoring, content and targeting must address the parent's concerns
    (progress, safety, results, trust), not only the student's interest;
    mis-targeting the student is a common waste.
-3. **Proof and results convert.** before/after grades, testimonials, and
-   teacher credibility are the real conversion levers; vague "quality
-   education" claims convert poorly compared to a specific student
-   outcome.
+3. **Proof must protect students first.** teacher credibility, curriculum
+   clarity, parent communication, sample lesson structure, and aggregate
+   progress indicators are safer conversion proof than identifiable student
+   stories. Do not publish an identifiable student, student photos, voice,
+   grades, certificates, classroom footage, or testimonials unless guardian
+   consent, the student's assent where appropriate, the marketing purpose,
+   retention period, and withdrawal path are documented.
 4. **Retention = term renewal.** the LTV lever is term-to-term renewal and
    referral, not monthly churn; a retention plan should schedule around
    renewal moments, not run like a retail loyalty program.
-5. **Trust signals carry regulatory weight.** owner-scale education in
-   Egypt depends on perceived credibility; glassmorphism/AI-glam styling
-   reads as lack of substance — concrete, plain, real photos of the
-   classroom and teachers outperform highly polished but generic creatives.
+5. **Trust signals carry regulatory weight.** use classroom/process proof only
+   when students are not identifiable, or use teacher photos, empty-room shots,
+   lesson materials, anonymized examples, and aggregate outcomes instead.
+
+## Student-data and consent safeguards
+
+- Treat children and student records as sensitive personal data. Guardian
+  consent is required before processing or publishing identifiable student
+  photos, voice, grades, testimonials, certificates, attendance details, or
+  other personal proof; keep the consent specific to the marketing purpose and
+  record how withdrawal will be honoured.
+- Avoid publishing individual outcomes by default. Prefer aggregate pass
+  rates, anonymized progress ranges, class-level attendance trends, sample
+  exercises, parent-facing process explanations, and teacher credentials.
+- If a testimonial or student image is essential, use the least identifying
+  version that still communicates proof, avoid pressure on the student or
+  parent, and remove the asset promptly if consent is withdrawn.
 
 ## Explicit limitation
 
@@ -96,3 +115,8 @@ playbooks before producing a plan.
 
 - `internal:reviewed-marketing-methodology` — team-synthesized
   contextual sector note; no externally sourced numeric claim.
+- PDPC Data Subject Consent Guidelines:
+  https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf
+- Ministry of Education and Technical Education, 18/09/2025 news item — example
+  of official academic-year timing to verify each cycle:
+  https://moe.gov.eg/en/what-s-on/news/18-9-25/

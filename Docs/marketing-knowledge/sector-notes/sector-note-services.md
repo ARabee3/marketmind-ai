@@ -1,6 +1,6 @@
 ---
 slug: sector-note-services
-version: 1
+version: 2
 kind: sector_note
 title: 'Sector Note: Services'
 summary: >
@@ -45,7 +45,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 00186c2663a4ad94b377d7365ba66453686c0b6ba7d09bd5aac3cd43ca9c526a
+checksum: c0ba30f8c7ba1fc03e236ecd95c72b32f81bae5649eedc816d16868a8eeec56b
 ---
 
 ## When useful
@@ -59,8 +59,9 @@ expertise and the bottleneck is booking, not stock.
 
 A poor fit for product businesses and for very high-volume services that
 operate like platforms. Also limited fit for formal B2B services where
-seasonality is minimal — most seasonal guidance does not apply and a
-retention-heavy plan with little paid spend is often the cheaper win.
+seasonality is minimal; seasonal guidance may not apply and retention should
+be chosen only after checking contribution margin, repeat behavior, and
+contact consent.
 
 ## Concrete sector-specific observations
 
@@ -68,20 +69,21 @@ retention-heavy plan with little paid spend is often the cheaper win.
    number of slots the proprietor/business can serve per week; the
    plan's audience size must be paced to booking capacity or extra leads
    are wasted (and harm reputation if unanswered).
-2. **Google Business Profile and a simple booking path are the core
-   stack.** most services are discovered through local search and trust
-   signals (reviews, clear hours, a working phone/WhatsApp). A booking
-   path that requires a phone tag war loses the converted lead.
+2. **Google Business Profile and a simple booking path are common starting
+   points.** many local services are evaluated through local search and trust
+   signals (reviews, clear hours, a working phone/WhatsApp). A booking path
+   that requires a phone tag war loses the converted lead.
 3. **Reputation and proof matter disproportionately.** before/after
-   photos, case results, and reviews convert more than brand awareness;
-   the cost-equivalent spend is in capturing proof, not in paid reach.
-4. **Retention is usually the cheapest lever.** service customers repeat
-   by nature (hair, home services, accounting), so a retention objective
-   with a way to remind existing customers often beats acquisition; only
-   choose acquisition when the booking calendar has real spare capacity.
-5. **Paid reach is optional, not required.** a strong GBP, a one-page
-   site, and review-capture habits often outperform monthly ad spend for
-   services; do not default to `monthly_amount` without a reason.
+   photos, case results, and reviews can support conversion when the owner has
+   consent, regulatory fit, and substantiation; compare proof work with brand
+   awareness only after those safeguards are clear.
+4. **Retention may be efficient when repeat behavior is real.** recurring
+   services (hair, maintenance, accounting) can support a retention objective
+   if reminders are consented and margin-positive; choose acquisition when the
+   booking calendar has real spare capacity and repeat behavior is weak.
+5. **Paid reach is optional, not required.** a strong GBP, a one-page site,
+   and review-capture habits can be enough for some services; do not default
+   to `monthly_amount` without a reason.
 
 ## Explicit limitation
 
