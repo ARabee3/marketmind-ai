@@ -7,9 +7,10 @@ import {
 /**
  * The exact field set of
  * `services/ai/app/qdrant/schemas.py::QdrantKnowledgePoint`, in the order the
- * Pydantic model declares them. This is the hard-coded manual sync check the
- * plan calls for: there is no shared type across the TS/Python boundary, so a
- * drift here is caught by the rebuild-query snapshot test (§10).
+ * Pydantic model declares them. There is no shared type across the TS/Python
+ * boundary, so drift here is caught by `npm run check:qdrant-field-sync`
+ * (`scripts/check-qdrant-field-sync.mjs`, an automated `npm run check` gate)
+ * as well as the rebuild-query snapshot test.
  */
 export const QDRANT_KNOWLEDGE_POINT_FIELDS = [
   "chunk_id",

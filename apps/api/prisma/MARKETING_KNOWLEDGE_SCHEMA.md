@@ -260,10 +260,16 @@ effective_at, expires_at
 
 This is the literal proof that Qdrant is a rebuildable derived index: the
 collection can be deleted and rebuilt from Postgres with no data loss. The
-field list is hard-coded in `QDRANT_KNOWLEDGE_POINT_FIELDS` (a manual TS/Python
-sync check — there is no shared type across the boundary). If
-`QdrantKnowledgePoint` adds a field, update both the export mapping and that
-constant, and the rebuild snapshot test will fail until you do.
+field list is hard-coded in `QDRANT_KNOWLEDGE_POINT_FIELDS`.
+
+The TS↔Python field sync is now an **automated `npm run check` gate**, not a
+manual reminder: `npm run check:qdrant-field-sync` (script at
+`scripts/check-qdrant-field-sync.mjs`) compares the sorted field set of
+`QDRANT_KNOWLEDGE_POINT_FIELDS` against
+`services/ai/app/qdrant/schemas.py::QdrantKnowledgePoint.model_fields` and
+fails `npm run check` on any drift. If `QdrantKnowledgePoint` adds or renames
+a field, update the export mapping and `QDRANT_KNOWLEDGE_POINT_FIELDS`, and
+the rebuild snapshot test (and the sync gate) will fail until you do.
 
 ## Indexes
 
