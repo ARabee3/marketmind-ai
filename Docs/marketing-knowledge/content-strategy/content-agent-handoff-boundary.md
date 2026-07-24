@@ -1,6 +1,6 @@
 ---
 slug: content-agent-handoff-boundary
-version: 1
+version: 2
 kind: content_strategy_playbook
 title: Content Agent Handoff Boundary
 summary: >
@@ -33,7 +33,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 2af8015e3e93007108c3f321ee20ff2608fac6012f14c675a30e6201ae50493d
+checksum: cdd9131e8c88c5ff124d3391c61ff7d369385f29d64acffe8ff518a6a13a7fee
 ---
 
 ## When useful
@@ -66,7 +66,7 @@ Concretely, the Strategy step produces:
 - the chosen objective and its SMART metric;
 - the target segment and positioning line from STP;
 - the chosen channel(s);
-- two-to-three content pillars;
+- three to five content pillars;
 - a cadence tier (posts/week, reels/week);
 - language and seasonal timing (from
   `regional-language-tone-and-seasonal-calendar`);

@@ -1,6 +1,6 @@
 ---
 slug: sector-note-retail
-version: 1
+version: 2
 kind: sector_note
 title: 'Sector Note: Retail'
 summary: >
@@ -38,12 +38,14 @@ evidence_tier: contextual_note
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - 'https://www.ipsos.com/en-eg/2025-ramadan-handbook-egypt-edition'
+  - 'https://moe.gov.eg/en/what-s-on/news/18-9-25/'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 40b1663acc400a0aeb1bd37d95817183ba2881ecdb960d7fc22dcd36b1c60558
+checksum: a6605a722a2f25f904bcdb20abea9b585d1b92762f53a180f00e11915319e590
 ---
 
 ## When useful
@@ -61,13 +63,14 @@ brand than an SME — the dynamics here assume owner-scale operation.
 
 ## Concrete sector-specific observations
 
-1. **Seasonality dominates planning.** retail's biggest windows in Egypt
-   are Ramadan, Eids, back-to-school, and winter gifting; a 12-week plan
-   that ignores these windows misses most of the year's revenue opportunity
-   and a plan that overlaps all of them at once cannot attribute wins.
+1. **Seasonality changes planning when the category fits.** Ramadan, Eids,
+   back-to-school, and winter gifting can matter for specific retail
+   categories, but only when stock, offer, and audience timing support them. A
+   12-week plan should choose one relevant window or stay evergreen; a plan
+   that overlaps unrelated windows cannot attribute wins.
 2. **Stock and pricing transparency convert.** clear photos, clear prices,
    and "in stock / out of stock" honesty are the conversion levers; vague
-   "DM for price" is a conversion killer for new customers, even though
+   "DM for price" can discourage new customers, even though
    some owners prefer it.
 3. **Discovery is increasingly off-platform first.** many retail customers
    find items on Instagram/TikTok and then go to the seller's WhatsApp —
@@ -92,3 +95,9 @@ playbooks before producing a plan.
 
 - `internal:reviewed-marketing-methodology` — team-synthesized
   contextual sector note; no externally sourced numeric claim.
+- Ipsos, `The 2025 Ramadan Handbook — Egypt Edition` — Egypt Ramadan consumer
+  behaviour and advertising context:
+  https://www.ipsos.com/en-eg/2025-ramadan-handbook-egypt-edition
+- Ministry of Education and Technical Education, 18/09/2025 news item — example
+  of official academic-year timing to verify each cycle:
+  https://moe.gov.eg/en/what-s-on/news/18-9-25/

@@ -10,7 +10,7 @@
   "scripts": {
     "agent:setup": "node scripts/agent-tools/setup.mjs",
     "agent:doctor": "node scripts/agent-tools/doctor.mjs",
-    "check:marketing-knowledge": "node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
+    "check:marketing-knowledge": "node --test Docs/marketing-knowledge/_schema/source-resolution.test.mjs && node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
     "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check -w @marketmind/web && npm run check:marketing-knowledge",
     "check:ai": "cd services/ai && uv run pytest",
     "docker:up": "docker compose -f infra/docker/docker-compose.local.yml up -d && wait-on tcp:5433 tcp:6379",

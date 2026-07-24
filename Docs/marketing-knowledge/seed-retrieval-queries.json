@@ -15,6 +15,16 @@
     "notes": "STP framework entry."
   },
   {
+    "query": "After choosing a target customer, how do I connect customer needs, value proposition, and relevant 7Ps?",
+    "expected_top_slugs": ["customer-needs-value-proposition-relevant-7ps", "audience-positioning-stp"],
+    "notes": "Foundation framework seed for the Sprint 4 customer-need, value-proposition, and relevant-7Ps step after STP."
+  },
+  {
+    "query": "بعد ما أحدد العميل، إزاي أحول customer needs إلى value proposition وأراجع relevant 7Ps بس؟",
+    "expected_top_slugs": ["customer-needs-value-proposition-relevant-7ps"],
+    "notes": "Arabic/mixed-language seed for the customer needs, value proposition, and relevant 7Ps framework."
+  },
+  {
     "query": "When is the awareness objective the right priority for my business?",
     "expected_top_slugs": ["objective-awareness", "channel-google-business-profile"],
     "notes": "Awareness objective playbook, with GBP as a low-cost awareness channel."
@@ -166,12 +176,12 @@
   },
   {
     "query": "What is the verified TikTok reach benchmark for Egypt in 2026?",
-    "expected_top_slugs": [],
-    "notes": "Intentional no-result / knowledge-gap seed: no verified Egypt TikTok reach benchmark exists; #75 must assert the system returns a knowledge_gap, not a fabricated number."
+    "expected_top_slugs": ["benchmark-egypt-tiktok-reach"],
+    "notes": "Verified TikTok reach benchmark retrieval; must surface the DataReportal/TikTok caveated reach-planning entry, not a CPC, CPM, or performance claim."
   },
   {
-    "query": "What is the current Egypt-specific CPC and CPM I should use to set my paid budget?",
+    "query": "What current Egypt-specific TikTok CPC, CPM, or performance benchmark should I use to set my paid budget?",
     "expected_top_slugs": [],
-    "notes": "Intentional no-result seed: no verified Egypt CPC/CPM benchmark exists; relevant entry (engagement-rate-benchmark-caveat) explains the gap rather than supplying a number. #75 should treat presence of the caveat entry + absence of a numeric entry as the expected honest behaviour."
+    "notes": "Intentional no-result seed: no verified Egypt-specific TikTok CPC, CPM, or performance benchmark exists; the reach benchmark must not be used as a paid-cost or outcome benchmark."
   }
 ]

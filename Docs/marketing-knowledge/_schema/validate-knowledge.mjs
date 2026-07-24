@@ -1,21 +1,25 @@
 #!/usr/bin/env node
+// allow: SIZE_OK — this standalone authoring CLI intentionally keeps the
+// corpus schema, fixture gates, checksum updates, and manifest generation in
+// one executable so contributors run and review one authoritative validator.
 // Authoring-time validator for the MarketMind marketing knowledge corpus.
 //
 // Walks every .md entry under Docs/marketing-knowledge/** (excluding _schema/
 // and README.md), validates front matter against the schema and taxonomy,
 // computes SHA-256 checksums and writes them back into each file, regenerates
-// MANIFEST.json, and confirms that two intentionally-invalid fixtures under
+// MANIFEST.json, and confirms that three intentional fixtures under
 // _schema/fixtures/ are correctly flagged as unavailable-for-live-retrieval.
 //
 // Exits non-zero on any failure with a per-file error list.
 
-import { readFile, writeFile, readdir, stat, mkdir } from "node:fs/promises";
+import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { createHash } from "node:crypto";
 import matter from "gray-matter";
+import { resolveSource } from "./source-resolution.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const KNOWLEDGE_ROOT = join(__dirname, "..");
@@ -118,7 +122,11 @@ const REQUIRED_KEYS = [
 ];
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const INTERNAL_REF = "internal:reviewed-marketing-methodology";
+const EXPECTED_FIXTURE_PATHS = [
+  "_schema/fixtures/fixture-draft-sample.md",
+  "_schema/fixtures/fixture-expired-sample.md",
+  "_schema/fixtures/fixture-seasonal-null-expiry.invalid.md",
+];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -151,13 +159,14 @@ function relativeFromRoot(p) {
   return relative(KNOWLEDGE_ROOT, p).split(sep).join("/");
 }
 
-function validateEntry(file, data) {
+function validateEntry(file, data, { allowInvalidFixtureSuffix = false } = {}) {
   const errs = [];
   const fm = data;
-  const slugFromFile = file
-    .split(sep)
-    .pop()
-    .replace(/\.md$/, "");
+  const fileName = file.split(sep).pop();
+  const slugFromFile =
+    allowInvalidFixtureSuffix && fileName.endsWith(".invalid.md")
+      ? fileName.replace(/\.invalid\.md$/, "")
+      : fileName.replace(/\.md$/, "");
 
   for (const k of REQUIRED_KEYS) {
     if (!(k in fm)) errs.push(`missing required key "${k}"`);
@@ -245,6 +254,9 @@ function validateEntry(file, data) {
       errs.push(`expires_at (${fm.expires_at}) is before effective_at (${fm.effective_at})`);
     }
   }
+  if (Array.isArray(fm.seasons) && fm.seasons.length > 0 && !isISODate(fm.expires_at)) {
+    errs.push(`seasonal entries require expires_at to be a valid ISO date`);
+  }
 
   // author / reviewer / reviewed_at consistency
   if (typeof fm.author !== "string" || fm.author.trim() === "") {
@@ -270,36 +282,6 @@ function validateEntry(file, data) {
   }
 
   return errs;
-}
-
-async function resolveSource(url) {
-  if (url === INTERNAL_REF) return { ok: true, skipped: true };
-  try {
-    let res = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: AbortSignal.timeout(15000),
-    });
-    if (res.status === 405 || res.status === 403) {
-      // Some servers reject HEAD; fall back to GET.
-      res = await fetch(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: AbortSignal.timeout(20000),
-      });
-      // We do not consume the body for status only when redirecting away;
-      // for GET we should ensure we close it.
-      try {
-        await res.body?.cancel();
-      } catch {}
-    }
-    if (res.status >= 400) {
-      return { ok: false, status: res.status };
-    }
-    return { ok: true, status: res.status };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
 }
 
 async function processFile(file, { writeBack = true, resolveUrls = true }) {
@@ -342,11 +324,39 @@ async function checkFixtures() {
     return [{ path: "_schema/fixtures/", errs: ["fixtures directory missing"] }];
   }
   const files = await walk(FIXTURES_DIR);
+  const fixturePaths = new Set(files.map(relativeFromRoot));
+  for (const expectedPath of EXPECTED_FIXTURE_PATHS) {
+    if (!fixturePaths.has(expectedPath)) {
+      results.push({
+        path: expectedPath,
+        errs: ["required fixture missing"],
+      });
+    }
+  }
   for (const f of files) {
     const raw = await readFile(f, "utf8");
     const parsed = matter(raw);
-    const errs = validateEntry(f, parsed.data);
+    const expectedInvalid = f.endsWith(".invalid.md");
+    const errs = validateEntry(f, parsed.data, {
+      allowInvalidFixtureSuffix: expectedInvalid,
+    });
     const fm = parsed.data;
+    if (expectedInvalid) {
+      const hasExpectedError = errs.some((e) => /seasonal.*expires_at/i.test(e));
+      results.push({
+        path: relativeFromRoot(f),
+        errs: hasExpectedError
+          ? []
+          : [
+              `expected invalid fixture to produce seasonal expires_at error; got ${
+                errs.length ? errs.join("; ") : "no validation errors"
+              }`,
+            ],
+        availability: hasExpectedError ? [`fixture confirmed expected-invalid: ${errs.join("; ")}`] : [],
+        data: fm,
+      });
+      continue;
+    }
     // Live-retrieval availability check: must be flagged unavailable if
     // past expires_at OR review_status !== "approved".
     const availability = [];
@@ -485,7 +495,8 @@ async function main() {
       if (existingEntries === newEntries) {
         manifestChanged = false;
       }
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
       manifestChanged = true;
     }
   }

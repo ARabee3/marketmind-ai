@@ -2,8 +2,9 @@
 
 Every entry in `Docs/marketing-knowledge/` is a Markdown file with YAML
 front matter. This document is the normative, field-by-field specification.
-The authoring validator (`_schema/validate-knowledge.mjs`) enforces every
-rule here; do not hand-edit fields the validator owns (notably `checksum`).
+The authoring validator (`_schema/validate-knowledge.mjs`) enforces the
+machine-checkable structure here; do not hand-edit fields the validator owns
+(notably `checksum`). Human review owns source fitness and content accuracy.
 
 ## Field-by-field spec
 

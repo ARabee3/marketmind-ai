@@ -1,6 +1,6 @@
 ---
 slug: budget-planning-organic-and-scenarios
-version: 1
+version: 2
 kind: budget_playbook
 title: 'Budget Planning: Organic and Scenarios'
 summary: >
@@ -37,7 +37,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: a9ad3e8ba6d21a21782dc6c1a1fff0fbb0cc71c81a54f488483832fe5d8b425e
+checksum: 06aa144367099f1fc17c708c9e422ee866c532f3938d88330a892662ab151f3a
 ---
 
 ## When useful
@@ -75,8 +75,10 @@ acquisition over 12 weeks.
 - **Mode:** `monthly_amount` — commit 3,000 EGP/month for the 12 weeks =
   roughly 9,000 EGP total, but released flat (3,000/month) so a stop or
   resume mid-plan does not break it.
-- **Test-first split:** run the first **1,000 EGP** as a 5–7 day test to
-  learn a rough cost-per-new-customer, then either continue or adjust.
+- **Test-first split:** run the first **1,000 EGP** as an example test slice
+  to learn a rough cost-per-new-customer, then either continue or adjust. The
+  test duration depends on outcome volume, spend level, sales cycle, and the
+  platform learning period; 5–7 days is only an illustrative short-cycle case.
 - **Measurement anchor:** count *new customers* each week and the spend
   that produced them, not clicks alone. If the test shows cost per new
   customer is clearly unprofitable after margin, stop and re-plan before

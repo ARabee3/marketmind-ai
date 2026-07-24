@@ -5,7 +5,7 @@ until the required human reviews are complete.
 
 ## Current state
 
-- Entry count: 30
+- Entry count: 32
 - Approved entries: 0
 - Live-retrievable entries: 0
 - Current manifest status: all entries are `draft`

@@ -1,12 +1,11 @@
 ---
 slug: benchmark-egypt-facebook-reach
-version: 1
+version: 2
 kind: benchmark_report
-title: Egypt Facebook Reach — June 2026
+title: Egypt Facebook Advertising Reach — Digital 2026
 summary: >
-  Verified, single-source figure for Facebook users in Egypt in June 2026, with
-  age and gender breakdown, methodology, and explicit do/don't for use in
-  strategy planning.
+  Meta-derived Facebook advertising-reach figures for Egypt from the Digital
+  2026 report, with methodology and explicit limits for strategy planning.
 locale: en
 markets:
   - egypt
@@ -24,54 +23,56 @@ budget_modes: []
 evidence_tier: verified_benchmark
 review_status: draft
 source_references:
-  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/'
-effective_at: '2026-06-01'
-expires_at: '2026-12-01'
+  - 'https://datareportal.com/reports/digital-2026-egypt'
+effective_at: '2026-01-01'
+expires_at: '2026-12-31'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 1890f75eb8e89f94dbf46e7d5705066343de932a569d2f326516ce7f85881838
+checksum: d0f21ad95407518e6d75000fb4b47abc732b6d9afda8007206405fdb1d4edfec
 ---
 
 ## The exact figure(s)
 
-Facebook had **63,299,100 users in Egypt in June 2026**, equal to **53%** of
-the country's population. The largest age group was **25–34** with
-**21.4 million** users. **58.8%** of users were men.
+Meta's advertising resources indicated a potential Facebook ad reach of
+**51.6 million people in Egypt in late 2025**. The figure was equivalent to
+**68.8% of Egypt's adults aged 18 and above** and **52.5% of the country's
+internet users** in October 2025. Within the adult advertising audience,
+**38.8% was female and 60.1% was male**; Meta's two published gender shares do
+not always sum to 100%.
 
 ## Methodology (who measured it, how, when)
 
-Figures are published by NapoleonCat from their "Social Media Users in
-Egypt" dashboard, June 2026 snapshot. The numbers are platform-reported
-advertising audience estimates (the audience reachable through Meta Ads),
-aggregated by age and gender, returned for the country of Egypt.
+DataReportal's Digital 2026 Egypt report reproduces figures published in Meta's
+advertising resources. The report was published for 2026, while the Facebook
+reach snapshot is from late 2025. These are platform advertising-audience
+estimates, not a census of active or unique people. DataReportal also warns that
+Meta changed its audience-reporting method, so the figures may not be directly
+comparable with older reports.
 
 ## What it should and should not be used to claim
 
-**May be used to claim:** the size and demographic shape of the Facebook
-advertising audience in Egypt as of June 2026 — i.e. that Facebook reaches
-a large, adult-skewing audience in Egypt and that the 25–34 band is the
-largest cohort. This supports choosing Facebook for objectives targeting an
-adult Egyptian audience.
+**May be used to claim:** the approximate national scale and adult reach of
+Facebook's addressable advertising audience in Egypt in late 2025. It can
+support considering Facebook when the intended audience includes Egyptian
+adults, subject to business-specific testing.
 
 **Should not be used to claim:** unique human individuals (platform ad
 audiences overcount due to duplicate and business accounts); specific
 sub-city or neighbourhood reach (the figure is country-level); engagement
 rate, CPC, CPM, or conversion likelihood — none of those are measured
-here, see `engagement-rate-benchmark-caveat.md`. It also should not be used
-to justify Facebook as a channel for a teen-only audience (the cohort skew
-is adult).
+here, see `engagement-rate-benchmark-caveat.md`. Do not compare it directly
+with older Meta reach figures without reviewing the methodology change.
 
 ## Expiry rationale
 
-Platform-reach figures move on a roughly quarterly basis as Meta updates
-its ad audience estimates and as population/penetration shift. A six-month
-freshness window (effective June 2026, expires December 2026) is
-appropriate; the Strategy step must treat this entry as unavailable for
-live retrieval after `expires_at: "2026-12-01"` and a refreshed entry must
-be authored.
+Platform-reach figures and reporting methods change. This entry expires at the
+end of 2026; the Strategy step must treat it as unavailable for live retrieval
+after `expires_at: "2026-12-31"` and use a refreshed country report or a
+current Meta planning estimate.
 
 ## Sources
 
-- NapoleonCat, "Social Media Users in Egypt," June 2026 snapshot:
-  https://stats.napoleoncat.com/social-media-users-in-egypt/
+- DataReportal, `Digital 2026: Egypt` — Facebook reach figures derived from
+  Meta's advertising resources, with reporting-method caveats:
+  https://datareportal.com/reports/digital-2026-egypt

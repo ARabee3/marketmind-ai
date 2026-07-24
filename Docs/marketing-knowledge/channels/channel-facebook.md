@@ -1,6 +1,6 @@
 ---
 slug: channel-facebook
-version: 1
+version: 2
 kind: channel_playbook
 title: 'Facebook Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -39,12 +39,13 @@ evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - 'https://www.facebook.com/business/help/718033381901819'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 7fc05765d64782745455e84da58a938eb831d479c1b05ab12186968c01345848
+checksum: 8943362f0d7119c70afd665cb8b511dca95ae65599a5fe5ffc6bc480984b36c3
 ---
 
 ## Use cases (fit)
@@ -87,13 +88,15 @@ medium-low capacity channel for an SME.
 
 ## Organic vs. paid role
 
-Organic Facebook reach for a business page is low without paid support; a
-page that posts organically only reaches a fraction of its existing
-followers and almost no new people. Organic is most valuable for keeping a
-warm community, posting hours and updates, and reply responsiveness. Paid
-is what moves reach and acquisition at a city scale for a real budget; pure
-organic will not produce measurable acquisition within a 12-week window for
-most businesses.
+Organic Facebook distribution for a business page is less predictable and
+harder to control than paid support; Meta describes Facebook distribution
+as a ranked system based on content and viewer signals, so a Page should
+not assume each post will reach followers or new buyers. Organic is most
+valuable for keeping a warm community, posting hours and updates, and reply
+responsiveness. Paid is the more controllable way to expand reach and test
+acquisition at a city scale for a real budget; pure organic should be
+treated as uncertain acquisition support and measured against counted
+business actions.
 
 ## Budget notes
 
@@ -125,3 +128,5 @@ page go dormant, which reads as "closed" to a new visitor.
 - `internal:reviewed-marketing-methodology` — team-synthesized channel
   fit guidance; reach figure cross-referenced to
   `benchmark-egypt-facebook-reach.md`.
+- Meta Business Help Center, "How Facebook Distributes Content":
+  https://www.facebook.com/business/help/718033381901819

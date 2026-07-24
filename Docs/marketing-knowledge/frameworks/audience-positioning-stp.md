@@ -1,6 +1,6 @@
 ---
 slug: audience-positioning-stp
-version: 1
+version: 2
 kind: framework
 title: 'Audience and Positioning: STP'
 summary: >
@@ -31,17 +31,16 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: f4e3a228f0522cee515c10d3c89968b16735539574666ab53eaa02205d8fef4b
+checksum: 0695300e18b407ddc0478e8941d09884258b23fc4186803dec5802b43acbb8ce
 ---
 
 ## When to use it
 
 Use STP once situation diagnosis has named at least one real customer. It is
-the framework that resolves "everyone is my customer" — which is the single
-most common reason an SME's ads and posts reach nobody in particular. STP is
-also the right step when the owner can describe the product but not the
-person who buys it, or when two very different customer types are being
-marketed to with one message.
+the framework that resolves "everyone is my customer" into a segment the SME
+can actually reach and serve. STP is also the right step when the owner can
+describe the product but not the person who buys it, or when two very
+different customer types are being marketed to with one message.
 
 ## How to apply it to a small SME
 
@@ -50,9 +49,9 @@ demographics alone. For a café, that might be "morning commuters who buy
 coffee and leave" versus "evening students who stay and order food." Keep
 demographics light; lead with the behaviour and the job the customer is
 hiring the business to do. **Target** one segment for the next 12 weeks —
-not the biggest, the most profitable or the most reachable given the team's
+the one that is reachable, valuable enough, and realistic for the team's
 capacity. Picking one segment is what makes a small budget workable; picking
-all three with one message is what makes it disappear.
+all three with one message is what makes the learning unreadable.
 
 **Position** with a single one-line statement filling this template: "For
 [target segment] who [job-to-be-done / pain], [business name] is the
@@ -76,12 +75,14 @@ and a second is a tax on focus.
 
 ## How it feeds the next Strategy step
 
-The chosen segment and the positioning line flow directly into channel
-selection — the channel where the target segment actually spends time — and
-into content pillars. A positioning line that names a behaviour and a reason
-to believe gives the Content Agent something concrete to plan around; a
-vague line gives it nothing. STP is what lets the Strategy step answer
-"which channel and what tone" instead of just "any channel, any tone."
+The chosen segment and the positioning line flow into
+`customer-needs-value-proposition-relevant-7ps.md`: the next Strategy step
+checks the customer's need, the value proposition, and only the 7Ps that could
+change the plan. That then informs channel selection and content pillars. A
+positioning line that names a behaviour and a reason to believe gives the
+Content Agent something concrete to plan around; a vague line gives it
+nothing. STP is what lets the Strategy step answer "which channel and what
+tone" instead of just "any channel, any tone."
 
 ## Sources
 
