@@ -11,7 +11,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -19,10 +18,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.core.config import Settings
 from app.db.client import create_async_engine_from_settings
 from app.db.models import (
-    MarketingKnowledgeChunk,
     MarketingKnowledgeEntry,
     MarketingKnowledgeEntryVersion,
-    MarketingKnowledgeIngestionRun,
 )
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.knowledge.ingestion.errors import IngestionError, IngestionErrorCode
@@ -34,9 +31,8 @@ from app.knowledge.ingestion.repository import (
     increment_run_counts,
     record_ingestion_error,
 )
-from app.knowledge.ingestion.schemas import IngestionEntryResult, IngestionReport
 from app.qdrant.client import create_qdrant_client
-from app.qdrant.collection import ensure_collection
+from app.qdrant.collection import ensure_collection, validate_collection_compatibility
 from app.qdrant.indexes import create_payload_indexes
 
 
@@ -103,17 +99,25 @@ async def rebuild_qdrant_index(
     _verify_cli_token(settings, cli_token)
 
     target_collection = collection_name or settings.qdrant_collection_name
-    embedding_config = EmbeddingProviderFactory.from_settings(settings).config
     provider = EmbeddingProviderFactory.from_settings(settings)
+    embedding_config = provider.config
 
     report = RebuildReport(status="running", actor=actor)
 
     engine = create_async_engine_from_settings(settings)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    # Ensure Qdrant collection exists.
+    # Ensure Qdrant collection exists and is compatible.
     qdrant_client = create_qdrant_client(settings)
     try:
+        await validate_collection_compatibility(
+            qdrant_client,
+            collection_name=target_collection,
+            expected_size=embedding_config.dimensions,
+            expected_provider=embedding_config.provider,
+            expected_model=embedding_config.model,
+            expected_version=embedding_config.version,
+        )
         await ensure_collection(
             qdrant_client,
             collection_name=target_collection,
@@ -147,42 +151,44 @@ async def rebuild_qdrant_index(
                 continue
 
             try:
-                texts = [chunk.text for chunk in chunks]
-                from app.embeddings.base import EmbedRequest
+                async with session.begin_nested():
+                    texts = [chunk.text for chunk in chunks]
+                    from app.embeddings.base import EmbedRequest
 
-                response = await provider.embed(EmbedRequest(texts=texts))
-                vectors_by_chunk_id = {
-                    chunks[embedding.index].chunk_id: embedding.vector
-                    for embedding in response.embeddings
-                }
+                    response = await provider.embed(EmbedRequest(texts=texts))
+                    vectors_by_chunk_id = {
+                        chunks[embedding.index].chunk_id: embedding.vector
+                        for embedding in response.embeddings
+                    }
 
-                chunks_with_embeddings = [
-                    (chunk, vectors_by_chunk_id[chunk.chunk_id])
-                    for chunk in chunks
-                    if chunk.chunk_id in vectors_by_chunk_id
-                ]
-                versions_by_chunk_id = {
-                    chunk.id: (entry.slug, version) for chunk in chunks
-                }
+                    chunks_with_embeddings = [
+                        (chunk, vectors_by_chunk_id[chunk.chunk_id])
+                        for chunk in chunks
+                        if chunk.chunk_id in vectors_by_chunk_id
+                    ]
+                    versions_by_chunk_id = {
+                        chunk.id: (entry.slug, version) for chunk in chunks
+                    }
 
-                await upsert_chunk_embeddings_to_qdrant(
-                    chunks_with_embeddings,
-                    versions_by_chunk_id,
-                    target_collection,
-                    embedding_config,
-                )
+                    await upsert_chunk_embeddings_to_qdrant(
+                        chunks_with_embeddings,
+                        versions_by_chunk_id,
+                        target_collection,
+                        embedding_config,
+                    )
 
-                # Mark chunks indexed.
-                now = datetime.now(timezone.utc).replace(tzinfo=None)
-                for chunk in chunks:
-                    chunk.indexed_at = now
-                await session.flush()
+                    # Mark chunks indexed.
+                    now = datetime.now(timezone.utc).replace(tzinfo=None)
+                    for chunk in chunks:
+                        chunk.indexed_at = now
+                    await session.flush()
 
                 report.entries_processed += 1
                 report.chunks_processed += len(chunks_with_embeddings)
             except Exception as exc:
                 logger.exception("Rebuild failed for %s", entry.slug)
-                await session.rollback()
+                # The begin_nested() context manager rolls back the savepoint
+                # automatically when the exception propagates.
                 error = IngestionError(
                     code=IngestionErrorCode.QDRANT_UPSERT_FAILED,
                     message=str(exc),
