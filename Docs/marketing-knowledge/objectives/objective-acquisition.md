@@ -1,6 +1,6 @@
 ---
 slug: objective-acquisition
-version: 1
+version: 2
 kind: objective_playbook
 title: Acquisition Objective Playbook
 summary: >
@@ -33,7 +33,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 81d1ea8fae57409a140a6e005ff00983f42fde26013ca70fcdd35d5ef9abd5bb
+checksum: e84a69b2a5f33d7443a75b00ab5742c3256a825aabb119b8926fcf48d65564d4
 ---
 
 ## Fit signals (when this objective is right now)
@@ -49,8 +49,9 @@ first-time customers before a peak (e.g. before Ramadan for a bakery).
 ## Poor-fit signals
 
 Acquisition is a poor fit when the business cannot retain the customers it
-already gets — the cheaper win is usually retention, not new acquisition.
-It is also a poor fit when there is no measurable "first-time customer
+already gets and the owner's contribution margin, repeat behavior, and
+contact consent make retention the stronger hypothesis to test first. It is
+also a poor fit when there is no measurable "first-time customer
 action" defined (no first order, no first booking, no clear new-customer
 signal in the point-of-sale or order system), because without that signal
 the objective cannot be measured and therefore cannot be managed. Acquisition
@@ -72,8 +73,9 @@ phone/WhatsApp line, clear hours, an obvious address, a simple order path;
 (3) a targeted offer for first-time customers (a reason to try now, not
 "come eventually"); (4) a small, measurable acquisition channel where the
 target segment is reachable (often a geotargeted Facebook/Instagram effort
-or a Google Business Profile that converts local search). The KPI is new
-customers per week and, where paid is used, cost per new customer.
+or a Google Business Profile that converts local search). The plan should
+establish a baseline for new customers per week before judging lift. The KPI
+is new customers per week and, where paid is used, cost per new customer.
 
 ## Risks of choosing this objective when it doesn't fit
 

@@ -1,6 +1,6 @@
 ---
 slug: objective-awareness
-version: 1
+version: 2
 kind: objective_playbook
 title: Awareness Objective Playbook
 summary: >
@@ -28,11 +28,11 @@ review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 681efe2a357b341bbc46871c9bce2561211374ac58d243ab6ffd5c3c86757215
+checksum: dd79ad3e889d90aa7f3d22887e573ff18f2660b43730725f209a97ccbf2d4e72
 ---
 
 ## Fit signals (when this objective is right now)
@@ -55,8 +55,9 @@ no capacity to absorb new customers (no stock, one cook, fully booked
 calendar) and would only damage reputation by driving traffic they cannot
 serve. Finally it is a poor fit for a solo owner with no budget and no team
 capacity, because cost-effective awareness at scale usually needs at least
-some paid distribution; pure-organic awareness works but slowly, and there
-are usually cheaper wins first (search, Google Business Profile).
+some paid distribution; pure-organic awareness works slowly, so first test
+whether search readiness, Google Business Profile completeness, or conversion
+fixes are the more practical bottleneck.
 
 ## Typical funnel stage(s)
 
@@ -76,8 +77,9 @@ recognizable, repeatable posts about what the business is and does,
 favoring formats that travel for free (reels, local community posts, Google
 Business Profile updates). The plan should pick one reach-related KPI with
 a baseline measured in the first two weeks, and measure recall by a cheap
-proxy (e.g. profile views, business-profile directional queries) — not by
-inventing an Egypt engagement benchmark.
+proxy (e.g. profile views, Google Business Profile actions such as calls,
+direction requests, website clicks, messages, or bookings) — not by inventing
+an Egypt engagement benchmark.
 
 ## Risks of choosing this objective when it doesn't fit
 
@@ -85,8 +87,9 @@ Choosing awareness when the bottleneck is conversion wastes budget on
 people who already know the business but don't buy. Choosing awareness with
 no capacity to serve new customers creates a negative first impression that
 harms future conversion. Choosing awareness purely organically with no
-budget and no team capacity tends to produce almost nothing measurable in
-a 12-week window, leaving the owner discouraged and the plan unreviewable.
+budget and no team capacity can leave too little signal in a 12-week window;
+set a baseline establishment period and choose a proxy the owner can actually
+observe before committing the plan.
 
 ## Sources
 

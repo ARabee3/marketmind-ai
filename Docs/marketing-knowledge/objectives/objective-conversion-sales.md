@@ -1,6 +1,6 @@
 ---
 slug: objective-conversion-sales
-version: 1
+version: 2
 kind: objective_playbook
 title: Conversion / Sales Objective Playbook
 summary: >
@@ -32,7 +32,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 74b903c474c551bfa69962c8f23bf438f356fe4d8e4b4bd6607d10221180bc81
+checksum: 9cd34045d4653a8e5cba6e4e6654a98826302dae1d427b53ce753cb5790b422c
 ---
 
 ## Fit signals (when this objective is right now)
@@ -52,10 +52,10 @@ Conversion is a poor fit when there is no traffic or interest to convert —
 that is an awareness or acquisition problem first. It is also a poor fit
 when the conversion problem is operational, not marketing: the food is
 late, the phone is busy, the stock is out. Fixing operations is not a
-marketing objective and a conversion plan will not save it. Conversion is
-also a poor fit when there is no historical baseline of how many visitors
-vs. customers currently convert, because without a baseline the
-improvement cannot be measured.
+marketing objective and a conversion plan will not save it. Conversion also
+needs a baseline establishment path. If there is no historical baseline of
+visitors vs. customers, the first window must measure the current conversion
+rate before claiming improvement.
 
 ## Typical funnel stage(s)
 
@@ -73,7 +73,7 @@ address; (3) testing a single conversion-focused change at a time with a
 defined before/after window, not ten changes at once; (4) a conversion
 offer that reduces friction (clear hours, easy payment, a reason to act
 now). The KPI is conversion rate or completed-order rate, measured against
-the baseline taken in weeks 1–2.
+the baseline established before the change window.
 
 ## Risks of choosing this objective when it doesn't fit
 

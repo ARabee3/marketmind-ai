@@ -1,12 +1,12 @@
 ---
 slug: objective-launch
-version: 1
+version: 2
 kind: objective_playbook
 title: Launch Objective Playbook
 summary: >
   When the launch objective is the right choice now, when it is a poor fit, the
-  funnel stage it owns, what a 12-week launch plan usually prioritizes, and the
-  risks of choosing launch when it does not fit.
+  stage-mixed funnel role, what a 12-week launch plan usually prioritizes, and
+  the risks of choosing launch when it does not fit.
 locale: mixed
 markets:
   - egypt
@@ -34,7 +34,7 @@ expires_at: null
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 5fdcc2cd87447d83e4b71937601d35be0b4eae62a1f7a4cb41c2b0f94b2a51fb
+checksum: 89bad7fe4d1e2574ca3210ebc090b77aa710707c93fe330b10d64f22da1a1b72
 ---
 
 ## Fit signals (when this objective is right now)
@@ -81,9 +81,10 @@ Choosing launch when nothing is actually new spends the energy of a launch
 on nothing in particular. Launching before capacity is ready produces a bad
 first day that harms the entire subsequent conversion window. Treating a
 launch as awareness-only (no first-customer goal) lets a launch "succeed" on
-reach while failing to bring in any business. Treating a launch as a
-one-day event with no follow-through wastes the awareness spike — a launch
-needs the first two weeks to convert the attention it created.
+reach while failing to bring in any business. Treating a launch as a one-day
+event with no follow-through wastes the awareness spike; the follow-through
+window should be sized to outcome volume, spend, and the sales cycle rather
+than fixed by default.
 
 ## Sources
 

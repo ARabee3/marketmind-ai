@@ -1,6 +1,6 @@
 ---
 slug: objective-retention-repeat
-version: 1
+version: 2
 kind: objective_playbook
 title: Retention / Repeat Objective Playbook
 summary: >
@@ -28,32 +28,35 @@ evidence_tier: reviewed_guidance
 review_status: draft
 source_references:
   - 'internal:reviewed-marketing-methodology'
+  - >-
+    https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
+  - 'https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf'
 effective_at: '2026-07-21'
-expires_at: null
+expires_at: '2027-06-30'
 author: abdulazimRabie
 reviewer: null
 reviewed_at: null
-checksum: 44bb31050440dbdd998282c56b1e7dd344a5b5e956eadd9c47406ed5403f6826
+checksum: 5c454d54019c5f46c27e13735781d46e566340a939af590d776f7834bfd85a56
 ---
 
 ## Fit signals (when this objective is right now)
 
 Retention is the right priority when the business already wins customers
 but loses them after one purchase — people try the business and do not come
-back. This is usually the cheapest growth lever for an established SME,
-because retaining a customer is cheaper than acquiring a new one. Concrete
-signals: a healthy first-purchase count but a thin repeat-purchase count; a
-customer list exists but is never used;reviews are positive but visits are
-one-off; a high-churn category (food, services) where the second purchase
-is the real profit.
+back. Treat retention as a cost-efficiency hypothesis, not a rule: validate it
+against contribution margin, repeat behavior, and whether the business has
+contact consent for marketing. Concrete signals: a healthy first-purchase
+count but a thin repeat-purchase count; a consented customer list exists but is
+never used; reviews are positive but visits are one-off; a high-churn category
+(food, services) where the second purchase may carry the profit.
 
 ## Poor-fit signals
 
 Retention is a poor fit when there is no existing customer base to retain —
 acquisition comes first. It is also a poor fit when there is no way to
-identify a repeat customer (no POS memory of names, no contact captured at
-first purchase), because retention cannot be measured without the ability
-to recognise a returning customer. Retention is also a poor fit when the
+identify a repeat customer (no POS memory, loyalty account, or consented
+contact), because retention cannot be measured without the ability to
+recognise a returning customer. Retention is also a poor fit when the
 category is inherently one-off (a one-time service like a wedding venue)
 with no realistic repeat path — for those, advocacy or referral is the
 better lever than retention.
@@ -66,9 +69,11 @@ satisfied repeat customers.
 
 ## What a 12-week plan under this objective usually prioritizes
 
-A 12-week retention plan usually prioritizes: (1) capturing a way to reach
-existing customers (a contact, a follow, a list, a loyalty touchpoint) so
-they can be reminded; (2) a reason to return that is not just a discount —
+A 12-week retention plan usually prioritizes: (1) an explicit opt-in path
+to reach existing customers (a follow, loyalty touchpoint, or owned list)
+that states the marketing purpose, sender identity, and easy opt-out or
+withdrawal route; a phone number collected only for fulfilment must not be
+reused for marketing; (2) a reason to return that is not just a discount —
 a new menu item, a "we miss you" message, a reason tied to their last
 purchase; (3) measuring repeat rate against the baseline; (4) optionally a
 small referral prompt to satisfied repeat customers (a review request, a
@@ -83,9 +88,16 @@ unmeasurable plan and sends discount blasts to people who were never coming
 back anyway. Choosing retention when the real problem is acquisition keeps
 polishing a shrinking base. Choosing retention through blanket discounts can
 train customers to wait for offers and erode margin without raising true
-loyalty.
+loyalty. Choosing retention through delivery-platform order data without
+platform-permitted consent creates legal and platform-policy risk.
 
 ## Sources
 
 - `internal:reviewed-marketing-methodology` — team-synthesized decision
   guidance on when retention is the correct SME objective.
+- NATLEX, `Law 151/2020 on the Protection of Personal Data` — Egypt legal
+  source for personal-data rights and controller obligations:
+  https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
+- PDPC, `Data Subject Consent Guidelines` — consent purpose, identity, and
+  withdrawal guidance:
+  https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf
