@@ -112,6 +112,7 @@ async def create_source_refs(
 async def create_chunks(
     session: AsyncSession,
     entry_version_id: UUID,
+    entry_version: int,
     chunks: list[KnowledgeChunk],
     embedding_config: EmbeddingConfig,
     qdrant_collection_name: str,
@@ -121,7 +122,7 @@ async def create_chunks(
 
     db_chunks = []
     for chunk in chunks:
-        point_id = generate_point_id(chunk.chunk_id, entry_version_id)
+        point_id = generate_point_id(chunk.chunk_id, entry_version)
         db_chunks.append(
             MarketingKnowledgeChunk(
                 chunk_id=chunk.chunk_id,

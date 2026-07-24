@@ -206,6 +206,7 @@ async def _persist_entry(
     await create_chunks(
         session,
         version.id,
+        new_version_number,
         chunks,
         embedding_config,
         qdrant_collection_name,
