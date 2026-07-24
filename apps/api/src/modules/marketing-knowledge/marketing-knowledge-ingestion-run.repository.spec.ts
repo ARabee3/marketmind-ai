@@ -61,6 +61,31 @@ describe("MarketingKnowledgeIngestionRunRepository", () => {
     });
   });
 
+  it.each([
+    ["enteredCount"],
+    ["updatedCount"],
+    ["skippedCount"],
+    ["failedCount"],
+  ] as const)(
+    "incrementCount(%s) updates only that column and no other count field",
+    async (field) => {
+      const prisma = prismaMock();
+      const repository = new MarketingKnowledgeIngestionRunRepository(
+        prisma as never,
+      );
+
+      await repository.incrementCount("run-1", field, 1);
+
+      expect(prisma.marketingKnowledgeIngestionRun.update).toHaveBeenCalledWith({
+        where: { id: "run-1" },
+        data: { [field]: { increment: 1 } },
+      });
+      const data = (prisma.marketingKnowledgeIngestionRun.update as jest.Mock)
+        .mock.calls[0][0].data;
+      expect(Object.keys(data)).toEqual([field]);
+    },
+  );
+
   it("finish records partial_failure with counts and finished_at", async () => {
     const prisma = prismaMock();
     const repository = new MarketingKnowledgeIngestionRunRepository(

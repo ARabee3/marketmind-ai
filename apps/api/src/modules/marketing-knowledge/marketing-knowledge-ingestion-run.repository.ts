@@ -14,6 +14,20 @@ export type IngestionRunCounts = {
   failedCount?: number;
 };
 
+/**
+ * Exhaustive map from every {@link IngestionRunCounts} key to its Prisma
+ * column. Keyed by the full union so TypeScript itself errors if a new count
+ * field is added to {@link IngestionRunCounts} without an entry here — no
+ * silent runtime fallback to a wrong column (e.g. miscounting a new field as
+ * `failedCount`).
+ */
+const COUNT_FIELD_MAP: Record<keyof IngestionRunCounts, keyof IngestionRunCounts> = {
+  enteredCount: "enteredCount",
+  updatedCount: "updatedCount",
+  skippedCount: "skippedCount",
+  failedCount: "failedCount",
+};
+
 export type StartIngestionInput = {
   actor: string;
   commitSha?: string;
@@ -63,18 +77,10 @@ export class MarketingKnowledgeIngestionRunRepository {
     field: keyof IngestionRunCounts,
     by = 1,
   ) {
-    const increment = { increment: by };
-    const data =
-      field === "enteredCount"
-        ? { enteredCount: increment }
-        : field === "updatedCount"
-          ? { updatedCount: increment }
-          : field === "skippedCount"
-            ? { skippedCount: increment }
-            : { failedCount: increment };
+    const targetField = COUNT_FIELD_MAP[field];
     return this.prisma.marketingKnowledgeIngestionRun.update({
       where: { id: runId },
-      data,
+      data: { [targetField]: { increment: by } },
     });
   }
 
