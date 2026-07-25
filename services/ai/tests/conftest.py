@@ -74,8 +74,9 @@ async def qdrant_test_client(qdrant_test_settings: Settings):
 async def db_session(qdrant_test_settings: Settings) -> AsyncSession:
     """Provide a transactional async database session."""
     engine = create_async_engine_from_settings(qdrant_test_settings)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     connection = await engine.connect()
-    await connection.run_sync(Base.metadata.create_all)
     transaction = await connection.begin()
     session_factory = async_sessionmaker(
         bind=connection,

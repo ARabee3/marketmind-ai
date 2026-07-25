@@ -68,7 +68,7 @@ def test_resolve_best_market_tier():
     assert _resolve_best_market_tier(["mena"], "mena") == "mena"
     assert _resolve_best_market_tier(["global"], "mena") == "global"
     assert _resolve_best_market_tier(["global"], "global") == "global"
-    assert _resolve_best_market_tier(["egypt"], "global") == "global"
+    assert _resolve_best_market_tier(["egypt"], "global") == "egypt"  # most specific available
 
 
 def test_multi_market_payload():

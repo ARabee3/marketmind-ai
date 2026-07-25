@@ -133,5 +133,6 @@ async def retrieve_strategy_knowledge(
     
     # 7. Persist Run
     await save_retrieval_run(db_session, strategy_id, pack)
+    await db_session.commit()
     
     return pack

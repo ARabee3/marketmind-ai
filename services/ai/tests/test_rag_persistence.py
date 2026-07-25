@@ -56,6 +56,7 @@ async def test_save_and_get_retrieval_run(db_session: AsyncSession):
     )
 
     await save_retrieval_run(db_session, strategy_id, pack)
+    await db_session.commit()
 
     # Fetch it back
     saved_run = await get_retrieval_run(db_session, run_id)

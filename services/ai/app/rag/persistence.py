@@ -64,7 +64,7 @@ async def save_retrieval_run(
         )
         session.add(db_gap)
 
-    await session.commit()
+    # Caller controls transaction lifecycle — no commit here
 
 
 async def get_retrieval_run(
