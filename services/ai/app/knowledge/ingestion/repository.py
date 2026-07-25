@@ -179,20 +179,23 @@ async def retire_previous_versions(
 async def retire_removed_entries(
     session: AsyncSession,
     corpus_slugs: set[str],
-) -> list[MarketingKnowledgeEntry]:
-    """Mark the latest version of any entry not in the corpus as retired."""
+) -> list[tuple[MarketingKnowledgeEntry, UUID]]:
+    """Mark the latest version of any entry not in the corpus as retired.
+
+    Returns (entry, retired_version_id) pairs for Qdrant cleanup.
+    """
     result = await session.execute(
         select(MarketingKnowledgeEntry).where(
             MarketingKnowledgeEntry.slug.notin_(corpus_slugs)
         )
     )
     removed_entries = result.scalars().all()
-    retired: list[MarketingKnowledgeEntry] = []
+    retired: list[tuple[MarketingKnowledgeEntry, UUID]] = []
     for entry in removed_entries:
         latest = await get_latest_version(session, entry.id)
         if latest and latest.review_status != "retired":
             latest.review_status = "retired"
-            retired.append(entry)
+            retired.append((entry, latest.id))
     await session.flush()
     return retired
 

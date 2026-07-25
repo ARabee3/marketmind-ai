@@ -85,6 +85,7 @@ class _EntryOutcome:
     entry_result: IngestionEntryResult
     version_id: Optional[UUID] = None
     chunks: list[KnowledgeChunk] = None  # type: ignore[assignment]
+    retired_version_ids: list[UUID] = field(default_factory=list)
 
 
 def _verify_cli_token(settings: Settings, token: Optional[str]) -> None:
@@ -207,10 +208,6 @@ async def _persist_entry(
     qdrant_collection_name: str,
     actor: str,
 ) -> _EntryOutcome:
-    """Persist one entry's new version, sources, and chunks in a transaction.
-
-    This function is intended to be called inside an active session/transaction.
-    """
     db_entry = await get_entry_by_slug(session, parsed.slug)
     if db_entry is None:
         db_entry = await create_entry(session, parsed.slug)
@@ -238,6 +235,19 @@ async def _persist_entry(
         qdrant_collection_name,
     )
     await update_entry_latest_version(session, db_entry.id, new_version_number)
+
+    # Collect version IDs that will be retired for later Qdrant cleanup.
+    retired_ids: list[UUID] = []
+    if previous_version:
+        result = await session.execute(
+            select(MarketingKnowledgeEntryVersion.id)
+            .where(
+                MarketingKnowledgeEntryVersion.entry_id == db_entry.id,
+                MarketingKnowledgeEntryVersion.version < new_version_number,
+                MarketingKnowledgeEntryVersion.review_status != "retired",
+            )
+        )
+        retired_ids = list(result.scalars().all())
     await retire_previous_versions(session, db_entry.id, new_version_number)
 
     return _EntryOutcome(
@@ -250,6 +260,7 @@ async def _persist_entry(
         ),
         version_id=version.id,
         chunks=chunks,
+        retired_version_ids=retired_ids,
     )
 
 
@@ -339,27 +350,27 @@ async def _upsert_entry_to_qdrant(
 async def _cleanup_retired_qdrant_points(
     session_factory: async_sessionmaker,
     settings: Settings,
+    retired_version_ids: list[UUID] | None = None,
 ) -> None:
-    """Delete Qdrant points for all retired entry versions.
+    """Delete Qdrant points for the given retired version IDs.
 
     When version retirement happens in PostgreSQL (via retire_previous_versions
     or retire_removed_entries), the Qdrant points are not updated in the same
-    session.  This function queries all retired versions, collects their chunks,
-    and deletes them from Qdrant with the stable point IDs.
+    session.  This function collects chunks for the retired versions and
+    deletes them from Qdrant with the stable point IDs.
 
     If the Qdrant collection does not exist or Qdrant is unreachable, the error
     is logged but not fatal — a subsequent `rebuild` will recover.
     """
+    if not retired_version_ids:
+        return
 
     async with session_factory() as session:
         result = await session.execute(
             select(MarketingKnowledgeEntryVersion.id, MarketingKnowledgeEntryVersion.version)
-            .where(MarketingKnowledgeEntryVersion.review_status == "retired")
+            .where(MarketingKnowledgeEntryVersion.id.in_(retired_version_ids))
         )
         retired = list(result.all())
-
-    if not retired:
-        return
 
     client = create_qdrant_client(settings)
     try:
@@ -522,6 +533,7 @@ async def run_ingestion_pipeline(
         all_chunks_for_embedding: list[KnowledgeChunk] = []
         version_and_chunks_for_qdrant: list[tuple[UUID, list[KnowledgeChunk]]] = []
         entry_results: list[IngestionEntryResult] = []
+        all_retired_version_ids: list[UUID] = []
 
         for entry in eligible_new + eligible_changed:
             chunks = chunker.chunk_entry(entry)
@@ -543,6 +555,7 @@ async def run_ingestion_pipeline(
                     all_chunks_for_embedding.extend(chunks)
                     if outcome.version_id:
                         version_and_chunks_for_qdrant.append((outcome.version_id, chunks))
+                    all_retired_version_ids.extend(outcome.retired_version_ids)
                 except Exception as exc:
                     logger.exception("Failed to persist entry %s", entry.slug)
                     # The begin_nested() context manager rolls back the savepoint
@@ -578,7 +591,8 @@ async def run_ingestion_pipeline(
             async with session.begin_nested():
                 retired = await retire_removed_entries(session, classified.corpus_slugs)
                 if retired:
-                    for entry in retired:
+                    for entry, retired_version_id in retired:
+                        all_retired_version_ids.append(retired_version_id)
                         latest = await get_latest_version(session, entry.id)
                         entry_results.append(
                             IngestionEntryResult(
@@ -712,7 +726,7 @@ async def run_ingestion_pipeline(
 
     # Delete Qdrant points for versions retired during this run.
     try:
-        await _cleanup_retired_qdrant_points(session_factory, settings)
+        await _cleanup_retired_qdrant_points(session_factory, settings, all_retired_version_ids)
     except Exception as exc:
         logger.exception("Failed to clean up retired Qdrant points: %s", exc)
 
