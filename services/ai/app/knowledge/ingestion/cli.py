@@ -101,11 +101,6 @@ def ingest(
         "--strict-sources/--no-strict-sources",
         help="Override source reference resolution strictness.",
     ),
-    skip_db_ready: bool = typer.Option(
-        False,
-        "--skip-db-ready",
-        help="Skip the local schema readiness check (use with caution).",
-    ),
     repo_root: Optional[Path] = typer.Option(
         None,
         "--repo-root",
@@ -130,8 +125,7 @@ def ingest(
         settings.qdrant_collection_name = collection
     resolved_token = _resolve_token(settings, token)
 
-    if not skip_db_ready:
-        asyncio.run(ensure_database_schema(settings))
+    asyncio.run(ensure_database_schema(settings))
 
     async def _run() -> object:
         return await run_ingestion_pipeline(
@@ -234,11 +228,6 @@ def rebuild(
         "--collection",
         help="Override the Qdrant collection name.",
     ),
-    skip_db_ready: bool = typer.Option(
-        False,
-        "--skip-db-ready",
-        help="Skip the local schema readiness check (use with caution).",
-    ),
 ) -> None:
     """Re-index all approved live knowledge versions into Qdrant.
 
@@ -249,8 +238,7 @@ def rebuild(
     settings = _load_settings()
     resolved_token = _resolve_token(settings, token)
 
-    if not skip_db_ready:
-        asyncio.run(ensure_database_schema(settings))
+    asyncio.run(ensure_database_schema(settings))
 
     async def _run() -> object:
         from app.knowledge.ingestion.rebuild import rebuild_qdrant_index
@@ -268,14 +256,8 @@ def rebuild(
 
 
 @app.command()
-def db_ready(
-    skip_create: bool = typer.Option(
-        False,
-        "--skip-create",
-        help="Check connectivity only; do not create missing tables.",
-    ),
-) -> None:
-    """Verify PostgreSQL connectivity and optionally create knowledge tables."""
+def db_ready() -> None:
+    """Verify PostgreSQL connectivity and knowledge table existence."""
     settings = _load_settings()
     if not settings.database_url:
         console.print(
@@ -288,20 +270,8 @@ def db_ready(
         raise typer.Exit(code=1)
 
     async def _check() -> None:
-        if skip_create:
-            from sqlalchemy import text
-            from app.db.client import create_async_engine_from_settings
-
-            engine = create_async_engine_from_settings(settings)
-            try:
-                async with engine.connect() as conn:
-                    await conn.execute(text("SELECT 1"))
-            finally:
-                await engine.dispose()
-            console.print("[green]Database is reachable.[/green]")
-        else:
-            await ensure_database_schema(settings)
-            console.print("[green]Database schema is ready.[/green]")
+        await ensure_database_schema(settings)
+        console.print("[green]Database is reachable.[/green]")
 
     try:
         asyncio.run(_check())

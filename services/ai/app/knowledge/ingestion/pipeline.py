@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
@@ -756,13 +756,33 @@ async def run_ingestion_pipeline(
 
 
 async def ensure_database_schema(settings: Optional[Settings] = None) -> None:
-    """Create the knowledge tables if they do not exist.
+    """Verify the knowledge tables exist; warn and exit if not.
 
-    This is a convenience for local development and tests. In production,
-    migrations are owned by apps/api.
+    Never creates tables — schema is owned by Prisma migrations in apps/api.
     """
     settings = settings or get_settings()
     engine = create_async_engine_from_settings(settings)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
+    expected_tables = {
+        "marketing_knowledge_entries",
+        "marketing_knowledge_entry_versions",
+        "marketing_knowledge_source_refs",
+        "marketing_knowledge_chunks",
+        "marketing_knowledge_ingestion_runs",
+        "marketing_knowledge_ingestion_errors",
+    }
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            )
+            existing = {row[0] for row in result}
+        missing = expected_tables - existing
+        if missing:
+            logger.warning(
+                "Missing knowledge tables: %s. Run 'npx prisma migrate deploy' from apps/api.",
+                sorted(missing),
+            )
+    except Exception as exc:
+        logger.warning("Could not verify database schema: %s", exc)
+    finally:
+        await engine.dispose()
