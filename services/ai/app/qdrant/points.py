@@ -14,6 +14,7 @@ from app.qdrant.schemas import QdrantKnowledgePoint
 
 
 NAMESPACE_QDRANT_POINT = UUID("a1ed17b8-5d63-5c20-bdec-7e7e6c2e5e6c")
+_UPSERT_BATCH_SIZE = 256  # ponytail: 256-point batches to cap memory per call
 
 
 def generate_point_id(chunk_id: UUID, entry_version: int) -> UUID:
@@ -52,7 +53,9 @@ async def upsert_points(
         for kp, vector in points
     ]
     try:
-        await client.upsert(collection_name=collection_name, points=structs)
+        for i in range(0, len(structs), _UPSERT_BATCH_SIZE):
+            batch = structs[i : i + _UPSERT_BATCH_SIZE]
+            await client.upsert(collection_name=collection_name, points=batch)
     except Exception as exc:
         raise QdrantCollectionError(
             f"Failed to upsert points into {collection_name}: {exc}"
@@ -98,10 +101,12 @@ async def delete_points_by_chunk_ids(
         return
     point_ids = [generate_point_id(chunk_id, entry_version) for chunk_id in chunk_ids]
     try:
-        await client.delete(
-            collection_name=collection_name,
-            points_selector=PointIdsList(points=point_ids),
-        )
+        for i in range(0, len(point_ids), _UPSERT_BATCH_SIZE):
+            batch = point_ids[i : i + _UPSERT_BATCH_SIZE]
+            await client.delete(
+                collection_name=collection_name,
+                points_selector=PointIdsList(points=batch),
+            )
     except Exception as exc:
         raise QdrantCollectionError(
             f"Failed to delete points from {collection_name}: {exc}"
