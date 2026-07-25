@@ -142,6 +142,31 @@ def _create_chunker(settings: Settings) -> MarkdownChunker:
     )
 
 
+def _is_entry_eligible(entry: ParsedKnowledgeEntry, now: datetime | None = None) -> bool:
+    if entry.review_status != "approved":
+        return False
+    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    if entry.effective_at > now:
+        return False
+    if entry.expires_at is not None and entry.expires_at <= now:
+        return False
+    return True
+
+
+def _filter_eligible(
+    entries: list[ParsedKnowledgeEntry],
+) -> tuple[list[ParsedKnowledgeEntry], list[ParsedKnowledgeEntry]]:
+    eligible: list[ParsedKnowledgeEntry] = []
+    ineligible: list[ParsedKnowledgeEntry] = []
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for entry in entries:
+        if _is_entry_eligible(entry, now):
+            eligible.append(entry)
+        else:
+            ineligible.append(entry)
+    return eligible, ineligible
+
+
 async def _classify_entries(
     session: AsyncSession,
     entries: list[ParsedKnowledgeEntry],
@@ -481,15 +506,24 @@ async def run_ingestion_pipeline(
         classified = await _classify_entries(session, entries)
         report.skipped_count = len(classified.unchanged)
 
+        eligible_new, ineligible_new = _filter_eligible(classified.new)
+        eligible_changed, ineligible_changed = _filter_eligible(classified.changed)
+        eligibility_skipped = len(ineligible_new) + len(ineligible_changed)
+        if eligibility_skipped:
+            report.skipped_count += eligibility_skipped
+            logger.info(
+                "Skipped %d ineligible entries (not approved / future effective / expired)",
+                eligibility_skipped,
+            )
+
         chunker = _create_chunker(settings)
         qdrant_collection_name = settings.qdrant_collection_name
 
-        # Process new and changed entries.
         all_chunks_for_embedding: list[KnowledgeChunk] = []
         version_and_chunks_for_qdrant: list[tuple[UUID, list[KnowledgeChunk]]] = []
         entry_results: list[IngestionEntryResult] = []
 
-        for entry in classified.new + classified.changed:
+        for entry in eligible_new + eligible_changed:
             chunks = chunker.chunk_entry(entry)
             async with session.begin_nested():
                 try:
