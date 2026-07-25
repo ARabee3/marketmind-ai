@@ -3,6 +3,28 @@ from typing import Literal
 from app.rag.schemas import RetrievalCandidate, RegionalCandidate
 
 
+def _resolve_best_market_tier(markets: list[str], requested_market: str) -> str:
+    """From a payload markets list (e.g. ['egypt', 'mena']), return the best
+    matching single-tier value for the requested market.
+
+    Preference order follows: Egypt -> MENA -> Global.
+    """
+    if not markets:
+        return "global"
+    lowered = [m.lower() for m in markets]
+
+    if requested_market == "egypt":
+        for preferred in ("egypt", "mena", "global"):
+            if preferred in lowered:
+                return preferred
+    elif requested_market == "mena":
+        for preferred in ("mena", "global"):
+            if preferred in lowered:
+                return preferred
+    # requested_market == "global", or no preferred tag found
+    return "global" if "global" in lowered else lowered[0]
+
+
 def _get_tier_priority(tier: str, requested_market: str) -> int:
     """Return priority 0 (best) to 2 (worst) based on the requested market."""
     if requested_market == "egypt":
@@ -41,7 +63,10 @@ def apply_regional_preference(
     regional_cands = []
     
     for c in candidates:
-        tier = c.payload.get("market_tier", "global").lower()
+        markets = c.payload.get("markets", [])
+        if isinstance(markets, str):
+            markets = [markets]
+        tier = _resolve_best_market_tier(markets, requested_market)
         is_fallback = _get_tier_priority(tier, requested_market) > 0
         label = _get_fallback_label(tier, requested_market)
         
