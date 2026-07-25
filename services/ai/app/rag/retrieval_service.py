@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -47,14 +48,11 @@ async def retrieve_strategy_knowledge(
         raise RetryableRetrievalError(f"Embedding provider failed: {e}") from e
     vectors = [emb.vector for emb in embed_resp.embeddings]
     
-    # 4. Execute Qdrant Searches
-    qdrant_candidates: list[RetrievalCandidate] = []
-    # Can run in parallel using asyncio.gather, but doing sequentially for clarity
-    for i, sq in enumerate(subqueries):
-        vector = vectors[i]
+    # 4. Execute Qdrant Searches (parallel)
+    async def _search_one(sq_index: int) -> list[RetrievalCandidate]:
+        sq = subqueries[sq_index]
+        vector = vectors[sq_index]
         q_filter = build_category_filter(sq, now_naive)
-        
-        # Max 12 candidates per category per requirement
         try:
             search_res = await qdrant_client.query_points(
                 collection_name=settings.qdrant_collection_name,
@@ -65,18 +63,24 @@ async def retrieve_strategy_knowledge(
             )
         except Exception as e:
             raise RetryableRetrievalError(f"Qdrant search failed: {e}") from e
-        
+
+        results = []
         for point in search_res.points:
             payload = point.payload or {}
-            cand = RetrievalCandidate(
-                chunk_id=UUID(str(point.id)),
-                entry_id=UUID(payload["entry_id"]),
-                entry_version=payload["entry_version"],
-                score=point.score,
-                payload=payload,
-                subquery_category=sq.category,
+            results.append(
+                RetrievalCandidate(
+                    chunk_id=UUID(str(point.id)),
+                    entry_id=UUID(payload["entry_id"]),
+                    entry_version=payload["entry_version"],
+                    score=point.score,
+                    payload=payload,
+                    subquery_category=sq.category,
+                )
             )
-            qdrant_candidates.append(cand)
+        return results
+
+    nested = await asyncio.gather(*[_search_one(i) for i in range(len(subqueries))])
+    qdrant_candidates = [c for sublist in nested for c in sublist]
             
     # 5. Regional Fallback Sort
     regional_cands = apply_regional_preference(qdrant_candidates, sanitized_context.market)
