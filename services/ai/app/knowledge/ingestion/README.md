@@ -101,8 +101,8 @@ GEMINI_API_KEY=your-gemini-api-key
 - Changed entries create a new immutable version; the previous version is
   retired (`review_status = 'retired'`) in the same run.
 - Removed files retire the corresponding entry.
-- Qdrant point IDs are deterministic (`uuid5(chunk_id + entry_version)`), so
-  re-ingestion updates points in place rather than duplicating them.
+- Qdrant point IDs are deterministic (`uuid5(namespace, f"{chunk_id}#{entry_version}")`),
+  so re-ingestion updates points in place rather than duplicating them.
 
 ## Verification
 
