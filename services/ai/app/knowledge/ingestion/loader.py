@@ -9,6 +9,7 @@ All validation errors are collected before any embedding or database calls.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
@@ -464,24 +465,32 @@ async def _resolve_sources_for_entries(
 ) -> dict[str, list[ValidationIssue]]:
     """Resolve source_references for all entries and append failures.
 
+    Resolves all URLs in parallel with a concurrency limit.
     If `strict` is False, unresolved sources are reported as warnings but not
     treated as fatal errors.
     """
     updated = {path: list(issues) for path, issues in path_to_issues.items()}
-    async with httpx.AsyncClient() as client:
-        for entry in entries:
-            for url in entry.source_references:
-                result = await resolve_source(url, client=client)
-                if result.ok:
-                    continue
-                if strict:
-                    updated[entry.file_path].append(
-                        ValidationIssue(
-                            path=entry.file_path,
-                            code=IngestionErrorCode.SOURCE_RESOLUTION_FAILED,
-                            message=f"source_reference could not be resolved: {url!r} ({result.error or 'unknown error'})",
-                        )
+    sem = asyncio.Semaphore(10)  # ponytail: cap concurrent HTTP requests
+
+    async def _resolve_one(client: httpx.AsyncClient, entry: ParsedKnowledgeEntry, url: str) -> None:
+        async with sem:
+            result = await resolve_source(url, client=client)
+            if not result.ok and strict:
+                updated[entry.file_path].append(
+                    ValidationIssue(
+                        path=entry.file_path,
+                        code=IngestionErrorCode.SOURCE_RESOLUTION_FAILED,
+                        message=f"source_reference could not be resolved: {url!r} ({result.error or 'unknown error'})",
                     )
+                )
+
+    async with httpx.AsyncClient() as client:
+        tasks = [
+            _resolve_one(client, entry, url)
+            for entry in entries
+            for url in entry.source_references
+        ]
+        await asyncio.gather(*tasks)
     return updated
 
 
