@@ -598,3 +598,68 @@ model MarketingKnowledgeIngestionError {
   @@index([runId])
   @@map("marketing_knowledge_ingestion_errors")
 }
+
+model StrategyRetrievalRun {
+  id                 String   @id @default(uuid()) @db.Uuid
+  strategyId         String   @map("strategy_id") @db.Uuid
+  briefId            String   @map("brief_id") @db.Uuid
+  profileVersionId   String   @map("profile_version_id") @db.Uuid
+  querySummary       String   @map("query_summary")
+  queryContext       Json     @map("query_context")
+  configuration      Json     @default("{}") @map("configuration")
+  status             String   @default("pending") @map("status")
+  itemCount          Int      @default(0) @map("item_count")
+  gapCount           Int      @default(0) @map("gap_count")
+  latencyMs          Int      @default(0) @map("latency_ms")
+  startedAt          DateTime @default(now()) @map("started_at")
+  finishedAt         DateTime? @map("finished_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  items              StrategyRetrievalItem[]
+  gaps               StrategyRetrievalGap[]
+
+  @@map("strategy_retrieval_runs")
+  @@index([strategyId, createdAt])
+}
+
+model StrategyRetrievalItem {
+  id                 String   @id @default(uuid()) @db.Uuid
+  runId              String   @map("run_id") @db.Uuid
+  chunkId            String   @map("chunk_id") @db.Uuid
+  entryId            String   @map("entry_id") @db.Uuid
+  entryVersion       Int      @map("entry_version")
+  title              String
+  excerpt            String
+  kind               String
+  tags               Json     @default("{}") @map("tags")
+  relevanceScore     Float    @map("relevance_score")
+  evidenceTier       String   @map("evidence_tier")
+  sourceReferences   String[] @map("source_references")
+  effectiveAt        DateTime @map("effective_at")
+  expiresAt          DateTime? @map("expires_at")
+  reviewStatus       String   @map("review_status")
+  marketTier         String   @map("market_tier")
+  isFallback         Boolean  @default(false) @map("is_fallback")
+  fallbackLabel      String?  @map("fallback_label")
+  category           String
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  run                StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("strategy_retrieval_items")
+  @@index([runId])
+  @@index([chunkId])
+}
+
+model StrategyRetrievalGap {
+  id                 String   @id @default(uuid()) @db.Uuid
+  runId              String   @map("run_id") @db.Uuid
+  category           String
+  description        String
+  severity           String
+
+  run                StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("strategy_retrieval_gaps")
+  @@index([runId])
+}

@@ -6,6 +6,9 @@ from app.core.config import Settings
 from app.embeddings import EmbeddingConfig, get_embedding_provider
 from app.embeddings.base import EmbeddingProvider
 from app.qdrant import create_qdrant_client
+from app.db.client import create_async_engine_from_settings
+from app.db.models import Base
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 @pytest.fixture
@@ -33,6 +36,7 @@ def qdrant_test_settings() -> Settings:
         qdrant_host="localhost",
         qdrant_port=6333,
         qdrant_collection_name=f"test_marketing_knowledge_{uuid.uuid4().hex[:12]}",
+        database_url="postgresql://marketmind:marketmind_dev@localhost:5433/marketmind_dev?schema=public",
     )
 
 
@@ -64,3 +68,26 @@ async def qdrant_test_client(qdrant_test_settings: Settings):
         except Exception:
             pass
         await client.close()
+
+
+@pytest.fixture
+async def db_session(qdrant_test_settings: Settings) -> AsyncSession:
+    """Provide a transactional async database session."""
+    engine = create_async_engine_from_settings(qdrant_test_settings)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    connection = await engine.connect()
+    transaction = await connection.begin()
+    session_factory = async_sessionmaker(
+        bind=connection,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    session = session_factory()
+    try:
+        yield session
+    finally:
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
+

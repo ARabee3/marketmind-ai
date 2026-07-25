@@ -18,6 +18,8 @@ from sqlalchemy import (
     String,
     Text,
     Uuid,
+    Float,
+    Boolean,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -194,3 +196,84 @@ class MarketingKnowledgeIngestionError(Base):
     )
 
     run: Mapped["MarketingKnowledgeIngestionRun"] = relationship(back_populates="errors")
+
+
+class StrategyRetrievalRun(Base):
+    """Record of a strategy retrieval execution."""
+
+    __tablename__ = "strategy_retrieval_runs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    strategy_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    brief_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    profile_version_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    query_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    query_context: Mapped[dict] = mapped_column(JSON, nullable=False)
+    configuration: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    gap_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
+    )
+
+    items: Mapped[List["StrategyRetrievalItem"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan", lazy="selectin"
+    )
+    gaps: Mapped[List["StrategyRetrievalGap"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class StrategyRetrievalItem(Base):
+    """A selected chunk included in a strategy retrieved knowledge pack."""
+
+    __tablename__ = "strategy_retrieval_items"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("strategy_retrieval_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    entry_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    entry_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    excerpt: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    tags: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    relevance_score: Mapped[float] = mapped_column(Float, nullable=False)
+    evidence_tier: Mapped[str] = mapped_column(Text, nullable=False)
+    source_references: Mapped[List[str]] = mapped_column(ARRAY(Text), nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    market_tier: Mapped[str] = mapped_column(Text, nullable=False)
+    is_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    fallback_label: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utc_now_naive
+    )
+
+    run: Mapped["StrategyRetrievalRun"] = relationship(back_populates="items")
+
+
+class StrategyRetrievalGap(Base):
+    """A recorded gap in knowledge for a retrieval run."""
+
+    __tablename__ = "strategy_retrieval_gaps"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("strategy_retrieval_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(Text, nullable=False)
+
+    run: Mapped["StrategyRetrievalRun"] = relationship(back_populates="gaps")

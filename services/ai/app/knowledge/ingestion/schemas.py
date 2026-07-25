@@ -18,7 +18,7 @@ class ParsedKnowledgeEntry:
     version: int
     kind: str
     title: str
-    title_ar: Optional[str] = None
+    title_ar: Optional[str]
     summary: str
     body: str
     body_checksum: str
