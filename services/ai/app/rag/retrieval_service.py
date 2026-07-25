@@ -78,34 +78,14 @@ async def retrieve_strategy_knowledge(
     # 5. Regional Fallback Sort
     regional_cands = apply_regional_preference(qdrant_candidates, sanitized_context.market)
     
-    # 6. PostgreSQL Hydration & Gap Detection
-    # Note: Hydrator receives the sorted candidates to preserve preference
+    # 6. Dedup before hydration: reduces DB queries and enforces caps early
+    regional_cands = deduplicate_and_cap(regional_cands)
+    
+    # 7. PostgreSQL Hydration & Gap Detection
     hydrated_items, knowledge_gaps = await hydrate_candidates(
         db_session, regional_cands, subqueries, now_naive
     )
-    
-    # Re-wrap hydrated items into pseudo-candidates for dedup to work on
-    # Dedup expects RegionalCandidate, but we have HydratedItem.
-    # Actually, we should dedup BEFORE hydrating to save DB hits!
-    # Wait, if we dedup before, we might drop valid fallbacks if a better item gets dropped during hydration (e.g. out of sync).
-    # But Qdrant being out-of-sync is rare. Let's hydrate first to get actual DB items,
-    # then dedup the HydratedItems. But dedup_and_cap takes RegionalCandidates.
-    # I'll adapt dedup_and_cap or write a quick loop here:
-    selected_items = []
-    seen_chunks = set()
-    entry_counts = {}
-    
-    for item in hydrated_items:
-        if len(selected_items) >= 8:
-            break
-        if item.chunk_id in seen_chunks:
-            continue
-        if entry_counts.get(item.entry_id, 0) >= 2:
-            continue
-            
-        selected_items.append(item)
-        seen_chunks.add(item.chunk_id)
-        entry_counts[item.entry_id] = entry_counts.get(item.entry_id, 0) + 1
+    selected_items = hydrated_items
         
     end_time = datetime.now(timezone.utc)
     latency_ms = int((end_time - start_time).total_seconds() * 1000)
@@ -131,7 +111,7 @@ async def retrieve_strategy_knowledge(
         retrieved_at=now_naive,
     )
     
-    # 7. Persist Run
+    # 8. Persist Run
     await save_retrieval_run(db_session, strategy_id, pack)
     await db_session.commit()
     
