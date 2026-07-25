@@ -9,6 +9,7 @@ from typing import AsyncGenerator
 from app.core.config import Settings, get_settings
 from app.db.client import get_db
 from app.qdrant.client import create_qdrant_client
+from app.rag.errors import RetryableRetrievalError, NonRetryableRetrievalError
 from app.rag.schemas import RetrievalQueryContext, RetrievedKnowledgePack
 from app.rag.retrieval_service import retrieve_strategy_knowledge
 
@@ -51,5 +52,18 @@ async def retrieve_knowledge(
             query_context=query_context,
         )
         return pack
+    except RetryableRetrievalError as e:
+        raise HTTPException(
+            status_code=503,
+            detail={"error_type": "retryable", "message": e.message},
+        )
+    except NonRetryableRetrievalError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_type": "non_retryable", "message": e.message},
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail={"error_type": "unknown", "message": str(e)},
+        )

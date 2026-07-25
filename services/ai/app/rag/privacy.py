@@ -31,8 +31,9 @@ def sanitize_query_context(context: RetrievalQueryContext) -> RetrievalQueryCont
     """
     sanitized = context.model_copy()
     
-    # Scrub the main free-text field
+    # Scrub free-text fields for defence-in-depth
     sanitized.team_capacity = sanitize_text(sanitized.team_capacity)
     sanitized.free_text_notes = sanitize_text(sanitized.free_text_notes)
+    sanitized.industry = sanitize_text(sanitized.industry)
     
     return sanitized

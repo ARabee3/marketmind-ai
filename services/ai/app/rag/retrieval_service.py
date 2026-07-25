@@ -5,6 +5,7 @@ from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.rag.errors import RetryableRetrievalError
 from app.rag.schemas import RetrievalQueryContext, RetrievedKnowledgePack, RetrievalCandidate
 from app.rag.privacy import sanitize_query_context
 from app.rag.query_builder import build_subqueries
@@ -51,13 +52,16 @@ async def retrieve_strategy_knowledge(
         q_filter = build_category_filter(sq, now_naive)
         
         # Max 12 candidates per category per requirement
-        search_res = await qdrant_client.query_points(
-            collection_name=settings.qdrant_collection_name,
-            query=vector,
-            query_filter=q_filter,
-            limit=12,
-            with_payload=True,
-        )
+        try:
+            search_res = await qdrant_client.query_points(
+                collection_name=settings.qdrant_collection_name,
+                query=vector,
+                query_filter=q_filter,
+                limit=12,
+                with_payload=True,
+            )
+        except Exception as e:
+            raise RetryableRetrievalError(f"Qdrant search failed: {e}") from e
         
         for point in search_res.points:
             payload = point.payload or {}
