@@ -24,6 +24,7 @@ class QdrantKnowledgePoint(BaseModel):
     text: str = Field(min_length=1)
 
     kind: str
+    title_ar: str | None = None
     locale: str
     markets: list[str] = Field(default_factory=list)
     industries: list[str] = Field(default_factory=list)

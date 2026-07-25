@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
-EmbeddingProviderMode = Literal["openai", "fake"]
+EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
 
 
 class Settings(BaseSettings):
@@ -36,6 +36,21 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = None
     qdrant_timeout_ms: int = Field(default=10_000, ge=1_000, le=60_000)
     qdrant_use_grpc: bool = False
+
+    # PostgreSQL connection (schema owned by apps/api; FastAI reads/writes
+    # the knowledge tables directly via SQLAlchemy).
+    database_url: str = ""
+
+    # Knowledge ingestion CLI authentication.
+    # Required for the CLI; runtime FastAPI endpoints do not use it.
+    knowledge_internal_cli_token: str = ""
+
+    # Knowledge ingestion CLI configuration.
+    knowledge_source_dir: str = "Docs/marketing-knowledge"
+    knowledge_chunk_min_tokens: int = Field(default=300, ge=1, le=10_000)
+    knowledge_chunk_max_tokens: int = Field(default=500, ge=1, le=10_000)
+    knowledge_chunk_overlap_tokens: int = Field(default=50, ge=0, le=1_000)
+    knowledge_strict_sources: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

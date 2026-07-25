@@ -1,6 +1,7 @@
 from app.core.config import Settings, get_settings
 from app.embeddings.base import EmbeddingConfig, EmbeddingProvider
 from app.embeddings.fake_provider import DeterministicFakeEmbeddingProvider
+from app.embeddings.gemini_provider import GeminiEmbeddingProvider
 from app.embeddings.openai_provider import OpenAIEmbeddingProvider
 
 
@@ -23,6 +24,12 @@ class EmbeddingProviderFactory:
             return OpenAIEmbeddingProvider(
                 embedding_config,
                 api_key=config.openai_api_key,
+                timeout_ms=config.embedding_request_timeout_ms,
+            )
+        if embedding_config.provider == "gemini":
+            return GeminiEmbeddingProvider(
+                embedding_config,
+                api_key=config.gemini_api_key,
                 timeout_ms=config.embedding_request_timeout_ms,
             )
         raise ValueError(

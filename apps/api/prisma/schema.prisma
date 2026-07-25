@@ -479,6 +479,7 @@ model MarketingKnowledgeEntryVersion {
   version        Int
   kind           String
   title          String
+  titleAr        String?  @map("title_ar")
   summary        String
   body           String    @db.Text
   locale         String
@@ -539,6 +540,7 @@ model MarketingKnowledgeSourceRef {
 // ingestion benchmarks show round-trip overhead — see PR #94 review.
 model MarketingKnowledgeChunk {
   id                   String    @id @default(uuid()) @db.Uuid
+  chunkId              String    @unique @map("chunk_id") @db.Uuid
   entryVersionId       String    @map("entry_version_id") @db.Uuid
   chunkOrder           Int       @map("chunk_order")
   text                 String    @db.Text
@@ -558,6 +560,7 @@ model MarketingKnowledgeChunk {
   @@unique([entryVersionId, chunkOrder])
   @@unique([checksum, embeddingProvider, embeddingModel, embeddingDimensions, embeddingVersion], name: "chunk_idempotency_key")
   @@index([entryVersionId])
+  @@index([chunkId])
   @@map("marketing_knowledge_chunks")
 }
 

@@ -82,6 +82,7 @@ names are camelCase; the on-disk column names are snake_case via `@map`.
 | `version` | int | |
 | `kind` | text | CHECK-constrained |
 | `title` | text | |
+| `title_ar` | text? | Arabic title for bilingual entries |
 | `summary` | text | |
 | `body` | text | |
 | `locale` | text | CHECK-constrained |
@@ -122,6 +123,7 @@ Index: `entry_version_id`.
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | uuid PK | |
+| `chunk_id` | uuid unique | Stable deterministic identity shared with Qdrant point generation (filled by #71). |
 | `entry_version_id` | uuid FK → entry_versions | |
 | `chunk_order` | int | |
 | `text` | text | |
@@ -138,7 +140,8 @@ Index: `entry_version_id`.
 
 Unique: `(entry_version_id, chunk_order)` and the idempotency key
 `(checksum, embedding_provider, embedding_model, embedding_dimensions,
-embedding_version)` named `chunk_idempotency_key`. Index: `entry_version_id`.
+embedding_version)` named `chunk_idempotency_key`. Indexes: `entry_version_id`,
+`chunk_id`.
 
 ### `marketing_knowledge_ingestion_runs`
 | Column | Type | Notes |
@@ -195,7 +198,7 @@ pointer only.
 `enforce_marketing_knowledge_version_immutability()`. When the OLD row is
 `approved`:
 
-- Raising on any change to the **content** fields `kind, title, summary,
+- Raising on any change to the **content** fields `kind, title, title_ar, summary,
   body, locale, markets, industries, business_models, objectives,
   funnel_stages, channels, seasons, budget_modes, evidence_tier,
   effective_at, checksum, entry_id, version`.
