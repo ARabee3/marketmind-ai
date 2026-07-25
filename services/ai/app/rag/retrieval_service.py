@@ -41,7 +41,10 @@ async def retrieve_strategy_knowledge(
     embed_provider = EmbeddingProviderFactory.from_settings(settings)
     texts = [sq.text for sq in subqueries]
     embed_req = EmbedRequest(texts=texts)
-    embed_resp = await embed_provider.embed(embed_req)
+    try:
+        embed_resp = await embed_provider.embed(embed_req)
+    except Exception as e:
+        raise RetryableRetrievalError(f"Embedding provider failed: {e}") from e
     vectors = [emb.vector for emb in embed_resp.embeddings]
     
     # 4. Execute Qdrant Searches
