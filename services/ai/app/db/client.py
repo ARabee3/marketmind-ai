@@ -65,6 +65,17 @@ def create_async_engine_from_settings(settings: Settings | None = None):
     )
 
 
+_engine = None  # ponytail: module-level singleton, lazily created
+
+
+def _get_engine(settings: Settings | None = None):
+    """Return the shared engine, creating it once."""
+    global _engine
+    if _engine is None:
+        _engine = create_async_engine_from_settings(settings)
+    return _engine
+
+
 AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
@@ -72,24 +83,9 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_db() -> AsyncSession:
-    """Yield an async database session bound to the configured engine.
-
-    This is a low-level helper for scripts and tests; prefer explicit
-    engine/session management in production code.
-    """
-    engine = create_async_engine_from_settings()
-    session = AsyncSessionLocal(bind=engine)
+    """Yield an async database session from the shared engine."""
+    session = AsyncSessionLocal(bind=_get_engine())
     try:
         yield session
     finally:
         await session.close()
-        await engine.dispose()
-
-
-async def close_db() -> None:
-    """No-op placeholder for callers expecting a close helper.
-
-    The engine is created per-session in this module; dispose is handled
-    automatically by `get_db`.
-    """
-    pass
