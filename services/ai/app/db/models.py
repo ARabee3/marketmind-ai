@@ -64,6 +64,7 @@ class MarketingKnowledgeEntryVersion(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    title_ar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     locale: Mapped[str] = mapped_column(Text, nullable=False)

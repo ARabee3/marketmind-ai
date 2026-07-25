@@ -67,6 +67,7 @@ async def create_version(
         version=version,
         kind=parsed.kind,
         title=parsed.title,
+        title_ar=parsed.title_ar,
         summary=parsed.summary,
         body=parsed.body,
         locale=parsed.locale,

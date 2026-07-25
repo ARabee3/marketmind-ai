@@ -82,6 +82,7 @@ names are camelCase; the on-disk column names are snake_case via `@map`.
 | `version` | int | |
 | `kind` | text | CHECK-constrained |
 | `title` | text | |
+| `title_ar` | text? | Arabic title for bilingual entries |
 | `summary` | text | |
 | `body` | text | |
 | `locale` | text | CHECK-constrained |
@@ -197,7 +198,7 @@ pointer only.
 `enforce_marketing_knowledge_version_immutability()`. When the OLD row is
 `approved`:
 
-- Raising on any change to the **content** fields `kind, title, summary,
+- Raising on any change to the **content** fields `kind, title, title_ar, summary,
   body, locale, markets, industries, business_models, objectives,
   funnel_stages, channels, seasons, budget_modes, evidence_tier,
   effective_at, checksum, entry_id, version`.

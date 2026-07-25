@@ -479,6 +479,7 @@ model MarketingKnowledgeEntryVersion {
   version        Int
   kind           String
   title          String
+  titleAr        String?  @map("title_ar")
   summary        String
   body           String    @db.Text
   locale         String

@@ -30,6 +30,7 @@ def _build_qdrant_payload(
         checksum=chunk.checksum,
         text=chunk.text,
         kind=version.kind,
+        title_ar=version.title_ar,
         locale=version.locale,
         markets=version.markets,
         industries=version.industries,
