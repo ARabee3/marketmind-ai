@@ -1,13 +1,25 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from typing import AsyncGenerator
 
+from strategy_contracts import (
+    BudgetScenario,
+    BusinessProfilePayload,
+    DeterministicChannelScorecard,
+    KpiTarget,
+    StrategyBrief,
+)
+
 from app.core.config import Settings, get_settings
 from app.db.client import get_db
+from app.decisions.errors import DecisionRuleInputError
+from app.decisions.explanations import ChannelScoreExplanation, StrategyDecisionBundle
+from app.decisions.service import compute_strategy_decisions
 from app.qdrant.client import create_qdrant_client
 from app.rag.errors import RetryableRetrievalError, NonRetryableRetrievalError
 from app.rag.schemas import RetrievalQueryContext, RetrievedKnowledgePack
@@ -67,3 +79,61 @@ async def retrieve_knowledge(
             status_code=500,
             detail={"error_type": "unknown", "message": str(e)},
         )
+
+
+class ScoreStrategyRequest(BaseModel):
+    """Request body for deterministic strategy scoring."""
+
+    business_profile: BusinessProfilePayload
+    brief: StrategyBrief
+    retrieval_pack: RetrievedKnowledgePack
+
+
+class ScoreStrategyResponse(BaseModel):
+    """Response body for deterministic strategy scoring."""
+
+    deterministic_channel_scores: list[DeterministicChannelScorecard]
+    selected_channels: list[DeterministicChannelScorecard]
+    channel_explanations: list[ChannelScoreExplanation]
+    budget_scenarios: list[BudgetScenario] | None
+    kpi_targets: list[KpiTarget]
+
+
+@router.post(
+    "/score",
+    response_model=ScoreStrategyResponse,
+    summary="Score Strategy Deterministically",
+    description="Runs the deterministic channel scoring, selection, budget, and KPI pipeline.",
+)
+async def score_strategy(
+    request: ScoreStrategyRequest = Body(...),
+) -> ScoreStrategyResponse:
+    """Run deterministic strategy scoring without LLM generation."""
+    try:
+        bundle = compute_strategy_decisions(
+            business_profile=request.business_profile,
+            brief=request.brief,
+            retrieval_pack=request.retrieval_pack,
+        )
+    except DecisionRuleInputError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_type": "invalid_input",
+                "field": e.field,
+                "message": e.message,
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error_type": "unknown", "message": str(e)},
+        )
+
+    return ScoreStrategyResponse(
+        deterministic_channel_scores=bundle.channel_scorecards,
+        selected_channels=bundle.selected_channels,
+        channel_explanations=bundle.channel_explanations,
+        budget_scenarios=bundle.budget_scenarios,
+        kpi_targets=bundle.kpi_targets,
+    )
