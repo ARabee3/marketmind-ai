@@ -298,6 +298,9 @@ class RetrievedKnowledgeItem(BaseModel):
     tags: dict[str, list[str]]
     relevance_score: float = Field(ge=0, le=1)
     source_quality: SourceQuality
+    market_tier: str = "egypt"
+    is_fallback: bool = False
+    fallback_label: Optional[str] = None
 
 
 class KnowledgeGapItem(BaseModel):

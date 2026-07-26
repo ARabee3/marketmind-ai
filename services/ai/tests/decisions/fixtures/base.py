@@ -22,7 +22,7 @@ EXAMPLES_DIR = Path(__file__).parent.parent.parent.parent.parent.parent / "packa
 
 
 def load_json(filename: str) -> dict[str, Any]:
-    return json.loads((EXAMPLES_DIR / filename).read_text())
+    return json.loads((EXAMPLES_DIR / filename).read_text(encoding="utf-8"))
 
 
 def default_business_profile() -> BusinessProfilePayload:

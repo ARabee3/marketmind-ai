@@ -79,6 +79,10 @@ GET  /health
 POST /internal/v1/ai/discovery/start
 POST /internal/v1/ai/discovery/respond
 POST /internal/v1/ai/discovery/summarize
+POST /internal/v1/ai/strategy/retrieve
+POST /internal/v1/ai/strategy/score
+POST /internal/v1/ai/strategy/generate
+POST /internal/v1/ai/strategy/revise
 ```
 
 The `/health` endpoint also reports Qdrant reachability.
