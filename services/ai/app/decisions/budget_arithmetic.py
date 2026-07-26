@@ -124,6 +124,11 @@ def compute_budget_scenarios(
         return None
     if brief.external_budget_mode == ExternalBudgetMode.organic_only:
         return None
+    if (
+        brief.external_budget_mode == ExternalBudgetMode.scenario_only
+        and normalized.budget_anchor_egp is None
+    ):
+        return None
 
     selected = sorted(
         selected_scorecards,

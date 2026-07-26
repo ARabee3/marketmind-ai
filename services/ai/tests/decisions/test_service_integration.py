@@ -56,6 +56,26 @@ def test_organic_pipeline_has_no_budget_scenarios():
     assert bundle.budget_scenarios is None
 
 
+def test_scenario_only_without_confirmed_budget_creates_blocking_gap():
+    profile = default_business_profile()
+    brief = default_brief(
+        paid_media_allowed=True,
+        budget_mode=ExternalBudgetMode.scenario_only,
+        budget_egp=None,
+    )
+    pack = default_retrieval_pack()
+    bundle = compute_strategy_decisions(
+        business_profile=profile,
+        brief=brief,
+        retrieval_pack=pack,
+    )
+    assert bundle.budget_scenarios is None
+    assert any(
+        gap["category"] == "budget:paid_media" and gap["severity"] == "blocking"
+        for gap in bundle.knowledge_gaps
+    )
+
+
 def test_low_capacity_excludes_tiktok():
     profile = default_business_profile()
     profile = profile_with_capacity(profile, "just me")

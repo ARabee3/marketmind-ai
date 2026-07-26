@@ -8,6 +8,7 @@ from strategy_contracts import (
     BudgetScenario,
     BusinessProfilePayload,
     DeterministicChannelScorecard,
+    ExternalBudgetMode,
     KpiTarget,
     StrategyBrief,
     calculate_channel_total,
@@ -62,6 +63,18 @@ def compute_strategy_decisions(
         normalized=normalized,
         selected_scorecards=selected,
     )
+    if (
+        brief.paid_media_allowed
+        and brief.external_budget_mode == ExternalBudgetMode.scenario_only
+        and normalized.budget_anchor_egp is None
+    ):
+        knowledge_gaps.append(
+            KnowledgeGap(
+                category="budget:paid_media",
+                description="Budget must be confirmed before paid-media scenarios can be generated.",
+                severity="blocking",
+            )
+        )
 
     primary_channels = [
         card.channel

@@ -132,6 +132,39 @@ def test_paid_disallowed_returns_none():
     assert scenarios is None
 
 
+def test_scenario_only_without_confirmed_budget_returns_none():
+    from app.decisions.channel_scoring import score_all_channels
+    from app.decisions.channel_selection import select_channels
+    from app.decisions.normalize import CapacityTier
+    from tests.decisions.fixtures.base import (
+        default_business_profile,
+        default_retrieval_pack,
+    )
+
+    brief = default_brief(
+        paid_media_allowed=True,
+        budget_mode=ExternalBudgetMode.scenario_only,
+        budget_egp=None,
+    )
+    profile = default_business_profile()
+    pack = default_retrieval_pack()
+    normalized = NormalizedInputs(
+        capacity_tier=CapacityTier.low,
+        budget_anchor_egp=None,
+        budget_is_range=False,
+    )
+    scored, _ = score_all_channels(
+        profile.profile, brief, pack, normalized
+    )
+    _, selected = select_channels(scored)
+    scenarios = compute_budget_scenarios(
+        brief=brief,
+        normalized=normalized,
+        selected_scorecards=selected,
+    )
+    assert scenarios is None
+
+
 def test_paid_mode_produces_three_scenarios():
     from app.decisions.channel_scoring import score_all_channels
     from app.decisions.channel_selection import select_channels
