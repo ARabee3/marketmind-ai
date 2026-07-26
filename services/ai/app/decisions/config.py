@@ -115,6 +115,9 @@ MEASUREMENT_READINESS_BASELINE: dict[str, float] = {
     "tiktok": 0.3,
 }
 
+# NEEDS MARKETING SIGN-OFF: below this, a channel cannot prove success reliably.
+MEASUREMENT_READINESS_VETO_THRESHOLD = 0.3
+
 # Capacity boost applied to organic social measurement readiness.
 MEASUREMENT_CAPACITY_BOOST: dict[str, float] = {
     "none_solo": 0.0,

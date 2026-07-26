@@ -5,7 +5,11 @@ from __future__ import annotations
 from strategy_contracts import ChannelRole, DeterministicChannelScorecard, calculate_channel_total
 
 from app.decisions.channel_scoring import DimensionResult
-from app.decisions.config import SUPPORTING_CHANNEL_MIN_TOTAL_SCORE, TIE_BREAK_ORDER
+from app.decisions.config import (
+    MEASUREMENT_READINESS_VETO_THRESHOLD,
+    SUPPORTING_CHANNEL_MIN_TOTAL_SCORE,
+    TIE_BREAK_ORDER,
+)
 
 
 EXCLUSION_INSUFFICIENT_CAPACITY = "insufficient_team_capacity"
@@ -33,7 +37,7 @@ def apply_exclusions(
 
     if by_name["team_capacity"].value == 0.0:
         return EXCLUSION_INSUFFICIENT_CAPACITY
-    if by_name["measurement_readiness"].value == 0.0:
+    if by_name["measurement_readiness"].value < MEASUREMENT_READINESS_VETO_THRESHOLD:
         return EXCLUSION_NO_MEASUREMENT
     return None
 

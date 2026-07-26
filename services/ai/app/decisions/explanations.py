@@ -22,6 +22,7 @@ from app.decisions.config import (
     CHANNEL_MIN_VIABLE_SPEND_EGP,
     CHANNEL_REQUIRED_ASSET_KEYWORDS,
     MEASUREMENT_READINESS_BASELINE,
+    MEASUREMENT_READINESS_VETO_THRESHOLD,
     SUPPORTING_CHANNEL_MIN_TOTAL_SCORE,
 )
 
@@ -59,7 +60,10 @@ def _dimension_config_constants(name: str, channel: str) -> list[str]:
         return [f"required_asset_keywords: {list(required)}"]
     if name == "measurement_readiness":
         baseline = MEASUREMENT_READINESS_BASELINE.get(channel, 0.4)
-        return [f"measurement_readiness_baseline: {baseline}"]
+        return [
+            f"measurement_readiness_baseline: {baseline}",
+            f"measurement_readiness_veto_threshold: {MEASUREMENT_READINESS_VETO_THRESHOLD}",
+        ]
     return []
 
 

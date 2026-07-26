@@ -35,7 +35,9 @@ def _make_scored(channel_totals: dict[str, float]) -> list:
                 max(0.0, min(1.0, round(dim_results[i % 8].value + step, 2)))
             )
         adjusted_total = sum(r.value for r in dim_results)
-        scores = ChannelDimensionScores(**dict(zip(DIMENSION_NAMES, (r.value for r in dim_results))))
+        scores = ChannelDimensionScores(
+            **dict(zip(DIMENSION_NAMES, (r.value for r in dim_results)))
+        )
         scored.append((channel, scores, dim_results, adjusted_total))
     return scored
 
@@ -94,12 +96,37 @@ def test_excluded_by_capacity_veto():
     ]:
         dim_results = [DimensionResult(1.0) for _ in range(8)]
         dim_results[4] = DimensionResult(team_capacity_value)
-        scores = ChannelDimensionScores(**dict(zip(DIMENSION_NAMES, (r.value for r in dim_results))))
+        scores = ChannelDimensionScores(
+            **dict(zip(DIMENSION_NAMES, (r.value for r in dim_results)))
+        )
         total = sum(r.value for r in dim_results)
         scored.append((channel, scores, dim_results, total))
     all_scorecards, selected = select_channels(scored)
     tiktok = next(c for c in all_scorecards if c.channel == "tiktok")
     assert tiktok.excluded_reason == "insufficient_team_capacity"
+    assert tiktok.role == ChannelRole.supporting
+    assert not any(c.channel == "tiktok" for c in selected)
+
+
+def test_excluded_by_weak_measurement_readiness_veto():
+    from app.decisions.channel_scoring import DimensionResult
+
+    scored = []
+    for channel, measurement_value in [
+        ("instagram", 1.0),
+        ("facebook", 1.0),
+        ("tiktok", 0.2),
+    ]:
+        dim_results = [DimensionResult(1.0) for _ in range(8)]
+        dim_results[7] = DimensionResult(measurement_value)
+        scores = ChannelDimensionScores(**dict(zip(DIMENSION_NAMES, (r.value for r in dim_results))))
+        total = sum(r.value for r in dim_results)
+        scored.append((channel, scores, dim_results, total))
+
+    all_scorecards, selected = select_channels(scored)
+
+    tiktok = next(c for c in all_scorecards if c.channel == "tiktok")
+    assert tiktok.excluded_reason == "no_measurement_capability"
     assert tiktok.role == ChannelRole.supporting
     assert not any(c.channel == "tiktok" for c in selected)
 
