@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import uuid
 from typing import Any
 
 from strategy_contracts import (
@@ -74,11 +73,6 @@ def _verified_benchmark_item(
     return None
 
 
-def _chunk_to_citation_id(chunk_id: str) -> str:
-    """Deterministic citation id placeholder until plan citations are assembled."""
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"benchmark:{chunk_id}"))
-
-
 def select_kpi_target_mode(
     *,
     metric: str,
@@ -98,17 +92,18 @@ def select_kpi_target_mode(
     )
     if benchmark_item is not None:
         excerpt = benchmark_item.excerpt
+        citation_id = str(benchmark_item.chunk_id)
         return KpiTarget(
             metric=metric,
             funnel_stage=funnel_stage,
             target_mode=KpiTargetMode.verified_benchmark_range,
             target_value=excerpt[:120] if excerpt else "benchmark range",
-            benchmark_citation_id=_chunk_to_citation_id(str(benchmark_item.chunk_id)),
+            benchmark_citation_id=citation_id,
             measurement_method=f"Track {metric} weekly",
             notes=SourcedClaim(
                 text=f"Verified benchmark from retrieved knowledge: {benchmark_item.title}",
-                source=ClaimSource.deterministic_result,
-                citation_ids=[],
+                source=ClaimSource.retrieved_evidence,
+                citation_ids=[citation_id],
             ),
         )
 

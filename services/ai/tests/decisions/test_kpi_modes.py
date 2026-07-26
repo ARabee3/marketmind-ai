@@ -35,7 +35,13 @@ def test_verified_benchmark_range_selected():
     )
     assert target.target_mode == KpiTargetMode.verified_benchmark_range
     assert target.target_value is not None
-    assert target.benchmark_citation_id is not None
+    benchmark_chunk_ids = {
+        str(benchmark.chunk_id)
+        for benchmark in pack.items
+        if benchmark.evidence_tier == "verified_benchmark"
+    }
+    assert target.benchmark_citation_id in benchmark_chunk_ids
+    assert target.notes.citation_ids == [target.benchmark_citation_id]
 
 
 def test_owner_target_selected():
