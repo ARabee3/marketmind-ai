@@ -1,11 +1,10 @@
+from typing import AsyncGenerator
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from typing import AsyncGenerator
 
 from strategy_contracts import (
     BudgetScenario,
@@ -22,7 +21,7 @@ from app.decisions.explanations import ChannelScoreExplanation, StrategyDecision
 from app.decisions.service import compute_strategy_decisions
 from app.qdrant.client import create_qdrant_client
 from app.rag.errors import RetryableRetrievalError, NonRetryableRetrievalError
-from app.rag.schemas import RetrievalQueryContext, RetrievedKnowledgePack
+from app.rag.schemas import KnowledgeGap, RetrievalQueryContext, RetrievedKnowledgePack
 from app.rag.retrieval_service import retrieve_strategy_knowledge
 
 
@@ -97,6 +96,7 @@ class ScoreStrategyResponse(BaseModel):
     channel_explanations: list[ChannelScoreExplanation]
     budget_scenarios: list[BudgetScenario] | None
     kpi_targets: list[KpiTarget]
+    knowledge_gaps: list[KnowledgeGap]
 
 
 @router.post(
@@ -136,4 +136,5 @@ async def score_strategy(
         channel_explanations=bundle.channel_explanations,
         budget_scenarios=bundle.budget_scenarios,
         kpi_targets=bundle.kpi_targets,
+        knowledge_gaps=bundle.knowledge_gaps,
     )
