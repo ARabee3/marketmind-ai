@@ -111,6 +111,29 @@ duplicateWeeksPlan.content_strategy.weeks = Array.from({ length: 12 }, () =>
 );
 expectCode("STRATEGY_RULE_VIOLATION", { plan: duplicateWeeksPlan });
 
+const contentLeakagePlan = clone(plan);
+contentLeakagePlan.executive_summary = {
+  ...contentLeakagePlan.executive_summary,
+  text: "Caption: اطلب الكشري الآن مع #KosharyCorner",
+};
+expectCode("STRATEGY_RULE_VIOLATION", { plan: contentLeakagePlan });
+
+const paidTacticBrief = {
+  ...brief,
+  paid_media_allowed: false,
+  external_budget_mode: "scenario_only",
+  external_budget_egp: null,
+} satisfies StrategyBrief;
+const paidTacticPlan = clone(plan);
+paidTacticPlan.executive_summary = {
+  ...paidTacticPlan.executive_summary,
+  text: "Run boosted posts and launch paid ads this week.",
+};
+expectCode("STRATEGY_RULE_VIOLATION", {
+  brief: paidTacticBrief,
+  plan: paidTacticPlan,
+});
+
 const stalePlan = await loadJson<StrategyPlan>(
   "strategy-plan-stale-profile.invalid.json",
 );

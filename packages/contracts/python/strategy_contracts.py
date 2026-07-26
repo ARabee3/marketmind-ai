@@ -7,6 +7,8 @@ Round-trips against JSON fixtures under packages/contracts/examples/.
 
 from __future__ import annotations
 
+import math
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Literal
@@ -14,6 +16,46 @@ from typing import Any, Optional, Literal
 UUID = str
 
 from pydantic import BaseModel, Field, model_validator
+
+
+CHANNEL_SCORE_RULE_VERSION = "strategy-channel-score-v1"
+
+CHANNEL_SCORE_DIMENSIONS = (
+    "objective_fit",
+    "audience_fit",
+    "existing_presence",
+    "asset_format_fit",
+    "team_capacity",
+    "budget_fit",
+    "evidence_strength",
+    "measurement_readiness",
+)
+
+
+def round_score(value: float) -> float:
+    return round(value * 100) / 100
+
+
+def calculate_channel_total(scorecard: "DeterministicChannelScorecard") -> float:
+    return round_score(
+        sum(getattr(scorecard.scores, dimension) for dimension in CHANNEL_SCORE_DIMENSIONS)
+    )
+
+
+def scorecards_match(
+    a: "DeterministicChannelScorecard",
+    b: "DeterministicChannelScorecard",
+) -> bool:
+    return (
+        a.channel == b.channel
+        and a.role == b.role
+        and all(
+            getattr(a.scores, dimension) == getattr(b.scores, dimension)
+            for dimension in CHANNEL_SCORE_DIMENSIONS
+        )
+        and a.total_score == b.total_score
+        and a.excluded_reason == b.excluded_reason
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -693,6 +735,62 @@ class StrategyGenerateResponse(BaseModel):
     validation: StrategyValidationResult
 
 
+def _naive_datetime(value: datetime) -> datetime:
+    if value.tzinfo is not None:
+        return value.replace(tzinfo=None)
+    return value
+
+
+CONTENT_AGENT_LEAKAGE_PATTERNS = (
+    re.compile(r"#\w+", re.UNICODE),
+    re.compile(r"\bCaption\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bScript\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bPost\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bStory\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bReel\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\b(?:caption|script|post|story|reel)\b", re.IGNORECASE | re.UNICODE),
+)
+
+EXECUTION_LANGUAGE_PATTERNS = (
+    re.compile(r"\bscheduled\s+for\s+publishing\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bads?\s+have\s+been\s+launched\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bbudget\s+has\s+been\s+spent\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bhas\s+been\s+published\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bwe\s+will\s+run\s+the\s+ads?\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bauto-?approve\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"(?:تم|هيتم|هننشر|انشر).*(?:نشر|بوست|إعلان)", re.UNICODE),
+)
+
+PAID_TACTIC_PATTERNS = (
+    re.compile(r"\bboost(?:ed|ing)?\s+posts?\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bpaid\s+(?:ads?|campaign|media|promotion)\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bsponsored\s+(?:post|promotion|ad)\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bad\s+budget\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"(?:إعلان|اعلان|بوست|منشور)\s+ممول", re.UNICODE),
+    re.compile(r"(?:هنشغل|تشغيل|إطلاق|اطلاق).*(?:إعلانات|اعلانات)", re.UNICODE),
+    re.compile(r"ميزانية\s+(?:إعلانات|اعلانات)", re.UNICODE),
+)
+
+
+def _claim_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
+    claims = [
+        ("executive_summary", plan.executive_summary.text),
+        ("situation_diagnosis", plan.situation_diagnosis.text),
+        ("target_audience", plan.target_audience.text),
+        ("positioning", plan.positioning.text),
+        ("tone", plan.tone.text),
+    ]
+    for index, claim in enumerate(plan.assumptions):
+        claims.append((f"assumptions[{index}]", claim.text))
+    for index, claim in enumerate(plan.risks):
+        claims.append((f"risks[{index}]", claim.text))
+    for index, pillar in enumerate(plan.content_strategy.pillars):
+        claims.append((f"content_strategy.pillars[{index}]", pillar.text))
+    for index, mix in enumerate(plan.content_strategy.format_mix):
+        claims.append((f"content_strategy.format_mix[{index}]", mix.text))
+    return claims
+
+
 def validate_strategy_bundle(
     *,
     business_profile: BusinessProfilePayload,
@@ -706,6 +804,13 @@ def validate_strategy_bundle(
 
     def add(code: StrategyValidationCode, field: str, message: str) -> None:
         issues.append(StrategyValidationIssue(code=code, field=field, message=message))
+
+    if not business_profile.confirmed_at or not business_profile.confirmed_by_user_id:
+        add(
+            "STRATEGY_PROFILE_UNCONFIRMED",
+            "business_profile",
+            "Strategy requires a confirmed immutable Business Profile.",
+        )
 
     profile_refs = (brief.business_profile_version, plan.profile_version)
     if any(
@@ -741,29 +846,40 @@ def validate_strategy_bundle(
             "decision.strategy_version",
             "An owner decision must reference the exact immutable Strategy version being reviewed.",
         )
-
-    deterministic_names = [score.channel for score in deterministic_channel_scores]
-    expected_scores = {
-        score.channel: score.model_dump(
-            include={"channel", "role", "scores", "total_score", "excluded_reason"}
-        )
-        for score in deterministic_channel_scores
-    }
-    actual_scores = {
-        score.channel: score.model_dump(
-            include={"channel", "role", "scores", "total_score", "excluded_reason"}
-        )
-        for score in plan.all_channel_scores
-    }
     if (
-        len(set(deterministic_names)) != len(deterministic_names)
-        or expected_scores != actual_scores
+        decision is not None
+        and decision.decision == DecisionType.revision_requested
+        and not (decision.revision_notes and decision.revision_notes.strip())
     ):
         add(
-            "STRATEGY_SCORE_MISMATCH",
-            "plan.all_channel_scores",
-            "The plan must preserve the deterministic channel score input unchanged.",
+            "STRATEGY_RULE_VIOLATION",
+            "decision.revision_notes",
+            "A revision request must explain what the owner wants changed.",
         )
+
+    retrieved_at = _naive_datetime(retrieval_pack.retrieved_at)
+
+    for index, item in enumerate(retrieval_pack.items):
+        quality = item.source_quality
+        effective_at = _naive_datetime(quality.effective_at)
+        expires_at = (
+            _naive_datetime(quality.expires_at)
+            if quality.expires_at is not None
+            else None
+        )
+        unavailable = (
+            quality.review_status != "approved"
+            or effective_at > retrieved_at
+            or (expires_at is not None and expires_at < retrieved_at)
+        )
+        if unavailable:
+            add(
+                "STRATEGY_EVIDENCE_NOT_APPROVED",
+                f"retrieval_pack.items[{index}].source_quality",
+                "Retrieved knowledge must be approved, effective, and unexpired.",
+            )
+
+    deterministic_names = [score.channel for score in deterministic_channel_scores]
 
     pack_items = {item.chunk_id: item for item in retrieval_pack.items}
     citations = {citation.citation_id: citation for citation in plan.citations}
@@ -796,6 +912,96 @@ def validate_strategy_bundle(
                 "A numeric benchmark needs a target value and a verified citation from the retrieval pack.",
             )
 
+    if plan.channel_score_rule_version != CHANNEL_SCORE_RULE_VERSION:
+        add(
+            "STRATEGY_SCORE_MISMATCH",
+            "plan.channel_score_rule_version",
+            "Unsupported deterministic channel score rule version.",
+        )
+
+    all_score_channels = [scorecard.channel for scorecard in plan.all_channel_scores]
+    selected_channels = [scorecard.channel for scorecard in plan.selected_channels]
+    if (
+        len(set(deterministic_names)) != len(deterministic_names)
+        or len(set(all_score_channels)) != len(all_score_channels)
+        or len(set(selected_channels)) != len(selected_channels)
+    ):
+        add(
+            "STRATEGY_SCORE_MISMATCH",
+            "plan.selected_channels",
+            "Deterministic, all-channel, and selected-channel lists must use unique channel names.",
+        )
+
+    for index, scorecard in enumerate(plan.all_channel_scores):
+        dimensions_valid = all(
+            math.isfinite(getattr(scorecard.scores, dimension))
+            and 0 <= getattr(scorecard.scores, dimension) <= 1
+            for dimension in CHANNEL_SCORE_DIMENSIONS
+        )
+        if (
+            not dimensions_valid
+            or calculate_channel_total(scorecard) != scorecard.total_score
+        ):
+            add(
+                "STRATEGY_SCORE_MISMATCH",
+                f"plan.all_channel_scores[{index}]",
+                "Channel total must be reproducible from eight bounded deterministic dimensions.",
+            )
+
+    if (
+        len(deterministic_channel_scores) != len(plan.all_channel_scores)
+        or any(
+            not (
+                actual := next(
+                    (
+                        scorecard
+                        for scorecard in plan.all_channel_scores
+                        if scorecard.channel == expected.channel
+                    ),
+                    None,
+                )
+            )
+            or not scorecards_match(expected, actual)
+            for expected in deterministic_channel_scores
+        )
+    ):
+        add(
+            "STRATEGY_SCORE_MISMATCH",
+            "plan.all_channel_scores",
+            "The plan must preserve the deterministic channel score input unchanged.",
+        )
+
+    for index, selected in enumerate(plan.selected_channels):
+        canonical = next(
+            (
+                scorecard
+                for scorecard in plan.all_channel_scores
+                if scorecard.channel == selected.channel
+            ),
+            None,
+        )
+        if canonical is None or not scorecards_match(selected, canonical):
+            add(
+                "STRATEGY_SCORE_MISMATCH",
+                f"plan.selected_channels[{index}]",
+                "Selected channels must exactly reuse deterministic all-channel results.",
+            )
+
+    primary_count = sum(
+        1 for channel in plan.selected_channels if channel.role == ChannelRole.primary
+    )
+    supporting_count = sum(
+        1
+        for channel in plan.selected_channels
+        if channel.role == ChannelRole.supporting
+    )
+    if primary_count > 2 or supporting_count > 1:
+        add(
+            "STRATEGY_CHANNEL_LIMIT_EXCEEDED",
+            "plan.selected_channels",
+            "A plan may contain at most two primary and one supporting channel.",
+        )
+
     if plan.budget_mode != brief.external_budget_mode:
         add(
             "STRATEGY_BUDGET_MISMATCH",
@@ -818,6 +1024,18 @@ def validate_strategy_bundle(
         )
     )
     for index, scenario in enumerate(plan.budget_scenarios or []):
+        amount_total = round_score(
+            sum(allocation.amount_egp for allocation in scenario.channel_allocations)
+        )
+        percentage_total = round_score(
+            sum(allocation.percentage for allocation in scenario.channel_allocations)
+        )
+        if amount_total != scenario.total_egp or percentage_total != 100:
+            add(
+                "STRATEGY_ARITHMETIC_FAILURE",
+                f"plan.budget_scenarios[{index}].channel_allocations",
+                "Allocations must equal the scenario total and percentages must equal 100.",
+            )
         expected_period = (
             "monthly"
             if brief.external_budget_mode == ExternalBudgetMode.monthly_amount
@@ -888,12 +1106,46 @@ def validate_strategy_bundle(
             "The base scenario must equal the owner-confirmed external budget.",
         )
 
+    week_numbers = [week.week_number for week in plan.content_strategy.weeks]
+    if (
+        len(week_numbers) != 12
+        or len(set(week_numbers)) != 12
+        or any(week < 1 or week > 12 for week in week_numbers)
+    ):
+        add(
+            "STRATEGY_RULE_VIOLATION",
+            "plan.content_strategy.weeks",
+            "The roadmap must contain each week number from 1 through 12 exactly once.",
+        )
+
     if any(gap.severity == GapSeverity.blocking for gap in plan.knowledge_gaps):
         add(
             "STRATEGY_KNOWLEDGE_GAP",
             "plan.knowledge_gaps",
             "Blocking knowledge gaps must remain visible and prevent approval.",
         )
+
+    for field, text in _claim_texts(plan):
+        if any(pattern.search(text) for pattern in CONTENT_AGENT_LEAKAGE_PATTERNS):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Strategy planning text must not contain finished captions, scripts, posts, or hashtags.",
+            )
+        if any(pattern.search(text) for pattern in EXECUTION_LANGUAGE_PATTERNS):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Strategy planning text must not imply publishing, ad execution, spending, or auto-approval.",
+            )
+        if not brief.paid_media_allowed and any(
+            pattern.search(text) for pattern in PAID_TACTIC_PATTERNS
+        ):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Paid tactics are not allowed when paid_media_allowed is false.",
+            )
 
     if decision is not None and decision.decision == DecisionType.approved:
         if issues or any(blocker.severity == BlockerSeverity.blocking for blocker in plan.blockers):

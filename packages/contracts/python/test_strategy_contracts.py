@@ -16,9 +16,27 @@ from strategy_contracts import (
     SubmitStrategyDecisionRequest,
     UpdateStrategyBriefRequest,
     validate_strategy_bundle,
+    DecisionType,
+    ChannelRole,
 )
 
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
+
+
+def _load_bundle_fixtures():
+    journey = json.loads((EXAMPLES_DIR / "cafe-full-journey.example.json").read_text())
+    brief = StrategyBrief.model_validate(
+        json.loads((EXAMPLES_DIR / "strategy-brief.example.json").read_text())
+    )
+    pack = RetrievedKnowledgePack.model_validate(
+        json.loads((EXAMPLES_DIR / "strategy-retrieval-pack.example.json").read_text())
+    )
+    plan = StrategyPlan.model_validate(
+        json.loads((EXAMPLES_DIR / "strategy-plan.example.json").read_text())
+    )
+    profile = BusinessProfilePayload.model_validate(journey["confirmed_business_profile"])
+    return profile, brief, pack, plan
+
 
 class TestStrategyContracts(unittest.TestCase):
     def load_fixture(self, filename: str):
@@ -240,6 +258,229 @@ class TestStrategyContracts(unittest.TestCase):
         ]
         with self.assertRaises(ValidationError):
             StrategyPlan.model_validate(data)
+
+    def test_validate_strategy_bundle_valid_fixture(self):
+        profile, brief, pack, plan = _load_bundle_fixtures()
+        result = validate_strategy_bundle(
+            business_profile=profile,
+            brief=brief,
+            retrieval_pack=pack,
+            deterministic_channel_scores=plan.all_channel_scores,
+            plan=plan,
+        )
+        self.assertTrue(result.valid)
+        self.assertEqual(result.issues, [])
+
+    def _expect_validation_code(self, code: str, **overrides):
+        profile, brief, pack, plan = _load_bundle_fixtures()
+        result = validate_strategy_bundle(
+            business_profile=overrides.get("profile", profile),
+            brief=overrides.get("brief", brief),
+            retrieval_pack=overrides.get("pack", pack),
+            deterministic_channel_scores=overrides.get(
+                "deterministic_scores", plan.all_channel_scores
+            ),
+            plan=overrides.get("plan", plan),
+            decision=overrides.get("decision"),
+        )
+        codes = [issue.code for issue in result.issues]
+        self.assertIn(code, codes, msg=f"expected {code}, got {codes}")
+
+    def test_validate_evidence_not_approved(self):
+        _, _, pack, plan = _load_bundle_fixtures()
+        retired_items = [
+            item.model_copy(
+                update={
+                    "source_quality": item.source_quality.model_copy(
+                        update={"review_status": "retired"}
+                    )
+                }
+            )
+            for item in pack.items
+        ]
+        retired_pack = pack.model_copy(update={"items": retired_items})
+        self._expect_validation_code(
+            "STRATEGY_EVIDENCE_NOT_APPROVED",
+            pack=retired_pack,
+        )
+
+    def test_validate_invalid_benchmark(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        bad_targets = [
+            target.model_copy(
+                update={"benchmark_citation_id": "ffffffff-ffff-4fff-8fff-ffffffffffff"}
+            )
+            for target in plan.kpi_targets
+        ]
+        bad_plan = plan.model_copy(update={"kpi_targets": bad_targets})
+        self._expect_validation_code(
+            "STRATEGY_INVALID_BENCHMARK",
+            plan=bad_plan,
+        )
+
+    def test_validate_score_mismatch_total(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        bad_scores = plan.all_channel_scores[0].scores.model_copy(
+            update={"objective_fit": 0.1}
+        )
+        bad_all_scores = [
+            score.model_copy(update={"scores": bad_scores}) if i == 0 else score
+            for i, score in enumerate(plan.all_channel_scores)
+        ]
+        bad_plan = plan.model_copy(
+            update={
+                "all_channel_scores": bad_all_scores,
+                "selected_channels": bad_all_scores,
+            }
+        )
+        self._expect_validation_code(
+            "STRATEGY_SCORE_MISMATCH",
+            plan=bad_plan,
+        )
+
+    def test_validate_score_mismatch_deterministic_input(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        changed = deepcopy(plan.all_channel_scores)
+        changed[0].excluded_reason = "Changed after scoring"
+        self._expect_validation_code(
+            "STRATEGY_SCORE_MISMATCH",
+            deterministic_scores=changed,
+        )
+
+    def test_validate_budget_mismatch_missing_base(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        bad_scenarios = [
+            scenario
+            for scenario in plan.budget_scenarios
+            if scenario.scenario_type != "base"
+        ]
+        bad_plan = plan.model_copy(update={"budget_scenarios": bad_scenarios})
+        self._expect_validation_code(
+            "STRATEGY_BUDGET_MISMATCH",
+            plan=bad_plan,
+        )
+
+    def test_validate_duplicate_weeks(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        duplicated_weeks = [
+            plan.content_strategy.weeks[0].model_copy() for _ in range(12)
+        ]
+        bad_roadmap = plan.content_strategy.model_copy(
+            update={"weeks": duplicated_weeks}
+        )
+        bad_plan = plan.model_copy(update={"content_strategy": bad_roadmap})
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            plan=bad_plan,
+        )
+
+    def test_validate_content_agent_leakage(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        bad_plan = plan.model_copy(
+            update={
+                "executive_summary": plan.executive_summary.model_copy(
+                    update={"text": "Caption: اطلب الكشري الآن مع #KosharyCorner"}
+                )
+            }
+        )
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            plan=bad_plan,
+        )
+
+    def test_validate_paid_tactics_when_paid_media_disallowed(self):
+        _, brief, _, plan = _load_bundle_fixtures()
+        unpaid_brief = brief.model_copy(
+            update={
+                "paid_media_allowed": False,
+                "external_budget_mode": "scenario_only",
+                "external_budget_egp": None,
+            }
+        )
+        bad_plan = plan.model_copy(
+            update={
+                "executive_summary": plan.executive_summary.model_copy(
+                    update={"text": "Run boosted posts and launch paid ads this week."}
+                )
+            }
+        )
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            brief=unpaid_brief,
+            plan=bad_plan,
+        )
+
+    def test_validate_profile_unconfirmed(self):
+        profile, brief, pack, plan = _load_bundle_fixtures()
+        unconfirmed = profile.model_copy(update={"confirmed_at": None})
+        result = validate_strategy_bundle(
+            business_profile=unconfirmed,
+            brief=brief,
+            retrieval_pack=pack,
+            deterministic_channel_scores=plan.all_channel_scores,
+            plan=plan,
+        )
+        self.assertIn(
+            "STRATEGY_PROFILE_UNCONFIRMED",
+            [issue.code for issue in result.issues],
+        )
+
+    def test_validate_channel_limit_exceeded(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        extra_channel = plan.all_channel_scores[2].model_copy(
+            update={"channel": "whatsapp", "role": ChannelRole.primary}
+        )
+        bad_selected = list(plan.selected_channels) + [extra_channel]
+        bad_plan = plan.model_copy(update={"selected_channels": bad_selected})
+        self._expect_validation_code(
+            "STRATEGY_CHANNEL_LIMIT_EXCEEDED",
+            plan=bad_plan,
+        )
+
+    def test_validate_arithmetic_failure(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        base_scenario = plan.budget_scenarios[1]
+        bad_allocations = [
+            allocation.model_copy(update={"amount_egp": 100.0}) if i == 0 else allocation
+            for i, allocation in enumerate(base_scenario.channel_allocations)
+        ]
+        bad_scenarios = [
+            scenario.model_copy(update={"channel_allocations": bad_allocations})
+            if i == 1
+            else scenario
+            for i, scenario in enumerate(plan.budget_scenarios)
+        ]
+        bad_plan = plan.model_copy(update={"budget_scenarios": bad_scenarios})
+        self._expect_validation_code(
+            "STRATEGY_ARITHMETIC_FAILURE",
+            plan=bad_plan,
+        )
+
+    def test_validate_revision_requires_notes(self):
+        profile, brief, pack, plan = _load_bundle_fixtures()
+        decision = OwnerDecision.model_construct(
+            id="00000000-0000-4000-8000-000000000099",
+            strategy_id=plan.strategy_id,
+            strategy_version=plan.version,
+            decision=DecisionType.revision_requested,
+            revision_notes="   ",
+            decided_by_user_id="00000000-0000-4000-8000-000000000098",
+            decided_at=plan.created_at,
+        )
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            decision=decision,
+        )
+
+    def test_validate_approval_blocked(self):
+        profile, brief, pack, plan = _load_bundle_fixtures()
+        decision = OwnerDecision.model_validate(
+            self.load_fixture("strategy-decision-approved.example.json")
+        )
+        decision = decision.model_copy(update={"strategy_version": plan.version + 1})
+        self._expect_validation_code("STRATEGY_RULE_VIOLATION", decision=decision)
+        self._expect_validation_code("STRATEGY_APPROVAL_BLOCKED", decision=decision)
+
 
 if __name__ == "__main__":
     unittest.main()

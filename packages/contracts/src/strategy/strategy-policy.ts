@@ -50,6 +50,62 @@ function scorecardsMatch(
   );
 }
 
+const contentAgentLeakagePatterns = [
+  /#\w+/u,
+  /\bCaption\s*:/iu,
+  /\bScript\s*:/iu,
+  /\bPost\s*\d+\s*:/iu,
+  /\bStory\s*\d+\s*:/iu,
+  /\bReel\s*\d+\s*:/iu,
+  /\b(?:caption|script|post|story|reel)\b/iu,
+] as const;
+
+const executionLanguagePatterns = [
+  /\bscheduled\s+for\s+publishing\b/iu,
+  /\bads?\s+have\s+been\s+launched\b/iu,
+  /\bbudget\s+has\s+been\s+spent\b/iu,
+  /\bhas\s+been\s+published\b/iu,
+  /\bwe\s+will\s+run\s+the\s+ads?\b/iu,
+  /\bauto-?approve\b/iu,
+  /(?:تم|هيتم|هننشر|انشر).*(?:نشر|بوست|إعلان)/u,
+] as const;
+
+const paidTacticPatterns = [
+  /\bboost(?:ed|ing)?\s+posts?\b/iu,
+  /\bpaid\s+(?:ads?|campaign|media|promotion)\b/iu,
+  /\bsponsored\s+(?:post|promotion|ad)\b/iu,
+  /\bad\s+budget\b/iu,
+  /(?:إعلان|اعلان|بوست|منشور)\s+ممول/u,
+  /(?:هنشغل|تشغيل|إطلاق|اطلاق).*(?:إعلانات|اعلانات)/u,
+  /ميزانية\s+(?:إعلانات|اعلانات)/u,
+] as const;
+
+function claimTexts(plan: StrategyPlan): readonly { field: string; text: string }[] {
+  return [
+    { field: "executive_summary", text: plan.executive_summary.text },
+    { field: "situation_diagnosis", text: plan.situation_diagnosis.text },
+    { field: "target_audience", text: plan.target_audience.text },
+    { field: "positioning", text: plan.positioning.text },
+    { field: "tone", text: plan.tone.text },
+    ...plan.assumptions.map((claim, index) => ({
+      field: `assumptions[${index}]`,
+      text: claim.text,
+    })),
+    ...plan.risks.map((claim, index) => ({
+      field: `risks[${index}]`,
+      text: claim.text,
+    })),
+    ...plan.content_strategy.pillars.map((claim, index) => ({
+      field: `content_strategy.pillars[${index}]`,
+      text: claim.text,
+    })),
+    ...plan.content_strategy.format_mix.map((claim, index) => ({
+      field: `content_strategy.format_mix[${index}]`,
+      text: claim.text,
+    })),
+  ];
+}
+
 export function validateStrategyBundle(
   bundle: StrategyValidationBundle,
 ): StrategyValidationResult {
@@ -393,6 +449,33 @@ export function validateStrategyBundle(
       "plan.knowledge_gaps",
       "Blocking knowledge gaps must remain visible and prevent approval.",
     );
+  }
+
+  for (const { field, text } of claimTexts(plan)) {
+    if (contentAgentLeakagePatterns.some((pattern) => pattern.test(text))) {
+      add(
+        "STRATEGY_RULE_VIOLATION",
+        field,
+        "Strategy planning text must not contain finished captions, scripts, posts, or hashtags.",
+      );
+    }
+    if (executionLanguagePatterns.some((pattern) => pattern.test(text))) {
+      add(
+        "STRATEGY_RULE_VIOLATION",
+        field,
+        "Strategy planning text must not imply publishing, ad execution, spending, or auto-approval.",
+      );
+    }
+    if (
+      !brief.paid_media_allowed &&
+      paidTacticPatterns.some((pattern) => pattern.test(text))
+    ) {
+      add(
+        "STRATEGY_RULE_VIOLATION",
+        field,
+        "Paid tactics are not allowed when paid_media_allowed is false.",
+      );
+    }
   }
 
   if (
