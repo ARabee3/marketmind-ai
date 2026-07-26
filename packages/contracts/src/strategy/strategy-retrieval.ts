@@ -44,6 +44,9 @@ export interface RetrievedKnowledgeItem {
   tags: Record<string, string[]>;
   relevance_score: number;
   source_quality: SourceQuality;
+  market_tier?: string;
+  is_fallback?: boolean;
+  fallback_label?: string | null;
 }
 
 export interface KnowledgeGapItem {

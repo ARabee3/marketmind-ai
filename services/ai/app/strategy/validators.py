@@ -11,6 +11,7 @@ from __future__ import annotations
 from strategy_contracts import (
     BusinessProfilePayload,
     DeterministicChannelScorecard,
+    KpiTargetMode,
     RetrievedKnowledgePack,
     StrategyBrief,
     StrategyGenerateRequest,
@@ -61,6 +62,7 @@ class StrategyValidationPipeline:
         issues: list[StrategyValidationIssue] = []
         issues.extend(_validate_required_sections(plan))
         issues.extend(_validate_input_references(plan, request))
+        issues.extend(_validate_benchmarks(plan))
         return issues
 
 
@@ -121,6 +123,50 @@ def _validate_input_references(
                 message="Plan profile_version does not match the supplied Business Profile.",
             )
         )
+    return issues
+
+
+def _validate_benchmarks(plan: StrategyPlan) -> list[StrategyValidationIssue]:
+    """Ensure every verified_benchmark_range KPI has a valid citation in the plan.
+
+    This validator cross-checks KPI targets with target_mode
+    ``verified_benchmark_range`` against the plan's own citations array to
+    catch hallucinated or dangling benchmark references that the model may
+    have inserted despite prompt instructions.
+    """
+    issues: list[StrategyValidationIssue] = []
+    citations_by_id = {c.citation_id: c for c in plan.citations}
+
+    for index, target in enumerate(plan.kpi_targets):
+        if target.target_mode != KpiTargetMode.verified_benchmark_range:
+            continue
+
+        if target.benchmark_citation_id is None:
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_INVALID_BENCHMARK",
+                    field=f"plan.kpi_targets[{index}].benchmark_citation_id",
+                    message=(
+                        "KPI target has target_mode 'verified_benchmark_range' "
+                        "but benchmark_citation_id is null."
+                    ),
+                )
+            )
+            continue
+
+        citation = citations_by_id.get(target.benchmark_citation_id)
+        if citation is None:
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_INVALID_BENCHMARK",
+                    field=f"plan.kpi_targets[{index}].benchmark_citation_id",
+                    message=(
+                        f"benchmark_citation_id {target.benchmark_citation_id} "
+                        "does not match any citation in plan.citations."
+                    ),
+                )
+            )
+
     return issues
 
 

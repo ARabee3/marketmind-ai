@@ -39,9 +39,9 @@ def contract_item_to_hydrated(item: ContractItem) -> HydratedItem:
         effective_at=item.source_quality.effective_at,
         expires_at=item.source_quality.expires_at,
         review_status=item.source_quality.review_status,
-        market_tier="egypt",
-        is_fallback=False,
-        fallback_label=None,
+        market_tier=item.market_tier,
+        is_fallback=item.is_fallback,
+        fallback_label=item.fallback_label,
         category=item.kind,
     )
 
