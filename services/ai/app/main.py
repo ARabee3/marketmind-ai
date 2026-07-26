@@ -1,4 +1,11 @@
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+# Make shared Python contracts importable at runtime, not only under pytest.
+_CONTRACTS_PYTHON = Path(__file__).parent.parent.parent.parent / "packages" / "contracts" / "python"
+if str(_CONTRACTS_PYTHON) not in sys.path:
+    sys.path.insert(0, str(_CONTRACTS_PYTHON))
 
 from fastapi import FastAPI
 
