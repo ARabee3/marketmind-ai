@@ -8,6 +8,7 @@ Round-trips against JSON fixtures under packages/contracts/examples/.
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Literal
@@ -740,6 +741,56 @@ def _naive_datetime(value: datetime) -> datetime:
     return value
 
 
+CONTENT_AGENT_LEAKAGE_PATTERNS = (
+    re.compile(r"#\w+", re.UNICODE),
+    re.compile(r"\bCaption\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bScript\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bPost\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bStory\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bReel\s*\d+\s*:", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\b(?:caption|script|post|story|reel)\b", re.IGNORECASE | re.UNICODE),
+)
+
+EXECUTION_LANGUAGE_PATTERNS = (
+    re.compile(r"\bscheduled\s+for\s+publishing\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bads?\s+have\s+been\s+launched\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bbudget\s+has\s+been\s+spent\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bhas\s+been\s+published\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bwe\s+will\s+run\s+the\s+ads?\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bauto-?approve\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"(?:تم|هيتم|هننشر|انشر).*(?:نشر|بوست|إعلان)", re.UNICODE),
+)
+
+PAID_TACTIC_PATTERNS = (
+    re.compile(r"\bboost(?:ed|ing)?\s+posts?\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bpaid\s+(?:ads?|campaign|media|promotion)\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bsponsored\s+(?:post|promotion|ad)\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"\bad\s+budget\b", re.IGNORECASE | re.UNICODE),
+    re.compile(r"(?:إعلان|اعلان|بوست|منشور)\s+ممول", re.UNICODE),
+    re.compile(r"(?:هنشغل|تشغيل|إطلاق|اطلاق).*(?:إعلانات|اعلانات)", re.UNICODE),
+    re.compile(r"ميزانية\s+(?:إعلانات|اعلانات)", re.UNICODE),
+)
+
+
+def _claim_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
+    claims = [
+        ("executive_summary", plan.executive_summary.text),
+        ("situation_diagnosis", plan.situation_diagnosis.text),
+        ("target_audience", plan.target_audience.text),
+        ("positioning", plan.positioning.text),
+        ("tone", plan.tone.text),
+    ]
+    for index, claim in enumerate(plan.assumptions):
+        claims.append((f"assumptions[{index}]", claim.text))
+    for index, claim in enumerate(plan.risks):
+        claims.append((f"risks[{index}]", claim.text))
+    for index, pillar in enumerate(plan.content_strategy.pillars):
+        claims.append((f"content_strategy.pillars[{index}]", pillar.text))
+    for index, mix in enumerate(plan.content_strategy.format_mix):
+        claims.append((f"content_strategy.format_mix[{index}]", mix.text))
+    return claims
+
+
 def validate_strategy_bundle(
     *,
     business_profile: BusinessProfilePayload,
@@ -1073,6 +1124,28 @@ def validate_strategy_bundle(
             "plan.knowledge_gaps",
             "Blocking knowledge gaps must remain visible and prevent approval.",
         )
+
+    for field, text in _claim_texts(plan):
+        if any(pattern.search(text) for pattern in CONTENT_AGENT_LEAKAGE_PATTERNS):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Strategy planning text must not contain finished captions, scripts, posts, or hashtags.",
+            )
+        if any(pattern.search(text) for pattern in EXECUTION_LANGUAGE_PATTERNS):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Strategy planning text must not imply publishing, ad execution, spending, or auto-approval.",
+            )
+        if not brief.paid_media_allowed and any(
+            pattern.search(text) for pattern in PAID_TACTIC_PATTERNS
+        ):
+            add(
+                "STRATEGY_RULE_VIOLATION",
+                field,
+                "Paid tactics are not allowed when paid_media_allowed is false.",
+            )
 
     if decision is not None and decision.decision == DecisionType.approved:
         if issues or any(blocker.severity == BlockerSeverity.blocking for blocker in plan.blockers):

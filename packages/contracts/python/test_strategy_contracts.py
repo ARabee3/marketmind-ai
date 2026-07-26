@@ -374,6 +374,42 @@ class TestStrategyContracts(unittest.TestCase):
             plan=bad_plan,
         )
 
+    def test_validate_content_agent_leakage(self):
+        _, _, _, plan = _load_bundle_fixtures()
+        bad_plan = plan.model_copy(
+            update={
+                "executive_summary": plan.executive_summary.model_copy(
+                    update={"text": "Caption: اطلب الكشري الآن مع #KosharyCorner"}
+                )
+            }
+        )
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            plan=bad_plan,
+        )
+
+    def test_validate_paid_tactics_when_paid_media_disallowed(self):
+        _, brief, _, plan = _load_bundle_fixtures()
+        unpaid_brief = brief.model_copy(
+            update={
+                "paid_media_allowed": False,
+                "external_budget_mode": "scenario_only",
+                "external_budget_egp": None,
+            }
+        )
+        bad_plan = plan.model_copy(
+            update={
+                "executive_summary": plan.executive_summary.model_copy(
+                    update={"text": "Run boosted posts and launch paid ads this week."}
+                )
+            }
+        )
+        self._expect_validation_code(
+            "STRATEGY_RULE_VIOLATION",
+            brief=unpaid_brief,
+            plan=bad_plan,
+        )
+
     def test_validate_profile_unconfirmed(self):
         profile, brief, pack, plan = _load_bundle_fixtures()
         unconfirmed = profile.model_copy(update={"confirmed_at": None})
