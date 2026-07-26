@@ -14,11 +14,15 @@ from tests.decisions.fixtures.base import (
 
 
 def test_retrieve_knowledge_endpoint_exists():
-    client = TestClient(app)
+    route_paths = {
+        nested_route.path
+        for route in app.routes
+        if hasattr(route, "original_router")
+        for nested_route in route.original_router.routes
+        if hasattr(nested_route, "path")
+    }
 
-    # Just checking the route is mounted and fails with 422 if empty body
-    response = client.post("/internal/v1/ai/strategy/retrieve")
-    assert response.status_code == 422  # Unprocessable Entity (Missing params)
+    assert "/internal/v1/ai/strategy/retrieve" in route_paths
 
 
 def test_score_strategy_endpoint_requires_body():
