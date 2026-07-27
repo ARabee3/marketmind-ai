@@ -1,0 +1,215 @@
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+
+class SubqueryEvalResult(BaseModel):
+    subquery_category: str
+    subquery_text: str
+    returned_chunk_ids: list[str]
+    expected_chunk_ids: list[str]
+    matched_chunk_ids: list[str]
+    passed: bool
+    latency_ms: float = 0.0
+
+
+class RetrievalEvalResult(BaseModel):
+    case_id: str
+    sector: str
+    language: str
+    description: str
+    subquery_results: list[SubqueryEvalResult]
+    retrieval_pass: bool
+    top5_hit: bool
+    forbidden_violation: bool
+    forbidden_found: list[str] = []
+    detected_gap_categories: list[str]
+    missing_gap_categories: list[str]
+    total_latency_ms: float = 0.0
+    top5_hit_rate: float = 0.0
+    evaluated_for_top5: bool = False
+    failure_category: str | None = None
+    # Approval / revision signal: set by callers that track owner decisions.
+    approval_signal: str | None = None  # "approved" | "revision_requested" | None
+    # Embedding cost in USD for this case's retrieval subqueries (0 for fake provider).
+    embedding_cost_usd: float = 0.0
+
+
+class FilterEvalResult(BaseModel):
+    case_id: str
+    chunk_id: str
+    filter_reason: str
+    was_filtered: bool
+
+
+class EvaluationReport(BaseModel):
+    dataset_version: str = "eval-v1"
+    run_at: str = ""
+    embedding_provider: str = ""
+    top5_hit_rate: float = 0.0
+    hard_filter_violations: int = 0
+    cases_passed: int = 0
+    cases_failed: int = 0
+    empty_result_with_no_gap_count: int = 0
+    avg_retrieval_latency_ms: float = 0.0
+    # Approval / revision signals aggregated across all cases.
+    approved_count: int = 0
+    revision_requested_count: int = 0
+    # Total embedding cost across the run (0 for fake/mock provider).
+    total_embedding_cost_usd: float = 0.0
+    per_case: list[dict] = Field(default_factory=list)
+    failure_breakdown: dict[str, int] = Field(default_factory=dict)
+    filter_results: list[FilterEvalResult] = Field(default_factory=list)
+    privacy_issues: list[str] = Field(default_factory=list)
+    retrieval_results: list[RetrievalEvalResult] = Field(default_factory=list)
+
+
+def build_report(
+    retrieval_results: list[RetrievalEvalResult],
+    dataset_version: str = "eval-v1",
+    embedding_provider: str = "fake",
+    filter_results: list[FilterEvalResult] | None = None,
+    privacy_issues: list[str] | None = None,
+) -> EvaluationReport:
+    total = len(retrieval_results)
+    passed = sum(1 for r in retrieval_results if r.retrieval_pass)
+    failed = total - passed
+    avg_latency = (
+        sum(r.total_latency_ms for r in retrieval_results) / total
+        if total > 0
+        else 0.0
+    )
+    evaluated = [r for r in retrieval_results if r.evaluated_for_top5]
+    overall_top5 = (
+        sum(1 for r in evaluated if r.top5_hit) / len(evaluated)
+        if evaluated
+        else 0.0
+    )
+    hard_filter_violations = sum(1 for r in retrieval_results if r.forbidden_violation)
+    empty_no_gap = sum(
+        1 for r in retrieval_results
+        if r.top5_hit_rate == 0.0 and not r.detected_gap_categories
+    )
+
+    KNOWN_CATEGORIES = {"corpus", "retrieval", "hard_filter", "privacy", "contract", "rule", "prompt"}
+    breakdown: dict[str, int] = {cat: 0 for cat in KNOWN_CATEGORIES}
+    for r in retrieval_results:
+        if not r.retrieval_pass:
+            if r.failure_category and r.failure_category in KNOWN_CATEGORIES:
+                # Caller has already classified the failure — trust it.
+                breakdown[r.failure_category] += 1
+            else:
+                # Derive category from observed evidence.
+                if r.forbidden_violation:
+                    breakdown["hard_filter"] += 1
+                elif r.missing_gap_categories:
+                    breakdown["corpus"] += 1
+                elif any(not sr.passed for sr in r.subquery_results):
+                    breakdown["retrieval"] += 1
+                else:
+                    # Unknown; count as retrieval by default.
+                    breakdown["retrieval"] += 1
+
+    # Approval / revision signal aggregation
+    approved_count = sum(1 for r in retrieval_results if r.approval_signal == "approved")
+    revision_requested_count = sum(1 for r in retrieval_results if r.approval_signal == "revision_requested")
+    total_embedding_cost = sum(r.embedding_cost_usd for r in retrieval_results)
+
+    per_case = [
+        {
+            "id": r.case_id,
+            "sector": r.sector,
+            "language": r.language,
+            "passed": r.retrieval_pass,
+            "top5_hit": r.top5_hit,
+            "forbidden_violation": r.forbidden_violation,
+            "latency_ms": r.total_latency_ms,
+            "failure_category": r.failure_category,
+            "approval_signal": r.approval_signal,
+            "embedding_cost_usd": r.embedding_cost_usd,
+        }
+        for r in retrieval_results
+    ]
+
+    return EvaluationReport(
+        dataset_version=dataset_version,
+        run_at=datetime.now(timezone.utc).isoformat(),
+        embedding_provider=embedding_provider,
+        top5_hit_rate=round(overall_top5, 4),
+        hard_filter_violations=hard_filter_violations,
+        cases_passed=passed,
+        cases_failed=failed,
+        empty_result_with_no_gap_count=empty_no_gap,
+        avg_retrieval_latency_ms=round(avg_latency, 2),
+        approved_count=approved_count,
+        revision_requested_count=revision_requested_count,
+        total_embedding_cost_usd=round(total_embedding_cost, 6),
+        per_case=per_case,
+        failure_breakdown=breakdown,
+        filter_results=filter_results or [],
+        privacy_issues=privacy_issues or [],
+        retrieval_results=retrieval_results,
+    )
+
+
+def format_human_summary(report: EvaluationReport) -> str:
+    lines = []
+    pct = round(report.top5_hit_rate * 100, 1)
+    target = 80.0
+    hit_ok = "✅" if pct >= target else "❌"
+    hf_ok = "✅" if report.hard_filter_violations == 0 else "❌"
+    gap_ok = "✅" if report.empty_result_with_no_gap_count == 0 else "❌"
+
+    lines.append(f"=== Retrieval Evaluation Report — {report.dataset_version} ===")
+    lines.append(f"Cases: {report.cases_passed + report.cases_failed} | Passed: {report.cases_passed} | Failed: {report.cases_failed}")
+    lines.append(f"Top-5 hit rate: {pct}% (target >= {target}%) {hit_ok}")
+    lines.append(f"Hard-filter violations: {report.hard_filter_violations} {hf_ok}")
+    lines.append(f"Empty-result with no gap: {report.empty_result_with_no_gap_count} {gap_ok}")
+    lines.append(f"Avg retrieval latency: {report.avg_retrieval_latency_ms}ms")
+    lines.append(f"Embedding provider: {report.embedding_provider}")
+    lines.append("")
+
+    if report.cases_failed > 0:
+        lines.append("Failed cases:")
+        for pc in report.per_case:
+            if not pc["passed"]:
+                cat = pc["failure_category"] or "unknown"
+                lines.append(f"  ❌ {pc['id']} [{cat}]")
+                r = next((x for x in report.retrieval_results if x.case_id == pc["id"]), None)
+                if r:
+                    if r.forbidden_violation:
+                        lines.append(f"      forbidden violation — found chunks: {r.forbidden_found}")
+                    if r.missing_gap_categories:
+                        lines.append(f"      missing gaps: {r.missing_gap_categories}")
+                    for sr in r.subquery_results:
+                        if not sr.passed:
+                            lines.append(f"      {sr.subquery_category}: expected {sr.expected_chunk_ids}, got {sr.returned_chunk_ids}")
+        for f in report.filter_results:
+            if not f.was_filtered:
+                lines.append(f"  Filter fail: {f.case_id} chunk {f.chunk_id} reason={f.filter_reason}")
+
+    if report.privacy_issues:
+        lines.append("Privacy issues:")
+        for issue in report.privacy_issues:
+            lines.append(f"  - {issue}")
+
+    bd = report.failure_breakdown
+    if bd:
+        parts = " ".join(f"{k}={v}" for k, v in sorted(bd.items()))
+        lines.append("")
+        lines.append(f"Failure breakdown: {parts}")
+
+    return "\n".join(lines)
+
+
+def format_json_report(report: EvaluationReport) -> dict:
+    return report.model_dump(mode="json")
+
+
+def write_report_file(report: EvaluationReport, path: str | Path = "evaluation_report.json") -> str:
+    path = Path(path)
+    data = format_json_report(report)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return str(path.resolve())
