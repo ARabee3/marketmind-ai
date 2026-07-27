@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from pydantic import BaseModel, Field
 from strategy_contracts import StrategyPlan, RetrievedKnowledgePack
+
+APPROVED_SOURCE_PREFIXES = (
+    "internal:reviewed-marketing-methodology",
+    "synthetic-fixture://",
+)
 
 
 class GroundingCheckResult(BaseModel):
@@ -19,7 +25,15 @@ class GroundingCheckResult(BaseModel):
     ungrounded_benchmark_kpis: list[str] = Field(default_factory=list)
     incompatible_benchmark_kpis: list[str] = Field(default_factory=list)
     raw_skill_leakage_found: list[str] = Field(default_factory=list)
+    source_reference_violations: list[str] = Field(default_factory=list)
+    benchmark_source_issues: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+
+
+def _naive_datetime(value: datetime) -> datetime:
+    if value.tzinfo is not None:
+        return value.replace(tzinfo=None)
+    return value
 
 
 def check_strategy_grounding(
@@ -31,23 +45,21 @@ def check_strategy_grounding(
     Checks:
     1. Citation integrity — every claim citation_id exists in plan.citations.
     2. Retrieval resolution — every plan citation chunk_id is in the retrieved pack.
-    3. Benchmark compatibility — verified_benchmark_range KPIs must cite a pack
-       item with evidence_tier == "verified_benchmark".
-    4. Source enforcement — citations must not reference raw skill leakage URLs.
+    3. Source governance — every retrieved item's source_references must resolve to
+       approved MarketMind internal sources, not raw external URLs.
+    4. Benchmark compatibility — verified_benchmark_range KPIs must cite a pack
+       item with evidence_tier == "verified_benchmark", valid review_status,
+       effective/expiry dates, and matching market/locale/industry.
+    5. Source enforcement — citations must not reference raw skill leakage URLs.
     """
     diagnostics: list[str] = []
 
     # ── 1. Collect all citations in the plan ──────────────────────────────────
     plan_citations_by_id = {str(c.citation_id): c for c in plan.citations}
-    retrieved_chunk_ids = {str(item.chunk_id) for item in retrieval_pack.items}
-
-    # Build chunk_id → evidence_tier lookup for benchmark compatibility checks.
-    pack_tier_by_chunk: dict[str, str] = {
-        str(item.chunk_id): str(
-            getattr(item, "evidence_tier", "") or getattr(item, "source_quality", "")
-        )
-        for item in retrieval_pack.items
+    pack_item_by_chunk: dict[str, RetrievedKnowledgePack.items] = {
+        str(item.chunk_id): item for item in retrieval_pack.items
     }
+    retrieved_chunk_ids = set(pack_item_by_chunk.keys())
 
     # ── 2. SourcedClaims citation integrity ───────────────────────────────────
     total_claims = 0
@@ -89,9 +101,10 @@ def check_strategy_grounding(
 
     citation_integrity_passed = len(unresolved_citation_ids) == 0
 
-    # ── 3. Retrieval resolution & raw skill leakage ───────────────────────────
+    # ── 3. Retrieval resolution, source governance & raw skill leakage ────────
     unresolved_chunk_ids: set[str] = set()
     raw_skill_leakage: set[str] = set()
+    source_reference_violations: list[str] = []
 
     for cit_id_str, citation in plan_citations_by_id.items():
         chunk_id_str = str(citation.chunk_id)
@@ -112,16 +125,35 @@ def check_strategy_grounding(
                 f"Raw external skill leakage detected in citation '{cit_id_str}': {source_ref_str}"
             )
 
+    for item in retrieval_pack.items:
+        sq = getattr(item, "source_quality", None)
+        if sq is None:
+            continue
+        for ref in getattr(sq, "source_references", []):
+            if not any(ref.startswith(p) for p in APPROVED_SOURCE_PREFIXES):
+                source_reference_violations.append(
+                    f"Item {item.chunk_id} has unapproved source_reference: '{ref}'"
+                )
+                diagnostics.append(
+                    f"Source governance: item {item.chunk_id} source_reference "
+                    f"'{ref}' does not start with an approved prefix"
+                )
+
     retrieval_resolution_passed = len(unresolved_chunk_ids) == 0
-    source_enforcement_passed = len(raw_skill_leakage) == 0
+    source_enforcement_passed = (
+        len(raw_skill_leakage) == 0 and len(source_reference_violations) == 0
+    )
 
     # ── 4. Benchmark citation compatibility ───────────────────────────────────
     # A KPI with target_mode == "verified_benchmark_range" must:
     # (a) Have a benchmark_citation_id that exists in plan.citations, AND
     # (b) That citation's chunk_id must resolve to a pack item whose
-    #     evidence_tier is "verified_benchmark".
+    #     evidence_tier is "verified_benchmark", AND
+    # (c) The pack item must have valid review_status, effective dates, and
+    #     compatible market/locale/industry with the query context.
     ungrounded_benchmarks: list[str] = []
     incompatible_benchmarks: list[str] = []
+    benchmark_source_issues: list[str] = []
 
     for kpi in plan.kpi_targets:
         if str(getattr(kpi, "target_mode", "")) == "verified_benchmark_range":
@@ -136,19 +168,58 @@ def check_strategy_grounding(
             else:
                 cit = plan_citations_by_id[benchmark_cit_id]
                 chunk_str = str(cit.chunk_id)
-                tier = pack_tier_by_chunk.get(chunk_str, "")
-                # Only flag incompatibility when the pack item is present but its
-                # tier is explicitly not a benchmark tier.
-                if tier and "verified_benchmark" not in tier:
-                    incompatible_benchmarks.append(kpi.metric)
+                pack_item = pack_item_by_chunk.get(chunk_str)
+
+                if pack_item is None:
+                    ungrounded_benchmarks.append(kpi.metric)
                     diagnostics.append(
-                        f"KPI '{kpi.metric}' benchmark citation '{benchmark_cit_id}' resolves to "
-                        f"chunk '{chunk_str}' with incompatible evidence_tier='{tier}' "
-                        f"(expected 'verified_benchmark')"
+                        f"KPI '{kpi.metric}' benchmark citation '{benchmark_cit_id}' "
+                        f"resolves to unknown chunk '{chunk_str}'"
                     )
+                else:
+                    sq = pack_item.source_quality
+                    if str(sq.evidence_tier) != "verified_benchmark":
+                        incompatible_benchmarks.append(kpi.metric)
+                        diagnostics.append(
+                            f"KPI '{kpi.metric}' benchmark citation '{benchmark_cit_id}' resolves to "
+                            f"chunk '{chunk_str}' with incompatible evidence_tier='{sq.evidence_tier}' "
+                            f"(expected 'verified_benchmark')"
+                        )
+                    if str(sq.review_status) != "approved":
+                        benchmark_source_issues.append(
+                            f"{kpi.metric}: benchmark item {chunk_str} has "
+                            f"review_status='{sq.review_status}' (expected 'approved')"
+                        )
+                        diagnostics.append(
+                            f"KPI '{kpi.metric}' benchmark citation resolves to "
+                            f"non-approved item (status={sq.review_status})"
+                        )
+                    retrieved_at = _naive_datetime(retrieval_pack.retrieved_at)
+                    eff_at = _naive_datetime(sq.effective_at)
+                    if eff_at > retrieved_at:
+                        benchmark_source_issues.append(
+                            f"{kpi.metric}: benchmark item {chunk_str} is not yet "
+                            f"effective (effective_at={sq.effective_at} > retrieved_at={retrieval_pack.retrieved_at})"
+                        )
+                        diagnostics.append(
+                            f"KPI '{kpi.metric}' benchmark citation resolves to "
+                            f"item that is not yet effective"
+                        )
+                    if sq.expires_at is not None:
+                        exp_at = _naive_datetime(sq.expires_at)
+                        if exp_at < retrieved_at:
+                            benchmark_source_issues.append(
+                                f"{kpi.metric}: benchmark item {chunk_str} is "
+                                f"expired (expires_at={sq.expires_at})"
+                            )
+                            diagnostics.append(
+                                f"KPI '{kpi.metric}' benchmark citation resolves to expired item"
+                            )
 
     benchmark_validation_passed = (
-        len(ungrounded_benchmarks) == 0 and len(incompatible_benchmarks) == 0
+        len(ungrounded_benchmarks) == 0
+        and len(incompatible_benchmarks) == 0
+        and len(benchmark_source_issues) == 0
     )
 
     # ── Final verdict ─────────────────────────────────────────────────────────
@@ -173,5 +244,7 @@ def check_strategy_grounding(
         ungrounded_benchmark_kpis=ungrounded_benchmarks,
         incompatible_benchmark_kpis=incompatible_benchmarks,
         raw_skill_leakage_found=sorted(raw_skill_leakage),
+        source_reference_violations=sorted(source_reference_violations),
+        benchmark_source_issues=benchmark_source_issues,
         diagnostics=diagnostics,
     )
