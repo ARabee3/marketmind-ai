@@ -1,0 +1,34 @@
+[
+  {
+    "chunk_id": "e0000000-0001-4000-8000-000000000001",
+    "entry_id": "f0000000-0001-4000-8000-000000000001",
+    "entry_version": 1,
+    "checksum": "expired-retail-001",
+    "text": "Old retail benchmark data that has expired.",
+    "kind": "framework",
+    "locale": "ar-EG",
+    "markets": ["egypt"],
+    "industries": ["retail"],
+    "channels": [],
+    "evidence_tier": "reviewed_guidance",
+    "review_status": "approved",
+    "effective_at": "2024-01-01T00:00:00Z",
+    "expires_at": "2025-01-01T00:00:00Z"
+  },
+  {
+    "chunk_id": "e0000000-0002-4000-8000-000000000002",
+    "entry_id": "f0000000-0002-4000-8000-000000000002",
+    "entry_version": 1,
+    "checksum": "expired-hosp-001",
+    "text": "Expired hospitality seasonal guidance.",
+    "kind": "regional_guidance",
+    "locale": "en",
+    "markets": ["egypt"],
+    "industries": ["hospitality"],
+    "channels": [],
+    "evidence_tier": "reviewed_guidance",
+    "review_status": "approved",
+    "effective_at": "2024-06-01T00:00:00Z",
+    "expires_at": "2025-06-01T00:00:00Z"
+  }
+]
