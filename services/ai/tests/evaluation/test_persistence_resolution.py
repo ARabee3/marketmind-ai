@@ -116,30 +116,11 @@ async def test_end_to_end_citation_persistence_resolution(
     # Ensure generated plan gets our exact run ID
     brief = brief.model_copy(update={"strategy_id": str(strategy_id)})
 
-    # Generate using the contract pack
     gen_response = await gen_runner.generate_single(profile, brief, contract_pack)
     plan = gen_response.plan
     plan.retrieval_run_id = contract_pack.retrieval_run_id
 
-    # Align plan citations to match the retrieved chunks for grounding validation.
-    # PlanCitation is the canonical contract type (strategy_contracts.PlanCitation).
-    # NOTE: in strategy_contracts, UUID = str, so all IDs must be passed as strings.
-    from strategy_contracts import PlanCitation
-    plan.citations = [
-        PlanCitation(
-            citation_id=f"c1000000-0000-4000-8000-00000000000{idx + 1}",
-            chunk_id=str(item.chunk_id),
-            entry_id=str(item.entry_id),
-            entry_version=item.entry_version,
-            title=item.title,
-            excerpt=item.excerpt,
-            evidence_tier=item.evidence_tier,
-            relevance_score=item.relevance_score,
-        )
-        for idx, item in enumerate(rag_pack.items)
-    ]
-
-    # 6. Run grounding checker
+    # 6. Run grounding checker - must pass on the actual generated plan!
     grounding = check_strategy_grounding(plan, rag_pack)
     assert grounding.all_grounding_passed, f"Grounding check failed: {grounding.diagnostics}"
 

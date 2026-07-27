@@ -301,17 +301,72 @@ class MockStrategyProvider(StrategyLLMProvider):
             confirmed_at=datetime.fromisoformat(meta["profile_confirmed_at"]),
             version=meta["profile_version"],
         )
-        return self.fixture_plan.model_copy(
-            update={
-                "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"strategy:{meta['strategy_id']}:v{plan_version}")),
-                "strategy_id": meta["strategy_id"],
-                "version": plan_version,
-                "brief_id": meta["brief_id"],
-                "profile_version": profile_version,
-                "retrieval_run_id": meta["retrieval_run_id"],
-                "created_at": now,
-            }
-        )
+
+        pack_items = meta.get("retrieved_knowledge_pack_items") or []
+        citations = []
+        from strategy_contracts import PlanCitation, EvidenceTier
+
+        for idx, item in enumerate(pack_items):
+            citations.append(
+                PlanCitation(
+                    citation_id=f"c1000000-0000-4000-8000-00000000000{idx + 1}",
+                    chunk_id=item["chunk_id"],
+                    entry_id=item["entry_id"],
+                    entry_version=item.get("entry_version", 1),
+                    title=item.get("title", "Fixture Title"),
+                    excerpt=item.get("excerpt", "Fixture excerpt content."),
+                    evidence_tier=EvidenceTier(item["source_quality"]["evidence_tier"]),
+                    relevance_score=item.get("relevance_score", 0.9),
+                )
+            )
+
+        valid_citation_ids = {c.citation_id for c in citations}
+        verified_benchmark_citation_ids = {
+            c.citation_id for c in citations if c.evidence_tier == EvidenceTier.verified_benchmark
+        }
+
+        # Dump to JSON dict to do recursive modifications easily
+        plan_dict = self.fixture_plan.model_dump(mode="json")
+        plan_dict["id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"strategy:{meta['strategy_id']}:v{plan_version}"))
+        plan_dict["strategy_id"] = meta["strategy_id"]
+        plan_dict["version"] = plan_version
+        plan_dict["brief_id"] = meta["brief_id"]
+        plan_dict["profile_version"] = {
+            "business_profile_version_id": profile_version.business_profile_version_id,
+            "confirmed_at": profile_version.confirmed_at.isoformat(),
+            "version": profile_version.version,
+        }
+        plan_dict["retrieval_run_id"] = meta["retrieval_run_id"]
+        plan_dict["created_at"] = now.isoformat()
+        plan_dict["citations"] = [c.model_dump(mode="json") for c in citations]
+
+        def recursive_clean(val):
+            if isinstance(val, dict):
+                # SourcedClaim check
+                if "source" in val and "citation_ids" in val:
+                    cids = val.get("citation_ids") or []
+                    new_cids = [cid for cid in cids if cid in valid_citation_ids]
+                    new_source = val["source"]
+                    if not new_cids and val["source"] == "retrieved_evidence":
+                        new_source = "confirmed_fact"
+                    val["citation_ids"] = new_cids
+                    val["source"] = new_source
+                # KpiTarget check
+                if "target_mode" in val and "benchmark_citation_id" in val:
+                    bcid = val.get("benchmark_citation_id")
+                    if bcid and bcid not in verified_benchmark_citation_ids:
+                        val["benchmark_citation_id"] = None
+                        val["target_mode"] = "baseline_improvement"
+
+                for k, v in val.items():
+                    recursive_clean(v)
+            elif isinstance(val, list):
+                for item in val:
+                    recursive_clean(item)
+
+        recursive_clean(plan_dict)
+
+        return StrategyPlan.model_validate(plan_dict)
 
 
 # ---------------------------------------------------------------------------
