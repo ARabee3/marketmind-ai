@@ -36,4 +36,6 @@ asyncio_mode = "auto"
 markers = [
   "integration: tests that require a running Qdrant instance",
   "network: tests that make real network calls",
+  "eval_smoke: fast CI smoke subset of evaluation tests",
+  "eval_full: comprehensive evaluation suite",
 ]
