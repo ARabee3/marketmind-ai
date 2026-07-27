@@ -1,0 +1,141 @@
+{
+  "version": "eval-v1",
+  "created_at": "2026-07-15",
+  "cases": [
+    {
+      "id": "svcs-ar-acquisition-001",
+      "sector": "services",
+      "language": "ar-EG",
+      "description": "مكتب محاسبة في مصر يريد جلب عملاء جدد. ميزانية صفرية، فريق صغير.",
+      "query_input": {
+        "business_type": "accounting office",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "acquisition",
+        "funnel_stage": "acquisition",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "المالك فقط",
+        "budget_mode": "organic_only",
+        "industry": "services"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0021-4000-8000-000000000021"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "svcs-en-awareness-002",
+      "sector": "services",
+      "language": "en",
+      "description": "Consulting firm wanting brand awareness with monthly LinkedIn ad budget.",
+      "query_input": {
+        "business_type": "consulting",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "awareness",
+        "funnel_stage": "awareness",
+        "active_channels": ["linkedin"],
+        "asset_capability": ["articles"],
+        "team_capacity": "Two partners",
+        "budget_mode": "monthly_amount",
+        "industry": "services"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0022-4000-8000-000000000022", "a0000000-0025-4000-8000-000000000025"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "svcs-mixed-conversion-003",
+      "sector": "services",
+      "language": "mixed",
+      "description": "Service business with mixed audience. Organic-only, low capacity, conversion focused.",
+      "query_input": {
+        "business_type": "photography studio",
+        "market": "egypt",
+        "locale": "mixed",
+        "objective": "conversion",
+        "funnel_stage": "conversion",
+        "active_channels": [],
+        "asset_capability": ["portfolio"],
+        "team_capacity": "Owner only",
+        "budget_mode": "organic_only",
+        "industry": "services"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": [],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["objective_funnel", "channel_instagram", "channel_facebook"],
+        "min_top5_hit_rate": 0.0
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@mostafamerzk",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "svcs-ar-retention-004",
+      "sector": "services",
+      "language": "ar-EG",
+      "description": "شركة خدمات تريد الاحتفاظ بالعملاء. ميزانية سيناريوهات. فئة معرفة متضاربة.",
+      "query_input": {
+        "business_type": "maintenance services",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "retention",
+        "funnel_stage": "retention",
+        "active_channels": ["facebook"],
+        "asset_capability": [],
+        "team_capacity": "فريق من ٥",
+        "budget_mode": "scenario_only",
+        "industry": "services"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0023-4000-8000-000000000023"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "svcs-en-launch-005",
+      "sector": "services",
+      "language": "en",
+      "description": "New law firm launch. Monthly budget, strong capacity, needs fallback from incompatible locale.",
+      "query_input": {
+        "business_type": "law firm",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "launch",
+        "funnel_stage": "awareness",
+        "active_channels": ["linkedin", "facebook"],
+        "asset_capability": ["articles", "graphics"],
+        "team_capacity": "Full marketing team with external support",
+        "budget_mode": "monthly_amount",
+        "industry": "services"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0024-4000-8000-000000000024"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    }
+  ]
+}

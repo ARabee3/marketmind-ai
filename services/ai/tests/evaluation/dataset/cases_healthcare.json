@@ -1,0 +1,142 @@
+{
+  "version": "eval-v1",
+  "created_at": "2026-07-15",
+  "cases": [
+    {
+      "id": "health-ar-awareness-001",
+      "sector": "healthcare",
+      "language": "ar-EG",
+      "description": "عيادة أسنان في مصر تريد زيادة الوعي. ميزانية صفرية. قيود امتثال في القطاع الصحي.",
+      "query_input": {
+        "business_type": "dental clinic",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "awareness",
+        "funnel_stage": "awareness",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "طبيب وممرضة",
+        "budget_mode": "organic_only",
+        "industry": "healthcare"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0040-4000-8000-000000000040", "a0000000-0043-4000-8000-000000000043"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "health-en-acquisition-002",
+      "sector": "healthcare",
+      "language": "en",
+      "description": "Medical centre in Cairo running Facebook ads for new patient acquisition.",
+      "query_input": {
+        "business_type": "medical centre",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "acquisition",
+        "funnel_stage": "acquisition",
+        "active_channels": ["facebook"],
+        "asset_capability": ["photos"],
+        "team_capacity": "Receptionist and doctor",
+        "budget_mode": "monthly_amount",
+        "industry": "healthcare"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0041-4000-8000-000000000041"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "health-mixed-conversion-003",
+      "sector": "healthcare",
+      "language": "mixed",
+      "description": "Healthcare provider with mixed audience. Scenario-only budget. Expired benchmark present in fixture.",
+      "query_input": {
+        "business_type": "wellness centre",
+        "market": "egypt",
+        "locale": "mixed",
+        "objective": "conversion",
+        "funnel_stage": "conversion",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "Owner and assistant",
+        "budget_mode": "scenario_only",
+        "industry": "healthcare"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": [],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "min_top5_hit_rate": 0.0
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@mostafamerzk",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "health-ar-retention-004",
+      "sector": "healthcare",
+      "language": "ar-EG",
+      "description": "مركز علاج طبيعي يريد الاحتفاظ بالمرضى. ميزانية صفرية. معرفة مفقودة عن قياس الأداء لقطاع العلاج الطبيعي.",
+      "query_input": {
+        "business_type": "physiotherapy centre",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "retention",
+        "funnel_stage": "retention",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "فريق من ٣",
+        "budget_mode": "organic_only",
+        "industry": "healthcare",
+        "paid_media_allowed": false
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": [],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["measurement_kpi"],
+        "min_top5_hit_rate": 0.0
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "health-en-launch-005",
+      "sector": "healthcare",
+      "language": "en",
+      "description": "New healthcare clinic launch with monthly ad budget and full marketing support.",
+      "query_input": {
+        "business_type": "clinic",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "launch",
+        "funnel_stage": "awareness",
+        "active_channels": ["facebook", "instagram"],
+        "asset_capability": ["photos", "videos"],
+        "team_capacity": "Marketing coordinator and clinical team",
+        "budget_mode": "monthly_amount",
+        "industry": "healthcare"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0044-4000-8000-000000000044"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    }
+  ]
+}

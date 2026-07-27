@@ -1,0 +1,148 @@
+{
+  "version": "eval-v1",
+  "created_at": "2026-07-15",
+  "cases": [
+    {
+      "id": "hosp-ar-awareness-001",
+      "sector": "hospitality",
+      "language": "ar-EG",
+      "description": "مطعم في القاهرة يريد زيادة الوعي. ميزانية صفرية. وجود موسمي في المعرفة.",
+      "query_input": {
+        "business_type": "restaurant",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "awareness",
+        "funnel_stage": "awareness",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "المالك والطباخ",
+        "budget_mode": "organic_only",
+        "industry": "hospitality"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0010-4000-8000-000000000010", "a0000000-0016-4000-8000-000000000016"],
+        "forbidden_chunk_ids": ["e0000000-0002-4000-8000-000000000002", "a0000000-00f2-4000-8000-0000000000f2"],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [
+        {"chunk_id": "e0000000-0002-4000-8000-000000000002", "filter_reason": "expired"},
+        {"chunk_id": "a0000000-00f2-4000-8000-0000000000f2", "filter_reason": "incompatible_locale"}
+      ],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "hosp-en-conversion-002",
+      "sector": "hospitality",
+      "language": "en",
+      "description": "Restaurant in Cairo running paid Instagram ads for lunch conversion. Monthly budget confirmed.",
+      "query_input": {
+        "business_type": "restaurant",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "conversion",
+        "funnel_stage": "conversion",
+        "active_channels": ["instagram"],
+        "asset_capability": ["photos"],
+        "team_capacity": "Owner operated",
+        "budget_mode": "monthly_amount",
+        "industry": "hospitality"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0011-4000-8000-000000000011", "a0000000-0012-4000-8000-000000000012"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "hosp-mixed-acquisition-003",
+      "sector": "hospitality",
+      "language": "mixed",
+      "description": "Cafe in Alexandria running mixed-language acquisition with scenario budget. Expired seasonal knowledge present.",
+      "query_input": {
+        "business_type": "cafe",
+        "market": "egypt",
+        "locale": "mixed",
+        "objective": "acquisition",
+        "funnel_stage": "acquisition",
+        "active_channels": ["instagram", "facebook"],
+        "asset_capability": ["photos"],
+        "team_capacity": "Owner and two staff",
+        "budget_mode": "scenario_only",
+        "industry": "hospitality"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0012-4000-8000-000000000012", "a0000000-0013-4000-8000-000000000013"],
+        "forbidden_chunk_ids": ["e0000000-0002-4000-8000-000000000002"],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [
+        {"chunk_id": "e0000000-0002-4000-8000-000000000002", "filter_reason": "expired"}
+      ],
+      "reviewer": "@mostafamerzk",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "hosp-ar-retention-004",
+      "sector": "hospitality",
+      "language": "ar-EG",
+      "description": "مطعم يريد الاحتفاظ بالزبائن. لا يوجد ميزانية إعلانية. معرفة مفقودة عن قياس الأداء.",
+      "query_input": {
+        "business_type": "restaurant",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "retention",
+        "funnel_stage": "retention",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "المالك فقط",
+        "budget_mode": "organic_only",
+        "industry": "hospitality"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": [],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "min_top5_hit_rate": 0.0
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "hosp-en-launch-005",
+      "sector": "hospitality",
+      "language": "en",
+      "description": "New restaurant chain launch with 3-month budget and strong marketing team.",
+      "query_input": {
+        "business_type": "restaurant",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "launch",
+        "funnel_stage": "awareness",
+        "active_channels": ["instagram", "facebook"],
+        "asset_capability": ["photos", "videos"],
+        "team_capacity": "Marketing team of 3 with external agency",
+        "budget_mode": "three_month_amount",
+        "industry": "hospitality"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0015-4000-8000-000000000015"],
+        "forbidden_chunk_ids": ["a0000000-00f2-4000-8000-0000000000f2"],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [
+        {"chunk_id": "a0000000-00f2-4000-8000-0000000000f2", "filter_reason": "incompatible_locale"}
+      ],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    }
+  ]
+}

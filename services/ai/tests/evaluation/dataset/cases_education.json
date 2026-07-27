@@ -1,0 +1,145 @@
+{
+  "version": "eval-v1",
+  "created_at": "2026-07-15",
+  "cases": [
+    {
+      "id": "edu-ar-awareness-001",
+      "sector": "education",
+      "language": "ar-EG",
+      "description": "مركز تعليمي في الإسكندرية يريد زيادة الوعي. ميزانية صفرية.",
+      "query_input": {
+        "business_type": "education centre",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "awareness",
+        "funnel_stage": "awareness",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "المالك فقط",
+        "budget_mode": "organic_only",
+        "industry": "education"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0030-4000-8000-000000000030"],
+        "forbidden_chunk_ids": ["c0000000-0002-4000-8000-000000000002"],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [
+        {"chunk_id": "c0000000-0002-4000-8000-000000000002", "filter_reason": "unapproved"}
+      ],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "edu-en-acquisition-002",
+      "sector": "education",
+      "language": "en",
+      "description": "Language school in Cairo running Facebook ads for student acquisition.",
+      "query_input": {
+        "business_type": "language school",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "acquisition",
+        "funnel_stage": "acquisition",
+        "active_channels": ["facebook", "instagram"],
+        "asset_capability": ["photos"],
+        "team_capacity": "Administrator and teacher",
+        "budget_mode": "monthly_amount",
+        "industry": "education"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0031-4000-8000-000000000031", "a0000000-0033-4000-8000-000000000033"],
+        "forbidden_chunk_ids": ["c0000000-0002-4000-8000-000000000002"],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [
+        {"chunk_id": "c0000000-0002-4000-8000-000000000002", "filter_reason": "unapproved"}
+      ],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "edu-mixed-retention-003",
+      "sector": "education",
+      "language": "mixed",
+      "description": "Education centre focusing on student retention. Organic-only with missing knowledge gaps.",
+      "query_input": {
+        "business_type": "training centre",
+        "market": "egypt",
+        "locale": "mixed",
+        "objective": "retention",
+        "funnel_stage": "retention",
+        "active_channels": [],
+        "asset_capability": [],
+        "team_capacity": "Two instructors",
+        "budget_mode": "organic_only",
+        "industry": "education"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": [],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "min_top5_hit_rate": 0.0
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@mostafamerzk",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "edu-ar-conversion-004",
+      "sector": "education",
+      "language": "ar-EG",
+      "description": "مركز تدريب يريد تحويل المهتمين إلى طلاب. ميزانية سيناريوهات.",
+      "query_input": {
+        "business_type": "training centre",
+        "market": "egypt",
+        "locale": "ar-EG",
+        "objective": "conversion",
+        "funnel_stage": "conversion",
+        "active_channels": ["facebook"],
+        "asset_capability": ["brochures"],
+        "team_capacity": "فريق من ٣",
+        "budget_mode": "scenario_only",
+        "industry": "education"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0032-4000-8000-000000000032"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@MostafaAhmed22",
+      "reviewed_at": "2026-07-15"
+    },
+    {
+      "id": "edu-en-launch-005",
+      "sector": "education",
+      "language": "en",
+      "description": "New online learning platform launch with 3-month budget and strong marketing capacity.",
+      "query_input": {
+        "business_type": "online learning",
+        "market": "egypt",
+        "locale": "en",
+        "objective": "launch",
+        "funnel_stage": "awareness",
+        "active_channels": ["instagram", "facebook"],
+        "asset_capability": ["videos", "graphics"],
+        "team_capacity": "Dedicated marketing team",
+        "budget_mode": "three_month_amount",
+        "industry": "education"
+      },
+      "expected_retrieval": {
+        "expected_chunk_ids": ["a0000000-0034-4000-8000-000000000034", "a0000000-0035-4000-8000-000000000035"],
+        "forbidden_chunk_ids": [],
+        "required_gap_categories": [],
+        "min_top5_hit_rate": 0.8
+      },
+      "hard_filter_cases": [],
+      "reviewer": "@ARabee3",
+      "reviewed_at": "2026-07-15"
+    }
+  ]
+}
