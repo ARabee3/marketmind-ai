@@ -1,11 +1,9 @@
 import json
-from pathlib import Path
-from uuid import UUID
 
 import pytest
+from qdrant_client import AsyncQdrantClient
 
 from app.qdrant import collection_exists, create_collection, create_payload_indexes
-from app.qdrant import QdrantKnowledgePoint
 
 from tests.evaluation.conftest import (
     knowledge_base_fixture,
@@ -15,7 +13,41 @@ from tests.evaluation.conftest import (
 
 pytestmark = pytest.mark.integration
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+async def _check_pii_in_stored_payloads(
+    client: AsyncQdrantClient,
+    collection_name: str,
+    pii_values: list[str],
+    exact_location: dict,
+) -> list[str]:
+    issues: list[str] = []
+    next_offset = None
+    while True:
+        page, next_offset = await client.scroll(
+            collection_name=collection_name,
+            limit=100,
+            offset=next_offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        for point in page:
+            payload = point.payload or {}
+            payload_str = json.dumps(payload, ensure_ascii=False)
+            for pii in pii_values:
+                if pii and pii in payload_str:
+                    chunk_id = payload.get("chunk_id", "unknown")
+                    issues.append(f"PII '{pii}' found in stored Qdrant point {chunk_id}")
+            lat = exact_location.get("lat")
+            lng = exact_location.get("lng")
+            if lat and str(lat) in payload_str:
+                chunk_id = payload.get("chunk_id", "unknown")
+                issues.append(f"PII leak: exact_location.lat ({lat}) found in stored Qdrant point {chunk_id}")
+            if lng and str(lng) in payload_str:
+                chunk_id = payload.get("chunk_id", "unknown")
+                issues.append(f"PII leak: exact_location.lng ({lng}) found in stored Qdrant point {chunk_id}")
+        if next_offset is None:
+            break
+    return issues
 
 
 @pytest.mark.eval_smoke
@@ -47,14 +79,18 @@ async def test_no_pii_in_knowledge_base_payloads(
             if raw_value and raw_value in text:
                 issues.append(f"PII leak in {point['chunk_id']}: field '{field}' value in text payload")
 
-    exact_loc = privacy_profile_fixture.get("exact_location", {})
-    lat = exact_loc.get("lat")
-    lng = exact_loc.get("lng")
-    payload_json = json.dumps(knowledge_base_fixture, ensure_ascii=False)
-    if lat and str(lat) in payload_json:
-        issues.append("PII leak: exact_location.lat found in knowledge base payloads")
-    if lng and str(lng) in payload_json:
-        issues.append("PII leak: exact_location.lng found in knowledge base payloads")
+    pii_values = [
+        privacy_profile_fixture.get(f, "")
+        for f in pii_fields
+    ]
+    pii_values = [v for v in pii_values if v]
+    stored_issues = await _check_pii_in_stored_payloads(
+        qdrant_test_client,
+        test_collection_name,
+        pii_values,
+        privacy_profile_fixture.get("exact_location", {}),
+    )
+    issues.extend(stored_issues)
 
     if not test_collection_name.startswith("test_marketing_knowledge"):
         issues.append(
@@ -84,29 +120,22 @@ async def test_qdrant_point_payloads_never_contain_pii(
         fake_provider,
     )
 
+    pii_fields = ["owner_name", "owner_phone", "owner_email", "address_text", "vat_number"]
     pii_values = [
-        privacy_profile_fixture.get("owner_name", ""),
-        privacy_profile_fixture.get("owner_phone", ""),
-        privacy_profile_fixture.get("owner_email", ""),
-        privacy_profile_fixture.get("address_text", ""),
-        privacy_profile_fixture.get("vat_number", ""),
+        privacy_profile_fixture.get(f, "")
+        for f in pii_fields
     ]
     pii_values = [v for v in pii_values if v]
 
     issues = []
-    for point in knowledge_base_fixture:
-        text = point.get("text", "")
-        for pii in pii_values:
-            if pii and pii in text:
-                issues.append(f"PII '{pii}' found in knowledge point {point['chunk_id']}")
 
-    exact_loc = privacy_profile_fixture.get("exact_location", {})
-    for point in knowledge_base_fixture:
-        payload_str = json.dumps(point, ensure_ascii=False)
-        if exact_loc.get("lat") and str(exact_loc["lat"]) in payload_str:
-            issues.append(f"PII leak: exact_location.lat found in {point['chunk_id']}")
-        if exact_loc.get("lng") and str(exact_loc["lng"]) in payload_str:
-            issues.append(f"PII leak: exact_location.lng found in {point['chunk_id']}")
+    stored_issues = await _check_pii_in_stored_payloads(
+        qdrant_test_client,
+        test_collection_name,
+        pii_values,
+        privacy_profile_fixture.get("exact_location", {}),
+    )
+    issues.extend(stored_issues)
 
     if not test_collection_name.startswith("test_marketing_knowledge"):
         issues.append(
