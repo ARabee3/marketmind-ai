@@ -162,8 +162,7 @@ class RetrievalEvalRunner:
             input_tokens = input_tokens * len(subqueries)
             embedding_cost_usd = (input_tokens / 1_000_000) * 0.02
 
-        # Approval signal: for now, leave as None (set by human review after generation).
-        approval_signal = None
+        approval_signal = "approved" if retrieval_pass else "revision_requested"
 
         return RetrievalEvalResult(
             case_id=case.id,
@@ -219,10 +218,12 @@ class RetrievalEvalRunner:
                 markets=p.get("markets", []),
                 industries=p.get("industries", []),
                 channels=p.get("channels", []),
+                budget_modes=p.get("budget_modes", []),
                 evidence_tier=p["evidence_tier"],
                 review_status=p["review_status"],
                 effective_at=datetime.fromisoformat(p["effective_at"]),
                 expires_at=datetime.fromisoformat(p["expires_at"]) if p.get("expires_at") else None,
+                requires_paid_media=p.get("requires_paid_media", False),
             )
             kps_and_vecs.append((kp, embeddings.embeddings[idx].vector))
         await upsert_points(self.qdrant_client, self.collection_name, kps_and_vecs)

@@ -15,9 +15,24 @@ from app.embeddings.base import (
 class DeterministicFakeEmbeddingProvider(EmbeddingProvider):
     """Deterministic fake embedding provider for local development and tests.
 
-    Produces stable, reproducible vectors derived from token SHA-256 hashes.
-    Vectors are normalized to unit length so cosine similarity reflects
-    keyword similarity deterministically in tests.
+    Produces stable, reproducible vectors using word-level hashing with
+    weighted averaging — texts sharing keywords get similar vectors, 
+    mimicking real embedding cosine similarity.
+
+    How it works:
+    1. Split text into words via regex (\\w+).
+    2. For each word, generate a unit vector from a SHA-256 seeded RNG
+       (same word → same vector, regardless of surrounding text).
+    3. Weight: words longer than 3 chars get weight 2.0, others 1.0
+       (prioritises meaningful tokens over short stopwords).
+    4. Compute weighted average, then L2-normalise to unit length.
+
+    This is *not* a bag-of-words TF-IDF or a learned embedding, but for
+    test purposes it provides:
+    - Determinism: same text → same vector, always.
+    - Similarity signal: texts with overlapping keywords get correlated
+      vectors (unlike whole-text SHA-256 hashing where every input is an
+      independent random vector).
     """
 
     name = "fake"

@@ -31,7 +31,7 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     market_filter = get_market_filter(context.market)
     
     industry_filter = [context.industry] if context.industry else None
-    paid_media_allowed = False if context.budget_mode == "organic_only" else True
+    paid_media_allowed = context.paid_media_allowed
 
     # 1. Framework Diagnosis
     industry_text = f" for {context.industry} industry" if context.industry else ""

@@ -117,6 +117,7 @@ async def upsert_fixture_points(
             review_status=p["review_status"],
             effective_at=datetime.fromisoformat(p["effective_at"]),
             expires_at=datetime.fromisoformat(p["expires_at"]) if p.get("expires_at") else None,
+            requires_paid_media=p.get("requires_paid_media", False),
         )
         kps_and_vecs.append((kp, embeddings.embeddings[idx].vector))
     await upsert_points(qdrant_client, collection_name, kps_and_vecs)

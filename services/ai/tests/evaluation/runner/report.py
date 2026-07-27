@@ -44,6 +44,32 @@ class FilterEvalResult(BaseModel):
     was_filtered: bool
 
 
+class ComparisonMetric(BaseModel):
+    case_id: str
+    case_language: str
+    case_sector: str
+    rag_citations_count: int
+    no_rag_citations_count: int
+    rag_grounding_passed: bool
+    no_rag_grounding_passed: bool
+    rag_sourced_claims: int
+    no_rag_sourced_claims: int
+    grounding_improvement_score: float
+    has_more_grounded_claims: bool
+    summary: str
+    rag_diagnostics: list[str] = Field(default_factory=list)
+    no_rag_diagnostics: list[str] = Field(default_factory=list)
+
+
+class GroundingSummary(BaseModel):
+    citation_integrity_failures: int = 0
+    retrieval_resolution_failures: int = 0
+    benchmark_validation_failures: int = 0
+    source_enforcement_failures: int = 0
+    source_reference_violations: list[str] = Field(default_factory=list)
+    ungrounded_kpis: list[str] = Field(default_factory=list)
+
+
 class EvaluationReport(BaseModel):
     dataset_version: str = "eval-v1"
     run_at: str = ""
@@ -54,16 +80,16 @@ class EvaluationReport(BaseModel):
     cases_failed: int = 0
     empty_result_with_no_gap_count: int = 0
     avg_retrieval_latency_ms: float = 0.0
-    # Approval / revision signals aggregated across all cases.
     approved_count: int = 0
     revision_requested_count: int = 0
-    # Total embedding cost across the run (0 for fake/mock provider).
     total_embedding_cost_usd: float = 0.0
     per_case: list[dict] = Field(default_factory=list)
     failure_breakdown: dict[str, int] = Field(default_factory=dict)
     filter_results: list[FilterEvalResult] = Field(default_factory=list)
     privacy_issues: list[str] = Field(default_factory=list)
     retrieval_results: list[RetrievalEvalResult] = Field(default_factory=list)
+    comparison_metrics: list[ComparisonMetric] = Field(default_factory=list)
+    grounding_summary: GroundingSummary = Field(default_factory=GroundingSummary)
 
 
 def build_report(
@@ -72,6 +98,8 @@ def build_report(
     embedding_provider: str = "fake",
     filter_results: list[FilterEvalResult] | None = None,
     privacy_issues: list[str] | None = None,
+    comparison_metrics: list[ComparisonMetric] | None = None,
+    grounding_summary: GroundingSummary | None = None,
 ) -> EvaluationReport:
     total = len(retrieval_results)
     passed = sum(1 for r in retrieval_results if r.retrieval_pass)
@@ -151,6 +179,8 @@ def build_report(
         filter_results=filter_results or [],
         privacy_issues=privacy_issues or [],
         retrieval_results=retrieval_results,
+        comparison_metrics=comparison_metrics or [],
+        grounding_summary=grounding_summary or GroundingSummary(),
     )
 
 
@@ -200,6 +230,34 @@ def format_human_summary(report: EvaluationReport) -> str:
         parts = " ".join(f"{k}={v}" for k, v in sorted(bd.items()))
         lines.append("")
         lines.append(f"Failure breakdown: {parts}")
+
+    gs = report.grounding_summary
+    if gs and (gs.citation_integrity_failures > 0 or gs.retrieval_resolution_failures > 0 or gs.benchmark_validation_failures > 0 or gs.source_enforcement_failures > 0):
+        lines.append("")
+        lines.append("Grounding issues:")
+        if gs.citation_integrity_failures > 0:
+            lines.append(f"  citation integrity failures: {gs.citation_integrity_failures}")
+        if gs.retrieval_resolution_failures > 0:
+            lines.append(f"  retrieval resolution failures: {gs.retrieval_resolution_failures}")
+        if gs.benchmark_validation_failures > 0:
+            lines.append(f"  benchmark validation failures: {gs.benchmark_validation_failures}")
+        if gs.source_enforcement_failures > 0:
+            lines.append(f"  source enforcement failures: {gs.source_enforcement_failures}")
+        if gs.source_reference_violations:
+            lines.append(f"  source_reference violations: {gs.source_reference_violations}")
+        if gs.ungrounded_kpis:
+            lines.append(f"  ungrounded KPIs: {gs.ungrounded_kpis}")
+
+    if report.comparison_metrics:
+        lines.append("")
+        lines.append(f"RAG vs No-RAG comparison ({len(report.comparison_metrics)} cases):")
+        improved = sum(1 for m in report.comparison_metrics if m.has_more_grounded_claims)
+        avg_improvement = (
+            sum(m.grounding_improvement_score for m in report.comparison_metrics)
+            / len(report.comparison_metrics)
+        )
+        lines.append(f"  RAG improved grounding: {improved}/{len(report.comparison_metrics)} cases")
+        lines.append(f"  avg grounding improvement score: {round(avg_improvement, 2)}")
 
     return "\n".join(lines)
 
