@@ -30,15 +30,20 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     locale_filter = get_locale_filter(context.locale)
     market_filter = get_market_filter(context.market)
     
+    industry_filter = [context.industry] if context.industry else None
+    paid_media_allowed = False if context.budget_mode == "organic_only" else True
+
     # 1. Framework Diagnosis
     industry_text = f" for {context.industry} industry" if context.industry else ""
     subqueries.append(
         RetrievalSubquery(
             category="framework_diagnosis",
-            text=f"Marketing frameworks and situation analysis{industry_text} for a {context.business_type} business in the {context.market} market.",
+            text=f"Marketing frameworks and situation analysis إطار عمل وتحديد الوضع الحالي{industry_text} for a {context.business_type} business in the {context.market} market.",
             kind_filter="framework",
             locale_filter=locale_filter,
             market_filter=market_filter,
+            industry_filter=industry_filter,
+            paid_media_allowed=paid_media_allowed,
         )
     )
     
@@ -46,10 +51,12 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     subqueries.append(
         RetrievalSubquery(
             category="objective_funnel",
-            text=f"Marketing playbook for the {context.objective} objective at the {context.funnel_stage} funnel stage.",
+            text=f"Marketing playbook for the {context.objective} objective at the {context.funnel_stage} funnel stage دليل خطة عمل الأهداف ومراحل القمع.",
             kind_filter="objective_playbook",
             locale_filter=locale_filter,
             market_filter=market_filter,
+            industry_filter=industry_filter,
+            paid_media_allowed=paid_media_allowed,
         )
     )
     
@@ -58,10 +65,12 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
         subqueries.append(
             RetrievalSubquery(
                 category=f"channel_{channel}",
-                text=f"Channel playbook for {channel.replace('_', ' ')} with {context.asset_capability} assets and {context.team_capacity} team capacity.",
+                text=f"Channel playbook for {channel.replace('_', ' ')} with {context.asset_capability} assets and {context.team_capacity} team capacity دليل القناة والمنصات التسويقية.",
                 kind_filter="channel_playbook",
                 locale_filter=locale_filter,
                 market_filter=market_filter,
+                industry_filter=industry_filter,
+                paid_media_allowed=paid_media_allowed,
             )
         )
         
@@ -70,10 +79,12 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
         subqueries.append(
             RetrievalSubquery(
                 category="budget_method",
-                text=f"Budget scenario planning and allocation strategy for {context.budget_mode.replace('_', ' ')}.",
+                text=f"Budget scenario planning and allocation strategy for {context.budget_mode.replace('_', ' ')} تخطيط الميزانية وتوزيع الإعلانات.",
                 kind_filter="budget_playbook",
                 locale_filter=locale_filter,
                 market_filter=market_filter,
+                industry_filter=industry_filter,
+                paid_media_allowed=paid_media_allowed,
             )
         )
         
@@ -81,10 +92,12 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     subqueries.append(
         RetrievalSubquery(
             category="measurement_kpi",
-            text=f"Measurement and KPI baseline establishment for {context.objective} objective at {context.funnel_stage} stage.",
+            text=f"Measurement and KPI baseline establishment for {context.objective} objective at {context.funnel_stage} stage قياس الأداء والشرائح المرجعية المؤشرات.",
             kind_filter="measurement_playbook",
             locale_filter=locale_filter,
             market_filter=market_filter,
+            industry_filter=industry_filter,
+            paid_media_allowed=paid_media_allowed,
         )
     )
     
@@ -92,10 +105,12 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     subqueries.append(
         RetrievalSubquery(
             category="market_sector_season",
-            text=f"Cultural insights, sector notes, and regional guidance for the {context.market} market{industry_text}.",
+            text=f"Cultural insights, sector notes, and regional guidance رؤى ثقافية وإرشادات قطاعية إقليمية for the {context.market} market{industry_text}.",
             kind_filter=["regional_guidance", "sector_note"],
             locale_filter=locale_filter,
             market_filter=market_filter,
+            industry_filter=industry_filter,
+            paid_media_allowed=paid_media_allowed,
         )
     )
     

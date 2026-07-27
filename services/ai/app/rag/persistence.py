@@ -14,6 +14,13 @@ async def save_retrieval_run(
     pack: RetrievedKnowledgePack,
 ) -> None:
     """Persist a completed retrieval run and its selected items to PostgreSQL."""
+    def _to_naive(dt):
+        if dt is None:
+            return None
+        return dt.replace(tzinfo=None)
+
+    retrieved_at_naive = _to_naive(pack.retrieved_at)
+
     run = StrategyRetrievalRun(
         id=pack.retrieval_run_id,
         strategy_id=strategy_id,
@@ -26,8 +33,8 @@ async def save_retrieval_run(
         item_count=len(pack.items),
         gap_count=len(pack.knowledge_gaps),
         latency_ms=pack.retrieval_metadata.get("retrieval_latency_ms", 0),
-        started_at=pack.retrieved_at,
-        finished_at=pack.retrieved_at,
+        started_at=retrieved_at_naive,
+        finished_at=retrieved_at_naive,
     )
     
     session.add(run)
@@ -45,8 +52,8 @@ async def save_retrieval_run(
             relevance_score=item.relevance_score,
             evidence_tier=item.evidence_tier,
             source_references=item.source_references,
-            effective_at=item.effective_at,
-            expires_at=item.expires_at,
+            effective_at=_to_naive(item.effective_at),
+            expires_at=_to_naive(item.expires_at),
             review_status=item.review_status,
             market_tier=item.market_tier,
             is_fallback=item.is_fallback,
