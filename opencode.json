@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "agentrouter/claude-sonnet-4-5-20250929",
+  "small_model": "agentrouter/gpt-4o-mini",
+  "provider": {
+    "agentrouter": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "AgentRouter",
+      "options": {
+        "baseURL": "https://agentrouter.org/v1",
+        "apiKey": "{env:AGENTROUTER_API_KEY}"
+      },
+      "models": {
+        "claude-sonnet-4-5-20250929": {
+          "name": "Claude Sonnet 4.5",
+          "limit": { "context": 200000, "output": 8192 }
+        },
+        "gpt-4o-mini": {
+          "name": "GPT-4o Mini",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "deepseek-v3.2": {
+          "name": "DeepSeek V3.2",
+          "limit": { "context": 128000, "output": 8192 }
+        },
+        "claude-opus-4-7": {
+          "name": "Claude Opus 4.7",
+          "limit": { "context": 200000, "output": 8192 }
+        }
+      }
+    }
+  },
+  "plugin": [".opencode/plugins/agentrouter-headers.js"]
+}
