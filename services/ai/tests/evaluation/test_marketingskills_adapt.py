@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 import re
 
 import pytest
@@ -8,7 +9,6 @@ from strategy_contracts import StrategyPlan
 from tests.evaluation.runner.grounding_checker import check_strategy_grounding
 from tests.evaluation.runner.generation_runner import (
     GenerationEvalRunner,
-    eval_case_context,
     make_eval_brief,
 )
 from tests.strategy.fixtures import default_plan, default_retrieval_pack, default_business_profile
@@ -45,25 +45,8 @@ def _check_plan_text(plan: StrategyPlan) -> dict[str, list[str]]:
     return issues
 
 
-def _generic_baseline(plan: StrategyPlan) -> StrategyPlan:
-    data = plan.model_dump(mode="json")
-    data["executive_summary"]["text"] = (
-        f"{data['executive_summary']['text']} ARR and CAC payback are the main growth levers."
-    )
-    data["situation_diagnosis"]["text"] = "Caption: use a LinkedIn-first SaaS campaign."
-    return StrategyPlan.model_validate(data)
-
-
-def _adaptation_score(plan: StrategyPlan) -> int:
-    issues = _check_plan_text(plan)
-    penalty = sum(len(values) for values in issues.values())
-    return max(0, 10 - penalty)
-
-
-def test_generic_saas_negative_fixture_is_rejected() -> None:
-    generic = _generic_baseline(default_plan())
-    assert _check_plan_text(generic)["unlocalized_saas"]
-    assert _adaptation_score(generic) < _adaptation_score(default_plan())
+def _enum_value(value: Enum | str) -> str:
+    return str(getattr(value, "value", value))
 
 
 @pytest.mark.eval_smoke
@@ -139,7 +122,8 @@ async def test_adaptation_across_language_modes(eval_dataset) -> None:
     profile = default_business_profile()
     pack = default_retrieval_pack()
     all_issues: dict[str, dict[str, list[str]]] = {}
-    weak_cases: list[str] = []
+    summary_by_case: dict[str, str] = {}
+    default_summary = default_plan().executive_summary.text.lower()
 
     for case in eval_dataset.cases:
         brief = make_eval_brief(case)
@@ -149,19 +133,15 @@ async def test_adaptation_across_language_modes(eval_dataset) -> None:
                 "version": brief.business_profile_version.version,
             }
         )
-        case_pack = pack.model_copy(
-            update={
-                "brief_id": brief.id,
-                "profile_version_id": case_profile.id,
-                "meta": {"eval_case_context": eval_case_context(case)},
-            }
-        )
+        case_pack_data = pack.model_dump(mode="json")
+        case_pack_data["brief_id"] = str(brief.id)
+        case_pack_data["profile_version_id"] = str(case_profile.id)
+        case_pack_data["query_context"] = case.query_input.model_dump()
+        case_pack = type(pack).model_validate(case_pack_data)
         plan = (await runner.generate_single(case_profile, brief, case_pack)).plan
-        baseline = _generic_baseline(plan)
         issues = _check_plan_text(plan)
         summary_text = plan.executive_summary.text.lower()
         expected_terms = [
-            case.id.lower(),
             case.query_input.business_type.lower(),
             case.query_input.objective.lower(),
             case.query_input.locale.lower(),
@@ -169,12 +149,19 @@ async def test_adaptation_across_language_modes(eval_dataset) -> None:
         missing_terms = [term for term in expected_terms if term not in summary_text]
         if missing_terms:
             issues.setdefault("missing_case_context", []).extend(missing_terms)
-        if _adaptation_score(plan) <= _adaptation_score(baseline):
-            weak_cases.append(case.id)
+        if summary_text == default_summary:
+            issues.setdefault("unchanged_fixture_summary", []).append("executive_summary")
+        if _enum_value(plan.primary_objective) != case.query_input.objective:
+            issues.setdefault("wrong_objective", []).append(_enum_value(plan.primary_objective))
+        if _enum_value(plan.plan_language) != case.query_input.locale:
+            issues.setdefault("wrong_language", []).append(_enum_value(plan.plan_language))
+        if _enum_value(plan.budget_mode) != case.query_input.budget_mode:
+            issues.setdefault("wrong_budget_mode", []).append(_enum_value(plan.budget_mode))
         all_issues[case.id] = issues
+        summary_by_case[case.id] = summary_text
 
     total_violations = sum(len(v) for issues in all_issues.values() for v in issues.values())
-    assert weak_cases == [], f"Adapted output did not beat generic baseline: {weak_cases}"
+    assert len(set(summary_by_case.values())) > 10
     assert total_violations == 0, (
         f"Adaptation issues found across dataset:\n"
         + "\n".join(

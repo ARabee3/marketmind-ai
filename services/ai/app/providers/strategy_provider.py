@@ -339,13 +339,19 @@ class MockStrategyProvider(StrategyLLMProvider):
         plan_dict["retrieval_run_id"] = meta["retrieval_run_id"]
         plan_dict["created_at"] = now.isoformat()
         plan_dict["citations"] = [c.model_dump(mode="json") for c in citations]
-        case_context = meta.get("eval_case_context")
-        if isinstance(case_context, dict):
+        business_type = meta.get("business_type")
+        primary_objective = meta.get("primary_objective")
+        language_mode = meta.get("language_mode")
+        budget_mode = meta.get("budget_mode")
+        funnel_stage = meta.get("funnel_stage")
+        if business_type and primary_objective and language_mode and budget_mode:
+            business_type_value = str(getattr(business_type, "value", business_type))
+            primary_objective_value = str(getattr(primary_objective, "value", primary_objective))
+            language_mode_value = str(getattr(language_mode, "value", language_mode))
+            budget_mode_value = str(getattr(budget_mode, "value", budget_mode))
             context_text = (
-                f"case {case_context.get('case_id')} | "
-                f"business_type {case_context.get('business_type')} | "
-                f"objective {case_context.get('objective')} | "
-                f"locale {case_context.get('locale')}"
+                f"For {business_type_value}, objective {primary_objective_value}, "
+                f"locale {language_mode_value}, budget {budget_mode_value}"
             )
             plan_dict["executive_summary"]["text"] = (
                 f"{context_text}. {plan_dict['executive_summary']['text']}"
@@ -353,6 +359,13 @@ class MockStrategyProvider(StrategyLLMProvider):
             plan_dict["situation_diagnosis"]["text"] = (
                 f"{context_text}. {plan_dict['situation_diagnosis']['text']}"
             )
+            plan_dict["primary_objective"] = primary_objective_value
+            plan_dict["plan_language"] = language_mode_value
+            plan_dict["budget_mode"] = budget_mode_value
+            if budget_mode_value == "organic_only":
+                plan_dict["budget_scenarios"] = None
+            if funnel_stage:
+                plan_dict["funnel_stage"] = funnel_stage
 
         def recursive_clean(val):
             if isinstance(val, dict):

@@ -60,15 +60,6 @@ def make_empty_retrieval_pack(brief: StrategyBrief, profile: BusinessProfilePayl
     return RetrievedKnowledgePack.model_validate(base_dict)
 
 
-def eval_case_context(case: EvalCase) -> dict[str, str]:
-    return {
-        "case_id": case.id,
-        "business_type": case.query_input.business_type,
-        "objective": str(case.query_input.objective),
-        "locale": case.query_input.locale,
-    }
-
-
 def retrieval_result_to_pack(
     case: EvalCase,
     ret_result: RetrievalEvalResult,
@@ -108,7 +99,6 @@ def retrieval_result_to_pack(
             )
 
     base_dict["retrieval_run_id"] = str(uuid4())
-    base_dict["meta"] = {"eval_case_context": eval_case_context(case)}
     base_dict["brief_id"] = str(brief.id)
     base_dict["profile_version_id"] = str(profile.id)
     base_dict["items"] = contract_items
@@ -169,9 +159,6 @@ class GenerationEvalRunner:
             provider_name=self.settings.ai_provider_mode,
             model=model_name,
         )
-        if pack.meta and "eval_case_context" in pack.meta:
-            prompt.metadata["eval_case_context"] = pack.meta["eval_case_context"]
-
         plan = await self.provider.generate_strategy_plan(prompt)
         validation = validate_plan_against_request(plan=plan, request=request)
 
