@@ -18,6 +18,7 @@ import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { PERMISSIONS } from "../rbac/rbac.constants";
+import { StrategyRateLimitGuard } from "./strategy-rate-limit.guard";
 import { StrategyService } from "./strategy.service";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
@@ -37,8 +38,8 @@ interface RequestWithUser extends Request {
  * access returns 404 rather than 403 to avoid leaking the existence of other
  * owners' strategies.
  */
-@Controller("api/v1/strategies")
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@Controller("strategies")
+@UseGuards(JwtAuthGuard, PermissionsGuard, StrategyRateLimitGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 export class StrategyController {
   constructor(private readonly strategyService: StrategyService) {}
