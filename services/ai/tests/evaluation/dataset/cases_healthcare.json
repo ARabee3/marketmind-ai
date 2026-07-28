@@ -20,14 +20,19 @@
         "industry": "healthcare"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0040-4000-8000-000000000040", "a0000000-0043-4000-8000-000000000043"],
+        "expected_chunk_ids": [
+          "a0000000-0040-4000-8000-000000000040",
+          "a0000000-0043-4000-8000-000000000043"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "health-en-acquisition-002",
@@ -40,21 +45,29 @@
         "locale": "en",
         "objective": "acquisition",
         "funnel_stage": "acquisition",
-        "active_channels": ["facebook"],
-        "asset_capability": ["photos"],
+        "active_channels": [
+          "facebook"
+        ],
+        "asset_capability": [
+          "photos"
+        ],
         "team_capacity": "Receptionist and doctor",
         "budget_mode": "monthly_amount",
         "industry": "healthcare"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0041-4000-8000-000000000041"],
+        "expected_chunk_ids": [
+          "a0000000-0041-4000-8000-000000000041"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "health-mixed-conversion-003",
@@ -76,12 +89,17 @@
       "expected_retrieval": {
         "expected_chunk_ids": [],
         "forbidden_chunk_ids": [],
-        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "required_gap_categories": [
+          "objective_funnel",
+          "measurement_kpi"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [],
       "reviewer": "@mostafamerzk",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "health-ar-retention-004",
@@ -104,12 +122,16 @@
       "expected_retrieval": {
         "expected_chunk_ids": [],
         "forbidden_chunk_ids": [],
-        "required_gap_categories": ["measurement_kpi"],
+        "required_gap_categories": [
+          "measurement_kpi"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "health-en-launch-005",
@@ -122,21 +144,31 @@
         "locale": "en",
         "objective": "launch",
         "funnel_stage": "awareness",
-        "active_channels": ["facebook", "instagram"],
-        "asset_capability": ["photos", "videos"],
+        "active_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "asset_capability": [
+          "photos",
+          "videos"
+        ],
         "team_capacity": "Marketing coordinator and clinical team",
         "budget_mode": "monthly_amount",
         "industry": "healthcare"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0044-4000-8000-000000000044"],
+        "expected_chunk_ids": [
+          "a0000000-0044-4000-8000-000000000044"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     }
   ]
 }

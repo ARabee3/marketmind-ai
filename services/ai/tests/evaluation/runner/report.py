@@ -82,6 +82,7 @@ class EvaluationReport(BaseModel):
     avg_retrieval_latency_ms: float = 0.0
     approved_count: int = 0
     revision_requested_count: int = 0
+    review_outcome_unavailable_count: int = 0
     total_embedding_cost_usd: float = 0.0
     per_case: list[dict] = Field(default_factory=list)
     failure_breakdown: dict[str, int] = Field(default_factory=dict)
@@ -91,7 +92,7 @@ class EvaluationReport(BaseModel):
     comparison_metrics: list[ComparisonMetric] = Field(default_factory=list)
     grounding_summary: GroundingSummary = Field(default_factory=GroundingSummary)
     localization_issues: list[str] = Field(default_factory=list)
-    approval_signal_source: str = "retrieval_pass"
+    approval_signal_source: str = "reviewed_dataset"
 
 
 def build_report(
@@ -103,7 +104,7 @@ def build_report(
     comparison_metrics: list[ComparisonMetric] | None = None,
     grounding_summary: GroundingSummary | None = None,
     localization_issues: list[str] | None = None,
-    approval_signal_source: str = "retrieval_pass",
+    approval_signal_source: str = "reviewed_dataset",
 ) -> EvaluationReport:
     total = len(retrieval_results)
     passed = sum(1 for r in retrieval_results if r.retrieval_pass)
@@ -147,6 +148,7 @@ def build_report(
     # Approval / revision signal aggregation
     approved_count = sum(1 for r in retrieval_results if r.approval_signal == "approved")
     revision_requested_count = sum(1 for r in retrieval_results if r.approval_signal == "revision_requested")
+    unavailable_count = sum(1 for r in retrieval_results if r.approval_signal is None)
     total_embedding_cost = sum(r.embedding_cost_usd for r in retrieval_results)
 
     per_case = [
@@ -177,6 +179,7 @@ def build_report(
         avg_retrieval_latency_ms=round(avg_latency, 2),
         approved_count=approved_count,
         revision_requested_count=revision_requested_count,
+        review_outcome_unavailable_count=unavailable_count,
         total_embedding_cost_usd=round(total_embedding_cost, 6),
         per_case=per_case,
         failure_breakdown=breakdown,

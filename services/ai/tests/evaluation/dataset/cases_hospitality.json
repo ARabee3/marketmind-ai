@@ -20,17 +20,31 @@
         "industry": "hospitality"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0010-4000-8000-000000000010", "a0000000-0016-4000-8000-000000000016"],
-        "forbidden_chunk_ids": ["e0000000-0002-4000-8000-000000000002", "a0000000-00f2-4000-8000-0000000000f2"],
+        "expected_chunk_ids": [
+          "a0000000-0010-4000-8000-000000000010",
+          "a0000000-0016-4000-8000-000000000016"
+        ],
+        "forbidden_chunk_ids": [
+          "e0000000-0002-4000-8000-000000000002",
+          "a0000000-00f2-4000-8000-0000000000f2"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "e0000000-0002-4000-8000-000000000002", "filter_reason": "expired"},
-        {"chunk_id": "a0000000-00f2-4000-8000-0000000000f2", "filter_reason": "incompatible_locale"}
+        {
+          "chunk_id": "e0000000-0002-4000-8000-000000000002",
+          "filter_reason": "expired"
+        },
+        {
+          "chunk_id": "a0000000-00f2-4000-8000-0000000000f2",
+          "filter_reason": "incompatible_locale"
+        }
       ],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "hosp-en-conversion-002",
@@ -43,21 +57,30 @@
         "locale": "en",
         "objective": "conversion",
         "funnel_stage": "conversion",
-        "active_channels": ["instagram"],
-        "asset_capability": ["photos"],
+        "active_channels": [
+          "instagram"
+        ],
+        "asset_capability": [
+          "photos"
+        ],
         "team_capacity": "Owner operated",
         "budget_mode": "monthly_amount",
         "industry": "hospitality"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0011-4000-8000-000000000011", "a0000000-0012-4000-8000-000000000012"],
+        "expected_chunk_ids": [
+          "a0000000-0011-4000-8000-000000000011",
+          "a0000000-0012-4000-8000-000000000012"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "hosp-mixed-acquisition-003",
@@ -70,23 +93,38 @@
         "locale": "mixed",
         "objective": "acquisition",
         "funnel_stage": "acquisition",
-        "active_channels": ["instagram", "facebook"],
-        "asset_capability": ["photos"],
+        "active_channels": [
+          "instagram",
+          "facebook"
+        ],
+        "asset_capability": [
+          "photos"
+        ],
         "team_capacity": "Owner and two staff",
         "budget_mode": "scenario_only",
         "industry": "hospitality"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0012-4000-8000-000000000012", "a0000000-0013-4000-8000-000000000013"],
-        "forbidden_chunk_ids": ["e0000000-0002-4000-8000-000000000002"],
+        "expected_chunk_ids": [
+          "a0000000-0012-4000-8000-000000000012",
+          "a0000000-0013-4000-8000-000000000013"
+        ],
+        "forbidden_chunk_ids": [
+          "e0000000-0002-4000-8000-000000000002"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "e0000000-0002-4000-8000-000000000002", "filter_reason": "expired"}
+        {
+          "chunk_id": "e0000000-0002-4000-8000-000000000002",
+          "filter_reason": "expired"
+        }
       ],
       "reviewer": "@mostafamerzk",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "hosp-ar-retention-004",
@@ -108,12 +146,17 @@
       "expected_retrieval": {
         "expected_chunk_ids": [],
         "forbidden_chunk_ids": [],
-        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "required_gap_categories": [
+          "objective_funnel",
+          "measurement_kpi"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "hosp-en-launch-005",
@@ -126,23 +169,38 @@
         "locale": "en",
         "objective": "launch",
         "funnel_stage": "awareness",
-        "active_channels": ["instagram", "facebook"],
-        "asset_capability": ["photos", "videos"],
+        "active_channels": [
+          "instagram",
+          "facebook"
+        ],
+        "asset_capability": [
+          "photos",
+          "videos"
+        ],
         "team_capacity": "Marketing team of 3 with external agency",
         "budget_mode": "three_month_amount",
         "industry": "hospitality"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0015-4000-8000-000000000015"],
-        "forbidden_chunk_ids": ["a0000000-00f2-4000-8000-0000000000f2"],
+        "expected_chunk_ids": [
+          "a0000000-0015-4000-8000-000000000015"
+        ],
+        "forbidden_chunk_ids": [
+          "a0000000-00f2-4000-8000-0000000000f2"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "a0000000-00f2-4000-8000-0000000000f2", "filter_reason": "incompatible_locale"}
+        {
+          "chunk_id": "a0000000-00f2-4000-8000-0000000000f2",
+          "filter_reason": "incompatible_locale"
+        }
       ],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     }
   ]
 }

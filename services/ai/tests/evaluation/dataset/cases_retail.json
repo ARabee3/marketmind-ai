@@ -20,17 +20,32 @@
         "industry": "retail"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0001-4000-8000-000000000001"],
-        "forbidden_chunk_ids": ["e0000000-0001-4000-8000-000000000001", "c0000000-0001-4000-8000-000000000001", "a0000000-00f3-4000-8000-0000000000f3", "a0000000-00f4-4000-8000-0000000000f4"],
+        "expected_chunk_ids": [
+          "a0000000-0001-4000-8000-000000000001"
+        ],
+        "forbidden_chunk_ids": [
+          "e0000000-0001-4000-8000-000000000001",
+          "c0000000-0001-4000-8000-000000000001",
+          "a0000000-00f3-4000-8000-0000000000f3",
+          "a0000000-00f4-4000-8000-0000000000f4"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "e0000000-0001-4000-8000-000000000001", "filter_reason": "expired"},
-        {"chunk_id": "c0000000-0001-4000-8000-000000000001", "filter_reason": "unapproved"}
+        {
+          "chunk_id": "e0000000-0001-4000-8000-000000000001",
+          "filter_reason": "expired"
+        },
+        {
+          "chunk_id": "c0000000-0001-4000-8000-000000000001",
+          "filter_reason": "unapproved"
+        }
       ],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "retail-en-acquisition-002",
@@ -43,23 +58,38 @@
         "locale": "en",
         "objective": "acquisition",
         "funnel_stage": "acquisition",
-        "active_channels": ["instagram", "facebook"],
-        "asset_capability": ["photos"],
+        "active_channels": [
+          "instagram",
+          "facebook"
+        ],
+        "asset_capability": [
+          "photos"
+        ],
         "team_capacity": "Owner and one assistant",
         "budget_mode": "monthly_amount",
         "industry": "retail"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0002-4000-8000-000000000002", "a0000000-0003-4000-8000-000000000003"],
-        "forbidden_chunk_ids": ["a0000000-00f3-4000-8000-0000000000f3"],
+        "expected_chunk_ids": [
+          "a0000000-0002-4000-8000-000000000002",
+          "a0000000-0003-4000-8000-000000000003"
+        ],
+        "forbidden_chunk_ids": [
+          "a0000000-00f3-4000-8000-0000000000f3"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "a0000000-00f3-4000-8000-0000000000f3", "filter_reason": "incompatible_locale"}
+        {
+          "chunk_id": "a0000000-00f3-4000-8000-0000000000f3",
+          "filter_reason": "incompatible_locale"
+        }
       ],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "retail-mixed-conversion-003",
@@ -72,21 +102,30 @@
         "locale": "mixed",
         "objective": "conversion",
         "funnel_stage": "conversion",
-        "active_channels": ["instagram"],
-        "asset_capability": ["photos", "videos"],
+        "active_channels": [
+          "instagram"
+        ],
+        "asset_capability": [
+          "photos",
+          "videos"
+        ],
         "team_capacity": "Two staff members",
         "budget_mode": "three_month_amount",
         "industry": "retail"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0006-4000-8000-000000000006"],
+        "expected_chunk_ids": [
+          "a0000000-0006-4000-8000-000000000006"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@mostafamerzk",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "retail-ar-retention-004",
@@ -99,7 +138,9 @@
         "locale": "ar-EG",
         "objective": "retention",
         "funnel_stage": "retention",
-        "active_channels": ["facebook"],
+        "active_channels": [
+          "facebook"
+        ],
         "asset_capability": [],
         "team_capacity": "المالك فقط",
         "budget_mode": "scenario_only",
@@ -108,12 +149,17 @@
       "expected_retrieval": {
         "expected_chunk_ids": [],
         "forbidden_chunk_ids": [],
-        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "required_gap_categories": [
+          "objective_funnel",
+          "measurement_kpi"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "retail-en-launch-005",
@@ -126,23 +172,40 @@
         "locale": "en",
         "objective": "launch",
         "funnel_stage": "awareness",
-        "active_channels": ["instagram", "facebook"],
-        "asset_capability": ["photos", "videos", "graphics"],
+        "active_channels": [
+          "instagram",
+          "facebook"
+        ],
+        "asset_capability": [
+          "photos",
+          "videos",
+          "graphics"
+        ],
         "team_capacity": "Dedicated marketing team of 3",
         "budget_mode": "organic_only",
         "industry": "retail"
       },
       "expected_retrieval": {
         "expected_chunk_ids": [],
-        "forbidden_chunk_ids": ["a0000000-00f4-4000-8000-0000000000f4"],
-        "required_gap_categories": ["objective_funnel", "market_sector_season"],
+        "forbidden_chunk_ids": [
+          "a0000000-00f4-4000-8000-0000000000f4"
+        ],
+        "required_gap_categories": [
+          "objective_funnel",
+          "market_sector_season"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [
-        {"chunk_id": "a0000000-00f4-4000-8000-0000000000f4", "filter_reason": "future_effective"}
+        {
+          "chunk_id": "a0000000-00f4-4000-8000-0000000000f4",
+          "filter_reason": "future_effective"
+        }
       ],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     }
   ]
 }

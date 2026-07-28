@@ -162,7 +162,11 @@ class RetrievalEvalRunner:
             input_tokens = input_tokens * len(subqueries)
             embedding_cost_usd = (input_tokens / 1_000_000) * 0.02
 
-        approval_signal = "approved" if retrieval_pass else "revision_requested"
+        approval_signal = (
+            case.review_outcome
+            if case.review_outcome in {"approved", "revision_requested"}
+            else None
+        )
 
         return RetrievalEvalResult(
             case_id=case.id,

@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+ReviewOutcome = Literal["approved", "revision_requested", "unavailable"]
 
 
 class RetrievalQueryInput(BaseModel):
@@ -37,6 +41,8 @@ class EvalCase(BaseModel):
     hard_filter_cases: list[HardFilterCase]
     reviewer: str = Field(min_length=1)
     reviewed_at: str = Field(min_length=1)
+    review_outcome: ReviewOutcome = "unavailable"
+    review_notes: str = "Legacy case review did not record owner approval or revision outcome."
 
 
 class EvalDataset(BaseModel):

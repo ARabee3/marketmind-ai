@@ -48,6 +48,8 @@ The privacy-minimized fields sent to Qdrant for building the retrieval query.
 | `hard_filter_cases` | Yes | List of HardFilterCase |
 | `reviewer` | Yes | GitHub handle |
 | `reviewed_at` | Yes | ISO date string |
+| `review_outcome` | Yes | `"approved"`, `"revision_requested"`, or `"unavailable"` |
+| `review_notes` | Yes | Human-readable reason for the reviewed outcome or why it is unavailable |
 
 ## How to pick `expected_chunk_ids`
 
@@ -72,6 +74,7 @@ The privacy-minimized fields sent to Qdrant for building the retrieval query.
 - [ ] Hard filter cases are reproducible with deterministic fixtures
 - [ ] Language tags match the actual content locale
 - [ ] Case has been functionally tested before commit
+- [ ] Approval/revision outcome is recorded, or explicitly marked unavailable
 
 ## Running the evaluation suite
 

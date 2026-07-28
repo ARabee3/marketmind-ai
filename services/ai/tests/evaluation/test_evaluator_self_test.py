@@ -222,6 +222,7 @@ async def test_known_pass_runner(
     assert result.retrieval_pass, f"Expected pass but got failure_category={result.failure_category}"
     assert result.top5_hit, "Expected top5_hit=True"
     assert not result.forbidden_violation
+    assert result.approval_signal is None
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +416,10 @@ def test_build_report_with_results() -> None:
     assert report.hard_filter_violations == 0
     assert report.empty_result_with_no_gap_count == 0
     assert len(report.per_case) == 1
+    assert report.approved_count == 0
+    assert report.revision_requested_count == 0
+    assert report.review_outcome_unavailable_count == 1
+    assert report.approval_signal_source == "reviewed_dataset"
 
 
 def test_build_report_with_failures() -> None:

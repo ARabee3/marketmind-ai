@@ -20,16 +20,25 @@
         "industry": "education"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0030-4000-8000-000000000030"],
-        "forbidden_chunk_ids": ["c0000000-0002-4000-8000-000000000002"],
+        "expected_chunk_ids": [
+          "a0000000-0030-4000-8000-000000000030"
+        ],
+        "forbidden_chunk_ids": [
+          "c0000000-0002-4000-8000-000000000002"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "c0000000-0002-4000-8000-000000000002", "filter_reason": "unapproved"}
+        {
+          "chunk_id": "c0000000-0002-4000-8000-000000000002",
+          "filter_reason": "unapproved"
+        }
       ],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "edu-en-acquisition-002",
@@ -42,23 +51,38 @@
         "locale": "en",
         "objective": "acquisition",
         "funnel_stage": "acquisition",
-        "active_channels": ["facebook", "instagram"],
-        "asset_capability": ["photos"],
+        "active_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "asset_capability": [
+          "photos"
+        ],
         "team_capacity": "Administrator and teacher",
         "budget_mode": "monthly_amount",
         "industry": "education"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0031-4000-8000-000000000031", "a0000000-0033-4000-8000-000000000033"],
-        "forbidden_chunk_ids": ["c0000000-0002-4000-8000-000000000002"],
+        "expected_chunk_ids": [
+          "a0000000-0031-4000-8000-000000000031",
+          "a0000000-0033-4000-8000-000000000033"
+        ],
+        "forbidden_chunk_ids": [
+          "c0000000-0002-4000-8000-000000000002"
+        ],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [
-        {"chunk_id": "c0000000-0002-4000-8000-000000000002", "filter_reason": "unapproved"}
+        {
+          "chunk_id": "c0000000-0002-4000-8000-000000000002",
+          "filter_reason": "unapproved"
+        }
       ],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "edu-mixed-retention-003",
@@ -80,12 +104,17 @@
       "expected_retrieval": {
         "expected_chunk_ids": [],
         "forbidden_chunk_ids": [],
-        "required_gap_categories": ["objective_funnel", "measurement_kpi"],
+        "required_gap_categories": [
+          "objective_funnel",
+          "measurement_kpi"
+        ],
         "min_top5_hit_rate": 0.0
       },
       "hard_filter_cases": [],
       "reviewer": "@mostafamerzk",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "edu-ar-conversion-004",
@@ -98,21 +127,29 @@
         "locale": "ar-EG",
         "objective": "conversion",
         "funnel_stage": "conversion",
-        "active_channels": ["facebook"],
-        "asset_capability": ["brochures"],
+        "active_channels": [
+          "facebook"
+        ],
+        "asset_capability": [
+          "brochures"
+        ],
         "team_capacity": "فريق من ٣",
         "budget_mode": "scenario_only",
         "industry": "education"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0032-4000-8000-000000000032"],
+        "expected_chunk_ids": [
+          "a0000000-0032-4000-8000-000000000032"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@MostafaAhmed22",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     },
     {
       "id": "edu-en-launch-005",
@@ -125,21 +162,32 @@
         "locale": "en",
         "objective": "launch",
         "funnel_stage": "awareness",
-        "active_channels": ["instagram", "facebook"],
-        "asset_capability": ["videos", "graphics"],
+        "active_channels": [
+          "instagram",
+          "facebook"
+        ],
+        "asset_capability": [
+          "videos",
+          "graphics"
+        ],
         "team_capacity": "Dedicated marketing team",
         "budget_mode": "three_month_amount",
         "industry": "education"
       },
       "expected_retrieval": {
-        "expected_chunk_ids": ["a0000000-0034-4000-8000-000000000034", "a0000000-0035-4000-8000-000000000035"],
+        "expected_chunk_ids": [
+          "a0000000-0034-4000-8000-000000000034",
+          "a0000000-0035-4000-8000-000000000035"
+        ],
         "forbidden_chunk_ids": [],
         "required_gap_categories": [],
         "min_top5_hit_rate": 0.8
       },
       "hard_filter_cases": [],
       "reviewer": "@ARabee3",
-      "reviewed_at": "2026-07-15"
+      "reviewed_at": "2026-07-15",
+      "review_outcome": "unavailable",
+      "review_notes": "Reviewed for retrieval relevance only; owner approval or revision outcome was not recorded."
     }
   ]
 }
