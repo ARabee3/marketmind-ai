@@ -3,9 +3,11 @@ from __future__ import annotations
 import re
 
 import pytest
-from strategy_contracts import StrategyPlan, RetrievedKnowledgePack
+from app.core.config import Settings
+from strategy_contracts import StrategyPlan
 from tests.evaluation.runner.grounding_checker import check_strategy_grounding
-from tests.strategy.fixtures import default_plan, default_retrieval_pack, default_business_profile, default_brief
+from tests.evaluation.runner.generation_runner import GenerationEvalRunner, make_eval_brief
+from tests.strategy.fixtures import default_plan, default_retrieval_pack, default_business_profile
 
 UNWANTED_SAAS_TERMS = ["arr", "annual recurring revenue", "cac payback", "linkedin-first", "series a funding"]
 ARABIC_SAAS_JARGON = ["سلسلة أ تمويل", "العائد المتكرر السنوي"]
@@ -37,6 +39,21 @@ def _check_plan_text(plan: StrategyPlan) -> dict[str, list[str]]:
                 issues[label].append(field_name)
 
     return issues
+
+
+def _generic_baseline(plan: StrategyPlan) -> StrategyPlan:
+    data = plan.model_dump(mode="json")
+    data["executive_summary"]["text"] = (
+        f"{data['executive_summary']['text']} ARR and CAC payback are the main growth levers."
+    )
+    data["situation_diagnosis"]["text"] = "Caption: use a LinkedIn-first SaaS campaign."
+    return StrategyPlan.model_validate(data)
+
+
+def _adaptation_score(plan: StrategyPlan) -> int:
+    issues = _check_plan_text(plan)
+    penalty = sum(len(values) for values in issues.values())
+    return max(0, 10 - penalty)
 
 
 @pytest.mark.eval_smoke
@@ -92,8 +109,8 @@ def test_no_localization_or_pattern_leakage() -> None:
 
 
 @pytest.mark.eval_full
-def test_adaptation_across_language_modes(eval_dataset) -> None:
-    """Run adaptation checks across all dataset cases grouped by language mode."""
+@pytest.mark.asyncio
+async def test_adaptation_across_language_modes(eval_dataset) -> None:
     locales = {"ar-EG": [], "en": [], "mixed": []}
     for case in eval_dataset.cases:
         loc = case.query_input.locale
@@ -108,13 +125,35 @@ def test_adaptation_across_language_modes(eval_dataset) -> None:
     assert len(locales["en"]) > 0, f"No English cases in dataset: {report_lines}"
     assert len(locales["mixed"]) > 0, f"No mixed cases in dataset: {report_lines}"
 
+    runner = GenerationEvalRunner(Settings(ai_provider_mode="mock"))
+    profile = default_business_profile()
+    pack = default_retrieval_pack()
     all_issues: dict[str, dict[str, list[str]]] = {}
+    weak_cases: list[str] = []
+
     for case in eval_dataset.cases:
-        plan = default_plan()
+        brief = make_eval_brief(case)
+        case_profile = profile.model_copy(
+            update={
+                "id": brief.business_profile_version.business_profile_version_id,
+                "version": brief.business_profile_version.version,
+            }
+        )
+        case_pack = pack.model_copy(
+            update={
+                "brief_id": brief.id,
+                "profile_version_id": case_profile.id,
+            }
+        )
+        plan = (await runner.generate_single(case_profile, brief, case_pack)).plan
+        baseline = _generic_baseline(plan)
         issues = _check_plan_text(plan)
+        if _adaptation_score(plan) <= _adaptation_score(baseline):
+            weak_cases.append(case.id)
         all_issues[case.id] = issues
 
     total_violations = sum(len(v) for issues in all_issues.values() for v in issues.values())
+    assert weak_cases == [], f"Adapted output did not beat generic baseline: {weak_cases}"
     assert total_violations == 0, (
         f"Adaptation issues found across dataset:\n"
         + "\n".join(
