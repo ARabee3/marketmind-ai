@@ -1,8 +1,8 @@
 import { Reflector } from "@nestjs/core";
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { RbacService } from "../rbac/rbac.service";
+import { RedisService } from "../redis/redis.service";
 import { Role } from "@prisma/client";
 import { StrategyController } from "./strategy.controller";
 import { StrategyService } from "./strategy.service";
@@ -45,6 +45,7 @@ describe("StrategyController", () => {
       providers: [
         { provide: StrategyService, useValue: service },
         { provide: RbacService, useValue: { hasAllPermissions: jest.fn().mockReturnValue(true) } },
+        { provide: RedisService, useValue: { getClient: jest.fn().mockReturnValue({ pipeline: jest.fn().mockReturnValue({ incr: jest.fn().mockReturnThis(), expire: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([[null, 1], [null, 1]]) }) }) } },
         Reflector,
       ],
     }).compile();
