@@ -59,9 +59,40 @@ export class StrategyService {
     );
     if (!strategy) throw new NotFoundException("Strategy not found or unauthorized");
 
-    // Persist brief keyed on owner-confirmed profile version. @IsUUID on the dto
-    // guards the value shape; the FK constraint guards existence.
-    const brief = await this.strategyRepository.upsertBrief(id, dto as never);
+    // Conditional validation: when paid media is allowed with a concrete
+    // budget mode, the owner must supply an EGP amount or range.
+    if (
+      dto.paidMediaAllowed &&
+      (dto.externalBudgetMode === "monthly_amount" ||
+        dto.externalBudgetMode === "three_month_amount") &&
+      dto.externalBudgetEgpAmount == null &&
+      !dto.externalBudgetEgpRange
+    ) {
+      throw new BadRequestException(
+        "externalBudgetEgpAmount or externalBudgetEgpRange is required when paidMediaAllowed is true and externalBudgetMode is monthly_amount or three_month_amount",
+      );
+    }
+
+    // Normalize the DTO into the Prisma JSON shape for external_budget_egp.
+    const externalBudgetEgp = normalizeExternalBudgetEgp(
+      dto.externalBudgetEgpAmount,
+      dto.externalBudgetEgpRange,
+    );
+
+    // Persist brief keyed on owner-confirmed profile version. @IsUUID on the
+    // dto guards the value shape; the FK constraint guards existence.
+    const brief = await this.strategyRepository.upsertBrief(id, {
+      businessProfileVersionId: dto.businessProfileVersionId,
+      primaryObjective: dto.primaryObjective,
+      startDate: dto.startDate,
+      planLanguage: dto.planLanguage,
+      paidMediaAllowed: dto.paidMediaAllowed,
+      externalBudgetMode: dto.externalBudgetMode,
+      externalBudgetEgp,
+      teamCapacity: dto.teamCapacity,
+      constraints: dto.constraints,
+      clarificationAnswers: dto.clarificationAnswers ?? [],
+    } as never);
 
     if (this.isBriefReady(brief) && strategy.status === "needs_brief") {
       // needs_brief → ready is the only legal readiness transition.
@@ -475,4 +506,26 @@ function isRetryable(error: unknown): boolean {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+/**
+ * Normalizes the two DTO input shapes (single amount or min/max range) into
+ * the Prisma JSON column. Returns null for organic-only budgets.
+ *
+ * - number → stored as-is (single amount)
+ * - { min_egp, max_egp } → stored as-is (range)
+ * - neither provided → null
+ */
+function normalizeExternalBudgetEgp(
+  amount?: number,
+  range?: { min_egp?: number; max_egp?: number },
+): number | { min_egp: number; max_egp: number } | null {
+  if (amount != null) return amount;
+  if (range && (range.min_egp != null || range.max_egp != null)) {
+    return {
+      min_egp: range.min_egp ?? 0,
+      max_egp: range.max_egp ?? 0,
+    };
+  }
+  return null;
 }
