@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { BullModule } from "@nestjs/bullmq";
 import { configuration } from "./config/configuration";
 import { envSchema } from "./config/env.schema";
 import { HealthModule } from "./modules/health/health.module";
@@ -15,6 +16,7 @@ import { MailModule } from "./modules/mail/mail.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
+import { StrategyModule } from './modules/strategy/strategy.module';
 
 @Module({
   imports: [
@@ -37,6 +39,16 @@ import { AppController } from "./app.controller";
       },
     ]),
 
+    // BullMQ — shared Redis connection for all queues
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.get<string>('redis.url') || 'redis://localhost:6379',
+        },
+      }),
+    }),
+
     // Infrastructure
     RedisModule,
     MailModule,
@@ -49,6 +61,7 @@ import { AppController } from "./app.controller";
     DiscoveryModule,
     JourneyModule,
     MarketingKnowledgeModule,
+    StrategyModule,
   ],
   controllers: [AppController],
 })

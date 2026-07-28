@@ -22,6 +22,7 @@ describe("JourneyService", () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),
       session: null,
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -39,6 +40,7 @@ describe("JourneyService", () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),
       session: sessionRecord({ status: "ready_for_chat" }),
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -56,6 +58,7 @@ describe("JourneyService", () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),
       session: sessionRecord({ status: "summary_ready" }),
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -73,6 +76,7 @@ describe("JourneyService", () => {
         status: "confirmed",
         confirmedProfile: confirmedProfileRecord(),
       }),
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -96,6 +100,7 @@ describe("JourneyService", () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),
       session: sessionRecord({ status: "failed" }),
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -113,6 +118,7 @@ describe("JourneyService", () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),
       session: null,
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -130,6 +136,7 @@ describe("JourneyService", () => {
         intake: null,
         confirmedProfile: null,
       }),
+      strategy: null,
     });
 
     const response = await service.getCurrent("owner-id");
@@ -142,6 +149,53 @@ describe("JourneyService", () => {
     expect(summary.city).toBeNull();
     expect(summary.area).toBeNull();
     expect(JSON.stringify(summary)).not.toContain("Unknown");
+  });
+
+  it("routes the owner to an active strategy via view_strategy action", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "confirmed",
+        confirmedProfile: confirmedProfileRecord(),
+      }),
+      strategy: {
+        id: "44444444-4444-4444-8444-444444444444",
+        status: "draft",
+        currentVersionId: "55555555-5555-4555-8555-555555555555",
+      },
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.primary_action).toEqual({
+      type: "view_strategy",
+      strategy_id: "44444444-4444-4444-8444-444444444444",
+      destination: "/strategy/44444444-4444-4444-8444-444444444444",
+    });
+    expect(response.future_phase.availability).toBe("available");
+    expect(response.future_phase.reason).toBe("strategy_active");
+  });
+
+  it("falls back to the discovery action when the strategy is needs_brief or failed", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "confirmed",
+        confirmedProfile: confirmedProfileRecord(),
+      }),
+      strategy: {
+        id: "44444444-4444-4444-8444-444444444444",
+        status: "needs_brief",
+        currentVersionId: null,
+      },
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.primary_action.type).toBe("view_discovery");
+    expect(response.future_phase.availability).toBe("unavailable");
   });
 });
 

@@ -11,6 +11,7 @@ import type {
   CurrentJourneyStrategyContext,
   DiscoverySessionStatus,
   LanguageMode,
+  UUID,
 } from "@marketmind/contracts";
 import {
   JourneyRepository,
@@ -18,6 +19,17 @@ import {
   type JourneyRepositoryPort,
   type JourneySessionRecord,
 } from "./journey.repository";
+
+/**
+ * Minimal, typed view of a Strategy row used by the journey surface. Kept
+ * here (not exported from the contract package) because the journey layer
+ * only needs identity + status + current version pointer.
+ */
+type JourneyStrategySummary = {
+  readonly id: string;
+  readonly status: string;
+  readonly currentVersionId: string | null;
+};
 
 @Injectable()
 export class JourneyService {
@@ -29,12 +41,12 @@ export class JourneyService {
   async getCurrent(ownerUserId: string): Promise<CurrentJourneyResponse> {
     const record = await this.repository.findCurrentForOwner(ownerUserId);
     const journey = currentJourney(record.session);
-    const primaryAction = currentAction(journey);
+    const primaryAction = currentAction(journey, record.strategy);
 
     return {
       owner: currentOwner(record.owner),
       journey,
-      future_phase: strategyContext(journey),
+      future_phase: strategyContext(journey, record.strategy),
       primary_action: primaryAction,
       generated_at: new Date().toISOString(),
     };
@@ -170,7 +182,22 @@ function profileSummary(
   };
 }
 
-function currentAction(journey: CurrentJourney): CurrentJourneyPrimaryAction {
+function currentAction(
+  journey: CurrentJourney,
+  strategy: JourneyStrategySummary | null,
+): CurrentJourneyPrimaryAction {
+  // When an active strategy exists, the owner's next action is to work on it.
+  // Active = any status that represents real work in flight or awaiting the
+  // owner (everything except needs_brief and failed, which fall back to the
+  // discovery-driven default action below).
+  if (strategy && isStrategyActive(strategy.status)) {
+    return {
+      type: "view_strategy",
+      strategy_id: strategy.id,
+      destination: `/strategy/${strategy.id}`,
+    };
+  }
+
   switch (journey.state) {
     case "no_journey":
       return { type: "start_discovery", destination: "/discovery/new" };
@@ -197,9 +224,39 @@ function currentAction(journey: CurrentJourney): CurrentJourneyPrimaryAction {
   }
 }
 
+/**
+ * A strategy is "active" for journey-action purposes when it represents real
+ * work in flight or awaiting the owner. `needs_brief` and `failed` are not
+ * active — the owner should be routed to discovery/strategy setup instead.
+ */
+function isStrategyActive(status: string): boolean {
+  return (
+    status === "ready" ||
+    status === "retrieving" ||
+    status === "queued" ||
+    status === "generating" ||
+    status === "validating" ||
+    status === "draft" ||
+    status === "approved"
+  );
+}
+
 function strategyContext(
   journey: CurrentJourney,
+  strategy: JourneyStrategySummary | null,
 ): CurrentJourneyStrategyContext {
+  if (strategy && strategy.status !== "needs_brief" && strategy.status !== "failed") {
+    return {
+      phase: "strategy",
+      availability: "available",
+      status: strategy.status as CurrentJourneyStrategyContext["status"],
+      reason: "strategy_active",
+      strategy_id: strategy.id as UUID,
+      current_version_id: (strategy.currentVersionId ?? null) as UUID | null,
+      destination: `/strategy/${strategy.id}` as `/strategy/${UUID}`,
+    };
+  }
+
   if (journey.state === "discovery_summary_review") {
     return {
       phase: "strategy",

@@ -123,20 +123,35 @@ export type CurrentJourneyPrimaryAction =
       readonly destination: DiscoverySessionDestination;
     }
   | {
+      readonly type: "view_strategy";
+      readonly strategy_id: UUID;
+      readonly destination: `/strategy/${UUID}`;
+    }
+  | {
       readonly type: "none";
       readonly destination: null;
     };
 
-export type CurrentJourneyStrategyContext = {
-  readonly phase: "strategy";
-  readonly availability: "locked" | "unavailable";
-  readonly status: Extract<StrategyStatus, "needs_brief">;
-  readonly reason:
-    | "discovery_required"
-    | "profile_review_required"
-    | "strategy_not_active";
-  readonly destination: null;
-};
+export type CurrentJourneyStrategyContext = 
+  | {
+      readonly phase: "strategy";
+      readonly availability: "locked" | "unavailable";
+      readonly status: Extract<StrategyStatus, "needs_brief">;
+      readonly reason:
+        | "discovery_required"
+        | "profile_review_required"
+        | "strategy_not_active";
+      readonly destination: null;
+    }
+  | {
+      readonly phase: "strategy";
+      readonly availability: "available";
+      readonly status: StrategyStatus;
+      readonly reason: "strategy_active";
+      readonly strategy_id: UUID;
+      readonly current_version_id: UUID | null;
+      readonly destination: `/strategy/${UUID}`;
+    };
 
 export type CurrentJourneyResponse = {
   readonly owner: CurrentJourneyOwner;

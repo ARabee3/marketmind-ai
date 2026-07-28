@@ -50,9 +50,16 @@ export type JourneySessionRecord = {
   readonly confirmedProfile: JourneyConfirmedProfileRecord | null;
 };
 
+export type JourneyStrategyRecord = {
+  readonly id: string;
+  readonly status: string;
+  readonly currentVersionId: string | null;
+};
+
 export type JourneyCurrentRecord = {
   readonly owner: JourneyOwnerRecord;
   readonly session: JourneySessionRecord | null;
+  readonly strategy: JourneyStrategyRecord | null;
 };
 
 export interface JourneyRepositoryPort {
@@ -108,8 +115,18 @@ export class JourneyRepository implements JourneyRepositoryPort {
       },
     });
 
+    const strategy = await this.prisma.strategy.findFirst({
+      where: { ownerUserId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        currentVersionId: true,
+      }
+    });
+
     if (!session) {
-      return { owner, session: null };
+      return { owner, session: null, strategy };
     }
 
     const confirmedProfile = session.confirmedProfileVersionId
@@ -151,6 +168,7 @@ export class JourneyRepository implements JourneyRepositoryPort {
         intake: session.intakes[0] ?? null,
         confirmedProfile,
       },
+      strategy,
     };
   }
 }

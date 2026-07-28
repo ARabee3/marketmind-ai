@@ -59,4 +59,11 @@ export const configuration = () => ({
   app: {
     nodeEnv: process.env.NODE_ENV || "development",
   },
+
+  aiService: {
+    // Single source of truth for the FastAI base URL. Aliases the existing
+    // AI_SERVICE_BASE_URL env var also consumed by external-provider.config.ts
+    // so Discovery and Strategy never drift.
+    url: process.env.AI_SERVICE_BASE_URL || "http://localhost:8000",
+  },
 });

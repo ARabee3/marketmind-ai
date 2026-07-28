@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { PrismaService } from "../../common/persistence/prisma.service";
 
 export type UpsertChunkInput = {
@@ -61,6 +62,7 @@ export class MarketingKnowledgeChunkRepository {
 
     return this.prisma.marketingKnowledgeChunk.create({
       data: {
+        chunkId: randomUUID(),
         entryVersionId: input.entryVersionId,
         chunkOrder: input.chunkOrder,
         text: input.text,
