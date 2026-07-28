@@ -39,18 +39,20 @@ describe("JourneyRepository", () => {
       businessProfileVersion: {
         findUnique: jest.fn(),
       },
+      strategy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     const repository = new JourneyRepository(prisma as never);
 
     const response = await repository.findCurrentForOwner("owner-id");
 
     expect(response.session?.id).toBe("session-id");
-    expect(prisma.discoverySession.findFirst).toHaveBeenCalledWith(
+    expect(response.strategy).toBeNull();
+    expect(prisma.strategy.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          ownerUserId: "owner-id",
-          status: { not: "not_started" },
-        },
+        where: { ownerUserId: "owner-id" },
+        orderBy: { createdAt: "desc" },
       }),
     );
   });
@@ -71,12 +73,48 @@ describe("JourneyRepository", () => {
       businessProfileVersion: {
         findUnique: jest.fn(),
       },
+      strategy: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     const repository = new JourneyRepository(prisma as never);
 
     const response = await repository.findCurrentForOwner("owner-id");
 
     expect(response.session).toBeNull();
+    expect(response.strategy).toBeNull();
+  });
+
+  it("returns the most recent strategy for the owner when one exists", async () => {
+    const activeStrategy = {
+      id: "strategy-1",
+      status: "generating",
+      currentVersionId: "version-1",
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "owner-id",
+          fullName: null,
+          email: "owner@example.com",
+          isEmailVerified: true,
+        }),
+      },
+      discoverySession: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      businessProfileVersion: {
+        findUnique: jest.fn(),
+      },
+      strategy: {
+        findFirst: jest.fn().mockResolvedValue(activeStrategy),
+      },
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findCurrentForOwner("owner-id");
+
+    expect(response.strategy).toEqual(activeStrategy);
   });
 
   it("rejects unknown owners", async () => {
@@ -89,6 +127,9 @@ describe("JourneyRepository", () => {
       },
       businessProfileVersion: {
         findUnique: jest.fn(),
+      },
+      strategy: {
+        findFirst: jest.fn(),
       },
     };
     const repository = new JourneyRepository(prisma as unknown as PrismaService);
