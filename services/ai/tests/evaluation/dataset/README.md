@@ -77,10 +77,17 @@ The privacy-minimized fields sent to Qdrant for building the retrieval query.
 
 **Smoke subset (fast CI, no external calls):**
 ```bash
-PYTHONPATH=. pytest tests/evaluation -m eval_smoke -v
+uv run pytest tests/evaluation -m eval_smoke -v
 ```
 
-**Full evaluation suite:**
+**Full evaluation suite (no database required):**
 ```bash
-EMBEDDING_PROVIDER=fake PYTHONPATH=. pytest tests/evaluation -m eval_full -v --report-file=evaluation_report.json
+uv run pytest tests/evaluation -m eval_full -v
+uv run python -m tests.evaluation.run_evaluation --suite full --report-file evaluation_report.json
+```
+
+**PostgreSQL citation persistence proof:**
+```bash
+npm run docker:up
+cd services/ai && uv run pytest tests/evaluation/test_persistence_resolution.py -q
 ```

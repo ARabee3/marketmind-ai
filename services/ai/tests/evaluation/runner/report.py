@@ -90,6 +90,8 @@ class EvaluationReport(BaseModel):
     retrieval_results: list[RetrievalEvalResult] = Field(default_factory=list)
     comparison_metrics: list[ComparisonMetric] = Field(default_factory=list)
     grounding_summary: GroundingSummary = Field(default_factory=GroundingSummary)
+    localization_issues: list[str] = Field(default_factory=list)
+    approval_signal_source: str = "retrieval_pass"
 
 
 def build_report(
@@ -100,6 +102,8 @@ def build_report(
     privacy_issues: list[str] | None = None,
     comparison_metrics: list[ComparisonMetric] | None = None,
     grounding_summary: GroundingSummary | None = None,
+    localization_issues: list[str] | None = None,
+    approval_signal_source: str = "retrieval_pass",
 ) -> EvaluationReport:
     total = len(retrieval_results)
     passed = sum(1 for r in retrieval_results if r.retrieval_pass)
@@ -181,6 +185,8 @@ def build_report(
         retrieval_results=retrieval_results,
         comparison_metrics=comparison_metrics or [],
         grounding_summary=grounding_summary or GroundingSummary(),
+        localization_issues=localization_issues or [],
+        approval_signal_source=approval_signal_source,
     )
 
 
