@@ -41,23 +41,20 @@ def evaluate_rag_vs_norag(
     no_rag_sourced_claims = no_rag_check.total_sourced_claims
 
     has_more_grounded = (
-        rag_citations >= no_rag_citations
-        and rag_check.valid_citations_count >= no_rag_check.valid_citations_count
+        rag_check.all_grounding_passed
+        and rag_check.valid_citations_count > no_rag_check.valid_citations_count
+        and rag_sourced_claims >= no_rag_sourced_claims
     )
 
-    # Calculate improvement score (0 to 1) based on citation depth and grounding validity.
-    # The score should reflect how much RAG helps over no-RAG for this specific case.
-    base_score = 0.5 if rag_check.all_grounding_passed else 0.3
+    base_score = 0.0 if not rag_check.all_grounding_passed else 0.6
 
-    if no_rag_citations == 0 and rag_citations > 0:
-        # RAG added citations where no-RAG had none: strong improvement.
-        base_score = min(1.0, base_score + 0.4)
-    elif rag_check.valid_citations_count > no_rag_check.valid_citations_count:
-        # RAG citations are more valid than no-RAG: moderate improvement.
-        base_score = min(1.0, base_score + 0.2)
+    if rag_check.all_grounding_passed:
+        if no_rag_citations == 0 and rag_citations > 0:
+            base_score = min(1.0, base_score + 0.4)
+        elif rag_check.valid_citations_count > no_rag_check.valid_citations_count:
+            base_score = min(1.0, base_score + 0.2)
 
     if rag_check.raw_skill_leakage_found or no_rag_check.raw_skill_leakage_found:
-        # Penalize if either plan has uncontrolled external leakage.
         if not rag_check.raw_skill_leakage_found and no_rag_check.raw_skill_leakage_found:
             base_score = min(1.0, base_score + 0.1)
 

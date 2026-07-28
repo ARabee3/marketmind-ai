@@ -16,7 +16,7 @@ from tests.evaluation.dataset.schema import EvalCase
 from tests.evaluation.runner.comparison_rubric import evaluate_rag_vs_norag
 from tests.evaluation.runner.generation_runner import GenerationEvalRunner, make_eval_brief, make_empty_retrieval_pack
 from tests.evaluation.runner.retrieval_runner import RetrievalEvalRunner
-from tests.strategy.fixtures import default_business_profile, load_json
+from tests.strategy.fixtures import default_business_profile, default_plan, load_json
 
 
 def _retrieval_result_to_pack(
@@ -78,6 +78,56 @@ def _retrieval_result_to_pack(
     return RetrievedKnowledgePack.model_validate(base_dict)
 
 
+def test_rag_comparison_rejects_unresolved_rag_citations() -> None:
+    profile = default_business_profile()
+    case_plan = default_plan()
+    no_rag_plan = case_plan.model_copy(update={"citations": []})
+    empty_pack = make_empty_retrieval_pack(
+        make_eval_brief(
+            EvalCase.model_validate(
+                {
+                    "id": "mismatch-case",
+                    "sector": "retail",
+                    "language": "en",
+                    "description": "Mismatched citation regression case.",
+                    "query_input": {
+                        "business_type": "retail",
+                        "market": "egypt",
+                        "locale": "en",
+                        "objective": "awareness",
+                        "funnel_stage": "awareness",
+                        "active_channels": ["facebook"],
+                        "asset_capability": ["photos"],
+                        "team_capacity": "owner only",
+                        "budget_mode": "organic_only",
+                    },
+                    "expected_retrieval": {
+                        "expected_chunk_ids": [],
+                        "forbidden_chunk_ids": [],
+                        "required_gap_categories": [],
+                    },
+                    "hard_filter_cases": [],
+                    "reviewer": "@reviewer",
+                    "reviewed_at": "2026-07-15",
+                }
+            )
+        ),
+        profile,
+    )
+
+    result = evaluate_rag_vs_norag(
+        case_id="mismatch-case",
+        rag_plan=case_plan,
+        rag_pack=empty_pack,
+        no_rag_plan=no_rag_plan,
+        no_rag_pack=empty_pack,
+    )
+
+    assert result.rag_grounding_passed is False
+    assert result.has_more_grounded_claims is False
+    assert result.grounding_improvement_score == 0.0
+
+
 @pytest.mark.eval_smoke
 @pytest.mark.asyncio
 async def test_rag_vs_norag_comparison_smoke(
@@ -117,17 +167,9 @@ async def test_rag_vs_norag_comparison_smoke(
         no_rag_pack=empty_pack,
     )
 
-    # In mock mode the provider returns a default plan whose citations reference
-    # the example pack chunk_ids, not the real Qdrant ones.  The pipeline-level
-    # validation verifies that RAG produces at least as many grounded claims as
-    # the no-RAG baseline; full grounding pass/fail requires a real LLM provider.
+    assert rubric_result.rag_grounding_passed, rubric_result.summary
     assert rubric_result.has_more_grounded_claims, f"RAG had fewer grounded claims: {rubric_result.summary}"
-    # In mock mode the provider returns a default plan for every input, so both
-    # RAG and no-RAG runs produce identical citation counts.  The improvement
-    # score floor of 0.3 is the base assigned when all_grounding_passed is
-    # False — expected since mock citations reference example-pack chunk_ids
-    # that don't exist in the real Qdrant fixtures.
-    assert rubric_result.grounding_improvement_score >= 0.3
+    assert rubric_result.grounding_improvement_score >= 0.6
 
 
 @pytest.mark.eval_full
