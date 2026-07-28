@@ -54,8 +54,26 @@ describe("StrategyProcessor", () => {
 
   describe("handleGenerate — success", () => {
     it("transitions queued → generating → validating → draft and persists an immutable version", async () => {
+      const validPlan = {
+        id: "plan-1",
+        strategy_id: "strat-1",
+        version: 1,
+        contract_version: "2026-07-01",
+        brief_id: "brief-1",
+        retrieval_run_id: "run-1",
+        executive_summary: { text: "summary", source: "model_synthesis", citation_ids: [] },
+        situation_diagnosis: { text: "diag", source: "model_synthesis", citation_ids: [] },
+        primary_objective: "awareness",
+        selected_channels: [],
+        all_channel_scores: [],
+        content_strategy: { format_mix: [], weekly_cadence: "1", weeks: [], experiments: [] },
+        budget_mode: "organic_only",
+        kpi_targets: [],
+        citations: [],
+        created_at: "2026-07-28T10:00:00.000Z",
+      };
       httpService.post.mockReturnValue(
-        of({ data: { plan: { sections: [] }, prompt_config: { model: "gpt-4o" } } }),
+        of({ data: { plan: validPlan, prompt_config: { model: "gpt-4o" } } }),
       );
       (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
         id: "ver-1",
@@ -74,7 +92,7 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).toHaveBeenCalledWith(
         "strat-1",
         "run-1",
-        { sections: [] },
+        expect.objectContaining({ id: "plan-1", strategy_id: "strat-1" }),
         { model: "gpt-4o" },
       );
     });
@@ -103,6 +121,23 @@ describe("StrategyProcessor", () => {
 
     it("transitions to failed on invalid response (missing plan)", async () => {
       httpService.post.mockReturnValue(of({ data: {} }));
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow();
+
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith("strat-1", "failed");
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+
+    it("transitions to failed when plan fails structural validation", async () => {
+      httpService.post.mockReturnValue(
+        of({ data: { plan: { id: "plan-1" }, prompt_config: {} } }),
+      );
 
       await expect(
         processor.process({
@@ -152,7 +187,29 @@ describe("StrategyProcessor", () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { retrieval_run_id: "run-2" } }))
         .mockReturnValueOnce(
-          of({ data: { plan: { sections: ["v2"] }, prompt_config: {} } }),
+          of({
+            data: {
+              plan: {
+                id: "plan-2",
+                strategy_id: "strat-1",
+                version: 2,
+                contract_version: "2026-07-01",
+                brief_id: "brief-1",
+                retrieval_run_id: "run-2",
+                executive_summary: { text: "v2", source: "model_synthesis", citation_ids: [] },
+                situation_diagnosis: { text: "v2", source: "model_synthesis", citation_ids: [] },
+                primary_objective: "acquisition",
+                selected_channels: [],
+                all_channel_scores: [],
+                content_strategy: { format_mix: [], weekly_cadence: "2", weeks: [], experiments: [] },
+                budget_mode: "organic_only",
+                kpi_targets: [],
+                citations: [],
+                created_at: "2026-07-28T11:00:00.000Z",
+              },
+              prompt_config: {},
+            },
+          }),
         );
       (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
         id: "ver-2",
@@ -177,7 +234,7 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).toHaveBeenCalledWith(
         "strat-1",
         "run-2",
-        { sections: ["v2"] },
+        expect.objectContaining({ id: "plan-2", version: 2 }),
         {},
       );
     });

@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { StrategyRepository } from "./strategy.repository";
+import { validatePlanShape } from "./strategy-plan.validator";
 
 interface GenerateJobData {
   strategyId: string;
@@ -77,6 +78,10 @@ export class StrategyProcessor extends WorkerHost {
       if (!planData) {
         throw new Error("AI generation service returned no plan");
       }
+
+      // Structural validation gate — catches malformed provider responses
+      // before persisting an immutable version.
+      validatePlanShape(planData);
 
       this.logger.log(`[Corr: ${correlationId}] Generation complete — validating`);
       // generating → validating (FSM-validated)
@@ -218,6 +223,10 @@ export class StrategyProcessor extends WorkerHost {
       if (!planData) {
         throw new Error("AI revision service returned no plan");
       }
+
+      // Structural validation gate — catches malformed provider responses
+      // before persisting an immutable version.
+      validatePlanShape(planData);
 
       this.logger.log(
         `[Corr: ${correlationId}] Revision generation complete — validating`,
