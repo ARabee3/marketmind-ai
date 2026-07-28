@@ -13,6 +13,12 @@ from app.qdrant.points import upsert_points
 from app.qdrant.schemas import QdrantKnowledgePoint
 from app.qdrant.collection import QdrantCollectionError
 
+_PAID_MEDIA_BUDGET_MODES = {"paid_only", "monthly_amount", "three_month_amount"}
+
+
+def _requires_paid_media(budget_modes: list[str]) -> bool:
+    return bool(_PAID_MEDIA_BUDGET_MODES.intersection(budget_modes))
+
 
 def _build_qdrant_payload(
     chunk: MarketingKnowledgeChunk,
@@ -40,6 +46,7 @@ def _build_qdrant_payload(
         channels=version.channels,
         seasons=version.seasons,
         budget_modes=version.budget_modes,
+        requires_paid_media=_requires_paid_media(version.budget_modes),
         evidence_tier=version.evidence_tier,
         review_status=version.review_status,
         effective_at=version.effective_at,
