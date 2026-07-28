@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
-from typing import Any
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
 
 from strategy_contracts import (
@@ -20,6 +20,7 @@ from app.strategy.assembler import DecisionBundle, assemble_generation_prompt
 from app.strategy.retrieval_adapter import contract_pack_to_rag
 from app.strategy.validators import validate_plan_against_request
 from tests.evaluation.dataset.schema import EvalCase
+from tests.evaluation.runner.report import RetrievalEvalResult
 from tests.strategy.fixtures import default_business_profile, default_plan, load_json
 
 
@@ -57,6 +58,64 @@ def make_empty_retrieval_pack(brief: StrategyBrief, profile: BusinessProfilePayl
     base_dict["brief_id"] = str(brief.id)
     base_dict["profile_version_id"] = str(profile.id)
     return RetrievedKnowledgePack.model_validate(base_dict)
+
+
+def retrieval_result_to_pack(
+    case: EvalCase,
+    ret_result: RetrievalEvalResult,
+    all_fixture_data: list[list[dict]],
+    brief: StrategyBrief,
+    profile: BusinessProfilePayload,
+) -> RetrievedKnowledgePack:
+    base_dict = load_json("strategy-retrieval-pack.example.json")
+    contract_items = []
+    seen_chunks = set()
+    for sq_res in ret_result.subquery_results:
+        for chunk_id in sq_res.returned_chunk_ids:
+            if chunk_id in seen_chunks:
+                continue
+            seen_chunks.add(chunk_id)
+            fixture_item = _find_fixture_item(chunk_id, all_fixture_data)
+            if fixture_item is None:
+                continue
+            contract_items.append(
+                {
+                    "chunk_id": str(fixture_item["chunk_id"]),
+                    "entry_id": str(fixture_item["entry_id"]),
+                    "entry_version": fixture_item.get("entry_version", 1),
+                    "title": fixture_item.get("checksum", "Fixture Title"),
+                    "excerpt": fixture_item["text"][:100],
+                    "kind": fixture_item["kind"],
+                    "tags": {"industries": fixture_item.get("industries", [])},
+                    "relevance_score": 0.95,
+                    "source_quality": {
+                        "evidence_tier": fixture_item.get("evidence_tier", "reviewed_guidance"),
+                        "source_references": ["synthetic-fixture://retrieval-test"],
+                        "effective_at": fixture_item["effective_at"],
+                        "expires_at": fixture_item.get("expires_at"),
+                        "review_status": fixture_item["review_status"],
+                    },
+                }
+            )
+
+    base_dict["retrieval_run_id"] = str(uuid4())
+    base_dict["brief_id"] = str(brief.id)
+    base_dict["profile_version_id"] = str(profile.id)
+    base_dict["items"] = contract_items
+    base_dict["knowledge_gaps"] = [
+        {"category": cat, "description": f"Missing: {cat}", "severity": "non_critical"}
+        for cat in ret_result.detected_gap_categories
+    ]
+    base_dict["query_context"] = case.query_input.model_dump()
+    return RetrievedKnowledgePack.model_validate(base_dict)
+
+
+def _find_fixture_item(chunk_id: str, all_fixture_data: list[list[dict]]) -> dict | None:
+    for fixture_list in all_fixture_data:
+        for item in fixture_list:
+            if item["chunk_id"] == chunk_id:
+                return item
+    return None
 
 
 class GenerationEvalRunner:

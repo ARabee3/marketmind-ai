@@ -178,6 +178,7 @@ class RetrievalEvalRunner:
             top5_hit=top5_hit,
             forbidden_violation=forbidden_violation,
             forbidden_found=sorted(str(x) for x in forbidden_found),
+            missed_chunk_ids=sorted(set(expected.expected_chunk_ids) - expected_found),
             detected_gap_categories=sorted(gap_categories),
             missing_gap_categories=sorted(
                 set(expected.required_gap_categories) - gap_categories

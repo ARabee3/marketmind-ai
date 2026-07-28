@@ -25,6 +25,7 @@ class RetrievalEvalResult(BaseModel):
     top5_hit: bool
     forbidden_violation: bool
     forbidden_found: list[str] = []
+    missed_chunk_ids: list[str] = Field(default_factory=list)
     detected_gap_categories: list[str]
     missing_gap_categories: list[str]
     total_latency_ms: float = 0.0
@@ -159,6 +160,7 @@ def build_report(
             "passed": r.retrieval_pass,
             "top5_hit": r.top5_hit,
             "forbidden_violation": r.forbidden_violation,
+            "missed_chunk_ids": r.missed_chunk_ids,
             "latency_ms": r.total_latency_ms,
             "failure_category": r.failure_category,
             "approval_signal": r.approval_signal,
