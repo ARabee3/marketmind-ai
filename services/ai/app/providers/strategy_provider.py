@@ -339,6 +339,20 @@ class MockStrategyProvider(StrategyLLMProvider):
         plan_dict["retrieval_run_id"] = meta["retrieval_run_id"]
         plan_dict["created_at"] = now.isoformat()
         plan_dict["citations"] = [c.model_dump(mode="json") for c in citations]
+        case_context = meta.get("eval_case_context")
+        if isinstance(case_context, dict):
+            context_text = (
+                f"case {case_context.get('case_id')} | "
+                f"business_type {case_context.get('business_type')} | "
+                f"objective {case_context.get('objective')} | "
+                f"locale {case_context.get('locale')}"
+            )
+            plan_dict["executive_summary"]["text"] = (
+                f"{context_text}. {plan_dict['executive_summary']['text']}"
+            )
+            plan_dict["situation_diagnosis"]["text"] = (
+                f"{context_text}. {plan_dict['situation_diagnosis']['text']}"
+            )
 
         def recursive_clean(val):
             if isinstance(val, dict):

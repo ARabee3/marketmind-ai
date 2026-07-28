@@ -6,7 +6,11 @@ import pytest
 from app.core.config import Settings
 from strategy_contracts import StrategyPlan
 from tests.evaluation.runner.grounding_checker import check_strategy_grounding
-from tests.evaluation.runner.generation_runner import GenerationEvalRunner, make_eval_brief
+from tests.evaluation.runner.generation_runner import (
+    GenerationEvalRunner,
+    eval_case_context,
+    make_eval_brief,
+)
 from tests.strategy.fixtures import default_plan, default_retrieval_pack, default_business_profile
 
 UNWANTED_SAAS_TERMS = ["arr", "annual recurring revenue", "cac payback", "linkedin-first", "series a funding"]
@@ -54,6 +58,12 @@ def _adaptation_score(plan: StrategyPlan) -> int:
     issues = _check_plan_text(plan)
     penalty = sum(len(values) for values in issues.values())
     return max(0, 10 - penalty)
+
+
+def test_generic_saas_negative_fixture_is_rejected() -> None:
+    generic = _generic_baseline(default_plan())
+    assert _check_plan_text(generic)["unlocalized_saas"]
+    assert _adaptation_score(generic) < _adaptation_score(default_plan())
 
 
 @pytest.mark.eval_smoke
@@ -143,11 +153,22 @@ async def test_adaptation_across_language_modes(eval_dataset) -> None:
             update={
                 "brief_id": brief.id,
                 "profile_version_id": case_profile.id,
+                "meta": {"eval_case_context": eval_case_context(case)},
             }
         )
         plan = (await runner.generate_single(case_profile, brief, case_pack)).plan
         baseline = _generic_baseline(plan)
         issues = _check_plan_text(plan)
+        summary_text = plan.executive_summary.text.lower()
+        expected_terms = [
+            case.id.lower(),
+            case.query_input.business_type.lower(),
+            case.query_input.objective.lower(),
+            case.query_input.locale.lower(),
+        ]
+        missing_terms = [term for term in expected_terms if term not in summary_text]
+        if missing_terms:
+            issues.setdefault("missing_case_context", []).extend(missing_terms)
         if _adaptation_score(plan) <= _adaptation_score(baseline):
             weak_cases.append(case.id)
         all_issues[case.id] = issues
