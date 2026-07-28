@@ -20,6 +20,7 @@ class RetrievalQueryContext(BaseModel):
     budget_mode: str
     industry: str | None = None
     free_text_notes: str | None = None
+    paid_media_allowed: bool = True
 
 
 class RetrievalSubquery(BaseModel):
@@ -29,6 +30,8 @@ class RetrievalSubquery(BaseModel):
     kind_filter: str | list[str]
     locale_filter: list[str] | None = None
     market_filter: list[str] | None = None
+    industry_filter: list[str] | None = None
+    paid_media_allowed: bool | None = None
 
 
 class RetrievalCandidate(BaseModel):

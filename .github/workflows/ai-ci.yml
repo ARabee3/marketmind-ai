@@ -1,0 +1,33 @@
+name: ai-ci
+
+on:
+  pull_request:
+    paths:
+      - 'services/ai/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/ai-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/ai/**'
+      - 'packages/contracts/**'
+
+defaults:
+  run:
+    working-directory: services/ai
+
+jobs:
+  eval-smoke:
+    name: eval smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          cache-dependency-path: services/ai/pyproject.toml
+      - name: Install deps
+        run: uv sync --frozen
+      - name: Run evaluation smoke tests
+        run: uv run pytest tests/evaluation -m eval_smoke -v

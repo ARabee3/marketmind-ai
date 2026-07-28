@@ -8,16 +8,22 @@ services are not reachable.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from qdrant_client import AsyncQdrantClient
 
 from app.core.config import Settings
 from app.db.client import create_async_engine_from_settings
+from app.db.models import MarketingKnowledgeChunk
 from app.knowledge.ingestion.pipeline import _persist_entry, run_ingestion_pipeline
+from app.knowledge.ingestion.qdrant_sync import _build_qdrant_payload
+from app.qdrant import create_collection, upsert_points
 from app.qdrant.client import create_qdrant_client
-from app.qdrant.points import count_points, search_points
+from app.qdrant.points import count_points, generate_point_id, search_points
 
 
 pytestmark = pytest.mark.integration
@@ -61,6 +67,91 @@ Some content here to ensure the chunker has material to work with.
 - Point one
 - Point two
 """
+
+
+def _projection_chunk() -> MarketingKnowledgeChunk:
+    return MarketingKnowledgeChunk(
+        id=uuid.uuid4(),
+        chunk_id=uuid.uuid4(),
+        entry_version_id=uuid.uuid4(),
+        chunk_order=0,
+        text="Paid media budget guidance for Egyptian SMEs.",
+        token_count=8,
+        checksum="checksum",
+        embedding_provider="fake",
+        embedding_model="text-embedding-3-large",
+        embedding_dimensions=3072,
+        embedding_version="embedding-v1",
+    )
+
+
+def _projection_version(budget_modes: list[str]) -> SimpleNamespace:
+    return SimpleNamespace(
+        entry_id=uuid.uuid4(),
+        version=1,
+        kind="budget_playbook",
+        title_ar=None,
+        locale="en",
+        markets=["egypt"],
+        industries=["retail"],
+        business_models=["b2c"],
+        objectives=["awareness"],
+        funnel_stages=["awareness"],
+        channels=["facebook"],
+        seasons=[],
+        budget_modes=budget_modes,
+        evidence_tier="reviewed_guidance",
+        review_status="approved",
+        effective_at=datetime(2026, 1, 1),
+        expires_at=None,
+    )
+
+
+def test_qdrant_projection_derives_paid_media_flag_from_budget_modes() -> None:
+    paid = _build_qdrant_payload(
+        _projection_chunk(),
+        _projection_version(["monthly_amount"]),
+        "paid-budget",
+    )
+    organic = _build_qdrant_payload(
+        _projection_chunk(),
+        _projection_version(["organic_only"]),
+        "organic-budget",
+    )
+    empty = _build_qdrant_payload(
+        _projection_chunk(),
+        _projection_version([]),
+        "empty-budget",
+    )
+
+    assert paid.requires_paid_media is True
+    assert organic.requires_paid_media is False
+    assert empty.requires_paid_media is False
+
+
+@pytest.mark.asyncio
+async def test_qdrant_projection_stores_derived_paid_media_payload() -> None:
+    client = AsyncQdrantClient(location=":memory:")
+    collection_name = f"projection_{uuid.uuid4().hex}"
+    chunk = _projection_chunk()
+    point = _build_qdrant_payload(
+        chunk,
+        _projection_version(["paid_only"]),
+        "paid-budget",
+    )
+    try:
+        await create_collection(client, collection_name, vector_size=4)
+        await upsert_points(client, collection_name, [(point, [0.1, 0.2, 0.3, 0.4])])
+        records = await client.retrieve(
+            collection_name=collection_name,
+            ids=[generate_point_id(chunk.chunk_id, 1)],
+            with_payload=True,
+        )
+    finally:
+        await client.close()
+
+    assert len(records) == 1
+    assert records[0].payload["requires_paid_media"] is True
 
 
 def _write_corpus(root: Path, entries: dict[str, str]) -> Path:

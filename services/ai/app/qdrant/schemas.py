@@ -36,6 +36,7 @@ class QdrantKnowledgePoint(BaseModel):
     seasons: list[str] = Field(default_factory=list)
     budget_modes: list[str] = Field(default_factory=list)
 
+    requires_paid_media: bool = False
     evidence_tier: EvidenceTier
     review_status: ReviewStatus
     effective_at: datetime

@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "title": "Privacy Boundary Test Profile",
+    "description": "A fake BusinessProfile with identifiable owner fields. Used to assert that none of these fields appear in any Qdrant payload."
+  },
+  "id": "pp-00000000-0000-4000-8000-000000000001",
+  "business_id": "bb-00000000-0000-4000-8000-000000000001",
+  "business_name": "Cairo Fresh Mart",
+  "business_type": "retail",
+  "city": "Cairo",
+  "area": "Maadi",
+  "address_text": "28 Nile Street, Maadi, Cairo",
+  "owner_name": "Ahmed Mostafa",
+  "owner_phone": "+201001234567",
+  "owner_email": "ahmed.mostafa@cairofreshmart.example",
+  "vat_number": "123-456-789",
+  "exact_location": {
+    "lat": 29.9598,
+    "lng": 31.2575
+  },
+  "private_notes": "Owner prefers WhatsApp contact only. Has a dispute with supplier.",
+  "confirmed_facts": {
+    "identity": {
+      "business_name": "Cairo Fresh Mart",
+      "business_type": "retail",
+      "city": "Cairo",
+      "area": "Maadi"
+    },
+    "offer": {
+      "core_offerings": ["fresh produce", "dairy", "baked goods"],
+      "best_sellers": ["organic vegetables"],
+      "price_range": "10-200 EGP",
+      "purchase_occasions": ["weekly grocery", "daily bread"]
+    },
+    "customers": {
+      "primary_segments": ["families", "office workers"],
+      "visit_or_order_occasions": ["weekday evening", "weekend morning"],
+      "peak_periods": ["5pm-8pm weekdays"],
+      "customer_needs": ["fresh quality", "convenient location"]
+    },
+    "differentiation": {
+      "owner_claimed_strengths": ["freshness", "competitive prices"],
+      "customer_choice_reasons": [],
+      "proof_points": []
+    },
+    "current_marketing": {
+      "active_channels": ["instagram", "facebook"],
+      "current_activities": [],
+      "delivery_platforms": [],
+      "available_assets": ["facebook page", "instagram account"]
+    },
+    "goals_and_constraints": {
+      "growth_goals": ["Increase weekly foot traffic", "Launch home delivery"],
+      "operational_constraints": ["Limited staff for marketing"]
+    }
+  }
+}

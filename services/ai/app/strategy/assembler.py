@@ -119,6 +119,12 @@ def _build_metadata(
         "language_mode": request.brief.plan_language,
         "budget_mode": request.brief.external_budget_mode,
         "paid_media_allowed": request.brief.paid_media_allowed,
+        "primary_objective": request.brief.primary_objective,
+        "business_type": request.retrieved_knowledge_pack.query_context.business_type,
+        "funnel_stage": request.retrieved_knowledge_pack.query_context.funnel_stage,
+        "retrieved_knowledge_pack_items": [
+            item.model_dump(mode="json") for item in request.retrieved_knowledge_pack.items
+        ],
     }
 
 
