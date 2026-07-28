@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@marketmind/contracts": "0.0.0",
+    "@nestjs/axios": "^4.0.1",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
@@ -36,6 +38,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.27",
     "@prisma/client": "^6.9.0",
+    "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.52.0",
     "class-transformer": "^0.5.1",
@@ -90,7 +93,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@marketmind/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts"
+    }
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
