@@ -43,8 +43,12 @@ export function useStrategy(strategyId: string | null): UseStrategyResult {
     }
   }, [strategyId])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); return () => { mountedRef.current = false } }, [load])
+  useEffect(() => {
+    mountedRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+    return () => { mountedRef.current = false }
+  }, [load])
 
   return { strategy, loading, error, refresh: load }
 }

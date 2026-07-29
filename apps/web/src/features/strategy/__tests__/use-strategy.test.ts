@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createElement, StrictMode, type ReactNode } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useStrategy } from '../hooks/use-strategy'
 import { setAccessToken } from '@/lib/api/token-store'
@@ -57,6 +58,45 @@ describe('useStrategy', () => {
     expect(result.current.strategy?.id).toBe('strat-1')
     expect(result.current.strategy?.status).toBe('draft')
     expect(result.current.error).toBeNull()
+  })
+
+  it('loads strategy under React Strict Mode remount', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(mockStrategy), { status: 200 }),
+    )
+
+    const wrapper = ({ children }: { readonly children: ReactNode }) =>
+      createElement(StrictMode, null, children)
+
+    const { result } = renderHook(() => useStrategy('strat-1'), { wrapper })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.strategy?.id).toBe('strat-1')
+    expect(result.current.error).toBeNull()
+  })
+
+  it('loads the next strategy after strategyId changes', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...mockStrategy, id: 'strat-1' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...mockStrategy, id: 'strat-2' }), { status: 200 }),
+      )
+
+    const { result, rerender } = renderHook(
+      ({ strategyId }: { readonly strategyId: string }) => useStrategy(strategyId),
+      { initialProps: { strategyId: 'strat-1' } },
+    )
+
+    await waitFor(() => expect(result.current.strategy?.id).toBe('strat-1'))
+
+    rerender({ strategyId: 'strat-2' })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.strategy?.id).toBe('strat-2')
   })
 
   it('returns null strategy when strategyId is null', () => {
