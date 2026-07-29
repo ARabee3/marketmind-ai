@@ -106,6 +106,15 @@ export class StrategyController {
     return this.strategyService.getRetrievalPack(id, req.user.id);
   }
 
+  @Get(":id/progress")
+  @Permissions(PERMISSIONS.STRATEGY_START)
+  getProgressEvents(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.strategyService.getProgressEvents(id, req.user.id);
+  }
+
   @Post(":id/decisions")
   @Permissions(PERMISSIONS.STRATEGY_START)
   ownerDecision(
