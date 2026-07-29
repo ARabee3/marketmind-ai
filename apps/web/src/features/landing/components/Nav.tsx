@@ -107,7 +107,7 @@ export function Nav() {
           <span className="font-latin text-[17px] font-bold text-navy">MarketMind</span>
         </a>
 
-        <ul className="hidden items-center justify-center gap-[5px] md:flex">
+        <ul className="hidden flex-1 items-center justify-center gap-[5px] md:flex">
           {links.map((link) => (
             <li key={link.href}>
               <a
@@ -120,15 +120,14 @@ export function Nav() {
           ))}
         </ul>
 
-        <Link
-          href="/"
-          locale={targetLocale}
-          className="hidden rounded-full border border-border px-3 py-2 text-[12px] font-bold text-muted outline-none focus-visible:ring-2 focus-visible:ring-action md:inline"
-        >
-          {t('language')}
-        </Link>
-
         <div className="hidden items-center gap-2 md:flex">
+          <Link
+            href="/"
+            locale={targetLocale}
+            className="rounded-full border border-border px-3 py-2 text-[12px] font-bold text-muted transition-colors hover:bg-soft-teal hover:text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
+          >
+            {t('language')}
+          </Link>
           <Link
             href="/login"
             className="rounded-full border border-border px-4 py-2 text-[13px] font-bold text-muted transition-colors hover:bg-soft-teal hover:text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"

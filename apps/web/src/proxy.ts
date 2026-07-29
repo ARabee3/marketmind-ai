@@ -10,14 +10,13 @@ const API_BASE_URL = (
 
 const SESSION_PATH = '/auth/session'
 const LOCALES = routing.locales as readonly string[]
-const WORKSPACE_SEGMENTS = new Set(['dashboard', 'discovery'])
+const WORKSPACE_SEGMENTS = new Set(['dashboard', 'discovery', 'strategy'])
 const REFRESH_COOKIE = 'refreshToken'
 const LOCALE_COOKIE = 'NEXT_LOCALE'
 
 /**
- * Workspace routes are the `(workspace)` route group: `/dashboard` and
- * `/discovery*` under any locale prefix. Route groups are not part of the URL,
- * so we match the resolved path segments.
+ * Workspace routes are the `(workspace)` route group under any locale prefix.
+ * Route groups are not part of the URL, so we match the resolved path segments.
  */
 function isWorkspacePath(pathname: string): boolean {
   const segments = pathname.split('/').filter(Boolean)

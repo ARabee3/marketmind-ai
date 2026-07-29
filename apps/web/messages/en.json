@@ -18,6 +18,7 @@
     "navHome": "Home",
     "navDiscovery": "Discovery",
     "navDashboard": "Dashboard",
+    "navStrategy": "Strategy",
     "primaryNavLabel": "Primary",
     "mobileNavLabel": "Mobile primary",
     "workspaceLabel": "Workspace",
@@ -591,6 +592,174 @@
     "validationError": "Please check the form for errors.",
     "serverError": "Server error. Please try again later."
   },
+  "Strategy": {
+    "metadata": {
+      "homeTitle": "Strategy | MarketMind AI",
+      "newTitle": "Strategy choices | MarketMind AI"
+    },
+    "demoBadge": "Demo preview until the live Strategy workspace is ready",
+    "home": {
+      "eyebrow": "Strategy workspace",
+      "title": "Turn the confirmed business profile into a 12-week marketing plan.",
+      "subtitle": "Choose the goal, budget approach, and team capacity first. MarketMind keeps the profile facts locked and asks before any important decision.",
+      "start": "Start strategy choices",
+      "review": "Review sample draft",
+      "currentLabel": "Current plan state",
+      "currentBody": "This preview shows how the owner will move from choices to progress, review, and approval once Strategy planning is available."
+    },
+    "profile": {
+      "label": "Confirmed business profile",
+      "confirmedBadge": "Confirmed",
+      "lockedBadge": "Locked",
+      "lockedTitle": "Review the business profile first",
+      "lockedBody": "Strategy starts only after Discovery facts are confirmed by the business owner.",
+      "type": "Business type",
+      "location": "Location",
+      "confirmedAt": "Confirmed on",
+      "version": "Profile version",
+      "versionValue": "Version {version}"
+    },
+    "readiness": {
+      "label": "Ready to plan?",
+      "readyTitle": "Ready for owner review",
+      "blockedTitle": "One decision is still needed",
+      "readyBadge": "Ready",
+      "needsDecisionBadge": "Needs decision",
+      "profile": "Business profile is confirmed",
+      "objective": "Main goal is selected",
+      "budget": "Budget answer needs a decision",
+      "budgetBlocker": "Paid execution cannot be approved until the owner confirms a budget or chooses organic-only planning."
+    },
+    "choices": {
+      "eyebrow": "Strategy choices",
+      "title": "A short planning form before any draft is written.",
+      "subtitle": "These choices guide the plan. They do not change confirmed Discovery facts.",
+      "demoNotice": "Demo only until the live Strategy workspace is ready. Fields are read-only and actions are disabled.",
+      "save": "Save choices",
+      "generate": "Prepare draft",
+      "fields": {
+        "objective": {
+          "label": "Main objective",
+          "help": "Choose what the next 12 weeks should mainly improve.",
+          "example": "Increase repeat purchases"
+        },
+        "startDate": {
+          "label": "Start date",
+          "help": "Pick when the plan should begin so timing and weekly actions make sense.",
+          "example": "1 August 2026"
+        },
+        "language": {
+          "label": "Plan language",
+          "help": "Choose the language the team will actually use while working.",
+          "example": "Arabic Egyptian"
+        },
+        "paidMedia": {
+          "label": "Paid media permission",
+          "help": "Say whether paid campaigns are allowed. Approval later still does not spend money automatically.",
+          "example": "Allowed after budget approval"
+        },
+        "budget": {
+          "label": "External budget",
+          "help": "Give a real amount or choose organic-only. MarketMind will not invent a default budget.",
+          "example": "Needs owner decision"
+        },
+        "capacity": {
+          "label": "Team capacity",
+          "help": "Explain who can execute the work and how much time they have.",
+          "example": "Owner plus one part-time helper"
+        },
+        "constraints": {
+          "label": "Constraints",
+          "help": "Add limits such as seasonality, unavailable offers, or channels you do not want.",
+          "example": "No ads before owner approval. Keep Ramadan hours separate."
+        }
+      }
+    },
+    "progress": {
+      "eyebrow": "Preparing the plan",
+      "title": "You can watch the plan being prepared.",
+      "estimate": "Estimated time",
+      "estimateHint": "This estimate is approximate and can change while work runs.",
+      "barLabel": "Strategy preparation progress",
+      "labels": {
+        "ready_to_prepare": "Strategy choices are saved. The plan can start when the live service is connected.",
+        "checking_guidance": "Checking trusted marketing guidance that fits your business.",
+        "organizing_plan": "Organizing the plan before writing the draft.",
+        "writing_draft": "Writing the first Strategy draft.",
+        "checking_plan": "Checking budget, facts, and supporting details.",
+        "ready": "The draft is ready for review.",
+        "failed": "We could not finish this planning step.",
+        "needs_choices": "Strategy choices are still needed.",
+        "revision_needed": "The draft was rejected. Choose what should change before preparing another version."
+      },
+      "stages": {
+        "queued": "Your choices were received",
+        "query_planning": "Planning what to check",
+        "retrieval": "Checking trusted marketing guidance",
+        "generating": "Writing the draft",
+        "validating": "Checking budget and sources",
+        "ready": "Ready for review",
+        "failed": "Needs retry"
+      },
+      "stageStates": {
+        "started": "Started",
+        "progress": "Happening now",
+        "complete": "Complete",
+        "failed": "Needs attention"
+      }
+    },
+    "review": {
+      "title": "Strategy draft review",
+      "subtitle": "Read the plan as a business decision document. Supporting details stay near the claims they explain.",
+      "sections": {
+        "summary": {
+          "title": "Plan summary",
+          "body": "Focus the next 12 weeks on turning existing attention into repeat purchases before expanding paid campaigns."
+        },
+        "channels": {
+          "title": "Channel fit",
+          "body": "Facebook remains the main working channel, while search presence supports customers who are already looking nearby."
+        },
+        "budget": {
+          "title": "Budget and success measures",
+          "body": "The draft cannot be approved for paid execution until the owner confirms a usable budget."
+        }
+      },
+      "sources": {
+        "profile": "From confirmed profile",
+        "guidance": "Trusted guidance",
+        "ownerChoice": "Needs owner choice"
+      }
+    },
+    "decision": {
+      "title": "Owner decision",
+      "readyBody": "No blocking decisions remain. You can approve this plan when the content matches your intent.",
+      "blockedBody": "Approval is disabled until the missing budget decision is answered.",
+      "approve": "Approve strategy",
+      "revise": "Request revision",
+      "reject": "Reject draft",
+      "safetyNote": "Approval does not publish content, spend money, run ads, or change confirmed profile facts."
+    },
+    "history": {
+      "title": "Strategy history",
+      "subtitle": "Every draft stays visible, even when a revision fails.",
+      "draftNumber": "Draft {version}",
+      "createdAt": "Created {date}",
+      "decisionSaved": "Owner decision saved with this version.",
+      "status": {
+        "needs_brief": "Needs choices",
+        "ready": "Ready",
+        "retrieving": "Checking guidance",
+        "queued": "Preparing",
+        "generating": "Writing",
+        "validating": "Checking",
+        "draft": "Draft",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "failed": "Revision failed"
+      }
+    }
+  },
   "Landing": {
     "nav": {
       "links": [
@@ -891,6 +1060,11 @@
       "title": "Watch real work happen step by step",
       "body": "Each stage moves only when there is actual work behind it — no fake counter and no made-up percentage.",
       "status": "Illustrative preview — example stages",
+      "stageStatus": {
+        "complete": "Done",
+        "active": "Running now",
+        "queued": "Waiting"
+      },
       "stages": [
         {
           "label": "Request received",

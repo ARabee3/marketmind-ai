@@ -1,3 +1,4 @@
+import { ChevronDownIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { Eyebrow, Section } from './ui/Primitives'
 
@@ -21,6 +22,7 @@ export async function Faq() {
                 <details open={index === 0}>
                   <summary className="flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-4 rounded text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-action">
                     <span className="text-[16px] font-bold text-navy">{item.q}</span>
+                    <ChevronDownIcon className="faq-chevron h-5 w-5 shrink-0 text-primary" aria-hidden />
                   </summary>
                   <p className="max-w-read pb-5 text-[15px] leading-[1.9] text-ink-soft">{item.a}</p>
                 </details>

@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-export type AppShellIconName = 'compass' | 'layout-dashboard'
+export type AppShellIconName = 'compass' | 'layout-dashboard' | 'strategy'
 
 export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
   const common = {
@@ -24,11 +24,22 @@ export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
     )
   }
 
+  if (name === 'layout-dashboard') {
+    return (
+      <svg {...common}>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
+      </svg>
+    )
+  }
+
   return (
     <svg {...common}>
-      <rect width="18" height="18" x="3" y="3" rx="2" />
-      <path d="M3 9h18" />
-      <path d="M9 21V9" />
+      <path d="M4 19V5" />
+      <path d="M4 19h16" />
+      <path d="m7 15 3-3 3 2 4-6" />
+      <path d="M16 8h1v1" />
     </svg>
   )
 }

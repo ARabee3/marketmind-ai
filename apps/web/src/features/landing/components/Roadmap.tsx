@@ -68,10 +68,10 @@ export async function Roadmap() {
         {t('hint')}
       </p>
 
-      <ol aria-label={t('aria')} className="roadmap-stack mx-auto mt-8 max-w-[860px] list-none p-0 lg:mt-12">
+      <ol aria-label={t('aria')} className="roadmap-stack mx-auto mt-8 max-w-content list-none p-0 lg:mt-12">
         {cards.map((card, index) => (
           <li key={card.no} className="roadmap-stack-scene" style={{ zIndex: index + 1 }}>
-            <Reveal y={0} delay={index * 0.05} viewportMargin="-18%" className="h-full">
+            <Reveal y={0} delay={index * 0.05} viewportMargin="-18%" className="h-full w-full">
               <PhaseCard card={card} liveCta={liveCta} />
             </Reveal>
           </li>

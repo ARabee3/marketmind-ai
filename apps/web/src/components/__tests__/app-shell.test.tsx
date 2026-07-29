@@ -9,6 +9,7 @@ const t = (key: string) => {
     navHome: 'Home',
     navDiscovery: 'Discovery',
     navDashboard: 'Dashboard',
+    navStrategy: 'Strategy',
     primaryNavLabel: 'Primary',
     mobileNavLabel: 'Mobile primary',
     workspaceLabel: 'Workspace',
@@ -84,6 +85,7 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: 'Home' })).toBeNull()
     expect(screen.getAllByRole('link', { name: 'Discovery' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Dashboard' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Strategy' })).toHaveLength(2)
   })
 
   it('marks the dashboard link as current in both navs', () => {

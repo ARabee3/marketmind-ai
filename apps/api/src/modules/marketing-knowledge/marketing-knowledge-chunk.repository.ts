@@ -4,6 +4,7 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 
 export type UpsertChunkInput = {
   entryVersionId: string;
+  chunkId?: string;
   chunkOrder: number;
   text: string;
   tokenCount: number;
