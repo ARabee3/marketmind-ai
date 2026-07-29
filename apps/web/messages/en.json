@@ -26,7 +26,9 @@
     "expandSidebar": "Expand sidebar",
     "openNavigation": "Open navigation",
     "closeNavigation": "Close navigation",
-    "ownerControlHint": "Every important step waits for a clear owner decision before the system moves."
+    "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
+    "saving": "Saving…",
+    "error": "Error"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -87,12 +89,14 @@
       "continue_discovery": "Continue Discovery",
       "review_profile": "Review profile",
       "view_discovery": "View Discovery",
-      "none": "No action"
+      "none": "No action",
+      "view_strategy": "View strategy"
     },
     "strategy": {
       "discovery_required": "Strategy stays locked until Discovery produces a profile.",
       "profile_review_required": "Strategy stays locked until you confirm the profile.",
-      "strategy_not_active": "Strategy is planned next, but not available in this sprint."
+      "strategy_not_active": "Strategy is planned next, but not available in this sprint.",
+      "strategy_active": "Strategy is active"
     },
     "phase": {
       "discovery": {
@@ -651,12 +655,18 @@
         "language": {
           "label": "Plan language",
           "help": "Choose the language the team will actually use while working.",
-          "example": "Arabic Egyptian"
+          "example": "Arabic Egyptian",
+          "options": {
+            "arabic": "Arabic Egyptian"
+          }
         },
         "paidMedia": {
           "label": "Paid media permission",
           "help": "Say whether paid campaigns are allowed. Approval later still does not spend money automatically.",
-          "example": "Allowed after budget approval"
+          "example": "Allowed after budget approval",
+          "options": {
+            "organic": "Organic only"
+          }
         },
         "budget": {
           "label": "External budget",
@@ -673,6 +683,10 @@
           "help": "Add limits such as seasonality, unavailable offers, or channels you do not want.",
           "example": "No ads before owner approval. Keep Ramadan hours separate."
         }
+      },
+      "validation": {
+        "required": "This field is required",
+        "noProfile": "Please complete business discovery first"
       }
     },
     "progress": {
