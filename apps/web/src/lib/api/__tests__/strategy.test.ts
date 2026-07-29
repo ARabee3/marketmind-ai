@@ -6,6 +6,7 @@ import {
   generateStrategy,
   getStrategy,
   getStrategyVersion,
+  getStrategyProgress,
   submitDecision,
   retryStrategy,
 } from '../strategy'
@@ -35,18 +36,18 @@ const mockStrategyResponse = {
 }
 
 describe('Strategy API client', () => {
-  it('createStrategy POSTs to /strategies with businessId', async () => {
+  it('createStrategy POSTs to /strategies with businessProfileVersionId', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify(mockStrategyResponse), { status: 201 }),
     )
 
-    const result = await createStrategy('biz-1')
+    const result = await createStrategy('profile-1')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('http://localhost:3001/api/v1/strategies')
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body as string)).toEqual({ businessId: 'biz-1' })
+    expect(JSON.parse(init.body as string)).toEqual({ businessProfileVersionId: 'profile-1' })
     expect(result.status).toBe('needs_brief')
   })
 
@@ -115,6 +116,19 @@ describe('Strategy API client', () => {
     const [url] = fetchMock.mock.calls[0]
     expect(url).toBe('http://localhost:3001/api/v1/strategies/strat-1/versions/1')
     expect(result.version).toBe(1)
+  })
+
+  it('getStrategyProgress GETs /strategies/:id/progress', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ seq: 1, stage: 'retrieval' }]), { status: 200 }),
+    )
+
+    const result = await getStrategyProgress('strat-1')
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://localhost:3001/api/v1/strategies/strat-1/progress')
+    expect(result[0]?.stage).toBe('retrieval')
   })
 
   it('submitDecision POSTs to /strategies/:id/decisions with action payload', async () => {

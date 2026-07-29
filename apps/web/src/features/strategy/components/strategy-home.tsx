@@ -6,10 +6,9 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { getCurrentJourney } from '@/lib/api/journey'
-import { getStrategy, toStrategyResource } from '@/lib/api/strategy'
-import type { CurrentJourneyResponse, StrategyResource } from '@marketmind/contracts'
+import { getStrategy, getStrategyProgress, toStrategyResource } from '@/lib/api/strategy'
+import type { CurrentJourneyResponse, StrategyProgressEvent, StrategyResource } from '@marketmind/contracts'
 import {
-  getProgressEvents,
   getReadinessItems,
   ownerProgressLabel,
 } from '../lib/strategy-state'
@@ -20,7 +19,12 @@ import { StrategyReadiness } from './strategy-readiness'
 type PageState =
   | { phase: 'loading' }
   | { phase: 'no_strategy'; journey: CurrentJourneyResponse }
-  | { phase: 'ready'; journey: CurrentJourneyResponse; resource: StrategyResource }
+  | {
+      phase: 'ready'
+      journey: CurrentJourneyResponse
+      resource: StrategyResource
+      progress: readonly StrategyProgressEvent[]
+    }
 
 export function StrategyHome() {
   const t = useTranslations('Strategy')
@@ -35,9 +39,12 @@ export function StrategyHome() {
         if (cancelled) return
         const fc = journey.future_phase
         if (fc.availability === 'available' && fc.strategy_id) {
-          const api = await getStrategy(fc.strategy_id)
+          const [api, progress] = await Promise.all([
+            getStrategy(fc.strategy_id),
+            getStrategyProgress(fc.strategy_id),
+          ])
           if (cancelled) return
-          setState({ phase: 'ready', journey, resource: toStrategyResource(api) })
+          setState({ phase: 'ready', journey, resource: toStrategyResource(api), progress })
         } else {
           setState({ phase: 'no_strategy', journey })
         }
@@ -103,7 +110,6 @@ export function StrategyHome() {
   }
 
   const { resource } = state
-  const progress = getProgressEvents(resource.status, resource.strategy_id)
   const readiness = getReadinessItems(resource, profile !== null)
   const statusLabel = ownerProgressLabel(resource.status)
 
@@ -135,7 +141,7 @@ export function StrategyHome() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div className="grid gap-5">
           <StrategyProfileSummary profile={profile} />
-          <StrategyProgress status={resource.status} progress={progress} />
+          <StrategyProgress status={resource.status} progress={state.progress} />
         </div>
         <aside className="grid gap-5 lg:sticky lg:top-24">
           <StrategyReadiness resource={resource} readiness={readiness} />

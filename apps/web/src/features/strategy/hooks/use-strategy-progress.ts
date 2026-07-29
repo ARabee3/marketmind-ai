@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { StrategyStatus } from '@marketmind/contracts'
-import { getStrategy } from '@/lib/api/strategy'
+import type { StrategyProgressEvent, StrategyStatus } from '@marketmind/contracts'
+import { getStrategy, getStrategyProgress } from '@/lib/api/strategy'
 
 const ACTIVE_STATUSES: Set<StrategyStatus> = new Set([
   'retrieving', 'queued', 'generating', 'validating',
@@ -16,6 +16,7 @@ const POLL_INTERVAL_MS = 2000
 
 export interface UseStrategyProgressResult {
   status: StrategyStatus | null
+  progress: readonly StrategyProgressEvent[]
   isActive: boolean
   isTerminal: boolean
 }
@@ -30,15 +31,18 @@ export function isTerminalStatus(status: StrategyStatus): boolean {
 
 export function useStrategyProgress(strategyId: string | null): UseStrategyProgressResult {
   const [status, setStatus] = useState<StrategyStatus | null>(null)
+  const [progress, setProgress] = useState<readonly StrategyProgressEvent[]>([])
   const mountedRef = useRef(true)
 
   const poll = useCallback(async () => {
     if (!mountedRef.current || !strategyId) return
     try {
       const result = await getStrategy(strategyId)
+      const events = await getStrategyProgress(strategyId)
       if (!mountedRef.current) return
       const s = result.status as StrategyStatus
       setStatus(s)
+      setProgress(events)
       return s
     } catch {
       return null
@@ -49,6 +53,7 @@ export function useStrategyProgress(strategyId: string | null): UseStrategyProgr
     mountedRef.current = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus(null)
+    setProgress([])
 
     if (!strategyId) return
 
@@ -75,6 +80,7 @@ export function useStrategyProgress(strategyId: string | null): UseStrategyProgr
 
   return {
     status,
+    progress,
     isActive: status !== null && isActiveStatus(status),
     isTerminal: status !== null && isTerminalStatus(status),
   }

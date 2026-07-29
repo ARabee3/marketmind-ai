@@ -15,7 +15,7 @@ export function StrategyVersionHistory({
   return (
     <section className="grid gap-5">
       <header className="rounded-xl bg-navy p-5 text-primary-foreground shadow-elevated md:p-7">
-        <StrategyBadge tone="good">{t('demoBadge')}</StrategyBadge>
+        <StrategyBadge tone="good">{t('history.badge')}</StrategyBadge>
         <h1 className="mt-3 text-3xl font-bold md:text-4xl">{t('history.title')}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{t('history.subtitle')}</p>
       </header>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import { setAccessToken } from '@/lib/api/token-store'
 
@@ -27,6 +27,17 @@ const mockStrategy = {
   brief: null,
 }
 
+async function runAction<T>(action: () => Promise<T>): Promise<T> {
+  let value: T | undefined
+  await act(async () => {
+    value = await action()
+  })
+  if (value === undefined) {
+    throw new Error('Action did not resolve')
+  }
+  return value
+}
+
 describe('useStrategyActions', () => {
   it('create sends POST /strategies and returns strategy', async () => {
     fetchMock.mockResolvedValueOnce(
@@ -35,7 +46,7 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const strategy = await result.current.create('biz-1')
+    const strategy = await runAction(() => result.current.create('profile-1'))
 
     expect(strategy?.id).toBe('strat-1')
     expect(strategy?.status).toBe('needs_brief')
@@ -52,7 +63,7 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const brief = await result.current.saveBrief('strat-1', {
+    const brief = await runAction(() => result.current.saveBrief('strat-1', {
       businessProfileVersionId: 'profile-1',
       primaryObjective: 'awareness',
       startDate: '2026-08-01T00:00:00.000Z',
@@ -60,7 +71,7 @@ describe('useStrategyActions', () => {
       paidMediaAllowed: false,
       externalBudgetMode: 'organic_only',
       teamCapacity: 'Owner only',
-    })
+    }))
 
     expect(brief?.id).toBe('brief-1')
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -76,7 +87,7 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const res = await result.current.generate('strat-1')
+    const res = await runAction(() => result.current.generate('strat-1'))
 
     expect(res?.status).toBe('queued')
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -92,7 +103,7 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const res = await result.current.decide('strat-1', { versionId: 'ver-1', action: 'approve' })
+    const res = await runAction(() => result.current.decide('strat-1', { versionId: 'ver-1', action: 'approve' }))
 
     expect(res?.nextStatus).toBe('approved')
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -108,7 +119,7 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const res = await result.current.retry('strat-1')
+    const res = await runAction(() => result.current.retry('strat-1'))
 
     expect(res?.status).toBe('queued')
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -124,10 +135,10 @@ describe('useStrategyActions', () => {
 
     const { result } = renderHook(() => useStrategyActions())
 
-    const [first, second] = await Promise.all([
-      result.current.create('biz-1'),
-      result.current.create('biz-1'),
-    ])
+    const [first, second] = await runAction(() => Promise.all([
+        result.current.create('profile-1'),
+        result.current.create('profile-1'),
+      ]))
 
     expect(first).not.toBeNull()
     expect(second).toBeNull()

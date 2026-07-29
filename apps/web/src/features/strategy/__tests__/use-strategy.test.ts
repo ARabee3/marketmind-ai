@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { useStrategy } from '../hooks/use-strategy'
 import { setAccessToken } from '@/lib/api/token-store'
 
@@ -94,7 +94,9 @@ describe('useStrategy', () => {
 
     await waitFor(() => expect(result.current.strategy?.status).toBe('needs_brief'))
 
-    await result.current.refresh()
+    await act(async () => {
+      await result.current.refresh()
+    })
 
     await waitFor(() => expect(result.current.strategy?.status).toBe('draft'))
   })

@@ -695,6 +695,7 @@
       "estimate": "Estimated time",
       "estimateHint": "This estimate is approximate and can change while work runs.",
       "barLabel": "Strategy preparation progress",
+      "empty": "No preparation updates have been recorded yet.",
       "labels": {
         "ready_to_prepare": "Strategy choices are saved. The plan can start when the live service is connected.",
         "checking_guidance": "Checking trusted marketing guidance that fits your business.",
@@ -723,6 +724,7 @@
       }
     },
     "review": {
+      "badge": "Owner review",
       "title": "Strategy draft review",
       "subtitle": "Read the plan as a business decision document. Supporting details stay near the claims they explain.",
       "sections": {
@@ -755,6 +757,7 @@
       "safetyNote": "Approval does not publish content, spend money, run ads, or change confirmed profile facts."
     },
     "history": {
+      "badge": "Saved versions",
       "title": "Strategy history",
       "subtitle": "Every draft stays visible, even when a revision fails.",
       "draftNumber": "Draft {version}",

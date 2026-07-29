@@ -1,4 +1,12 @@
-import type { OwnerDecision, StrategyPlan, StrategyStatus, StrategyResource, StrategyBrief, StrategyVersionSummary } from '@marketmind/contracts'
+import type {
+  OwnerDecision,
+  StrategyPlan,
+  StrategyProgressEvent,
+  StrategyStatus,
+  StrategyResource,
+  StrategyBrief,
+  StrategyVersionSummary,
+} from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
 
 interface ApiError {
@@ -72,7 +80,11 @@ export function toStrategyResource(api: StrategyApiResponse): StrategyResource {
       ? {
           id: api.brief.id,
           strategy_id: api.brief.strategyId,
-          business_profile_version: api.brief.businessProfileVersionId as unknown as StrategyBrief['business_profile_version'],
+          business_profile_version: {
+            business_profile_version_id: api.brief.businessProfileVersionId,
+            confirmed_at: api.brief.businessProfileVersion.confirmedAt,
+            version: api.brief.businessProfileVersion.version,
+          },
           primary_objective: api.brief.primaryObjective as StrategyBrief['primary_objective'],
           start_date: api.brief.startDate,
           plan_language: api.brief.planLanguage as StrategyBrief['plan_language'],
@@ -86,7 +98,7 @@ export function toStrategyResource(api: StrategyApiResponse): StrategyResource {
           updated_at: api.brief.updatedAt,
         }
       : null,
-    latest_plan: api.latestPlan,
+    latest_plan: api.latestPlan ?? null,
   }
 }
 
@@ -94,6 +106,11 @@ export interface BriefApiResponse {
   id: string
   strategyId: string
   businessProfileVersionId: string
+  businessProfileVersion: {
+    id: string
+    confirmedAt: string
+    version: number
+  }
   primaryObjective: string
   startDate: string
   planLanguage: string
@@ -107,10 +124,10 @@ export interface BriefApiResponse {
   updatedAt: string
 }
 
-export function createStrategy(businessId: string): Promise<StrategyApiResponse> {
+export function createStrategy(businessProfileVersionId: string): Promise<StrategyApiResponse> {
   return request<StrategyApiResponse>('/strategies', {
     method: 'POST',
-    body: JSON.stringify({ businessId }),
+    body: JSON.stringify({ businessProfileVersionId }),
   })
 }
 
@@ -133,6 +150,10 @@ export function getStrategyVersions(
   id: string,
 ): Promise<StrategyVersionSummary[]> {
   return request<StrategyVersionSummary[]>(`/strategies/${id}/versions`)
+}
+
+export function getStrategyProgress(id: string): Promise<StrategyProgressEvent[]> {
+  return request<StrategyProgressEvent[]>(`/strategies/${id}/progress`)
 }
 
 export function getStrategyVersion(

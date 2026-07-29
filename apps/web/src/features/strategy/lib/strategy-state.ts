@@ -1,6 +1,5 @@
 import type {
   StrategyBlocker,
-  StrategyProgressEvent,
   StrategyResource,
   StrategyStatus,
 } from '@marketmind/contracts'
@@ -66,30 +65,4 @@ export function getReadinessItems(
         : 'warning',
     },
   ]
-}
-
-export function getProgressEvents(
-  status: StrategyStatus,
-  strategyId: string,
-): StrategyProgressEvent[] {
-  const stages = ['queued', 'retrieval', 'generating', 'validating'] as const
-  return stages.map((stage, index) => ({
-    type: 'strategy_progress' as const,
-    strategy_id: strategyId,
-    seq: index + 1,
-    stage,
-    status:
-      status === 'draft' || status === 'approved'
-        ? 'complete'
-        : status === 'failed' && stage === 'validating'
-          ? 'failed'
-          : index < 3
-            ? 'complete'
-            : 'progress',
-    message_key: `Strategy.progress.${stage}`,
-    message_text: stage,
-    retryable: status === 'failed',
-    payload: {},
-    created_at: new Date().toISOString(),
-  }))
 }

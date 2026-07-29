@@ -14,7 +14,7 @@ import {
 } from '@/lib/api/strategy'
 
 export interface UseStrategyActionsResult {
-  create: (businessId: string) => Promise<StrategyApiResponse | null>
+  create: (businessProfileVersionId: string) => Promise<StrategyApiResponse | null>
   saveBrief: (strategyId: string, payload: UpsertBriefPayload) => Promise<BriefApiResponse | null>
   generate: (strategyId: string) => Promise<{ status: string; correlationId: string } | null>
   decide: (strategyId: string, payload: OwnerDecisionPayload) => Promise<{ decision: unknown; nextStatus?: string } | null>
@@ -51,7 +51,7 @@ export function useStrategyActions(): UseStrategyActionsResult {
   )
 
   const create = useCallback(
-    (businessId: string) => wrap(() => apiCreateStrategy(businessId)),
+    (businessProfileVersionId: string) => wrap(() => apiCreateStrategy(businessProfileVersionId)),
     [wrap],
   )
 

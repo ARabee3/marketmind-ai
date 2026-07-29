@@ -15,7 +15,7 @@ export function StrategyProgress({
 }) {
   const t = useTranslations('Strategy')
   const current = ownerProgressLabel(status)
-  const percent = status === 'draft' ? 100 : status === 'failed' ? 72 : 58
+  const percent = strategyProgressPercent(status, progress)
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
@@ -39,7 +39,11 @@ export function StrategyProgress({
         </div>
       </header>
       <ol className="grid gap-1 p-4 md:p-6">
-        {progress.map((event) => (
+        {progress.length === 0 ? (
+          <li className="rounded-lg border border-border bg-background p-3 text-sm text-muted-foreground">
+            {t('progress.empty')}
+          </li>
+        ) : progress.map((event) => (
           <li key={event.seq} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
             <ProgressIcon state={event.status} />
             <div>
@@ -51,6 +55,19 @@ export function StrategyProgress({
       </ol>
     </section>
   )
+}
+
+export function strategyProgressPercent(
+  status: StrategyStatus,
+  progress: readonly StrategyProgressEvent[],
+): number {
+  if (status === 'draft' || status === 'approved') return 100
+  if (progress.length === 0) return 0
+
+  const complete = progress.filter((event) => event.status === 'complete').length
+  const active = progress.some((event) => event.status === 'progress') ? 0.5 : 0
+  const percent = Math.round(((complete + active) / progress.length) * 100)
+  return status === 'failed' ? percent : Math.min(percent, 99)
 }
 
 function ProgressIcon({
