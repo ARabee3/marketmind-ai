@@ -78,6 +78,15 @@ export class StrategyController {
     return this.strategyService.getStrategy(id, req.user.id);
   }
 
+  @Get(":id/versions")
+  @Permissions(PERMISSIONS.STRATEGY_START)
+  getStrategyVersions(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.strategyService.getStrategyVersions(id, req.user.id);
+  }
+
   @Get(":id/versions/:version")
   @Permissions(PERMISSIONS.STRATEGY_START)
   getStrategyVersion(

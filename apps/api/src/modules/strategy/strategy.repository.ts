@@ -153,6 +153,14 @@ export class StrategyRepository {
 
   // ── Version helpers ─────────────────────────────────────────────────
 
+  async listVersions(strategyId: string) {
+    return this.prisma.strategyVersion.findMany({
+      where: { strategyId },
+      orderBy: { version: "desc" },
+      include: { decisions: true },
+    });
+  }
+
   async getVersionByNumber(strategyId: string, version: number): Promise<StrategyVersion | null> {
     return this.prisma.strategyVersion.findUnique({
       where: { strategyId_version: { strategyId, version } },

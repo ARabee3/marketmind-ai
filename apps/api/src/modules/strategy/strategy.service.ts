@@ -11,6 +11,7 @@ import { Queue } from "bullmq";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { randomUUID } from "crypto";
+import type { OwnerDecision, StrategyVersionSummary } from "@marketmind/contracts";
 import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
@@ -264,6 +265,19 @@ export class StrategyService {
     );
     if (!strategy) throw new NotFoundException("Strategy not found");
     return strategy;
+  }
+
+  // ── GET /api/v1/strategies/:id/versions ─────────────────────────────
+
+  async getStrategyVersions(id: string, ownerUserId: string) {
+    const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
+      id,
+      ownerUserId,
+    );
+    if (!strategy) throw new NotFoundException("Strategy not found");
+
+    const versions = await this.strategyRepository.listVersions(id);
+    return versions.map(toVersionSummary);
   }
 
   // ── GET /api/v1/strategies/:id/versions/:version ───────────────────
@@ -528,4 +542,28 @@ function normalizeExternalBudgetEgp(
     };
   }
   return null;
+}
+
+function toVersionSummary(v: Awaited<ReturnType<StrategyRepository["listVersions"]>>[number]): StrategyVersionSummary {
+  const decision = v.decisions?.[0]
+    ? {
+        id: v.decisions[0].id,
+        strategy_id: v.strategyId,
+        strategy_version: v.version,
+        decision: v.decisions[0].action as OwnerDecision["decision"],
+        revision_notes: v.decisions[0].feedback,
+        decided_by_user_id: v.decisions[0].ownerUserId,
+        decided_at: v.decisions[0].createdAt.toISOString(),
+      }
+    : undefined;
+
+  return {
+    strategy_id: v.strategyId,
+    version: v.version,
+    status: "draft",
+    brief_id: "",
+    retrieval_run_id: v.retrievalRunId ?? "",
+    created_at: v.createdAt.toISOString(),
+    decision,
+  };
 }
