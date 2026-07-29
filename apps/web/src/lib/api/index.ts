@@ -13,6 +13,7 @@ export {
   generateStrategy,
   getStrategy,
   getStrategyVersion,
+  getStrategyVersions,
   submitDecision,
   retryStrategy,
 } from './strategy'
