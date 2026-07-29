@@ -62,11 +62,13 @@ for (const locale of locales) {
       await page.getByLabel(/^Password$|^كلمة المرور$/i).fill('Password123!')
       await page.getByRole('button', { name: /Sign in|تسجيل الدخول/i }).click()
 
-      await expect(page.getByRole('heading')).toContainText(
-        locale === 'ar' ? 'ماركت مايند' : 'MarketMind',
-        { timeout: 10000 },
-      )
-      await expect(page).toHaveURL(`/${locale}/dashboard`)
+      await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
+      await expect(
+        page.getByRole('heading', {
+          level: 1,
+          name: locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
+        }),
+      ).toBeVisible()
     })
 
     test('shows error for duplicate email', async ({ page }) => {
@@ -113,7 +115,7 @@ for (const locale of locales) {
         })
       })
 
-await page.goto(`/${locale}/login`)
+      await page.goto(`/${locale}/login`)
       await page.getByLabel(/Email address|البريد الإلكتروني/i).fill(mockUser.email)
       await page.getByLabel(/^Password$|^كلمة المرور$/i).fill('Password123!')
       await page.getByRole('button', { name: /Sign in|تسجيل الدخول/i }).click()

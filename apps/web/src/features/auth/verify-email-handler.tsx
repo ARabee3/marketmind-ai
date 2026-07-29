@@ -17,7 +17,6 @@ export function VerifyEmailHandler() {
   const t = useTranslations('Auth')
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
-
   const [state, setState] = useState<VerifyState>(token ? 'verifying' : 'missing')
   const [isInlineResendOpen, setIsInlineResendOpen] = useState(false)
 
@@ -61,7 +60,10 @@ export function VerifyEmailHandler() {
         aria-live="polite"
         className="flex flex-col items-center gap-3 py-4 text-center text-sm text-muted-foreground"
       >
-        <span aria-hidden className="size-6 animate-pulse rounded-full bg-primary/40" />
+        <span
+          aria-hidden="true"
+          className="size-6 rounded-full border-2 border-primary border-t-transparent motion-safe:animate-spin"
+        />
         {t('verifyEmailVerifying')}
       </div>
     )
@@ -72,7 +74,10 @@ export function VerifyEmailHandler() {
       <div role="status" className={authStyles.success}>
         <p className="font-medium">{t('verifyEmailSuccessTitle')}</p>
         <p>{t('verifyEmailSuccessBody')}</p>
-        <Link href="/login" className={cn(buttonVariants(), 'mt-1 w-full')}>
+        <Link
+          href="/login"
+          className={cn(buttonVariants(), authStyles.primaryButton, 'mt-1')}
+        >
           {t('verifyEmailSignIn')}
         </Link>
       </div>

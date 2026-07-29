@@ -1,4 +1,4 @@
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowRightIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { Reveal } from './Reveal'
@@ -14,7 +14,7 @@ export async function FinalCta() {
         <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link href="/register" className="cta-solid-dark w-full gap-2 px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('primary')}
-            <ArrowLeftIcon className="h-4 w-4" aria-hidden />
+            <ArrowRightIcon className="h-4 w-4 rtl:scale-x-[-1]" aria-hidden />
           </Link>
           <a href="#sample" className="cta-secondary w-full px-7 py-3 text-[15px] font-bold sm:w-auto">
             {t('secondary')}

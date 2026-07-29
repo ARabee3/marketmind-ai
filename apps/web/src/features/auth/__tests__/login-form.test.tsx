@@ -142,15 +142,25 @@ describe('LoginForm', () => {
     ).toBeDefined()
   })
 
-  it('shows validation errors for empty fields', async () => {
+  it('sets spellCheck=false on email input', () => {
+    render(<LoginForm />)
+    const emailInput = screen.getByLabelText(/email/i)
+    expect(emailInput.getAttribute('spellcheck')).toBe('false')
+    expect(emailInput.getAttribute('dir')).toBe('ltr')
+  })
+
+  it('shows validation errors with role="alert" and focuses the first invalid field on submit', async () => {
     render(<LoginForm />)
 
+    const emailInput = screen.getByLabelText(/email/i)
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/email address is required/i)).toBeDefined()
+      expect(document.activeElement).toBe(emailInput)
     })
-    expect(screen.getByText(/password is required/i)).toBeDefined()
+    const emailError = screen.getByText(/email address is required/i)
+    expect(emailError.getAttribute('role')).toBe('alert')
+    expect(screen.getByText(/password is required/i).getAttribute('role')).toBe('alert')
   })
 
   it('calls session login with trimmed credentials', async () => {

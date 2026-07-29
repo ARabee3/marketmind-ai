@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { ResetPasswordForm } from '../reset-password-form'
 import { publicRequest } from '@/lib/api'
 import { useRouter } from '@/i18n/navigation'
@@ -68,9 +68,16 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: vi.fn(),
-  Link: ({ href, children }: { href: string; children: ReactNode }) => (
-    <a href={href}>{children}</a>
+  Link: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
   ),
+}))
+
+vi.mock('@/components/ui/button', () => ({
+  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+  buttonVariants: () => 'bg-primary text-primary-foreground',
 }))
 
 const mockedPublicRequest = vi.mocked(publicRequest)
@@ -136,10 +143,9 @@ describe('ResetPasswordForm', () => {
     })
 
     expect(screen.getByText(/your password has been reset/i)).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /go to sign in/i }))
-    await waitFor(() => {
-      expect(push).toHaveBeenCalledWith('/login?reset=true')
-    })
+    const signInLink = screen.getByRole('link', { name: /go to sign in/i })
+    expect((signInLink as HTMLAnchorElement).getAttribute('href')).toBe('/login?reset=true')
+    expect(signInLink.className).toContain('bg-primary')
   })
 
   it('switches to the expired state on ACTION_TOKEN_EXPIRED', async () => {
@@ -178,16 +184,19 @@ describe('ResetPasswordForm', () => {
     })
   })
 
-  it('shows a password-mismatch validation error', async () => {
+  it('shows a password-mismatch validation error with role="alert" and focuses the first invalid input', async () => {
     setSearchParams(new URLSearchParams({ token: 'valid-token' }))
     render(<ResetPasswordForm />)
 
-    typeInto(screen.getByLabelText(/^new password/i), 'password123')
+    const passwordInput = screen.getByLabelText(/^new password/i)
+    typeInto(passwordInput, 'password123')
     typeInto(screen.getByLabelText(/confirm new password/i), 'different123')
     fireEvent.click(screen.getByRole('button', { name: /reset password/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/passwords do not match/i)).toBeDefined()
+      const errorText = screen.getByText(/passwords do not match/i)
+      expect(errorText).toBeDefined()
+      expect(errorText.getAttribute('role')).toBe('alert')
     })
     expect(mockedPublicRequest).not.toHaveBeenCalled()
   })

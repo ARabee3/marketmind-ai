@@ -20,7 +20,7 @@ export async function LandingShell({ children, locale }: Props) {
     >
       <a
         href="#top"
-        className="sr-only focus:not-sr-only focus:absolute focus:right-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-surface focus:px-4 focus:py-2 focus:text-navy"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-surface focus:px-4 focus:py-2 focus:text-navy"
       >
         {t('skip')}
       </a>

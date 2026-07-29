@@ -6,16 +6,23 @@ type CapabilityItem = { label: string; latin: string | null }
 function Row({ items, direction }: { items: CapabilityItem[]; direction: 'start' | 'end' }) {
   return (
     <div className="edge-fade overflow-hidden py-2">
-      <div className={`flex w-max gap-3 ${direction === 'start' ? 'animate-marquee-start' : 'animate-marquee-end'}`}>
-        {[...items, ...items].map((item, index) => (
-          <span
-            key={`${item.label}-${index}`}
-            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-[14px] font-medium text-ink-soft"
-          >
-            <span>{item.label}</span>
-            {item.latin && <Latin>{item.latin}</Latin>}
-          </span>
-        ))}
+      <div
+        className={`capability-marquee-track flex w-max gap-3 ${direction === 'start' ? 'animate-marquee-start' : 'animate-marquee-end'}`}
+      >
+        {[...items, ...items].map((item, index) => {
+          const isClone = index >= items.length
+
+          return (
+            <span
+              key={`${item.label}-${index}`}
+              aria-hidden={isClone || undefined}
+              className={`${isClone ? 'capability-marquee-clone' : ''} flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-[14px] font-medium text-ink-soft`}
+            >
+              <span>{item.label}</span>
+              {item.latin && <Latin>{item.latin}</Latin>}
+            </span>
+          )
+        })}
       </div>
     </div>
   )

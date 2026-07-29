@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { usePathname, useRouter } from '@/i18n/navigation'
 
@@ -8,24 +9,32 @@ export function LanguageSwitcher() {
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
+  const [announce, setAnnounce] = useState('')
 
   function switchLocale(nextLocale: string) {
+    const nextLabel = nextLocale === 'en' ? t('english') : t('arabic')
     router.replace(pathname, { locale: nextLocale })
+    setAnnounce(t('languageSwitchedTo', { lang: nextLabel }))
   }
 
   const otherLocale = locale === 'en' ? 'ar' : 'en'
   const label = otherLocale === 'en' ? t('english') : t('arabic')
 
   return (
-    <button
-      type="button"
-      onClick={() => switchLocale(otherLocale)}
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-background"
-      aria-label={`${t('language')}: ${label}`}
-    >
-      <LanguageIcon dir={locale === 'ar' ? 'rtl' : 'ltr'} />
-      <span>{label}</span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => switchLocale(otherLocale)}
+        className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-background hover:border-primary/40 hover:text-primary"
+        aria-label={`${t('language')}: ${label}`}
+      >
+        <LanguageIcon dir={locale === 'ar' ? 'rtl' : 'ltr'} />
+        <span>{label}</span>
+      </button>
+      <span aria-live="polite" className="sr-only">
+        {announce}
+      </span>
+    </>
   )
 }
 

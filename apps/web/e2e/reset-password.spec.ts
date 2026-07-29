@@ -46,7 +46,7 @@ for (const locale of locales) {
       ).toBeVisible()
 
       await page
-        .getByRole('button', { name: /Go to sign in|اذهب إلى تسجيل الدخول/ })
+        .getByRole('link', { name: /Go to sign in|اذهب إلى تسجيل الدخول/ })
         .click()
 
       await expect(page).toHaveURL(new RegExp(`/${locale}/login\\?reset=true`), {

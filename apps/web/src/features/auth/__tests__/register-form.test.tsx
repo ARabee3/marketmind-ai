@@ -85,17 +85,27 @@ describe('RegisterForm', () => {
     expect(screen.getByRole('button', { name: /create account/i })).toBeDefined()
   })
 
-  it('shows validation errors for empty fields', async () => {
+  it('sets spellCheck=false on email input', () => {
+    render(<RegisterForm />)
+    const emailInput = screen.getByLabelText(/email/i)
+    expect(emailInput.getAttribute('spellcheck')).toBe('false')
+    expect(emailInput.getAttribute('dir')).toBe('ltr')
+  })
+
+  it('shows validation errors with role="alert" and focuses the first invalid field on submit', async () => {
     render(<RegisterForm />)
 
+    const nameInput = screen.getByLabelText(/full name/i)
     fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/full name is required/i)).toBeDefined()
+      expect(document.activeElement).toBe(nameInput)
     })
-    expect(screen.getByText(/email address is required/i)).toBeDefined()
-    expect(screen.getByText(/password is required/i)).toBeDefined()
-    expect(screen.getByText(/please confirm your password/i)).toBeDefined()
+    const nameError = screen.getByText(/full name is required/i)
+    expect(nameError.getAttribute('role')).toBe('alert')
+    expect(screen.getByText(/email address is required/i).getAttribute('role')).toBe('alert')
+    expect(screen.getByText(/password is required/i).getAttribute('role')).toBe('alert')
+    expect(screen.getByText(/please confirm your password/i).getAttribute('role')).toBe('alert')
   })
 
   it('shows a mismatch error when passwords differ', async () => {

@@ -73,13 +73,23 @@ describe('ForgotPasswordForm', () => {
     ).toBeDefined()
   })
 
-  it('shows a validation error when the email is empty', async () => {
+  it('sets spellCheck=false on email input', () => {
     render(<ForgotPasswordForm />)
+    const emailInput = screen.getByLabelText(/email address/i)
+    expect(emailInput.getAttribute('spellcheck')).toBe('false')
+    expect(emailInput.getAttribute('dir')).toBe('ltr')
+  })
+
+  it('shows a validation error with role="alert" and focuses the input when email is empty', async () => {
+    render(<ForgotPasswordForm />)
+    const emailInput = screen.getByLabelText(/email address/i)
     fireEvent.click(screen.getByRole('button', { name: /send reset link/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/email address is required/i)).toBeDefined()
+      expect(document.activeElement).toBe(emailInput)
     })
+    const errorText = screen.getByText(/email address is required/i)
+    expect(errorText.getAttribute('role')).toBe('alert')
   })
 
   it('submits the email and shows the generic success state', async () => {
