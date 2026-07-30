@@ -83,11 +83,13 @@ function phaseStatus(
   }
   if (phase === 'review') {
     if (activeKind === 'review') return 'active'
-    if (activeKind === 'confirmed') return 'done'
+    if (activeKind === 'confirmed' || activeKind === 'strategy_active') return 'done'
     return 'locked'
   }
   if (phase === 'strategy') {
-    return activeKind === 'confirmed' ? 'active' : 'locked'
+    if (activeKind === 'strategy_active') return 'active'
+    if (activeKind === 'confirmed') return 'active'
+    return 'locked'
   }
   return 'locked'
 }

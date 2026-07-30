@@ -162,6 +162,7 @@ describe("JourneyService", () => {
         id: "44444444-4444-4444-8444-444444444444",
         status: "draft",
         currentVersionId: "55555555-5555-4555-8555-555555555555",
+        business: strategyBusinessRecord(),
       },
     });
 
@@ -175,6 +176,15 @@ describe("JourneyService", () => {
     });
     expect(response.future_phase.availability).toBe("available");
     expect(response.future_phase.reason).toBe("strategy_active");
+    if (response.future_phase.availability === "available") {
+      expect(response.future_phase.business).toEqual({
+        business_name: "Nile Sweets",
+        business_type: "dessert shop",
+        city: "Assiut",
+        area: "Assiut City",
+        profile_version: 2,
+      });
+    }
   });
 
   it("falls back to the discovery action when the strategy is needs_brief or failed", async () => {
@@ -188,6 +198,7 @@ describe("JourneyService", () => {
         id: "44444444-4444-4444-8444-444444444444",
         status: "needs_brief",
         currentVersionId: null,
+        business: null,
       },
     });
 
@@ -261,3 +272,15 @@ function confirmedProfileRecord(): NonNullable<
 }
 
 function assertResponse(_response: CurrentJourneyResponse): void {}
+
+function strategyBusinessRecord(): NonNullable<
+  NonNullable<JourneyCurrentRecord["strategy"]>["business"]
+> {
+  return {
+    businessName: "Nile Sweets",
+    businessType: "dessert shop",
+    city: "Assiut",
+    area: "Assiut City",
+    profileVersion: 2,
+  };
+}

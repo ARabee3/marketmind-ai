@@ -323,6 +323,13 @@ function futurePhase(
       strategy_id: '00000000-0000-4000-8000-000000000000',
       current_version_id: null,
       destination: '/strategy/00000000-0000-4000-8000-000000000000',
+      business: {
+        business_name: 'Nile Sweets',
+        business_type: 'dessert shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        profile_version: 2,
+      },
     }
   }
   return {

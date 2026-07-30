@@ -69,6 +69,29 @@ describe('mapCurrentJourney', () => {
     expect(state.primaryActionType).toBe('none')
     expect(state.primaryHref).toBeNull()
   })
+
+  // Regression for issue #114: a user with a saved Strategy draft must not
+  // land on the empty "no business profile yet" state when the journey-side
+  // business summary is absent.
+  it('prefers the strategy business snapshot over the empty journey state', () => {
+    const state = mapCurrentJourney(responseWithActiveStrategyAndNoJourney())
+
+    expect(state.kind).toBe('strategy_active')
+    expect(state.primaryActionType).toBe('view_strategy')
+    expect(state.primaryHref).toBe('/strategy/00000000-0000-4000-8000-000000000000')
+    expect(state.businessName).toBe('Nile Sweets')
+    expect(state.businessType).toBe('dessert shop')
+    expect(state.profileVersion).toBe(2)
+    expect(state.strategyLockedReason).toBe('strategy_active')
+  })
+
+  it('shows the strategy_active context when discovery is confirmed and a strategy exists', () => {
+    const state = mapCurrentJourney(responseWithConfirmedProfileAndStrategy())
+
+    expect(state.kind).toBe('strategy_active')
+    expect(state.businessName).toBe('Nile Sweets')
+    expect(state.primaryActionType).toBe('view_strategy')
+  })
 })
 
 function responseWithNoJourney(): CurrentJourneyResponse {
@@ -131,6 +154,47 @@ function responseWithUnavailableDiscovery(
     },
     future_phase: futurePhase('discovery_required'),
     primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+    generated_at: '2026-07-17T10:00:00.000Z',
+  }
+}
+
+function responseWithActiveStrategyAndNoJourney(): CurrentJourneyResponse {
+  return {
+    owner: owner(),
+    journey: { state: 'no_journey', discovery: null, profile: null },
+    future_phase: futurePhase('strategy_active'),
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+    },
+    generated_at: '2026-07-17T10:00:00.000Z',
+  }
+}
+
+function responseWithConfirmedProfileAndStrategy(): CurrentJourneyResponse {
+  return {
+    owner: owner(),
+    journey: {
+      state: 'discovery_confirmed',
+      discovery: discovery('confirmed'),
+      profile: {
+        business_profile_version_id: 'profile-version-id',
+        business_id: 'business-id',
+        version: 2,
+        business_name: 'Nile Sweets',
+        business_type: 'dessert shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        confirmed_at: '2026-07-17T10:05:00.000Z',
+      },
+    },
+    future_phase: futurePhase('strategy_active'),
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+    },
     generated_at: '2026-07-17T10:00:00.000Z',
   }
 }
@@ -213,6 +277,7 @@ function futurePhase(
       strategy_id: '00000000-0000-4000-8000-000000000000',
       current_version_id: null,
       destination: '/strategy/00000000-0000-4000-8000-000000000000',
+      business: strategyBusiness(),
     }
   }
   return {
@@ -221,5 +286,15 @@ function futurePhase(
     status: 'needs_brief',
     reason,
     destination: null,
+  }
+}
+
+function strategyBusiness() {
+  return {
+    business_name: 'Nile Sweets',
+    business_type: 'dessert shop',
+    city: 'Assiut',
+    area: 'Assiut City',
+    profile_version: 2,
   }
 }

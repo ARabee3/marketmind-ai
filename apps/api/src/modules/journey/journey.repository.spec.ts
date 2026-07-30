@@ -90,6 +90,18 @@ describe("JourneyRepository", () => {
       id: "strategy-1",
       status: "generating",
       currentVersionId: "version-1",
+      brief: {
+        businessProfileVersionId: "profile-version-1",
+        businessProfileVersion: {
+          version: 2,
+          business: {
+            displayName: "Nile Sweets",
+            businessType: "dessert shop",
+            city: "Assiut",
+            area: "Assiut City",
+          },
+        },
+      },
     };
     const prisma = {
       user: {
@@ -114,7 +126,56 @@ describe("JourneyRepository", () => {
 
     const response = await repository.findCurrentForOwner("owner-id");
 
-    expect(response.strategy).toEqual(activeStrategy);
+    expect(response.strategy).toEqual({
+      id: "strategy-1",
+      status: "generating",
+      currentVersionId: "version-1",
+      business: {
+        businessName: "Nile Sweets",
+        businessType: "dessert shop",
+        city: "Assiut",
+        area: "Assiut City",
+        profileVersion: 2,
+      },
+    });
+  });
+
+  it("surfaces a null business snapshot when the strategy has no brief relation", async () => {
+    const activeStrategy = {
+      id: "strategy-1",
+      status: "generating",
+      currentVersionId: "version-1",
+      brief: null,
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "owner-id",
+          fullName: null,
+          email: "owner@example.com",
+          isEmailVerified: true,
+        }),
+      },
+      discoverySession: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      businessProfileVersion: {
+        findUnique: jest.fn(),
+      },
+      strategy: {
+        findFirst: jest.fn().mockResolvedValue(activeStrategy),
+      },
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findCurrentForOwner("owner-id");
+
+    expect(response.strategy).toEqual({
+      id: "strategy-1",
+      status: "generating",
+      currentVersionId: "version-1",
+      business: null,
+    });
   });
 
   it("rejects unknown owners", async () => {

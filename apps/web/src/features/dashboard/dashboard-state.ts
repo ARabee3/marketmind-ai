@@ -1,4 +1,7 @@
-import type { CurrentJourneyResponse } from '@marketmind/contracts'
+import type {
+  CurrentJourneyResponse,
+  CurrentJourneyStrategyBusinessSnapshot,
+} from '@marketmind/contracts'
 
 export type DashboardJourneyKind =
   | 'empty'
@@ -6,6 +9,7 @@ export type DashboardJourneyKind =
   | 'review'
   | 'confirmed'
   | 'unavailable'
+  | 'strategy_active'
   | 'error'
 
 export type DashboardPrimaryActionType =
@@ -30,16 +34,32 @@ export type DashboardJourneyState = {
 export function mapCurrentJourney(
   response: CurrentJourneyResponse,
 ): DashboardJourneyState {
+  // When an active Strategy exists, journey.currentAction routes the owner
+  // to "view_strategy". The dashboard view model must follow that precedence
+  // so a user with a saved Strategy draft never lands on an empty/discovery
+  // state that ignores their progress. See issue #114.
+  const strategyActive =
+    response.future_phase.availability === 'available' ||
+    response.primary_action.type === 'view_strategy'
+
+  const strategyBusiness = strategyBusinessSnapshot(response)
+
   const base = {
     ownerName: response.owner.full_name,
-    businessName: businessName(response),
-    businessType: businessType(response),
-    location: location(response),
+    businessName: strategyBusiness?.business_name ?? businessName(response),
+    businessType: strategyBusiness?.business_type ?? businessType(response),
+    location: strategyBusiness
+      ? formattedLocation(strategyBusiness.city, strategyBusiness.area)
+      : location(response),
     readinessPercent: readinessPercent(response),
-    profileVersion: profileVersion(response),
+    profileVersion: strategyBusiness?.profile_version ?? profileVersion(response),
     primaryActionType: response.primary_action.type,
     primaryHref: response.primary_action.destination,
     strategyLockedReason: response.future_phase.reason,
+  }
+
+  if (strategyActive) {
+    return { ...base, kind: 'strategy_active' }
   }
 
   switch (response.journey.state) {
@@ -77,6 +97,15 @@ export function errorDashboardState(): DashboardJourneyState {
   }
 }
 
+function strategyBusinessSnapshot(
+  response: CurrentJourneyResponse,
+): CurrentJourneyStrategyBusinessSnapshot | null {
+  if (response.future_phase.availability === 'available') {
+    return response.future_phase.business
+  }
+  return null
+}
+
 function businessName(response: CurrentJourneyResponse): string | null {
   return (
     response.journey.profile?.business_name ??
@@ -94,15 +123,13 @@ function businessType(response: CurrentJourneyResponse): string | null {
 }
 
 function location(response: CurrentJourneyResponse): string | null {
-  const city =
-    response.journey.profile?.city ??
-    response.journey.discovery?.business_summary.city ??
-    null
-  const area =
-    response.journey.profile?.area ??
-    response.journey.discovery?.business_summary.area ??
-    null
+  return formattedLocation(
+    response.journey.profile?.city ?? response.journey.discovery?.business_summary.city ?? null,
+    response.journey.profile?.area ?? response.journey.discovery?.business_summary.area ?? null,
+  )
+}
 
+function formattedLocation(city: string | null, area: string | null): string | null {
   if (!city) return null
   if (!area) return city
   return `${area}, ${city}`

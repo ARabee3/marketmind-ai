@@ -132,7 +132,15 @@ export type CurrentJourneyPrimaryAction =
       readonly destination: null;
     };
 
-export type CurrentJourneyStrategyContext = 
+export type CurrentJourneyStrategyBusinessSnapshot = {
+  readonly business_name: string;
+  readonly business_type: string;
+  readonly city: string | null;
+  readonly area: string | null;
+  readonly profile_version: number;
+};
+
+export type CurrentJourneyStrategyContext =
   | {
       readonly phase: "strategy";
       readonly availability: "locked" | "unavailable";
@@ -151,6 +159,7 @@ export type CurrentJourneyStrategyContext =
       readonly strategy_id: UUID;
       readonly current_version_id: UUID | null;
       readonly destination: `/strategy/${UUID}`;
+      readonly business: CurrentJourneyStrategyBusinessSnapshot;
     };
 
 export type CurrentJourneyResponse = {
