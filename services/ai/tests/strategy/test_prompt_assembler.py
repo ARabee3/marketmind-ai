@@ -89,6 +89,19 @@ class TestPromptAssembly:
         assert "Do not generate final captions" in system
         assert "Do not describe publishing" in system
         assert "section planning skeleton" in system.lower()
+        assert "Owner-facing output language" in system
+        assert "ar-EG" in system
+        assert "brief.plan_language" in system
+
+    def test_revision_system_prompt_contains_language_directive(self):
+        request = make_revise_request()
+        bundle = make_decision_bundle()
+
+        assembly = assemble_revision_prompt(request, bundle, PROVIDER_NAME, MODEL_NAME)
+        system = assembly.system_prompt
+
+        assert "Owner-facing output language" in system
+        assert "ar-EG" in system
 
     def test_generation_user_context_contains_provenance_sections(self):
         request = make_generate_request()

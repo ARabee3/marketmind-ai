@@ -73,6 +73,10 @@
         "title": "Discovery needs attention",
         "body": "The previous journey is unavailable or failed. Start a new Discovery to rebuild the business context."
       },
+      "strategy_active": {
+        "title": "Strategy draft in progress",
+        "body": "A saved Strategy draft already exists. Open it to continue reviewing or approving the plan."
+      },
       "error": {
         "title": "Could not load your journey",
         "body": "Something went wrong while loading your latest journey. Try again — your journey has not been removed."
@@ -654,10 +658,11 @@
         },
         "language": {
           "label": "Plan language",
-          "help": "Choose the language the team will actually use while working.",
+          "help": "Choose the language the generated plan and owner-facing text will be written in.",
           "example": "Arabic Egyptian",
           "options": {
-            "arabic": "Arabic Egyptian"
+            "arabic": "Arabic Egyptian",
+            "english": "English"
           }
         },
         "paidMedia": {

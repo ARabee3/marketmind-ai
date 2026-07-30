@@ -27,7 +27,9 @@ from tests.strategy.fixtures import (
     default_business_profile,
     default_plan,
     default_retrieval_pack,
+    english_brief,
     make_generate_request,
+    mixed_brief,
 )
 
 
@@ -152,6 +154,66 @@ class TestInputReferences:
         result = _pipeline().validate(plan, request)
         assert not result.valid
         assert any(i.code == "STRATEGY_PROFILE_STALE" for i in result.issues)
+
+
+# ---------------------------------------------------------------------------
+# Extra validators: owner-facing language
+# ---------------------------------------------------------------------------
+
+class TestOwnerFacingLanguage:
+    """Heuristic Arabic-script check for ar-EG briefs. Soft issue, never
+    hard-rejects."""
+
+    def test_arabic_brief_with_english_prose_fails(self):
+        request = make_generate_request(brief=default_brief())
+        assert request.brief.plan_language == "ar-EG"
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "Launch Instagram campaign focused on office workers."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        assert any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_arabic_brief_with_arabic_prose_passes(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        # Fixture default plan already uses Arabic prose for ar-EG brief.
+        result = _pipeline().validate(plan, request)
+        assert not any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_english_brief_skips_language_check(self):
+        request = make_generate_request(brief=english_brief())
+        plan = default_plan().model_copy(update={"plan_language": "en"})
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "English summary is fine for English brief."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        assert not any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_mixed_brief_skips_language_check(self):
+        request = make_generate_request(brief=mixed_brief())
+        plan = default_plan()
+        result = _pipeline().validate(plan, request)
+        assert not any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_multiple_english_fields_produce_multiple_issues(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "English executive summary only."}
+            ),
+            "situation_diagnosis": plan.situation_diagnosis.model_copy(
+                update={"text": "English situation diagnosis only."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        mismatch_fields = [i.field for i in result.issues if i.code == "STRATEGY_LANGUAGE_MISMATCH"]
+        assert len(mismatch_fields) >= 2
 
 
 # ---------------------------------------------------------------------------

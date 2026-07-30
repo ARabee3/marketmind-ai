@@ -2,19 +2,22 @@
 
 import { useState } from 'react'
 import { useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import { getCurrentJourney } from '@/lib/api/journey'
+import { cn } from '@/lib/utils'
 
 const FIELDS = ['objective', 'startDate', 'language', 'paidMedia', 'budget', 'capacity'] as const
+
+type PlanLanguageValue = 'ar-EG' | 'en'
 
 type FormData = {
   objective: string
   startDate: string
-  language: string
+  language: PlanLanguageValue
   paidMedia: string
   budget: string
   capacity: string
@@ -22,23 +25,17 @@ type FormData = {
   errors: Partial<Record<(typeof FIELDS)[number] | 'constraints', string>>
 }
 
-const EMPTY_FORM: FormData = {
-  objective: '',
-  startDate: '',
-  language: '',
-  paidMedia: '',
-  budget: '',
-  capacity: '',
-  constraints: '',
-  errors: {},
-}
+const PLAN_LANGUAGE_OPTIONS: ReadonlyArray<{ value: PlanLanguageValue; labelKey: 'arabic' | 'english' }> = [
+  { value: 'ar-EG', labelKey: 'arabic' },
+  { value: 'en', labelKey: 'english' },
+]
 
 function buildPayload(form: FormData, versionId: string) {
   return {
     businessProfileVersionId: versionId,
     primaryObjective: form.objective,
     startDate: form.startDate,
-    planLanguage: (form.language === 'Arabic Egyptian' ? 'ar-EG' : 'en') as 'ar-EG' | 'en' | 'mixed',
+    planLanguage: form.language as 'ar-EG' | 'en' | 'mixed',
     paidMediaAllowed: form.paidMedia !== 'Organic only',
     externalBudgetMode: form.budget ? 'monthly_amount' : 'scenario_only',
     teamCapacity: form.capacity,
@@ -49,9 +46,21 @@ function buildPayload(form: FormData, versionId: string) {
 export function StrategyChoicesForm() {
   const t = useTranslations('Strategy')
   const tc = useTranslations('Common')
+  const locale = useLocale()
   const router = useRouter()
   const { create, saveBrief, generate, pending, error } = useStrategyActions()
-  const [form, setForm] = useState<FormData>(EMPTY_FORM)
+  const [form, setForm] = useState<FormData>(() => ({
+    objective: '',
+    startDate: '',
+    // Default the plan language to the UI route locale so Arabic routes
+    // produce an Arabic plan unless the owner explicitly chooses English.
+    language: locale === 'ar' ? 'ar-EG' : 'en',
+    paidMedia: '',
+    budget: '',
+    capacity: '',
+    constraints: '',
+    errors: {},
+  }))
   const [saving, setSaving] = useState(false)
 
   function setField(field: keyof FormData['errors'], value: string) {
@@ -144,33 +153,58 @@ export function StrategyChoicesForm() {
 
       <form className="rounded-xl border border-border bg-surface shadow-elevated" onSubmit={(e) => e.preventDefault()}>
         <div className="grid gap-5 p-4 md:grid-cols-2 md:p-6">
-          {FIELDS.map((field) => (
-            <div key={field} className="grid gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor={`strategy-${field}`}>{t(`choices.fields.${field}.label`)}</Label>
-                <span
-                  className="inline-flex size-6 items-center justify-center rounded-full border border-border text-xs font-bold text-primary"
-                  title={t(`choices.fields.${field}.help`)}
-                >
-                  ?
-                </span>
+          {FIELDS.map((field) => {
+            const error = form.errors[field]
+            const helpId = `strategy-${field}-help`
+            return (
+              <div key={field} className="grid gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor={`strategy-${field}`}>{t(`choices.fields.${field}.label`)}</Label>
+                  <span
+                    className="inline-flex size-6 items-center justify-center rounded-full border border-border text-xs font-bold text-primary"
+                    title={t(`choices.fields.${field}.help`)}
+                  >
+                    ?
+                  </span>
+                </div>
+                {field === 'language' ? (
+                  <select
+                    id={`strategy-${field}`}
+                    name={`strategy-${field}`}
+                    value={form.language}
+                    onChange={(e) => setField('language', e.target.value)}
+                    aria-describedby={helpId}
+                    aria-invalid={!!error}
+                    className={cn(
+                      'h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none',
+                      'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40',
+                    )}
+                  >
+                    {PLAN_LANGUAGE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(`choices.fields.language.options.${option.labelKey}`)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    id={`strategy-${field}`}
+                    value={form[field]}
+                    onChange={(e) => setField(field, e.target.value)}
+                    aria-describedby={helpId}
+                    aria-invalid={!!error}
+                  />
+                )}
+                {error ? (
+                  <p className="text-xs text-danger">{error}</p>
+                ) : (
+                  <p id={helpId} className="text-xs leading-5 text-muted-foreground">
+                    {t(`choices.fields.${field}.help`)}
+                  </p>
+                )}
               </div>
-              <Input
-                id={`strategy-${field}`}
-                value={form[field]}
-                onChange={(e) => setField(field, e.target.value)}
-                aria-describedby={`strategy-${field}-help`}
-                aria-invalid={!!form.errors[field]}
-              />
-              {form.errors[field] ? (
-                <p className="text-xs text-danger">{form.errors[field]}</p>
-              ) : (
-                <p id={`strategy-${field}-help`} className="text-xs leading-5 text-muted-foreground">
-                  {t(`choices.fields.${field}.help`)}
-                </p>
-              )}
-            </div>
-          ))}
+            )
+          })}
           <div className="grid gap-2 md:col-span-2">
             <Label htmlFor="strategy-constraints">{t('choices.fields.constraints.label')}</Label>
             <textarea

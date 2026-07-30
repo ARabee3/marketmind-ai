@@ -63,6 +63,7 @@ class StrategyValidationPipeline:
         issues.extend(_validate_required_sections(plan))
         issues.extend(_validate_input_references(plan, request))
         issues.extend(_validate_benchmarks(plan))
+        issues.extend(_validate_owner_facing_language(plan, request))
         return issues
 
 
@@ -167,6 +168,116 @@ def _validate_benchmarks(plan: StrategyPlan) -> list[StrategyValidationIssue]:
                 )
             )
 
+    return issues
+
+
+# Arabic Unicode blocks: Arabic, Arabic Supplement, Arabic Extended-A/B,
+# and the ArabicPresentation forms used by Egyptain-friendly MSA content.
+_ARABIC_RANGES: tuple[tuple[int, int], ...] = (
+    (0x0600, 0x06FF),   # Arabic
+    (0x0750, 0x077F),   # Arabic Supplement
+    (0x08A0, 0x08FF),   # Arabic Extended-A
+    (0xFB50, 0xFDFF),   # Arabic Presentation Forms-A
+    (0xFE70, 0xFEFF),   # Arabic Presentation Forms-B
+)
+
+
+def _has_arabic_letter(text: str) -> bool:
+    """True when *text* contains at least one Arabic-script letter."""
+    return any(
+        any(start <= ord(ch) <= end for start, end in _ARABIC_RANGES)
+        for ch in text
+    )
+
+
+def _owner_facing_prose_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
+    """Collect (field_path, text) tuples for every owner-facing prose field.
+
+    Evidence source titles, URLs, citation/chunk IDs, numeric benchmark values
+    and technical metadata are intentionally excluded — those stay in their
+    original language/script and are not subject to the language check.
+    """
+    entries: list[tuple[str, str]] = [
+        ("plan.executive_summary.text", plan.executive_summary.text),
+        ("plan.situation_diagnosis.text", plan.situation_diagnosis.text),
+        ("plan.target_audience.text", plan.target_audience.text),
+        ("plan.positioning.text", plan.positioning.text),
+        ("plan.tone.text", plan.tone.text),
+    ]
+    for index, channel in enumerate(plan.selected_channels):
+        entries.append(
+            (f"plan.selected_channels[{index}].rationale.text", channel.rationale.text)
+        )
+    if plan.budget_scenarios:
+        for index, scenario in enumerate(plan.budget_scenarios):
+            entries.append(
+                (f"plan.budget_scenarios[{index}].notes.text", scenario.notes.text)
+            )
+    for index, target in enumerate(plan.kpi_targets):
+        entries.append(
+            (f"plan.kpi_targets[{index}].notes.text", target.notes.text)
+        )
+    entries.extend(
+        (f"plan.assumptions[{index}].text", claim.text)
+        for index, claim in enumerate(plan.assumptions)
+    )
+    entries.extend(
+        (f"plan.risks[{index}].text", claim.text)
+        for index, claim in enumerate(plan.risks)
+    )
+    entries.extend(
+        (f"plan.blockers[{index}].message", blocker.message)
+        for index, blocker in enumerate(plan.blockers)
+    )
+    entries.extend(
+        (f"plan.content_strategy.pillars[{index}].text", claim.text)
+        for index, claim in enumerate(plan.content_strategy.pillars)
+    )
+    for index, week in enumerate(plan.content_strategy.weeks):
+        entries.append(
+            (f"plan.content_strategy.weeks[{index}].theme", week.theme)
+        )
+        if week.notes:
+            entries.append(
+                (f"plan.content_strategy.weeks[{index}].notes", week.notes)
+            )
+    return entries
+
+
+def _validate_owner_facing_language(
+    plan: StrategyPlan,
+    request: StrategyGenerateRequest,
+) -> list[StrategyValidationIssue]:
+    """Ensure owner-facing prose follows ``brief.plan_language``.
+
+    This is a soft, heuristic check (Unicode script detection), not a full
+    translation-quality review. It surfaces a ``STRATEGY_LANGUAGE_MISMATCH``
+    issue — never hard-rejects generation — so the owner still gets a draft
+    and the team can triage the drift without breaking the lifecycle FSM.
+    """
+    expected_language = request.brief.plan_language
+    # ``mixed`` plans intentionally match the source language of each input;
+    # there is no single required script to enforce.
+    if expected_language != "ar-EG":
+        return []
+
+    issues: list[StrategyValidationIssue] = []
+    for field_path, text in _owner_facing_prose_texts(plan):
+        if not text or not text.strip():
+            # The required-sections validator already flags empty sections.
+            continue
+        if not _has_arabic_letter(text):
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_LANGUAGE_MISMATCH",
+                    field=field_path,
+                    message=(
+                        "Owner-facing field is not written in Arabic even though "
+                        "brief.plan_language is ar-EG. Synthesize this field in "
+                        "Arabic while preserving evidence URLs and source metadata."
+                    ),
+                )
+            )
     return issues
 
 

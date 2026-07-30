@@ -16,6 +16,8 @@ const messages: Record<string, string> = {
   'choices.fields.startDate.help': 'Pick when the plan should begin.',
   'choices.fields.language.label': 'Plan language',
   'choices.fields.language.help': 'Choose the working language.',
+  'choices.fields.language.options.arabic': 'Arabic Egyptian',
+  'choices.fields.language.options.english': 'English',
   'choices.fields.paidMedia.label': 'Paid media permission',
   'choices.fields.paidMedia.help': 'Say whether paid campaigns are allowed.',
   'choices.fields.budget.label': 'External budget',
@@ -28,6 +30,7 @@ const messages: Record<string, string> = {
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => messages[key] ?? key,
+  useLocale: () => 'en',
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -60,5 +63,16 @@ describe('StrategyChoicesForm', () => {
 
     const generateButton = screen.getByRole('button', { name: 'Prepare draft' })
     expect(generateButton.hasAttribute('disabled')).toBe(false)
+  })
+
+  it('defaults the plan language to the UI route locale (en here)', () => {
+    render(<StrategyChoicesForm />)
+
+    const languageSelect = screen.getByLabelText('Plan language') as HTMLSelectElement
+    // The mock's useLocale returns 'en', so the default plan language is 'en'.
+    expect(languageSelect.value).toBe('en')
+    // Both options are available so the owner can explicitly choose Arabic.
+    expect(screen.getByText('Arabic Egyptian')).toBeTruthy()
+    expect(screen.getByText('English')).toBeTruthy()
   })
 })
