@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-24T02:38:22.921Z",
+  "generated_at": "2026-07-30T12:26:25.472Z",
   "entry_count": 32,
   "entries": [
     {
@@ -904,30 +904,6 @@
     },
     {
       "slug": "situation-diagnosis-5cs-swot",
-      "version": 1,
-      "kind": "framework",
-      "review_status": "draft",
-      "evidence_tier": "reviewed_guidance",
-      "locale": "mixed",
-      "tags": {
-        "markets": [
-          "global"
-        ],
-        "industries": [
-          "general"
-        ],
-        "channels": [],
-        "objectives": []
-      },
-      "checksum": "sha256:0325cd00d195ef9ab280198c554a2cc25dd1547f8b61b7bf8763ff2c55312ee8",
-      "effective_at": "2026-07-21",
-      "expires_at": null,
-      "author": "abdulazimRabie",
-      "reviewer": null,
-      "path": "frameworks/situation-diagnosis-5cs-swot.md"
-    },
-    {
-      "slug": "smart-objectives-funnel-mapping",
       "version": 2,
       "kind": "framework",
       "review_status": "draft",
@@ -949,8 +925,38 @@
           "launch"
         ]
       },
-      "checksum": "sha256:4f576d3a4b2d2771e70aa4519d4f25d838d8fef521dea4f5145af207d788d62d",
-      "effective_at": "2026-07-21",
+      "checksum": "sha256:87ab34d774ea8bf2902936e162a8e2ca2bd78d79d6a3c0df8655d417c23bbe5a",
+      "effective_at": "2026-07-30",
+      "expires_at": null,
+      "author": "abdulazimRabie",
+      "reviewer": null,
+      "path": "frameworks/situation-diagnosis-5cs-swot.md"
+    },
+    {
+      "slug": "smart-objectives-funnel-mapping",
+      "version": 3,
+      "kind": "framework",
+      "review_status": "draft",
+      "evidence_tier": "reviewed_guidance",
+      "locale": "mixed",
+      "tags": {
+        "markets": [
+          "global"
+        ],
+        "industries": [
+          "general"
+        ],
+        "channels": [],
+        "objectives": [
+          "awareness",
+          "acquisition",
+          "conversion",
+          "retention",
+          "launch"
+        ]
+      },
+      "checksum": "sha256:1353fb46e4bc10c45caacc54350e54ee738b9e9911b3a0689b6ca21ac39528fc",
+      "effective_at": "2026-07-30",
       "expires_at": null,
       "author": "abdulazimRabie",
       "reviewer": null,

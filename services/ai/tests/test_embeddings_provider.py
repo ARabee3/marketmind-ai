@@ -53,14 +53,18 @@ async def test_fake_provider_different_texts_different_vectors(
     assert response.embeddings[0].vector != response.embeddings[1].vector
 
 
-def test_factory_returns_gemini_provider_from_env() -> None:
-    from app.core.config import get_settings
+def test_factory_returns_fake_provider_when_configured() -> None:
+    from app.core.config import Settings
 
-    settings = get_settings()
-    provider = EmbeddingProviderFactory.from_settings()
-    assert provider.name == "gemini"
-    assert provider.config.model == settings.embedding_model
-    assert provider.config.dimensions == settings.embedding_dimensions
+    settings = Settings(
+        embedding_provider_mode="fake",
+        embedding_model="text-embedding-3-large",
+        embedding_dimensions=3072,
+    )
+    provider = EmbeddingProviderFactory.from_settings(settings)
+    assert provider.name == "fake"
+    assert provider.config.model == "text-embedding-3-large"
+    assert provider.config.dimensions == 3072
 
 
 def test_openai_provider_requires_api_key(fake_config: EmbeddingConfig) -> None:

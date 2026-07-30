@@ -18,6 +18,8 @@ describe("MarketingKnowledgeRebuildService", () => {
     expect(row.chunk_id).toBe("chunk-id");
     expect(row.entry_id).toBe("entry-id");
     expect(row.entry_version).toBe(1);
+    expect(row.title_ar).toBe("تقرير معياري");
+    expect(row.requires_paid_media).toBe(true);
     expect(row.evidence_tier).toBe("verified_benchmark");
     expect(row.review_status).toBe("approved");
   });
@@ -38,6 +40,15 @@ describe("MarketingKnowledgeRebuildService", () => {
       }),
     );
   });
+
+  it("does not require paid media for an organic-only entry", async () => {
+    const prisma = prismaMock(["organic_only"]);
+    const service = new MarketingKnowledgeRebuildService(prisma as never);
+
+    const [row] = await service.exportEligibleChunksForQdrant();
+
+    expect(row.requires_paid_media).toBe(false);
+  });
 });
 
 describe("QDRANT_KNOWLEDGE_POINT_FIELDS", () => {
@@ -49,6 +60,7 @@ describe("QDRANT_KNOWLEDGE_POINT_FIELDS", () => {
       "checksum",
       "text",
       "kind",
+      "title_ar",
       "locale",
       "markets",
       "industries",
@@ -58,6 +70,7 @@ describe("QDRANT_KNOWLEDGE_POINT_FIELDS", () => {
       "channels",
       "seasons",
       "budget_modes",
+      "requires_paid_media",
       "evidence_tier",
       "review_status",
       "effective_at",
@@ -66,7 +79,9 @@ describe("QDRANT_KNOWLEDGE_POINT_FIELDS", () => {
   });
 });
 
-function prismaMock(): PrismaService {
+function prismaMock(
+  budgetModes: string[] = ["monthly_amount"],
+): PrismaService {
   return {
     marketingKnowledgeChunk: {
       findMany: jest.fn().mockResolvedValue([
@@ -78,6 +93,7 @@ function prismaMock(): PrismaService {
           entryVersion: {
             version: 1,
             kind: "benchmark_report",
+            titleAr: "تقرير معياري",
             locale: "en",
             markets: ["egypt"],
             industries: ["retail"],
@@ -86,7 +102,7 @@ function prismaMock(): PrismaService {
             funnelStages: ["conversion"],
             channels: ["facebook"],
             seasons: [],
-            budgetModes: ["monthly_amount"],
+            budgetModes,
             evidenceTier: "verified_benchmark",
             reviewStatus: "approved",
             effectiveAt: new Date("2026-01-01T00:00:00Z"),
