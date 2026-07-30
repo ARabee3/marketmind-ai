@@ -6,6 +6,7 @@ import { HttpService } from "@nestjs/axios";
 import { ConfigService } from "@nestjs/config";
 import {
   BadRequestException,
+  ConflictException,
   NotFoundException,
   InternalServerErrorException,
 } from "@nestjs/common";
@@ -27,6 +28,24 @@ function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
     updateStrategyStatus: jest.fn().mockResolvedValue({}),
     getLatestRetrievalRun: jest.fn(),
     getLatestVersion: jest.fn(),
+    getVersionByNumber: jest.fn(),
+    getVersionById: jest.fn().mockResolvedValue({
+      id: "v-1",
+      strategyId: STRAT_ID,
+      retrievalRunId: "run-1",
+      planData: {
+        blockers: [],
+        citations: [{
+          chunk_id: "chunk-1",
+          entry_id: "entry-1",
+          entry_version: 1,
+        }],
+      },
+    }),
+    getLatestProgressEvent: jest.fn().mockResolvedValue({
+      status: "failed",
+      payload: { retryable: true },
+    }),
     countRetries: jest.fn().mockResolvedValue(0),
     recordRetryDecision: jest.fn(),
     recordOwnerDecision: jest.fn(),
@@ -92,6 +111,85 @@ describe("StrategyService", () => {
         OWNER_ID,
       );
       expect(repository.createStrategy).toHaveBeenCalledWith("biz-1", OWNER_ID);
+    });
+  });
+
+  describe("upsertBrief", () => {
+    const validBrief = {
+      businessProfileVersionId: "prof-1",
+      primaryObjective: "conversion",
+      startDate: "2026-08-01",
+      planLanguage: "en",
+      paidMediaAllowed: false,
+      externalBudgetMode: "organic_only",
+      teamCapacity: "Owner plus one helper",
+      constraints: "",
+      clarificationAnswers: [],
+    } as never;
+
+    it("locks the provenance-bearing brief after generation starts", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        businessId: "biz-1",
+      });
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, validBrief),
+      ).rejects.toThrow(ConflictException);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("rejects a confirmed profile from another business", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "needs_brief",
+        businessId: "biz-1",
+      });
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-2",
+      });
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, validBrief),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("persists a ready brief against the Strategy business profile", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "needs_brief",
+        businessId: "biz-1",
+      });
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+      });
+      (repository.upsertBrief as jest.Mock).mockResolvedValue({
+        id: "brief-1",
+        primaryObjective: "conversion",
+        startDate: new Date("2026-08-01"),
+        planLanguage: "en",
+        paidMediaAllowed: false,
+        externalBudgetMode: "organic_only",
+        teamCapacity: "Owner plus one helper",
+      });
+
+      await service.upsertBrief(STRAT_ID, OWNER_ID, validBrief);
+
+      expect(repository.upsertBrief).toHaveBeenCalledTimes(1);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
+        STRAT_ID,
+        "ready",
+      );
     });
   });
 
@@ -267,6 +365,25 @@ describe("StrategyService", () => {
   // ── retryGeneration: Bounded retries ────────────────────────────────
 
   describe("retryGeneration — Bounded retries", () => {
+    it("blocks retry when the latest server failure is not retryable", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "failed",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (repository.getLatestProgressEvent as jest.Mock).mockResolvedValue({
+        status: "failed",
+        payload: { retryable: false },
+      });
+
+      await expect(service.retryGeneration(STRAT_ID, OWNER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.countRetries).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
     it("blocks retry when max retries is exceeded", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
@@ -371,6 +488,72 @@ describe("StrategyService", () => {
   // ── handleDecision ──────────────────────────────────────────────────
 
   describe("handleDecision", () => {
+    it("rejects an outdated immutable version with a safe conflict", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-2",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "approve",
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+    });
+
+    it("requires owner feedback for a revision request", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "revision_requested",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it("blocks approval when the current plan contains a blocking gap", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (repository.getVersionById as jest.Mock).mockResolvedValue({
+        id: "v-1",
+        strategyId: STRAT_ID,
+        retrievalRunId: "run-1",
+        planData: {
+          blockers: [{ severity: "blocking", message: "Budget missing" }],
+          citations: [{ chunk_id: "chunk-1" }],
+        },
+      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
+        id: "prof-1",
+      });
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "approve",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+    });
+
     it("rejects a decision if strategy is not in draft state", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
@@ -391,6 +574,7 @@ describe("StrategyService", () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
         status: "draft",
+        currentVersionId: "v-1",
         businessId: "biz-1",
         brief: {},
       });
@@ -412,8 +596,26 @@ describe("StrategyService", () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
         status: "draft",
+        currentVersionId: "v-1",
         businessId: "biz-1",
-        brief: {},
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
+        id: "prof-1",
+      });
+      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+        id: "run-1",
+        status: "completed",
+        items: [
+          {
+            chunkId: "chunk-1",
+            entryId: "entry-1",
+            entryVersion: 1,
+            reviewStatus: "approved",
+            effectiveAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: null,
+          },
+        ],
       });
       (repository.recordOwnerDecision as jest.Mock).mockRejectedValue(
         new BadRequestException("Strategy is no longer in draft state"),
@@ -431,8 +633,26 @@ describe("StrategyService", () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
         status: "draft",
+        currentVersionId: "v-1",
         businessId: "biz-1",
-        brief: {},
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
+        id: "prof-1",
+      });
+      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+        id: "run-1",
+        status: "completed",
+        items: [
+          {
+            chunkId: "chunk-1",
+            entryId: "entry-1",
+            entryVersion: 1,
+            reviewStatus: "approved",
+            effectiveAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: null,
+          },
+        ],
       });
       (repository.recordOwnerDecision as jest.Mock).mockResolvedValue({
         decision: { id: "dec-1", action: "approve" },
@@ -482,6 +702,43 @@ describe("StrategyService", () => {
       await expect(
         service.getRetrievalPack(STRAT_ID, OTHER_OWNER_ID),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("Strategy plan reads", () => {
+    it("returns the persisted current plan with the Strategy resource", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        brief: {},
+      });
+      (repository.getVersionById as jest.Mock).mockResolvedValue({
+        id: "v-1",
+        strategyId: STRAT_ID,
+        planData: { id: "plan-1", version: 1 },
+      });
+
+      await expect(service.getStrategy(STRAT_ID, OWNER_ID)).resolves.toEqual(
+        expect.objectContaining({
+          id: STRAT_ID,
+          latestPlan: { id: "plan-1", version: 1 },
+        }),
+      );
+    });
+
+    it("returns plan data rather than the internal database row for a version", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+      });
+      (repository.getVersionByNumber as jest.Mock).mockResolvedValue({
+        id: "v-1",
+        planData: { id: "plan-1", version: 1 },
+      });
+
+      await expect(
+        service.getStrategyVersion(STRAT_ID, 1, OWNER_ID),
+      ).resolves.toEqual({ id: "plan-1", version: 1 });
     });
   });
 
@@ -575,14 +832,38 @@ describe("StrategyService", () => {
 
   describe("getStrategyVersions", () => {
     it("maps retrieval runs to non-empty brief ids", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({ id: STRAT_ID });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "approved",
+      });
       (repository.listVersions as jest.Mock).mockResolvedValue([
         {
+          id: "v-1",
           strategyId: STRAT_ID,
           version: 1,
           retrievalRunId: "run-1",
+          promptConfig: {
+            model: "fake",
+            apiKey: "must-not-leak",
+            authorization: "must-not-leak",
+          },
+          planData: {
+            profile_version: {
+              business_profile_version_id: "profile-1",
+              confirmed_at: "2026-07-28T09:00:00.000Z",
+              version: 1,
+            },
+          },
           createdAt: new Date("2026-07-28T10:00:00.000Z"),
-          decisions: [],
+          decisions: [
+            {
+              id: "decision-1",
+              action: "approve",
+              feedback: null,
+              ownerUserId: OWNER_ID,
+              createdAt: new Date("2026-07-28T10:30:00.000Z"),
+            },
+          ],
         },
       ]);
       (repository.listRetrievalRunBriefIds as jest.Mock).mockResolvedValue([
@@ -593,8 +874,13 @@ describe("StrategyService", () => {
         expect.objectContaining({
           strategy_id: STRAT_ID,
           version: 1,
+          status: "approved",
           brief_id: "brief-1",
           retrieval_run_id: "run-1",
+          prompt_config: { model: "fake" },
+          decision: expect.objectContaining({
+            decision: "approved",
+          }),
         }),
       ]);
     });

@@ -6,6 +6,7 @@ import { useStrategy } from '@/features/strategy/hooks/use-strategy'
 import { useStrategyProgress } from '@/features/strategy/hooks/use-strategy-progress'
 import { StrategyProgress } from '@/features/strategy/components/strategy-progress'
 import { toStrategyResource } from '@/lib/api/strategy'
+import { useStrategyActions } from '@/features/strategy/hooks/use-strategy-actions'
 
 type Props = {
   params: Promise<{ strategy_id: string }>
@@ -16,6 +17,11 @@ export default function StrategyWorkspacePage({ params }: Props) {
   const tc = useTranslations('Common')
   const { strategy, loading, error } = useStrategy(strategy_id)
   const { status, progress } = useStrategyProgress(strategy_id)
+  const {
+    retry,
+    pending: retryPending,
+    error: retryError,
+  } = useStrategyActions()
 
   if (loading) {
     return (
@@ -36,5 +42,19 @@ export default function StrategyWorkspacePage({ params }: Props) {
   const resource = toStrategyResource(strategy)
   const currentStatus = status ?? resource.status
 
-  return <StrategyProgress status={currentStatus} progress={progress} />
+  async function handleRetry() {
+    const result = await retry(strategy_id)
+    if (result) window.location.reload()
+  }
+
+  return (
+    <StrategyProgress
+      status={currentStatus}
+      progress={progress}
+      reviewHref={`/strategy/${strategy_id}/review`}
+      onRetry={handleRetry}
+      retryPending={retryPending}
+      actionError={retryError}
+    />
+  )
 }

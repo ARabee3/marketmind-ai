@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { StrategyProgressEvent } from '@marketmind/contracts'
 import { strategyProgressPercent } from '../strategy-progress'
+
+vi.mock('@/i18n/navigation', () => ({
+  Link: () => null,
+}))
 
 const baseEvent = {
   type: 'strategy_progress',

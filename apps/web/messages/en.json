@@ -658,11 +658,28 @@
       "demoNotice": "Demo only until the live Strategy workspace is ready. Fields are read-only and actions are disabled.",
       "save": "Save choices",
       "generate": "Prepare draft",
+      "saved": "Strategy choices saved.",
+      "unsaved": "You have unsaved Strategy choices.",
+      "selectPlaceholder": "Choose an option",
+      "readinessLabel": "Before preparing the draft",
+      "readiness": {
+        "profile": "Confirmed profile is available",
+        "objective": "Main objective is selected",
+        "budget": "Paid-media and budget choice is clear",
+        "capacity": "Team capacity is described"
+      },
       "fields": {
         "objective": {
           "label": "Main objective",
           "help": "Choose what the next 12 weeks should mainly improve.",
-          "example": "Increase repeat purchases"
+          "example": "Increase repeat purchases",
+          "options": {
+            "awareness": "Build awareness",
+            "acquisition": "Acquire new customers",
+            "conversion": "Improve conversion and sales",
+            "retention": "Increase repeat business",
+            "launch": "Launch a product, service, or branch"
+          }
         },
         "startDate": {
           "label": "Start date",
@@ -683,8 +700,22 @@
           "help": "Say whether paid campaigns are allowed. Approval later still does not spend money automatically.",
           "example": "Allowed after budget approval",
           "options": {
-            "organic": "Organic only"
+            "organic": "Organic only",
+            "allowed": "Paid media may be planned"
           }
+        },
+        "budgetMode": {
+          "label": "External budget approach",
+          "help": "Choose the period for a confirmed amount, or ask for clearly labeled scenarios.",
+          "options": {
+            "monthly_amount": "Confirmed monthly amount",
+            "three_month_amount": "Confirmed 12-week amount",
+            "scenario_only": "Planning scenarios only"
+          }
+        },
+        "budgetAmount": {
+          "label": "External budget amount (EGP)",
+          "help": "This is optional marketing spend, not a MarketMind subscription and not permission to spend."
         },
         "budget": {
           "label": "External budget",
@@ -700,11 +731,17 @@
           "label": "Constraints",
           "help": "Add limits such as seasonality, unavailable offers, or channels you do not want.",
           "example": "No ads before owner approval. Keep Ramadan hours separate."
+        },
+        "clarifications": {
+          "label": "Planning clarifications",
+          "help": "Add any owner answer that Strategy should preserve, such as a priority offer or a firm channel restriction."
         }
       },
       "validation": {
         "required": "This field is required",
-        "noProfile": "Please complete business discovery first"
+        "noProfile": "Please complete business discovery first",
+        "positiveBudget": "Enter a budget amount greater than zero",
+        "loadFailed": "Strategy choices could not be loaded. Check the connection and try again."
       }
     },
     "progress": {
@@ -739,40 +776,213 @@
         "progress": "Happening now",
         "complete": "Complete",
         "failed": "Needs attention"
-      }
+      },
+      "failureTitle": "Strategy preparation stopped",
+      "failureBody": "The last operation failed before a new draft was saved.",
+      "notRetryable": "This failure needs a changed input or owner action before it can run again.",
+      "openReview": "Open Strategy review"
     },
     "review": {
       "badge": "Owner review",
       "title": "Strategy draft review",
       "subtitle": "Read the plan as a business decision document. Supporting details stay near the claims they explain.",
+      "openHistory": "Version history",
+      "unavailableBadge": "No draft available",
+      "unavailableTitle": "There is no saved Strategy draft to review yet.",
+      "unavailableBody": "Return to Strategy choices, complete the readiness decisions, and explicitly prepare a draft.",
+      "staleProfileTitle": "This plan uses an older Business Profile",
+      "staleProfileBody": "Approval is blocked. Review the newest confirmed profile and prepare a new Strategy version.",
+      "invalidEvidenceTitle": "Some evidence is unavailable or no longer eligible",
+      "invalidEvidenceBody": "{count, plural, =0 {The persisted retrieval pack is unavailable.} one {One citation cannot be resolved to approved current knowledge.} other {# citations cannot be resolved to approved current knowledge.}}",
+      "failedRevisionTitle": "The attempted revision failed",
+      "failedRevisionRetryable": "The previous draft is still available. The server marked this failure as safe to retry.",
+      "failedRevisionNotRetryable": "The previous draft is still available. Change the blocking input before trying again.",
+      "sectionNavigation": "Strategy review sections",
+      "navigation": {
+        "overview": "Overview",
+        "direction": "Direction",
+        "channels": "Channels",
+        "content": "Content guidance",
+        "roadmap": "12-week roadmap",
+        "budget": "Budget",
+        "measurement": "KPIs",
+        "risks": "Risks and gaps",
+        "evidence": "Evidence"
+      },
       "sections": {
-        "summary": {
-          "title": "Plan summary",
-          "body": "Focus the next 12 weeks on turning existing attention into repeat purchases before expanding paid campaigns."
+        "overview": {
+          "title": "Diagnosis and plan summary",
+          "why": "This section connects the confirmed business situation to the plan’s main direction."
+        },
+        "direction": {
+          "title": "Objective, audience, and positioning",
+          "why": "A focused plan needs one primary objective, a specific audience, and a clear reason to choose the business."
         },
         "channels": {
           "title": "Channel fit",
-          "body": "Facebook remains the main working channel, while search presence supports customers who are already looking nearby."
+          "why": "Deterministic scores keep the 2+1 channel limit explainable and expose poor-fit choices."
+        },
+        "content": {
+          "title": "Messaging and content guidance",
+          "why": "Strategy defines themes, formats, and a sustainable cadence; the future Content Agent writes final deliverables."
+        },
+        "roadmap": {
+          "title": "12-week roadmap",
+          "why": "The sequence turns the strategic direction into weekly planning guidance without pretending final posts already exist."
         },
         "budget": {
           "title": "Budget and success measures",
-          "body": "The draft cannot be approved for paid execution until the owner confirms a usable budget."
+          "why": "Scenario arithmetic is deterministic and every amount remains guidance until the owner separately authorizes spend."
+        },
+        "measurement": {
+          "title": "KPIs and measurement",
+          "why": "Each target states its mode and measurement method so benchmarks cannot be mistaken for guarantees."
+        },
+        "risks": {
+          "title": "Assumptions, risks, gaps, and blockers",
+          "why": "Uncertainty stays visible. Blocking gaps must be resolved instead of being hidden by confident wording."
+        },
+        "evidence": {
+          "title": "Evidence and reproducibility",
+          "why": "Every citation must resolve to the exact approved knowledge version in the persisted retrieval pack."
         }
       },
-      "sources": {
-        "profile": "From confirmed profile",
-        "guidance": "Trusted guidance",
-        "ownerChoice": "Needs owner choice"
+      "fields": {
+        "executiveSummary": "Executive summary",
+        "situationDiagnosis": "Situation diagnosis",
+        "objective": "Primary objective",
+        "funnelStage": "Funnel stage",
+        "planLanguage": "Plan language",
+        "ruleVersion": "Channel score rule",
+        "targetAudience": "Target audience",
+        "positioning": "Positioning",
+        "tone": "Tone",
+        "pillars": "Content pillars",
+        "formatMix": "Format mix",
+        "cadence": "Weekly cadence",
+        "assumptions": "Assumptions",
+        "risks": "Risks",
+        "knowledgeGaps": "Knowledge gaps",
+        "blockers": "Approval blockers",
+        "retrievalRun": "Retrieval run",
+        "profileVersion": "Profile version",
+        "entryVersion": "Knowledge version",
+        "marketTier": "Market scope",
+        "effectiveAt": "Effective from",
+        "expiresAt": "Expires",
+        "rationale": "Why this channel scored this way",
+        "measurementNotes": "Measurement notes"
+      },
+      "objectives": {
+        "awareness": "Awareness",
+        "acquisition": "Acquisition",
+        "conversion": "Conversion and sales",
+        "retention": "Retention and repeat business",
+        "launch": "Launch"
+      },
+      "claimSources": {
+        "confirmed_fact": "Confirmed fact",
+        "owner_input": "Owner input",
+        "retrieved_evidence": "Reviewed guidance",
+        "deterministic_result": "Deterministic result",
+        "model_synthesis": "Plan synthesis"
+      },
+      "evidenceTiers": {
+        "verified_benchmark": "Verified benchmark",
+        "reviewed_guidance": "Reviewed guidance",
+        "contextual_note": "Contextual note"
+      },
+      "channelRoles": {
+        "primary": "Primary channel",
+        "supporting": "Supporting channel"
+      },
+      "scoreDimensions": {
+        "objective_fit": "Objective fit",
+        "audience_fit": "Audience fit",
+        "existing_presence": "Existing presence",
+        "asset_format_fit": "Asset and format fit",
+        "team_capacity": "Team capacity",
+        "budget_fit": "Budget fit",
+        "evidence_strength": "Evidence strength",
+        "measurement_readiness": "Measurement readiness"
+      },
+      "scenarioTypes": {
+        "conservative": "Conservative scenario",
+        "base": "Base scenario",
+        "growth": "Growth scenario"
+      },
+      "kpiModes": {
+        "establish_baseline": "Establish baseline",
+        "owner_target": "Owner target",
+        "baseline_improvement": "Baseline improvement",
+        "verified_benchmark_range": "Verified benchmark range"
+      },
+      "contentBoundaryTitle": "Planning guidance, not final content",
+      "contentBoundaryBody": "Pillars, themes, formats, and experiments guide future work. They are not ready-to-publish captions, posts, scripts, or assets.",
+      "spendSafety": "These figures do not authorize MarketMind to spend money, run ads, or move funds.",
+      "week": "Week {week}",
+      "evidenceSummary": "{count, plural, one {One citation is attached to this version.} other {# citations are attached to this version.}}",
+      "itemNumber": "Item {number}",
+      "evidenceUnavailable": "Citation {id} is not available in the persisted retrieval pack.",
+      "historicalEvidenceUnavailable": "The immutable plan keeps this citation excerpt, but full source-quality metadata is unavailable. Do not treat it as approval-ready evidence.",
+      "globalFallback": "Global or regional fallback — not Egyptian evidence",
+      "noExpiry": "No expiry recorded",
+      "notAvailable": "Not available",
+      "openSource": "Open source reference",
+      "channelSelected": "Selected",
+      "channelNotSelected": "Not selected",
+      "budgetApprovalRequired": "Needs owner budget approval",
+      "allocationCheck": "{allocated} EGP allocated of {total} EGP total",
+      "blockingLabel": "Blocks approval",
+      "warningLabel": "Review before approval",
+      "empty": {
+        "channels": "No channel scorecards were saved with this plan.",
+        "roadmap": "No weekly roadmap was saved with this plan.",
+        "budget": "This is an organic-only plan or no paid budget scenario was saved.",
+        "measurement": "No KPI targets were saved with this plan.",
+        "items": "No items recorded."
       }
     },
     "decision": {
       "title": "Owner decision",
       "readyBody": "No blocking decisions remain. You can approve this plan when the content matches your intent.",
-      "blockedBody": "Approval is disabled until the missing budget decision is answered.",
+      "blockedBody": "Approval stays disabled until the profile, evidence, and every blocking decision are current and valid.",
       "approve": "Approve strategy",
       "revise": "Request revision",
       "reject": "Reject draft",
-      "safetyNote": "Approval does not publish content, spend money, run ads, or change confirmed profile facts."
+      "retry": "Retry failed operation",
+      "safetyNote": "Approval does not publish content, spend money, run ads, or change confirmed profile facts.",
+      "readinessLabel": "Approval readiness",
+      "readyTitle": "Ready for an owner decision",
+      "blockedTitle": "Approval is blocked",
+      "profileCurrent": "Business Profile version is current",
+      "evidenceValid": "Every citation resolves to approved current evidence",
+      "noBlockers": "No blocking gaps remain",
+      "feedbackLabel": "Owner feedback",
+      "feedbackPlaceholder": "Explain what should change or why this draft is being rejected…",
+      "cancel": "Cancel",
+      "confirm": "Confirm decision",
+      "pending": "Saving decision…",
+      "dialog": {
+        "approve": {
+          "title": "Approve the whole Strategy?",
+          "body": "This records an intentional owner approval for this immutable version. It does not start content generation or external execution."
+        },
+        "revision_requested": {
+          "title": "Request a new Strategy version?",
+          "body": "The current draft stays available while a revised immutable version is prepared from your feedback."
+        },
+        "reject": {
+          "title": "Reject this Strategy draft?",
+          "body": "Record a clear reason so the decision remains understandable in version history."
+        }
+      },
+      "success": {
+        "approve": "Strategy approved by the owner.",
+        "revision_requested": "Revision requested. The current draft remains available.",
+        "reject": "Strategy draft rejected.",
+        "retry": "Retry started."
+      }
     },
     "history": {
       "badge": "Saved versions",
@@ -781,6 +991,19 @@
       "draftNumber": "Draft {version}",
       "createdAt": "Created {date}",
       "decisionSaved": "Owner decision saved with this version.",
+      "empty": "No immutable Strategy versions have been saved yet.",
+      "profileVersion": "Business Profile version",
+      "retrievalRun": "Retrieval run",
+      "versionId": "Immutable version ID",
+      "openVersion": "Open saved version",
+      "readOnlyBadge": "Saved immutable version",
+      "readOnlyTitle": "This version is read-only",
+      "readOnlyBody": "Use the current draft for owner decisions. This saved version remains available for audit and comparison.",
+      "decisions": {
+        "approved": "Approved by the owner",
+        "rejected": "Rejected by the owner",
+        "revision_requested": "Owner requested a revision"
+      },
       "status": {
         "needs_brief": "Needs choices",
         "ready": "Ready",

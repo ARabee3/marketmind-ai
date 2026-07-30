@@ -16,13 +16,13 @@ export function useStrategy(strategyId: string | null): UseStrategyResult {
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showLoading = true) => {
     if (!strategyId) {
       setStrategy(null)
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (showLoading) setLoading(true)
     setError(null)
     try {
       const result = await getStrategy(strategyId)
@@ -50,5 +50,10 @@ export function useStrategy(strategyId: string | null): UseStrategyResult {
     return () => { mountedRef.current = false }
   }, [load])
 
-  return { strategy, loading, error, refresh: load }
+  return {
+    strategy,
+    loading,
+    error,
+    refresh: () => load(false),
+  }
 }

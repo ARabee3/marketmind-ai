@@ -63,6 +63,33 @@ For each entry, reviewers should confirm:
 | `situation-diagnosis-5cs-swot` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
 | `smart-objectives-funnel-mapping` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; intentionally remains draft until required reviewers approve |
 
+## Issue #103 completion record
+
+These checks apply specifically to
+`situation-diagnosis-5cs-swot` and `smart-objectives-funnel-mapping`. Do not
+check a reviewer on their behalf, and do not use a fixture-only or in-memory
+evaluation as live proof.
+
+### Required human reviews
+
+- [ ] @ARabee3
+- [ ] @mostafamerzk
+- [ ] @abdulazimRabie
+- [ ] @MostafaAhmed22
+- [ ] @GergesYoussef-hub
+
+### Required live proof
+
+- [ ] Corpus validation after approval — evidence:
+- [ ] Committed PostgreSQL and Qdrant ingestion — evidence:
+- [ ] Arabic live framework_diagnosis retrieval — evidence:
+- [ ] English live framework_diagnosis retrieval — evidence:
+- [ ] Live Strategy generation without MISSING_FRAMEWORK_DATA — evidence:
+
+Run `npm run strategy:readiness` after updating this record. It remains blocked
+until both entry front matters are approved, all five reviewers are checked,
+and every live proof line is checked with a real run reference.
+
 ## Approval update rule
 
 After all required reviewers approve an entry, update the entry front matter:

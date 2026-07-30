@@ -69,7 +69,10 @@ async def retrieve_strategy_knowledge(
             payload = point.payload or {}
             results.append(
                 RetrievalCandidate(
-                    chunk_id=UUID(str(point.id)),
+                    # Qdrant point ids are deterministic derived index ids
+                    # (`uuid5(chunk_id#entry_version)`). PostgreSQL hydration
+                    # must use the canonical chunk id stored in the payload.
+                    chunk_id=UUID(str(payload["chunk_id"])),
                     entry_id=UUID(payload["entry_id"]),
                     entry_version=payload["entry_version"],
                     score=point.score,

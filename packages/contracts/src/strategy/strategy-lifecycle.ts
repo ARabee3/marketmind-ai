@@ -2,7 +2,11 @@ import type {
   UUID,
   IsoDateTime,
 } from "../discovery/prepared-discovery-contracts";
-import type { StrategyId, StrategyVersionId } from "./strategy-ids";
+import type {
+  BusinessProfileVersionRef,
+  StrategyId,
+  StrategyVersionId,
+} from "./strategy-ids";
 
 export const STRATEGY_STATUSES = [
   "needs_brief",
@@ -75,11 +79,18 @@ export interface OwnerDecision {
 }
 
 export interface StrategyVersionSummary {
+  version_id: StrategyVersionId;
   strategy_id: UUID;
   version: number;
   status: StrategyStatus;
   brief_id: UUID;
   retrieval_run_id: UUID;
+  profile_version: BusinessProfileVersionRef;
+  /**
+   * Reproducibility metadata only. Providers must never persist API keys,
+   * raw credentials, or other secrets in this object.
+   */
+  prompt_config: Record<string, string | number | boolean | null>;
   created_at: IsoDateTime;
   decision?: OwnerDecision;
 }
