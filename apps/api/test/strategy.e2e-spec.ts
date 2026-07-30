@@ -20,7 +20,6 @@ import { StrategyService } from "../src/modules/strategy/strategy.service";
 import { StrategyRateLimitGuard } from "../src/modules/strategy/strategy-rate-limit.guard";
 
 const STRATEGY_ID = "11111111-1111-4111-8111-111111111111";
-const BUSINESS_ID = "22222222-2222-4222-8222-222222222222";
 const PROFILE_VERSION_ID = "33333333-3333-4333-8333-333333333333";
 const VERSION_ID = "44444444-4444-4444-8444-444444444444";
 const TEST_ACCESS_SECRET = "strategy-e2e-access-secret";
@@ -119,7 +118,7 @@ describe("Strategy public contract (e2e)", () => {
     request(app.getHttpServer())
       .post("/api/v1/strategies")
       .set("Authorization", `Bearer ${developerToken}`)
-      .send({ businessId: BUSINESS_ID })
+      .send({ businessProfileVersionId: PROFILE_VERSION_ID })
       .expect(403));
 
   // ── Routing: no double /api/v1 prefix ───────────────────────────────
@@ -130,12 +129,12 @@ describe("Strategy public contract (e2e)", () => {
     return request(app.getHttpServer())
       .post("/api/v1/strategies")
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ businessId: BUSINESS_ID })
+      .send({ businessProfileVersionId: PROFILE_VERSION_ID })
       .expect(201)
       .expect((response) => {
         expect(response.body.id).toBe(STRATEGY_ID);
         expect(strategyService.createStrategy).toHaveBeenCalledWith(
-          { businessId: BUSINESS_ID },
+          { businessProfileVersionId: PROFILE_VERSION_ID },
           "owner-user-id",
         );
       });
@@ -143,11 +142,11 @@ describe("Strategy public contract (e2e)", () => {
 
   // ── DTO validation ──────────────────────────────────────────────────
 
-  it("rejects a strategy creation with an invalid businessId (400)", () =>
+  it("rejects a strategy creation with an invalid businessProfileVersionId (400)", () =>
     request(app.getHttpServer())
       .post("/api/v1/strategies")
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ businessId: "not-a-uuid" })
+      .send({ businessProfileVersionId: "not-a-uuid" })
       .expect(400));
 
   it("rejects a brief update with missing required fields (400)", () =>

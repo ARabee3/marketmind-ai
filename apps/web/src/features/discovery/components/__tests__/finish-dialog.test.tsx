@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { FinishDialog } from '../finish-dialog'
 import type { DiscoveryReadiness } from '@marketmind/contracts'
 
@@ -44,9 +44,12 @@ describe('FinishDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'finishInterview' }))
 
-    await waitFor(() => expect(screen.getByText('finishDialogTitle')).toBeDefined())
-    expect(screen.getByText('finishDialogIncompleteDescription')).toBeDefined()
-    expect(screen.getByText('domainOffer')).toBeDefined()
+    // base-ui Dialog portals open asynchronously; use async findBy queries
+    // bound to the opened portal state instead of a synchronous getByText.
+    await screen.findByRole('dialog')
+    await screen.findByText('finishDialogTitle')
+    expect(await screen.findByText('finishDialogIncompleteDescription')).toBeDefined()
+    expect(await screen.findByText('domainOffer')).toBeDefined()
   })
 
   it('cancelling dialog sends nothing', async () => {
@@ -60,7 +63,7 @@ describe('FinishDialog', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'finishInterview' }))
-    await waitFor(() => expect(screen.getByText('finishDialogTitle')).toBeDefined())
+    await screen.findByRole('dialog')
 
     fireEvent.click(screen.getByRole('button', { name: 'cancelFinish' }))
     expect(onConfirm).not.toHaveBeenCalled()
@@ -77,7 +80,7 @@ describe('FinishDialog', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'finishInterview' }))
-    await waitFor(() => expect(screen.getByText('finishDialogTitle')).toBeDefined())
+    await screen.findByRole('dialog')
 
     fireEvent.click(screen.getByRole('button', { name: 'confirmFinishLabel' }))
     expect(onConfirm).toHaveBeenCalled()
@@ -94,6 +97,6 @@ describe('FinishDialog', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'finishInterview' }))
-    await waitFor(() => expect(screen.getByText('finishDialogReadyDescription')).toBeDefined())
+    await screen.findByText('finishDialogReadyDescription')
   })
 })

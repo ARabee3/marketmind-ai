@@ -19,6 +19,7 @@ export const QDRANT_KNOWLEDGE_POINT_FIELDS = [
   "checksum",
   "text",
   "kind",
+  "title_ar",
   "locale",
   "markets",
   "industries",
@@ -28,6 +29,7 @@ export const QDRANT_KNOWLEDGE_POINT_FIELDS = [
   "channels",
   "seasons",
   "budget_modes",
+  "requires_paid_media",
   "evidence_tier",
   "review_status",
   "effective_at",
@@ -41,6 +43,7 @@ export type QdrantKnowledgePointRow = {
   checksum: string;
   text: string;
   kind: string;
+  title_ar: string | null;
   locale: string;
   markets: string[];
   industries: string[];
@@ -50,11 +53,22 @@ export type QdrantKnowledgePointRow = {
   channels: string[];
   seasons: string[];
   budget_modes: string[];
+  requires_paid_media: boolean;
   evidence_tier: string;
   review_status: string;
   effective_at: Date;
   expires_at: Date | null;
 };
+
+const PAID_MEDIA_BUDGET_MODES = new Set([
+  "paid_only",
+  "monthly_amount",
+  "three_month_amount",
+]);
+
+function requiresPaidMedia(budgetModes: string[]): boolean {
+  return budgetModes.some((mode) => PAID_MEDIA_BUDGET_MODES.has(mode));
+}
 
 /**
  * Proves Qdrant is a rebuildable derived index over Postgres: joins each
@@ -84,6 +98,7 @@ export class MarketingKnowledgeRebuildService {
       checksum: chunk.checksum,
       text: chunk.text,
       kind: chunk.entryVersion.kind,
+      title_ar: chunk.entryVersion.titleAr,
       locale: chunk.entryVersion.locale,
       markets: chunk.entryVersion.markets,
       industries: chunk.entryVersion.industries,
@@ -93,6 +108,7 @@ export class MarketingKnowledgeRebuildService {
       channels: chunk.entryVersion.channels,
       seasons: chunk.entryVersion.seasons,
       budget_modes: chunk.entryVersion.budgetModes,
+      requires_paid_media: requiresPaidMedia(chunk.entryVersion.budgetModes),
       evidence_tier: chunk.entryVersion.evidenceTier,
       review_status: chunk.entryVersion.reviewStatus,
       effective_at: chunk.entryVersion.effectiveAt,

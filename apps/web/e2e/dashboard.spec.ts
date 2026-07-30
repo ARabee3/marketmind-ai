@@ -54,7 +54,9 @@ for (const locale of locales) {
       await expect(page.getByRole('heading', { name: title(locale, 'confirmed') })).toBeVisible()
       await expect(page.getByText(locale === 'ar' ? 'الإصدار 2' : 'Version 2')).toBeVisible()
       await expect(page.getByText(strategyText(locale, 'inactive'))).toBeVisible()
-      await expect(page.getByRole('link', { name: /Strategy|الاستراتيجية/ })).toHaveCount(0)
+      await expect(
+        page.getByRole('link', { name: /View strategy|عرض الاستراتيجية/ }),
+      ).toHaveCount(0)
     })
 
     test('shows a recovery state when the journey endpoint fails', async ({ page }) => {

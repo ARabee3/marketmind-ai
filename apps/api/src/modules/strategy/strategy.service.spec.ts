@@ -20,6 +20,7 @@ type MockedRepo = jest.Mocked<Partial<StrategyRepository>>;
 function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
   return {
     getActiveConfirmedProfileVersion: jest.fn(),
+    getConfirmedProfileVersionByIdAndOwner: jest.fn(),
     createStrategy: jest.fn(),
     getStrategyByIdAndOwner: jest.fn(),
     upsertBrief: jest.fn(),
@@ -31,6 +32,9 @@ function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
     recordOwnerDecision: jest.fn(),
     claimForGeneration: jest.fn(),
     appendProgressEvent: jest.fn().mockResolvedValue({}),
+    listProgressEvents: jest.fn(),
+    listVersions: jest.fn(),
+    listRetrievalRunBriefIds: jest.fn(),
     ...overrides,
   };
 }
@@ -66,22 +70,27 @@ describe("StrategyService", () => {
 
   describe("createStrategy", () => {
     it("rejects when no confirmed business profile exists", async () => {
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(null);
+      (repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        service.createStrategy({ businessId: "biz-1" }, OWNER_ID),
+        service.createStrategy({ businessProfileVersionId: "prof-1" }, OWNER_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
     it("creates the strategy when a confirmed profile exists", async () => {
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
+      (repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock).mockResolvedValue({
         id: "prof-1",
+        businessId: "biz-1",
       });
       (repository.createStrategy as jest.Mock).mockResolvedValue({ id: STRAT_ID });
 
-      const result = await service.createStrategy({ businessId: "biz-1" }, OWNER_ID);
+      const result = await service.createStrategy({ businessProfileVersionId: "prof-1" }, OWNER_ID);
 
       expect(result).toEqual({ id: STRAT_ID });
+      expect(repository.getConfirmedProfileVersionByIdAndOwner).toHaveBeenCalledWith(
+        "prof-1",
+        OWNER_ID,
+      );
       expect(repository.createStrategy).toHaveBeenCalledWith("biz-1", OWNER_ID);
     });
   });
@@ -527,6 +536,67 @@ describe("StrategyService", () => {
       await expect(service.startGeneration(STRAT_ID, OWNER_ID)).resolves.toEqual(
         expect.objectContaining({ status: "queued" }),
       );
+    });
+
+    it("returns persisted progress events in contract shape", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "queued",
+      });
+      (repository.listProgressEvents as jest.Mock).mockResolvedValue([
+        {
+          strategyId: STRAT_ID,
+          seq: 1,
+          stage: "retrieval",
+          status: "complete",
+          messageKey: "strategy.retrieval.complete",
+          messageText: "Knowledge retrieval complete.",
+          payload: { retrieval_run_id: "run-1", retryable: true },
+          createdAt: new Date("2026-07-28T10:00:00.000Z"),
+        },
+      ]);
+
+      await expect(service.getProgressEvents(STRAT_ID, OWNER_ID)).resolves.toEqual([
+        {
+          type: "strategy_progress",
+          strategy_id: STRAT_ID,
+          seq: 1,
+          stage: "retrieval",
+          status: "complete",
+          message_key: "strategy.retrieval.complete",
+          message_text: "Knowledge retrieval complete.",
+          retryable: true,
+          payload: { retrieval_run_id: "run-1", retryable: true },
+          created_at: "2026-07-28T10:00:00.000Z",
+        },
+      ]);
+    });
+  });
+
+  describe("getStrategyVersions", () => {
+    it("maps retrieval runs to non-empty brief ids", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({ id: STRAT_ID });
+      (repository.listVersions as jest.Mock).mockResolvedValue([
+        {
+          strategyId: STRAT_ID,
+          version: 1,
+          retrievalRunId: "run-1",
+          createdAt: new Date("2026-07-28T10:00:00.000Z"),
+          decisions: [],
+        },
+      ]);
+      (repository.listRetrievalRunBriefIds as jest.Mock).mockResolvedValue([
+        { id: "run-1", briefId: "brief-1" },
+      ]);
+
+      await expect(service.getStrategyVersions(STRAT_ID, OWNER_ID)).resolves.toEqual([
+        expect.objectContaining({
+          strategy_id: STRAT_ID,
+          version: 1,
+          brief_id: "brief-1",
+          retrieval_run_id: "run-1",
+        }),
+      ]);
     });
   });
 });

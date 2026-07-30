@@ -161,7 +161,6 @@ Body content for the CLI integration test.
             "--repo-root",
             str(tmp_path),
             "--no-strict-sources",
-            "--skip-db-ready",
             "--actor",
             "cli-test",
             "--commit-sha",
@@ -301,7 +300,6 @@ Body content for the rebuild integration test.
             "--repo-root",
             str(tmp_path),
             "--no-strict-sources",
-            "--skip-db-ready",
         ],
     )
     assert ingest_result.exit_code == 0, ingest_result.output
@@ -322,7 +320,6 @@ Body content for the rebuild integration test.
         app,
         [
             "rebuild",
-            "--skip-db-ready",
         ],
     )
     assert rebuild_result.exit_code == 0, rebuild_result.output

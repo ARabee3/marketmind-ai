@@ -1,5 +1,10 @@
 from app.rag.schemas import RetrievalQueryContext
-from app.rag.query_builder import build_subqueries, get_locale_filter, get_market_filter
+from app.rag.query_builder import (
+    build_subqueries,
+    get_industry_filter,
+    get_locale_filter,
+    get_market_filter,
+)
 
 
 def test_get_locale_filter():
@@ -12,6 +17,12 @@ def test_get_market_filter():
     assert get_market_filter("egypt") == ["egypt", "mena", "global"]
     assert get_market_filter("mena") == ["mena", "global"]
     assert get_market_filter("global") == ["global"]
+
+
+def test_get_industry_filter():
+    assert get_industry_filter("retail") == ["retail", "general"]
+    assert get_industry_filter("general") == ["general"]
+    assert get_industry_filter(None) is None
 
 
 def test_build_subqueries():
@@ -48,6 +59,12 @@ def test_build_subqueries():
     assert fb.kind_filter == "channel_playbook"
     assert fb.locale_filter == ["ar-EG", "mixed"]
     assert fb.market_filter == ["egypt", "mena", "global"]
+    assert fb.industry_filter == ["fashion", "general"]
+
+    framework = next(
+        sq for sq in subqueries if sq.category == "framework_diagnosis"
+    )
+    assert framework.industry_filter == ["fashion", "general"]
 
 
 def test_build_subqueries_organic_only():
@@ -70,3 +87,22 @@ def test_build_subqueries_organic_only():
     cats = {sq.category for sq in subqueries}
     assert "budget_method" not in cats
     assert len(cats) == 4
+
+
+def test_build_subqueries_does_not_duplicate_general_industry():
+    context = RetrievalQueryContext(
+        business_type="services",
+        market="egypt",
+        locale="en",
+        objective="conversion",
+        funnel_stage="conversion",
+        active_channels=[],
+        asset_capability=[],
+        team_capacity="owner",
+        budget_mode="organic_only",
+        industry="general",
+    )
+
+    subqueries = build_subqueries(context)
+
+    assert all(sq.industry_filter == ["general"] for sq in subqueries)

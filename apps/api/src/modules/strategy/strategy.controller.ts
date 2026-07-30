@@ -78,6 +78,15 @@ export class StrategyController {
     return this.strategyService.getStrategy(id, req.user.id);
   }
 
+  @Get(":id/versions")
+  @Permissions(PERMISSIONS.STRATEGY_START)
+  getStrategyVersions(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.strategyService.getStrategyVersions(id, req.user.id);
+  }
+
   @Get(":id/versions/:version")
   @Permissions(PERMISSIONS.STRATEGY_START)
   getStrategyVersion(
@@ -95,6 +104,15 @@ export class StrategyController {
     @Req() req: RequestWithUser,
   ) {
     return this.strategyService.getRetrievalPack(id, req.user.id);
+  }
+
+  @Get(":id/progress")
+  @Permissions(PERMISSIONS.STRATEGY_START)
+  getProgressEvents(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.strategyService.getProgressEvents(id, req.user.id);
   }
 
   @Post(":id/decisions")

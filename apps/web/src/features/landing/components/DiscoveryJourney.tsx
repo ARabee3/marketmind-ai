@@ -23,12 +23,19 @@ export async function DiscoveryJourney() {
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <path d="M50 8 C20 110 82 150 50 240 C18 330 78 390 50 512" />
+          <path className="discovery-stepper-line-base" d="M50 8 C20 110 82 150 50 240 C18 330 78 390 50 512" />
+          <path className="discovery-stepper-line-progress" d="M50 8 C20 110 82 150 50 240 C18 330 78 390 50 512" />
         </svg>
 
         <div className="discovery-stepper-list">
           {steps.map((step, index) => (
-            <Reveal key={step.no} delay={index * 0.08} y={18} viewportMargin="-15%" className="discovery-step-wrapper">
+            <Reveal
+              key={step.no}
+              delay={index * 0.08}
+              y={18}
+              viewportMargin="-15%"
+              className={`discovery-step-wrapper ${index % 2 === 0 ? 'discovery-step-wrapper--start' : 'discovery-step-wrapper--end'}`}
+            >
               <article className="discovery-step">
                 <span className="discovery-step-number is-active">{step.no}</span>
                 <div className="discovery-step-card">

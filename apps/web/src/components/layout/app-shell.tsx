@@ -16,14 +16,15 @@ import {
 import { AppShellMobileNav } from './app-shell-mobile-nav'
 
 type NavItem = {
-  href: '/discovery' | '/dashboard'
-  labelKey: 'navDiscovery' | 'navDashboard'
+  href: '/discovery' | '/dashboard' | '/strategy'
+  labelKey: 'navDiscovery' | 'navDashboard' | 'navStrategy'
   iconName: AppShellIconName
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/discovery', labelKey: 'navDiscovery', iconName: 'compass' },
   { href: '/dashboard', labelKey: 'navDashboard', iconName: 'layout-dashboard' },
+  { href: '/strategy', labelKey: 'navStrategy', iconName: 'strategy' },
 ]
 
 function isActive(pathname: string, href: string): boolean {

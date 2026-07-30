@@ -26,11 +26,35 @@ export class StrategyRepository {
     });
   }
 
+  async getConfirmedProfileVersionByIdAndOwner(
+    id: string,
+    ownerUserId: string,
+  ) {
+    return this.prisma.businessProfileVersion.findFirst({
+      where: {
+        id,
+        business: { ownerUserId },
+      },
+      select: {
+        id: true,
+        businessId: true,
+        version: true,
+        confirmedAt: true,
+      },
+    });
+  }
+
   async getStrategyByIdAndOwner(id: string, ownerUserId: string) {
     const strategy = await this.prisma.strategy.findUnique({
       where: { id },
       include: {
-        brief: true,
+        brief: {
+          include: {
+            businessProfileVersion: {
+              select: { id: true, confirmedAt: true, version: true },
+            },
+          },
+        },
         business: {
           select: { id: true, businessType: true, primaryLocale: true, displayName: true },
         },
@@ -152,6 +176,21 @@ export class StrategyRepository {
   }
 
   // ── Version helpers ─────────────────────────────────────────────────
+
+  async listVersions(strategyId: string) {
+    return this.prisma.strategyVersion.findMany({
+      where: { strategyId },
+      orderBy: { version: "desc" },
+      include: { decisions: true },
+    });
+  }
+
+  async listRetrievalRunBriefIds(retrievalRunIds: string[]) {
+    return this.prisma.strategyRetrievalRun.findMany({
+      where: { id: { in: retrievalRunIds } },
+      select: { id: true, briefId: true },
+    });
+  }
 
   async getVersionByNumber(strategyId: string, version: number): Promise<StrategyVersion | null> {
     return this.prisma.strategyVersion.findUnique({
@@ -324,6 +363,13 @@ export class StrategyRepository {
     });
 
     return savedEvent;
+  }
+
+  async listProgressEvents(strategyId: string): Promise<PersistedStrategyProgressEvent[]> {
+    return this.prisma.strategyProgressEvent.findMany({
+      where: { strategyId },
+      orderBy: { seq: "asc" },
+    });
   }
 }
 

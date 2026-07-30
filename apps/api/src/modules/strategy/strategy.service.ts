@@ -11,6 +11,13 @@ import { Queue } from "bullmq";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { randomUUID } from "crypto";
+import type {
+  OwnerDecision,
+  StrategyProgressEvent,
+  StrategyProgressStage,
+  StrategyProgressStatus,
+  StrategyVersionSummary,
+} from "@marketmind/contracts";
 import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
@@ -39,15 +46,16 @@ export class StrategyService {
   // ── POST /api/v1/strategies ─────────────────────────────────────────
 
   async createStrategy(dto: CreateStrategyDto, ownerUserId: string) {
-    const profile = await this.strategyRepository.getActiveConfirmedProfileVersion(
-      dto.businessId,
+    const profile = await this.strategyRepository.getConfirmedProfileVersionByIdAndOwner(
+      dto.businessProfileVersionId,
+      ownerUserId,
     );
     if (!profile) {
       throw new BadRequestException(
-        "No confirmed business profile found for this business.",
+        "No confirmed business profile found for this owner.",
       );
     }
-    return this.strategyRepository.createStrategy(dto.businessId, ownerUserId);
+    return this.strategyRepository.createStrategy(profile.businessId, ownerUserId);
   }
 
   // ── PUT /api/v1/strategies/:id/brief ───────────────────────────────
@@ -266,6 +274,29 @@ export class StrategyService {
     return strategy;
   }
 
+  // ── GET /api/v1/strategies/:id/versions ─────────────────────────────
+
+  async getStrategyVersions(id: string, ownerUserId: string) {
+    const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
+      id,
+      ownerUserId,
+    );
+    if (!strategy) throw new NotFoundException("Strategy not found");
+
+    const versions = await this.strategyRepository.listVersions(id);
+    const retrievalRunIds = versions
+      .map((version) => version.retrievalRunId)
+      .filter((runId): runId is string => runId !== null);
+    const runBriefIds = await this.strategyRepository.listRetrievalRunBriefIds(retrievalRunIds);
+    const briefIdByRunId = new Map(
+      runBriefIds.map((run) => [run.id, run.briefId]),
+    );
+    return versions.map((version) => toVersionSummary(
+      version,
+      version.retrievalRunId ? briefIdByRunId.get(version.retrievalRunId) : null,
+    ));
+  }
+
   // ── GET /api/v1/strategies/:id/versions/:version ───────────────────
 
   async getStrategyVersion(id: string, version: number, ownerUserId: string) {
@@ -292,6 +323,17 @@ export class StrategyService {
     const run = await this.strategyRepository.getLatestRetrievalRun(id);
     if (!run) throw new NotFoundException("No retrieval pack found for this strategy");
     return run;
+  }
+
+  async getProgressEvents(id: string, ownerUserId: string): Promise<StrategyProgressEvent[]> {
+    const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
+      id,
+      ownerUserId,
+    );
+    if (!strategy) throw new NotFoundException("Strategy not found");
+
+    const events = await this.strategyRepository.listProgressEvents(id);
+    return events.map(toProgressEvent);
   }
 
   // ── POST /api/v1/strategies/:id/decisions ──────────────────────────
@@ -528,4 +570,92 @@ function normalizeExternalBudgetEgp(
     };
   }
   return null;
+}
+
+function toVersionSummary(
+  v: Awaited<ReturnType<StrategyRepository["listVersions"]>>[number],
+  briefId: string | null | undefined,
+): StrategyVersionSummary {
+  const decision = v.decisions?.[0]
+    ? {
+        id: v.decisions[0].id,
+        strategy_id: v.strategyId,
+        strategy_version: v.version,
+        decision: v.decisions[0].action as OwnerDecision["decision"],
+        revision_notes: v.decisions[0].feedback,
+        decided_by_user_id: v.decisions[0].ownerUserId,
+        decided_at: v.decisions[0].createdAt.toISOString(),
+      }
+    : undefined;
+
+  return {
+    strategy_id: v.strategyId,
+    version: v.version,
+    status: "draft",
+    brief_id: briefId ?? "",
+    retrieval_run_id: v.retrievalRunId ?? "",
+    created_at: v.createdAt.toISOString(),
+    decision,
+  };
+}
+
+function toProgressEvent(event: Awaited<ReturnType<StrategyRepository["listProgressEvents"]>>[number]): StrategyProgressEvent {
+  const payload = toPayload(event.payload);
+  return {
+    type: "strategy_progress",
+    strategy_id: event.strategyId,
+    seq: event.seq,
+    stage: toProgressStage(event.stage),
+    status: toProgressStatus(event.status),
+    message_key: event.messageKey,
+    message_text: event.messageText,
+    retryable: payload.retryable === true,
+    payload,
+    created_at: event.createdAt.toISOString(),
+  };
+}
+
+function toPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const payload: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    payload[key] = item;
+  }
+  return payload;
+}
+
+function toProgressStage(value: string): StrategyProgressStage {
+  switch (value) {
+    case "queued":
+      return "queued";
+    case "query_planning":
+      return "query_planning";
+    case "retrieval":
+      return "retrieval";
+    case "generating":
+      return "generating";
+    case "validating":
+      return "validating";
+    case "ready":
+      return "ready";
+    case "failed":
+      return "failed";
+    default:
+      return "failed";
+  }
+}
+
+function toProgressStatus(value: string): StrategyProgressStatus {
+  switch (value) {
+    case "started":
+      return "started";
+    case "progress":
+      return "progress";
+    case "complete":
+      return "complete";
+    case "failed":
+      return "failed";
+    default:
+      return "failed";
+  }
 }

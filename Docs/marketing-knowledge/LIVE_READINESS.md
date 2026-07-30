@@ -30,3 +30,13 @@ must only index entries where:
 
 Do not mark entries approved from automation alone. Human review is the approval
 gate for this corpus.
+
+## Issue #103 framework-diagnosis gate
+
+The source-backed revisions to `situation-diagnosis-5cs-swot` and
+`smart-objectives-funnel-mapping` remain `draft` until Ahmed, Merzek, and Gerges
+complete the approval checklist above. After approval, re-run corpus validation,
+ingest the approved versions into PostgreSQL/Qdrant, and run the Arabic and
+English `framework_diagnosis` retrieval smoke cases. Issue #103 must remain open
+until both live cases retrieve the approved framework and Strategy generation no
+longer emits the blocking `MISSING_FRAMEWORK_DATA` gap.

@@ -45,6 +45,7 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   STRATEGY_CHANNEL_LIMIT_EXCEEDED: 'Errors.validationError',
   STRATEGY_EVIDENCE_NOT_APPROVED: 'Errors.validationError',
   STRATEGY_SCORE_MISMATCH: 'Errors.validationError',
+  STRATEGY_LANGUAGE_MISMATCH: 'Errors.validationError',
   STRATEGY_APPROVAL_BLOCKED: 'Errors.generic',
 }
 

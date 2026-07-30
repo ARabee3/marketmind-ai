@@ -5,6 +5,11 @@
     "notes": "Tests retrieval of the situation-diagnosis framework; secondary hit is the objective-mapping framework that follows it."
   },
   {
+    "query": "إزاي أشخص المشكلة الأول قبل ما أختار هدف الوعي أو اكتساب العملاء أو التحويل؟",
+    "expected_top_slugs": ["situation-diagnosis-5cs-swot", "smart-objectives-funnel-mapping"],
+    "notes": "Arabic framework-diagnosis seed covering bottleneck diagnosis before objective selection."
+  },
+  {
     "query": "How do I turn a vague goal like 'more sales' into one measurable objective?",
     "expected_top_slugs": ["smart-objectives-funnel-mapping", "kpi-modes-and-vanity-vs-business-metrics"],
     "notes": "Bridges SMART objectives to KPI choice."

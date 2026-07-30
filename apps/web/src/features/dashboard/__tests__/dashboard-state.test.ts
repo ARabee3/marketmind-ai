@@ -5,6 +5,7 @@ import type {
   ActiveDiscoveryStatus,
   CurrentJourneyDiscoverySummary,
   CurrentJourneyResponse,
+  StrategyStatus,
   UnavailableDiscoveryStatus,
 } from '@marketmind/contracts'
 import { mapCurrentJourney, errorDashboardState } from '../dashboard-state'
@@ -69,7 +70,64 @@ describe('mapCurrentJourney', () => {
     expect(state.primaryActionType).toBe('none')
     expect(state.primaryHref).toBeNull()
   })
+
+  // Regression for issue #114: a user with a saved Strategy draft must not
+  // land on the empty "no business profile yet" state when the journey-side
+  // business summary is absent.
+  it('prefers the strategy business snapshot over the empty journey state', () => {
+    const state = mapCurrentJourney(responseWithActiveStrategyAndNoJourney())
+
+    expect(state.kind).toBe('strategy_draft')
+    expect(state.primaryActionType).toBe('view_strategy')
+    expect(state.primaryHref).toBe('/strategy/00000000-0000-4000-8000-000000000000')
+    expect(state.businessName).toBe('Nile Sweets')
+    expect(state.businessType).toBe('dessert shop')
+    expect(state.profileVersion).toBe(2)
+    expect(state.strategyLockedReason).toBe('strategy_active')
+  })
+
+  it('shows the strategy draft context when discovery is confirmed and a draft exists', () => {
+    const state = mapCurrentJourney(responseWithConfirmedProfileAndStrategy())
+
+    expect(state.kind).toBe('strategy_draft')
+    expect(state.businessName).toBe('Nile Sweets')
+    expect(state.primaryActionType).toBe('view_strategy')
+  })
+
+  it.each([
+    ['ready', 'strategy_preparing'],
+    ['retrieving', 'strategy_preparing'],
+    ['queued', 'strategy_preparing'],
+    ['generating', 'strategy_preparing'],
+    ['validating', 'strategy_preparing'],
+    ['draft', 'strategy_draft'],
+    ['approved', 'strategy_approved'],
+    ['rejected', 'strategy_rejected'],
+  ] satisfies [AvailableStrategyStatus, string][])(
+    'preserves the %s lifecycle as %s dashboard copy',
+    (status, kind) => {
+      const state = mapCurrentJourney(
+        responseWithConfirmedProfileAndStrategy(status),
+      )
+
+      expect(state.kind).toBe(kind)
+      expect(state.strategyStatus).toBe(status)
+    },
+  )
+
+  it('falls back to the confirmed journey profile when the strategy snapshot is absent', () => {
+    const response = responseWithConfirmedProfileAndStrategy('draft', null)
+    const state = mapCurrentJourney(response)
+
+    expect(state.kind).toBe('strategy_draft')
+    expect(state.businessName).toBe('Nile Sweets')
+    expect(state.businessType).toBe('dessert shop')
+    expect(state.location).toBe('Assiut City, Assiut')
+    expect(state.profileVersion).toBe(2)
+  })
 })
+
+type AvailableStrategyStatus = Exclude<StrategyStatus, 'needs_brief' | 'failed'>
 
 function responseWithNoJourney(): CurrentJourneyResponse {
   return {
@@ -131,6 +189,50 @@ function responseWithUnavailableDiscovery(
     },
     future_phase: futurePhase('discovery_required'),
     primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+    generated_at: '2026-07-17T10:00:00.000Z',
+  }
+}
+
+function responseWithActiveStrategyAndNoJourney(): CurrentJourneyResponse {
+  return {
+    owner: owner(),
+    journey: { state: 'no_journey', discovery: null, profile: null },
+    future_phase: futurePhase('strategy_active'),
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+    },
+    generated_at: '2026-07-17T10:00:00.000Z',
+  }
+}
+
+function responseWithConfirmedProfileAndStrategy(
+  status: AvailableStrategyStatus = 'draft',
+  business: ReturnType<typeof strategyBusiness> | null = strategyBusiness(),
+): CurrentJourneyResponse {
+  return {
+    owner: owner(),
+    journey: {
+      state: 'discovery_confirmed',
+      discovery: discovery('confirmed'),
+      profile: {
+        business_profile_version_id: 'profile-version-id',
+        business_id: 'business-id',
+        version: 2,
+        business_name: 'Nile Sweets',
+        business_type: 'dessert shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        confirmed_at: '2026-07-17T10:05:00.000Z',
+      },
+    },
+    future_phase: futurePhase('strategy_active', status, business),
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+    },
     generated_at: '2026-07-17T10:00:00.000Z',
   }
 }
@@ -203,12 +305,36 @@ function discovery<
 
 function futurePhase(
   reason: CurrentJourneyResponse['future_phase']['reason'],
+  status: AvailableStrategyStatus = 'draft',
+  business: ReturnType<typeof strategyBusiness> | null = strategyBusiness(),
 ): CurrentJourneyResponse['future_phase'] {
+  if (reason === 'strategy_active') {
+    return {
+      phase: 'strategy',
+      availability: 'available',
+      status,
+      reason: 'strategy_active',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      current_version_id: null,
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+      business,
+    }
+  }
   return {
     phase: 'strategy',
     availability: reason === 'strategy_not_active' ? 'unavailable' : 'locked',
     status: 'needs_brief',
     reason,
     destination: null,
+  }
+}
+
+function strategyBusiness() {
+  return {
+    business_name: 'Nile Sweets',
+    business_type: 'dessert shop',
+    city: 'Assiut',
+    area: 'Assiut City',
+    profile_version: 2,
   }
 }

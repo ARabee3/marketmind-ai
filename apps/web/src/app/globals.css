@@ -305,9 +305,18 @@ h3 {
 
 .discovery-stepper-line path {
   fill: none;
-  stroke: var(--journey-mint);
   stroke-linecap: round;
   stroke-width: 4;
+}
+
+.discovery-stepper-line-base {
+  stroke: rgb(255 255 255 / 18%);
+}
+
+.discovery-stepper-line-progress {
+  stroke: var(--journey-mint);
+  stroke-dasharray: 620;
+  stroke-dashoffset: 620;
 }
 
 .discovery-stepper-list {
@@ -324,19 +333,19 @@ h3 {
   gap: 28px;
 }
 
-.discovery-step:nth-child(odd) {
+.discovery-step-wrapper--start .discovery-step {
   align-items: start;
 }
 
-.discovery-step:nth-child(odd) .discovery-step-card {
+.discovery-step-wrapper--start .discovery-step-card {
   margin-top: 124px;
 }
 
-.discovery-step:nth-child(even) .discovery-step-card {
+.discovery-step-wrapper--end .discovery-step-card {
   grid-column: 3;
 }
 
-.discovery-step:nth-child(even) .discovery-step-number {
+.discovery-step-wrapper--end .discovery-step-number {
   grid-column: 2;
   grid-row: 1;
 }
@@ -371,6 +380,32 @@ h3 {
   padding: 24px;
 }
 
+.faq-chevron {
+  transition: transform 160ms ease;
+}
+
+details[open] .faq-chevron {
+  transform: rotate(180deg);
+}
+
+@keyframes drawDiscoveryStepper {
+  from {
+    stroke-dashoffset: 620;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  .discovery-stepper-line-progress {
+    animation: drawDiscoveryStepper linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 78%;
+  }
+}
+
 @media (max-width: 820px) {
   .hero-workspace {
     min-height: auto;
@@ -388,18 +423,18 @@ h3 {
   }
 
   .discovery-step,
-  .discovery-step:nth-child(even) {
+  .discovery-step-wrapper--end .discovery-step {
     grid-template-columns: 64px 1fr;
     align-items: center;
     gap: 14px;
   }
 
-  .discovery-step:nth-child(odd) .discovery-step-card {
+  .discovery-step-wrapper--start .discovery-step-card {
     margin-top: 0;
   }
 
   .discovery-step-number,
-  .discovery-step:nth-child(even) .discovery-step-number {
+  .discovery-step-wrapper--end .discovery-step-number {
     grid-column: 1;
     width: 64px;
     height: 64px;
@@ -407,7 +442,7 @@ h3 {
   }
 
   .discovery-step-card,
-  .discovery-step:nth-child(even) .discovery-step-card {
+  .discovery-step-wrapper--end .discovery-step-card {
     grid-column: 2;
   }
 }
@@ -446,5 +481,10 @@ h3 {
 
   .capability-marquee-clone {
     display: none !important;
+  }
+
+  .discovery-stepper-line-progress {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

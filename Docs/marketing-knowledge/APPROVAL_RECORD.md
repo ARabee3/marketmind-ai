@@ -30,7 +30,7 @@ For each entry, reviewers should confirm:
 
 | Slug | Status | Ahmed | Merzek | Gerges | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `audience-positioning-stp` | Pending | Pending | Pending | Pending | Framework entry |
+| `audience-positioning-stp` | Pending | Pending | Pending | Pending | Outside issue #103 diagnosis scope; remains draft pending the full #68 corpus review |
 | `benchmark-egypt-facebook-reach` | Pending | Pending | Pending | Pending | Verified benchmark entry |
 | `benchmark-egypt-instagram-reach` | Pending | Pending | Pending | Pending | Verified benchmark entry |
 | `benchmark-egypt-internet-social-penetration` | Pending | Pending | Pending | Pending | Verified benchmark entry |
@@ -45,7 +45,7 @@ For each entry, reviewers should confirm:
 | `content-agent-handoff-boundary` | Pending | Pending | Pending | Pending | Content boundary |
 | `content-experiments-and-format-mix` | Pending | Pending | Pending | Pending | Content playbook |
 | `content-pillars-and-cadence-by-capacity` | Pending | Pending | Pending | Pending | Content playbook |
-| `customer-needs-value-proposition-relevant-7ps` | Pending | Pending | Pending | Pending | Framework entry |
+| `customer-needs-value-proposition-relevant-7ps` | Pending | Pending | Pending | Pending | Outside issue #103 diagnosis scope; remains draft pending the full #68 corpus review |
 | `engagement-rate-benchmark-caveat` | Pending | Pending | Pending | Pending | Measurement caveat |
 | `governance-approval-citation-and-limits-policy` | Pending | Pending | Pending | Pending | Policy entry |
 | `kpi-modes-and-vanity-vs-business-metrics` | Pending | Pending | Pending | Pending | Measurement playbook |
@@ -60,8 +60,8 @@ For each entry, reviewers should confirm:
 | `sector-note-hospitality` | Pending | Pending | Pending | Pending | Sector note |
 | `sector-note-retail` | Pending | Pending | Pending | Pending | Sector note |
 | `sector-note-services` | Pending | Pending | Pending | Pending | Sector note |
-| `situation-diagnosis-5cs-swot` | Pending | Pending | Pending | Pending | Framework entry |
-| `smart-objectives-funnel-mapping` | Pending | Pending | Pending | Pending | Framework entry |
+| `situation-diagnosis-5cs-swot` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
+| `smart-objectives-funnel-mapping` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; intentionally remains draft until required reviewers approve |
 
 ## Approval update rule
 

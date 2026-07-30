@@ -4,8 +4,8 @@ These versions are injected into system prompts and recorded in generation metad
 so every plan can be reproduced and reviewed.
 """
 
-STRATEGY_GENERATE_PROMPT_VERSION = "strategy-generate-v1"
-STRATEGY_REVISE_PROMPT_VERSION = "strategy-revise-v1"
+STRATEGY_GENERATE_PROMPT_VERSION = "strategy-generate-v2"
+STRATEGY_REVISE_PROMPT_VERSION = "strategy-revise-v2"
 
 # Tracks the external reference-pattern influence declared in issue #74.
 # This is *not* a source of evidence; it only records that the prompt structure

@@ -10,6 +10,9 @@ from tests.evaluation.runner.retrieval_runner import RetrievalEvalRunner
 
 pytestmark = pytest.mark.integration
 
+FRAMEWORK_DIAGNOSIS_CHUNK_ID = "a0000000-0050-4000-8000-000000000050"
+SERVICES_FRAMEWORK_CHUNK_ID = "a0000000-0020-4000-8000-000000000020"
+
 
 def _smoke_cases(dataset: EvalDataset) -> list[EvalCase]:
     seen_sectors: set[str] = set()
@@ -57,6 +60,43 @@ async def test_retrieval_evaluation_smoke(
 
     _ = format_human_summary(report)
     _ = format_json_report(report)
+
+
+@pytest.mark.eval_smoke
+async def test_general_framework_diagnosis_is_retrieved_for_arabic_and_english(
+    qdrant_test_client,
+    test_collection_name: str,
+    fake_provider,
+    eval_dataset: EvalDataset,
+    all_fixture_data: list[list[dict]],
+) -> None:
+    runner = RetrievalEvalRunner(
+        qdrant_test_client,
+        test_collection_name,
+        fake_provider,
+    )
+    await runner.ensure_collection()
+    await runner.load_fixtures(all_fixture_data)
+
+    cases = {
+        case.id: case
+        for case in eval_dataset.cases
+        if case.id in {"retail-ar-awareness-001", "retail-en-acquisition-002"}
+    }
+    assert set(cases) == {
+        "retail-ar-awareness-001",
+        "retail-en-acquisition-002",
+    }
+
+    for case in cases.values():
+        result = await runner.run_case(case)
+        framework_result = next(
+            subquery
+            for subquery in result.subquery_results
+            if subquery.subquery_category == "framework_diagnosis"
+        )
+        assert FRAMEWORK_DIAGNOSIS_CHUNK_ID in framework_result.returned_chunk_ids
+        assert SERVICES_FRAMEWORK_CHUNK_ID not in framework_result.returned_chunk_ids
 
 
 @pytest.mark.eval_full

@@ -24,6 +24,7 @@ from tests.strategy.fixtures import (
     default_brief,
     default_business_profile,
     default_retrieval_pack,
+    english_brief,
     make_decision_bundle,
     make_generate_request,
     make_revise_request,
@@ -98,6 +99,87 @@ class TestGenerateEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["plan"]["contract_version"] == "strategy-v1"
+
+    def test_generate_endpoint_returns_valid_english_owner_text(self):
+        request = make_generate_request(brief=english_brief())
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        result = StrategyGenerateResponse.model_validate(response.json())
+        assert not any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            for issue in result.validation.issues
+        )
+        assert result.plan.plan_language == "en"
+        assert result.plan.executive_summary.text.startswith("For ")
+
+    def test_language_mismatch_is_retried_with_correction_prompt(self, monkeypatch):
+        request = make_generate_request()
+        bad_plan = load_default_plan_fixture().model_copy(update={
+            "executive_summary": load_default_plan_fixture().executive_summary.model_copy(
+                update={"text": "Launch a local campaign and review it weekly."}
+            ),
+        })
+        good_plan = load_default_plan_fixture()
+
+        class SequenceProvider:
+            def __init__(self):
+                self.prompts = []
+                self.plans = [bad_plan, good_plan]
+
+            async def generate_strategy_plan(self, prompt):
+                self.prompts.append(prompt)
+                return self.plans.pop(0)
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert len(provider.prompts) == 2
+        assert "MANDATORY LANGUAGE CORRECTION" in provider.prompts[1].system_prompt
+
+    def test_language_mismatch_returns_422_after_bounded_retries(self, monkeypatch):
+        request = make_generate_request()
+        fixture = load_default_plan_fixture()
+        bad_plan = fixture.model_copy(update={
+            "executive_summary": fixture.executive_summary.model_copy(
+                update={"text": "Launch a local campaign and review it weekly."}
+            ),
+        })
+
+        class MismatchedProvider:
+            def __init__(self):
+                self.call_count = 0
+
+            async def generate_strategy_plan(self, _prompt):
+                self.call_count += 1
+                return bad_plan
+
+        provider = MismatchedProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 422
+        assert provider.call_count == 3
+        assert response.json()["detail"]["error_type"] == "STRATEGY_LANGUAGE_MISMATCH"
 
 
 class TestMockStrategyProvider:

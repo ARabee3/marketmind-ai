@@ -16,6 +16,7 @@ type MockedService = jest.Mocked<
     | "getStrategy"
     | "getStrategyVersion"
     | "getRetrievalPack"
+    | "getProgressEvents"
     | "handleDecision"
     | "retryGeneration"
   >
@@ -36,6 +37,7 @@ describe("StrategyController", () => {
       getStrategy: jest.fn(),
       getStrategyVersion: jest.fn(),
       getRetrievalPack: jest.fn(),
+      getProgressEvents: jest.fn(),
       handleDecision: jest.fn(),
       retryGeneration: jest.fn(),
     };
@@ -69,9 +71,20 @@ describe("StrategyController", () => {
     it("delegates createStrategy to the service with the owner id", async () => {
       service.createStrategy.mockResolvedValue({ id: "strat-1" } as never);
 
-      await controller.createStrategy(mockReq, { businessId: "biz-1" });
+      await controller.createStrategy(mockReq, { businessProfileVersionId: "profile-1" });
 
-      expect(service.createStrategy).toHaveBeenCalledWith({ businessId: "biz-1" }, mockUser.id);
+      expect(service.createStrategy).toHaveBeenCalledWith(
+        { businessProfileVersionId: "profile-1" },
+        mockUser.id,
+      );
+    });
+
+    it("delegates progress reads to the service with the owner id", async () => {
+      service.getProgressEvents.mockResolvedValue([] as never);
+
+      await controller.getProgressEvents("strat-1", mockReq);
+
+      expect(service.getProgressEvents).toHaveBeenCalledWith("strat-1", mockUser.id);
     });
   });
 

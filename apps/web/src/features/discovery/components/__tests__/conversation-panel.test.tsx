@@ -160,9 +160,19 @@ describe('ConversationPanel', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Families' }))
+
+    // Tie progress to visible DOM state, not closure timing: wait for the
+    // composer to actually show the chosen answer, then for the submit
+    // button to become enabled, before clicking submit.
+    await waitFor(() =>
+      expect((screen.getByPlaceholderText('answerPlaceholder') as HTMLTextAreaElement).value).toBe('Families'),
+    )
     const textarea = screen.getByPlaceholderText('answerPlaceholder') as HTMLTextAreaElement
     expect(textarea.value).toBe('Families')
 
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'submitLabel' }) as HTMLButtonElement).disabled).toBe(false),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'submitLabel' }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Families'))

@@ -96,6 +96,7 @@ export type StrategyValidationCode =
   | "STRATEGY_CHANNEL_LIMIT_EXCEEDED"
   | "STRATEGY_EVIDENCE_NOT_APPROVED"
   | "STRATEGY_SCORE_MISMATCH"
+  | "STRATEGY_LANGUAGE_MISMATCH"
   | "STRATEGY_APPROVAL_BLOCKED";
 
 export interface StrategyValidationResult {
