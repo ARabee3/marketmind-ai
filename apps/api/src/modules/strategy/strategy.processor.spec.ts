@@ -73,7 +73,13 @@ describe("StrategyProcessor", () => {
         created_at: "2026-07-28T10:00:00.000Z",
       };
       httpService.post.mockReturnValue(
-        of({ data: { plan: validPlan, prompt_config: { model: "gpt-4o" } } }),
+        of({
+          data: {
+            plan: validPlan,
+            validation: { valid: true, issues: [] },
+            prompt_config: { model: "gpt-4o" },
+          },
+        }),
       );
       (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
         id: "ver-1",
@@ -150,6 +156,85 @@ describe("StrategyProcessor", () => {
       expect(repository.updateStrategyStatus).toHaveBeenCalledWith("strat-1", "failed");
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
+
+    it("does not persist a generated plan that fails the language gate", async () => {
+      const validPlan = {
+        id: "plan-1",
+        strategy_id: "strat-1",
+        version: 1,
+        contract_version: "2026-07-01",
+        brief_id: "brief-1",
+        retrieval_run_id: "run-1",
+        executive_summary: { text: "summary", source: "model_synthesis", citation_ids: [] },
+        situation_diagnosis: { text: "diag", source: "model_synthesis", citation_ids: [] },
+        primary_objective: "awareness",
+        selected_channels: [],
+        all_channel_scores: [],
+        content_strategy: { format_mix: [], weekly_cadence: "1", weeks: [], experiments: [] },
+        budget_mode: "organic_only",
+        kpi_targets: [],
+        citations: [],
+        created_at: "2026-07-28T10:00:00.000Z",
+      };
+      httpService.post.mockReturnValue(
+        of({
+          data: {
+            plan: validPlan,
+            validation: {
+              valid: false,
+              issues: [{
+                code: "STRATEGY_LANGUAGE_MISMATCH",
+                field: "plan.executive_summary.text",
+                message: "Expected Arabic owner-facing prose.",
+              }],
+            },
+          },
+        }),
+      );
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("failed the language gate");
+
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith("strat-1", "failed");
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+
+    it("does not persist a generated plan without a validation result", async () => {
+      const successResponse = {
+        id: "plan-1",
+        strategy_id: "strat-1",
+        version: 1,
+        contract_version: "2026-07-01",
+        brief_id: "brief-1",
+        retrieval_run_id: "run-1",
+        executive_summary: { text: "summary", source: "model_synthesis", citation_ids: [] },
+        situation_diagnosis: { text: "diag", source: "model_synthesis", citation_ids: [] },
+        primary_objective: "awareness",
+        selected_channels: [],
+        all_channel_scores: [],
+        content_strategy: { format_mix: [], weekly_cadence: "1", weeks: [], experiments: [] },
+        budget_mode: "organic_only",
+        kpi_targets: [],
+        citations: [],
+        created_at: "2026-07-28T10:00:00.000Z",
+      };
+      httpService.post.mockReturnValue(of({ data: { plan: successResponse } }));
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("no valid validation result");
+
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
   });
 
   // ── generate-strategy: FSM violation ────────────────────────────────
@@ -207,6 +292,7 @@ describe("StrategyProcessor", () => {
                 citations: [],
                 created_at: "2026-07-28T11:00:00.000Z",
               },
+              validation: { valid: true, issues: [] },
               prompt_config: {},
             },
           }),
@@ -267,6 +353,63 @@ describe("StrategyProcessor", () => {
 
       // Strategy marked failed, but no new version row was written — the
       // prior draft (ver-1) is untouched.
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith("strat-1", "failed");
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+
+    it("does not persist a revised plan that fails the language gate", async () => {
+      (repository.readStrategy as jest.Mock).mockResolvedValue({
+        id: "strat-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      httpService.post
+        .mockReturnValueOnce(of({ data: { retrieval_run_id: "run-2" } }))
+        .mockReturnValueOnce(
+          of({
+            data: {
+              plan: {
+                id: "plan-2",
+                strategy_id: "strat-1",
+                version: 2,
+                contract_version: "2026-07-01",
+                brief_id: "brief-1",
+                retrieval_run_id: "run-2",
+                executive_summary: { text: "v2", source: "model_synthesis", citation_ids: [] },
+                situation_diagnosis: { text: "v2", source: "model_synthesis", citation_ids: [] },
+                primary_objective: "acquisition",
+                selected_channels: [],
+                all_channel_scores: [],
+                content_strategy: { format_mix: [], weekly_cadence: "2", weeks: [], experiments: [] },
+                budget_mode: "organic_only",
+                kpi_targets: [],
+                citations: [],
+                created_at: "2026-07-28T11:00:00.000Z",
+              },
+              validation: {
+                valid: false,
+                issues: [{
+                  code: "STRATEGY_LANGUAGE_MISMATCH",
+                  field: "plan.positioning.text",
+                  message: "Expected Arabic owner-facing prose.",
+                }],
+              },
+            },
+          }),
+        );
+
+      await expect(
+        processor.process({
+          id: "job-2",
+          name: "revise-strategy",
+          data: {
+            strategyId: "strat-1",
+            priorVersionId: "ver-1",
+            feedback: "tighten budget",
+            correlationId: "corr-2",
+          },
+        } as never),
+      ).rejects.toThrow("failed the language gate");
+
       expect(repository.updateStrategyStatus).toHaveBeenCalledWith("strat-1", "failed");
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });

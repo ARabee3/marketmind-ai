@@ -154,12 +154,12 @@ export type CurrentJourneyStrategyContext =
   | {
       readonly phase: "strategy";
       readonly availability: "available";
-      readonly status: StrategyStatus;
+      readonly status: Exclude<StrategyStatus, "needs_brief" | "failed">;
       readonly reason: "strategy_active";
       readonly strategy_id: UUID;
       readonly current_version_id: UUID | null;
       readonly destination: `/strategy/${UUID}`;
-      readonly business: CurrentJourneyStrategyBusinessSnapshot;
+      readonly business: CurrentJourneyStrategyBusinessSnapshot | null;
     };
 
 export type CurrentJourneyResponse = {

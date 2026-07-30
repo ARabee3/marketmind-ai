@@ -82,6 +82,7 @@ export class StrategyProcessor extends WorkerHost {
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
       validatePlanShape(planData);
+      assertLanguageValidationPassed(response.data.validation);
 
       this.logger.log(`[Corr: ${correlationId}] Generation complete — validating`);
       // generating → validating (FSM-validated)
@@ -227,6 +228,7 @@ export class StrategyProcessor extends WorkerHost {
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
       validatePlanShape(planData);
+      assertLanguageValidationPassed(revisionResponse.data.validation);
 
       this.logger.log(
         `[Corr: ${correlationId}] Revision generation complete — validating`,
@@ -321,4 +323,39 @@ export class StrategyProcessor extends WorkerHost {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function assertLanguageValidationPassed(validation: unknown): void {
+  if (
+    !validation
+    || typeof validation !== "object"
+    || typeof (validation as { valid?: unknown }).valid !== "boolean"
+    || !Array.isArray((validation as { issues?: unknown }).issues)
+  ) {
+    throw new Error("AI generation service returned no valid validation result");
+  }
+
+  const issues = (validation as { issues: unknown[] }).issues;
+  const malformedIssue = issues.some(
+    (issue) =>
+      !issue
+      || typeof issue !== "object"
+      || typeof (issue as { code?: unknown }).code !== "string"
+      || typeof (issue as { field?: unknown }).field !== "string"
+      || typeof (issue as { message?: unknown }).message !== "string",
+  );
+  if (malformedIssue) {
+    throw new Error("AI generation service returned malformed validation issues");
+  }
+
+  if (
+    issues.some(
+      (issue) =>
+        (issue as { code: string }).code === "STRATEGY_LANGUAGE_MISMATCH",
+    )
+  ) {
+    throw new Error(
+      "AI generation service returned a plan that failed the language gate",
+    );
+  }
 }

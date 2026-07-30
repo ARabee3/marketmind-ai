@@ -13,6 +13,12 @@ const PHASES = [
 ] as const
 
 type Phase = (typeof PHASES)[number]
+const STRATEGY_KINDS: ReadonlySet<DashboardJourneyKind> = new Set([
+  'strategy_preparing',
+  'strategy_draft',
+  'strategy_approved',
+  'strategy_rejected',
+])
 
 export function JourneyRail({ activeKind }: { readonly activeKind: DashboardJourneyKind }) {
   const t = useTranslations('Dashboard')
@@ -83,11 +89,12 @@ function phaseStatus(
   }
   if (phase === 'review') {
     if (activeKind === 'review') return 'active'
-    if (activeKind === 'confirmed' || activeKind === 'strategy_active') return 'done'
+    if (activeKind === 'confirmed' || STRATEGY_KINDS.has(activeKind)) return 'done'
     return 'locked'
   }
   if (phase === 'strategy') {
-    if (activeKind === 'strategy_active') return 'active'
+    if (activeKind === 'strategy_approved') return 'done'
+    if (STRATEGY_KINDS.has(activeKind)) return 'active'
     if (activeKind === 'confirmed') return 'active'
     return 'locked'
   }

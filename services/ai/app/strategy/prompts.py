@@ -108,7 +108,7 @@ STRATEGY_GENERATE_SYSTEM_PROMPT = "\n".join(
         "",
         "Write ALL owner-facing synthesized prose in the language named by",
         "brief.plan_language:",
-        "  - ar-EG: write in Arabic (Egyptian-friendly MSA). Arabic is required,.",
+        "  - ar-EG: write in Arabic (Egyptian-friendly MSA). Arabic is required.",
         "  - en: write in English.",
         "  - mixed: write each synthesized field in the same language/script as its",
         "    primary input (profile field, brief value, or retrieved guidance).",

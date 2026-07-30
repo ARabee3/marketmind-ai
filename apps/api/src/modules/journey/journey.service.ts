@@ -26,7 +26,8 @@ import {
  * Minimal, typed view of a Strategy row used by the journey surface. Kept
  * here (not exported from the contract package) because the journey layer
  * only needs identity + status + current version pointer plus the
- * business snapshot from the strategy's confirmed profile version.
+ * business snapshot from the strategy's confirmed profile version when one
+ * was persisted.
  */
 type JourneyStrategySummary = {
   readonly id: string;
@@ -34,6 +35,10 @@ type JourneyStrategySummary = {
   readonly currentVersionId: string | null;
   readonly business: JourneyStrategyBusinessRecord | null;
 };
+type AvailableStrategyStatus = Extract<
+  CurrentJourneyStrategyContext,
+  { readonly availability: "available" }
+>["status"];
 
 @Injectable()
 export class JourneyService {
@@ -241,7 +246,8 @@ function isStrategyActive(status: string): boolean {
     status === "generating" ||
     status === "validating" ||
     status === "draft" ||
-    status === "approved"
+    status === "approved" ||
+    status === "rejected"
   );
 }
 
@@ -253,7 +259,7 @@ function strategyContext(
     return {
       phase: "strategy",
       availability: "available",
-      status: strategy.status as CurrentJourneyStrategyContext["status"],
+      status: strategy.status as AvailableStrategyStatus,
       reason: "strategy_active",
       strategy_id: strategy.id as UUID,
       current_version_id: (strategy.currentVersionId ?? null) as UUID | null,
@@ -307,13 +313,12 @@ function languageMode(value: string): LanguageMode {
  * CurrentJourneyStrategyContext. The strategy's brief points at an immutable
  * confirmed BusinessProfileVersion; we read its business snapshot. If the
  * strategy row was created without a persisted brief snapshot (should not
- * happen for an active strategy), fall back to the journey's own confirmed
- * profile so the dashboard still shows a non-empty business snapshot rather
- * than violating the contract.
+ * happen for an active strategy), return null so clients can explicitly fall
+ * back to journey-side profile data.
  */
 function strategyBusinessSnapshot(
   strategy: JourneyStrategySummary,
-): CurrentJourneyStrategyBusinessSnapshot {
+): CurrentJourneyStrategyBusinessSnapshot | null {
   const fromStrategy = strategy.business;
   if (fromStrategy) {
     return {
@@ -325,14 +330,5 @@ function strategyBusinessSnapshot(
     };
   }
 
-  // Contract fallback: an active strategy must surface a business snapshot.
-  // Surface empty strings / zero version so the type stays valid while the
-  // dashboard logic can still prefer journey-side profile values upstream.
-  return {
-    business_name: "",
-    business_type: "",
-    city: null,
-    area: null,
-    profile_version: 0,
-  };
+  return null;
 }

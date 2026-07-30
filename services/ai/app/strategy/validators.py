@@ -8,6 +8,8 @@ block approval, or retry.
 
 from __future__ import annotations
 
+import unicodedata
+
 from strategy_contracts import (
     BusinessProfilePayload,
     DeterministicChannelScorecard,
@@ -172,22 +174,56 @@ def _validate_benchmarks(plan: StrategyPlan) -> list[StrategyValidationIssue]:
 
 
 # Arabic Unicode blocks: Arabic, Arabic Supplement, Arabic Extended-A/B,
-# and the ArabicPresentation forms used by Egyptain-friendly MSA content.
+# and the Arabic Presentation forms used by Egyptian-friendly MSA content.
 _ARABIC_RANGES: tuple[tuple[int, int], ...] = (
     (0x0600, 0x06FF),   # Arabic
     (0x0750, 0x077F),   # Arabic Supplement
+    (0x0870, 0x089F),   # Arabic Extended-B
     (0x08A0, 0x08FF),   # Arabic Extended-A
     (0xFB50, 0xFDFF),   # Arabic Presentation Forms-A
     (0xFE70, 0xFEFF),   # Arabic Presentation Forms-B
 )
+_MIN_EXPECTED_SCRIPT_RATIO = 0.60
 
 
-def _has_arabic_letter(text: str) -> bool:
-    """True when *text* contains at least one Arabic-script letter."""
-    return any(
-        any(start <= ord(ch) <= end for start, end in _ARABIC_RANGES)
-        for ch in text
+def _is_arabic_letter(character: str) -> bool:
+    return unicodedata.category(character).startswith("L") and any(
+        start <= ord(character) <= end for start, end in _ARABIC_RANGES
     )
+
+
+def _is_latin_letter(character: str) -> bool:
+    return (
+        unicodedata.category(character).startswith("L")
+        and "LATIN" in unicodedata.name(character, "")
+    )
+
+
+def _contains_supported_script_letter(text: str) -> bool:
+    return any(
+        _is_arabic_letter(character) or _is_latin_letter(character)
+        for character in text
+    )
+
+
+def _matches_expected_script(text: str, expected_language: str) -> bool:
+    """Return whether owner-facing text is predominantly in the chosen script.
+
+    Arabic and English product text may legitimately contain brand names or
+    short borrowed terms from the other script. Requiring a clear majority of
+    letters catches language drift without rejecting normal bilingual names.
+    Punctuation, digits, URLs, and symbols do not count as language evidence.
+    """
+    arabic_letters = sum(1 for character in text if _is_arabic_letter(character))
+    latin_letters = sum(1 for character in text if _is_latin_letter(character))
+    language_letters = arabic_letters + latin_letters
+    if language_letters == 0:
+        return False
+
+    expected_letters = (
+        arabic_letters if expected_language == "ar-EG" else latin_letters
+    )
+    return expected_letters / language_letters >= _MIN_EXPECTED_SCRIPT_RATIO
 
 
 def _owner_facing_prose_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
@@ -214,6 +250,18 @@ def _owner_facing_prose_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
                 (f"plan.budget_scenarios[{index}].notes.text", scenario.notes.text)
             )
     for index, target in enumerate(plan.kpi_targets):
+        if target.target_value and _contains_supported_script_letter(
+            target.target_value
+        ):
+            entries.append(
+                (f"plan.kpi_targets[{index}].target_value", target.target_value)
+            )
+        entries.append(
+            (
+                f"plan.kpi_targets[{index}].measurement_method",
+                target.measurement_method,
+            )
+        )
         entries.append(
             (f"plan.kpi_targets[{index}].notes.text", target.notes.text)
         )
@@ -226,12 +274,26 @@ def _owner_facing_prose_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
         for index, claim in enumerate(plan.risks)
     )
     entries.extend(
+        (f"plan.knowledge_gaps[{index}].description", gap.description)
+        for index, gap in enumerate(plan.knowledge_gaps)
+    )
+    entries.extend(
         (f"plan.blockers[{index}].message", blocker.message)
         for index, blocker in enumerate(plan.blockers)
     )
     entries.extend(
         (f"plan.content_strategy.pillars[{index}].text", claim.text)
         for index, claim in enumerate(plan.content_strategy.pillars)
+    )
+    entries.extend(
+        (f"plan.content_strategy.format_mix[{index}].text", claim.text)
+        for index, claim in enumerate(plan.content_strategy.format_mix)
+    )
+    entries.append(
+        (
+            "plan.content_strategy.weekly_cadence",
+            plan.content_strategy.weekly_cadence,
+        )
     )
     for index, week in enumerate(plan.content_strategy.weeks):
         entries.append(
@@ -241,6 +303,23 @@ def _owner_facing_prose_texts(plan: StrategyPlan) -> list[tuple[str, str]]:
             entries.append(
                 (f"plan.content_strategy.weeks[{index}].notes", week.notes)
             )
+    for index, experiment in enumerate(plan.content_strategy.experiments):
+        entries.extend(
+            (
+                (
+                    f"plan.content_strategy.experiments[{index}].hypothesis",
+                    experiment.hypothesis,
+                ),
+                (
+                    f"plan.content_strategy.experiments[{index}].method",
+                    experiment.method,
+                ),
+                (
+                    f"plan.content_strategy.experiments[{index}].success_criteria",
+                    experiment.success_criteria,
+                ),
+            )
+        )
     return entries
 
 
@@ -250,31 +329,44 @@ def _validate_owner_facing_language(
 ) -> list[StrategyValidationIssue]:
     """Ensure owner-facing prose follows ``brief.plan_language``.
 
-    This is a soft, heuristic check (Unicode script detection), not a full
-    translation-quality review. It surfaces a ``STRATEGY_LANGUAGE_MISMATCH``
-    issue — never hard-rejects generation — so the owner still gets a draft
-    and the team can triage the drift without breaking the lifecycle FSM.
+    This is a deterministic script-ratio check, not a translation-quality
+    review. The generation endpoint retries mismatched provider output and the
+    NestJS worker refuses to persist any remaining language mismatch.
     """
     expected_language = request.brief.plan_language
+    issues: list[StrategyValidationIssue] = []
+
+    if plan.plan_language != expected_language:
+        issues.append(
+            StrategyValidationIssue(
+                code="STRATEGY_LANGUAGE_MISMATCH",
+                field="plan.plan_language",
+                message=(
+                    "Plan language metadata does not match brief.plan_language."
+                ),
+            )
+        )
+
     # ``mixed`` plans intentionally match the source language of each input;
     # there is no single required script to enforce.
-    if expected_language != "ar-EG":
-        return []
+    if expected_language == "mixed":
+        return issues
 
-    issues: list[StrategyValidationIssue] = []
     for field_path, text in _owner_facing_prose_texts(plan):
         if not text or not text.strip():
             # The required-sections validator already flags empty sections.
             continue
-        if not _has_arabic_letter(text):
+        if not _matches_expected_script(text, expected_language):
+            language_name = "Arabic" if expected_language == "ar-EG" else "English"
             issues.append(
                 StrategyValidationIssue(
                     code="STRATEGY_LANGUAGE_MISMATCH",
                     field=field_path,
                     message=(
-                        "Owner-facing field is not written in Arabic even though "
-                        "brief.plan_language is ar-EG. Synthesize this field in "
-                        "Arabic while preserving evidence URLs and source metadata."
+                        f"Owner-facing field is not predominantly written in {language_name} "
+                        f"even though brief.plan_language is {expected_language}. "
+                        f"Synthesize this field in {language_name} while preserving "
+                        "evidence URLs and source metadata."
                     ),
                 )
             )

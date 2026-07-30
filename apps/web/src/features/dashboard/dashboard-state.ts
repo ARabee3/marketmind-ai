@@ -1,6 +1,7 @@
 import type {
   CurrentJourneyResponse,
   CurrentJourneyStrategyBusinessSnapshot,
+  StrategyStatus,
 } from '@marketmind/contracts'
 
 export type DashboardJourneyKind =
@@ -9,7 +10,10 @@ export type DashboardJourneyKind =
   | 'review'
   | 'confirmed'
   | 'unavailable'
-  | 'strategy_active'
+  | 'strategy_preparing'
+  | 'strategy_draft'
+  | 'strategy_approved'
+  | 'strategy_rejected'
   | 'error'
 
 export type DashboardPrimaryActionType =
@@ -29,6 +33,7 @@ export type DashboardJourneyState = {
   readonly primaryActionType: DashboardPrimaryActionType
   readonly primaryHref: string | null
   readonly strategyLockedReason: DashboardStrategyLockedReason
+  readonly strategyStatus: StrategyStatus | null
 }
 
 export function mapCurrentJourney(
@@ -38,10 +43,6 @@ export function mapCurrentJourney(
   // to "view_strategy". The dashboard view model must follow that precedence
   // so a user with a saved Strategy draft never lands on an empty/discovery
   // state that ignores their progress. See issue #114.
-  const strategyActive =
-    response.future_phase.availability === 'available' ||
-    response.primary_action.type === 'view_strategy'
-
   const strategyBusiness = strategyBusinessSnapshot(response)
 
   const base = {
@@ -56,10 +57,14 @@ export function mapCurrentJourney(
     primaryActionType: response.primary_action.type,
     primaryHref: response.primary_action.destination,
     strategyLockedReason: response.future_phase.reason,
+    strategyStatus: response.future_phase.status,
   }
 
-  if (strategyActive) {
-    return { ...base, kind: 'strategy_active' }
+  if (response.future_phase.availability === 'available') {
+    return {
+      ...base,
+      kind: strategyJourneyKind(response.future_phase.status),
+    }
   }
 
   switch (response.journey.state) {
@@ -94,6 +99,29 @@ export function errorDashboardState(): DashboardJourneyState {
     primaryActionType: 'none',
     primaryHref: null,
     strategyLockedReason: 'discovery_required',
+    strategyStatus: null,
+  }
+}
+
+function strategyJourneyKind(
+  status: Extract<
+    CurrentJourneyResponse['future_phase'],
+    { availability: 'available' }
+  >['status'],
+): DashboardJourneyKind {
+  switch (status) {
+    case 'ready':
+    case 'retrieving':
+    case 'queued':
+    case 'generating':
+    case 'validating':
+      return 'strategy_preparing'
+    case 'draft':
+      return 'strategy_draft'
+    case 'approved':
+      return 'strategy_approved'
+    case 'rejected':
+      return 'strategy_rejected'
   }
 }
 
