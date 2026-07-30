@@ -93,9 +93,18 @@ async def test_rag_vs_norag_comparison_smoke(
 
     ret_result = await ret_runner.run_case(case)
     rag_pack = retrieval_result_to_pack(case, ret_result, all_fixture_data, brief, profile)
+    assert "framework_diagnosis" not in ret_result.detected_gap_categories
+    assert all(
+        gap.category != "framework_diagnosis"
+        for gap in rag_pack.knowledge_gaps
+    )
 
     empty_pack = make_empty_retrieval_pack(brief, profile)
     pair = await gen_runner.run_case_pair(case, profile=profile, pack=rag_pack)
+    assert all(
+        blocker.code != "MISSING_FRAMEWORK_DATA"
+        for blocker in pair.rag_plan.blockers
+    )
 
     rag_pack_for_rubric = contract_pack_to_rag(rag_pack)
     rubric_result = evaluate_rag_vs_norag(

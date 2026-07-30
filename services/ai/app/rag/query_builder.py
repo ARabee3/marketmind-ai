@@ -30,7 +30,16 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     locale_filter = get_locale_filter(context.locale)
     market_filter = get_market_filter(context.market)
     
-    industry_filter = [context.industry] if context.industry else None
+    # General entries are the cross-industry fallback for every specific SME
+    # sector. Without this value, the hard filter silently excludes the
+    # approved general frameworks that ground situation diagnosis.
+    industry_filter = (
+        [context.industry, "general"]
+        if context.industry and context.industry != "general"
+        else [context.industry]
+        if context.industry
+        else None
+    )
     paid_media_allowed = context.paid_media_allowed
 
     # 1. Framework Diagnosis

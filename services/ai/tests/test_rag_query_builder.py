@@ -48,6 +48,12 @@ def test_build_subqueries():
     assert fb.kind_filter == "channel_playbook"
     assert fb.locale_filter == ["ar-EG", "mixed"]
     assert fb.market_filter == ["egypt", "mena", "global"]
+    assert fb.industry_filter == ["fashion", "general"]
+
+    framework = next(
+        sq for sq in subqueries if sq.category == "framework_diagnosis"
+    )
+    assert framework.industry_filter == ["fashion", "general"]
 
 
 def test_build_subqueries_organic_only():
@@ -70,3 +76,22 @@ def test_build_subqueries_organic_only():
     cats = {sq.category for sq in subqueries}
     assert "budget_method" not in cats
     assert len(cats) == 4
+
+
+def test_build_subqueries_does_not_duplicate_general_industry():
+    context = RetrievalQueryContext(
+        business_type="services",
+        market="egypt",
+        locale="en",
+        objective="conversion",
+        funnel_stage="conversion",
+        active_channels=[],
+        asset_capability=[],
+        team_capacity="owner",
+        budget_mode="organic_only",
+        industry="general",
+    )
+
+    subqueries = build_subqueries(context)
+
+    assert all(sq.industry_filter == ["general"] for sq in subqueries)

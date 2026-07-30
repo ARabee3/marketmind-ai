@@ -60,8 +60,8 @@ For each entry, reviewers should confirm:
 | `sector-note-hospitality` | Pending | Pending | Pending | Pending | Sector note |
 | `sector-note-retail` | Pending | Pending | Pending | Pending | Sector note |
 | `sector-note-services` | Pending | Pending | Pending | Pending | Sector note |
-| `situation-diagnosis-5cs-swot` | Pending | Pending | Pending | Pending | Framework entry |
-| `smart-objectives-funnel-mapping` | Pending | Pending | Pending | Pending | Framework entry |
+| `situation-diagnosis-5cs-swot` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
+| `smart-objectives-funnel-mapping` | Pending | Pending | Pending | Pending | Issue #103 source-backed revision drafted; intentionally remains draft until required reviewers approve |
 
 ## Approval update rule
 
