@@ -217,4 +217,45 @@ describe("Strategy lifecycle transition matrix", () => {
       expect(second.claimed).toBe(false);
     });
   });
+
+  describe("Strategy progress persistence", () => {
+    it("persists retry eligibility alongside the correlation payload", async () => {
+      const create = jest.fn().mockResolvedValue({
+        id: 1n,
+        strategyId: "strat-1",
+      });
+      const prisma = {
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({
+              strategyProgressEvent: {
+                count: jest.fn().mockResolvedValue(0),
+                create,
+              },
+            }),
+        ),
+      };
+      const repository = new StrategyRepository(
+        prisma as unknown as PrismaService,
+      );
+
+      await repository.appendProgressEvent("strat-1", {
+        stage: "failed",
+        status: "failed",
+        messageKey: "strategy.failed",
+        messageText: "Generation failed.",
+        retryable: true,
+        payload: { correlation_id: "corr-1" },
+      });
+
+      expect(create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          payload: {
+            correlation_id: "corr-1",
+            retryable: true,
+          },
+        }),
+      });
+    });
+  });
 });

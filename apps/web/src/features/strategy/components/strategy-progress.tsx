@@ -3,19 +3,33 @@
 import { Check, Circle, Radio, TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Link } from '@/i18n/navigation'
 import type { StrategyProgressEvent, StrategyStatus } from '@marketmind/contracts'
 import { ownerProgressLabel } from '../lib/strategy-state'
 
 export function StrategyProgress({
   status,
   progress,
+  reviewHref,
+  onRetry,
+  retryPending = false,
+  actionError = null,
 }: {
   readonly status: StrategyStatus
   readonly progress: readonly StrategyProgressEvent[]
+  readonly reviewHref?: string
+  readonly onRetry?: () => void
+  readonly retryPending?: boolean
+  readonly actionError?: string | null
 }) {
   const t = useTranslations('Strategy')
   const current = ownerProgressLabel(status)
   const percent = strategyProgressPercent(status, progress)
+  const lastFailure = [...progress]
+    .reverse()
+    .find((event) => event.status === 'failed')
+  const canRetry = status === 'failed' && lastFailure?.retryable === true
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
@@ -53,6 +67,45 @@ export function StrategyProgress({
           </li>
         ))}
       </ol>
+      {status === 'failed' ? (
+        <div className="border-t border-border bg-danger/5 p-4 md:px-6">
+          <p className="text-sm font-bold text-danger">
+            {t('progress.failureTitle')}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {lastFailure?.message_text ?? t('progress.failureBody')}
+          </p>
+          <div className="mt-3" aria-live="polite">
+            {canRetry && onRetry ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={retryPending}
+                onClick={onRetry}
+              >
+                {retryPending ? t('decision.pending') : t('decision.retry')}
+              </Button>
+            ) : (
+              <p className="text-xs font-semibold text-danger">
+                {t('progress.notRetryable')}
+              </p>
+            )}
+            {actionError ? (
+              <p className="mt-2 text-xs text-danger">{actionError}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {(status === 'draft' || status === 'approved') && reviewHref ? (
+        <div className="flex justify-end border-t border-border bg-background/70 p-4 md:px-6">
+          <Link
+            href={reviewHref}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40"
+          >
+            {t('progress.openReview')}
+          </Link>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -7,6 +7,7 @@ import {
   getStrategy,
   getStrategyVersion,
   getStrategyProgress,
+  getStrategyRetrieval,
   submitDecision,
   retryStrategy,
 } from '../strategy'
@@ -129,6 +130,25 @@ describe('Strategy API client', () => {
     const [url] = fetchMock.mock.calls[0]
     expect(url).toBe('http://localhost:3001/api/v1/strategies/strat-1/progress')
     expect(result[0]?.stage).toBe('retrieval')
+  })
+
+  it('getStrategyRetrieval GETs the persisted evidence pack', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          retrieval_run_id: 'run-1',
+          items: [{ chunk_id: 'chunk-1', title: 'Reviewed guidance' }],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const result = await getStrategyRetrieval('strat-1')
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://localhost:3001/api/v1/strategies/strat-1/retrieval')
+    expect(result.items[0]?.chunk_id).toBe('chunk-1')
   })
 
   it('submitDecision POSTs to /strategies/:id/decisions with action payload', async () => {

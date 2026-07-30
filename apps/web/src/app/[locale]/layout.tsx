@@ -54,6 +54,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html
       lang={locale}
       dir={direction}
+      data-scroll-behavior="smooth"
       className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}
     >
       <body className="min-h-dvh bg-background font-sans antialiased">

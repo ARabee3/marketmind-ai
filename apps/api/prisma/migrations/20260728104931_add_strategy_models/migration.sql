@@ -94,11 +94,11 @@ ALTER TABLE "strategy_versions" ADD CONSTRAINT "strategy_versions_strategy_id_fk
 ALTER TABLE "strategy_decisions" ADD CONSTRAINT "strategy_decisions_strategy_version_id_fkey" FOREIGN KEY ("strategy_version_id") REFERENCES "strategy_versions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "strategy_decisions" ADD CONSTRAINT "strategy_decisions_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+ALTER TABLE "strategy_decisions" ADD CONSTRAINT "strategy_decisions_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- CreateTable
 CREATE TABLE "strategy_progress_events" (
-    "id" BIGSERIES NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "strategy_id" UUID NOT NULL,
     "seq" INTEGER NOT NULL,
     "stage" TEXT NOT NULL,
@@ -118,4 +118,4 @@ CREATE UNIQUE INDEX "strategy_progress_events_strategy_id_seq_key" ON "strategy_
 CREATE INDEX "strategy_progress_events_strategy_id_created_at_idx" ON "strategy_progress_events"("strategy_id", "created_at");
 
 -- AddForeignKey
-ALTER TABLE "strategy_progress_events" ADD CONSTRAINT "strategy_progress_events_strategy_id_fkey" FOREIGN KEY ("strategy_id") REFERENCES "strategies"("id") ON DELETE CASCADE ON UPDATE CASCADE;;
+ALTER TABLE "strategy_progress_events" ADD CONSTRAINT "strategy_progress_events_strategy_id_fkey" FOREIGN KEY ("strategy_id") REFERENCES "strategies"("id") ON DELETE CASCADE ON UPDATE CASCADE;

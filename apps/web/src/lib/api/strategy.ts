@@ -6,10 +6,11 @@ import type {
   StrategyResource,
   StrategyBrief,
   StrategyVersionSummary,
+  RetrievedKnowledgePack,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
 
-interface ApiError {
+export interface ApiError {
   status: number
   code: string
   message: string
@@ -154,6 +155,10 @@ export function getStrategyVersions(
 
 export function getStrategyProgress(id: string): Promise<StrategyProgressEvent[]> {
   return request<StrategyProgressEvent[]>(`/strategies/${id}/progress`)
+}
+
+export function getStrategyRetrieval(id: string): Promise<RetrievedKnowledgePack> {
+  return request<RetrievedKnowledgePack>(`/strategies/${id}/retrieval`)
 }
 
 export function getStrategyVersion(

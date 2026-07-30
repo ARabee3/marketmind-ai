@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   InternalServerErrorException,
   Logger,
@@ -67,6 +68,23 @@ export class StrategyService {
     );
     if (!strategy) throw new NotFoundException("Strategy not found or unauthorized");
 
+    if (strategy.status !== "needs_brief" && strategy.status !== "ready") {
+      throw new ConflictException(
+        "The Strategy brief is locked after generation starts. Create a revision through an owner decision instead.",
+      );
+    }
+
+    const profile =
+      await this.strategyRepository.getConfirmedProfileVersionByIdAndOwner(
+        dto.businessProfileVersionId,
+        ownerUserId,
+      );
+    if (!profile || profile.businessId !== strategy.businessId) {
+      throw new BadRequestException(
+        "The confirmed business profile does not belong to this Strategy.",
+      );
+    }
+
     // Conditional validation: when paid media is allowed with a concrete
     // budget mode, the owner must supply an EGP amount or range.
     if (
@@ -87,8 +105,9 @@ export class StrategyService {
       dto.externalBudgetEgpRange,
     );
 
-    // Persist brief keyed on owner-confirmed profile version. @IsUUID on the
-    // dto guards the value shape; the FK constraint guards existence.
+    // Persist only against the owner-confirmed profile verified above. The
+    // status guard keeps the brief immutable once a generated version can
+    // reference it for provenance.
     const brief = await this.strategyRepository.upsertBrief(id, {
       businessProfileVersionId: dto.businessProfileVersionId,
       primaryObjective: dto.primaryObjective,
@@ -271,7 +290,18 @@ export class StrategyService {
       ownerUserId,
     );
     if (!strategy) throw new NotFoundException("Strategy not found");
-    return strategy;
+
+    const currentVersion = strategy.currentVersionId
+      ? await this.strategyRepository.getVersionById(strategy.currentVersionId)
+      : null;
+
+    return {
+      ...strategy,
+      latestPlan:
+        currentVersion?.strategyId === id
+          ? currentVersion.planData
+          : null,
+    };
   }
 
   // ── GET /api/v1/strategies/:id/versions ─────────────────────────────
@@ -291,10 +321,15 @@ export class StrategyService {
     const briefIdByRunId = new Map(
       runBriefIds.map((run) => [run.id, run.briefId]),
     );
-    return versions.map((version) => toVersionSummary(
-      version,
-      version.retrievalRunId ? briefIdByRunId.get(version.retrievalRunId) : null,
-    ));
+    return versions.map((version, index) =>
+      toVersionSummary(
+        version,
+        version.retrievalRunId
+          ? briefIdByRunId.get(version.retrievalRunId)
+          : null,
+        index === 0 ? strategy.status : null,
+      ),
+    );
   }
 
   // ── GET /api/v1/strategies/:id/versions/:version ───────────────────
@@ -308,7 +343,7 @@ export class StrategyService {
 
     const v = await this.strategyRepository.getVersionByNumber(id, version);
     if (!v) throw new NotFoundException(`Strategy version ${version} not found`);
-    return v;
+    return v.planData;
   }
 
   // ── GET /api/v1/strategies/:id/retrieval ───────────────────────────
@@ -322,7 +357,7 @@ export class StrategyService {
 
     const run = await this.strategyRepository.getLatestRetrievalRun(id);
     if (!run) throw new NotFoundException("No retrieval pack found for this strategy");
-    return run;
+    return toRetrievalPack(run);
   }
 
   async getProgressEvents(id: string, ownerUserId: string): Promise<StrategyProgressEvent[]> {
@@ -347,6 +382,33 @@ export class StrategyService {
 
     if (strategy.status !== "draft") {
       throw new BadRequestException("Decisions can only be made on a draft strategy");
+    }
+
+    if (!strategy.currentVersionId || strategy.currentVersionId !== dto.versionId) {
+      throw new ConflictException({
+        code: "STRATEGY_VERSION_CONFLICT",
+        message:
+          "This draft is no longer the current Strategy version. Refresh before deciding.",
+        currentVersionId: strategy.currentVersionId,
+      });
+    }
+
+    const targetVersion = await this.strategyRepository.getVersionById(dto.versionId);
+    if (!targetVersion || targetVersion.strategyId !== id) {
+      throw new NotFoundException("Strategy version not found");
+    }
+
+    if (
+      (dto.action === "reject" || dto.action === "revision_requested")
+      && !dto.feedback?.trim()
+    ) {
+      throw new BadRequestException(
+        "Owner feedback is required when rejecting or requesting a revision",
+      );
+    }
+
+    if (dto.action === "approve") {
+      await this.assertApprovalReady(strategy, targetVersion);
     }
 
     // Atomic idempotency: claim via the terminal transition so a concurrent
@@ -437,6 +499,15 @@ export class StrategyService {
       throw new BadRequestException("Strategy is not in a failed state");
     }
 
+    const latestProgress = await this.strategyRepository.getLatestProgressEvent(id);
+    const latestPayload = toPayload(latestProgress?.payload);
+    if (!latestProgress || latestProgress.status !== "failed" || latestPayload.retryable !== true) {
+      throw new BadRequestException({
+        code: "STRATEGY_RETRY_NOT_ALLOWED",
+        message: "The latest Strategy failure is not retryable.",
+      });
+    }
+
     // Bounded owner-initiated retries.
     const retryCount = await this.strategyRepository.countRetries(id);
     if (retryCount >= MAX_OWNER_RETRIES) {
@@ -520,6 +591,98 @@ export class StrategyService {
     return this.startGeneration(id, ownerUserId);
   }
 
+  private async assertApprovalReady(
+    strategy: NonNullable<
+      Awaited<ReturnType<StrategyRepository["getStrategyByIdAndOwner"]>>
+    >,
+    version: NonNullable<
+      Awaited<ReturnType<StrategyRepository["getVersionById"]>>
+    >,
+  ): Promise<void> {
+    const latestProfile =
+      await this.strategyRepository.getActiveConfirmedProfileVersion(
+        strategy.businessId,
+      );
+    if (
+      !strategy.brief
+      || !latestProfile
+      || latestProfile.id !== strategy.brief.businessProfileVersionId
+    ) {
+      throw new ConflictException({
+        code: "STRATEGY_PROFILE_STALE",
+        message:
+          "The confirmed Business Profile changed after this Strategy Brief was saved.",
+      });
+    }
+
+    const plan = toPayload(version.planData);
+    const blockers = Array.isArray(plan.blockers) ? plan.blockers : [];
+    const hasBlockingItem = blockers.some(
+      (blocker) =>
+        blocker
+        && typeof blocker === "object"
+        && (blocker as { severity?: unknown }).severity === "blocking",
+    );
+    if (hasBlockingItem) {
+      throw new BadRequestException({
+        code: "STRATEGY_APPROVAL_BLOCKED",
+        message: "Resolve every blocking Strategy item before approval.",
+      });
+    }
+
+    const run = await this.strategyRepository.getLatestRetrievalRun(strategy.id);
+    if (!run || run.id !== version.retrievalRunId || run.status !== "completed") {
+      throw new BadRequestException({
+        code: "STRATEGY_RETRIEVAL_FAILURE",
+        message: "The persisted retrieval pack for this draft is unavailable.",
+      });
+    }
+
+    const now = Date.now();
+    const eligibleItems = new Map(
+      run.items
+        .filter(
+          (item) =>
+            item.reviewStatus === "approved"
+            && item.effectiveAt.getTime() <= now
+            && (item.expiresAt === null || item.expiresAt.getTime() > now),
+        )
+        .map((item) => [item.chunkId, item]),
+    );
+    const citations = Array.isArray(plan.citations) ? plan.citations : [];
+    const everyCitationResolves =
+      citations.length > 0
+      && citations.every(
+        (citation) =>
+          citation
+          && typeof citation === "object"
+          && typeof (citation as { chunk_id?: unknown }).chunk_id === "string"
+          && typeof (citation as { entry_id?: unknown }).entry_id === "string"
+          && typeof (citation as { entry_version?: unknown }).entry_version === "number"
+          && (() => {
+            const typedCitation = citation as {
+              chunk_id: string;
+              entry_id: string;
+              entry_version: number;
+            };
+            const item = eligibleItems.get(typedCitation.chunk_id);
+            return Boolean(
+              item
+              && item.entryId === typedCitation.entry_id
+              && item.entryVersion === typedCitation.entry_version,
+            );
+          })(),
+      );
+
+    if (!everyCitationResolves) {
+      throw new BadRequestException({
+        code: "STRATEGY_INVALID_CITATION",
+        message:
+          "Every Strategy citation must resolve to approved, current knowledge in its persisted retrieval pack.",
+      });
+    }
+  }
+
   // ── Progress events ────────────────────────────────────────────────
 
   private async recordProgress(
@@ -575,28 +738,162 @@ function normalizeExternalBudgetEgp(
 function toVersionSummary(
   v: Awaited<ReturnType<StrategyRepository["listVersions"]>>[number],
   briefId: string | null | undefined,
+  currentStrategyStatus: string | null,
 ): StrategyVersionSummary {
-  const decision = v.decisions?.[0]
+  const persistedDecision = v.decisions
+    ?.filter((item) =>
+      item.action === "approve"
+      || item.action === "reject"
+      || item.action === "revision_requested",
+    )
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+  const normalizedDecision = persistedDecision
+    ? normalizeOwnerDecision(persistedDecision.action)
+    : null;
+  const decision = persistedDecision && normalizedDecision
     ? {
-        id: v.decisions[0].id,
+        id: persistedDecision.id,
         strategy_id: v.strategyId,
         strategy_version: v.version,
-        decision: v.decisions[0].action as OwnerDecision["decision"],
-        revision_notes: v.decisions[0].feedback,
-        decided_by_user_id: v.decisions[0].ownerUserId,
-        decided_at: v.decisions[0].createdAt.toISOString(),
+        decision: normalizedDecision,
+        revision_notes: persistedDecision.feedback,
+        decided_by_user_id: persistedDecision.ownerUserId,
+        decided_at: persistedDecision.createdAt.toISOString(),
       }
     : undefined;
+  const plan = toPayload(v.planData);
+  const profileVersion = toPayload(plan.profile_version);
+  const profileVersionId = profileVersion.business_profile_version_id;
+  const profileConfirmedAt = profileVersion.confirmed_at;
+  const profileVersionNumber = profileVersion.version;
+  if (
+    !briefId
+    || !v.retrievalRunId
+    || typeof profileVersionId !== "string"
+    || typeof profileConfirmedAt !== "string"
+    || typeof profileVersionNumber !== "number"
+  ) {
+    throw new InternalServerErrorException(
+      `Strategy version ${v.id} has incomplete provenance metadata.`,
+    );
+  }
+  const status =
+    decision?.decision === "approved"
+      ? "approved"
+      : decision?.decision === "rejected"
+        ? "rejected"
+        : currentStrategyStatus === "approved"
+          ? "approved"
+          : currentStrategyStatus === "rejected"
+            ? "rejected"
+            : "draft";
 
   return {
+    version_id: v.id,
     strategy_id: v.strategyId,
     version: v.version,
-    status: "draft",
-    brief_id: briefId ?? "",
-    retrieval_run_id: v.retrievalRunId ?? "",
+    status,
+    brief_id: briefId,
+    retrieval_run_id: v.retrievalRunId,
+    profile_version: {
+      business_profile_version_id: profileVersionId,
+      confirmed_at: profileConfirmedAt,
+      version: profileVersionNumber,
+    },
+    prompt_config: sanitizePromptConfig(v.promptConfig),
     created_at: v.createdAt.toISOString(),
     decision,
   };
+}
+
+function sanitizePromptConfig(
+  value: unknown,
+): Record<string, string | number | boolean | null> {
+  const config = toPayload(value);
+  const safe: Record<string, string | number | boolean | null> = {};
+  for (const [key, item] of Object.entries(config)) {
+    if (
+      /token|secret|password|credential|api.?key|authorization|private.?key|bearer/i.test(
+        key,
+      )
+    ) {
+      continue;
+    }
+    if (
+      typeof item === "string"
+      || typeof item === "number"
+      || typeof item === "boolean"
+      || item === null
+    ) {
+      safe[key] = item as string | number | boolean | null;
+    }
+  }
+  return safe;
+}
+
+function normalizeOwnerDecision(
+  action: string,
+): OwnerDecision["decision"] | null {
+  if (action === "approve") return "approved";
+  if (action === "reject") return "rejected";
+  if (action === "revision_requested") return "revision_requested";
+  return null;
+}
+
+function toRetrievalPack(
+  run: NonNullable<
+    Awaited<ReturnType<StrategyRepository["getLatestRetrievalRun"]>>
+  >,
+) {
+  return {
+    retrieval_run_id: run.id,
+    strategy_id: run.strategyId,
+    brief_id: run.briefId,
+    profile_version_id: run.profileVersionId,
+    query_summary: run.querySummary,
+    query_context: toPayload(run.queryContext),
+    items: run.items.map((item) => ({
+      chunk_id: item.chunkId,
+      entry_id: item.entryId,
+      entry_version: item.entryVersion,
+      title: item.title,
+      excerpt: item.excerpt,
+      kind: item.kind,
+      tags: toStringArrayRecord(item.tags),
+      relevance_score: item.relevanceScore,
+      source_quality: {
+        evidence_tier: item.evidenceTier,
+        source_references: item.sourceReferences,
+        effective_at: item.effectiveAt.toISOString(),
+        expires_at: item.expiresAt?.toISOString() ?? null,
+        review_status: item.reviewStatus,
+      },
+      market_tier: item.marketTier,
+      is_fallback: item.isFallback,
+      fallback_label: item.fallbackLabel,
+    })),
+    knowledge_gaps: run.gaps.map((gap) => ({
+      category: gap.category,
+      description: gap.description,
+      severity: gap.severity,
+    })),
+    retrieval_metadata: {
+      ...toPayload(run.configuration),
+      retrieval_latency_ms: run.latencyMs,
+    },
+    retrieved_at: (run.finishedAt ?? run.createdAt).toISOString(),
+  };
+}
+
+function toStringArrayRecord(value: unknown): Record<string, string[]> {
+  const input = toPayload(value);
+  const result: Record<string, string[]> = {};
+  for (const [key, item] of Object.entries(input)) {
+    if (Array.isArray(item) && item.every((entry) => typeof entry === "string")) {
+      result[key] = item;
+    }
+  }
+  return result;
 }
 
 function toProgressEvent(event: Awaited<ReturnType<StrategyRepository["listProgressEvents"]>>[number]): StrategyProgressEvent {

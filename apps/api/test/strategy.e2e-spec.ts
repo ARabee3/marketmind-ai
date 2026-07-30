@@ -58,6 +58,8 @@ describe("Strategy public contract (e2e)", () => {
     startGeneration: jest.fn(),
     getStrategy: jest.fn(),
     getStrategyVersion: jest.fn(),
+    getStrategyVersions: jest.fn(),
+    getProgressEvents: jest.fn(),
     getRetrievalPack: jest.fn(),
     handleDecision: jest.fn(),
     retryGeneration: jest.fn(),

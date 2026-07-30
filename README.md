@@ -53,6 +53,7 @@ The repo ships two one-command dev runners that bring up the full stack
 | --- | --- | --- |
 | `npm run dev` | No | Everyday restarts when the database schema already exists. |
 | `npm run dev:full` | Yes (`prisma migrate deploy`) | Fresh checkout, after pulling new migrations, or after resetting the database. |
+| `npm run strategy:dev` | Yes | Full Strategy slice, including Qdrant for reviewed-knowledge retrieval. |
 
 Both commands:
 
@@ -85,8 +86,12 @@ If you only need the backing services without the apps:
 
 ```bash
 npm run docker:up      # start postgres + redis and wait for ports
+npm run docker:strategy:up # start postgres + redis + qdrant
 npm run prisma:deploy  # apply pending migrations
 ```
+
+Strategy completion and its human/live approval gate are documented in
+`Docs/planning/sprint-4/STRATEGY_COMPLETION_RUNBOOK.md`.
 
 Stop the backing services:
 

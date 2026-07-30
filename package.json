@@ -13,11 +13,17 @@
     "check:marketing-knowledge": "node --test Docs/marketing-knowledge/_schema/source-resolution.test.mjs && node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
     "check:qdrant-field-sync": "node scripts/check-qdrant-field-sync.mjs",
     "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check:qdrant-field-sync && npm run check -w @marketmind/web && npm run check:marketing-knowledge",
-    "check:ai": "cd services/ai && uv run pytest",
+    "check:ai": "cd services/ai && uv run pytest -m \"not network\"",
+    "check:ai:network": "cd services/ai && uv run pytest -m network",
     "docker:up": "docker compose -f infra/docker/docker-compose.local.yml up -d && wait-on tcp:5433 tcp:6379",
+    "docker:strategy:up": "docker compose -f infra/docker/docker-compose.local.yml -f infra/docker/docker-compose.qdrant.yml up -d && wait-on tcp:5433 tcp:6379 tcp:6333",
     "prisma:deploy": "npm run prisma:migrate:deploy -w @marketmind/api",
     "dev": "npm run docker:up && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\"",
-    "dev:full": "npm run docker:up && npm run prisma:deploy && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\""
+    "dev:full": "npm run docker:up && npm run prisma:deploy && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\"",
+    "strategy:dev": "npm run docker:strategy:up && npm run prisma:deploy && concurrently -k -n api,ai,web -c green,magenta,blue \"npm run start:dev -w @marketmind/api\" \"uv run --directory services/ai uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\" \"npm run dev -w @marketmind/web\"",
+    "strategy:readiness": "node scripts/check-strategy-live-readiness.mjs",
+    "strategy:verify:automated": "npm run docker:strategy:up && npm run prisma:deploy && npm run check && npm run test:e2e -w @marketmind/web -- strategy.spec.ts",
+    "strategy:verify": "npm run strategy:verify:automated && npm run strategy:readiness"
   },
   "overrides": {
     "multer": "2.2.0"

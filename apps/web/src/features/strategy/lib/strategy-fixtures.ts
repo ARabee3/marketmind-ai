@@ -233,11 +233,20 @@ function versionsFor(
 
 function versionSummary(version: number, status: StrategyStatus): StrategyVersionSummary {
   return {
+    version_id:
+      version === 1
+        ? '77777777-7777-4777-8777-777777777771'
+        : '77777777-7777-4777-8777-777777777772',
     strategy_id: strategyId,
     version,
     status,
     brief_id: briefId,
     retrieval_run_id: retrievalRunId,
+    profile_version: brief.business_profile_version,
+    prompt_config: {
+      model: 'fixture-provider',
+      prompt_version: 'strategy-v2',
+    },
     created_at: createdAt,
   }
 }

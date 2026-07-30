@@ -198,6 +198,12 @@ export class StrategyRepository {
     });
   }
 
+  async getVersionById(id: string): Promise<StrategyVersion | null> {
+    return this.prisma.strategyVersion.findUnique({
+      where: { id },
+    });
+  }
+
   async getLatestVersion(strategyId: string): Promise<StrategyVersion | null> {
     return this.prisma.strategyVersion.findFirst({
       where: { strategyId },
@@ -356,8 +362,12 @@ export class StrategyRepository {
           status: event.status,
           messageKey: event.messageKey,
           messageText: event.messageText,
-          payload: (event.payload ??
-            (event.retryable ? { retryable: true } : {})) as Prisma.InputJsonObject,
+          payload: {
+            ...(event.payload ?? {}),
+            ...(event.retryable === undefined
+              ? {}
+              : { retryable: event.retryable }),
+          } as Prisma.InputJsonObject,
         },
       });
     });
@@ -369,6 +379,13 @@ export class StrategyRepository {
     return this.prisma.strategyProgressEvent.findMany({
       where: { strategyId },
       orderBy: { seq: "asc" },
+    });
+  }
+
+  async getLatestProgressEvent(strategyId: string): Promise<PersistedStrategyProgressEvent | null> {
+    return this.prisma.strategyProgressEvent.findFirst({
+      where: { strategyId },
+      orderBy: { seq: "desc" },
     });
   }
 }

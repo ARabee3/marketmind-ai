@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import type { SourcedClaim, StrategyResource } from '@marketmind/contracts'
+import type {
+  RetrievedKnowledgePack,
+  SourcedClaim,
+  StrategyResource,
+} from '@marketmind/contracts'
 import { StrategyReview } from '../strategy-review'
 import { createStrategyPlanFixture } from '../../lib/strategy-plan-fixture'
 
@@ -89,6 +94,56 @@ const draftResource = {
   },
 } satisfies StrategyResource
 
+const retrievalPack = {
+  retrieval_run_id: '33333333-3333-4333-8333-333333333333',
+  query_summary: 'Egypt dessert-shop conversion guidance',
+  query_context: {
+    business_type: 'dessert shop',
+    market: 'egypt',
+    locale: 'ar-EG',
+    objective: 'conversion',
+    funnel_stage: 'conversion',
+    active_channels: ['Facebook'],
+    asset_capability: ['photo'],
+    team_capacity: 'Owner plus one helper',
+    budget_mode: 'monthly_amount',
+    industry: 'hospitality',
+  },
+  profile_version_id: brief.business_profile_version.business_profile_version_id,
+  brief_id: brief.id,
+  items: [
+    {
+      chunk_id: '99999999-9999-4999-8999-999999999999',
+      entry_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      entry_version: 1,
+      title: 'Reviewed marketing guidance',
+      excerpt: 'Use recent owner-confirmed evidence before approving the plan.',
+      kind: 'framework',
+      tags: { markets: ['egypt'] },
+      relevance_score: 0.82,
+      source_quality: {
+        evidence_tier: 'reviewed_guidance',
+        source_references: ['https://example.com/reviewed-guidance'],
+        effective_at: '2026-01-01T00:00:00.000Z',
+        expires_at: '2027-01-01T00:00:00.000Z',
+        review_status: 'approved',
+      },
+      market_tier: 'egypt',
+      is_fallback: false,
+      fallback_label: null,
+    },
+  ],
+  knowledge_gaps: [],
+  retrieval_metadata: {
+    embedding_provider: 'fake',
+    embedding_model: 'fake-32',
+    embedding_dimensions: 32,
+    collection_name: 'marketmind-test',
+    retrieval_latency_ms: 10,
+  },
+  retrieved_at: '2026-07-28T10:00:00.000Z',
+} satisfies RetrievedKnowledgePack
+
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     if (key === 'decision.approve') return 'Approve strategy'
@@ -102,20 +157,75 @@ vi.mock('next-intl', () => ({
   }),
 }))
 
-describe('StrategyReview', () => {
-  it('disables decision controls until ready for approval', () => {
-    render(<StrategyReview profile={null} resource={mockResource} />)
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: ReactNode
+    href: string
+  }) => <a href={href} {...props}>{children}</a>,
+}))
 
-    for (const name of ['Approve strategy', 'Request revision', 'Reject draft']) {
-      expect(screen.getByRole('button', { name }).hasAttribute('disabled')).toBe(true)
-    }
+describe('StrategyReview', () => {
+  it('shows an explicit unavailable state when no draft exists', () => {
+    render(
+      <StrategyReview
+        profile={null}
+        resource={mockResource}
+        currentVersionId={null}
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('review.unavailableTitle')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
   })
 
   it('renders the latest strategy plan instead of static demo copy', () => {
-    render(<StrategyReview profile={null} resource={draftResource} />)
+    render(
+      <StrategyReview
+        profile={null}
+        resource={draftResource}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
 
-    expect(screen.getByText('Focus repeat orders before expanding paid ads.')).toBeTruthy()
-    expect(screen.getByText('Facebook: Best fit for existing local audience conversations.')).toBeTruthy()
-    expect(screen.getByText('Repeat orders: +15%')).toBeTruthy()
+    expect(
+      screen.getAllByText('Focus repeat orders before expanding paid ads.').length,
+    ).toBeGreaterThan(0)
+    expect(screen.getByText('Best fit for existing local audience conversations.')).toBeTruthy()
+    expect(screen.getByText('+15%')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Approve strategy' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('enables approval only when profile, blockers, and persisted evidence are valid', () => {
+    render(
+      <StrategyReview
+        profile={{
+          businessName: 'Nile Sweets',
+          businessType: 'dessert shop',
+          location: 'Assiut',
+          confirmedAt: brief.business_profile_version.confirmed_at,
+          version: brief.business_profile_version.version,
+        }}
+        resource={draftResource}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={retrievalPack}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Approve strategy' }).hasAttribute('disabled'),
+    ).toBe(false)
+    expect(screen.queryByText('review.invalidEvidenceTitle')).toBeNull()
   })
 })
