@@ -111,21 +111,31 @@ Goal:
 
 Generate useful content based on the approved strategy.
 
-For MVP, focus on Week 1:
+For MVP, generate one week at a time across the approved 12-week Strategy:
 
-- 3 to 5 posts
+- 3 to 5 posts per week
 - Arabic and English captions where useful
 - image ideas or generated assets
 - short-video scripts
 - posting notes
 
+Week 1 is generated when the Content cycle starts. By the end of week N, the
+system prepares the week N+1 draft so the owner can review it before that week
+begins. The cycle stops after week 12 unless a new Strategy is approved.
+
 Output:
 
-`ContentPack`
+`ContentCycle` containing one immutable `ContentPack` per week.
 
 Approval:
 
-The owner approves individual items or a group of items.
+The owner approves individual items or a group of items for each week.
+Automatic next-week generation creates drafts only; it never approves or
+publishes them.
+
+Detailed architecture:
+
+`sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md`
 
 ## Phase 5 — Publish or export
 
@@ -139,13 +149,21 @@ Publishing should not be an LLM agent. It should be a safe deterministic action.
 
 Possible results:
 
-- publish through approved n8n workflow
-- export a content package
-- run a clearly labeled demo simulation
+- schedule a real static publication through an approved n8n/Meta workflow when
+  the owner-authorized account, permissions, credentials, and media are ready
+- export a checksum-addressed content package
+- run a clearly labeled deterministic demo simulation
 
 Approval:
 
-The owner must approve before any real publishing attempt.
+Content approval allows one exact immutable item version to become a
+publication candidate. Before any real external publication, the owner must
+separately approve that exact candidate, connected target, mode, and Cairo-local
+time. Export and simulation never claim that a provider published the item.
+
+Detailed architecture:
+
+`sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md`
 
 ## Phase 6 — Monitor
 

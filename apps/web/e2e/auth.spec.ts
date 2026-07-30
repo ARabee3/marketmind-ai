@@ -63,6 +63,12 @@ for (const locale of locales) {
       await page.getByRole('button', { name: /Sign in|تسجيل الدخول/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
+      await expect(
+        page.getByRole('heading', {
+          level: 1,
+          name: locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
+        }),
+      ).toBeVisible()
     })
 
     test('shows error for duplicate email', async ({ page }) => {

@@ -61,6 +61,9 @@ for (const locale of locales) {
       await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
+      )
       expect(rotation.calls).toBe(2)
     })
 

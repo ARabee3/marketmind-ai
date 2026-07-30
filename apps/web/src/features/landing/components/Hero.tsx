@@ -20,7 +20,7 @@ export async function Hero() {
   const steps = t.raw('preview.steps') as PreviewStep[]
 
   return (
-    <section id="top" className="hero-workspace hero-grid relative w-full overflow-hidden px-4 pb-9 pt-[104px] sm:px-6 md:pb-[54px] md:pt-[120px]">
+    <section id="top" className="hero-workspace hero-grid relative w-full overflow-hidden px-4 pb-9 pt-[104px] scroll-mt-28 sm:px-6 md:pb-[54px] md:pt-[120px]">
       <div className="relative z-10 mx-auto w-full max-w-content">
         <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-surface px-4 py-1.5 text-primary">
           <span className="relative flex h-2.5 w-2.5">
@@ -29,13 +29,13 @@ export async function Hero() {
           <span className="text-[13px] font-bold">{t('badge')}</span>
         </div>
 
-        <h1 className="mx-auto mt-[22px] max-w-[920px] text-center text-[clamp(2.9rem,11vw,7.5rem)] font-bold leading-[0.95] text-navy">
+        <h1 className="mx-auto mt-[22px] max-w-[1040px] text-balance text-center text-[clamp(2.5rem,5vw,4.5rem)] font-bold leading-[1.04] text-navy">
           {t('title')}
         </h1>
-        <p className="mx-auto mt-5 max-w-read text-center text-[clamp(1.05rem,2vw,1.25rem)] leading-[1.9] text-ink-soft">
+        <p className="mx-auto mt-5 max-w-read text-pretty text-center text-[clamp(1.05rem,2vw,1.25rem)] leading-[1.9] text-ink-soft">
           {t('body')}
         </p>
-        <p className="mx-auto mt-4 max-w-read text-center text-[13px] leading-[1.8] text-muted">
+        <p className="mx-auto mt-4 max-w-read text-center text-[13px] leading-[1.8] text-ink-soft">
           {t('note')}{' '}
           <a href="#roadmap" className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-4 hover:underline">
             {t('noteLink')}
@@ -53,7 +53,7 @@ export async function Hero() {
         </Reveal>
 
         <Reveal delay={0.32} y={24} className="relative mx-auto mt-[38px] max-w-[720px]">
-          <div className="pointer-events-none absolute -right-3 -top-7 z-20 hidden md:block">
+          <div className="pointer-events-none absolute -end-3 -top-7 z-20 hidden md:block">
             <div className="relative h-14 w-14">
               <div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/35" />
               <div className="absolute inset-[5px] flex items-center justify-center rounded-full bg-surface">

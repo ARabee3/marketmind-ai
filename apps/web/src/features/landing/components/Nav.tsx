@@ -95,7 +95,7 @@ export function Nav() {
     >
       <nav
         aria-label={t('aria')}
-        className={`mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface/90 px-2 py-2 text-navy backdrop-blur-md transition-shadow duration-200 ${scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header'}`}
+        className={`mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface px-2 py-2 text-navy transition-shadow duration-200 ${scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header'}`}
       >
         <a
           href="#top"
@@ -130,13 +130,13 @@ export function Nav() {
           </Link>
           <Link
             href="/login"
-            className="rounded-full border border-border px-4 py-2 text-[13px] font-bold text-muted transition-colors hover:bg-soft-teal hover:text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
+            className="inline-flex min-h-10 items-center rounded-full border border-border px-4 py-2 text-[13px] font-bold text-muted outline-none transition-colors hover:bg-soft-teal hover:text-navy focus-visible:ring-2 focus-visible:ring-action"
           >
             {t('login')}
           </Link>
           <Link
             href="/register"
-            className="cta-solid px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
+            className="cta-solid cta-solid--nav px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
             {t('signup')}
           </Link>
@@ -162,7 +162,7 @@ export function Nav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE.micro }}
-            className="fixed inset-0 z-10 bg-navy/70 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-10 bg-navy/45 md:hidden"
             onClick={() => setDrawerOpen(false)}
           >
             <motion.div
@@ -174,16 +174,16 @@ export function Nav() {
               animate={{ opacity: 1, x: 0 }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, x: slideFrom }}
               transition={{ duration: 0.24, ease: EASE.decel }}
-              className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(78vw,320px)] overscroll-contain border-e border-white/10 bg-[#050807] px-8 pb-8 pt-28 text-white shadow-[28px_0_80px_rgb(0_0_0_/_35%)]"
+              className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(82vw,336px)] overscroll-contain border-e border-border bg-surface px-8 pb-8 pt-28 text-navy shadow-elevated"
               onClick={(event) => event.stopPropagation()}
             >
-              <ul className="space-y-0 text-right">
+              <ul className="space-y-0 text-start">
                 {links.map((link) => (
-                  <li key={link.href} className="border-b border-white/10">
+                  <li key={link.href} className="border-b border-border">
                     <a
                       href={link.href}
                       onClick={() => setDrawerOpen(false)}
-                      className="block py-4 text-[1.55rem] font-bold leading-none text-white transition-colors hover:text-journey-mint outline-none focus-visible:ring-2 focus-visible:ring-journey-mint"
+                      className="block rounded py-4 text-[1.4rem] font-bold leading-none text-navy outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-action"
                     >
                       {link.label}
                     </a>
@@ -194,14 +194,14 @@ export function Nav() {
                 <Link
                   href="/register"
                   onClick={() => setDrawerOpen(false)}
-                  className="cta-solid min-h-[42px] px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-journey-mint"
+                  className="cta-solid min-h-[42px] px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
                   {t('signup')}
                 </Link>
                 <Link
                   href="/login"
                   onClick={() => setDrawerOpen(false)}
-                  className="rounded-full border border-white/15 bg-white/10 px-4 py-3 text-center text-[13px] font-bold text-white transition-colors hover:bg-white/15 outline-none focus-visible:ring-2 focus-visible:ring-journey-mint"
+                  className="rounded-full border border-border bg-bg px-4 py-3 text-center text-[13px] font-bold text-navy outline-none transition-colors hover:bg-soft-teal focus-visible:ring-2 focus-visible:ring-action"
                 >
                   {t('login')}
                 </Link>
@@ -209,7 +209,7 @@ export function Nav() {
                   href="/"
                   locale={targetLocale}
                   onClick={() => setDrawerOpen(false)}
-                  className="rounded-full border border-white/15 bg-white/10 px-4 py-3 font-latin text-[13px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-journey-mint"
+                  className="rounded-full border border-border bg-bg px-4 py-3 text-center font-latin text-[13px] font-bold text-navy outline-none transition-colors hover:bg-soft-teal focus-visible:ring-2 focus-visible:ring-action"
                 >
                   {t('languageLabel')}
                 </Link>

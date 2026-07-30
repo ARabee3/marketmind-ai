@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useCallback, useRef, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
-import { Link, useRouter } from '@/i18n/navigation'
+import { Link } from '@/i18n/navigation'
 import { publicRequest } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   validatePassword,
   validateConfirmPassword,
@@ -34,8 +35,10 @@ export function ResetPasswordForm() {
   const t = useTranslations('Auth')
   const tCommon = useTranslations('Common')
   const searchParams = useSearchParams()
-  const router = useRouter()
   const token = searchParams.get('token')
+
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordRef = useRef<HTMLInputElement>(null)
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -50,6 +53,11 @@ export function ResetPasswordForm() {
     const confirmError = validateConfirmPassword(password, confirmPassword)
     if (confirmError) next.confirmPassword = confirmError
     setErrors(next)
+    if (next.password) {
+      passwordRef.current?.focus()
+    } else if (next.confirmPassword) {
+      confirmPasswordRef.current?.focus()
+    }
     return Object.keys(next).length === 0
   }, [password, confirmPassword])
 
@@ -147,13 +155,12 @@ export function ResetPasswordForm() {
       >
         <p className="font-medium">{t('resetPasswordSuccessTitle')}</p>
         <p>{t('resetPasswordSuccessBody')}</p>
-        <Button
-          type="button"
-          className={authStyles.primaryButton}
-          onClick={() => router.push('/login?reset=true')}
+        <Link
+          href="/login?reset=true"
+          className={cn(buttonVariants(), authStyles.primaryButton)}
         >
           {t('resetPasswordSignIn')}
-        </Button>
+        </Link>
       </div>
     )
   }
@@ -177,6 +184,7 @@ export function ResetPasswordForm() {
       <div className={authStyles.field}>
         <Label htmlFor="password">{t('resetPasswordPasswordLabel')}</Label>
         <Input
+          ref={passwordRef}
           id="password"
           name="password"
           type="password"
@@ -189,7 +197,7 @@ export function ResetPasswordForm() {
           aria-describedby={errors.password ? 'password-error' : undefined}
         />
         {errors.password && (
-          <p id="password-error" className="text-sm text-destructive">
+          <p id="password-error" role="alert" className="text-sm text-destructive">
             {t(errors.password, { min: MIN_PASSWORD_LENGTH })}
           </p>
         )}
@@ -200,6 +208,7 @@ export function ResetPasswordForm() {
           {t('resetPasswordConfirmPasswordLabel')}
         </Label>
         <Input
+          ref={confirmPasswordRef}
           id="confirmPassword"
           name="confirmPassword"
           type="password"
@@ -214,7 +223,7 @@ export function ResetPasswordForm() {
           }
         />
         {errors.confirmPassword && (
-          <p id="confirm-password-error" className="text-sm text-destructive">
+          <p id="confirm-password-error" role="alert" className="text-sm text-destructive">
             {t(errors.confirmPassword)}
           </p>
         )}

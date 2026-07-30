@@ -28,14 +28,16 @@ export async function SampleResult() {
             <span className="rounded-full border border-white/35 bg-white/10 px-3 py-1 text-[12px] font-bold">
               {t('fileLabel')}
             </span>
-            <Image
-              src={SHOP_IMG}
-              alt={t('imageAlt')}
-              width={640}
-              height={256}
-              sizes="(max-width: 768px) 100vw, 40vw"
-              className="mt-6 h-52 w-full rounded-card object-cover md:h-64"
-            />
+            <div className="relative mt-6 aspect-[5/2] overflow-hidden rounded-card">
+              <Image
+                src={SHOP_IMG}
+                alt={t('imageAlt')}
+                fill
+                loading="lazy"
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="object-cover"
+              />
+            </div>
             <p className="mt-5 text-[15px] leading-[1.8] text-white/85">{t('sourceNote')}</p>
           </div>
           <div className="p-5 md:p-8">

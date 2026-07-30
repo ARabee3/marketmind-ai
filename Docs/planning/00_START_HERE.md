@@ -17,7 +17,7 @@ For the graduation MVP, we focus on one complete journey:
 1. Understand the business.
 2. Research useful marketing context.
 3. Create a marketing strategy.
-4. Generate first-week content.
+4. Generate content week by week from the approved 12-week strategy.
 5. Publish or export the content.
 6. Monitor results.
 7. Suggest improvements for future content.
@@ -33,7 +33,8 @@ The MVP should feel like a real product, even if some external integrations use 
 - Optional menu, logo, brand guide, and photo understanding.
 - Trusted research with citations.
 - Marketing strategy.
-- First-week content generation.
+- Rolling weekly content generation: Week 1 starts the cycle, then the next
+  week's draft is prepared by the end of the current week.
 - Human approval before publishing.
 - Manual export or clearly labeled simulation when real publishing is unavailable.
 - Basic analytics or clearly labeled scenario data.
@@ -68,6 +69,9 @@ Recommended order:
 9. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.
 10. Read `sprint-4/STRATEGY_AGENT_TEAM_GUIDE.md` before starting Sprint 4 issues.
 11. Use `sprint-4/STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md` as the detailed source of truth for the Strategy Agent and required RAG vertical slice.
+12. Use `sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md` as the approved implementation plan for the Content Agent and the publishing-automation handoff.
+13. Use `sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` as the approved
+    deterministic publishing plan and Automation-team issue split.
 
 ## Important team rule
 

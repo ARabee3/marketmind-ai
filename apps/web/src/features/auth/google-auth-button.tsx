@@ -14,10 +14,11 @@ export function GoogleAuthButton({ showDivider = true }: { showDivider?: boolean
     <div className="flex flex-col gap-4">
       <a
         href={href}
+        rel="noopener noreferrer"
         className={cn(
           buttonVariants({ variant: 'outline' }),
           authStyles.outlineButton,
-          'h-12 gap-3 border-border bg-white text-base font-semibold text-navy hover:bg-white hover:text-navy',
+          'h-12 gap-3 border-border bg-white text-base font-semibold text-navy hover:bg-white hover:text-navy hover:-translate-y-px hover:border-primary/40 active:translate-y-px focus-visible:ring-action',
         )}
       >
         <GoogleLogo />
@@ -25,7 +26,7 @@ export function GoogleAuthButton({ showDivider = true }: { showDivider?: boolean
       </a>
 
       {showDivider ? (
-        <div className="relative" role="separator" aria-label={t('orDivider')}>
+        <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-border" />
           </div>
