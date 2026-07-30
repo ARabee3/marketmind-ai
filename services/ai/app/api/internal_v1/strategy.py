@@ -26,17 +26,23 @@ from app.decisions.errors import DecisionRuleInputError
 from app.decisions.explanations import ChannelScoreExplanation, StrategyDecisionBundle
 from app.decisions.service import compute_strategy_decisions
 from app.providers.base import ProviderError
-from app.providers.strategy_provider import create_strategy_provider
+from app.providers.strategy_provider import StrategyLLMProvider, create_strategy_provider
 from app.qdrant.client import create_qdrant_client
 from app.rag.errors import RetryableRetrievalError, NonRetryableRetrievalError
 from app.rag.schemas import KnowledgeGap, RetrievalQueryContext, RetrievedKnowledgePack
 from app.rag.retrieval_service import retrieve_strategy_knowledge
-from app.strategy.assembler import DecisionBundle, assemble_generation_prompt, assemble_revision_prompt
+from app.strategy.assembler import (
+    DecisionBundle,
+    PromptAssembly,
+    assemble_generation_prompt,
+    assemble_revision_prompt,
+)
 from app.strategy.retrieval_adapter import contract_pack_to_rag
 from app.strategy.validators import validate_plan_against_request
 
 
 router = APIRouter(prefix="/internal/v1/ai/strategy", tags=["internal-ai-strategy"])
+_MAX_GENERATION_ATTEMPTS = 3
 
 
 async def get_qdrant() -> AsyncGenerator[AsyncQdrantClient, None]:
@@ -108,6 +114,91 @@ class ScoreStrategyResponse(BaseModel):
     budget_scenarios: list[BudgetScenario] | None
     kpi_targets: list[KpiTarget]
     knowledge_gaps: list[KnowledgeGap]
+
+
+def _language_correction_prompt(
+    prompt: PromptAssembly,
+    validation: StrategyValidationResult,
+    attempt: int,
+) -> PromptAssembly:
+    mismatch_fields = [
+        issue.field
+        for issue in validation.issues
+        if issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+    ]
+    fields = ", ".join(mismatch_fields)
+    return PromptAssembly(
+        system_prompt=(
+            f"{prompt.system_prompt}\n\n"
+            "MANDATORY LANGUAGE CORRECTION: The previous output failed the "
+            "owner-facing language gate. Regenerate the complete plan in the "
+            "language required by brief.plan_language. Keep URLs, identifiers, "
+            "enum values, and provenance metadata unchanged. Do not merely add "
+            "a token from the required script."
+        ),
+        user_prompt=(
+            f"{prompt.user_prompt}\n\n"
+            f"Fields that failed the language gate: {fields}."
+        ),
+        metadata={**prompt.metadata, "language_retry_attempt": attempt},
+    )
+
+
+async def _generate_validated_plan(
+    provider: StrategyLLMProvider,
+    prompt: PromptAssembly,
+    request: StrategyGenerateRequest,
+) -> tuple[StrategyPlan, StrategyValidationResult]:
+    current_prompt = prompt
+
+    for attempt in range(_MAX_GENERATION_ATTEMPTS):
+        try:
+            plan = await provider.generate_strategy_plan(current_prompt)
+        except ProviderError as error:
+            if not error.retryable or attempt == _MAX_GENERATION_ATTEMPTS - 1:
+                status_code = 503 if error.retryable else 400
+                raise HTTPException(
+                    status_code=status_code,
+                    detail={
+                        "error_type": error.code,
+                        "message": str(error),
+                        "retryable": error.retryable,
+                    },
+                )
+            await asyncio.sleep(2 ** attempt)
+            continue
+
+        validation = validate_plan_against_request(plan=plan, request=request)
+        language_issues = [
+            issue
+            for issue in validation.issues
+            if issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+        ]
+        if not language_issues:
+            return plan, validation
+
+        if attempt == _MAX_GENERATION_ATTEMPTS - 1:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error_type": "STRATEGY_LANGUAGE_MISMATCH",
+                    "message": (
+                        "The provider did not return owner-facing content in "
+                        "brief.plan_language after bounded retries."
+                    ),
+                    "issues": [
+                        issue.model_dump(mode="json") for issue in language_issues
+                    ],
+                },
+            )
+
+        current_prompt = _language_correction_prompt(
+            prompt=prompt,
+            validation=validation,
+            attempt=attempt + 1,
+        )
+
+    raise RuntimeError("Strategy generation attempts exhausted unexpectedly.")
 
 
 @router.post(
@@ -235,25 +326,11 @@ async def generate_strategy(
         )
 
     provider = create_strategy_provider(settings)
-    max_attempts = 3
-    for attempt in range(max_attempts):
-        try:
-            plan = await provider.generate_strategy_plan(prompt)
-            break
-        except ProviderError as e:
-            if not e.retryable or attempt == max_attempts - 1:
-                status_code = 503 if e.retryable else 400
-                raise HTTPException(
-                    status_code=status_code,
-                    detail={
-                        "error_type": e.code,
-                        "message": str(e),
-                        "retryable": e.retryable,
-                    },
-                )
-            await asyncio.sleep(2 ** attempt)
-
-    validation = validate_plan_against_request(plan=plan, request=request)
+    plan, validation = await _generate_validated_plan(
+        provider=provider,
+        prompt=prompt,
+        request=request,
+    )
 
     return StrategyGenerateResponse(
         plan=plan,
@@ -344,25 +421,11 @@ async def revise_strategy(
         )
 
     provider = create_strategy_provider(settings)
-    max_attempts = 3
-    for attempt in range(max_attempts):
-        try:
-            plan = await provider.generate_strategy_plan(prompt)
-            break
-        except ProviderError as e:
-            if not e.retryable or attempt == max_attempts - 1:
-                status_code = 503 if e.retryable else 400
-                raise HTTPException(
-                    status_code=status_code,
-                    detail={
-                        "error_type": e.code,
-                        "message": str(e),
-                        "retryable": e.retryable,
-                    },
-                )
-            await asyncio.sleep(2 ** attempt)
-
-    validation = validate_plan_against_request(plan=plan, request=request)
+    plan, validation = await _generate_validated_plan(
+        provider=provider,
+        prompt=prompt,
+        request=request,
+    )
 
     return StrategyGenerateResponse(
         plan=plan,

@@ -305,7 +305,7 @@
       "target_mode": "verified_benchmark_range",
       "target_value": "2.1-3.8%",
       "benchmark_citation_id": "c1000000-0000-4000-8000-000000000001",
-      "measurement_method": "Instagram Insights weekly tracking",
+      "measurement_method": "متابعة أسبوعية عبر إحصاءات إنستجرام",
       "notes": {
         "text": "معدل التفاعل المستهدف يستند إلى معايير QSR في مصر 2026.",
         "source": "retrieved_evidence",
@@ -317,7 +317,7 @@
       "funnel_stage": "awareness",
       "target_mode": "baseline_improvement",
       "target_value": "قيمة اختبارية اصطناعية: زيادة 35% في 12 أسبوعاً",
-      "measurement_method": "Google Business Profile insights",
+      "measurement_method": "متابعة إحصاءات ملف النشاط على جوجل",
       "notes": {
         "text": "نستخدم زيادة 35% كقيمة اصطناعية لاختبار وضع baseline_improvement فقط.",
         "source": "retrieved_evidence",
@@ -329,7 +329,7 @@
       "funnel_stage": "acquisition",
       "target_mode": "owner_target",
       "target_value": "500 متابع جديد في 12 أسبوعاً",
-      "measurement_method": "Instagram Insights متابعات أسبوعية",
+      "measurement_method": "متابعة أسبوعية عبر إحصاءات إنستجرام",
       "notes": {
         "text": "هدف وضعه صاحب المطعم لزيادة الوعي بالمكان.",
         "source": "owner_input",

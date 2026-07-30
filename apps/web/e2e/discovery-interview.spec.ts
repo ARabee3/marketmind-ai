@@ -313,7 +313,7 @@ test.describe('Discovery Interview & Review', () => {
     await page.getByRole('button', { name: 'Confirm profile' }).click()
 
     // Confirmed success
-    await expect(page.getByText('Strategy is now unlocked')).toBeVisible()
+    await expect(page.getByText('Profile confirmed', { exact: true })).toBeVisible()
   })
 
   test('Arabic chrome journey with RTL structure', async ({ page }) => {
@@ -431,7 +431,9 @@ test.describe('Discovery Interview & Review', () => {
     await page.getByRole('button', { name: 'تأكيد الملف الشخصي' }).click()
 
     // Confirmed success
-    await expect(page.getByText('الاستراتيجية متاحة الآن')).toBeVisible()
+    await expect(
+      page.getByText('تم تأكيد الملف الشخصي', { exact: true }),
+    ).toBeVisible()
   })
 
   test('Arabic UI with mixed English conversation preserved', async ({ page }) => {
@@ -783,12 +785,12 @@ test.describe('Discovery Interview & Review', () => {
     })
 
     await page.goto(`/en/discovery/${sessionId}`)
-    await expect(page.getByText('Strategy is now unlocked')).toBeVisible()
+    await expect(page.getByText('Profile confirmed', { exact: true })).toBeVisible()
 
     const beforeRefresh = statusCalls
     await page.reload()
 
-    await expect(page.getByText('Strategy is now unlocked')).toBeVisible()
+    await expect(page.getByText('Profile confirmed', { exact: true })).toBeVisible()
     await expect.poll(() => statusCalls).toBe(beforeRefresh + 1)
     expect(postCalls).toBe(0)
   })

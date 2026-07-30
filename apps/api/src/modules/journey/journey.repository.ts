@@ -54,6 +54,15 @@ export type JourneyStrategyRecord = {
   readonly id: string;
   readonly status: string;
   readonly currentVersionId: string | null;
+  readonly business: JourneyStrategyBusinessRecord | null;
+};
+
+export type JourneyStrategyBusinessRecord = {
+  readonly businessName: string;
+  readonly businessType: string;
+  readonly city: string | null;
+  readonly area: string | null;
+  readonly profileVersion: number;
 };
 
 export type JourneyCurrentRecord = {
@@ -122,11 +131,51 @@ export class JourneyRepository implements JourneyRepositoryPort {
         id: true,
         status: true,
         currentVersionId: true,
+        brief: {
+          select: {
+            businessProfileVersionId: true,
+            businessProfileVersion: {
+              select: {
+                version: true,
+                business: {
+                  select: {
+                    displayName: true,
+                    businessType: true,
+                    city: true,
+                    area: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       }
     });
 
+    let strategyBusiness: JourneyStrategyBusinessRecord | null = null;
+    if (strategy?.brief?.businessProfileVersion?.business) {
+      const version = strategy.brief.businessProfileVersion;
+      const business = version.business;
+      strategyBusiness = {
+        businessName: business.displayName,
+        businessType: business.businessType,
+        city: business.city,
+        area: business.area,
+        profileVersion: version.version,
+      };
+    }
+
+    const strategyRecord: JourneyStrategyRecord | null = strategy
+      ? {
+          id: strategy.id,
+          status: strategy.status,
+          currentVersionId: strategy.currentVersionId,
+          business: strategyBusiness,
+        }
+      : null;
+
     if (!session) {
-      return { owner, session: null, strategy };
+      return { owner, session: null, strategy: strategyRecord };
     }
 
     const confirmedProfile = session.confirmedProfileVersionId
@@ -168,7 +217,7 @@ export class JourneyRepository implements JourneyRepositoryPort {
         intake: session.intakes[0] ?? null,
         confirmedProfile,
       },
-      strategy,
+      strategy: strategyRecord,
     };
   }
 }

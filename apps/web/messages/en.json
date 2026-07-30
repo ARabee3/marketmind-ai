@@ -73,6 +73,22 @@
         "title": "Discovery needs attention",
         "body": "The previous journey is unavailable or failed. Start a new Discovery to rebuild the business context."
       },
+      "strategy_preparing": {
+        "title": "Strategy is being prepared",
+        "body": "MarketMind is preparing the Strategy. Open the workspace to follow progress; review controls appear when the draft is ready."
+      },
+      "strategy_draft": {
+        "title": "Strategy draft ready",
+        "body": "A saved draft is ready. Open it to review the evidence, request changes, or approve it."
+      },
+      "strategy_approved": {
+        "title": "Strategy approved",
+        "body": "The owner-approved Strategy is saved. Open it to review the final plan and decision."
+      },
+      "strategy_rejected": {
+        "title": "Strategy needs revision",
+        "body": "The latest draft was rejected. Open Strategy to review the feedback and prepare a revision."
+      },
       "error": {
         "title": "Could not load your journey",
         "body": "Something went wrong while loading your latest journey. Try again — your journey has not been removed."
@@ -96,7 +112,7 @@
       "discovery_required": "Strategy stays locked until Discovery produces a profile.",
       "profile_review_required": "Strategy stays locked until you confirm the profile.",
       "strategy_not_active": "Strategy is planned next, but not available in this sprint.",
-      "strategy_active": "Strategy is active"
+      "strategy_active": "The Strategy workspace is available."
     },
     "phase": {
       "discovery": {
@@ -116,8 +132,8 @@
       "strategy": {
         "number": "3",
         "title": "Strategy",
-        "done": "Not active yet",
-        "active": "Next planned phase",
+        "done": "Approved by owner",
+        "active": "In progress or awaiting review",
         "locked": "Locked"
       },
       "content": {
@@ -654,10 +670,11 @@
         },
         "language": {
           "label": "Plan language",
-          "help": "Choose the language the team will actually use while working.",
+          "help": "Choose the language the generated plan and owner-facing text will be written in.",
           "example": "Arabic Egyptian",
           "options": {
-            "arabic": "Arabic Egyptian"
+            "arabic": "Arabic Egyptian",
+            "english": "English"
           }
         },
         "paidMedia": {

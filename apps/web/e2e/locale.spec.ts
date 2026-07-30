@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { mockAuthRefresh, mockAuthMe, mockUser } from './fixtures/auth'
 
 test.describe('Locale rendering', () => {
@@ -6,14 +6,24 @@ test.describe('Locale rendering', () => {
     await page.goto('/en')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
-    await expect(page.locator('h1')).toContainText('MarketMind AI')
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'From understanding your business to improving marketing',
+      }),
+    ).toBeVisible()
   })
 
   test('renders Arabic page under /ar', async ({ page }) => {
     await page.goto('/ar')
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-    await expect(page.locator('h1')).toContainText('ماركت مايند')
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'من فهم نشاطك لحد تحسين التسويق',
+      }),
+    ).toBeVisible()
   })
 })
 
@@ -61,14 +71,14 @@ test.describe('Locale detection (proxy.ts)', () => {
 test.describe('Language switcher preserves route (both directions)', () => {
   test('switches /en -> /ar', async ({ page }) => {
     await page.goto('/en')
-    await page.getByRole('button', { name: /Arabic|العربية/i }).click()
+    await switchLandingLocale(page, 'ar')
     await expect(page).toHaveURL(/\/ar(\b|$)/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
   })
 
   test('switches /ar -> /en', async ({ page }) => {
     await page.goto('/ar')
-    await page.getByRole('button', { name: /English|الإنجليزية/i }).click()
+    await switchLandingLocale(page, 'en')
     await expect(page).toHaveURL(/\/en(\b|$)/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })
@@ -101,6 +111,27 @@ test.describe('Language switcher preserves route (both directions)', () => {
     await expect(page).toHaveURL(/\/en\/discovery(\b|$)/)
   })
 })
+
+async function switchLandingLocale(page: Page, target: 'en' | 'ar') {
+  const compactLabel = target === 'ar' ? 'AR' : 'EN'
+  const desktopLink = page
+    .getByRole('navigation')
+    .getByRole('link', { name: compactLabel, exact: true })
+
+  if (await desktopLink.isVisible()) {
+    await desktopLink.click()
+    return
+  }
+
+  await page.getByRole('button', { name: /Open menu|فتح القائمة/i }).click()
+  await page
+    .getByRole('dialog')
+    .getByRole('link', {
+      name: target === 'ar' ? 'العربية' : 'English',
+      exact: true,
+    })
+    .click()
+}
 
 test.describe('Responsive shell', () => {
   for (const locale of ['en', 'ar'] as const) {

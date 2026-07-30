@@ -27,7 +27,9 @@ from tests.strategy.fixtures import (
     default_business_profile,
     default_plan,
     default_retrieval_pack,
+    english_brief,
     make_generate_request,
+    mixed_brief,
 )
 
 
@@ -152,6 +154,130 @@ class TestInputReferences:
         result = _pipeline().validate(plan, request)
         assert not result.valid
         assert any(i.code == "STRATEGY_PROFILE_STALE" for i in result.issues)
+
+
+# ---------------------------------------------------------------------------
+# Extra validators: owner-facing language
+# ---------------------------------------------------------------------------
+
+class TestOwnerFacingLanguage:
+    """Script-ratio checks for Arabic and English owner-facing prose."""
+
+    def test_arabic_brief_with_english_prose_fails(self):
+        request = make_generate_request(brief=default_brief())
+        assert request.brief.plan_language == "ar-EG"
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "Launch Instagram campaign focused on office workers."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        assert any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_arabic_brief_with_arabic_prose_passes(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        # Fixture default plan already uses Arabic prose for ar-EG brief.
+        result = _pipeline().validate(plan, request)
+        assert not any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_english_brief_with_arabic_prose_fails(self):
+        request = make_generate_request(brief=english_brief())
+        plan = default_plan().model_copy(update={"plan_language": "en"})
+        result = _pipeline().validate(plan, request)
+        assert any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_mixed_brief_skips_language_check(self):
+        request = make_generate_request(brief=mixed_brief())
+        plan = default_plan().model_copy(update={"plan_language": "mixed"})
+        result = _pipeline().validate(plan, request)
+        assert not any(i.code == "STRATEGY_LANGUAGE_MISMATCH" for i in result.issues)
+
+    def test_arabic_punctuation_does_not_make_english_prose_arabic(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "Launch the campaign now، then review performance."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        assert any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            and issue.field == "plan.executive_summary.text"
+            for issue in result.issues
+        )
+
+    def test_single_arabic_letter_does_not_make_english_prose_arabic(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "Launch the campaign now ع and review performance."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        assert any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            and issue.field == "plan.executive_summary.text"
+            for issue in result.issues
+        )
+
+    def test_language_metadata_must_match_brief(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan().model_copy(update={"plan_language": "en"})
+        result = _pipeline().validate(plan, request)
+        assert any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            and issue.field == "plan.plan_language"
+            for issue in result.issues
+        )
+
+    def test_kpi_measurement_method_is_language_checked(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        targets = list(plan.kpi_targets)
+        targets[0] = targets[0].model_copy(
+            update={"measurement_method": "Review Instagram Insights weekly."}
+        )
+        plan = plan.model_copy(update={"kpi_targets": targets})
+        result = _pipeline().validate(plan, request)
+        assert any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            and issue.field == "plan.kpi_targets[0].measurement_method"
+            for issue in result.issues
+        )
+
+    def test_kpi_textual_target_value_is_language_checked(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        targets = list(plan.kpi_targets)
+        targets[0] = targets[0].model_copy(
+            update={"target_value": "Increase qualified leads by 20%."}
+        )
+        plan = plan.model_copy(update={"kpi_targets": targets})
+        result = _pipeline().validate(plan, request)
+        assert any(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            and issue.field == "plan.kpi_targets[0].target_value"
+            for issue in result.issues
+        )
+
+    def test_multiple_english_fields_produce_multiple_issues(self):
+        request = make_generate_request(brief=default_brief())
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": "English executive summary only."}
+            ),
+            "situation_diagnosis": plan.situation_diagnosis.model_copy(
+                update={"text": "English situation diagnosis only."}
+            ),
+        })
+        result = _pipeline().validate(plan, request)
+        mismatch_fields = [i.field for i in result.issues if i.code == "STRATEGY_LANGUAGE_MISMATCH"]
+        assert len(mismatch_fields) >= 2
 
 
 # ---------------------------------------------------------------------------

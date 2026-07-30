@@ -4,6 +4,7 @@ import type {
   ActiveDiscoveryStatus,
   CurrentJourneyDiscoverySummary,
   CurrentJourneyResponse,
+  StrategyStatus,
   UnavailableDiscoveryStatus,
 } from '@marketmind/contracts'
 import { getCurrentJourney } from '@/lib/api/journey'
@@ -108,6 +109,27 @@ describe('DashboardHome', () => {
     expect(screen.getByText('profileVersionValue:2')).not.toBeNull()
   })
 
+  it.each([
+    ['generating', 'state.strategy_preparing.title'],
+    ['draft', 'state.strategy_draft.title'],
+    ['approved', 'state.strategy_approved.title'],
+    ['rejected', 'state.strategy_rejected.title'],
+  ] satisfies [AvailableStrategyStatus, string][])(
+    'renders lifecycle-specific Strategy copy for %s',
+    async (status, title) => {
+      mockedGetCurrentJourney.mockResolvedValue(
+        responseWithConfirmedProfileAndStrategy(status),
+      )
+
+      render(<DashboardHome />)
+
+      expect(await screen.findByRole('heading', { name: title })).not.toBeNull()
+      expect(
+        screen.getByRole('link', { name: 'actions.view_strategy' }).getAttribute('href'),
+      ).toBe('/strategy/00000000-0000-4000-8000-000000000000')
+    },
+  )
+
   it('shows recovery copy and retries after the journey endpoint fails', async () => {
     mockedGetCurrentJourney
       .mockRejectedValueOnce(new Error('network failed'))
@@ -163,6 +185,8 @@ describe('DashboardHome', () => {
     expect(screen.getByRole('button', { name: 'retry' })).not.toBeNull()
   })
 })
+
+type AvailableStrategyStatus = Exclude<StrategyStatus, 'needs_brief' | 'failed'>
 
 function responseWithUnverifiedOwner(): CurrentJourneyResponse {
   return {
@@ -260,6 +284,21 @@ function responseWithConfirmedProfile(): CurrentJourneyResponse {
   }
 }
 
+function responseWithConfirmedProfileAndStrategy(
+  status: AvailableStrategyStatus,
+): CurrentJourneyResponse {
+  const response = responseWithConfirmedProfile()
+  return {
+    ...response,
+    future_phase: futurePhase('strategy_active', status),
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: '00000000-0000-4000-8000-000000000000',
+      destination: '/strategy/00000000-0000-4000-8000-000000000000',
+    },
+  }
+}
+
 function responseWithUnavailableDiscovery(
   status: UnavailableDiscoveryStatus,
 ): CurrentJourneyResponse {
@@ -313,16 +352,24 @@ function discovery<
 
 function futurePhase(
   reason: CurrentJourneyResponse['future_phase']['reason'],
+  status: AvailableStrategyStatus = 'draft',
 ): CurrentJourneyResponse['future_phase'] {
   if (reason === 'strategy_active') {
     return {
       phase: 'strategy',
       availability: 'available',
-      status: 'draft',
+      status,
       reason: 'strategy_active',
       strategy_id: '00000000-0000-4000-8000-000000000000',
       current_version_id: null,
       destination: '/strategy/00000000-0000-4000-8000-000000000000',
+      business: {
+        business_name: 'Nile Sweets',
+        business_type: 'dessert shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        profile_version: 2,
+      },
     }
   }
   return {

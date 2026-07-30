@@ -362,6 +362,8 @@ class MockStrategyProvider(StrategyLLMProvider):
             plan_dict["primary_objective"] = primary_objective_value
             plan_dict["plan_language"] = language_mode_value
             plan_dict["budget_mode"] = budget_mode_value
+            if language_mode_value == "en":
+                _write_english_mock_owner_text(plan_dict)
             if budget_mode_value == "organic_only":
                 plan_dict["budget_scenarios"] = None
             if funnel_stage:
@@ -394,6 +396,93 @@ class MockStrategyProvider(StrategyLLMProvider):
         recursive_clean(plan_dict)
 
         return StrategyPlan.model_validate(plan_dict)
+
+
+def _write_english_mock_owner_text(plan: dict[str, Any]) -> None:
+    """Keep deterministic mock output aligned with an English Strategy brief."""
+    plan["executive_summary"]["text"] = (
+        f"{plan['executive_summary']['text'].split('.', 1)[0]}. "
+        "Focus the twelve-week plan on the channels the owner can sustain and review."
+    )
+    plan["situation_diagnosis"]["text"] = (
+        f"{plan['situation_diagnosis']['text'].split('.', 1)[0]}. "
+        "The business needs a consistent, evidence-led marketing rhythm."
+    )
+    plan["target_audience"]["text"] = (
+        "Prioritize nearby customers who need a convenient, trustworthy offer."
+    )
+    plan["positioning"]["text"] = (
+        "Position the business as a practical local choice with clear value and dependable service."
+    )
+    plan["tone"]["text"] = (
+        "Use a helpful, direct, and confident tone without exaggerated claims."
+    )
+
+    for channel in plan["selected_channels"]:
+        channel["rationale"]["text"] = (
+            f"Use {channel['channel']} because it fits the confirmed owner capacity "
+            "and available evidence."
+        )
+    for scenario in plan.get("budget_scenarios") or []:
+        scenario["notes"]["text"] = (
+            "Review this budget scenario with the owner before approving any paid activity."
+        )
+    for target in plan["kpi_targets"]:
+        if target.get("target_value") and any(
+            character.isalpha() for character in target["target_value"]
+        ):
+            target["target_value"] = (
+                "Improve against the confirmed baseline over twelve weeks."
+            )
+        target["measurement_method"] = (
+            "Review the channel's native insights every week."
+        )
+        target["notes"]["text"] = (
+            "Compare the result with the confirmed baseline and record the learning."
+        )
+    for assumption in plan["assumptions"]:
+        assumption["text"] = (
+            "Test this assumption during the first two weeks before expanding the plan."
+        )
+    for risk in plan["risks"]:
+        risk["text"] = (
+            "The owner may need additional guidance to maintain the planned activity."
+        )
+    for gap in plan["knowledge_gaps"]:
+        gap["description"] = (
+            "Reliable local evidence is not yet available for this planning question."
+        )
+    for blocker in plan["blockers"]:
+        blocker["message"] = (
+            "Resolve this missing owner decision before approving the Strategy."
+        )
+
+    content = plan["content_strategy"]
+    for index, pillar in enumerate(content["pillars"], start=1):
+        pillar["text"] = (
+            f"Content pillar {index}: explain a useful customer benefit with supporting evidence."
+        )
+    for index, item in enumerate(content["format_mix"], start=1):
+        item["text"] = (
+            f"Format option {index}: use a repeatable format the owner can produce consistently."
+        )
+    content["weekly_cadence"] = (
+        "Publish three owner-reviewed pieces each week and review performance weekly."
+    )
+    for week in content["weeks"]:
+        week["theme"] = f"Week {week['week_number']} learning theme"
+        if week.get("notes"):
+            week["notes"] = "Record the result and use it to adjust the next week."
+    for experiment in content["experiments"]:
+        experiment["hypothesis"] = (
+            "A clearer evidence-led message will improve qualified customer response."
+        )
+        experiment["method"] = (
+            "Compare two owner-approved variants over the planned test period."
+        )
+        experiment["success_criteria"] = (
+            "The selected response metric improves against the confirmed baseline."
+        )
 
 
 # ---------------------------------------------------------------------------

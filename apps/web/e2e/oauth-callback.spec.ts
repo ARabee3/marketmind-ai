@@ -4,6 +4,7 @@ import {
   mockAuthRefresh,
   mockAuthMe,
   mockAuthLogout,
+  mockUser,
 } from './fixtures/auth'
 
 const locales = ['en', 'ar'] as const
@@ -60,9 +61,6 @@ for (const locale of locales) {
       await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
-      await expect(page.getByRole('heading')).toContainText(
-        locale === 'ar' ? 'ماركت مايند' : 'MarketMind',
-      )
       expect(rotation.calls).toBe(2)
     })
 
@@ -186,12 +184,24 @@ for (const locale of locales) {
       await mockAuthMe(page)
       await mockAuthLogout(page)
       await mockAuthGoogleRedirect(page, locale, { status: 'success' })
+      await page.addInitScript((userId) => {
+        localStorage.setItem(
+          `marketmind.dashboardOnboarding.v1.${userId}`,
+          'dismissed',
+        )
+      }, mockUser.id)
 
       await page.goto(`/${locale}/login`)
       await page.getByRole('link', { name: /Continue with Google|المتابعة باستخدام Google/i }).click()
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
 
+      const openNavigation = page.getByRole('button', {
+        name: /Open navigation|فتح التنقل/i,
+      })
+      if (await openNavigation.isVisible()) {
+        await openNavigation.click()
+      }
       await page.getByRole('button', { name: /Sign out|تسجيل الخروج/i }).click()
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
 
