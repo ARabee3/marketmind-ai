@@ -1,5 +1,10 @@
 from app.rag.schemas import RetrievalQueryContext
-from app.rag.query_builder import build_subqueries, get_locale_filter, get_market_filter
+from app.rag.query_builder import (
+    build_subqueries,
+    get_industry_filter,
+    get_locale_filter,
+    get_market_filter,
+)
 
 
 def test_get_locale_filter():
@@ -12,6 +17,12 @@ def test_get_market_filter():
     assert get_market_filter("egypt") == ["egypt", "mena", "global"]
     assert get_market_filter("mena") == ["mena", "global"]
     assert get_market_filter("global") == ["global"]
+
+
+def test_get_industry_filter():
+    assert get_industry_filter("retail") == ["retail", "general"]
+    assert get_industry_filter("general") == ["general"]
+    assert get_industry_filter(None) is None
 
 
 def test_build_subqueries():

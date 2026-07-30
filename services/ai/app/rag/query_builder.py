@@ -23,6 +23,15 @@ def get_market_filter(market: str) -> list[str]:
     return ["global"]
 
 
+def get_industry_filter(industry: str | None) -> list[str] | None:
+    """Include cross-industry guidance without admitting another sector."""
+    if not industry:
+        return None
+    if industry == "general":
+        return ["general"]
+    return [industry, "general"]
+
+
 def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     """Fan out a single strategy context into multiple focused subqueries."""
     subqueries = []
@@ -33,13 +42,7 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
     # General entries are the cross-industry fallback for every specific SME
     # sector. Without this value, the hard filter silently excludes the
     # approved general frameworks that ground situation diagnosis.
-    industry_filter = (
-        [context.industry, "general"]
-        if context.industry and context.industry != "general"
-        else [context.industry]
-        if context.industry
-        else None
-    )
+    industry_filter = get_industry_filter(context.industry)
     paid_media_allowed = context.paid_media_allowed
 
     # 1. Framework Diagnosis

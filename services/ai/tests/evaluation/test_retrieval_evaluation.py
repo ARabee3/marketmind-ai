@@ -11,6 +11,7 @@ from tests.evaluation.runner.retrieval_runner import RetrievalEvalRunner
 pytestmark = pytest.mark.integration
 
 FRAMEWORK_DIAGNOSIS_CHUNK_ID = "a0000000-0050-4000-8000-000000000050"
+SERVICES_FRAMEWORK_CHUNK_ID = "a0000000-0020-4000-8000-000000000020"
 
 
 def _smoke_cases(dataset: EvalDataset) -> list[EvalCase]:
@@ -95,6 +96,7 @@ async def test_general_framework_diagnosis_is_retrieved_for_arabic_and_english(
             if subquery.subquery_category == "framework_diagnosis"
         )
         assert FRAMEWORK_DIAGNOSIS_CHUNK_ID in framework_result.returned_chunk_ids
+        assert SERVICES_FRAMEWORK_CHUNK_ID not in framework_result.returned_chunk_ids
 
 
 @pytest.mark.eval_full
