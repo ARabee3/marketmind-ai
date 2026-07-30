@@ -151,7 +151,8 @@ This is the main business value.
 
 ### Step 5 — Content
 
-Generate Week 1 posts, captions, and scripts from the approved strategy.
+Generate content one week at a time from the approved 12-week strategy. Start
+with Week 1, then prepare week N+1 by the end of week N.
 
 Purpose:
 
@@ -159,7 +160,12 @@ Make the product feel useful and demo-ready.
 
 ### Step 6 — Publishing/export
 
-Add safe export first, then n8n/Meta publishing if permissions work.
+Add safe export and clearly labeled simulation first, then deterministic
+n8n/Meta static publishing if current account permissions and credentials work.
+Keep NestJS/PostgreSQL as the source of truth, require a separate exact
+publication approval, and use
+`sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` for the approved Sprint 5B
+structure.
 
 Purpose:
 
@@ -198,11 +204,12 @@ The best demo should show one clean story:
 4. Owner confirms.
 5. System creates cited strategy.
 6. Owner approves.
-7. System creates Week 1 content.
+7. System creates Week 1 content and starts the rolling weekly Content cycle.
 8. Owner approves.
 9. System exports or simulates publishing.
 10. System shows metrics.
 11. System proposes improvement.
 12. Owner approves future change.
+13. By the end of Week 1, the system creates the Week 2 draft for owner review.
 
 This is enough to prove the product.

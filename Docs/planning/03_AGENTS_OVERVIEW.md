@@ -13,7 +13,7 @@ Each agent has a focused responsibility. No agent should do everything.
 | Discovery Agent | Understand the business | BusinessProfile | Yes |
 | Research Agent | Find useful evidence | ResearchPack | No direct owner approval, but sources must be visible |
 | Strategy Agent | Build strategy | StrategyPlan | Yes |
-| Content Agent | Create content | ContentPack | Yes |
+| Content Agent | Create rolling weekly content | ContentCycle + weekly ContentPack | Yes |
 | Optimization Agent | Suggest improvements | OptimizationProposal | Yes |
 | Publishing Service | Publish/export approved content | Publication result | Yes before publishing |
 
@@ -153,7 +153,8 @@ Input:
 
 Output:
 
-- `ContentPack`
+- `ContentCycle` tied to one approved Strategy version
+- one immutable weekly `ContentPack` for each Strategy week
 
 Allowed:
 
@@ -163,6 +164,7 @@ Allowed:
 - create calendar items
 - write Egyptian Arabic and English versions when useful
 - regenerate weak content
+- prepare week N+1 by the end of week N through week 12
 
 Forbidden:
 
@@ -174,6 +176,13 @@ Forbidden:
 Approval point:
 
 Owner approves content before publishing/export.
+
+Automatic weekly generation creates drafts only. It never approves or
+publishes them.
+
+Detailed architecture:
+
+`sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md`
 
 ## 5. Optimization Agent
 
@@ -219,15 +228,22 @@ Publishing is an external action. It should be predictable, logged, and approved
 
 Allowed publishing paths:
 
-- approved n8n workflow
-- manual export
-- clearly labeled simulation
+- an approved deterministic n8n workflow for a separately owner-approved exact
+  candidate, target, mode, and schedule
+- a checksum-addressed manual export
+- a clearly labeled deterministic simulation
 
 Forbidden:
 
 - LLM deciding to publish alone
 - publishing without explicit approval
 - hiding failed integrations
+- rewriting the frozen Content candidate inside automation
+- treating an export, simulation, or unknown provider outcome as published
+
+Detailed architecture:
+
+`sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md`
 
 ## Simple rule for the team
 
