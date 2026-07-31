@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publishing-dispatch-real.example.json",
+  "mutation": {
+    "kind": "unknown_key_id",
+    "value": "unknown-fixture-key"
+  }
+}

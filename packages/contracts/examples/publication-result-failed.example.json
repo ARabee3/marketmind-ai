@@ -1,0 +1,19 @@
+{
+  "contract_version": "publication-result-v1",
+  "result_id": "29292929-2929-4292-8292-292929292929",
+  "attempt_id": "30303030-3030-4303-8303-303030303030",
+  "intent_id": "31313131-3131-4313-8313-313131313131",
+  "intent_version": 1,
+  "mode": "real",
+  "outcome": "failed",
+  "provider": "meta",
+  "remote_publication_id": null,
+  "remote_url": null,
+  "export_artifact_id": null,
+  "simulation_reference_id": null,
+  "simulation_label": null,
+  "error_code": "PUBLISHING_PROVIDER_FAILURE",
+  "retryable": true,
+  "reconciliation_required": false,
+  "occurred_at": "2026-08-03T15:32:00Z"
+}

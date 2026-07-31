@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publishing-callback-published.example.json",
+  "mutation": {
+    "kind": "invalid_signature",
+    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

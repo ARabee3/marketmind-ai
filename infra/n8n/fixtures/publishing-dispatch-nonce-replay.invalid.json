@@ -1,0 +1,6 @@
+{
+  "base_fixture": "publishing-dispatch-real.example.json",
+  "mutation": {
+    "kind": "replayed_nonce"
+  }
+}

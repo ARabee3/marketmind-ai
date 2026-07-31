@@ -1,0 +1,38 @@
+{
+  "contract_version": "publishing-callback-envelope-v1",
+  "message_id": "19191919-1919-4191-8191-191919191919",
+  "sent_at": "2026-08-03T15:30:35Z",
+  "nonce": "fixture-callback-nonce-0001",
+  "key_id": "fixture-key-v1",
+  "signature_algorithm": "hmac-sha256",
+  "body_sha256": "fda37f5d8c4da4a501aa5283891379949921c45d731028e9b246db50acda3c53",
+  "signature": "f8a92cc26cee932bcf2809f77bcec318512152894a1bd314b3db997452878979",
+  "body": {
+    "contract_version": "publication-callback-v1",
+    "callback_id": "17171717-1717-4171-8171-171717171717",
+    "attempt_id": "15151515-1515-4151-8151-151515151515",
+    "intent_id": "13131313-1313-4131-8131-131313131313",
+    "intent_version": 2,
+    "request_fingerprint": "be6b8acaf8cec7e3259161de496e2bce06995cbf70514824775173cffac0df4b",
+    "workflow_version": "publishing-v1.0.0",
+    "result": {
+      "contract_version": "publication-result-v1",
+      "result_id": "16161616-1616-4161-8161-161616161616",
+      "attempt_id": "15151515-1515-4151-8151-151515151515",
+      "intent_id": "13131313-1313-4131-8131-131313131313",
+      "intent_version": 2,
+      "mode": "real",
+      "outcome": "published",
+      "provider": "meta",
+      "remote_publication_id": "fixture-meta-post-1001",
+      "remote_url": "https://www.facebook.com/fixture/posts/1001",
+      "export_artifact_id": null,
+      "simulation_reference_id": null,
+      "simulation_label": null,
+      "error_code": null,
+      "retryable": false,
+      "reconciliation_required": false,
+      "occurred_at": "2026-08-03T15:30:30Z"
+    }
+  }
+}

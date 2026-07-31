@@ -1,0 +1,12 @@
+{
+  "contract_version": "publishing-workflow-fixture-manifest-v1",
+  "fixture_secret": "publishing-v1-fixture-secret-not-for-production",
+  "valid_dispatch": "publishing-dispatch-real.example.json",
+  "valid_callback": "publishing-callback-published.example.json",
+  "content_candidates": {
+    "valid": "../../../packages/contracts/examples/publication-candidate-approved.example.json",
+    "unapproved": "../../../packages/contracts/examples/publication-candidate-unapproved.invalid.json",
+    "tampered": "../../../packages/contracts/examples/publication-candidate-tampered.invalid.json",
+    "revoked": "../../../packages/contracts/examples/publication-candidate-revoked.invalid.json"
+  }
+}

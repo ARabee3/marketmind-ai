@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-result-published.example.json",
+  "mutation": {
+    "kind": "mode_confusion",
+    "value": "simulation"
+  }
+}

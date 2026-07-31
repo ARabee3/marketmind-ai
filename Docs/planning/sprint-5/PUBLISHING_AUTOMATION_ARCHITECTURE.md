@@ -11,6 +11,9 @@
 second contributor and co-assignee on both
 **Depends on:** the frozen `PublicationCandidateV1` fixture and rules from
 Content issue #107
+**Normative contract:**
+`packages/contracts/PUBLISHING_CONTRACT.md`, frozen by issue #118; code snippets
+in this planning document are illustrative when naming differs
 **GitHub state:** epic #117 and child issues #118–#123 are created, linked as
 sub-issues, and assigned to Sprint 5 with `Todo / Sprint Ready`
 
@@ -36,18 +39,18 @@ generation implementation.
 
 These decisions are the approved Sprint 5B baseline.
 
-| Decision | Approved answer |
-| --- | --- |
-| Source of truth | NestJS and PostgreSQL |
-| Workflow runner | An authenticated, version-controlled n8n workflow |
-| Due-time scheduling | Redis/BullMQ delayed jobs created from PostgreSQL state |
-| First real platforms | Facebook Page and Instagram Professional account |
-| First real format | One ready static image plus its approved caption |
-| Other formats/channels | Manual export or clearly labeled simulation |
-| Owner time zone | Store UTC plus the IANA zone; show `Africa/Cairo` in the UI |
-| Real-publish approval | Required for the exact candidate, target, mode, and time |
-| Retry delivery | At least once, with idempotency and truthful unknown outcomes |
-| Fallback | Manual export and simulation remain available even if Meta is blocked |
+| Decision               | Approved answer                                                       |
+| ---------------------- | --------------------------------------------------------------------- |
+| Source of truth        | NestJS and PostgreSQL                                                 |
+| Workflow runner        | An authenticated, version-controlled n8n workflow                     |
+| Due-time scheduling    | Redis/BullMQ delayed jobs created from PostgreSQL state               |
+| First real platforms   | Facebook Page and Instagram Professional account                      |
+| First real format      | One ready static image plus its approved caption                      |
+| Other formats/channels | Manual export or clearly labeled simulation                           |
+| Owner time zone        | Store UTC plus the IANA zone; show `Africa/Cairo` in the UI           |
+| Real-publish approval  | Required for the exact candidate, target, mode, and time              |
+| Retry delivery         | At least once, with idempotency and truthful unknown outcomes         |
+| Fallback               | Manual export and simulation remain available even if Meta is blocked |
 
 This scope does not add TikTok publishing, paid-ad execution, or generated video
 production. A short-video script can be exported, but it is not treated as a
@@ -124,24 +127,23 @@ For each rolling week:
 6. For a real publication, the owner chooses a target and exact time, then
    confirms the external action.
 7. Automation executes and records the result.
-8. The process repeats for the next approved weekly pack through Strategy week
-   12.
+8. The process repeats for the next approved weekly pack through Strategy week 12.
 
 Automation is event-driven per candidate. It does not run one unsafe
 "publish every week" loop.
 
 ## 5. Service boundaries
 
-| Component | Responsibility |
-| --- | --- |
-| Next.js Web | Calendar, target/mode/time selection, exact confirmation, cancellation, retry/recovery, export download, and truthful result display |
-| NestJS API | Auth and ownership, candidate intake, validation, targets, schedules, approval snapshots, persistence, idempotency, dispatch, callbacks, and public API |
-| PostgreSQL | Authoritative candidates, targets, intents, approvals, attempts, results, outbox/inbox identities, and export metadata |
-| Redis/BullMQ | Delayed due-time jobs and bounded retryable dispatch work |
-| n8n | Versioned deterministic execution workflow and platform routing |
-| Meta adapter | Approved Graph API request and normalized provider response |
-| Object storage | Immutable candidate media and generated export archives |
-| Content module | Candidate creation, source validity, checksum, and immutable approved fields |
+| Component      | Responsibility                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js Web    | Calendar, target/mode/time selection, exact confirmation, cancellation, retry/recovery, export download, and truthful result display                    |
+| NestJS API     | Auth and ownership, candidate intake, validation, targets, schedules, approval snapshots, persistence, idempotency, dispatch, callbacks, and public API |
+| PostgreSQL     | Authoritative candidates, targets, intents, approvals, attempts, results, outbox/inbox identities, and export metadata                                  |
+| Redis/BullMQ   | Delayed due-time jobs and bounded retryable dispatch work                                                                                               |
+| n8n            | Versioned deterministic execution workflow and platform routing                                                                                         |
+| Meta adapter   | Approved Graph API request and normalized provider response                                                                                             |
+| Object storage | Immutable candidate media and generated export archives                                                                                                 |
+| Content module | Candidate creation, source validity, checksum, and immutable approved fields                                                                            |
 
 Important ownership rules:
 
@@ -154,16 +156,19 @@ Important ownership rules:
 
 ## 6. Proposed modules and repository locations
 
-Names may be adjusted to the current application conventions, but the
-responsibilities must stay separate.
+The normative package now uses the following paths. Implementation modules may
+add internal details, but the responsibilities must stay separate.
 
 ```text
 packages/contracts/
   src/publishing/
-    publication-candidate-v1.ts
-    publication-intent-v1.ts
-    publication-callback-v1.ts
-    publishing-errors.ts
+    publishing-types.ts
+    publishing-canonical.ts
+    publication-intent.ts
+    publication-result.ts
+    publishing-envelope.ts
+    publishing-policy.ts
+    publishing-interfaces.ts
 
 apps/api/
   src/publishing/
@@ -191,7 +196,11 @@ infra/n8n/
 The exact Web route should follow the product's existing authenticated route
 structure when implementation begins.
 
-## 7. Contract and data model
+## 7. Contract and data model (illustrative)
+
+`packages/contracts/PUBLISHING_CONTRACT.md` and the exported TypeScript types
+are authoritative. The snippets below explain persistence intent and do not
+override the frozen snake_case wire shapes.
 
 ### 7.1 Candidate inbox record
 
@@ -320,7 +329,8 @@ type PublicationAttemptState =
   | "running"
   | "succeeded"
   | "failed"
-  | "unknown";
+  | "unknown"
+  | "cancelled";
 
 interface PublicationAttempt {
   attemptId: UUID;
@@ -339,7 +349,13 @@ interface PublicationResultV1 {
   attemptId: UUID;
   intentId: UUID;
   mode: PublishingMode;
-  outcome: "published" | "exported" | "simulated" | "failed" | "unknown";
+  outcome:
+    | "published"
+    | "exported"
+    | "simulated"
+    | "failed"
+    | "cancelled"
+    | "unknown";
   provider: "meta" | null;
   remotePublicationId: string | null;
   remoteUrl: string | null;
@@ -501,7 +517,7 @@ published anything.
 
 ## 11. Public API intent
 
-Final route names and DTOs are frozen in the Contracts issue.
+Route intent and DTOs are frozen in `PUBLISHING_CONTRACT.md`.
 
 ```text
 GET  /api/v1/publication-candidates
@@ -537,47 +553,52 @@ normal owner-session authorization alone.
 
 ## 12. Stable errors
 
-| Code | Meaning |
-| --- | --- |
-| `PUBLISHING_CANDIDATE_INVALID` | Candidate does not match the frozen V1 shape |
-| `PUBLISHING_CANDIDATE_TAMPERED` | Candidate identity/checksum no longer matches |
-| `PUBLISHING_CANDIDATE_REVOKED` | Content marked the candidate inactive or replaced |
-| `PUBLISHING_TARGET_NOT_CONNECTED` | No eligible external target is connected |
-| `PUBLISHING_TARGET_UNAUTHORIZED` | Provider authorization is expired/revoked |
-| `PUBLISHING_FORMAT_UNSUPPORTED` | Target cannot publish this format in Sprint 5B |
-| `PUBLISHING_ASSET_UNAVAILABLE` | Required immutable media cannot be retrieved |
-| `PUBLISHING_ASSET_TAMPERED` | Retrieved asset checksum differs |
-| `PUBLISHING_SCHEDULE_IN_PAST` | Requested instant is no longer valid |
-| `PUBLISHING_APPROVAL_REQUIRED` | Exact external action has no current approval |
-| `PUBLISHING_STATE_CONFLICT` | Request used a stale intent/version/state |
-| `PUBLISHING_DUPLICATE_DISPATCH` | A successful/in-flight identity already exists |
-| `PUBLISHING_WEBHOOK_UNAUTHORIZED` | n8n request or callback authentication failed |
-| `PUBLISHING_PROVIDER_RATE_LIMITED` | Provider rejected due to a rate limit |
-| `PUBLISHING_PROVIDER_FAILURE` | Provider returned a proven failure |
-| `PUBLISHING_PROVIDER_OUTCOME_UNKNOWN` | Request may have succeeded but cannot be proven |
-| `PUBLISHING_CALLBACK_INVALID` | Callback identity, signature, or body is invalid |
+| Code                                   | Meaning                                                              |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `PUBLISHING_CONTRACT_UNSUPPORTED`      | Contract or field set is outside the frozen publishing-v1 boundary   |
+| `PUBLISHING_CANDIDATE_INVALID`         | Candidate does not match the frozen V1 shape                         |
+| `PUBLISHING_CANDIDATE_TAMPERED`        | Candidate identity/checksum no longer matches                        |
+| `PUBLISHING_CANDIDATE_REVOKED`         | Content marked the candidate inactive or replaced                    |
+| `PUBLISHING_TARGET_NOT_CONNECTED`      | No eligible external target is connected                             |
+| `PUBLISHING_TARGET_UNAUTHORIZED`       | Provider authorization is expired/revoked                            |
+| `PUBLISHING_FORMAT_UNSUPPORTED`        | Target cannot publish this format in Sprint 5B                       |
+| `PUBLISHING_ASSET_UNAVAILABLE`         | Required immutable media cannot be retrieved                         |
+| `PUBLISHING_ASSET_TAMPERED`            | Retrieved asset checksum differs                                     |
+| `PUBLISHING_SCHEDULE_IN_PAST`          | Requested instant is no longer valid                                 |
+| `PUBLISHING_APPROVAL_REQUIRED`         | Exact external action has no current approval                        |
+| `PUBLISHING_STATE_CONFLICT`            | Request used a stale intent/version/state                            |
+| `PUBLISHING_IDEMPOTENCY_CONFLICT`      | One idempotency identity was reused with different canonical bytes   |
+| `PUBLISHING_DUPLICATE_DISPATCH`        | A successful/in-flight identity already exists                       |
+| `PUBLISHING_WEBHOOK_UNAUTHORIZED`      | n8n request or callback authentication failed                        |
+| `PUBLISHING_WEBHOOK_TIMESTAMP_INVALID` | Signed message is outside the frozen five-minute window              |
+| `PUBLISHING_WEBHOOK_NONCE_REPLAYED`    | One-time webhook nonce has already been consumed                     |
+| `PUBLISHING_PROVIDER_RATE_LIMITED`     | Provider rejected due to a rate limit                                |
+| `PUBLISHING_PROVIDER_FAILURE`          | Provider returned a proven failure                                   |
+| `PUBLISHING_PROVIDER_OUTCOME_UNKNOWN`  | Request may have succeeded but cannot be proven                      |
+| `PUBLISHING_CALLBACK_INVALID`          | Callback identity, signature, or body is invalid                     |
+| `PUBLISHING_CALLBACK_CONFLICT`         | Callback identity was replayed with different canonical result bytes |
 
 Errors are persisted with sanitized details. Secrets, access tokens, signed
 media URLs, and raw provider payloads are never returned to the browser.
 
 ## 13. Recovery rules
 
-| Failure | Required behavior |
-| --- | --- |
-| Candidate event repeats | Reuse the existing inbox record |
-| Candidate bytes change under same identity | Reject as tampered |
-| Content revokes/replaces candidate | Cancel a not-yet-dispatched intent; never mutate payload |
-| Target authorization expires before due time | Do not call provider; move to action required |
-| Schedule changes | Invalidate approval and replace the delayed job |
-| Queue job repeats | Reuse the same attempt/idempotency identity |
-| n8n webhook is replayed | Reject the replayed nonce |
-| Provider rate-limits before acceptance | Record retryable failure and apply bounded backoff |
-| Network fails before any request is sent | Retry within the bounded policy |
-| Network times out after request send | Mark unknown and reconcile; do not blind retry |
-| Callback repeats identically | Return the existing result |
-| Callback conflicts | Reject and alert as state/security conflict |
-| Export generation fails | Preserve candidate and allow explicit retry |
-| Meta is unavailable for the demo | Use export or visibly labeled simulation |
+| Failure                                      | Required behavior                                        |
+| -------------------------------------------- | -------------------------------------------------------- |
+| Candidate event repeats                      | Reuse the existing inbox record                          |
+| Candidate bytes change under same identity   | Reject as tampered                                       |
+| Content revokes/replaces candidate           | Cancel a not-yet-dispatched intent; never mutate payload |
+| Target authorization expires before due time | Do not call provider; move to action required            |
+| Schedule changes                             | Invalidate approval and replace the delayed job          |
+| Queue job repeats                            | Reuse the same attempt/idempotency identity              |
+| n8n webhook is replayed                      | Reject the replayed nonce                                |
+| Provider rate-limits before acceptance       | Record retryable failure and apply bounded backoff       |
+| Network fails before any request is sent     | Retry within the bounded policy                          |
+| Network times out after request send         | Mark unknown and reconcile; do not blind retry           |
+| Callback repeats identically                 | Return the existing result                               |
+| Callback conflicts                           | Reject and alert as state/security conflict              |
+| Export generation fails                      | Preserve candidate and allow explicit retry              |
+| Meta is unavailable for the demo             | Use export or visibly labeled simulation                 |
 
 ## 14. Security and operational minimum
 
@@ -692,11 +713,11 @@ Each teammate owns one large implementation issue and one medium
 contract/verification issue. This gives each person approximately eight points:
 `Large = 5`, `Medium = 3`. These points describe primary ownership.
 
-| Primary owner | Medium issue | Large issue | Primary total |
-| --- | --- | --- | ---: |
-| Ahmed (`ARabee3`) | [#118 — Contracts](https://github.com/ARabee3/marketmind-ai/issues/118) (3) | [#122 — Web workspace](https://github.com/ARabee3/marketmind-ai/issues/122) (5) | 8 |
-| Abdulazim (`abdulazimRabie`) | [#121 — Adapters/fallback verification](https://github.com/ARabee3/marketmind-ai/issues/121) (3) | [#120 — n8n orchestration](https://github.com/ARabee3/marketmind-ai/issues/120) (5) | 8 |
-| Gerges (`GergesYoussef-hub`) | [#123 — End-to-end integration](https://github.com/ARabee3/marketmind-ai/issues/123) (3) | [#119 — API/persistence/queue](https://github.com/ARabee3/marketmind-ai/issues/119) (5) | 8 |
+| Primary owner                | Medium issue                                                                                     | Large issue                                                                             | Primary total |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------: |
+| Ahmed (`ARabee3`)            | [#118 — Contracts](https://github.com/ARabee3/marketmind-ai/issues/118) (3)                      | [#122 — Web workspace](https://github.com/ARabee3/marketmind-ai/issues/122) (5)         |             8 |
+| Abdulazim (`abdulazimRabie`) | [#121 — Adapters/fallback verification](https://github.com/ARabee3/marketmind-ai/issues/121) (3) | [#120 — n8n orchestration](https://github.com/ARabee3/marketmind-ai/issues/120) (5)     |             8 |
+| Gerges (`GergesYoussef-hub`) | [#123 — End-to-end integration](https://github.com/ARabee3/marketmind-ai/issues/123) (3)         | [#119 — API/persistence/queue](https://github.com/ARabee3/marketmind-ai/issues/119) (5) |             8 |
 
 Ahmed leads the epic, resolves cross-issue decisions, and owns the joint
 checkpoint with Content lead Merzek.
@@ -759,15 +780,15 @@ Created labels:
 
 Applied labels by issue:
 
-| Issue | Assignees | Points | Labels |
-| --- | --- | ---: | --- |
-| [#117 — Epic](https://github.com/ARabee3/marketmind-ai/issues/117) | Ahmed, Abdulazim, Gerges | — | `enhancement`, `integration`, `publishing`, `sprint-5` |
-| [#118 — Contracts](https://github.com/ARabee3/marketmind-ai/issues/118) | Ahmed | 3 | `enhancement`, `schemas`, `security`, `publishing`, `sprint-5` |
-| [#119 — API](https://github.com/ARabee3/marketmind-ai/issues/119) | Gerges | 5 | `enhancement`, `backend`, `nestjs`, `security`, `publishing`, `sprint-5` |
-| [#120 — n8n](https://github.com/ARabee3/marketmind-ai/issues/120) | Abdulazim, Ahmed | 5 primary | `enhancement`, `integration`, `provider`, `security`, `publishing`, `sprint-5` |
-| [#121 — Adapters](https://github.com/ARabee3/marketmind-ai/issues/121) | Abdulazim, Ahmed | 3 primary | `enhancement`, `provider`, `testing`, `integration`, `publishing`, `sprint-5` |
-| [#122 — Web](https://github.com/ARabee3/marketmind-ai/issues/122) | Ahmed | 5 | `enhancement`, `frontend`, `publishing`, `sprint-5` |
-| [#123 — Integration](https://github.com/ARabee3/marketmind-ai/issues/123) | Gerges | 3 | `integration`, `testing`, `publishing`, `sprint-5` |
+| Issue                                                                     | Assignees                |    Points | Labels                                                                         |
+| ------------------------------------------------------------------------- | ------------------------ | --------: | ------------------------------------------------------------------------------ |
+| [#117 — Epic](https://github.com/ARabee3/marketmind-ai/issues/117)        | Ahmed, Abdulazim, Gerges |         — | `enhancement`, `integration`, `publishing`, `sprint-5`                         |
+| [#118 — Contracts](https://github.com/ARabee3/marketmind-ai/issues/118)   | Ahmed                    |         3 | `enhancement`, `schemas`, `security`, `publishing`, `sprint-5`                 |
+| [#119 — API](https://github.com/ARabee3/marketmind-ai/issues/119)         | Gerges                   |         5 | `enhancement`, `backend`, `nestjs`, `security`, `publishing`, `sprint-5`       |
+| [#120 — n8n](https://github.com/ARabee3/marketmind-ai/issues/120)         | Abdulazim, Ahmed         | 5 primary | `enhancement`, `integration`, `provider`, `security`, `publishing`, `sprint-5` |
+| [#121 — Adapters](https://github.com/ARabee3/marketmind-ai/issues/121)    | Abdulazim, Ahmed         | 3 primary | `enhancement`, `provider`, `testing`, `integration`, `publishing`, `sprint-5`  |
+| [#122 — Web](https://github.com/ARabee3/marketmind-ai/issues/122)         | Ahmed                    |         5 | `enhancement`, `frontend`, `publishing`, `sprint-5`                            |
+| [#123 — Integration](https://github.com/ARabee3/marketmind-ai/issues/123) | Gerges                   |         3 | `integration`, `testing`, `publishing`, `sprint-5`                             |
 
 ### [#117 — Epic](https://github.com/ARabee3/marketmind-ai/issues/117)
 
@@ -996,7 +1017,8 @@ Before #119–#122 diverge, Content lead Merzek and Automation lead Ahmed confir
 5. real-publish approval fields and invalidation;
 6. target and initial static-image capability;
 7. dispatch/callback signature and replay policy;
-8. outcome distinction: published, exported, simulated, failed, unknown;
+8. outcome distinction: published, exported, simulated, failed, cancelled,
+   unknown;
 9. the demo fallback when Meta permissions are unavailable; and
 10. who approves a breaking contract change.
 
