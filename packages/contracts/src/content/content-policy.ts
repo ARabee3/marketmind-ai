@@ -1,0 +1,346 @@
+import type { ContentCycleStatus, ContentPack } from "./content-cycle";
+import type {
+  ContentAsset,
+  ContentDecision,
+  ContentItemVersion,
+} from "./content-item";
+import type {
+  ContentChannel,
+  ContentErrorCode,
+  ContentValidationIssue,
+  ContentValidationResult,
+  IsoDateTime,
+  UUID,
+} from "./content-types";
+import { CONTENT_ALT_TEXT_MAX_LENGTH } from "./content-types";
+
+export type ContentPolicyFixture = {
+  readonly strategy_status: "approved" | "draft" | "rejected";
+  readonly strategy_id: UUID;
+  readonly strategy_version: number;
+  readonly cycle_status?: ContentCycleStatus;
+  readonly profile_version_id: UUID;
+  readonly current_profile_version_id: UUID;
+  readonly selected_channels: readonly ContentChannel[];
+  readonly existing_weekly_claims: readonly {
+    readonly content_cycle_id: UUID;
+    readonly week_number: number;
+    readonly weekly_claim_id: UUID;
+  }[];
+  readonly week_context: {
+    readonly id: UUID;
+    readonly content_cycle_id: UUID;
+    readonly week_number: number;
+    readonly promotion_mode: "none" | "owner_approved";
+    readonly promotion:
+      | {
+          readonly text: string;
+          readonly terms: readonly string[];
+          readonly valid_from: IsoDateTime;
+          readonly valid_until: IsoDateTime;
+        }
+      | null;
+  };
+  readonly pack: ContentPack;
+  readonly item_version: ContentItemVersion;
+  readonly assets: readonly ContentAsset[];
+  readonly decision?: ContentDecision;
+  readonly protected_text_mutated?: boolean;
+};
+
+const blockedClaimCodes: Record<string, ContentErrorCode> = {
+  price: "CONTENT_UNSUPPORTED_CLAIM",
+  availability: "CONTENT_UNSUPPORTED_CLAIM",
+  superiority: "CONTENT_UNSUPPORTED_CLAIM",
+  testimonial: "CONTENT_UNSUPPORTED_CLAIM",
+  guarantee: "CONTENT_POLICY_VIOLATION",
+  regulated: "CONTENT_POLICY_VIOLATION",
+  branded_sponsored: "CONTENT_POLICY_VIOLATION",
+  competitor_comparison: "CONTENT_UNSUPPORTED_CLAIM",
+};
+
+const addIssue = (
+  issues: ContentValidationIssue[],
+  code: ContentErrorCode,
+  field: string,
+  message: string,
+  retryable = false,
+): void => {
+  issues.push({ code, field, message, retryable });
+};
+
+function isWeekInRange(weekNumber: number): boolean {
+  return Number.isInteger(weekNumber) && weekNumber >= 1 && weekNumber <= 12;
+}
+
+function promotionExpired(fixture: ContentPolicyFixture): boolean {
+  const promotion = fixture.week_context.promotion;
+  return (
+    promotion !== null &&
+    Date.parse(promotion.valid_until) <
+      Date.parse(fixture.item_version.recommended_publish_window.starts_at)
+  );
+}
+
+function hasReadyPublishableAsset(fixture: ContentPolicyFixture): boolean {
+  const assetsById = new Map(fixture.assets.map((asset) => [asset.id, asset]));
+  return fixture.item_version.asset_ids.some((assetId) => {
+    const asset = assetsById.get(assetId);
+    return (
+      asset?.status === "ready" &&
+      (asset.kind === "owner_supplied" || asset.kind === "generated_static") &&
+      asset.checksum !== null &&
+      asset.storage_key !== null
+    );
+  });
+}
+
+export function validateContentPolicyFixture(
+  fixture: ContentPolicyFixture,
+): ContentValidationResult {
+  const issues: ContentValidationIssue[] = [];
+
+  if (fixture.cycle_status === "paused") {
+    addIssue(
+      issues,
+      "CONTENT_CYCLE_PAUSED",
+      "cycle_status",
+      "Generation is blocked while the content cycle is paused.",
+    );
+  }
+
+  if (fixture.cycle_status === "completed") {
+    addIssue(
+      issues,
+      "CONTENT_CYCLE_COMPLETED",
+      "cycle_status",
+      "Generation is blocked after the content cycle completes.",
+    );
+  }
+
+  if (fixture.strategy_status !== "approved") {
+    addIssue(
+      issues,
+      "CONTENT_STRATEGY_NOT_APPROVED",
+      "strategy_status",
+      "Content requires an exact owner-approved Strategy version.",
+    );
+  }
+
+  if (
+    fixture.profile_version_id !== fixture.current_profile_version_id ||
+    fixture.pack.profile_version_id !== fixture.profile_version_id
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_PROFILE_STALE",
+      "profile_version_id",
+      "Content profile version must match the approved Strategy profile version.",
+    );
+  }
+
+  if (!isWeekInRange(fixture.week_context.week_number)) {
+    addIssue(
+      issues,
+      "CONTENT_WEEK_OUT_OF_RANGE",
+      "week_context.week_number",
+      "Content week must be an integer from 1 through 12.",
+    );
+  }
+
+  if (
+    fixture.existing_weekly_claims.some(
+      (claim) =>
+        claim.content_cycle_id === fixture.week_context.content_cycle_id &&
+        claim.week_number === fixture.week_context.week_number &&
+        claim.weekly_claim_id !== fixture.pack.weekly_claim_id,
+    )
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_WEEK_ALREADY_CLAIMED",
+      "week_context.weekly_claim_id",
+      "A content cycle can claim a Strategy week only once.",
+    );
+  }
+
+  if (!fixture.selected_channels.includes(fixture.item_version.channel)) {
+    addIssue(
+      issues,
+      "CONTENT_CHANNEL_MISMATCH",
+      "item_version.channel",
+      "Content item channel must be selected by the approved Strategy.",
+    );
+  }
+
+  if (
+    fixture.item_version.claim_sources.some(
+      (claim) => claim.claim_type === "promotion" && !claim.approved,
+    ) ||
+    (fixture.week_context.promotion_mode !== "owner_approved" &&
+      fixture.item_version.claim_sources.some(
+        (claim) => claim.claim_type === "promotion",
+      ))
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_OFFER_UNAPPROVED",
+      "item_version.claim_sources",
+      "Promotions must come from explicit owner-approved weekly context.",
+    );
+  }
+
+  if (promotionExpired(fixture)) {
+    addIssue(
+      issues,
+      "CONTENT_OFFER_UNAPPROVED",
+      "week_context.promotion.valid_until",
+      "Expired promotions cannot be carried into generated content.",
+    );
+  }
+
+  for (const claim of fixture.item_version.claim_sources) {
+    const code = blockedClaimCodes[claim.claim_type];
+    if (code && !claim.approved) {
+      addIssue(
+        issues,
+        code,
+        "item_version.claim_sources",
+        "Unsupported, regulated, testimonial, guarantee, or competitor claims need approved evidence before Content approval.",
+      );
+    }
+  }
+
+  if (fixture.protected_text_mutated === true) {
+    addIssue(
+      issues,
+      "CONTENT_POLICY_VIOLATION",
+      "protected_text_mutated",
+      "Protected owner/business text must not be silently rewritten.",
+    );
+  }
+
+  if (
+    fixture.item_version.asset_required &&
+    !hasReadyPublishableAsset(fixture)
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_ASSET_REQUIRED",
+      "item_version.asset_ids",
+      "Publication-ready content requires a ready owner-supplied or generated static asset.",
+    );
+  }
+
+  if (fixture.pack.item_ids.length < 3 || fixture.pack.item_ids.length > 5) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "pack.item_ids",
+      "A content pack must reference between 3 and 5 content items.",
+    );
+  }
+
+  if (
+    fixture.item_version.asset_required &&
+    fixture.assets.some(
+      (asset) =>
+        fixture.item_version.asset_ids.includes(asset.id) &&
+        asset.status === "failed",
+    )
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_PROVIDER_FAILURE",
+      "item_version.asset_ids",
+      "Required asset generation failed and cannot be published.",
+    );
+  }
+
+  if (
+    fixture.decision?.decision === "approved" &&
+    fixture.item_version.asset_required &&
+    !hasReadyPublishableAsset(fixture)
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_APPROVAL_BLOCKED",
+      "item_version.asset_ids",
+      "Content approval cannot produce a candidate until required assets are ready.",
+    );
+  }
+
+  if (!fixture.item_version.alt_text.trim()) {
+    addIssue(
+      issues,
+      "CONTENT_ASSET_REQUIRED",
+      "item_version.alt_text",
+      "Image-bearing Content requires non-empty alt text.",
+    );
+  } else if (fixture.item_version.alt_text.length > CONTENT_ALT_TEXT_MAX_LENGTH) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "item_version.alt_text",
+      `Alt text must not exceed ${CONTENT_ALT_TEXT_MAX_LENGTH} characters (platform alt-text limit).`,
+    );
+  }
+
+  if (
+    fixture.decision?.decision === "approved" &&
+    (fixture.decision.content_item_version_id !== fixture.item_version.id ||
+      fixture.decision.content_item_version_checksum !==
+        fixture.item_version.version_checksum)
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "decision.content_item_version_id",
+      "Approval must reference the exact immutable Content item version and checksum.",
+    );
+  }
+
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateContentSchema(
+  document: Record<string, unknown>,
+): ContentValidationResult {
+  const issues: ContentValidationIssue[] = [];
+  const field = (name: string): unknown => document[name];
+
+  const weekNumber = field("week_number");
+  if (typeof weekNumber === "number" && !isWeekInRange(weekNumber)) {
+    addIssue(
+      issues,
+      "CONTENT_WEEK_OUT_OF_RANGE",
+      "week_number",
+      "Content week must be an integer from 1 through 12.",
+    );
+  }
+
+  const assetRequired = field("asset_required");
+  const altText = field("alt_text");
+  if (
+    assetRequired === true &&
+    typeof altText === "string" &&
+    !altText.trim()
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_ASSET_REQUIRED",
+      "alt_text",
+      "Image-bearing Content requires non-empty alt text.",
+    );
+  }
+  if (typeof altText === "string" && altText.length > CONTENT_ALT_TEXT_MAX_LENGTH) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "alt_text",
+      `Alt text must not exceed ${CONTENT_ALT_TEXT_MAX_LENGTH} characters (platform alt-text limit).`,
+    );
+  }
+
+  return { valid: issues.length === 0, issues };
+}
