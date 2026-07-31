@@ -1,0 +1,22 @@
+{
+  "id": "66666666-6666-4666-8666-666666666613",
+  "contract_version": "content-v1",
+  "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+  "week_number": 13,
+  "week_start_date": "2026-10-25",
+  "promotion_mode": "none",
+  "promotion": null,
+  "must_include": [],
+  "must_avoid": [],
+  "approved_asset_ids": [],
+  "cta_destination": {
+    "type": "none",
+    "value": null
+  },
+  "context_source": "system_defaulted",
+  "confirmed_by_user_id": null,
+  "confirmed_at": null,
+  "system_defaulted_at": "2026-10-24T18:00:00+03:00",
+  "generation_cutoff_at": "2026-10-24T18:00:00+03:00",
+  "weekly_claim_id": "dddddddd-dddd-4ddd-8ddd-dddddddddd13"
+}

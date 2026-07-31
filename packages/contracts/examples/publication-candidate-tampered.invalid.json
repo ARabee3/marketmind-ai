@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-candidate-approved.example.json",
+  "mutation": {
+    "kind": "tamper_caption",
+    "value": "Tampered caption that no longer matches the stored checksum."
+  }
+}

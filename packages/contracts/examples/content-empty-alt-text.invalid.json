@@ -1,0 +1,49 @@
+{
+  "id": "99999999-9999-4999-8999-999999999913",
+  "contract_version": "content-v1",
+  "content_item_id": "88888888-8888-4888-8888-888888888888",
+  "content_pack_id": "77777777-7777-4777-8777-777777777777",
+  "version": 1,
+  "channel": "facebook",
+  "format": "static_image_post",
+  "language_mode": "ar-EG",
+  "strategy_trace": {
+    "strategy_id": "22222222-2222-4222-8222-222222222222",
+    "strategy_version": 1,
+    "week_number": 1,
+    "pillar_ids": ["12121212-1212-4121-8121-121212121212"],
+    "objective": "awareness",
+    "channel": "facebook"
+  },
+  "caption_variants": [
+    {
+      "locale": "ar",
+      "caption": "نص آمن بدون صورة جاهزة.",
+      "cta": null,
+      "hashtags": []
+    }
+  ],
+  "cta": null,
+  "hashtags": [],
+  "creative_brief": "Static image requires alt text.",
+  "alt_text": "",
+  "short_video_script": null,
+  "recommended_publish_window": {
+    "starts_at": "2026-08-03T18:00:00+03:00",
+    "ends_at": "2026-08-03T21:00:00+03:00",
+    "timezone": "Africa/Cairo"
+  },
+  "claim_sources": [],
+  "warnings": [],
+  "blockers": [],
+  "asset_required": true,
+  "asset_ids": ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+  "generation_provenance": {
+    "generation_run_id": "abababab-abab-4bab-8bab-abababababab",
+    "provider_name": "gemini",
+    "provider_model": "gemini-3.1-flash-lite",
+    "generated_at": "2026-08-01T10:06:00+03:00"
+  },
+  "version_checksum": "item-version-checksum-empty-alt",
+  "created_at": "2026-08-01T10:06:00+03:00"
+}
