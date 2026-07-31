@@ -1,0 +1,8 @@
+{
+  "base_fixture": "content-pack-week-1-ar.example.json",
+  "mutation": {
+    "kind": "claim",
+    "claim_type": "regulated",
+    "approved": false
+  }
+}

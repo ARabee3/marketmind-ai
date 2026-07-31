@@ -1,0 +1,21 @@
+{
+  "id": "66666666-6666-4666-8666-666666666667",
+  "contract_version": "content-v1",
+  "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+  "week_number": 2,
+  "week_start_date": "2026-08-09",
+  "promotion_mode": "none",
+  "promotion": null,
+  "must_include": [],
+  "must_avoid": [],
+  "approved_asset_ids": ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+  "cta_destination": {
+    "type": "whatsapp",
+    "value": "+201000000000"
+  },
+  "confirmed_by_user_id": "00000000-0000-4000-8000-000000000000",
+  "confirmed_at": "2026-08-08T18:00:00+03:00",
+  "system_defaulted_at": "2026-08-08T18:00:00+03:00",
+  "generation_cutoff_at": "2026-08-08T18:00:00+03:00",
+  "weekly_claim_id": "dddddddd-dddd-4ddd-8ddd-ddddddddddde"
+}

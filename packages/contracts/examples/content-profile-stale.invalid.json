@@ -1,0 +1,7 @@
+{
+  "base_fixture": "content-pack-week-1-ar.example.json",
+  "mutation": {
+    "kind": "current_profile_version_id",
+    "value": "45454545-4545-4454-8454-454545454545"
+  }
+}

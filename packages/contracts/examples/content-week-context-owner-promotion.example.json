@@ -1,0 +1,26 @@
+{
+  "id": "66666666-6666-4666-8666-666666666666",
+  "contract_version": "content-v1",
+  "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+  "week_number": 1,
+  "week_start_date": "2026-08-02",
+  "promotion_mode": "owner_approved",
+  "promotion": {
+    "text": "خصم 10% على باقة البداية هذا الأسبوع",
+    "terms": ["يسري حتى نفاد الكمية", "غير قابل للجمع مع عروض أخرى"],
+    "valid_from": "2026-08-02T00:00:00+03:00",
+    "valid_until": "2026-08-09T23:59:00+03:00"
+  },
+  "must_include": ["اذكر خدمة التوصيل داخل المنطقة"],
+  "must_avoid": ["لا تذكر أي أسعار غير مؤكدة"],
+  "approved_asset_ids": ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+  "cta_destination": {
+    "type": "whatsapp",
+    "value": "+201000000000"
+  },
+  "confirmed_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "confirmed_at": "2026-08-01T10:00:00+03:00",
+  "system_defaulted_at": null,
+  "generation_cutoff_at": "2026-08-01T18:00:00+03:00",
+  "weekly_claim_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+}
