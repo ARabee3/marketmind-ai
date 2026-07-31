@@ -15,7 +15,9 @@ const validExamples = [
   "content-item-version-prompt-only.example.json",
   "content-decision-approved.example.json",
   "publication-candidate-approved.example.json",
+  "publication-candidate-status-active.example.json",
   "publication-candidate-created-event.example.json",
+  "publication-candidate-state-changed-event.example.json",
 ];
 const invalidExamples = [
   "content-week-13.invalid.json",
@@ -34,6 +36,7 @@ const invalidExamples = [
   "content-superiority-claim.invalid.json",
   "content-branded-undisclosed.invalid.json",
   "content-protected-text-mutated.invalid.json",
+  "content-default-context-owner-claim.invalid.json",
   "content-missing-required-asset.invalid.json",
   "content-empty-alt-text.invalid.json",
   "content-alt-text-too-long.invalid.json",
@@ -45,6 +48,12 @@ const invalidExamples = [
   "content-provider-failure.invalid.json",
   "content-approval-blocked.invalid.json",
   "content-version-conflict.invalid.json",
+  "content-pack-strategy-version-mismatch.invalid.json",
+  "content-trace-week-mismatch.invalid.json",
+  "content-item-pack-mismatch.invalid.json",
+  "content-trace-channel-mismatch.invalid.json",
+  "content-asset-owner-mismatch.invalid.json",
+  "content-decision-item-mismatch.invalid.json",
   "publication-candidate-prompt-only.invalid.json",
   "publication-candidate-unapproved.invalid.json",
   "publication-candidate-tampered.invalid.json",
@@ -55,12 +64,21 @@ const invalidExamples = [
 
 const argvFile = process.argv[2];
 if (argvFile) {
-  const parsed = JSON.parse(await readFile(new URL(`file://${process.cwd()}/${argvFile}`), "utf8"));
+  const parsed = JSON.parse(
+    await readFile(new URL(`file://${process.cwd()}/${argvFile}`), "utf8"),
+  );
   const issues = [];
-  if (Number.isInteger(parsed.week_number) && (parsed.week_number < 1 || parsed.week_number > 12)) {
+  if (
+    Number.isInteger(parsed.week_number) &&
+    (parsed.week_number < 1 || parsed.week_number > 12)
+  ) {
     issues.push("CONTENT_WEEK_OUT_OF_RANGE");
   }
-  if (parsed.asset_required === true && typeof parsed.alt_text === "string" && !parsed.alt_text.trim()) {
+  if (
+    parsed.asset_required === true &&
+    typeof parsed.alt_text === "string" &&
+    !parsed.alt_text.trim()
+  ) {
     issues.push("CONTENT_ASSET_REQUIRED");
   }
   if (issues.length > 0) {
@@ -73,7 +91,12 @@ if (argvFile) {
 
 for (const name of [...validExamples, ...invalidExamples]) {
   const parsed = JSON.parse(await readFile(new URL(name, examplesUrl), "utf8"));
-  assert(parsed !== null && typeof parsed === "object", `${name} must contain JSON`);
+  assert(
+    parsed !== null && typeof parsed === "object",
+    `${name} must contain JSON`,
+  );
 }
 
-console.log(`Content fixture inventory is complete (${validExamples.length} valid, ${invalidExamples.length} invalid).`);
+console.log(
+  `Content fixture inventory is complete (${validExamples.length} valid, ${invalidExamples.length} invalid).`,
+);

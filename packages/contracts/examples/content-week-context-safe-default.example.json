@@ -13,8 +13,9 @@
     "type": "whatsapp",
     "value": "+201000000000"
   },
-  "confirmed_by_user_id": "00000000-0000-4000-8000-000000000000",
-  "confirmed_at": "2026-08-08T18:00:00+03:00",
+  "context_source": "system_defaulted",
+  "confirmed_by_user_id": null,
+  "confirmed_at": null,
   "system_defaulted_at": "2026-08-08T18:00:00+03:00",
   "generation_cutoff_at": "2026-08-08T18:00:00+03:00",
   "weekly_claim_id": "dddddddd-dddd-4ddd-8ddd-ddddddddddde"

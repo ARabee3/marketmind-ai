@@ -3,6 +3,6 @@
   "mutation": {
     "kind": "replay_conflict",
     "value": "Same candidate identity replayed with different caption bytes.",
-    "candidate_checksum": "sha256-conflicting-replay"
+    "candidate_checksum": "0000000000000000000000000000000000000000000000000000000000000000"
   }
 }

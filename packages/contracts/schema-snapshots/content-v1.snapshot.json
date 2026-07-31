@@ -29,6 +29,7 @@
     "must_avoid",
     "approved_asset_ids",
     "cta_destination",
+    "context_source",
     "confirmed_by_user_id",
     "confirmed_at",
     "system_defaulted_at",
@@ -113,11 +114,28 @@
     "assets",
     "recommended_publish_window",
     "approval",
-    "candidate_state",
     "candidate_checksum",
     "created_at"
   ],
+  "PublicationCandidateStatusV1": [
+    "contract_version",
+    "candidate_id",
+    "business_id",
+    "candidate_checksum",
+    "state_version",
+    "candidate_state",
+    "replacement_candidate_id",
+    "changed_by_user_id",
+    "changed_at"
+  ],
   "PublicationCandidateCreatedEventV1": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "correlation_id",
+    "payload"
+  ],
+  "PublicationCandidateStateChangedEventV1": [
     "event_id",
     "event_type",
     "occurred_at",

@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import Field, RootModel, model_validator
 
 from content_base import ContentChannel, ContentFormat, FrozenModel, UUID
+from strategy_contracts import BusinessProfilePayload, StrategyPlan
 
 ContentErrorCode = Literal[
     "CONTENT_STRATEGY_NOT_APPROVED",
@@ -93,8 +94,9 @@ class ContentWeekContext(FrozenModel):
     must_avoid: list[str]
     approved_asset_ids: list[UUID]
     cta_destination: ContentCtaDestination
-    confirmed_by_user_id: UUID
-    confirmed_at: datetime
+    context_source: Literal["owner_confirmed", "system_defaulted"]
+    confirmed_by_user_id: UUID | None
+    confirmed_at: datetime | None
     system_defaulted_at: datetime | None
     generation_cutoff_at: datetime
     weekly_claim_id: UUID
@@ -105,6 +107,18 @@ class ContentWeekContext(FrozenModel):
             raise ValueError("promotion must be null when promotion_mode is none")
         if self.promotion_mode == "owner_approved" and self.promotion is None:
             raise ValueError("promotion is required when owner approved")
+        if self.context_source == "owner_confirmed":
+            if self.confirmed_by_user_id is None or self.confirmed_at is None:
+                raise ValueError("owner-confirmed context needs owner identity and time")
+            if self.system_defaulted_at is not None:
+                raise ValueError("owner-confirmed context cannot be system defaulted")
+        else:
+            if self.confirmed_by_user_id is not None or self.confirmed_at is not None:
+                raise ValueError("system-defaulted context cannot claim owner confirmation")
+            if self.system_defaulted_at is None:
+                raise ValueError("system-defaulted context needs a default timestamp")
+            if self.promotion_mode != "none" or self.promotion is not None:
+                raise ValueError("system-defaulted context cannot contain a promotion")
         return self
 
 
@@ -270,10 +284,18 @@ class WeeklyClaim(FrozenModel):
     weekly_claim_id: UUID
 
 
+class ContentStrategyDecisionRef(FrozenModel):
+    id: UUID
+    strategy_id: UUID
+    strategy_version: int = Field(ge=1)
+    decision: Literal["approved", "rejected", "revision_requested"]
+
+
 class ContentPolicyFixture(FrozenModel):
     strategy_status: Literal["approved", "draft", "rejected"]
     strategy_id: UUID
     strategy_version: int
+    strategy_decision: ContentStrategyDecisionRef
     cycle_status: Literal["active", "paused", "completed"] | None = None
     profile_version_id: UUID
     current_profile_version_id: UUID
@@ -289,6 +311,8 @@ class ContentPolicyFixture(FrozenModel):
 
 from content_publication_contracts import (  # noqa: E402
     PublicationCandidateCreatedEventV1,
+    PublicationCandidateStateChangedEventV1,
+    PublicationCandidateStatusV1,
     PublicationCandidateV1,
 )
 
@@ -299,10 +323,33 @@ class AiContentGenerateRequest(FrozenModel):
     business_id: UUID
     strategy_id: UUID
     strategy_version: int = Field(ge=1)
+    strategy_decision_id: UUID
+    strategy_plan: StrategyPlan
+    business_profile: BusinessProfilePayload
     week_context: ContentWeekContext
     selected_channels: list[ContentChannel]
     allowed_formats: list[ContentFormat]
     language_mode: LanguageMode
+
+    @model_validator(mode="after")
+    def validate_grounding_snapshot(self) -> "AiContentGenerateRequest":
+        if (
+            self.strategy_plan.strategy_id != self.strategy_id
+            or self.strategy_plan.version != self.strategy_version
+        ):
+            raise ValueError("strategy plan must match the exact requested identity")
+        if self.business_profile.business_id != self.business_id:
+            raise ValueError("business profile must match the requested business")
+        if (
+            self.strategy_plan.profile_version.business_profile_version_id
+            != self.business_profile.id
+            or self.strategy_plan.profile_version.version
+            != self.business_profile.version
+        ):
+            raise ValueError("business profile must match the Strategy profile version")
+        if self.strategy_plan.plan_language.value != self.language_mode:
+            raise ValueError("generation language must match the approved Strategy")
+        return self
 
 
 class AiContentGenerateResponse(FrozenModel):
@@ -350,7 +397,9 @@ ContentFixture = RootModel[
     | ContentItemVersion
     | ContentDecision
     | ContentPolicyFixture
+    | PublicationCandidateStatusV1
     | PublicationCandidateCreatedEventV1
+    | PublicationCandidateStateChangedEventV1
 ]
 
 
@@ -424,11 +473,57 @@ def validate_content_policy_fixture(fixture: dict) -> ContentValidationResult:
             "cycle_status",
             "Generation is blocked after the content cycle completes.",
         )
+    if (
+        week_context.get("context_source") == "owner_confirmed"
+        and (
+            not week_context.get("confirmed_by_user_id")
+            or not week_context.get("confirmed_at")
+            or week_context.get("system_defaulted_at") is not None
+        )
+    ) or (
+        week_context.get("context_source") == "system_defaulted"
+        and (
+            week_context.get("confirmed_by_user_id") is not None
+            or week_context.get("confirmed_at") is not None
+            or not week_context.get("system_defaulted_at")
+            or week_context.get("promotion_mode") != "none"
+            or week_context.get("promotion") is not None
+        )
+    ):
+        add_issue(
+            "CONTENT_POLICY_VIOLATION",
+            "week_context.context_source",
+            "Weekly context provenance must distinguish owner confirmation from a safe system default.",
+        )
     if fixture["strategy_status"] != "approved":
         add_issue(
             "CONTENT_STRATEGY_NOT_APPROVED",
             "strategy_status",
             "Content requires an exact owner-approved Strategy version.",
+        )
+    strategy_decision = fixture["strategy_decision"]
+    if (
+        strategy_decision["decision"] != "approved"
+        or strategy_decision["strategy_id"] != fixture["strategy_id"]
+        or strategy_decision["strategy_version"] != fixture["strategy_version"]
+        or pack["strategy_decision_id"] != strategy_decision["id"]
+    ):
+        add_issue(
+            "CONTENT_STRATEGY_NOT_APPROVED",
+            "strategy_decision",
+            "Content requires the exact approval decision for the immutable Strategy version.",
+        )
+    if (
+        pack["strategy_id"] != fixture["strategy_id"]
+        or pack["strategy_version"] != fixture["strategy_version"]
+        or item_version["strategy_trace"]["strategy_id"] != fixture["strategy_id"]
+        or item_version["strategy_trace"]["strategy_version"]
+        != fixture["strategy_version"]
+    ):
+        add_issue(
+            "CONTENT_VERSION_CONFLICT",
+            "pack.strategy_version",
+            "Pack and item trace must reference the exact approved Strategy identity and version.",
         )
     if (
         fixture["profile_version_id"] != fixture["current_profile_version_id"]
@@ -444,6 +539,28 @@ def validate_content_policy_fixture(fixture: dict) -> ContentValidationResult:
             "CONTENT_WEEK_OUT_OF_RANGE",
             "week_context.week_number",
             "Content week must be an integer from 1 through 12.",
+        )
+    if (
+        pack["content_cycle_id"] != week_context["content_cycle_id"]
+        or pack["week_context_id"] != week_context["id"]
+        or pack["weekly_claim_id"] != week_context["weekly_claim_id"]
+        or pack["week_number"] != week_context["week_number"]
+        or item_version["strategy_trace"]["week_number"]
+        != week_context["week_number"]
+    ):
+        add_issue(
+            "CONTENT_VERSION_CONFLICT",
+            "pack.week_number",
+            "Context, weekly claim, pack, and Strategy trace must reference the same cycle week.",
+        )
+    if (
+        item_version["content_pack_id"] != pack["id"]
+        or item_version["content_item_id"] not in pack["item_ids"]
+    ):
+        add_issue(
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.content_pack_id",
+            "Content item version must belong to the validated pack and one of its stable item identities.",
         )
     if any(
         claim["content_cycle_id"] == week_context["content_cycle_id"]
@@ -461,6 +578,12 @@ def validate_content_policy_fixture(fixture: dict) -> ContentValidationResult:
             "CONTENT_CHANNEL_MISMATCH",
             "item_version.channel",
             "Content item channel must be selected by the approved Strategy.",
+        )
+    if item_version["strategy_trace"]["channel"] != item_version["channel"]:
+        add_issue(
+            "CONTENT_CHANNEL_MISMATCH",
+            "item_version.strategy_trace.channel",
+            "Content item channel must match its approved Strategy trace channel.",
         )
     claim_sources = item_version["claim_sources"]
     if any(
@@ -517,6 +640,17 @@ def validate_content_policy_fixture(fixture: dict) -> ContentValidationResult:
             "item_version.asset_ids",
             "Required asset generation failed and cannot be published.",
         )
+    assets_by_id = {asset["id"]: asset for asset in fixture["assets"]}
+    if any(
+        assets_by_id.get(asset_id, {}).get("content_item_version_id")
+        != item_version["id"]
+        for asset_id in item_version["asset_ids"]
+    ):
+        add_issue(
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.asset_ids",
+            "Every referenced asset must belong to the exact immutable Content item version.",
+        )
     if (
         decision is not None
         and decision["decision"] == "approved"
@@ -544,7 +678,9 @@ def validate_content_policy_fixture(fixture: dict) -> ContentValidationResult:
         decision is not None
         and decision["decision"] == "approved"
         and (
-            decision["content_item_version_id"] != item_version["id"]
+            decision["content_item_id"] != item_version["content_item_id"]
+            or decision["content_item_version_id"] != item_version["id"]
+            or decision["content_item_version"] != item_version["version"]
             or decision["content_item_version_checksum"]
             != item_version["version_checksum"]
         )

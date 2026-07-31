@@ -210,7 +210,8 @@ interface PublicationCandidateRecord {
   locale: "ar" | "en";
   candidateChecksum: string;
   payload: PublicationCandidateV1;
-  sourceState: "active" | "revoked";
+  sourceState: "active" | "revoked" | "replaced";
+  sourceStateVersion: number;
   receivedAt: IsoDateTime;
 }
 ```
@@ -218,6 +219,9 @@ interface PublicationCandidateRecord {
 Candidate delivery is at least once. The inbox has unique constraints for
 `eventId` and `candidateId`. A repeated valid delivery returns the existing
 record. A repeated identity with different bytes is rejected as tampering.
+State changes arrive through the frozen Content state-change event, bind the
+same candidate checksum, and advance only when `stateVersion` is newer. They
+update `sourceState` without mutating `payload`.
 
 ### 7.2 Publishing target
 

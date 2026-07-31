@@ -13,9 +13,11 @@ review or comment exists.
 - `packages/contracts/python/content_contracts.py` + `content_publication_contracts.py`
   — Pydantic mirror (Python is not canonical).
 - `packages/contracts/examples/*` — valid/invalid fixtures (at least 30).
-- `packages/contracts/scripts/validate-content-*.mjs|ts` — deterministic checks.
-- `PublicationCandidateV1` + `PublicationCandidateCreatedEventV1` — handoff
-  boundary, checksum, replay rules.
+- `packages/contracts/scripts/validate-content-*.mjs|ts` and
+  `validate-publication-candidate.ts` — deterministic checks.
+- `PublicationCandidateV1`, `PublicationCandidateStatusV1`, and their created /
+  state-changed events — immutable handoff, checksum, revocation, and replay
+  rules.
 
 ## Reviewers (issue #107 / #106)
 
@@ -26,8 +28,8 @@ review or comment exists.
 | Mokhtar | Generation owner | AI DTOs, asset rules | `content-item-version-generated-asset.example.json` | `npm --workspace @marketmind/contracts run check` | pending |  |
 | Kordy / MostafaAhmed22 | API / integration owner | DTO surfaces, errors | `content-cycle.example.json`, `content-decision-approved.example.json` | `npm --workspace @marketmind/contracts run typecheck` | pending |  |
 | Web / content owner | Web consumer | progress + week surfaces | `content-week-context-safe-default.example.json` | `npm --workspace apps/web run typecheck` | pending |  |
-| Abdulazim | Publishing handoff reviewer | `PublicationCandidateV1` | `publication-candidate-approved.example.json` | `node scripts/validate-publication-candidate.mjs` | pending |  |
-| Gerges | Publishing handoff reviewer | replay + tamper rules | `publication-candidate-replay-conflict.invalid.json` | `node scripts/validate-publication-candidate.mjs examples/publication-candidate-tampered.invalid.json` | pending |  |
+| Abdulazim | Publishing handoff reviewer | `PublicationCandidateV1` | `publication-candidate-approved.example.json` | `npm run check:publication-candidate` | pending |  |
+| Gerges | Publishing handoff reviewer | replay + tamper rules | `publication-candidate-replay-conflict.invalid.json` | `npx tsx scripts/validate-publication-candidate.ts examples/publication-candidate-tampered.invalid.json` | pending |  |
 
 ## Automated Evidence Gates (must all pass before close)
 

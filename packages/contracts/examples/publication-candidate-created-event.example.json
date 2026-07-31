@@ -45,8 +45,7 @@
       "decided_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       "decided_at": "2026-08-01T11:00:00+03:00"
     },
-    "candidate_state": "active",
-    "candidate_checksum": "5b91f6698d902d1abddf7295fcfe21e59292da87c1ee272084f1f8d0865a5923",
+    "candidate_checksum": "7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13",
     "created_at": "2026-08-01T11:01:00+03:00"
   }
 }

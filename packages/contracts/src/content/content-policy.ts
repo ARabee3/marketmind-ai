@@ -1,9 +1,14 @@
-import type { ContentCycleStatus, ContentPack } from "./content-cycle";
+import type {
+  ContentCycleStatus,
+  ContentPack,
+  ContentWeekContext,
+} from "./content-cycle";
 import type {
   ContentAsset,
   ContentDecision,
   ContentItemVersion,
 } from "./content-item";
+import type { InternalContentGenerateRequest } from "./content-interfaces";
 import type {
   ContentChannel,
   ContentErrorCode,
@@ -18,6 +23,12 @@ export type ContentPolicyFixture = {
   readonly strategy_status: "approved" | "draft" | "rejected";
   readonly strategy_id: UUID;
   readonly strategy_version: number;
+  readonly strategy_decision: {
+    readonly id: UUID;
+    readonly strategy_id: UUID;
+    readonly strategy_version: number;
+    readonly decision: "approved" | "rejected" | "revision_requested";
+  };
   readonly cycle_status?: ContentCycleStatus;
   readonly profile_version_id: UUID;
   readonly current_profile_version_id: UUID;
@@ -27,20 +38,7 @@ export type ContentPolicyFixture = {
     readonly week_number: number;
     readonly weekly_claim_id: UUID;
   }[];
-  readonly week_context: {
-    readonly id: UUID;
-    readonly content_cycle_id: UUID;
-    readonly week_number: number;
-    readonly promotion_mode: "none" | "owner_approved";
-    readonly promotion:
-      | {
-          readonly text: string;
-          readonly terms: readonly string[];
-          readonly valid_from: IsoDateTime;
-          readonly valid_until: IsoDateTime;
-        }
-      | null;
-  };
+  readonly week_context: ContentWeekContext;
   readonly pack: ContentPack;
   readonly item_version: ContentItemVersion;
   readonly assets: readonly ContentAsset[];
@@ -118,12 +116,61 @@ export function validateContentPolicyFixture(
     );
   }
 
+  if (
+    (fixture.week_context.context_source === "owner_confirmed" &&
+      (!fixture.week_context.confirmed_by_user_id ||
+        !fixture.week_context.confirmed_at ||
+        fixture.week_context.system_defaulted_at !== null)) ||
+    (fixture.week_context.context_source === "system_defaulted" &&
+      (fixture.week_context.confirmed_by_user_id !== null ||
+        fixture.week_context.confirmed_at !== null ||
+        !fixture.week_context.system_defaulted_at ||
+        fixture.week_context.promotion_mode !== "none" ||
+        fixture.week_context.promotion !== null))
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_POLICY_VIOLATION",
+      "week_context.context_source",
+      "Weekly context provenance must distinguish owner confirmation from a safe system default.",
+    );
+  }
+
   if (fixture.strategy_status !== "approved") {
     addIssue(
       issues,
       "CONTENT_STRATEGY_NOT_APPROVED",
       "strategy_status",
       "Content requires an exact owner-approved Strategy version.",
+    );
+  }
+
+  if (
+    fixture.strategy_decision.decision !== "approved" ||
+    fixture.strategy_decision.strategy_id !== fixture.strategy_id ||
+    fixture.strategy_decision.strategy_version !== fixture.strategy_version ||
+    fixture.pack.strategy_decision_id !== fixture.strategy_decision.id
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_STRATEGY_NOT_APPROVED",
+      "strategy_decision",
+      "Content requires the exact approval decision for the immutable Strategy version.",
+    );
+  }
+
+  if (
+    fixture.pack.strategy_id !== fixture.strategy_id ||
+    fixture.pack.strategy_version !== fixture.strategy_version ||
+    fixture.item_version.strategy_trace.strategy_id !== fixture.strategy_id ||
+    fixture.item_version.strategy_trace.strategy_version !==
+      fixture.strategy_version
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "pack.strategy_version",
+      "Pack and item trace must reference the exact approved Strategy identity and version.",
     );
   }
 
@@ -149,6 +196,34 @@ export function validateContentPolicyFixture(
   }
 
   if (
+    fixture.pack.content_cycle_id !== fixture.week_context.content_cycle_id ||
+    fixture.pack.week_context_id !== fixture.week_context.id ||
+    fixture.pack.weekly_claim_id !== fixture.week_context.weekly_claim_id ||
+    fixture.pack.week_number !== fixture.week_context.week_number ||
+    fixture.item_version.strategy_trace.week_number !==
+      fixture.week_context.week_number
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "pack.week_number",
+      "Context, weekly claim, pack, and Strategy trace must reference the same cycle week.",
+    );
+  }
+
+  if (
+    fixture.item_version.content_pack_id !== fixture.pack.id ||
+    !fixture.pack.item_ids.includes(fixture.item_version.content_item_id)
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "item_version.content_pack_id",
+      "Content item version must belong to the validated pack and one of its stable item identities.",
+    );
+  }
+
+  if (
     fixture.existing_weekly_claims.some(
       (claim) =>
         claim.content_cycle_id === fixture.week_context.content_cycle_id &&
@@ -170,6 +245,17 @@ export function validateContentPolicyFixture(
       "CONTENT_CHANNEL_MISMATCH",
       "item_version.channel",
       "Content item channel must be selected by the approved Strategy.",
+    );
+  }
+
+  if (
+    fixture.item_version.strategy_trace.channel !== fixture.item_version.channel
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_CHANNEL_MISMATCH",
+      "item_version.strategy_trace.channel",
+      "Content item channel must match its approved Strategy trace channel.",
     );
   }
 
@@ -232,6 +318,22 @@ export function validateContentPolicyFixture(
     );
   }
 
+  if (
+    fixture.item_version.asset_ids.some((assetId) => {
+      const asset = fixture.assets.find(
+        (candidate) => candidate.id === assetId,
+      );
+      return asset?.content_item_version_id !== fixture.item_version.id;
+    })
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "item_version.asset_ids",
+      "Every referenced asset must belong to the exact immutable Content item version.",
+    );
+  }
+
   if (fixture.pack.item_ids.length < 3 || fixture.pack.item_ids.length > 5) {
     addIssue(
       issues,
@@ -277,7 +379,9 @@ export function validateContentPolicyFixture(
       "item_version.alt_text",
       "Image-bearing Content requires non-empty alt text.",
     );
-  } else if (fixture.item_version.alt_text.length > CONTENT_ALT_TEXT_MAX_LENGTH) {
+  } else if (
+    fixture.item_version.alt_text.length > CONTENT_ALT_TEXT_MAX_LENGTH
+  ) {
     addIssue(
       issues,
       "CONTENT_SCHEMA_FAILURE",
@@ -288,7 +392,10 @@ export function validateContentPolicyFixture(
 
   if (
     fixture.decision?.decision === "approved" &&
-    (fixture.decision.content_item_version_id !== fixture.item_version.id ||
+    (fixture.decision.content_item_id !==
+      fixture.item_version.content_item_id ||
+      fixture.decision.content_item_version_id !== fixture.item_version.id ||
+      fixture.decision.content_item_version !== fixture.item_version.version ||
       fixture.decision.content_item_version_checksum !==
         fixture.item_version.version_checksum)
   ) {
@@ -333,12 +440,86 @@ export function validateContentSchema(
       "Image-bearing Content requires non-empty alt text.",
     );
   }
-  if (typeof altText === "string" && altText.length > CONTENT_ALT_TEXT_MAX_LENGTH) {
+  if (
+    typeof altText === "string" &&
+    altText.length > CONTENT_ALT_TEXT_MAX_LENGTH
+  ) {
     addIssue(
       issues,
       "CONTENT_SCHEMA_FAILURE",
       "alt_text",
       `Alt text must not exceed ${CONTENT_ALT_TEXT_MAX_LENGTH} characters (platform alt-text limit).`,
+    );
+  }
+
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateInternalContentGenerateRequest(
+  request: InternalContentGenerateRequest,
+): ContentValidationResult {
+  const issues: ContentValidationIssue[] = [];
+  const plan = request.strategy_plan;
+  const profile = request.business_profile;
+
+  if (
+    plan.strategy_id !== request.strategy_id ||
+    plan.version !== request.strategy_version
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "strategy_plan.version",
+      "Generation requires the exact approved Strategy identity and version.",
+    );
+  }
+
+  if (
+    profile.business_id !== request.business_id ||
+    plan.profile_version.business_profile_version_id !== profile.id ||
+    plan.profile_version.version !== profile.version
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_PROFILE_STALE",
+      "business_profile.id",
+      "Generation requires the confirmed Business Profile version referenced by Strategy.",
+    );
+  }
+
+  if (plan.plan_language !== request.language_mode) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "language_mode",
+      "Generation language must match the approved Strategy language.",
+    );
+  }
+
+  const approvedChannels = new Set(
+    plan.selected_channels.map((scorecard) => scorecard.channel),
+  );
+  if (
+    request.selected_channels.length === 0 ||
+    request.selected_channels.some((channel) => !approvedChannels.has(channel))
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_CHANNEL_MISMATCH",
+      "selected_channels",
+      "Generation channels must be selected by the approved Strategy.",
+    );
+  }
+
+  const strategyWeek = plan.content_strategy.weeks.find(
+    (week) => week.week_number === request.week_context.week_number,
+  );
+  if (!strategyWeek) {
+    addIssue(
+      issues,
+      "CONTENT_WEEK_OUT_OF_RANGE",
+      "week_context.week_number",
+      "Generation week must exist in the approved Strategy roadmap.",
     );
   }
 

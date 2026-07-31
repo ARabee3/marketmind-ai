@@ -6,7 +6,11 @@ import type {
   UUID,
 } from "./content-types";
 
-export const CONTENT_CYCLE_STATUSES = ["active", "paused", "completed"] as const;
+export const CONTENT_CYCLE_STATUSES = [
+  "active",
+  "paused",
+  "completed",
+] as const;
 export type ContentCycleStatus = (typeof CONTENT_CYCLE_STATUSES)[number];
 
 export type ContentCycle = {
@@ -39,7 +43,9 @@ export type ContentCtaDestination = {
   readonly value: string | null;
 };
 
-export type ContentWeekContext = {
+export type ContentWeekContextSource = "owner_confirmed" | "system_defaulted";
+
+type ContentWeekContextBase = {
   readonly id: UUID;
   readonly contract_version: ContentContractVersion;
   readonly content_cycle_id: UUID;
@@ -51,12 +57,37 @@ export type ContentWeekContext = {
   readonly must_avoid: readonly string[];
   readonly approved_asset_ids: readonly UUID[];
   readonly cta_destination: ContentCtaDestination;
-  readonly confirmed_by_user_id: UUID;
-  readonly confirmed_at: IsoDateTime;
-  readonly system_defaulted_at: IsoDateTime | null;
   readonly generation_cutoff_at: IsoDateTime;
   readonly weekly_claim_id: UUID;
 };
+
+export type ContentWeekContext = ContentWeekContextBase &
+  (
+    | {
+        readonly context_source: "owner_confirmed";
+        readonly confirmed_by_user_id: UUID;
+        readonly confirmed_at: IsoDateTime;
+        readonly system_defaulted_at: null;
+      }
+    | {
+        readonly context_source: "system_defaulted";
+        readonly confirmed_by_user_id: null;
+        readonly confirmed_at: null;
+        readonly system_defaulted_at: IsoDateTime;
+      }
+  );
+
+export type ContentWeekContextOwnerInput = Pick<
+  ContentWeekContextBase,
+  | "week_number"
+  | "week_start_date"
+  | "promotion_mode"
+  | "promotion"
+  | "must_include"
+  | "must_avoid"
+  | "approved_asset_ids"
+  | "cta_destination"
+>;
 
 export const CONTENT_PACK_STATUSES = [
   "queued",

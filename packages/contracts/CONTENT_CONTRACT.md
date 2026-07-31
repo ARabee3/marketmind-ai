@@ -9,8 +9,9 @@ here.
 
 Content starts from:
 
-- one owner-approved Strategy ID and immutable version;
-- the matching confirmed Business Profile version;
+- one owner-approved Strategy ID, immutable version, complete plan snapshot,
+  and decision reference;
+- the complete matching confirmed Business Profile version;
 - one rolling `ContentCycle` for Strategy weeks 1 through 12;
 - one `ContentWeekContext` per generated week.
 
@@ -32,10 +33,21 @@ scheduler/manual/retry claims fail with `CONTENT_WEEK_ALREADY_CLAIMED`.
 If owner context is missing before cutoff, the system writes a safe default
 context with:
 
+- `context_source: "system_defaulted"`;
 - `promotion_mode: "none"`;
 - `promotion: null`;
 - `system_defaulted_at`;
+- `confirmed_by_user_id: null` and `confirmed_at: null` so no owner action is
+  fabricated;
 - no invented timely facts or expired offers.
+
+Owner update DTOs contain only owner-editable context fields. Identity,
+confirmation, cutoff, defaulting, and weekly-claim fields are server-owned.
+
+The internal AI generation request carries the complete immutable
+`StrategyPlan` and confirmed `BusinessProfile`, not only their IDs. The
+authoritative validator rejects Strategy, profile, language, channel, or week
+mismatches before generation.
 
 ## Content Pack And Versions
 
@@ -107,8 +119,8 @@ owner approval before delivery.
 
 ## PublicationCandidateV1
 
-`PublicationCandidateV1` is the only Sprint 5 handoff to publishing
-automation. It contains:
+`PublicationCandidateV1` is the immutable content payload in the Sprint 5
+handoff to publishing automation. It contains:
 
 - exact business, Strategy, cycle, pack, item, and item-version identities;
 - item-version checksum;
@@ -117,7 +129,7 @@ automation. It contains:
 - ready immutable owner/generated asset references;
 - recommended publish window only, not an executed schedule;
 - owner content-approval proof;
-- candidate state and checksum.
+- candidate checksum.
 
 It intentionally excludes prompts, provider internals, raw profile payloads,
 target accounts, schedule approval, publish status, and secrets.
@@ -127,13 +139,20 @@ object-store reference, not a credential or database pointer). Publishing
 automation needs it to fetch the exact bytes for checksum verification before
 delivery; it is frozen deliberately and must not be treated as a secret.
 
-The candidate checksum uses `checksum_algorithm: "sha256"` under
-`publication-candidate-checksum-v1`: SHA-256 over canonical UTF-8 JSON with
+The `publication-candidate-checksum-v1` algorithm is SHA-256 over canonical
+UTF-8 JSON with
 sorted object keys, arrays preserved in semantic order, `undefined` omitted,
 `null` preserved, and `candidate_checksum` excluded. Duplicate identical
 delivery is idempotent. Same identity with different bytes is
-`CONTENT_CANDIDATE_TAMPERED`; revoked candidates are
-`CONTENT_CANDIDATE_REVOKED`.
+`CONTENT_CANDIDATE_TAMPERED`.
+
+Candidate activity is stored separately in `PublicationCandidateStatusV1`.
+Revocation or replacement emits an immutable
+`PublicationCandidateStateChangedEventV1` that binds the candidate ID and
+checksum, increments `state_version`, and optionally identifies the replacement
+candidate. It never mutates or re-checksums `PublicationCandidateV1`.
+Publishing treats a matching `revoked` or `replaced` status as
+`CONTENT_CANDIDATE_REVOKED` and cancels any not-yet-dispatched intent.
 
 ## Allowed Post-Freeze Changes
 

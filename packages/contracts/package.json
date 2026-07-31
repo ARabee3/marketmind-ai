@@ -8,7 +8,7 @@
     "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:policy && npm run check:content-examples && npm run check:content-policy && npm run check:publication-candidate && npm run check:snapshot && npm run check:python && npm run check:content-python",
     "check:content-examples": "node scripts/validate-content-examples.mjs",
     "check:content-policy": "tsx scripts/validate-content-policy.ts",
-    "check:publication-candidate": "node scripts/validate-publication-candidate.mjs",
+    "check:publication-candidate": "tsx scripts/validate-publication-candidate.ts",
     "check:policy": "tsx scripts/validate-strategy-policy.ts",
     "check:snapshot": "node scripts/test-snapshot.mjs",
     "check:python": "uv run --project ../../services/ai python python/test_strategy_contracts.py",

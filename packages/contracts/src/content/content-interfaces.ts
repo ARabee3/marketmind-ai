@@ -2,7 +2,10 @@ import type {
   ContentCycle,
   ContentPack,
   ContentWeekContext,
+  ContentWeekContextOwnerInput,
 } from "./content-cycle";
+import type { BusinessProfile } from "../discovery/business-profile.schema";
+import type { StrategyPlan } from "../strategy/strategy-plan";
 import type {
   ContentAsset,
   ContentDecision,
@@ -79,10 +82,7 @@ export type GenerateContentWeekResponse = {
   readonly validation: ContentValidationResult;
 };
 
-export type UpsertContentWeekContextRequest = Omit<
-  ContentWeekContext,
-  "id" | "contract_version" | "content_cycle_id" | "weekly_claim_id"
->;
+export type UpsertContentWeekContextRequest = ContentWeekContextOwnerInput;
 
 export type GenerateContentPackRequest = {
   readonly content_cycle_id: UUID;
@@ -131,6 +131,9 @@ export type InternalContentGenerateRequest = {
   readonly business_id: UUID;
   readonly strategy_id: UUID;
   readonly strategy_version: number;
+  readonly strategy_decision_id: UUID;
+  readonly strategy_plan: StrategyPlan;
+  readonly business_profile: BusinessProfile;
   readonly week_context: ContentWeekContext;
   readonly selected_channels: readonly ContentChannel[];
   readonly allowed_formats: readonly ContentFormat[];

@@ -18,6 +18,7 @@
     "type": "whatsapp",
     "value": "+201000000000"
   },
+  "context_source": "owner_confirmed",
   "confirmed_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   "confirmed_at": "2026-08-01T10:00:00+03:00",
   "system_defaulted_at": null,
