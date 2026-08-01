@@ -31,6 +31,7 @@ describe("RbacService", () => {
           PERMISSIONS.DISCOVERY_CONTINUE,
           PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
           PERMISSIONS.STRATEGY_START,
+          PERMISSIONS.CONTENT_START,
         ].sort(),
       );
       // owner must NOT have admin library management
@@ -48,6 +49,7 @@ describe("RbacService", () => {
           PERMISSIONS.DISCOVERY_CONTINUE,
           PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
           PERMISSIONS.STRATEGY_START,
+          PERMISSIONS.CONTENT_START,
           PERMISSIONS.ADMIN_MANAGE_LIBRARY,
         ].sort(),
       );
@@ -63,10 +65,11 @@ describe("RbacService", () => {
           PERMISSIONS.DISCOVERY_CONTINUE,
         ].sort(),
       );
-      // developer_demo must NOT be able to update, confirm, start strategy, or admin
+      // developer_demo must NOT be able to update, confirm, start strategy, content, or admin
       expect(result).not.toContain(PERMISSIONS.BUSINESS_UPDATE);
       expect(result).not.toContain(PERMISSIONS.DISCOVERY_CONFIRM_PROFILE);
       expect(result).not.toContain(PERMISSIONS.STRATEGY_START);
+      expect(result).not.toContain(PERMISSIONS.CONTENT_START);
       expect(result).not.toContain(PERMISSIONS.ADMIN_MANAGE_LIBRARY);
     });
 

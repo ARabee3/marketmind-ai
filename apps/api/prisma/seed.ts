@@ -39,6 +39,7 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   [PERMISSIONS.DISCOVERY_CONFIRM_PROFILE]:
     "Confirm a Discovery business profile draft.",
   [PERMISSIONS.STRATEGY_START]: "Start a strategy generation flow.",
+  [PERMISSIONS.CONTENT_START]: "Start and manage content lifecycle flows.",
   [PERMISSIONS.ADMIN_MANAGE_LIBRARY]: "Manage the admin content library.",
 };
 
