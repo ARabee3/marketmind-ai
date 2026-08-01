@@ -1,15 +1,35 @@
-import { ArgumentsHost } from "@nestjs/common";
+import { ArgumentsHost, BadRequestException } from "@nestjs/common";
 import { AllExceptionsFilter } from "./all-exceptions.filter";
 
-function makeHost(json: jest.Mock) {
+function makeHost(json: jest.Mock, status = jest.fn().mockReturnThis()) {
   return {
     switchToHttp: () => ({
-      getResponse: () => ({ status: jest.fn().mockReturnThis(), json }),
+      getResponse: () => ({ status, json }),
     }),
   } as unknown as ArgumentsHost;
 }
 
 describe("AllExceptionsFilter", () => {
+  it("preserves stable HTTP exception status and codes", () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnThis();
+    const filter = new AllExceptionsFilter();
+
+    filter.catch(
+      new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Please check the submitted values.",
+      }),
+      makeHost(json, status),
+    );
+
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith({
+      code: "VALIDATION_ERROR",
+      message: "Please check the submitted values.",
+    });
+  });
+
   it("maps non-HTTP exceptions to a stable SERVER_ERROR response", () => {
     const json = jest.fn();
     const filter = new AllExceptionsFilter();

@@ -13,6 +13,7 @@ const STRATEGY_ERROR_CODE_TO_TRANSLATION: Partial<Record<string, TranslationKey>
   EMAIL_EXISTS: 'Errors.generic',
   VALIDATION_ERROR: 'Errors.validationError',
   STALE_PROFILE: 'Errors.validationError',
+  STRATEGY_VERSION_CONFLICT: 'Errors.strategyVersionConflict',
   STRATEGY_RATE_LIMITED: 'Errors.generic',
   STRATEGY_NOT_FOUND: 'Errors.notFound',
 }

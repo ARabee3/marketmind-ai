@@ -5,6 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Response } from "express";
+import { HttpExceptionFilter } from "./http-exception.filter";
 
 /**
  * Last-resort global filter for exceptions that are NOT HttpException
@@ -19,8 +20,14 @@ import { Response } from "express";
 @Catch()
 export class AllExceptionsFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
+  private readonly httpExceptionFilter = new HttpExceptionFilter();
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (exception instanceof HttpException) {
+      this.httpExceptionFilter.catch(exception, host);
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 

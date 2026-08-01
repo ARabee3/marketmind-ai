@@ -29,7 +29,7 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => <a href="/">{children}</a>,
+  Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }))
 
 vi.mock('@/lib/api/journey', () => ({
@@ -77,6 +77,7 @@ describe('StrategyHome', () => {
     render(<StrategyHome />)
 
     expect(await screen.findByText('We could not load your Strategy workspace. Please try again.')).toBeTruthy()
+    expect(screen.getByRole('alert')).toBeTruthy()
     expect(screen.queryByText(/can't access/i)).toBeNull()
   })
 

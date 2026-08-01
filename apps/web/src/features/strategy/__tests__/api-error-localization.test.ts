@@ -11,6 +11,7 @@ describe('getStrategyErrorTranslationKey', () => {
     expect(getStrategyErrorTranslationKey(err({ code: 'VALIDATION_ERROR', status: 400 }))).toBe('Errors.validationError')
     expect(getStrategyErrorTranslationKey(err({ code: 'STRATEGY_NOT_FOUND', status: 404 }))).toBe('Errors.notFound')
     expect(getStrategyErrorTranslationKey(err({ code: 'STALE_PROFILE', status: 409 }))).toBe('Errors.validationError')
+    expect(getStrategyErrorTranslationKey(err({ code: 'STRATEGY_VERSION_CONFLICT', status: 409 }))).toBe('Errors.strategyVersionConflict')
   })
 
   it('never surfaces the raw server message for unknown 5xx errors', () => {

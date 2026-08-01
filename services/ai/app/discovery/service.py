@@ -134,18 +134,6 @@ class DiscoveryService:
                     provider_error(exc.code, str(exc), retryable=exc.retryable),
                 )
 
-            if turn_kind == "respond" and model_output.action == "produce_profile_draft":
-                fallback_question = model_output.next_question or self._last_assistant_question(
-                    request
-                )
-                if fallback_question:
-                    model_output = model_output.model_copy(
-                        update={
-                            "action": "ask_next_question",
-                            "next_question": fallback_question,
-                        }
-                    )
-
             if not self._valid_turn_output(turn_kind, model_output, request.language_mode):
                 if attempt < DISCOVERY_MAX_ATTEMPTS - 1:
                     repair_hint = _repair_hint(turn_kind, request.language_mode)
@@ -376,16 +364,6 @@ class DiscoveryService:
             if source.id in referenced_source_ids
         ]
         return observations, sources
-
-    def _last_assistant_question(
-        self,
-        request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
-    ) -> str | None:
-        messages = getattr(request, "messages", None) or []
-        for message in reversed(messages):
-            if message.role == "assistant" and message.content.strip():
-                return message.content
-        return None
 
     def _valid_turn_output(
         self,

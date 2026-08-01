@@ -132,6 +132,43 @@ describe('useStrategyActions', () => {
     expect(init.method).toBe('POST')
   })
 
+  it('localizes a stale-version conflict with a specific recovery message', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        code: 'STRATEGY_VERSION_CONFLICT',
+        message: 'raw server conflict copy',
+      }), { status: 409 }),
+    )
+
+    const { result } = renderHook(() => useStrategyActions())
+
+    const response = await runAction(() => result.current.decide('strat-1', {
+      versionId: 'ver-1',
+      action: 'approve',
+    }))
+
+    expect(response).toBeNull()
+    expect(result.current.error).toBe('strategyVersionConflict')
+    expect(result.current.error).not.toContain('raw server')
+  })
+
+  it('never exposes unexpected server internals', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        code: 'PRISMA_BOOM',
+        message: 'Invalid prisma.strategyBrief.upsert invocation',
+      }), { status: 500 }),
+    )
+
+    const { result } = renderHook(() => useStrategyActions())
+
+    const response = await runAction(() => result.current.generate('strat-1'))
+
+    expect(response).toBeNull()
+    expect(result.current.error).toBe('serverError')
+    expect(result.current.error).not.toContain('prisma')
+  })
+
   it('prevents duplicate concurrent actions', async () => {
     fetchMock.mockResolvedValue(
       new Promise((resolve) => setTimeout(() => resolve(new Response(JSON.stringify(mockStrategy), { status: 201 })), 100)),

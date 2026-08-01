@@ -3,7 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import * as cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
-import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 
 async function bootstrap() {
@@ -30,11 +29,11 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filters — return stable error codes for the frontend.
-  // HttpExceptionFilter must come first so it keeps mapping HTTP exceptions;
-  // AllExceptionsFilter catches anything else (Prisma, unexpected runtime
-  // errors) and returns a stable, friendly 500 instead of raw internals.
-  app.useGlobalFilters(new HttpExceptionFilter(), new AllExceptionsFilter());
+  // One catch-all filter delegates expected HTTP exceptions to the stable
+  // error-code mapper and hides internals for every unexpected exception.
+  // Keeping the delegation inside one filter avoids Nest's reverse global
+  // filter precedence turning ordinary 4xx responses into generic 500s.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Global API prefix — all routes start with /api/v1
   app.setGlobalPrefix("api/v1");
