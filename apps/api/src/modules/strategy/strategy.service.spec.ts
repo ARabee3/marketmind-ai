@@ -191,6 +191,67 @@ describe("StrategyService", () => {
         "ready",
       );
     });
+
+    it("normalizes a date-only startDate into a full Date for Prisma", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "needs_brief",
+        businessId: "biz-1",
+      });
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+      });
+      (repository.upsertBrief as jest.Mock).mockResolvedValue({
+        id: "brief-1",
+        primaryObjective: "conversion",
+        startDate: new Date("2026-08-01"),
+        planLanguage: "en",
+        paidMediaAllowed: false,
+        externalBudgetMode: "organic_only",
+        teamCapacity: "Owner plus one helper",
+      });
+
+      await service.upsertBrief(STRAT_ID, OWNER_ID, validBrief);
+
+      const args = (repository.upsertBrief as jest.Mock).mock.calls[0][1];
+      expect(args.startDate).toBeInstanceOf(Date);
+      expect((args.startDate as Date).toISOString()).toBe(
+        "2026-08-01T00:00:00.000Z",
+      );
+    });
+
+    it("rejects an invalid startDate with a friendly 400 instead of a Prisma error", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "needs_brief",
+        businessId: "biz-1",
+      });
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+      });
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, {
+          businessProfileVersionId: "prof-1",
+          primaryObjective: "conversion",
+          startDate: "not-a-date",
+          planLanguage: "en",
+          paidMediaAllowed: false,
+          externalBudgetMode: "organic_only",
+          teamCapacity: "Owner plus one helper",
+          constraints: "",
+          clarificationAnswers: [],
+        } as never),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
   });
 
   // ── startGeneration: Atomic idempotency ─────────────────────────────

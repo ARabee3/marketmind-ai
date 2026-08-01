@@ -111,7 +111,7 @@ export class StrategyService {
     const brief = await this.strategyRepository.upsertBrief(id, {
       businessProfileVersionId: dto.businessProfileVersionId,
       primaryObjective: dto.primaryObjective,
-      startDate: dto.startDate,
+      startDate: normalizeStartDate(dto.startDate),
       planLanguage: dto.planLanguage,
       paidMediaAllowed: dto.paidMediaAllowed,
       externalBudgetMode: dto.externalBudgetMode,
@@ -733,6 +733,22 @@ function normalizeExternalBudgetEgp(
     };
   }
   return null;
+}
+
+/**
+ * Normalizes the DTO startDate (an ISO-8601 date string that may be
+ * date-only, e.g. "2026-08-01") into a `Date` Prisma can persist. Prisma's
+ * DateTime scalar rejects date-only strings, so a bare YYYY-MM-DD would
+ * otherwise surface as a raw PrismaClientValidationError.
+ */
+function normalizeStartDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(
+      `startDate is not a valid ISO-8601 date: ${value}`,
+    );
+  }
+  return date;
 }
 
 function toVersionSummary(
