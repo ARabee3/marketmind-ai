@@ -23,6 +23,7 @@ import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
 import { OwnerDecisionDto } from "./dto/owner-decision.dto";
+import { buildRetrievalQueryContext } from "./strategy-ai-contract";
 
 /** Owner-initiated retry limit (distinct from BullMQ queue-level job retries). */
 const MAX_OWNER_RETRIES = 3;
@@ -215,17 +216,26 @@ export class StrategyService {
     });
 
     try {
-      const payload = {
-        strategy_id: strategy.id,
-        brief: strategy.brief,
-        profile_version_id: strategy.brief.businessProfileVersionId,
-        correlation_id: correlationId,
-      };
+      const brief = strategy.brief;
+      const queryContext = buildRetrievalQueryContext(
+        brief,
+        latestProfile,
+        strategy.business,
+      );
 
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiUrl}/internal/v1/ai/strategy/retrieve`, payload, {
-          timeout: 10_000,
-        }),
+        this.httpService.post(
+          `${this.aiUrl}/internal/v1/ai/strategy/retrieve`,
+          queryContext,
+          {
+            params: {
+              strategy_id: strategy.id,
+              brief_id: brief.id,
+              profile_version_id: brief.businessProfileVersionId,
+            },
+            timeout: 10_000,
+          },
+        ),
       );
 
       const { retrieval_run_id } = response.data;
@@ -244,10 +254,14 @@ export class StrategyService {
         payload: { retrieval_run_id, correlation_id: correlationId },
       });
 
+      // No BullMQ auto-retry: the strategy FSM only allows failed → ready, so
+      // generation failures are retried by the owner via POST /:id/retry, never
+      // by re-running this job (which would hit an illegal failed → generating
+      // transition and crash-loop).
       await this.strategyQueue.add(
         "generate-strategy",
         { strategyId: id, retrievalRunId: retrieval_run_id, correlationId },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
 
       await this.strategyRepository.updateStrategyStatus(id, "queued");
@@ -442,6 +456,8 @@ export class StrategyService {
       );
 
       const correlationId = randomUUID();
+      // No BullMQ auto-retry — the owner retries a failed revision via
+      // POST /:id/retry (failed → ready), never by re-running this job.
       await this.strategyQueue.add(
         "revise-strategy",
         {
@@ -450,7 +466,7 @@ export class StrategyService {
           feedback: dto.feedback,
           correlationId,
         },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
 
       this.logger.log(
@@ -561,10 +577,11 @@ export class StrategyService {
         throw new BadRequestException("Retry is already in progress");
       }
       await this.strategyRepository.updateStrategyStatus(id, "queued");
+      // No BullMQ auto-retry — retries go through the FSM-approved owner path.
       await this.strategyQueue.add(
         "generate-strategy",
         { strategyId: id, retrievalRunId: latestRun.id, correlationId },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
       await this.recordProgress(id, {
         stage: "queued",

@@ -16,6 +16,34 @@ const OWNER_ID = "user-1";
 const OTHER_OWNER_ID = "user-2";
 const STRAT_ID = "strat-1";
 
+const PROFILE_VERSION_FIXTURE = {
+  id: "prof-1",
+  businessId: "biz-1",
+  draftId: "draft-1",
+  version: 1,
+  confirmedByUserId: OWNER_ID,
+  confirmedAt: new Date("2026-01-10T00:00:00.000Z"),
+  createdAt: new Date("2026-01-10T00:00:00.000Z"),
+  profile: {
+    business_type: "dessert shop",
+    primary_locale: "ar-EG",
+    confirmed_facts: {
+      current_marketing: {
+        active_channels: ["instagram"],
+        available_assets: ["submitted Instagram page"],
+      },
+    },
+  },
+};
+
+const STRATEGY_FIXTURE = {
+  id: STRAT_ID,
+  status: "ready",
+  businessId: "biz-1",
+  brief: { id: "brief-1", businessProfileVersionId: "prof-1" },
+  business: { id: "biz-1", businessType: "dessert shop", primaryLocale: "ar-EG" },
+};
+
 type MockedRepo = jest.Mocked<Partial<StrategyRepository>>;
 
 function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
@@ -305,16 +333,13 @@ describe("StrategyService", () => {
     });
 
     it("enqueues exactly one job when the claim succeeds", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
-        status: "ready",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
-      });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        STRATEGY_FIXTURE,
+      );
       (repository.claimForGeneration as jest.Mock).mockResolvedValue({ claimed: true });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       httpService.post.mockReturnValue(of({ data: { retrieval_run_id: "run-1" } }));
 
       const result = await service.startGeneration(STRAT_ID, OWNER_ID);
@@ -367,16 +392,13 @@ describe("StrategyService", () => {
 
   describe("startGeneration — Failure recovery", () => {
     it("transitions to failed and exposes retryable flag on 503", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
-        status: "ready",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
-      });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        STRATEGY_FIXTURE,
+      );
       (repository.claimForGeneration as jest.Mock).mockResolvedValue({ claimed: true });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       httpService.post.mockReturnValue(
         throwError(() => ({ response: { status: 503 }, message: "Service Unavailable" })),
       );
@@ -389,16 +411,13 @@ describe("StrategyService", () => {
     });
 
     it("redacts provider error details from the surfaced message", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
-        status: "ready",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
-      });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        STRATEGY_FIXTURE,
+      );
       (repository.claimForGeneration as jest.Mock).mockResolvedValue({ claimed: true });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       const providerError = {
         response: { status: 500, data: { internal_stack: "secret-trace" } },
         message: "Internal provider meltdown at /etc/secrets/key.pem",
@@ -517,16 +536,14 @@ describe("StrategyService", () => {
 
     it("restarts from scratch when retrieval also failed (failed → ready then startGeneration)", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
+        ...STRATEGY_FIXTURE,
         status: "failed",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
       });
       (repository.countRetries as jest.Mock).mockResolvedValue(0);
       (repository.getLatestVersion as jest.Mock).mockResolvedValue({ id: "v-1" });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
         id: "run-1",
         status: "failed",
@@ -807,16 +824,13 @@ describe("StrategyService", () => {
 
   describe("Lifecycle progress events", () => {
     it("records a progress event on every lifecycle transition", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
-        status: "ready",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
-      });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        STRATEGY_FIXTURE,
+      );
       (repository.claimForGeneration as jest.Mock).mockResolvedValue({ claimed: true });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       httpService.post.mockReturnValue(of({ data: { retrieval_run_id: "run-1" } }));
 
       await service.startGeneration(STRAT_ID, OWNER_ID);
@@ -837,16 +851,13 @@ describe("StrategyService", () => {
     });
 
     it("does not throw when progress persistence fails", async () => {
-      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
-        id: STRAT_ID,
-        status: "ready",
-        businessId: "biz-1",
-        brief: { businessProfileVersionId: "prof-1" },
-      });
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        STRATEGY_FIXTURE,
+      );
       (repository.claimForGeneration as jest.Mock).mockResolvedValue({ claimed: true });
-      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
-        id: "prof-1",
-      });
+      (repository.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue(
+        PROFILE_VERSION_FIXTURE,
+      );
       (repository.appendProgressEvent as jest.Mock).mockRejectedValue(new Error("db down"));
       httpService.post.mockReturnValue(of({ data: { retrieval_run_id: "run-1" } }));
 

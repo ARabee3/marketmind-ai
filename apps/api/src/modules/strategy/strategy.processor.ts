@@ -6,6 +6,13 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { StrategyRepository } from "./strategy.repository";
 import { validatePlanShape } from "./strategy-plan.validator";
+import {
+  buildBusinessProfilePayload,
+  buildContractBrief,
+  buildRetrievalQueryContext,
+  toContractRetrievalPack,
+  toRagRetrievalPack,
+} from "./strategy-ai-contract";
 
 interface GenerateJobData {
   strategyId: string;
@@ -64,10 +71,41 @@ export class StrategyProcessor extends WorkerHost {
         payload: { retrieval_run_id: retrievalRunId, correlation_id: correlationId },
       });
 
+      const { businessProfile, brief, retrievalRun } =
+        await this.loadGenerationInputs(strategyId, retrievalRunId);
+      const contractBrief = buildContractBrief(brief, businessProfile);
+      const businessProfilePayload = buildBusinessProfilePayload(businessProfile);
+
+      // Deterministic scoring must run first: the generate endpoint requires
+      // the precomputed channel scorecards so the plan reuses them verbatim.
+      const scoreResponse = await firstValueFrom(
+        this.httpService.post(
+          `${this.aiUrl}/internal/v1/ai/strategy/score`,
+          {
+            business_profile: businessProfilePayload,
+            brief: contractBrief,
+            retrieval_pack: toRagRetrievalPack(retrievalRun),
+          },
+          { timeout: 30_000 },
+        ),
+      );
+      const deterministicChannelScores =
+        scoreResponse.data?.deterministic_channel_scores;
+      if (!Array.isArray(deterministicChannelScores)) {
+        throw new Error("AI scoring service returned no deterministic_channel_scores");
+      }
+
       const response = await firstValueFrom(
         this.httpService.post(
           `${this.aiUrl}/internal/v1/ai/strategy/generate`,
-          { strategy_id: strategyId, retrieval_run_id: retrievalRunId, correlation_id: correlationId },
+          {
+            contract_version: "strategy-v1",
+            strategy_id: strategyId,
+            business_profile: businessProfilePayload,
+            brief: contractBrief,
+            retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+            deterministic_channel_scores: deterministicChannelScores,
+          },
           { timeout: 45_000 },
         ),
       );
@@ -118,7 +156,9 @@ export class StrategyProcessor extends WorkerHost {
         `[Corr: ${correlationId}] Generation failed: ${errorMessage(error)}`,
       );
       await this.safeFail(strategyId, correlationId, "strategy.generating.failed");
-      // Re-throw so BullMQ applies its bounded retries / moves the job to failed.
+      // Re-throw so the job moves to failed in the queue. Retries are
+      // owner-initiated via POST /:id/retry (failed → ready → ...), which is the
+      // only FSM-legal recovery path; the job itself never auto-retries.
       throw error;
     }
   }
@@ -128,6 +168,37 @@ export class StrategyProcessor extends WorkerHost {
   // version. A failed revision never destroys the previous draft." The
   // revision job MUST run retrieval first, then generate. The prior draft is
   // preserved because appendStrategyVersion only writes a new row.
+
+  private async loadGenerationInputs(
+    strategyId: string,
+    retrievalRunId: string,
+  ) {
+    const strategy = await this.strategyRepository.readStrategy(strategyId);
+    const brief = strategy?.brief ?? null;
+    const business = strategy?.business ?? null;
+    if (!brief) {
+      throw new Error("Strategy brief missing during generation");
+    }
+    if (!business) {
+      throw new Error("Strategy business missing during generation");
+    }
+
+    const businessProfile = await this.strategyRepository.getProfileVersionById(
+      brief.businessProfileVersionId,
+    );
+    if (!businessProfile) {
+      throw new Error("Business profile version missing during generation");
+    }
+
+    const retrievalRun = await this.strategyRepository.getRetrievalRunById(
+      retrievalRunId,
+    );
+    if (!retrievalRun) {
+      throw new Error("Retrieval run missing during generation");
+    }
+
+    return { businessProfile, brief, retrievalRun };
+  }
 
   private async handleRevise(job: Job<ReviseJobData>) {
     const { strategyId, priorVersionId, feedback, correlationId } = job.data;
@@ -150,20 +221,33 @@ export class StrategyProcessor extends WorkerHost {
 
       const strategy = await this.strategyRepository.readStrategy(strategyId);
       const brief = strategy?.brief ?? null;
+      const business = strategy?.business ?? null;
       if (!brief) {
         throw new Error("Strategy brief missing before revision retrieval");
+      }
+      if (!business) {
+        throw new Error("Strategy business missing before revision retrieval");
+      }
+
+      const profileVersion = await this.strategyRepository.getProfileVersionById(
+        brief.businessProfileVersionId,
+      );
+      if (!profileVersion) {
+        throw new Error("Business profile version missing before revision retrieval");
       }
 
       const retrievalResponse = await firstValueFrom(
         this.httpService.post(
           `${this.aiUrl}/internal/v1/ai/strategy/retrieve`,
+          buildRetrievalQueryContext(brief, profileVersion, business),
           {
-            strategy_id: strategyId,
-            brief,
-            profile_version_id: brief.businessProfileVersionId,
-            correlation_id: correlationId,
+            params: {
+              strategy_id: strategyId,
+              brief_id: brief.id,
+              profile_version_id: brief.businessProfileVersionId,
+            },
+            timeout: 10_000,
           },
-          { timeout: 10_000 },
         ),
       );
 
@@ -204,15 +288,67 @@ export class StrategyProcessor extends WorkerHost {
         payload: { prior_version_id: priorVersionId },
       });
 
+      const strategy = await this.strategyRepository.readStrategy(strategyId);
+      const brief = strategy?.brief ?? null;
+      if (!brief) {
+        throw new Error("Strategy brief missing before revision generation");
+      }
+
+      const profileVersion = await this.strategyRepository.getProfileVersionById(
+        brief.businessProfileVersionId,
+      );
+      if (!profileVersion) {
+        throw new Error("Business profile version missing before revision generation");
+      }
+
+      const retrievalRun = await this.strategyRepository.getRetrievalRunById(
+        retrievalRunId,
+      );
+      if (!retrievalRun) {
+        throw new Error("Retrieval run missing before revision generation");
+      }
+
+      const priorVersion = await this.strategyRepository.getVersionById(
+        priorVersionId,
+      );
+      if (!priorVersion) {
+        throw new Error("Prior strategy version missing before revision generation");
+      }
+
+      const contractBrief = buildContractBrief(brief, profileVersion);
+      const businessProfilePayload = buildBusinessProfilePayload(profileVersion);
+
+      // Deterministic scoring must run first: the revise endpoint requires the
+      // precomputed channel scorecards so the revised plan reuses them verbatim.
+      const scoreResponse = await firstValueFrom(
+        this.httpService.post(
+          `${this.aiUrl}/internal/v1/ai/strategy/score`,
+          {
+            business_profile: businessProfilePayload,
+            brief: contractBrief,
+            retrieval_pack: toRagRetrievalPack(retrievalRun),
+          },
+          { timeout: 30_000 },
+        ),
+      );
+      const deterministicChannelScores =
+        scoreResponse.data?.deterministic_channel_scores;
+      if (!Array.isArray(deterministicChannelScores)) {
+        throw new Error("AI scoring service returned no deterministic_channel_scores");
+      }
+
       const revisionResponse = await firstValueFrom(
         this.httpService.post(
           `${this.aiUrl}/internal/v1/ai/strategy/revise`,
           {
+            contract_version: "strategy-v1",
             strategy_id: strategyId,
-            retrieval_run_id: retrievalRunId,
-            prior_version_id: priorVersionId,
-            feedback,
-            correlation_id: correlationId,
+            business_profile: businessProfilePayload,
+            brief: contractBrief,
+            retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+            deterministic_channel_scores: deterministicChannelScores,
+            previous_plan: priorVersion.planData,
+            revision_notes: feedback?.trim() || "",
           },
           { timeout: 45_000 },
         ),
