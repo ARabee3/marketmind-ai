@@ -66,4 +66,11 @@ export const configuration = () => ({
     // so Discovery and Strategy never drift.
     url: process.env.AI_SERVICE_BASE_URL || "http://localhost:8000",
   },
+
+  content: {
+    // Root directory for content asset blobs written through the
+    // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
+    // deployments override via CONTENT_ASSET_ROOT.
+    assetRoot: process.env.CONTENT_ASSET_ROOT || "./.content-assets",
+  },
 });
