@@ -27,6 +27,7 @@ from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
 from app.content.assembler import PromptAssembly
 from app.content.fixtures import load_default_content_item_fixture
+from app.content.validators import derive_strategy_pillar_ids
 
 
 class ContentPackProviderOutput(BaseModel):
@@ -300,11 +301,14 @@ class MockContentProvider(ContentLLMProvider):
         week_context: dict[str, Any],
         identity: dict[str, Any],
     ) -> ContentItemVersion:
-        item_id = str(
+        content_item_id = str(
             uuid.uuid5(
                 uuid.NAMESPACE_URL,
                 f"{identity['content_pack_id']}:content-item:{index + 1}",
             )
+        )
+        item_version_id = str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"{content_item_id}:version:1")
         )
         promotion = week_context.get("promotion")
         cta = _cta_text(week_context)
@@ -340,9 +344,9 @@ class MockContentProvider(ContentLLMProvider):
                 closing_cta=cta,
             )
         data = {
-            "id": item_id,
+            "id": item_version_id,
             "contract_version": "content-v1",
-            "content_item_id": item_id,
+            "content_item_id": content_item_id,
             "content_pack_id": identity["content_pack_id"],
             "version": 1,
             "channel": channel,
@@ -352,7 +356,9 @@ class MockContentProvider(ContentLLMProvider):
                 "strategy_id": identity["strategy_id"],
                 "strategy_version": identity["strategy_version"],
                 "week_number": identity["week_number"],
-                "pillar_ids": _pillar_ids(identity["strategy_id"], len(strategy_week["pillars"])),
+                "pillar_ids": derive_strategy_pillar_ids(
+                    identity["strategy_id"], len(strategy_week["pillars"])
+                ),
                 "objective": strategy_week["objective"],
                 "channel": channel,
             },
@@ -389,13 +395,6 @@ def _prompt_context(prompt: PromptAssembly) -> dict[str, Any]:
             "Content prompt did not contain a valid structured context.",
             retryable=False,
         ) from exc
-
-
-def _pillar_ids(strategy_id: str, count: int) -> list[str]:
-    return [
-        str(uuid.uuid5(uuid.NAMESPACE_URL, f"{strategy_id}:content-pillar:{index + 1}"))
-        for index in range(max(1, count))
-    ]
 
 
 def _cta_text(week_context: dict[str, Any]) -> str | None:
