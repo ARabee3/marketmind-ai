@@ -248,7 +248,7 @@ def build_revise_user_context(
             "idempotency_key": request.idempotency_key,
         },
         "previous_item_version_read_only": previous_item_version.model_dump(
-            mode="json", exclude_none=True
+            mode="json"
         ),
         "owner_revision_notes": request.revision_notes,
         "locked_fields": [

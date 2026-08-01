@@ -11,6 +11,7 @@ from content_contracts import ContentItemVersion
 from app.content.assembler import PromptAssembly
 from app.providers.base import ProviderError
 from app.providers.content_provider import ContentLLMProvider
+from app.content.validators import validate_revision_item
 
 
 MAX_CONTENT_ATTEMPTS = 3
@@ -109,6 +110,7 @@ async def revise_content_item_with_repair(
     provider: ContentLLMProvider,
     prompt: PromptAssembly,
     *,
+    base_item_version: ContentItemVersion | None = None,
     max_attempts: int = MAX_CONTENT_ATTEMPTS,
     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
     retry_delay_seconds: float = 2.0,
@@ -125,6 +127,15 @@ async def revise_content_item_with_repair(
                     "Content revision did not return one ContentItemVersion.",
                     retryable=False,
                 )
+            if base_item_version is not None:
+                validation = validate_revision_item(base_item_version, item)
+                if not validation.valid:
+                    issue = validation.issues[0]
+                    raise ProviderError(
+                        issue.code,
+                        f"{issue.field}: {issue.message}",
+                        retryable=False,
+                    )
             return item
         except ProviderError as error:
             last_error = error

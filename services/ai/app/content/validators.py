@@ -462,3 +462,92 @@ def validate_generated_content_pack(
 def validate_frozen_content_policy_fixture(fixture: dict[str, Any]) -> ContentValidationResult:
     """Expose the reviewed cross-object contract validator to the AI service."""
     return validate_frozen_policy_fixture(fixture)
+
+
+def validate_revision_item(
+    base_item_version: ContentItemVersion,
+    revised_item_version: ContentItemVersion,
+) -> ContentValidationResult:
+    """Ensure revision changes are new versions without changing locked fields."""
+    issues: list[ContentValidationIssue] = []
+
+    if revised_item_version.id == base_item_version.id:
+        _add_output_issue(
+            issues,
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.id",
+            "A revision must create a new immutable item-version identity.",
+        )
+    if revised_item_version.version != base_item_version.version + 1:
+        _add_output_issue(
+            issues,
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.version",
+            "A revision must create the next immutable item-version number.",
+        )
+
+    locked_fields = (
+        ("content_item_id", base_item_version.content_item_id, revised_item_version.content_item_id),
+        ("content_pack_id", base_item_version.content_pack_id, revised_item_version.content_pack_id),
+        ("channel", base_item_version.channel, revised_item_version.channel),
+        ("format", base_item_version.format, revised_item_version.format),
+        ("language_mode", base_item_version.language_mode, revised_item_version.language_mode),
+        (
+            "strategy_trace.strategy_id",
+            base_item_version.strategy_trace.strategy_id,
+            revised_item_version.strategy_trace.strategy_id,
+        ),
+        (
+            "strategy_trace.strategy_version",
+            base_item_version.strategy_trace.strategy_version,
+            revised_item_version.strategy_trace.strategy_version,
+        ),
+        (
+            "strategy_trace.week_number",
+            base_item_version.strategy_trace.week_number,
+            revised_item_version.strategy_trace.week_number,
+        ),
+        (
+            "strategy_trace.pillar_ids",
+            base_item_version.strategy_trace.pillar_ids,
+            revised_item_version.strategy_trace.pillar_ids,
+        ),
+        (
+            "strategy_trace.objective",
+            base_item_version.strategy_trace.objective,
+            revised_item_version.strategy_trace.objective,
+        ),
+        (
+            "strategy_trace.channel",
+            base_item_version.strategy_trace.channel,
+            revised_item_version.strategy_trace.channel,
+        ),
+    )
+    for field, base_value, revised_value in locked_fields:
+        if revised_value != base_value:
+            _add_output_issue(
+                issues,
+                "CONTENT_VERSION_CONFLICT",
+                f"item_version.{field}",
+                "Revision cannot change Strategy-locked item fields.",
+            )
+
+    if revised_item_version.version_checksum == base_item_version.version_checksum:
+        _add_output_issue(
+            issues,
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.version_checksum",
+            "A new revision must have a new version checksum.",
+        )
+    if (
+        revised_item_version.generation_provenance.generation_run_id
+        == base_item_version.generation_provenance.generation_run_id
+    ):
+        _add_output_issue(
+            issues,
+            "CONTENT_VERSION_CONFLICT",
+            "item_version.generation_provenance.generation_run_id",
+            "A revision must record a new generation run identity.",
+        )
+
+    return ContentValidationResult(valid=not issues, issues=issues)
