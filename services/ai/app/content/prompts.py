@@ -156,6 +156,9 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
     return {
         "week": week.model_dump(mode="json", exclude_none=True),
         "theme": week.theme,
+        "objective": str(
+            getattr(request.strategy_plan.primary_objective, "value", request.strategy_plan.primary_objective)
+        ),
         "pillars": [
             pillar.model_dump(mode="json", exclude_none=True)
             for pillar in request.strategy_plan.content_strategy.pillars
