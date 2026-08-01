@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -29,6 +30,7 @@ from app.content.image_provider import (
     create_static_image_provider,
     generate_static_asset,
 )
+from app.content.observability import content_event_metadata
 from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
@@ -40,11 +42,13 @@ from app.content.validators import (
     validate_revision_item,
 )
 from app.core.config import Settings, get_settings
+from app.core.logging import log_content_event
 from app.providers.base import ProviderError
 from app.providers.content_provider import create_content_provider
 
 
 router = APIRouter(prefix="/internal/v1/ai/content", tags=["internal-ai-content"])
+logger = logging.getLogger(__name__)
 
 
 class ContentRevisionRequestEnvelope(BaseModel):
@@ -145,6 +149,11 @@ async def generate_content(
             provider_name=settings.ai_provider_mode,
             model=_model_name(settings),
         )
+        log_content_event(
+            logger,
+            "generation_started",
+            content_event_metadata(prompt.metadata),
+        )
         provider = create_content_provider(settings)
         items = await generate_content_pack_with_repair(provider, prompt)
     except ProviderError as error:
@@ -155,6 +164,15 @@ async def generate_content(
     validation = validate_generated_content_pack(request, items)
     if not validation.valid:
         _raise_validation(validation)
+    log_content_event(
+        logger,
+        "generation_completed",
+        content_event_metadata(
+            prompt.metadata,
+            item_count=len(items),
+            validation=validation,
+        ),
+    )
     return AiContentGenerateResponse(
         contract_version="content-v1",
         content_pack=_build_draft_pack(request, items),
@@ -180,6 +198,11 @@ async def revise_content(
             provider_name=settings.ai_provider_mode,
             model=_model_name(settings),
         )
+        log_content_event(
+            logger,
+            "revision_started",
+            content_event_metadata(prompt.metadata),
+        )
         provider = create_content_provider(settings)
         item = await revise_content_item_with_repair(
             provider,
@@ -194,6 +217,11 @@ async def revise_content(
     validation = validate_revision_item(envelope.previous_item_version, item)
     if not validation.valid:
         _raise_validation(validation)
+    log_content_event(
+        logger,
+        "revision_completed",
+        content_event_metadata(prompt.metadata, validation=validation),
+    )
     return AiContentReviseResponse(
         contract_version="content-v1",
         item_version=item,
@@ -215,6 +243,11 @@ async def generate_static_content_asset(
             request,
             provider_name=settings.image_provider_mode,
             model=settings.image_model,
+        )
+        log_content_event(
+            logger,
+            "asset_generation_started",
+            content_event_metadata(prompt.metadata),
         )
         asset = await generate_static_asset(
             request,
@@ -239,6 +272,11 @@ async def generate_static_content_asset(
                 )
             ],
         )
+    log_content_event(
+        logger,
+        "asset_generation_completed",
+        content_event_metadata(prompt.metadata, validation=validation),
+    )
     return AiStaticAssetGenerateResponse(
         contract_version="content-v1",
         asset=asset,

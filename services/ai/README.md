@@ -40,6 +40,18 @@ Copy `.env.example` to `.env` and configure the providers you need:
 - `AI_PROVIDER_MODE=gemini_dev`: requires `GEMINI_API_KEY` and `GEMINI_MODEL`.
 - `AI_PROVIDER_MODE=openrouter`: requires `OPEN_ROUTER_API_KEY` and `OPEN_ROUTER_MODEL`.
 
+### Static-image provider
+
+- `IMAGE_PROVIDER_MODE=mock`: deterministic local/test image bytes (default).
+- `IMAGE_PROVIDER_MODE=openai`: requires `OPENAI_API_KEY` and uses `IMAGE_MODEL`.
+- `IMAGE_PROVIDER_MODE=unavailable`: explicit prompt-only state for provider-disabled environments.
+- `IMAGE_REQUEST_TIMEOUT_MS`: image-provider timeout in milliseconds.
+
+Content generation metadata records prompt/reference versions, provider/model,
+exact Strategy/profile/week identities, input hashes, validation codes, and item
+counts. Prompt bodies, full Business Profiles, provider responses, credentials,
+and revision notes are not logged.
+
 ### Embedding provider (for RAG)
 
 - `EMBEDDING_PROVIDER_MODE=fake`: deterministic local/test behavior (default).
