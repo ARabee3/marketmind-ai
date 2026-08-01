@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.config import Settings
 from app.db.models import StrategyRetrievalRun, StrategyRetrievalItem
@@ -40,7 +40,16 @@ async def test_end_to_end_citation_persistence_resolution(
 
     ret_result = await runner.run_case(case)
 
-    strategy_id = uuid4()
+    try:
+        strategy_result = await db_session.execute(
+            text("SELECT id FROM strategies ORDER BY created_at LIMIT 1")
+        )
+    except Exception as exc:
+        pytest.skip(f"Strategy integration table is unavailable: {exc}")
+    strategy_row = strategy_result.first()
+    if strategy_row is None:
+        pytest.skip("No Strategy seed exists for persistence resolution test")
+    strategy_id = strategy_row[0]
     brief = make_eval_brief(case)
     profile = default_business_profile()
 

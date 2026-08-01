@@ -56,7 +56,8 @@ function getTypeScriptFields() {
   // with no runtime side effects. We import it directly via tsx (a repo
   // devDependency) rather than text-scraping the source, so a real import is
   // the source of truth — not a regex.
-  const tsxPath = resolve(repoRoot, "node_modules/.bin/tsx");
+  const tsxCommand = process.platform === "win32" ? "tsx.cmd" : "tsx";
+  const tsxPath = resolve(repoRoot, "node_modules/.bin", tsxCommand);
   if (!existsSync(tsxPath)) {
     throw new Error(
       "tsx not found at node_modules/.bin/tsx — run `npm install` first (tsx is a root devDependency).",
@@ -66,10 +67,19 @@ function getTypeScriptFields() {
     repoRoot,
     "apps/api/src/modules/marketing-knowledge/marketing-knowledge-rebuild.service.ts",
   );
-  const stdout = run(tsxPath, [
+  const scriptArgs = [
     "-e",
     `import { QDRANT_KNOWLEDGE_POINT_FIELDS } from ${JSON.stringify(modulePath)}; console.log(JSON.stringify([...QDRANT_KNOWLEDGE_POINT_FIELDS].sort()));`,
-  ]);
+  ];
+  const command =
+    process.platform === "win32"
+      ? process.execPath
+      : tsxPath;
+  const args =
+    process.platform === "win32"
+      ? [resolve(repoRoot, "node_modules/tsx/dist/cli.mjs"), ...scriptArgs]
+      : scriptArgs;
+  const stdout = run(command, args);
   return JSON.parse(stdout.trim());
 }
 
