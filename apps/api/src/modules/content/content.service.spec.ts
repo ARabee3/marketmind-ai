@@ -8,7 +8,10 @@ import { ContentService } from "./content.service";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
-import type { CreateContentCycleRequest } from "@marketmind/contracts";
+import type {
+  CreateContentCycleRequest,
+  UpsertContentWeekContextRequest,
+} from "@marketmind/contracts";
 
 const OWNER_ID = "user-1";
 
@@ -86,6 +89,27 @@ const WEEK_ROW = {
   createdAt: new Date("2026-08-01T00:00:00.000Z"),
 };
 
+const SYSTEM_DEFAULTED_WEEK_ROW = {
+  id: "week-defaulted",
+  contractVersion: "content-v1",
+  contentCycleId: "cycle-1",
+  weekNumber: 3,
+  weekStartDate: new Date("2026-08-15T00:00:00.000Z"),
+  promotionMode: "none",
+  promotion: null,
+  mustInclude: [],
+  mustAvoid: [],
+  approvedAssetIds: [],
+  ctaDestination: { type: "none", value: null },
+  generationCutoffAt: new Date("2026-08-21T21:00:00.000Z"),
+  weeklyClaimId: "claim-defaulted",
+  contextSource: "system_defaulted",
+  confirmedByUserId: null,
+  confirmedAt: null,
+  systemDefaultedAt: new Date("2026-08-15T00:00:00.000Z"),
+  createdAt: new Date("2026-08-15T00:00:00.000Z"),
+};
+
 type MockedStrategyRepo = jest.Mocked<Partial<StrategyRepository>>;
 type MockedCycleRepo = jest.Mocked<Partial<ContentCycleRepository>>;
 type MockedWeekRepo = jest.Mocked<Partial<ContentWeekContextRepository>>;
@@ -110,6 +134,8 @@ function makeStrategyRepo(
 function makeCycleRepo(overrides: Partial<MockedCycleRepo> = {}): MockedCycleRepo {
   return {
     createCycle: jest.fn().mockResolvedValue(CYCLE_ROW),
+    getCycleByIdAndOwner: jest.fn().mockResolvedValue(CYCLE_ROW),
+    getCycleById: jest.fn().mockResolvedValue(CYCLE_ROW),
     ...overrides,
   };
 }
@@ -117,6 +143,8 @@ function makeCycleRepo(overrides: Partial<MockedCycleRepo> = {}): MockedCycleRep
 function makeWeekRepo(overrides: Partial<MockedWeekRepo> = {}): MockedWeekRepo {
   return {
     upsertOwnerContext: jest.fn().mockResolvedValue(WEEK_ROW),
+    listWeeks: jest.fn().mockResolvedValue([]),
+    createSafeDefaultContext: jest.fn().mockResolvedValue(SYSTEM_DEFAULTED_WEEK_ROW),
     ...overrides,
   };
 }
@@ -267,5 +295,185 @@ describe("ContentService.createCycle", () => {
 
     expect(result.content_cycle.id).toBe("cycle-original");
     expect(cycleRepo.createCycle).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ContentService.upsertWeekContext", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+  let weekRepo: MockedWeekRepo;
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+    weekRepo = makeWeekRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: weekRepo },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("throws NotFound when the cycle does not exist or is not owned by the caller", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects with CONTENT_CYCLE_PAUSED when the cycle is paused", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "paused",
+    });
+
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_CYCLE_PAUSED",
+    );
+  });
+
+  it("rejects with CONTENT_CYCLE_COMPLETED when the cycle is completed", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "completed",
+    });
+
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_CYCLE_COMPLETED",
+    );
+  });
+
+  it("rejects with CONTENT_WEEK_OUT_OF_RANGE for weeks outside 1-12", async () => {
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 0, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 13, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+  });
+
+  it("persists owner-confirmed context before the cutoff, server-authoritative week fields", async () => {
+    // Week 1 cutoff = start of week 2 in Cairo = 2026-08-07T21:00:00Z.
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-08-01T00:00:00.000Z"));
+
+    const result = await service.upsertWeekContext(
+      "cycle-1",
+      1,
+      { ...DTO.initial_week_context, week_number: 4, week_start_date: "2026-01-01" },
+      OWNER_ID,
+    );
+
+    expect(result.week_number).toBe(1);
+    expect(result.week_start_date).toBe("2026-08-01");
+    expect(result.context_source).toBe("owner_confirmed");
+
+    // The server is authoritative for week number and start date; the client's
+    // values are ignored.
+    expect(weekRepo.upsertOwnerContext).toHaveBeenCalledWith(
+      "cycle-1",
+      expect.objectContaining({
+        week_number: 1,
+        week_start_date: "2026-08-01",
+      }),
+      OWNER_ID,
+    );
+  });
+
+  it("rejects with CONTENT_WEEK_ALREADY_CLAIMED after the generation cutoff has passed", async () => {
+    // Week 1 cutoff = 2026-08-07T21:00:00Z; run after it.
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-08-08T00:00:00.000Z"));
+
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_WEEK_ALREADY_CLAIMED",
+    );
+  });
+
+  it("rejects with CONTENT_WEEK_ALREADY_CLAIMED when a system safe default already claimed the week", async () => {
+    (weekRepo.listWeeks as jest.Mock).mockResolvedValue([
+      { ...SYSTEM_DEFAULTED_WEEK_ROW, weekNumber: 1 },
+    ]);
+
+    await rejectsWithCode(
+      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      "CONTENT_WEEK_ALREADY_CLAIMED",
+    );
+  });
+});
+
+describe("ContentService.safeDefaultWeekContext", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+  let weekRepo: MockedWeekRepo;
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+    weekRepo = makeWeekRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: weekRepo },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the cycle does not exist", async () => {
+    (cycleRepo.getCycleById as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.safeDefaultWeekContext("cycle-1", 3),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects with CONTENT_WEEK_OUT_OF_RANGE for weeks outside 1-12", async () => {
+    await rejectsWithCode(
+      service.safeDefaultWeekContext("cycle-1", 0),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+    await rejectsWithCode(
+      service.safeDefaultWeekContext("cycle-1", 13),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+  });
+
+  it("persists a promotion-free safe default with cycle-derived dates", async () => {
+    const result = await service.safeDefaultWeekContext("cycle-1", 3);
+
+    // Week 3 starts 2026-08-15 (week 2 start + 7) and its cutoff is the start
+    // of week 4 (2026-08-22) in Africa/Cairo.
+    expect(weekRepo.createSafeDefaultContext).toHaveBeenCalledWith(
+      "cycle-1",
+      3,
+      expect.objectContaining({
+        weekStartDate: new Date("2026-08-14T21:00:00.000Z"),
+        cutoffAt: new Date("2026-08-21T21:00:00.000Z"),
+      }),
+    );
+
+    expect(result.promotion_mode).toBe("none");
+    expect(result.context_source).toBe("system_defaulted");
+    expect(result.confirmed_by_user_id).toBeNull();
+    expect(result.system_defaulted_at).toBe("2026-08-15T00:00:00.000Z");
   });
 });

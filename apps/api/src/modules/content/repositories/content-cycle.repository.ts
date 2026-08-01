@@ -78,6 +78,15 @@ export class ContentCycleRepository {
     return cycle;
   }
 
+  /**
+   * Owner-unscoped read used by the server-side scheduler/worker for the
+   * safe-default week-context path (matches `readStrategy`). Never expose
+   * through an HTTP handler; HTTP handlers must use `getCycleByIdAndOwner`.
+   */
+  async getCycleById(id: string): Promise<ContentCycle | null> {
+    return this.prisma.contentCycle.findUnique({ where: { id } });
+  }
+
   async pauseCycle(
     id: string,
     ownerUserId: string,

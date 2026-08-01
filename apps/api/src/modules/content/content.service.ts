@@ -13,6 +13,7 @@ import type {
   ContentPromotion,
   ContentWeekContext,
   CreateContentCycleRequest,
+  UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
 import type { ContentWeekContext as PrismaWeekContext } from "@prisma/client";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
@@ -147,6 +148,156 @@ export class ContentService {
       initial_week_context: toContentWeekContext(initialWeekContext),
     };
   }
+
+  // ── PUT /api/v1/content-cycles/:id/weeks/:week_number/context ──────
+
+  /**
+   * Confirms or updates the owner's context for one week of the cycle.
+   *
+   * Every precondition is re-checked server-side against persisted state, so
+   * the client cannot renumber, backdate, or claim a week it does not own:
+   * 1. the cycle exists and belongs to the owner (404);
+   * 2. the cycle is active (CONTENT_CYCLE_PAUSED / CONTENT_CYCLE_COMPLETED);
+   * 3. the week is within 1-12 (CONTENT_WEEK_OUT_OF_RANGE);
+   * 4. the week is not yet claimed: its generation cutoff has not passed and
+   *    the scheduler has not already persisted a system safe-default for it
+   *    (CONTENT_WEEK_ALREADY_CLAIMED — arch doc 193-244).
+   *
+   * Week number and start date are always server-authoritative, derived from
+   * the cycle's generation schedule; client-sent values are ignored. The owner
+   * may keep refining a week's context until the week is claimed.
+   */
+  async upsertWeekContext(
+    cycleId: string,
+    weekNumber: number,
+    dto: UpsertContentWeekContextRequest,
+    ownerUserId: string,
+  ): Promise<ContentWeekContext> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      cycleId,
+      ownerUserId,
+    );
+    if (!cycle) {
+      throw new NotFoundException("Content cycle not found");
+    }
+    this.assertCycleActive(cycle);
+    this.assertWeekNumberInRange(weekNumber);
+
+    const nextGenerationAt = cycle.nextGenerationAt;
+    if (!nextGenerationAt) {
+      throw new NotFoundException("Content cycle has no generation cutoff");
+    }
+
+    // The week's generation cutoff is the start of the following week. Once it
+    // has passed, the scheduler owns the week (arch doc 193-244).
+    const cutoff = weekCutoffFor(nextGenerationAt, weekNumber);
+    if (new Date() >= cutoff) {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} has already passed its generation cutoff.`,
+      });
+    }
+
+    // A persisted system safe-default claims the week for the scheduler; the
+    // owner cannot override it.
+    const weeks = await this.weekContextRepository.listWeeks(cycleId);
+    const existing = weeks.find((week) => week.weekNumber === weekNumber);
+    if (existing && existing.contextSource === "system_defaulted") {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} was already claimed by the system safe default.`,
+      });
+    }
+
+    const persisted = await this.weekContextRepository.upsertOwnerContext(
+      cycleId,
+      {
+        ...dto,
+        week_number: weekNumber,
+        week_start_date: weekStartFor(nextGenerationAt, weekNumber),
+      },
+      ownerUserId,
+    );
+
+    this.logger.log(
+      `[ContentCycle ${cycleId}] Owner-confirmed context for week ${weekNumber} (cutoff ${cutoff.toISOString()}).`,
+    );
+
+    return toContentWeekContext(persisted);
+  }
+
+  // ── Scheduler/processor safe default (no HTTP caller) ──────────────
+
+  /**
+   * Persists the system safe default for a week whose optional owner context
+   * was never confirmed before its generation cutoff (arch doc 193-244).
+   * Server/worker path: uses the owner-unscoped cycle read on purpose and is
+   * never exposed through an HTTP handler.
+   *
+   * The safe default is promotion-free (mode `none`, no promotion object), has
+   * no must-include/must-avoid instructions, inherits only approved reusable
+   * assets, and takes its CTA from already-confirmed business data. An
+   * expiring offer or unconfirmed operational fact is never carried into the
+   * next week automatically (arch doc 243-244). The repository's atomic weekly
+   * claim makes concurrent scheduler + manual generation resolve to the same
+   * week context.
+   */
+  async safeDefaultWeekContext(
+    cycleId: string,
+    weekNumber: number,
+  ): Promise<ContentWeekContext> {
+    const cycle = await this.cycleRepository.getCycleById(cycleId);
+    if (!cycle) {
+      throw new NotFoundException("Content cycle not found");
+    }
+    this.assertWeekNumberInRange(weekNumber);
+
+    const nextGenerationAt = cycle.nextGenerationAt;
+    if (!nextGenerationAt) {
+      throw new NotFoundException("Content cycle has no generation cutoff");
+    }
+
+    const persisted = await this.weekContextRepository.createSafeDefaultContext(
+      cycleId,
+      weekNumber,
+      {
+        weekStartDate: startOfCairoDay(weekStartFor(nextGenerationAt, weekNumber)),
+        cutoffAt: weekCutoffFor(nextGenerationAt, weekNumber),
+      },
+    );
+
+    this.logger.log(
+      `[ContentCycle ${cycleId}] Persisted system safe default for week ${weekNumber}.`,
+    );
+
+    return toContentWeekContext(persisted);
+  }
+
+  private assertCycleActive(cycle: ContentCycleRow): void {
+    if (cycle.status === "paused") {
+      throw new ConflictException({
+        code: "CONTENT_CYCLE_PAUSED",
+        message:
+          "The content cycle is paused; resume it before updating week context.",
+      });
+    }
+    if (cycle.status === "completed") {
+      throw new ConflictException({
+        code: "CONTENT_CYCLE_COMPLETED",
+        message:
+          "The content cycle is completed; week context cannot be updated.",
+      });
+    }
+  }
+
+  private assertWeekNumberInRange(weekNumber: number): void {
+    if (weekNumber < 1 || weekNumber > 12) {
+      throw new BadRequestException({
+        code: "CONTENT_WEEK_OUT_OF_RANGE",
+        message: `Week number must be between 1 and 12 (received ${weekNumber}).`,
+      });
+    }
+  }
 }
 
 // ── Contract mappers ─────────────────────────────────────────────────
@@ -235,6 +386,22 @@ function addDaysIso(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const utcMidnight = Date.UTC(year, month - 1, day + days);
   return toCairoIsoDate(new Date(utcMidnight));
+}
+
+/**
+ * Week 1 starts on the Strategy brief's start date; `nextGenerationAt` is the
+ * start of week 2. Week N therefore starts `(N - 2)` weeks after
+ * `nextGenerationAt`, and its generation cutoff is the start of the following
+ * week (`(N - 1)` weeks after `nextGenerationAt`).
+ */
+function weekStartFor(nextGenerationAt: Date, weekNumber: number): string {
+  return addDaysIso(toCairoIsoDate(nextGenerationAt), (weekNumber - 2) * 7);
+}
+
+function weekCutoffFor(nextGenerationAt: Date, weekNumber: number): Date {
+  return startOfCairoDay(
+    addDaysIso(toCairoIsoDate(nextGenerationAt), (weekNumber - 1) * 7),
+  );
 }
 
 /**

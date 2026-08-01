@@ -133,6 +133,32 @@ describe("ContentCycleRepository", () => {
     });
   });
 
+  describe("getCycleById", () => {
+    it("returns the cycle regardless of owner (worker-only read)", async () => {
+      const findUnique = jest.fn().mockResolvedValue(CYCLE_ROW);
+      const repo = new ContentCycleRepository(
+        { contentCycle: { findUnique } } as unknown as PrismaService,
+      );
+
+      const result = await repo.getCycleById("cycle-1");
+
+      expect(findUnique).toHaveBeenCalledWith({ where: { id: "cycle-1" } });
+      expect(result?.id).toBe("cycle-1");
+      expect(result?.ownerUserId).toBe("owner-1");
+    });
+
+    it("returns null when the cycle does not exist", async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const repo = new ContentCycleRepository(
+        { contentCycle: { findUnique } } as unknown as PrismaService,
+      );
+
+      const result = await repo.getCycleById("missing");
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("pauseCycle", () => {
     function makeTx(overrides: {
       cycle?: Record<string, unknown> | null;
