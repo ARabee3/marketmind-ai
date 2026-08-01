@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
@@ -18,6 +18,7 @@ import { StrategyReadiness } from './strategy-readiness'
 
 type PageState =
   | { phase: 'loading' }
+  | { phase: 'error' }
   | { phase: 'no_strategy'; journey: CurrentJourneyResponse }
   | {
       phase: 'ready'
@@ -31,35 +32,52 @@ export function StrategyHome() {
   const tc = useTranslations('Common')
   const [state, setState] = useState<PageState>({ phase: 'loading' })
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const journey = await getCurrentJourney()
-        if (cancelled) return
-        const fc = journey.future_phase
-        if (fc.availability === 'available' && fc.strategy_id) {
-          const [api, progress] = await Promise.all([
-            getStrategy(fc.strategy_id),
-            getStrategyProgress(fc.strategy_id),
-          ])
-          if (cancelled) return
-          setState({ phase: 'ready', journey, resource: toStrategyResource(api), progress })
-        } else {
-          setState({ phase: 'no_strategy', journey })
-        }
-      } catch {
-        if (!cancelled) setState({ phase: 'no_strategy', journey: null as unknown as CurrentJourneyResponse })
+  const loadJourney = useCallback(async () => {
+    setState({ phase: 'loading' })
+    try {
+      const journey = await getCurrentJourney()
+      const fc = journey.future_phase
+      if (fc.availability === 'available' && fc.strategy_id) {
+        const [api, progress] = await Promise.all([
+          getStrategy(fc.strategy_id),
+          getStrategyProgress(fc.strategy_id),
+        ])
+        setState({ phase: 'ready', journey, resource: toStrategyResource(api), progress })
+      } else {
+        setState({ phase: 'no_strategy', journey })
       }
+    } catch {
+      setState({ phase: 'error' })
     }
-    load()
-    return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    void loadJourney()
+  }, [loadJourney])
 
   if (state.phase === 'loading') {
     return (
       <section className="flex min-h-40 items-center justify-center">
         <p className="text-sm text-muted-foreground">{tc('loading')}</p>
+      </section>
+    )
+  }
+
+  if (state.phase === 'error') {
+    return (
+      <section className="flex min-h-40 items-center justify-center">
+        <div className="grid max-w-md gap-3 text-center">
+          <p className="text-sm text-warning">{t('home.loadError')}</p>
+          <div>
+            <button
+              type="button"
+              onClick={() => void loadJourney()}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              {t('home.retry')}
+            </button>
+          </div>
+        </div>
       </section>
     )
   }

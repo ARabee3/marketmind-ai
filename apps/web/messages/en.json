@@ -626,7 +626,9 @@
       "start": "Start strategy choices",
       "review": "Review sample draft",
       "currentLabel": "Current plan state",
-      "currentBody": "This preview shows how the owner will move from choices to progress, review, and approval once Strategy planning is available."
+      "currentBody": "This preview shows how the owner will move from choices to progress, review, and approval once Strategy planning is available.",
+      "loadError": "We could not load your Strategy workspace. Please try again.",
+      "retry": "Try again"
     },
     "profile": {
       "label": "Confirmed business profile",
