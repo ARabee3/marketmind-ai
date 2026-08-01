@@ -32,15 +32,20 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  businesses               Business[]
-  discoverySessions        DiscoverySession[]
-  refreshSessions          RefreshSession[]
-  userRoles                UserRole[]
-  confirmedProfileVersions BusinessProfileVersion[]
-  actionTokens             ActionToken[]
-  federatedIdentities      FederatedIdentity[]
-  strategies               Strategy[]
-  strategyDecisions        StrategyDecision[]
+  businesses                   Business[]
+  discoverySessions            DiscoverySession[]
+  refreshSessions              RefreshSession[]
+  userRoles                    UserRole[]
+  confirmedProfileVersions     BusinessProfileVersion[]
+  actionTokens                 ActionToken[]
+  federatedIdentities          FederatedIdentity[]
+  strategies                   Strategy[]
+  strategyDecisions            StrategyDecision[]
+  contentCycles                ContentCycle[]
+  decidedContentDecisions      ContentDecision[]            @relation("ContentDecisionDecidedBy")
+  ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
+  contentWeekContextsConfirmed ContentWeekContext[]
+  publicationCandidateStatuses PublicationCandidateStatus[]
 }
 
 model RefreshSession {
@@ -128,6 +133,9 @@ model Business {
   businessProfileDrafts   BusinessProfileDraft[]
   businessProfileVersions BusinessProfileVersion[]
   strategies              Strategy[]
+  contentCycles           ContentCycle[]
+  contentPacks            ContentPack[]
+  publicationCandidates   PublicationCandidate[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -364,11 +372,13 @@ model BusinessProfileVersion {
   confirmedAt       DateTime @default(now()) @map("confirmed_at")
   createdAt         DateTime @default(now()) @map("created_at")
 
-  business        Business              @relation(fields: [businessId], references: [id])
-  draft           BusinessProfileDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
-  confirmedByUser User                  @relation(fields: [confirmedByUserId], references: [id])
+  business        Business               @relation(fields: [businessId], references: [id])
+  draft           BusinessProfileDraft?  @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  confirmedByUser User                   @relation(fields: [confirmedByUserId], references: [id])
   strategyBriefs  StrategyBrief[]
   retrievalRuns   StrategyRetrievalRun[]
+  contentCycles   ContentCycle[]
+  contentPacks    ContentPack[]
 
   @@unique([businessId, version])
   @@index([businessId])
@@ -484,7 +494,7 @@ model MarketingKnowledgeEntryVersion {
   version        Int
   kind           String
   title          String
-  titleAr        String?  @map("title_ar")
+  titleAr        String?   @map("title_ar")
   summary        String
   body           String    @db.Text
   locale         String
@@ -535,8 +545,8 @@ model MarketingKnowledgeSourceRef {
 
   entryVersion MarketingKnowledgeEntryVersion @relation(fields: [entryVersionId], references: [id], onDelete: Cascade)
 
-  @@index([entryVersionId])
   @@unique([entryVersionId, reference])
+  @@index([entryVersionId])
   @@map("marketing_knowledge_source_refs")
 }
 
@@ -605,88 +615,88 @@ model MarketingKnowledgeIngestionError {
 }
 
 model StrategyRetrievalRun {
-  id                 String   @id @default(uuid()) @db.Uuid
-  strategyId         String   @map("strategy_id") @db.Uuid
-  briefId            String   @map("brief_id") @db.Uuid
-  profileVersionId   String   @map("profile_version_id") @db.Uuid
-  querySummary       String   @map("query_summary")
-  queryContext       Json     @map("query_context")
-  configuration      Json     @default("{}") @map("configuration")
-  status             String   @default("pending") @map("status")
-  itemCount          Int      @default(0) @map("item_count")
-  gapCount           Int      @default(0) @map("gap_count")
-  latencyMs          Int      @default(0) @map("latency_ms")
-  startedAt          DateTime @default(now()) @map("started_at")
-  finishedAt         DateTime? @map("finished_at")
-  createdAt          DateTime @default(now()) @map("created_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  strategyId       String    @map("strategy_id") @db.Uuid
+  briefId          String    @map("brief_id") @db.Uuid
+  profileVersionId String    @map("profile_version_id") @db.Uuid
+  querySummary     String    @map("query_summary")
+  queryContext     Json      @map("query_context")
+  configuration    Json      @default("{}") @map("configuration")
+  status           String    @default("pending") @map("status")
+  itemCount        Int       @default(0) @map("item_count")
+  gapCount         Int       @default(0) @map("gap_count")
+  latencyMs        Int       @default(0) @map("latency_ms")
+  startedAt        DateTime  @default(now()) @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
-  items              StrategyRetrievalItem[]
-  gaps               StrategyRetrievalGap[]
-  strategy           Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  brief              StrategyBrief @relation(fields: [briefId], references: [id], onDelete: Cascade)
-  profileVersion     BusinessProfileVersion @relation(fields: [profileVersionId], references: [id])
+  items          StrategyRetrievalItem[]
+  gaps           StrategyRetrievalGap[]
+  strategy       Strategy                @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  brief          StrategyBrief           @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  profileVersion BusinessProfileVersion  @relation(fields: [profileVersionId], references: [id])
 
-  @@map("strategy_retrieval_runs")
   @@index([strategyId, createdAt])
+  @@map("strategy_retrieval_runs")
 }
 
 model StrategyRetrievalItem {
-  id                 String   @id @default(uuid()) @db.Uuid
-  runId              String   @map("run_id") @db.Uuid
-  chunkId            String   @map("chunk_id") @db.Uuid
-  entryId            String   @map("entry_id") @db.Uuid
-  entryVersion       Int      @map("entry_version")
-  title              String
-  excerpt            String
-  kind               String
-  tags               Json     @default("{}") @map("tags")
-  relevanceScore     Float    @map("relevance_score")
-  evidenceTier       String   @map("evidence_tier")
-  sourceReferences   String[] @map("source_references")
-  effectiveAt        DateTime @map("effective_at")
-  expiresAt          DateTime? @map("expires_at")
-  reviewStatus       String   @map("review_status")
-  marketTier         String   @map("market_tier")
-  isFallback         Boolean  @default(false) @map("is_fallback")
-  fallbackLabel      String?  @map("fallback_label")
-  category           String
-  createdAt          DateTime @default(now()) @map("created_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  runId            String    @map("run_id") @db.Uuid
+  chunkId          String    @map("chunk_id") @db.Uuid
+  entryId          String    @map("entry_id") @db.Uuid
+  entryVersion     Int       @map("entry_version")
+  title            String
+  excerpt          String
+  kind             String
+  tags             Json      @default("{}") @map("tags")
+  relevanceScore   Float     @map("relevance_score")
+  evidenceTier     String    @map("evidence_tier")
+  sourceReferences String[]  @map("source_references")
+  effectiveAt      DateTime  @map("effective_at")
+  expiresAt        DateTime? @map("expires_at")
+  reviewStatus     String    @map("review_status")
+  marketTier       String    @map("market_tier")
+  isFallback       Boolean   @default(false) @map("is_fallback")
+  fallbackLabel    String?   @map("fallback_label")
+  category         String
+  createdAt        DateTime  @default(now()) @map("created_at")
 
-  run                StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
-  @@map("strategy_retrieval_items")
   @@index([runId])
   @@index([chunkId])
+  @@map("strategy_retrieval_items")
 }
 
 model StrategyRetrievalGap {
-  id                 String   @id @default(uuid()) @db.Uuid
-  runId              String   @map("run_id") @db.Uuid
-  category           String
-  description        String
-  severity           String
+  id          String @id @default(uuid()) @db.Uuid
+  runId       String @map("run_id") @db.Uuid
+  category    String
+  description String
+  severity    String
 
-  run                StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run StrategyRetrievalRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
-  @@map("strategy_retrieval_gaps")
   @@index([runId])
+  @@map("strategy_retrieval_gaps")
 }
 
 model Strategy {
-  id                    String   @id @default(uuid()) @db.Uuid
-  businessId            String   @map("business_id") @db.Uuid
-  status                String   @default("needs_brief")
-  currentVersionId      String?  @map("current_version_id") @db.Uuid
-  ownerUserId           String   @map("owner_user_id") @db.Uuid
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  businessId       String   @map("business_id") @db.Uuid
+  status           String   @default("needs_brief")
+  currentVersionId String?  @map("current_version_id") @db.Uuid
+  ownerUserId      String   @map("owner_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  business              Business @relation(fields: [businessId], references: [id])
-  ownerUser             User     @relation(fields: [ownerUserId], references: [id])
-  brief                 StrategyBrief?
-  versions              StrategyVersion[]
-  retrievalRuns         StrategyRetrievalRun[]
-  progressEvents        StrategyProgressEvent[]
+  business       Business                @relation(fields: [businessId], references: [id])
+  ownerUser      User                    @relation(fields: [ownerUserId], references: [id])
+  brief          StrategyBrief?
+  versions       StrategyVersion[]
+  retrievalRuns  StrategyRetrievalRun[]
+  progressEvents StrategyProgressEvent[]
 
   @@index([businessId])
   @@index([ownerUserId])
@@ -709,24 +719,24 @@ model StrategyBrief {
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 
-  strategy                 Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  businessProfileVersion   BusinessProfileVersion @relation(fields: [businessProfileVersionId], references: [id])
-  retrievalRuns            StrategyRetrievalRun[]
+  strategy               Strategy               @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  businessProfileVersion BusinessProfileVersion @relation(fields: [businessProfileVersionId], references: [id])
+  retrievalRuns          StrategyRetrievalRun[]
 
   @@map("strategy_briefs")
 }
 
 model StrategyVersion {
-  id              String   @id @default(uuid()) @db.Uuid
-  strategyId      String   @map("strategy_id") @db.Uuid
-  version         Int
-  retrievalRunId  String?  @map("retrieval_run_id") @db.Uuid
-  promptConfig    Json     @default("{}") @map("prompt_config")
-  planData        Json     @map("plan_data")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  strategyId     String   @map("strategy_id") @db.Uuid
+  version        Int
+  retrievalRunId String?  @map("retrieval_run_id") @db.Uuid
+  promptConfig   Json     @default("{}") @map("prompt_config")
+  planData       Json     @map("plan_data")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  strategy        Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  decisions       StrategyDecision[]
+  strategy  Strategy           @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  decisions StrategyDecision[]
 
   @@unique([strategyId, version])
   @@map("strategy_versions")
@@ -736,12 +746,12 @@ model StrategyDecision {
   id                String   @id @default(uuid()) @db.Uuid
   strategyVersionId String   @map("strategy_version_id") @db.Uuid
   ownerUserId       String   @map("owner_user_id") @db.Uuid
-  action            String   
+  action            String
   feedback          String?
   createdAt         DateTime @default(now()) @map("created_at")
 
-  strategyVersion   StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
-  ownerUser         User            @relation(fields: [ownerUserId], references: [id])
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  ownerUser       User            @relation(fields: [ownerUserId], references: [id])
 
   @@map("strategy_decisions")
 }
@@ -762,4 +772,305 @@ model StrategyProgressEvent {
   @@unique([strategyId, seq])
   @@index([strategyId, createdAt])
   @@map("strategy_progress_events")
+}
+
+model ContentCycle {
+  id                 String    @id @default(uuid()) @db.Uuid
+  contractVersion    String    @default("content-v1") @map("contract_version")
+  businessId         String    @map("business_id") @db.Uuid
+  strategyId         String    @map("strategy_id") @db.Uuid
+  strategyVersion    Int       @map("strategy_version")
+  strategyDecisionId String    @map("strategy_decision_id") @db.Uuid
+  profileVersionId   String    @map("profile_version_id") @db.Uuid
+  status             String    @default("active")
+  currentWeekNumber  Int       @default(1) @map("current_week_number")
+  nextGenerationAt   DateTime? @map("next_generation_at")
+  timezone           String    @default("Africa/Cairo")
+  pauseReason        String?   @map("pause_reason")
+  completedAt        DateTime? @map("completed_at")
+  ownerUserId        String    @map("owner_user_id") @db.Uuid
+  idempotencyKey     String?   @map("idempotency_key")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  business              Business               @relation(fields: [businessId], references: [id])
+  ownerUser             User                   @relation(fields: [ownerUserId], references: [id])
+  profileVersion        BusinessProfileVersion @relation(fields: [profileVersionId], references: [id])
+  weekContexts          ContentWeekContext[]
+  packs                 ContentPack[]
+  generationRuns        ContentGenerationRun[]
+  publicationCandidates PublicationCandidate[]
+
+  @@unique([ownerUserId, idempotencyKey])
+  @@index([businessId])
+  @@index([strategyId, strategyVersion])
+  @@map("content_cycles")
+}
+
+model ContentWeekContext {
+  id                 String    @id @default(uuid()) @db.Uuid
+  contractVersion    String    @default("content-v1") @map("contract_version")
+  contentCycleId     String    @map("content_cycle_id") @db.Uuid
+  weekNumber         Int       @map("week_number")
+  weekStartDate      DateTime  @map("week_start_date") @db.Date
+  promotionMode      String    @map("promotion_mode")
+  promotion          Json?
+  mustInclude        Json      @default("[]") @map("must_include")
+  mustAvoid          Json      @default("[]") @map("must_avoid")
+  approvedAssetIds   Json      @default("[]") @map("approved_asset_ids")
+  ctaDestination     Json?     @map("cta_destination")
+  generationCutoffAt DateTime  @map("generation_cutoff_at")
+  weeklyClaimId      String    @map("weekly_claim_id") @db.Uuid
+  contextSource      String    @map("context_source")
+  confirmedByUserId  String?   @map("confirmed_by_user_id") @db.Uuid
+  confirmedAt        DateTime? @map("confirmed_at")
+  systemDefaultedAt  DateTime? @map("system_defaulted_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  contentCycle    ContentCycle  @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  confirmedByUser User?         @relation(fields: [confirmedByUserId], references: [id])
+  packs           ContentPack[]
+
+  @@unique([contentCycleId, weekNumber])
+  @@index([contentCycleId])
+  @@map("content_week_contexts")
+}
+
+model ContentPack {
+  id                 String   @id @default(uuid()) @db.Uuid
+  contractVersion    String   @default("content-v1") @map("contract_version")
+  contentCycleId     String   @map("content_cycle_id") @db.Uuid
+  weeklyClaimId      String   @map("weekly_claim_id") @db.Uuid
+  weekNumber         Int      @map("week_number")
+  businessId         String   @map("business_id") @db.Uuid
+  strategyId         String   @map("strategy_id") @db.Uuid
+  strategyVersion    Int      @map("strategy_version")
+  strategyDecisionId String   @map("strategy_decision_id") @db.Uuid
+  profileVersionId   String   @map("profile_version_id") @db.Uuid
+  weekContextId      String   @map("week_context_id") @db.Uuid
+  status             String   @default("queued")
+  retryEligible      Boolean  @default(true) @map("retry_eligible")
+  itemIds            Json     @default("[]") @map("item_ids")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  contentCycle           ContentCycle           @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  weekContext            ContentWeekContext     @relation(fields: [weekContextId], references: [id], onDelete: Cascade)
+  business               Business               @relation(fields: [businessId], references: [id])
+  businessProfileVersion BusinessProfileVersion @relation(fields: [profileVersionId], references: [id])
+  items                  ContentItem[]
+  itemVersions           ContentItemVersion[]
+  progressEvents         ContentProgressEvent[]
+  generationRuns         ContentGenerationRun[]
+  publicationCandidates  PublicationCandidate[]
+
+  @@unique([contentCycleId, weekNumber])
+  @@index([contentCycleId])
+  @@index([status])
+  @@map("content_packs")
+}
+
+model ContentItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  contentPackId    String   @map("content_pack_id") @db.Uuid
+  currentVersionId String?  @map("current_version_id") @db.Uuid
+  status           String   @default("draft")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  contentPack ContentPack          @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
+  versions    ContentItemVersion[]
+  decisions   ContentDecision[]
+
+  @@index([contentPackId])
+  @@map("content_items")
+}
+
+model ContentItemVersion {
+  id                       String   @id @default(uuid()) @db.Uuid
+  contractVersion          String   @default("content-v1") @map("contract_version")
+  contentItemId            String   @map("content_item_id") @db.Uuid
+  contentPackId            String   @map("content_pack_id") @db.Uuid
+  version                  Int
+  channel                  String
+  format                   String
+  languageMode             String   @map("language_mode")
+  strategyTrace            Json     @map("strategy_trace")
+  captionVariants          Json     @map("caption_variants")
+  cta                      String?
+  hashtags                 Json
+  creativeBrief            String   @map("creative_brief")
+  altText                  String   @map("alt_text")
+  shortVideoScript         Json?    @map("short_video_script")
+  recommendedPublishWindow Json     @map("recommended_publish_window")
+  claimSources             Json     @map("claim_sources")
+  warnings                 Json
+  blockers                 Json
+  assetRequired            Boolean  @map("asset_required")
+  assetIds                 Json     @map("asset_ids")
+  generationProvenance     Json     @map("generation_provenance")
+  versionChecksum          String   @map("version_checksum")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  contentItem ContentItem       @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  contentPack ContentPack       @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
+  assets      ContentAsset[]
+  decisions   ContentDecision[]
+
+  @@unique([contentItemId, version])
+  @@index([contentPackId])
+  @@map("content_item_versions")
+}
+
+model ContentAsset {
+  id                   String   @id @default(uuid()) @db.Uuid
+  contentItemVersionId String   @map("content_item_version_id") @db.Uuid
+  kind                 String
+  status               String
+  mimeType             String?  @map("mime_type")
+  width                Int?
+  height               Int?
+  storageKey           String?  @map("storage_key")
+  checksum             String?
+  altText              String   @map("alt_text")
+  providerName         String?  @map("provider_name")
+  providerModel        String?  @map("provider_model")
+  providerRequestId    String?  @map("provider_request_id")
+  failureCode          String?  @map("failure_code")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  contentItemVersion ContentItemVersion @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemVersionId])
+  @@index([checksum])
+  @@map("content_assets")
+}
+
+model ContentGenerationRun {
+  id             String    @id @default(uuid()) @db.Uuid
+  contentPackId  String    @map("content_pack_id") @db.Uuid
+  contentCycleId String    @map("content_cycle_id") @db.Uuid
+  weekNumber     Int       @map("week_number")
+  runType        String    @map("run_type")
+  status         String
+  providerName   String?   @map("provider_name")
+  providerModel  String?   @map("provider_model")
+  inputHash      String?   @map("input_hash")
+  latencyMs      Int?      @map("latency_ms")
+  errorCode      String?   @map("error_code")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime  @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  contentPack  ContentPack  @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+
+  @@index([contentPackId])
+  @@index([status])
+  @@map("content_generation_runs")
+}
+
+model ContentProgressEvent {
+  id            BigInt   @id @default(autoincrement())
+  contentPackId String   @map("content_pack_id") @db.Uuid
+  seq           Int
+  stage         String
+  status        String
+  messageKey    String   @map("message_key")
+  messageText   String   @map("message_text")
+  payload       Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  contentPack ContentPack @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
+
+  @@unique([contentPackId, seq])
+  @@index([contentPackId, createdAt])
+  @@map("content_progress_events")
+}
+
+model ContentDecision {
+  id                         String   @id @default(uuid()) @db.Uuid
+  contentItemId              String   @map("content_item_id") @db.Uuid
+  contentItemVersionId       String   @map("content_item_version_id") @db.Uuid
+  contentItemVersion         Int      @map("content_item_version")
+  contentItemVersionChecksum String   @map("content_item_version_checksum")
+  decision                   String
+  revisionNotes              String?  @map("revision_notes")
+  decidedByUserId            String   @map("decided_by_user_id") @db.Uuid
+  decidedAt                  DateTime @map("decided_at")
+  ownerUserId                String   @map("owner_user_id") @db.Uuid
+  idempotencyKey             String?  @map("idempotency_key")
+  createdAt                  DateTime @default(now()) @map("created_at")
+
+  contentItem ContentItem        @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  itemVersion ContentItemVersion @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+  decidedBy   User               @relation("ContentDecisionDecidedBy", fields: [decidedByUserId], references: [id])
+  ownerUser   User               @relation("ContentDecisionOwner", fields: [ownerUserId], references: [id])
+
+  @@unique([ownerUserId, idempotencyKey])
+  @@index([contentItemId])
+  @@map("content_decisions")
+}
+
+model PublicationCandidate {
+  id                   String   @id @default(uuid()) @db.Uuid
+  candidateId          String   @unique @map("candidate_id") @db.Uuid
+  businessId           String   @map("business_id") @db.Uuid
+  contractVersion      String   @default("content-v1") @map("contract_version")
+  payload              Json
+  candidateChecksum    String   @map("candidate_checksum")
+  contentCycleId       String   @map("content_cycle_id") @db.Uuid
+  contentPackId        String   @map("content_pack_id") @db.Uuid
+  contentItemId        String   @map("content_item_id") @db.Uuid
+  contentItemVersionId String   @map("content_item_version_id") @db.Uuid
+  contentItemVersion   Int      @map("content_item_version")
+  state                String   @default("active")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  business     Business                     @relation(fields: [businessId], references: [id])
+  contentCycle ContentCycle                 @relation(fields: [contentCycleId], references: [id])
+  contentPack  ContentPack                  @relation(fields: [contentPackId], references: [id])
+  statuses     PublicationCandidateStatus[]
+
+  @@index([businessId])
+  @@index([contentItemVersionId])
+  @@map("publication_candidates")
+}
+
+model PublicationCandidateStatus {
+  id                     BigInt   @id @default(autoincrement())
+  candidateId            String   @map("candidate_id") @db.Uuid
+  candidateChecksum      String   @map("candidate_checksum")
+  stateVersion           Int      @map("state_version")
+  candidateState         String   @map("candidate_state")
+  replacementCandidateId String?  @map("replacement_candidate_id") @db.Uuid
+  changedByUserId        String?  @map("changed_by_user_id") @db.Uuid
+  changedAt              DateTime @map("changed_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  candidate PublicationCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  changedBy User?                @relation(fields: [changedByUserId], references: [id])
+
+  @@unique([candidateId, stateVersion])
+  @@index([candidateId])
+  @@map("publication_candidate_statuses")
+}
+
+model PublicationCandidateOutbox {
+  id            BigInt    @id @default(autoincrement())
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  correlationId String    @map("correlation_id") @db.Uuid
+  candidateId   String    @map("candidate_id") @db.Uuid
+  payload       Json
+  state         String    @default("pending")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+  nextAttemptAt DateTime? @map("next_attempt_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  dispatchedAt  DateTime? @map("dispatched_at")
+
+  @@index([state, nextAttemptAt])
+  @@index([candidateId])
+  @@map("publication_candidate_outbox")
 }
