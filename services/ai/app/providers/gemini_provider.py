@@ -50,6 +50,8 @@ class GeminiDiscoveryProvider(DiscoveryProvider):
             schema = _strip_additional_properties(DiscoveryModelOutput.model_json_schema())
             client = genai.Client(api_key=self.api_key)
             user_prompt = build_user_context(request.turn_kind, request.payload)
+            if request.repair_hint:
+                user_prompt = f"{user_prompt}\n\n{request.repair_hint}"
             response = client.models.generate_content(
                 model=self.model,
                 contents=[user_prompt],

@@ -27,6 +27,34 @@ from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, Prov
 
 logger = logging.getLogger(__name__)
 
+DISCOVERY_MAX_ATTEMPTS = 2
+
+
+def _repair_hint(
+    turn_kind: TurnKind,
+    language_mode: LanguageMode,
+    validation_errors: list[dict[str, Any]] | None = None,
+) -> str:
+    parts = ["Repair the previous Discovery response. Return only valid JSON for the schema."]
+    if validation_errors:
+        locations = "; ".join(
+            ".".join(str(part) for part in error.get("loc", [])) or str(error.get("type", "?"))
+            for error in validation_errors[:3]
+        )
+        parts.append(f"Validation errors: {locations}.")
+    if turn_kind == "summarize":
+        parts.append(
+            "For summarize turns, return action produce_profile_draft with next_question null."
+        )
+    else:
+        parts.append(
+            "For start/respond turns, return action ask_next_question or ask_clarification "
+            "with next_question required and written in the conversation language "
+            f"({language_mode}). You may set ready_to_summarize=true, but always include a "
+            "fallback next_question."
+        )
+    return " ".join(parts)
+
 
 class DiscoveryService:
     def __init__(self, provider: DiscoveryProvider) -> None:
@@ -58,50 +86,88 @@ class DiscoveryService:
         provider_payload["intelligence"]["research_context_pack"] = (
             build_research_context_pack(accepted_observations, accepted_sources)
         )
-        provider_request = DiscoveryProviderRequest(
-            session_id=request.session_id,
-            turn_kind=turn_kind,
-            language_mode=request.language_mode,
-            payload=provider_payload,
-        )
-        logger.info("discovery_provider_call mode=%s turn=%s", self.provider.name, turn_kind)
-        try:
-            raw_output = await self.provider.generate_structured(provider_request)
-            model_output = DiscoveryModelOutput.model_validate(raw_output)
-        except ValidationError as exc:
-            logger.warning("discovery_provider_invalid_output mode=%s", self.provider.name)
-            return self._safe_failure(
-                request,
-                provider_error(
-                    "AI_PROVIDER_INVALID_OUTPUT",
-                    "The AI provider returned an invalid Discovery response. Please retry.",
-                    retryable=True,
-                ),
-                validation_errors=exc.errors(),
+        repair_hint: str | None = None
+
+        for attempt in range(DISCOVERY_MAX_ATTEMPTS):
+            provider_request = DiscoveryProviderRequest(
+                session_id=request.session_id,
+                turn_kind=turn_kind,
+                language_mode=request.language_mode,
+                payload=provider_payload,
+                repair_hint=repair_hint,
             )
-        except ProviderError as exc:
-            logger.warning("discovery_provider_error mode=%s code=%s", self.provider.name, exc.code)
-            return self._safe_failure(
+            logger.info(
+                "discovery_provider_call mode=%s turn=%s attempt=%s",
+                self.provider.name,
+                turn_kind,
+                attempt + 1,
+            )
+            try:
+                raw_output = await self.provider.generate_structured(provider_request)
+                model_output = DiscoveryModelOutput.model_validate(raw_output)
+            except ValidationError as exc:
+                if attempt < DISCOVERY_MAX_ATTEMPTS - 1:
+                    repair_hint = _repair_hint(
+                        turn_kind,
+                        request.language_mode,
+                        exc.errors(),
+                    )
+                    continue
+                return self._safe_failure(
+                    request,
+                    provider_error(
+                        "AI_PROVIDER_INVALID_OUTPUT",
+                        "The AI provider returned an invalid Discovery response.",
+                        retryable=False,
+                    ),
+                    validation_errors=exc.errors(),
+                )
+            except ProviderError as exc:
+                if (
+                    exc.code == "AI_PROVIDER_INVALID_OUTPUT"
+                    and attempt < DISCOVERY_MAX_ATTEMPTS - 1
+                ):
+                    repair_hint = _repair_hint(turn_kind, request.language_mode)
+                    continue
+                return self._safe_failure(
+                    request,
+                    provider_error(exc.code, str(exc), retryable=exc.retryable),
+                )
+
+            if turn_kind == "respond" and model_output.action == "produce_profile_draft":
+                fallback_question = model_output.next_question or self._last_assistant_question(
+                    request
+                )
+                if fallback_question:
+                    model_output = model_output.model_copy(
+                        update={
+                            "action": "ask_next_question",
+                            "next_question": fallback_question,
+                        }
+                    )
+
+            if not self._valid_turn_output(turn_kind, model_output, request.language_mode):
+                if attempt < DISCOVERY_MAX_ATTEMPTS - 1:
+                    repair_hint = _repair_hint(turn_kind, request.language_mode)
+                    continue
+                return self._safe_failure(
+                    request,
+                    provider_error(
+                        "AI_PROVIDER_INVALID_OUTPUT",
+                        "The AI provider returned an action that is invalid for this Discovery turn.",
+                        retryable=False,
+                    ),
+                )
+
+            return self._to_result(
                 request,
-                provider_error(exc.code, str(exc), retryable=exc.retryable),
+                model_output,
+                accepted_observations,
+                accepted_sources,
             )
 
-        if not self._valid_turn_output(turn_kind, model_output, request.language_mode):
-            return self._safe_failure(
-                request,
-                provider_error(
-                    "AI_PROVIDER_INVALID_OUTPUT",
-                    "The AI provider returned an action that is invalid for this Discovery turn.",
-                    retryable=True,
-                ),
-            )
+        raise AssertionError("Discovery repair loop must always return.")
 
-        return self._to_result(
-            request,
-            model_output,
-            accepted_observations,
-            accepted_sources,
-        )
 
     def _to_result(
         self,
@@ -113,12 +179,13 @@ class DiscoveryService:
         normalized_facts = self._normalize_facts(request, output)
         profile_draft = None
         if output.action == "produce_profile_draft":
-            profile_draft = self._build_profile_draft(
-                request,
-                output,
-                accepted_observations,
-                normalized_facts,
-            )
+            if isinstance(request, AiDiscoverySummarizeRequest):
+                profile_draft = self._build_profile_draft(
+                    request,
+                    output,
+                    accepted_observations,
+                    normalized_facts,
+                )
 
         return AiDiscoveryResult(
             action=output.action,
@@ -309,6 +376,16 @@ class DiscoveryService:
             if source.id in referenced_source_ids
         ]
         return observations, sources
+
+    def _last_assistant_question(
+        self,
+        request: AiDiscoveryStartRequest | AiDiscoveryRespondRequest | AiDiscoverySummarizeRequest,
+    ) -> str | None:
+        messages = getattr(request, "messages", None) or []
+        for message in reversed(messages):
+            if message.role == "assistant" and message.content.strip():
+                return message.content
+        return None
 
     def _valid_turn_output(
         self,

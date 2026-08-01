@@ -32,18 +32,21 @@ class OpenAIDiscoveryProvider(DiscoveryProvider):
                 raise ProviderConfigError("The openai package is not installed.") from exc
 
             client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
+            messages = [
+                {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": build_user_context(
+                        request.turn_kind,
+                        request.payload,
+                    ),
+                },
+            ]
+            if request.repair_hint:
+                messages.append({"role": "user", "content": request.repair_hint})
             response = client.responses.parse(
                 model=self.model,
-                input=[
-                    {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": build_user_context(
-                            request.turn_kind,
-                            request.payload,
-                        ),
-                    },
-                ],
+                input=messages,
                 text_format=DiscoveryModelOutput,
             )
             return normalize_provider_output(response.output_parsed)

@@ -261,14 +261,14 @@ class EnglishQuestionProvider(DiscoveryProvider):
         }
 
 
-def test_invalid_provider_output_returns_safe_failure() -> None:
+def test_invalid_provider_output_returns_non_retryable_safe_failure() -> None:
     request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
     result = run(DiscoveryService(InvalidProvider()).start(request))
 
     assert result.action == "safe_failure"
     assert result.safe_error is not None
     assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
-    assert result.safe_error.retryable is True
+    assert result.safe_error.retryable is False
 
 
 def test_provider_failure_returns_retryable_safe_failure() -> None:
@@ -418,6 +418,74 @@ def test_openrouter_provider_repairs_wrong_language_question(
     assert SequencedOpenRouterClient.messages[1][-1]["content"].startswith("Repair")
 
 
+def test_respond_turn_gracefully_converts_produce_profile_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    DraftThenNothingOpenRouterClient.calls = 0
+    DraftThenNothingOpenRouterClient.messages = []
+    monkeypatch.setattr(openai, "OpenAI", DraftThenNothingOpenRouterClient)
+
+    payload = base_payload("en")
+    payload["messages"] = [
+        {
+            **owner_message("Think about a busy day: who orders, what do they choose?"),
+            "role": "assistant",
+        }
+    ]
+    payload["owner_message"] = owner_message("Office workers order classic bowls at lunch.")
+    request = AiDiscoveryRespondRequest.model_validate(payload)
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).respond(request)
+    )
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "Think about a busy day: who orders, what do they choose?"
+    assert result.profile_draft is None
+    assert result.ready_to_summarize is True
+    assert DraftThenNothingOpenRouterClient.calls == 1
+
+
+def test_respond_turn_without_fallback_question_stays_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    DraftThenNothingOpenRouterClient.calls = 0
+    DraftThenNothingOpenRouterClient.messages = []
+    monkeypatch.setattr(openai, "OpenAI", DraftThenNothingOpenRouterClient)
+
+    request = AiDiscoveryRespondRequest.model_validate(
+        {
+            **base_payload("en"),
+            "messages": [],
+            "owner_message": owner_message("Office workers order classic bowls at lunch."),
+        }
+    )
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).respond(request)
+    )
+
+    assert result.action == "safe_failure"
+    assert result.safe_error is not None
+    assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
+    assert result.safe_error.retryable is False
+    assert DraftThenNothingOpenRouterClient.calls == 2
+
+
 class FakeOpenRouterClient:
     calls = 0
 
@@ -493,6 +561,32 @@ class BlankThenValidOpenRouterClient:
                 "updated_uncertainties": [],
                 "domain_scores": {},
                 "ready_to_summarize": False,
+            }
+        )
+
+
+class DraftThenNothingOpenRouterClient:
+    calls = 0
+    messages: list[list[dict[str, object]]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.chat = SimpleNamespace(completions=self)
+
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        messages = kwargs["messages"]
+        if isinstance(messages, list):
+            self.__class__.messages.append(messages)
+        return _openrouter_response(
+            {
+                "action": "produce_profile_draft",
+                "next_question": None,
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "owner_goals": ["Attract more lunch customers."],
+                "strategy_relevant_notes": [],
+                "ready_to_summarize": True,
+                "domain_scores": {},
             }
         )
 
