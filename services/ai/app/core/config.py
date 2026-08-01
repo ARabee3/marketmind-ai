@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
+ImageProviderMode = Literal["mock", "openai", "unavailable"]
 
 
 class Settings(BaseSettings):
@@ -19,6 +20,12 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     open_router_api_key: str = ""
     open_router_model: str = ""
+
+    # Static-image provider configuration. The image provider is deliberately
+    # separate from text generation so unavailable media remains explicit.
+    image_provider_mode: ImageProviderMode = "mock"
+    image_model: str = "gpt-image-1"
+    image_request_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
 
     # Embedding provider configuration
     # Default production configuration per STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md.
