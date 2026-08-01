@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 import uuid
 from collections.abc import Iterable
 from typing import Any
@@ -28,6 +29,16 @@ _BLOCKED_CLAIM_CODES: dict[str, ContentErrorCode] = {
     "branded_sponsored": "CONTENT_POLICY_VIOLATION",
     "competitor_comparison": "CONTENT_UNSUPPORTED_CLAIM",
 }
+
+_ARABIC_RANGES: tuple[tuple[int, int], ...] = (
+    (0x0600, 0x06FF),
+    (0x0750, 0x077F),
+    (0x0870, 0x089F),
+    (0x08A0, 0x08FF),
+    (0xFB50, 0xFDFF),
+    (0xFE70, 0xFEFF),
+)
+_MIN_EXPECTED_SCRIPT_RATIO = 0.60
 
 
 def _issue(
@@ -186,6 +197,92 @@ def _item_text(item: ContentItemVersion) -> str:
     return json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
 
 
+def _is_arabic_letter(character: str) -> bool:
+    return unicodedata.category(character).startswith("L") and any(
+        start <= ord(character) <= end for start, end in _ARABIC_RANGES
+    )
+
+
+def _is_latin_letter(character: str) -> bool:
+    return (
+        unicodedata.category(character).startswith("L")
+        and "LATIN" in unicodedata.name(character, "")
+    )
+
+
+def _matches_expected_script(
+    text: str,
+    language_mode: str,
+    protected_texts: Iterable[str] = (),
+) -> bool:
+    for protected_text in protected_texts:
+        if protected_text:
+            text = text.replace(protected_text, " ")
+    arabic_letters = sum(1 for character in text if _is_arabic_letter(character))
+    latin_letters = sum(1 for character in text if _is_latin_letter(character))
+    total = arabic_letters + latin_letters
+    if total == 0:
+        return False
+    expected = arabic_letters if language_mode == "ar-EG" else latin_letters
+    return expected / total >= _MIN_EXPECTED_SCRIPT_RATIO
+
+
+def _owner_facing_item_texts(item: ContentItemVersion) -> list[tuple[str, str]]:
+    entries: list[tuple[str, str]] = []
+    for index, variant in enumerate(item.caption_variants):
+        entries.append((f"caption_variants[{index}].caption", variant.caption))
+        if variant.cta:
+            entries.append((f"caption_variants[{index}].cta", variant.cta))
+    if item.cta:
+        entries.append(("cta", item.cta))
+    entries.extend(
+        (
+            ("creative_brief", item.creative_brief),
+            ("alt_text", item.alt_text),
+        )
+    )
+    if item.short_video_script:
+        script = item.short_video_script
+        entries.append(("short_video_script.hook", script.hook))
+        if script.closing_cta:
+            entries.append(("short_video_script.closing_cta", script.closing_cta))
+        for index, scene in enumerate(script.scenes):
+            entries.append(
+                (f"short_video_script.scenes[{index}].visual_direction", scene.visual_direction)
+            )
+            if scene.voiceover:
+                entries.append(
+                    (f"short_video_script.scenes[{index}].voiceover", scene.voiceover)
+                )
+            if scene.on_screen_text:
+                entries.append(
+                    (f"short_video_script.scenes[{index}].on_screen_text", scene.on_screen_text)
+                )
+    return entries
+
+
+def _validate_item_language(
+    item: ContentItemVersion,
+    language_mode: str,
+    protected_texts: Iterable[str] = (),
+) -> list[ContentValidationIssue]:
+    if language_mode == "mixed":
+        return []
+    issues: list[ContentValidationIssue] = []
+    for field, text in _owner_facing_item_texts(item):
+        if text.strip() and not _matches_expected_script(
+            text, language_mode, protected_texts
+        ):
+            language_name = "Arabic" if language_mode == "ar-EG" else "English"
+            _add_output_issue(
+                issues,
+                "CONTENT_SCHEMA_FAILURE",
+                f"item.{field}",
+                f"Owner-facing Content must be predominantly {language_name} for language_mode={language_mode}.",
+            )
+    return issues
+
+
 def _profile_protected_texts(value: Any, key_path: str = "") -> list[str]:
     """Collect protected identity/contact text for explicit mutation checks."""
     if isinstance(value, dict):
@@ -302,6 +399,27 @@ def _validate_item_against_generation_request(
             "CONTENT_SCHEMA_FAILURE",
             "item.caption_variants",
             "Mixed-language Content requires Arabic and English caption variants.",
+        )
+    protected_language_texts: list[str] = []
+    profile_promotion = request.week_context.promotion
+    if profile_promotion is not None:
+        protected_language_texts.extend(
+            [profile_promotion.text, *profile_promotion.terms]
+        )
+    issues.extend(
+        _validate_item_language(
+            item,
+            request.language_mode,
+            protected_language_texts,
+        )
+    )
+
+    if item.format == "short_video_script" and item.short_video_script is None:
+        _add_output_issue(
+            issues,
+            "CONTENT_SCHEMA_FAILURE",
+            "item.short_video_script",
+            "Short-video formats require a structured short-video script.",
         )
 
     if not item.creative_brief.strip() or not item.alt_text.strip():

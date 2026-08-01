@@ -311,32 +311,75 @@ class MockContentProvider(ContentLLMProvider):
             uuid.uuid5(uuid.NAMESPACE_URL, f"{content_item_id}:version:1")
         )
         promotion = week_context.get("promotion")
-        cta = _cta_text(week_context)
+        language_mode = context["generation_identity"]["language_mode"]
+        cta = _cta_text(week_context, language_mode)
         caption = _caption_text(
             strategy_week["theme"],
             promotion["text"] if promotion else None,
+            promotion.get("terms", []) if promotion else [],
             cta,
-            context["generation_identity"]["language_mode"],
+            language_mode,
         )
-        locale = "en" if context["generation_identity"]["language_mode"] == "en" else "ar"
-        caption_variants = [
-            ContentCaptionVariant(
-                locale=locale,
-                caption=caption,
-                cta=cta,
-                hashtags=["#MarketMind", "#مشروعك" if locale == "ar" else "#SmallBusiness"],
-            )
-        ]
+        if language_mode == "en":
+            caption_variants = [
+                ContentCaptionVariant(
+                    locale="en",
+                    caption=caption,
+                    cta=cta,
+                    hashtags=["#MarketMind", "#SmallBusiness"],
+                )
+            ]
+        elif language_mode == "mixed":
+            caption_variants = [
+                ContentCaptionVariant(
+                    locale="ar",
+                    caption=_caption_text(
+                        strategy_week["theme"],
+                        promotion["text"] if promotion else None,
+                        promotion.get("terms", []) if promotion else [],
+                        cta,
+                        "ar-EG",
+                    ),
+                    cta=cta,
+                    hashtags=["#MarketMind", "#مشروعك"],
+                ),
+                ContentCaptionVariant(
+                    locale="en",
+                    caption=_caption_text(
+                        strategy_week["theme"],
+                        promotion["text"] if promotion else None,
+                        promotion.get("terms", []) if promotion else [],
+                        cta,
+                        "en",
+                    ),
+                    cta=cta,
+                    hashtags=["#MarketMind", "#SmallBusiness"],
+                ),
+            ]
+        else:
+            caption_variants = [
+                ContentCaptionVariant(
+                    locale="ar",
+                    caption=caption,
+                    cta=cta,
+                    hashtags=["#MarketMind", "#مشروعك"],
+                )
+            ]
         asset_required = content_format in {"static_image_post", "carousel_brief"}
         asset_ids = week_context.get("approved_asset_ids", []) if asset_required else []
         script = None
         if content_format == "short_video_script":
+            visual_direction = (
+                "وجّه الصورة وفق الموجز الإبداعي المعتمد."
+                if language_mode == "ar-EG"
+                else "Show the visual direction from the approved creative brief."
+            )
             script = ContentShortVideoScript(
                 hook=f"{strategy_week['theme']}: فكرة عملية لعميلك",
                 scenes=[
                     ContentShortVideoScene(
                         order=1,
-                        visual_direction="Show the business context from the approved creative brief.",
+                        visual_direction=visual_direction,
                         voiceover=caption,
                         on_screen_text=None,
                     )
@@ -365,8 +408,16 @@ class MockContentProvider(ContentLLMProvider):
             "caption_variants": [variant.model_dump(mode="json") for variant in caption_variants],
             "cta": cta,
             "hashtags": caption_variants[0].hashtags,
-            "creative_brief": f"Create a {content_format} for the Strategy theme: {strategy_week['theme']}.",
-            "alt_text": f"Visual for {strategy_week['theme']}"[:100],
+            "creative_brief": (
+                f"أنشئ محتوى {content_format} لموضوع الاستراتيجية: {strategy_week['theme']}."
+                if language_mode == "ar-EG"
+                else f"Create a {content_format} for the Strategy theme: {strategy_week['theme']}."
+            ),
+            "alt_text": (
+                f"مرئي لموضوع {strategy_week['theme']}"
+                if language_mode == "ar-EG"
+                else f"Visual for {strategy_week['theme']}"
+            )[:100],
             "short_video_script": script.model_dump(mode="json") if script else None,
             "recommended_publish_window": _publish_window(week_context["week_start_date"]),
             "claim_sources": _claim_sources(week_context),
@@ -397,17 +448,22 @@ def _prompt_context(prompt: PromptAssembly) -> dict[str, Any]:
         ) from exc
 
 
-def _cta_text(week_context: dict[str, Any]) -> str | None:
+def _cta_text(week_context: dict[str, Any], language_mode: str) -> str | None:
     destination = week_context.get("cta_destination") or {}
     if destination.get("type") == "none":
         return None
     value = destination.get("value")
-    return f"Contact us via {destination.get('type')}: {value}" if value else None
+    if not value:
+        return None
+    if language_mode == "ar-EG":
+        return f"تواصل معنا عبر {destination.get('type')}: {value}"
+    return f"Contact us via {destination.get('type')}: {value}"
 
 
 def _caption_text(
     theme: str,
     promotion_text: str | None,
+    promotion_terms: list[str],
     cta: str | None,
     language_mode: str,
 ) -> str:
@@ -415,12 +471,16 @@ def _caption_text(
         parts = [f"Explore this week’s focus: {theme}."]
         if promotion_text:
             parts.append(promotion_text)
+        if promotion_terms:
+            parts.append(f"Terms: {'; '.join(promotion_terms)}")
         if cta:
             parts.append(cta)
         return " ".join(parts)
     parts = [f"اكتشف موضوع هذا الأسبوع: {theme}."]
     if promotion_text:
         parts.append(promotion_text)
+    if promotion_terms:
+        parts.append(f"الشروط: {'؛ '.join(promotion_terms)}")
     if cta:
         parts.append(cta)
     return " ".join(parts)
