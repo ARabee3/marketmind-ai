@@ -78,11 +78,11 @@ export class StrategyRepository {
 
   async upsertBrief(
     strategyId: string,
-    data: Omit<Prisma.StrategyBriefUncheckedCreateInput, "id" | "createdAt" | "updatedAt">,
+    data: Omit<Prisma.StrategyBriefUncheckedCreateInput, "id" | "createdAt" | "updatedAt" | "strategyId">,
   ) {
     return this.prisma.strategyBrief.upsert({
       where: { strategyId },
-      create: data,
+      create: { ...data, strategyId },
       update: data,
     });
   }

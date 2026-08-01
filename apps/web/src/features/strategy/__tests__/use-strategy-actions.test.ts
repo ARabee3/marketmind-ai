@@ -3,6 +3,10 @@ import { act, renderHook } from '@testing-library/react'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import { setAccessToken } from '@/lib/api/token-store'
 
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
+
 const fetchMock = vi.fn()
 
 beforeEach(() => {
