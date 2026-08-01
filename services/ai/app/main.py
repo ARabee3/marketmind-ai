@@ -11,6 +11,7 @@ from fastapi import FastAPI
 
 from app.api.health import router as health_router
 from app.api.internal_v1.discovery import router as discovery_router
+from app.api.internal_v1.content import router as content_router
 from app.api.internal_v1.search import router as search_router
 from app.api.internal_v1.strategy import router as strategy_router
 from app.core.logging import configure_logging
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(discovery_router)
+    app.include_router(content_router)
     app.include_router(search_router)
     app.include_router(strategy_router)
     return app

@@ -83,6 +83,9 @@ POST /internal/v1/ai/strategy/retrieve
 POST /internal/v1/ai/strategy/score
 POST /internal/v1/ai/strategy/generate
 POST /internal/v1/ai/strategy/revise
+POST /internal/v1/ai/content/generate
+POST /internal/v1/ai/content/revise
+POST /internal/v1/ai/content/assets/generate-static
 ```
 
 The `/health` endpoint also reports Qdrant reachability.
