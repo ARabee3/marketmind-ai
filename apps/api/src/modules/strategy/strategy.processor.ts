@@ -13,6 +13,7 @@ import {
   toContractRetrievalPack,
   toRagRetrievalPack,
 } from "./strategy-ai-contract";
+import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 
 interface GenerateJobData {
   strategyId: string;
@@ -32,6 +33,7 @@ interface ReviseJobData {
 export class StrategyProcessor extends WorkerHost {
   private readonly logger = new Logger(StrategyProcessor.name);
   private readonly aiUrl: string;
+  private readonly aiRequestTimeoutMs: number;
 
   constructor(
     private readonly strategyRepository: StrategyRepository,
@@ -39,7 +41,11 @@ export class StrategyProcessor extends WorkerHost {
     private readonly config: ConfigService,
   ) {
     super();
-    this.aiUrl = this.config.get<string>("aiService.url") ?? "http://localhost:8000";
+    this.aiUrl =
+      this.config.get<string>("aiService.url") ?? "http://localhost:8000";
+    this.aiRequestTimeoutMs =
+      this.config.get<number>("aiService.requestTimeoutMs") ??
+      DEFAULT_AI_REQUEST_TIMEOUT_MS;
   }
 
   async process(job: Job<unknown, unknown, string>): Promise<unknown> {
@@ -58,23 +64,32 @@ export class StrategyProcessor extends WorkerHost {
 
   private async handleGenerate(job: Job<GenerateJobData>) {
     const { strategyId, retrievalRunId, correlationId } = job.data;
-    this.logger.log(`[Corr: ${correlationId}] Generating strategy ${strategyId}`);
+    this.logger.log(
+      `[Corr: ${correlationId}] Generating strategy ${strategyId}`,
+    );
 
     try {
       // queued → generating (FSM-validated)
-      await this.strategyRepository.updateStrategyStatus(strategyId, "generating");
+      await this.strategyRepository.updateStrategyStatus(
+        strategyId,
+        "generating",
+      );
       await this.recordProgress(strategyId, {
         stage: "generating",
         status: "started",
         messageKey: "strategy.generating.started",
         messageText: "Strategy generation started.",
-        payload: { retrieval_run_id: retrievalRunId, correlation_id: correlationId },
+        payload: {
+          retrieval_run_id: retrievalRunId,
+          correlation_id: correlationId,
+        },
       });
 
       const { businessProfile, brief, retrievalRun } =
         await this.loadGenerationInputs(strategyId, retrievalRunId);
       const contractBrief = buildContractBrief(brief, businessProfile);
-      const businessProfilePayload = buildBusinessProfilePayload(businessProfile);
+      const businessProfilePayload =
+        buildBusinessProfilePayload(businessProfile);
 
       // Deterministic scoring must run first: the generate endpoint requires
       // the precomputed channel scorecards so the plan reuses them verbatim.
@@ -92,7 +107,9 @@ export class StrategyProcessor extends WorkerHost {
       const deterministicChannelScores =
         scoreResponse.data?.deterministic_channel_scores;
       if (!Array.isArray(deterministicChannelScores)) {
-        throw new Error("AI scoring service returned no deterministic_channel_scores");
+        throw new Error(
+          "AI scoring service returned no deterministic_channel_scores",
+        );
       }
 
       const response = await firstValueFrom(
@@ -122,9 +139,14 @@ export class StrategyProcessor extends WorkerHost {
       validatePlanShape(planData);
       assertLanguageValidationPassed(response.data.validation);
 
-      this.logger.log(`[Corr: ${correlationId}] Generation complete — validating`);
+      this.logger.log(
+        `[Corr: ${correlationId}] Generation complete — validating`,
+      );
       // generating → validating (FSM-validated)
-      await this.strategyRepository.updateStrategyStatus(strategyId, "validating");
+      await this.strategyRepository.updateStrategyStatus(
+        strategyId,
+        "validating",
+      );
       await this.recordProgress(strategyId, {
         stage: "validating",
         status: "started",
@@ -155,7 +177,11 @@ export class StrategyProcessor extends WorkerHost {
       this.logger.error(
         `[Corr: ${correlationId}] Generation failed: ${errorMessage(error)}`,
       );
-      await this.safeFail(strategyId, correlationId, "strategy.generating.failed");
+      await this.safeFail(
+        strategyId,
+        correlationId,
+        "strategy.generating.failed",
+      );
       // Re-throw so the job moves to failed in the queue. Retries are
       // owner-initiated via POST /:id/retry (failed → ready → ...), which is the
       // only FSM-legal recovery path; the job itself never auto-retries.
@@ -190,9 +216,8 @@ export class StrategyProcessor extends WorkerHost {
       throw new Error("Business profile version missing during generation");
     }
 
-    const retrievalRun = await this.strategyRepository.getRetrievalRunById(
-      retrievalRunId,
-    );
+    const retrievalRun =
+      await this.strategyRepository.getRetrievalRunById(retrievalRunId);
     if (!retrievalRun) {
       throw new Error("Retrieval run missing during generation");
     }
@@ -210,7 +235,10 @@ export class StrategyProcessor extends WorkerHost {
     // before enqueuing, so the strategy is expected to be "ready" here.
     let retrievalRunId: string;
     try {
-      await this.strategyRepository.updateStrategyStatus(strategyId, "retrieving");
+      await this.strategyRepository.updateStrategyStatus(
+        strategyId,
+        "retrieving",
+      );
       await this.recordProgress(strategyId, {
         stage: "retrieval",
         status: "started",
@@ -229,11 +257,14 @@ export class StrategyProcessor extends WorkerHost {
         throw new Error("Strategy business missing before revision retrieval");
       }
 
-      const profileVersion = await this.strategyRepository.getProfileVersionById(
-        brief.businessProfileVersionId,
-      );
+      const profileVersion =
+        await this.strategyRepository.getProfileVersionById(
+          brief.businessProfileVersionId,
+        );
       if (!profileVersion) {
-        throw new Error("Business profile version missing before revision retrieval");
+        throw new Error(
+          "Business profile version missing before revision retrieval",
+        );
       }
 
       const retrievalResponse = await firstValueFrom(
@@ -246,7 +277,7 @@ export class StrategyProcessor extends WorkerHost {
               brief_id: brief.id,
               profile_version_id: brief.businessProfileVersionId,
             },
-            timeout: 10_000,
+            timeout: this.aiRequestTimeoutMs,
           },
         ),
       );
@@ -272,14 +303,21 @@ export class StrategyProcessor extends WorkerHost {
       this.logger.error(
         `[Corr: ${correlationId}] Revision retrieval failed: ${errorMessage(error)}`,
       );
-      await this.safeFail(strategyId, correlationId, "strategy.revision.retrieval.failed");
+      await this.safeFail(
+        strategyId,
+        correlationId,
+        "strategy.revision.retrieval.failed",
+      );
       throw error;
     }
 
     // Step 2: generate the revised plan.
     try {
       // queued → generating (FSM-validated)
-      await this.strategyRepository.updateStrategyStatus(strategyId, "generating");
+      await this.strategyRepository.updateStrategyStatus(
+        strategyId,
+        "generating",
+      );
       await this.recordProgress(strategyId, {
         stage: "generating",
         status: "started",
@@ -294,29 +332,33 @@ export class StrategyProcessor extends WorkerHost {
         throw new Error("Strategy brief missing before revision generation");
       }
 
-      const profileVersion = await this.strategyRepository.getProfileVersionById(
-        brief.businessProfileVersionId,
-      );
+      const profileVersion =
+        await this.strategyRepository.getProfileVersionById(
+          brief.businessProfileVersionId,
+        );
       if (!profileVersion) {
-        throw new Error("Business profile version missing before revision generation");
+        throw new Error(
+          "Business profile version missing before revision generation",
+        );
       }
 
-      const retrievalRun = await this.strategyRepository.getRetrievalRunById(
-        retrievalRunId,
-      );
+      const retrievalRun =
+        await this.strategyRepository.getRetrievalRunById(retrievalRunId);
       if (!retrievalRun) {
         throw new Error("Retrieval run missing before revision generation");
       }
 
-      const priorVersion = await this.strategyRepository.getVersionById(
-        priorVersionId,
-      );
+      const priorVersion =
+        await this.strategyRepository.getVersionById(priorVersionId);
       if (!priorVersion) {
-        throw new Error("Prior strategy version missing before revision generation");
+        throw new Error(
+          "Prior strategy version missing before revision generation",
+        );
       }
 
       const contractBrief = buildContractBrief(brief, profileVersion);
-      const businessProfilePayload = buildBusinessProfilePayload(profileVersion);
+      const businessProfilePayload =
+        buildBusinessProfilePayload(profileVersion);
 
       // Deterministic scoring must run first: the revise endpoint requires the
       // precomputed channel scorecards so the revised plan reuses them verbatim.
@@ -334,7 +376,9 @@ export class StrategyProcessor extends WorkerHost {
       const deterministicChannelScores =
         scoreResponse.data?.deterministic_channel_scores;
       if (!Array.isArray(deterministicChannelScores)) {
-        throw new Error("AI scoring service returned no deterministic_channel_scores");
+        throw new Error(
+          "AI scoring service returned no deterministic_channel_scores",
+        );
       }
 
       const revisionResponse = await firstValueFrom(
@@ -370,7 +414,10 @@ export class StrategyProcessor extends WorkerHost {
         `[Corr: ${correlationId}] Revision generation complete — validating`,
       );
       // generating → validating (FSM-validated)
-      await this.strategyRepository.updateStrategyStatus(strategyId, "validating");
+      await this.strategyRepository.updateStrategyStatus(
+        strategyId,
+        "validating",
+      );
       await this.recordProgress(strategyId, {
         stage: "validating",
         status: "started",
@@ -407,7 +454,11 @@ export class StrategyProcessor extends WorkerHost {
       );
       // A failed revision MUST NOT destroy the prior draft. Only the Strategy
       // status is failed; the prior StrategyVersion row is untouched.
-      await this.safeFail(strategyId, correlationId, "strategy.revision.generating.failed");
+      await this.safeFail(
+        strategyId,
+        correlationId,
+        "strategy.revision.generating.failed",
+      );
       throw error;
     }
   }
@@ -463,25 +514,29 @@ function errorMessage(error: unknown): string {
 
 function assertLanguageValidationPassed(validation: unknown): void {
   if (
-    !validation
-    || typeof validation !== "object"
-    || typeof (validation as { valid?: unknown }).valid !== "boolean"
-    || !Array.isArray((validation as { issues?: unknown }).issues)
+    !validation ||
+    typeof validation !== "object" ||
+    typeof (validation as { valid?: unknown }).valid !== "boolean" ||
+    !Array.isArray((validation as { issues?: unknown }).issues)
   ) {
-    throw new Error("AI generation service returned no valid validation result");
+    throw new Error(
+      "AI generation service returned no valid validation result",
+    );
   }
 
   const issues = (validation as { issues: unknown[] }).issues;
   const malformedIssue = issues.some(
     (issue) =>
-      !issue
-      || typeof issue !== "object"
-      || typeof (issue as { code?: unknown }).code !== "string"
-      || typeof (issue as { field?: unknown }).field !== "string"
-      || typeof (issue as { message?: unknown }).message !== "string",
+      !issue ||
+      typeof issue !== "object" ||
+      typeof (issue as { code?: unknown }).code !== "string" ||
+      typeof (issue as { field?: unknown }).field !== "string" ||
+      typeof (issue as { message?: unknown }).message !== "string",
   );
   if (malformedIssue) {
-    throw new Error("AI generation service returned malformed validation issues");
+    throw new Error(
+      "AI generation service returned malformed validation issues",
+    );
   }
 
   if (

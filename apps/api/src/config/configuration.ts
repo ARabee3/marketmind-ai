@@ -4,6 +4,8 @@
  * Values come from environment variables (validated by env.schema.ts).
  * This factory is registered with ConfigModule.forRoot({ load: [configuration] }).
  */
+import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../common/config/external-provider.config";
+
 export const configuration = () => ({
   port: parseInt(process.env.PORT || "3001", 10),
 
@@ -65,5 +67,8 @@ export const configuration = () => ({
     // AI_SERVICE_BASE_URL env var also consumed by external-provider.config.ts
     // so Discovery and Strategy never drift.
     url: process.env.AI_SERVICE_BASE_URL || "http://localhost:8000",
+    requestTimeoutMs:
+      parseInt(process.env.AI_REQUEST_TIMEOUT_MS || "", 10) ||
+      DEFAULT_AI_REQUEST_TIMEOUT_MS,
   },
 });
