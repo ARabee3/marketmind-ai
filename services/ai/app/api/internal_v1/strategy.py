@@ -172,7 +172,17 @@ async def _generate_validated_plan(
     prompt: PromptAssembly,
     request: StrategyGenerateRequest,
 ) -> tuple[StrategyPlan, StrategyValidationResult]:
-    current_prompt = prompt
+    current_prompt = PromptAssembly(
+        system_prompt=prompt.system_prompt,
+        user_prompt=prompt.user_prompt,
+        metadata={
+            **prompt.metadata,
+            "deterministic_channel_scores": [
+                score.model_dump(mode="json")
+                for score in request.deterministic_channel_scores
+            ],
+        },
+    )
 
     for attempt in range(_MAX_GENERATION_ATTEMPTS):
         try:
@@ -183,7 +193,7 @@ async def _generate_validated_plan(
                 and attempt < _MAX_GENERATION_ATTEMPTS - 1
             ):
                 current_prompt = _invalid_output_repair_prompt(
-                    prompt=prompt,
+                    prompt=current_prompt,
                     error=error,
                     attempt=attempt + 1,
                 )
@@ -226,7 +236,7 @@ async def _generate_validated_plan(
             )
 
         current_prompt = _language_correction_prompt(
-            prompt=prompt,
+            prompt=current_prompt,
             validation=validation,
             attempt=attempt + 1,
         )
