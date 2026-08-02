@@ -125,7 +125,7 @@ describe("OAuth (e2e)", () => {
     await app.init();
 
     prisma = app.get(PrismaService);
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await app.close();

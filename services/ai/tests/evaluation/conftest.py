@@ -26,7 +26,7 @@ async def qdrant_test_client():
 
 
 def _load_json(path: Path) -> list[dict]:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -70,7 +70,7 @@ def _load_all_cases() -> EvalDataset:
     version = "eval-v1"
     created_at = "2026-07-15"
     for path in case_files:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
             version = data.get("version", version)
             created_at = data.get("created_at", created_at)
