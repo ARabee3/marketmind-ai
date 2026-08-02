@@ -7,6 +7,7 @@ import { StrategyRepository } from '../strategy/strategy.repository';
 import { ContentAiClient } from './content.client';
 import { ProviderError } from '../../common/errors/provider-error';
 import { randomUUID } from 'crypto';
+import { CONTENT_ASSET_STORAGE } from './assets/asset-storage.port';
 
 describe('ContentProcessor - Revision Flow', () => {
   let processor: ContentProcessor;
@@ -15,6 +16,7 @@ describe('ContentProcessor - Revision Flow', () => {
   let weekContextRepo: jest.Mocked<ContentWeekContextRepository>;
   let strategyRepo: jest.Mocked<StrategyRepository>;
   let aiClient: jest.Mocked<ContentAiClient>;
+  let assetStorage: { store: jest.Mock };
 
   const mockPack = {
     id: randomUUID(),
@@ -150,6 +152,10 @@ describe('ContentProcessor - Revision Flow', () => {
       revise: jest.fn(),
     } as any;
 
+    assetStorage = {
+      store: jest.fn(),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContentProcessor,
@@ -158,6 +164,7 @@ describe('ContentProcessor - Revision Flow', () => {
         { provide: ContentWeekContextRepository, useValue: weekContextRepo },
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: aiClient },
+        { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
       ],
     }).compile();
 

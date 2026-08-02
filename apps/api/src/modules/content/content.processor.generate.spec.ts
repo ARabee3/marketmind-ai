@@ -6,6 +6,7 @@ import { ContentCycleRepository } from "./repositories/content-cycle.repository"
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
+import { CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
 
 jest.mock(
   "@marketmind/contracts",
@@ -235,6 +236,7 @@ describe("ContentProcessor", () => {
   let weekContextRepo: jest.Mocked<Partial<ContentWeekContextRepository>>;
   let strategyRepo: jest.Mocked<Partial<StrategyRepository>>;
   let client: jest.Mocked<Partial<ContentAiClient>>;
+  let assetStorage: { store: jest.Mock };
 
   beforeEach(async () => {
     packRepo = {
@@ -263,6 +265,9 @@ describe("ContentProcessor", () => {
     client = {
       generate: jest.fn().mockResolvedValue(AI_RESPONSE_3_ITEMS),
     };
+    assetStorage = {
+      store: jest.fn(),
+    };
 
     (validateContentPolicyFixture as jest.Mock).mockReturnValue({
       valid: true,
@@ -277,6 +282,7 @@ describe("ContentProcessor", () => {
         { provide: ContentWeekContextRepository, useValue: weekContextRepo },
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: client },
+        { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
       ],
     }).compile();
 
