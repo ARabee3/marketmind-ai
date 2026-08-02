@@ -1,6 +1,6 @@
 ---
 slug: channel-facebook
-version: 2
+version: 3
 kind: channel_playbook
 title: 'Facebook Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -36,16 +36,17 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://www.facebook.com/business/help/718033381901819'
+  - 'https://www.facebook.com/help/messenger-app/212763688755026/'
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 8943362f0d7119c70afd665cb8b511dca95ae65599a5fe5ffc6bc480984b36c3
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 649dcc1ccc4eb1c7acc2b1db1ef032d8eadd1bbd1dfc2c4890c4b54cabdc0fd0
 ---
 
 ## Use cases (fit)
@@ -75,16 +76,18 @@ traffic) and Facebook only adds noise.
 A complete Facebook Page: recognizable name and profile/cover photo, an
 accurate short description, address, hours, a working WhatsApp/phone link,
 a few clear product or service photos, and at minimum a pinned post
-explaining what the business is. For paid efforts, a Business Manager and a
-payment method in EGP are required.
+explaining what the business is. For paid efforts, use an eligible ad account
+and a payment method accepted for that account. Meta documents EGP for certain
+Egypt-local manual payment methods; do not assume every account or payment
+flow is billed in EGP.
 
 ## Team effort / capacity implications
 
-A page can be sustained by a solo owner with one to two short posts per
-week plus prompt replies to messages — the real ongoing cost is reply
-speed, not volume. Paid campaigns need a few hours set up front and a
-weekly check on budget burn and results, not daily attention. Facebook is a
-medium-low capacity channel for an SME.
+Choose the smallest posting and reply cadence the owner can sustain without
+leaving enquiries unanswered or publishing stale business information. Paid
+campaigns also need scheduled checks on spend and business outcomes. Capacity
+fit must be confirmed from the owner's actual workload rather than a fixed
+posting frequency.
 
 ## Organic vs. paid role
 
@@ -130,3 +133,5 @@ page go dormant, which reads as "closed" to a new visitor.
   `benchmark-egypt-facebook-reach.md`.
 - Meta Business Help Center, "How Facebook Distributes Content":
   https://www.facebook.com/business/help/718033381901819
+- Meta Help Center, accepted payment options and Egypt-local manual payments:
+  https://www.facebook.com/help/messenger-app/212763688755026/

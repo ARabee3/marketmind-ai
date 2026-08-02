@@ -1,6 +1,6 @@
 ---
 slug: benchmark-egypt-instagram-reach
-version: 1
+version: 2
 kind: benchmark_report
 title: Egypt Instagram Reach — June 2026
 summary: >
@@ -22,15 +22,15 @@ channels:
 seasons: []
 budget_modes: []
 evidence_tier: verified_benchmark
-review_status: draft
+review_status: approved
 source_references:
-  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/'
+  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/2026/06/'
 effective_at: '2026-06-01'
 expires_at: '2026-12-01'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 7688d50ffdd363cb9853255b7a97b41058409b009661a6335467710dcf7f4629
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 61de34f4d1de05281998e5f51e1a297162348a6166ff7b85764a0e65e6e0a31e
 ---
 
 ## The exact figure(s)
@@ -71,4 +71,4 @@ until a refreshed entry is authored.
 ## Sources
 
 - NapoleonCat, "Social Media Users in Egypt," June 2026 snapshot:
-  https://stats.napoleoncat.com/social-media-users-in-egypt/
+  https://stats.napoleoncat.com/social-media-users-in-egypt/2026/06/

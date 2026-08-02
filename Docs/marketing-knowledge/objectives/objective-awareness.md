@@ -1,6 +1,6 @@
 ---
 slug: objective-awareness
-version: 2
+version: 3
 kind: objective_playbook
 title: Awareness Objective Playbook
 summary: >
@@ -24,15 +24,15 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: dd79ad3e889d90aa7f3d22887e573ff18f2660b43730725f209a97ccbf2d4e72
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 2256ffb48e8b4b11b0866948e667b220a707d32ddfde238361a4f7635bdf1831
 ---
 
 ## Fit signals (when this objective is right now)
@@ -42,9 +42,10 @@ the people who would buy from it. Concrete signals: a new location with zero
 footfall, a recently opened business with no existing customer list, a
 business entering a new neighbourhood or a new platform where its name is
 unrecognized, or a business whose paid efforts have targeted only existing
-followers and never reached anyone new. If the owner cannot name even one
-person who has heard of them outside their family and friends, awareness is
-the bottleneck.
+followers and never reached anyone new. Limited recognition outside family
+and friends is a diagnostic hypothesis, not proof by itself; verify it against
+the owner conversation, business profile, search presence, reach, enquiries,
+and footfall before classifying awareness as the bottleneck.
 
 ## Poor-fit signals
 
@@ -54,10 +55,10 @@ problem, not an awareness problem. It is also a poor fit when the owner has
 no capacity to absorb new customers (no stock, one cook, fully booked
 calendar) and would only damage reputation by driving traffic they cannot
 serve. Finally it is a poor fit for a solo owner with no budget and no team
-capacity, because cost-effective awareness at scale usually needs at least
-some paid distribution; pure-organic awareness works slowly, so first test
-whether search readiness, Google Business Profile completeness, or conversion
-fixes are the more practical bottleneck.
+capacity when the selected channel requires work the owner cannot sustain.
+Before paid distribution, test whether local search readiness, Google Business
+Profile completeness, community/referral routes, or conversion fixes are the
+more practical bottleneck.
 
 ## Typical funnel stage(s)
 

@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-07-30T12:26:25.472Z",
+  "generated_at": "2026-08-02T14:17:58.872Z",
   "entry_count": 32,
   "entries": [
     {
       "slug": "audience-positioning-stp",
       "version": 2,
       "kind": "framework",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -26,14 +26,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "frameworks/audience-positioning-stp.md"
     },
     {
       "slug": "benchmark-egypt-facebook-reach",
       "version": 2,
       "kind": "benchmark_report",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "verified_benchmark",
       "locale": "en",
       "tags": {
@@ -54,14 +54,14 @@
       "effective_at": "2026-01-01",
       "expires_at": "2026-12-31",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "benchmarks/benchmark-egypt-facebook-reach.md"
     },
     {
       "slug": "benchmark-egypt-instagram-reach",
-      "version": 1,
+      "version": 2,
       "kind": "benchmark_report",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "verified_benchmark",
       "locale": "en",
       "tags": {
@@ -78,18 +78,18 @@
           "awareness"
         ]
       },
-      "checksum": "sha256:7688d50ffdd363cb9853255b7a97b41058409b009661a6335467710dcf7f4629",
+      "checksum": "sha256:61de34f4d1de05281998e5f51e1a297162348a6166ff7b85764a0e65e6e0a31e",
       "effective_at": "2026-06-01",
       "expires_at": "2026-12-01",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "benchmarks/benchmark-egypt-instagram-reach.md"
     },
     {
       "slug": "benchmark-egypt-internet-social-penetration",
       "version": 1,
       "kind": "benchmark_report",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "verified_benchmark",
       "locale": "en",
       "tags": {
@@ -108,14 +108,14 @@
       "effective_at": "2026-01-01",
       "expires_at": "2026-12-31",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "benchmarks/benchmark-egypt-internet-social-penetration.md"
     },
     {
       "slug": "benchmark-egypt-tiktok-reach",
       "version": 1,
       "kind": "benchmark_report",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "verified_benchmark",
       "locale": "en",
       "tags": {
@@ -137,14 +137,14 @@
       "effective_at": "2026-01-01",
       "expires_at": "2026-12-31",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "benchmarks/benchmark-egypt-tiktok-reach.md"
     },
     {
       "slug": "budget-planning-organic-and-scenarios",
-      "version": 2,
+      "version": 3,
       "kind": "budget_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -164,18 +164,18 @@
           "launch"
         ]
       },
-      "checksum": "sha256:06aa144367099f1fc17c708c9e422ee866c532f3938d88330a892662ab151f3a",
+      "checksum": "sha256:916fb7568bd7f9986fef145c8a7f91fc0eb6634e34273f841f82f53eb502f7f0",
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "budget-measurement/budget-planning-organic-and-scenarios.md"
     },
     {
       "slug": "channel-delivery-platforms",
       "version": 2,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -199,14 +199,14 @@
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-delivery-platforms.md"
     },
     {
       "slug": "channel-facebook",
-      "version": 2,
+      "version": 3,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -227,18 +227,18 @@
           "retention"
         ]
       },
-      "checksum": "sha256:8943362f0d7119c70afd665cb8b511dca95ae65599a5fe5ffc6bc480984b36c3",
+      "checksum": "sha256:649dcc1ccc4eb1c7acc2b1db1ef032d8eadd1bbd1dfc2c4890c4b54cabdc0fd0",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-facebook.md"
     },
     {
       "slug": "channel-google-business-profile",
       "version": 2,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -262,14 +262,14 @@
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-google-business-profile.md"
     },
     {
       "slug": "channel-instagram",
-      "version": 2,
+      "version": 3,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -290,18 +290,18 @@
           "retention"
         ]
       },
-      "checksum": "sha256:1625235a35f5a8802eee067ad8ef76b7a1a6a3f02847039994382450259167ee",
+      "checksum": "sha256:8e2e1494214b7e3516e8984c9556b83c10662fd0a6c0eb39a925ff78551d4aa8",
       "effective_at": "2026-07-21",
       "expires_at": "2026-12-31",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-instagram.md"
     },
     {
       "slug": "channel-tiktok",
       "version": 2,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -324,14 +324,14 @@
       "effective_at": "2026-07-21",
       "expires_at": "2026-12-31",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-tiktok.md"
     },
     {
       "slug": "channel-website-landing-page",
       "version": 2,
       "kind": "channel_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -356,14 +356,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "channels/channel-website-landing-page.md"
     },
     {
       "slug": "content-agent-handoff-boundary",
       "version": 2,
       "kind": "content_strategy_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -387,14 +387,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "content-strategy/content-agent-handoff-boundary.md"
     },
     {
       "slug": "content-experiments-and-format-mix",
       "version": 2,
       "kind": "content_strategy_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -415,14 +415,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "content-strategy/content-experiments-and-format-mix.md"
     },
     {
       "slug": "content-pillars-and-cadence-by-capacity",
       "version": 2,
       "kind": "content_strategy_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -444,14 +444,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "content-strategy/content-pillars-and-cadence-by-capacity.md"
     },
     {
       "slug": "customer-needs-value-proposition-relevant-7ps",
       "version": 1,
       "kind": "framework",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -474,14 +474,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "frameworks/customer-needs-value-proposition-relevant-7ps.md"
     },
     {
       "slug": "engagement-rate-benchmark-caveat",
-      "version": 2,
+      "version": 3,
       "kind": "measurement_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "en",
       "tags": {
@@ -499,18 +499,18 @@
           "retention"
         ]
       },
-      "checksum": "sha256:af56867494dd48120d3ea687e7fec725c37c08278c0a61039da488139ea6c006",
+      "checksum": "sha256:de7ef5b069dcc649aa487593dd9049be4fb5e5fde1d7312f5aa02e1f4c489e04",
       "effective_at": "2026-07-21",
       "expires_at": "2027-07-21",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "budget-measurement/engagement-rate-benchmark-caveat.md"
     },
     {
       "slug": "governance-approval-citation-and-limits-policy",
       "version": 1,
       "kind": "policy",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "en",
       "tags": {
@@ -533,14 +533,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "policy/governance-approval-citation-and-limits-policy.md"
     },
     {
       "slug": "kpi-modes-and-vanity-vs-business-metrics",
       "version": 1,
       "kind": "measurement_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -564,14 +564,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "budget-measurement/kpi-modes-and-vanity-vs-business-metrics.md"
     },
     {
       "slug": "objective-acquisition",
       "version": 2,
       "kind": "objective_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -591,14 +591,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "objectives/objective-acquisition.md"
     },
     {
       "slug": "objective-awareness",
-      "version": 2,
+      "version": 3,
       "kind": "objective_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -614,18 +614,18 @@
           "awareness"
         ]
       },
-      "checksum": "sha256:dd79ad3e889d90aa7f3d22887e573ff18f2660b43730725f209a97ccbf2d4e72",
+      "checksum": "sha256:2256ffb48e8b4b11b0866948e667b220a707d32ddfde238361a4f7635bdf1831",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "objectives/objective-awareness.md"
     },
     {
       "slug": "objective-conversion-sales",
       "version": 2,
       "kind": "objective_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -645,14 +645,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "objectives/objective-conversion-sales.md"
     },
     {
       "slug": "objective-launch",
       "version": 2,
       "kind": "objective_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -672,14 +672,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "objectives/objective-launch.md"
     },
     {
       "slug": "objective-retention-repeat",
       "version": 2,
       "kind": "objective_playbook",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -699,14 +699,14 @@
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "objectives/objective-retention-repeat.md"
     },
     {
       "slug": "regional-language-tone-and-seasonal-calendar",
-      "version": 2,
+      "version": 3,
       "kind": "regional_guidance",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -726,18 +726,18 @@
           "launch"
         ]
       },
-      "checksum": "sha256:c8a28bee712f24784ed893b3c1d6355311e57fab636e42b4d427fda68d4d8565",
+      "checksum": "sha256:550924930ab0e378a078fda50471c2304c4f1855cc4930ec41274eb3a2375172",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "regional/regional-language-tone-and-seasonal-calendar.md"
     },
     {
       "slug": "sector-note-education",
-      "version": 2,
+      "version": 3,
       "kind": "sector_note",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "mixed",
       "tags": {
@@ -761,18 +761,18 @@
           "launch"
         ]
       },
-      "checksum": "sha256:ce6924dbaf5f1c61a678d10a9242b0e60deb5d974acde2af877759a6366733a2",
+      "checksum": "sha256:b14c498ec323d90f6e77501fb76c191a2aa9aeac33e81e44aeed5c80c3783a03",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "sector-notes/sector-note-education.md"
     },
     {
       "slug": "sector-note-healthcare",
-      "version": 2,
+      "version": 3,
       "kind": "sector_note",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "mixed",
       "tags": {
@@ -785,28 +785,25 @@
         ],
         "channels": [
           "google_business_profile",
-          "facebook",
-          "website",
-          "instagram"
+          "website"
         ],
         "objectives": [
           "awareness",
-          "acquisition",
           "retention"
         ]
       },
-      "checksum": "sha256:88bf72895afc461135dfab32742d21c723ff16c79d5a4fd836b4e6e2880322ca",
+      "checksum": "sha256:72856281ac6ac23ef80594018fa2066c690a653c60c18af5a286a154341aa7cd",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "sector-notes/sector-note-healthcare.md"
     },
     {
       "slug": "sector-note-hospitality",
-      "version": 2,
+      "version": 3,
       "kind": "sector_note",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "mixed",
       "tags": {
@@ -830,18 +827,18 @@
           "retention"
         ]
       },
-      "checksum": "sha256:60f8d88cdbb4fe4dd7f47c66908526dbf0b06a9ef83e0d42a639c92192ba5891",
+      "checksum": "sha256:223074c179fd687fe371dfe34c9174255bbdfc7c3c9b491dfe73e6b837422fa1",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "sector-notes/sector-note-hospitality.md"
     },
     {
       "slug": "sector-note-retail",
-      "version": 2,
+      "version": 3,
       "kind": "sector_note",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "mixed",
       "tags": {
@@ -860,18 +857,18 @@
           "retention"
         ]
       },
-      "checksum": "sha256:a6605a722a2f25f904bcdb20abea9b585d1b92762f53a180f00e11915319e590",
+      "checksum": "sha256:2e55761e0ca89872705a78dee8dcc7d574672a826f8a3511ff3e1bfb6cc3a8bb",
       "effective_at": "2026-07-21",
       "expires_at": "2027-06-30",
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "sector-notes/sector-note-retail.md"
     },
     {
       "slug": "sector-note-services",
       "version": 2,
       "kind": "sector_note",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "contextual_note",
       "locale": "mixed",
       "tags": {
@@ -899,14 +896,14 @@
       "effective_at": "2026-07-21",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "sector-notes/sector-note-services.md"
     },
     {
       "slug": "situation-diagnosis-5cs-swot",
       "version": 2,
       "kind": "framework",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -929,14 +926,14 @@
       "effective_at": "2026-07-30",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "frameworks/situation-diagnosis-5cs-swot.md"
     },
     {
       "slug": "smart-objectives-funnel-mapping",
       "version": 3,
       "kind": "framework",
-      "review_status": "draft",
+      "review_status": "approved",
       "evidence_tier": "reviewed_guidance",
       "locale": "mixed",
       "tags": {
@@ -959,7 +956,7 @@
       "effective_at": "2026-07-30",
       "expires_at": null,
       "author": "abdulazimRabie",
-      "reviewer": null,
+      "reviewer": "mostafamerzk",
       "path": "frameworks/smart-objectives-funnel-mapping.md"
     }
   ]

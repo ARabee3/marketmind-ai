@@ -1,6 +1,6 @@
 ---
 slug: sector-note-retail
-version: 2
+version: 3
 kind: sector_note
 title: 'Sector Note: Retail'
 summary: >
@@ -35,7 +35,7 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://www.ipsos.com/en-eg/2025-ramadan-handbook-egypt-edition'
@@ -43,9 +43,9 @@ source_references:
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: a6605a722a2f25f904bcdb20abea9b585d1b92762f53a180f00e11915319e590
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 2e55761e0ca89872705a78dee8dcc7d574672a826f8a3511ff3e1bfb6cc3a8bb
 ---
 
 ## When useful
@@ -68,22 +68,22 @@ brand than an SME — the dynamics here assume owner-scale operation.
    categories, but only when stock, offer, and audience timing support them. A
    12-week plan should choose one relevant window or stay evergreen; a plan
    that overlaps unrelated windows cannot attribute wins.
-2. **Stock and pricing transparency convert.** clear photos, clear prices,
-   and "in stock / out of stock" honesty are the conversion levers; vague
-   "DM for price" can discourage new customers, even though
-   some owners prefer it.
-3. **Discovery is increasingly off-platform first.** many retail customers
-   find items on Instagram/TikTok and then go to the seller's WhatsApp —
-   the WhatsApp reply speed and order path are the real conversion engine,
-   not the post itself.
+2. **Test stock and pricing transparency as conversion hypotheses.** clear
+   photos, clear prices, and accurate availability may reduce friction, while
+   "DM for price" may discourage some customers. Verify the effect against the
+   owner's enquiries and completed orders rather than treating it as universal.
+3. **Verify the actual discovery and order path.** customers may move from
+   social, search, referrals, marketplaces, or physical discovery into
+   WhatsApp, a website, or an in-store purchase. Measure the owner's real path
+   and reply delays instead of assuming social-to-WhatsApp behaviour.
 4. **Repeat depends on category and offer.** fashion and gifts often won't
    repeat monthly; homeware/consumables will. Retention efforts should
    match the real repeat cadence of the category, not a generic
    newsletter.
-5. **Returns and trust.** clarity on returns/exchanges and real photos
-   (not stock) materially reduces complaints and improves review
-   velocity, which feeds discovery — trust is a growth input for retail,
-   not a cost.
+5. **Returns and trust.** treat clear returns/exchanges and real product photos
+   as measurable trust hypotheses. Track complaints, abandoned enquiries,
+   completed orders, and reviews; do not promise that these changes will
+   automatically improve discovery or review velocity.
 
 ## Explicit limitation
 

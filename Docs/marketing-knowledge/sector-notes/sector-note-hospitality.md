@@ -1,6 +1,6 @@
 ---
 slug: sector-note-hospitality
-version: 2
+version: 3
 kind: sector_note
 title: 'Sector Note: Hospitality (F&B, Cafés, QSR)'
 summary: >
@@ -42,7 +42,7 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - >-
@@ -56,9 +56,9 @@ source_references:
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 60f8d88cdbb4fe4dd7f47c66908526dbf0b06a9ef83e0d42a639c92192ba5891
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 223074c179fd687fe371dfe34c9174255bbdfc7c3c9b491dfe73e6b837422fa1
 ---
 
 ## When useful
@@ -78,11 +78,11 @@ can absorb the plan's audience.
 
 ## Concrete sector-specific observations
 
-1. **Visual platforms and Google Business Profile are a common stack.**
-   Instagram/TikTok drive discovery, Google Business Profile captures
-   intent-driven local search, and Facebook keeps the warm community. A
-   hospitality SME should test GBP when customers already search by location
-   or category.
+1. **Choose channels from observed customer behaviour.** Treat visual social
+   discovery, local Google search, community pages, referrals, and delivery
+   platforms as hypotheses to verify from the owner's evidence and research.
+   Test Google Business Profile when customers search by location or category;
+   do not prescribe one platform stack for every hospitality SME.
 2. **Reviews and reply speed are growth inputs.** answering reviews and
    message inquiries promptly can support conversion and trust; treating the
    inbox as an afterthought can waste demand in this sector.

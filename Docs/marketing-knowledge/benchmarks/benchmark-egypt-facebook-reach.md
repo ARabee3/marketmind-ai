@@ -21,14 +21,14 @@ channels:
 seasons: []
 budget_modes: []
 evidence_tier: verified_benchmark
-review_status: draft
+review_status: approved
 source_references:
   - 'https://datareportal.com/reports/digital-2026-egypt'
 effective_at: '2026-01-01'
 expires_at: '2026-12-31'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: d0f21ad95407518e6d75000fb4b47abc732b6d9afda8007206405fdb1d4edfec
 ---
 

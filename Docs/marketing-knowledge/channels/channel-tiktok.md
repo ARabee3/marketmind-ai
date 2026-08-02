@@ -36,7 +36,7 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://datareportal.com/reports/digital-2026-egypt'
@@ -45,8 +45,8 @@ source_references:
 effective_at: '2026-07-21'
 expires_at: '2026-12-31'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: 1b1356f1b7626820be97d881427e7555615ee0b2631cf1b507f9dd250a33c850
 ---
 
