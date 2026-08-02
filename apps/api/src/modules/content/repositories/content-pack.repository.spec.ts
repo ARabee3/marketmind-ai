@@ -301,6 +301,22 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("listItemVersions", () => {
+    it("scopes to the pack + item and orders by version descending", async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const repo = new ContentPackRepository({
+        contentItemVersion: { findMany },
+      } as unknown as PrismaService);
+
+      await repo.listItemVersions("pack-1", "item-1");
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { contentPackId: "pack-1", contentItemId: "item-1" },
+        orderBy: { version: "desc" },
+      });
+    });
+  });
+
   describe("appendProgressEvent", () => {
     it("writes a monotonic sequence starting at 1", async () => {
       const create = jest.fn().mockResolvedValue({

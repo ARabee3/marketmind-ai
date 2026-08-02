@@ -13,18 +13,25 @@ import type {
   ContentCtaDestination,
   ContentCycle,
   ContentCycleResponse,
+  ContentItemVersion,
   ContentPack,
+  ContentProgressEvent,
   ContentPromotion,
   ContentWeekContext,
+  ContentWeekListResponse,
   CreateContentCycleRequest,
   GenerateContentPackRequest,
   UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
-import type { ContentWeekContext as PrismaWeekContext } from "@prisma/client";
+import type {
+  ContentItemVersion as PrismaContentItemVersion,
+  ContentWeekContext as PrismaWeekContext,
+} from "@prisma/client";
 import type { ContentPack as PrismaContentPack } from "@prisma/client";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
+import type { PersistedContentProgressEvent } from "./repositories/content-pack.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 
 const CAIRO_TIMEZONE = "Africa/Cairo" as const;
@@ -376,6 +383,76 @@ export class ContentService {
     };
   }
 
+  // ── GET /api/v1/content-cycles/:id ──────────────────────────────────
+
+  async getCycle(id: string, ownerUserId: string): Promise<ContentCycle> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    if (!cycle) throw new NotFoundException("Content cycle not found");
+    return toContentCycle(cycle);
+  }
+
+  // ── GET /api/v1/content-cycles/:id/weeks ────────────────────────────
+
+  async listWeeks(
+    cycleId: string,
+    ownerUserId: string,
+  ): Promise<ContentWeekListResponse> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      cycleId,
+      ownerUserId,
+    );
+    if (!cycle) throw new NotFoundException("Content cycle not found");
+
+    const weeks = await this.weekContextRepository.listWeeks(cycleId);
+    return { weeks: weeks.map(toContentWeekContext) };
+  }
+
+  // ── GET /api/v1/content-packs/:id ───────────────────────────────────
+
+  async getPack(id: string, ownerUserId: string): Promise<ContentPack> {
+    const pack = await this.packRepository.getPackByIdAndOwner(id, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+    return toContentPack(pack);
+  }
+
+  // ── GET /api/v1/content-packs/:id/progress ──────────────────────────
+
+  async getPackProgress(
+    id: string,
+    ownerUserId: string,
+  ): Promise<ContentProgressEvent[]> {
+    const pack = await this.packRepository.getPackByIdAndOwner(id, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    const events = await this.packRepository.getProgressEvents(id);
+    return events.map(toContentProgressEvent);
+  }
+
+  // ── GET /api/v1/content-packs/:id/items/:item_id/versions ───────────
+
+  async getItemVersions(
+    packId: string,
+    itemId: string,
+    ownerUserId: string,
+  ): Promise<ContentItemVersion[]> {
+    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    const versions = await this.packRepository.listItemVersions(packId, itemId);
+    return versions.map(toContentItemVersion);
+  }
+
+  // ── GET /api/v1/content-packs/:id/retry-eligibility ─────────────────
+
+  async getPackRetryEligibility(
+    id: string,
+    ownerUserId: string,
+  ): Promise<{ retry_eligible: boolean }> {
+    const pack = await this.packRepository.getPackByIdAndOwner(id, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+    return { retry_eligible: pack.retryEligible };
+  }
+
   private assertCycleActive(cycle: ContentCycleRow): void {
     if (cycle.status === "paused") {
       throw new ConflictException({
@@ -481,6 +558,53 @@ function toContentPack(pack: PrismaContentPack): ContentPack {
     item_ids: toJsonStringArray(pack.itemIds),
     created_at: pack.createdAt.toISOString(),
     updated_at: pack.updatedAt.toISOString(),
+  };
+}
+
+function toContentProgressEvent(
+  event: PersistedContentProgressEvent,
+): ContentProgressEvent {
+  return {
+    type: "content_progress",
+    content_pack_id: event.contentPackId,
+    seq: event.seq,
+    stage: event.stage as ContentProgressEvent["stage"],
+    status: event.status as ContentProgressEvent["status"],
+    message_key: event.messageKey,
+    message_text: event.messageText,
+    payload: (event.payload ?? {}) as Record<string, unknown>,
+    created_at: event.createdAt.toISOString(),
+  };
+}
+
+function toContentItemVersion(
+  version: PrismaContentItemVersion,
+): ContentItemVersion {
+  return {
+    id: version.id,
+    contract_version: "content-v1",
+    content_item_id: version.contentItemId,
+    content_pack_id: version.contentPackId,
+    version: version.version,
+    channel: version.channel as ContentItemVersion["channel"],
+    format: version.format as ContentItemVersion["format"],
+    language_mode: version.languageMode as ContentItemVersion["language_mode"],
+    strategy_trace: version.strategyTrace as unknown as ContentItemVersion["strategy_trace"],
+    caption_variants: version.captionVariants as unknown as ContentItemVersion["caption_variants"],
+    cta: version.cta,
+    hashtags: toJsonStringArray(version.hashtags),
+    creative_brief: version.creativeBrief,
+    alt_text: version.altText,
+    short_video_script: version.shortVideoScript as unknown as ContentItemVersion["short_video_script"],
+    recommended_publish_window: version.recommendedPublishWindow as unknown as ContentItemVersion["recommended_publish_window"],
+    claim_sources: version.claimSources as unknown as ContentItemVersion["claim_sources"],
+    warnings: version.warnings as unknown as ContentItemVersion["warnings"],
+    blockers: version.blockers as unknown as ContentItemVersion["blockers"],
+    asset_required: version.assetRequired,
+    asset_ids: toJsonStringArray(version.assetIds),
+    generation_provenance: version.generationProvenance as ContentItemVersion["generation_provenance"],
+    version_checksum: version.versionChecksum,
+    created_at: version.createdAt.toISOString(),
   };
 }
 

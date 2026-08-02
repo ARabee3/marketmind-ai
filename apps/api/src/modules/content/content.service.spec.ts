@@ -183,6 +183,9 @@ function makePackRepo(overrides: Partial<MockedPackRepo> = {}): MockedPackRepo {
     claimQueuedPack: jest
       .fn()
       .mockResolvedValue({ pack: PACK_ROW, created: true }),
+    getPackByIdAndOwner: jest.fn().mockResolvedValue(PACK_ROW),
+    getProgressEvents: jest.fn().mockResolvedValue([]),
+    listItemVersions: jest.fn().mockResolvedValue([]),
     appendProgressEvent: jest.fn().mockResolvedValue({
       id: 1n,
       contentPackId: "pack-1",
@@ -675,5 +678,219 @@ describe("ContentService.generateWeek", () => {
       "week-defaulted",
     );
     expect(result.content_pack.id).toBe("pack-1");
+  });
+});
+
+const PROGRESS_EVENT_ROW = {
+  id: 1n,
+  contentPackId: "pack-1",
+  seq: 2,
+  stage: "generating",
+  status: "progress",
+  messageKey: "content.generating",
+  messageText: "Generating items.",
+  payload: {},
+  createdAt: new Date("2026-08-01T01:00:00.000Z"),
+};
+
+const ITEM_VERSION_ROW = {
+  id: "ver-2",
+  contractVersion: "content-v1",
+  contentItemId: "item-1",
+  contentPackId: "pack-1",
+  version: 2,
+  channel: "instagram",
+  format: "post",
+  languageMode: "ar",
+  strategyTrace: {
+    strategy_id: "strat-1",
+    strategy_version: 2,
+    week_number: 1,
+    pillar_ids: ["pillar-1"],
+    objective: "awareness",
+    channel: "instagram",
+  },
+  captionVariants: [{ locale: "ar", caption: "نص" }],
+  cta: "call",
+  hashtags: ["#cairo"],
+  creativeBrief: "brief",
+  altText: "alt",
+  shortVideoScript: null,
+  recommendedPublishWindow: { starts_at: "2026-08-08", ends_at: "2026-08-10" },
+  claimSources: [{ claim_type: "price", source_type: "business", approved: true }],
+  warnings: [],
+  blockers: [],
+  assetRequired: false,
+  assetIds: [],
+  generationProvenance: { provider: "mock", model: "mock" },
+  versionChecksum: "checksum-2",
+  createdAt: new Date("2026-08-01T00:30:00.000Z"),
+};
+
+describe("ContentService.reads", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+  let weekRepo: MockedWeekRepo;
+  let packRepo: MockedPackRepo;
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+    weekRepo = makeWeekRepo();
+    packRepo = makePackRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: weekRepo },
+        { provide: ContentPackRepository, useValue: packRepo },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  describe("getCycle", () => {
+    it("returns the mapped cycle for the owner", async () => {
+      const result = await service.getCycle("cycle-1", OWNER_ID);
+
+      expect(result.id).toBe("cycle-1");
+      expect(result.status).toBe("active");
+      expect(result.contract_version).toBe("content-v1");
+      expect(result.current_week_number).toBe(1);
+      expect(cycleRepo.getCycleByIdAndOwner).toHaveBeenCalledWith(
+        "cycle-1",
+        OWNER_ID,
+      );
+    });
+
+    it("throws NotFound on cross-owner access", async () => {
+      (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.getCycle("cycle-1", "other-user")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("listWeeks", () => {
+    it("returns weeks mapped to the contract type", async () => {
+      (weekRepo.listWeeks as jest.Mock).mockResolvedValue([
+        WEEK_ROW,
+        SYSTEM_DEFAULTED_WEEK_ROW,
+      ]);
+
+      const result = await service.listWeeks("cycle-1", OWNER_ID);
+
+      expect(result.weeks).toHaveLength(2);
+      expect(result.weeks[0].week_number).toBe(1);
+      expect(result.weeks[0].context_source).toBe("owner_confirmed");
+      expect(result.weeks[1].context_source).toBe("system_defaulted");
+    });
+
+    it("throws NotFound when the cycle is not owned by the caller", async () => {
+      (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.listWeeks("cycle-1", "other-user")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("getPack", () => {
+    it("returns the mapped pack for the owner", async () => {
+      const result = await service.getPack("pack-1", OWNER_ID);
+
+      expect(result.id).toBe("pack-1");
+      expect(result.content_cycle_id).toBe("cycle-1");
+      expect(result.week_number).toBe(1);
+      expect(result.status).toBe("queued");
+    });
+
+    it("throws NotFound on cross-owner access", async () => {
+      (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.getPack("pack-1", "other-user")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("getPackProgress", () => {
+    it("returns progress events in seq order", async () => {
+      (packRepo.getProgressEvents as jest.Mock).mockResolvedValue([
+        { ...PROGRESS_EVENT_ROW, seq: 1 },
+        { ...PROGRESS_EVENT_ROW, seq: 2 },
+      ]);
+
+      const result = await service.getPackProgress("pack-1", OWNER_ID);
+
+      expect(result.map((event) => event.seq)).toEqual([1, 2]);
+      expect(result[1].type).toBe("content_progress");
+      expect(result[1].content_pack_id).toBe("pack-1");
+      expect(result[1].stage).toBe("generating");
+    });
+
+    it("throws NotFound when the pack is not owned by the caller", async () => {
+      (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.getPackProgress("pack-1", "other-user"),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("getItemVersions", () => {
+    it("returns versions in version-descending order", async () => {
+      (packRepo.listItemVersions as jest.Mock).mockResolvedValue([
+        { ...ITEM_VERSION_ROW, version: 2 },
+        { ...ITEM_VERSION_ROW, version: 1, id: "ver-1", versionChecksum: "checksum-1" },
+      ]);
+
+      const result = await service.getItemVersions("pack-1", "item-1", OWNER_ID);
+
+      expect(result.map((version) => version.version)).toEqual([2, 1]);
+      expect(result[0].id).toBe("ver-2");
+      expect(result[0].content_item_id).toBe("item-1");
+      expect(result[0].version_checksum).toBe("checksum-2");
+      expect(packRepo.listItemVersions).toHaveBeenCalledWith("pack-1", "item-1");
+    });
+
+    it("throws NotFound when the pack is not owned by the caller", async () => {
+      (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.getItemVersions("pack-1", "item-1", "other-user"),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("getPackRetryEligibility", () => {
+    it("returns retry_eligible from the pack row", async () => {
+      const result = await service.getPackRetryEligibility("pack-1", OWNER_ID);
+
+      expect(result).toEqual({ retry_eligible: true });
+    });
+
+    it("returns retry_eligible=false for a non-retryable pack", async () => {
+      (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue({
+        ...PACK_ROW,
+        retryEligible: false,
+      });
+
+      const result = await service.getPackRetryEligibility("pack-1", OWNER_ID);
+
+      expect(result).toEqual({ retry_eligible: false });
+    });
+
+    it("throws NotFound on cross-owner access", async () => {
+      (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.getPackRetryEligibility("pack-1", "other-user"),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });

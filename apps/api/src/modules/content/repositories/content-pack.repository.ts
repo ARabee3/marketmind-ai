@@ -262,6 +262,16 @@ export class ContentPackRepository {
     });
   }
 
+  async listItemVersions(
+    packId: string,
+    itemId: string,
+  ): Promise<Prisma.ContentItemVersionGetPayload<Record<string, never>>[]> {
+    return this.prisma.contentItemVersion.findMany({
+      where: { contentPackId: packId, contentItemId: itemId },
+      orderBy: { version: "desc" },
+    });
+  }
+
   /**
    * Appends an immutable sequenced progress event. Seq is the event count for
    * the pack at insert time + 1; `@@unique([content_pack_id, seq])` rejects a
