@@ -17,25 +17,44 @@ def deduplicate_and_cap(
     """
     entry_counts: dict[UUID, int] = {}
     selected = []
-    
-    # We also want to deduplicate exact chunks just in case multiple
-    # subqueries hit the exact same chunk.
     seen_chunks: set[UUID] = set()
+    covered_categories: set[str] = set()
 
     for rc in candidates:
         if len(selected) >= max_total:
             break
-            
+
+        category = rc.candidate.subquery_category
+        if category in covered_categories:
+            continue
+
         chunk_id = rc.candidate.chunk_id
         if chunk_id in seen_chunks:
             continue
-            
+
         entry_id = rc.candidate.entry_id
         if entry_counts.get(entry_id, 0) >= max_per_entry:
             continue
-            
+
         selected.append(rc)
         seen_chunks.add(chunk_id)
         entry_counts[entry_id] = entry_counts.get(entry_id, 0) + 1
-        
+        covered_categories.add(category)
+
+    for rc in candidates:
+        if len(selected) >= max_total:
+            break
+
+        chunk_id = rc.candidate.chunk_id
+        if chunk_id in seen_chunks:
+            continue
+
+        entry_id = rc.candidate.entry_id
+        if entry_counts.get(entry_id, 0) >= max_per_entry:
+            continue
+
+        selected.append(rc)
+        seen_chunks.add(chunk_id)
+        entry_counts[entry_id] = entry_counts.get(entry_id, 0) + 1
+
     return selected
