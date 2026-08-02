@@ -154,7 +154,9 @@ async def rebuild_qdrant_index(
             try:
                 async with session.begin_nested():
                     texts = [chunk.text for chunk in chunks]
-                    response = await provider.embed(EmbedRequest(texts=texts))
+                    response = await provider.embed(
+                        EmbedRequest(texts=texts, purpose="retrieval_document")
+                    )
                     vectors_by_chunk_id = {
                         chunks[embedding.index].chunk_id: embedding.vector
                         for embedding in response.embeddings

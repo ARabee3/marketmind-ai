@@ -181,6 +181,79 @@ class TestGenerateEndpoint:
         assert provider.call_count == 3
         assert response.json()["detail"]["error_type"] == "STRATEGY_LANGUAGE_MISMATCH"
 
+    def test_invalid_output_is_retried_with_repair_prompt(self, monkeypatch):
+        """A provider that fails schema validation once then succeeds is retried
+        with a repair hint instead of failing immediately."""
+        request = make_generate_request()
+        good_plan = load_default_plan_fixture()
+
+        class FlakyOutputProvider:
+            def __init__(self):
+                self.prompts = []
+                self.call_count = 0
+
+            async def generate_strategy_plan(self, prompt):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                if self.call_count == 1:
+                    raise ProviderError(
+                        "AI_PROVIDER_INVALID_OUTPUT",
+                        "1 validation error for StrategyPlan\n"
+                        "  Value error, selected channel google_business_profile "
+                        "is missing from all_channel_scores [type=value_error]",
+                        retryable=False,
+                    )
+                return good_plan
+
+        provider = FlakyOutputProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        assert "MANDATORY OUTPUT REPAIR" in provider.prompts[1].system_prompt
+        assert "google_business_profile" in provider.prompts[1].user_prompt
+
+    def test_invalid_output_returns_400_after_bounded_retries(self, monkeypatch):
+        """A provider that always fails schema validation exhausts repair
+        retries and returns 400 AI_PROVIDER_INVALID_OUTPUT."""
+        request = make_generate_request()
+
+        class AlwaysInvalidProvider:
+            def __init__(self):
+                self.call_count = 0
+
+            async def generate_strategy_plan(self, _prompt):
+                self.call_count += 1
+                raise ProviderError(
+                    "AI_PROVIDER_INVALID_OUTPUT",
+                    "Provider output failed schema validation.",
+                    retryable=False,
+                )
+
+        provider = AlwaysInvalidProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 400
+        assert provider.call_count == 3
+        assert response.json()["detail"]["error_type"] == "AI_PROVIDER_INVALID_OUTPUT"
+        assert response.json()["detail"]["retryable"] is False
+
 
 class TestMockStrategyProvider:
     async def test_mock_provider_returns_valid_plan(self):

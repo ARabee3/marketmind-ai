@@ -29,7 +29,7 @@ channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - >-
     https://openstax.org/books/principles-marketing/pages/2-3-purpose-and-structure-of-the-marketing-plan
@@ -39,8 +39,8 @@ source_references:
 effective_at: '2026-07-30'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: 87ab34d774ea8bf2902936e162a8e2ca2bd78d79d6a3c0df8655d417c23bbe5a
 ---
 

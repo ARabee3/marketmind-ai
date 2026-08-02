@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { getCurrentJourney } from '@/lib/api/journey'
 import { getStrategy, getStrategyProgress, toStrategyResource } from '@/lib/api/strategy'
 import type { CurrentJourneyResponse, StrategyProgressEvent, StrategyResource } from '@marketmind/contracts'
@@ -18,6 +18,7 @@ import { StrategyReadiness } from './strategy-readiness'
 
 type PageState =
   | { phase: 'loading' }
+  | { phase: 'error' }
   | { phase: 'no_strategy'; journey: CurrentJourneyResponse }
   | {
       phase: 'ready'
@@ -26,6 +27,23 @@ type PageState =
       progress: readonly StrategyProgressEvent[]
     }
 
+async function loadJourney(): Promise<PageState> {
+  try {
+    const journey = await getCurrentJourney()
+    const fc = journey.future_phase
+    if (fc.availability === 'available' && fc.strategy_id) {
+      const [api, progress] = await Promise.all([
+        getStrategy(fc.strategy_id),
+        getStrategyProgress(fc.strategy_id),
+      ])
+      return { phase: 'ready', journey, resource: toStrategyResource(api), progress }
+    }
+    return { phase: 'no_strategy', journey }
+  } catch {
+    return { phase: 'error' }
+  }
+}
+
 export function StrategyHome() {
   const t = useTranslations('Strategy')
   const tc = useTranslations('Common')
@@ -33,33 +51,47 @@ export function StrategyHome() {
 
   useEffect(() => {
     let cancelled = false
+
     async function load() {
-      try {
-        const journey = await getCurrentJourney()
-        if (cancelled) return
-        const fc = journey.future_phase
-        if (fc.availability === 'available' && fc.strategy_id) {
-          const [api, progress] = await Promise.all([
-            getStrategy(fc.strategy_id),
-            getStrategyProgress(fc.strategy_id),
-          ])
-          if (cancelled) return
-          setState({ phase: 'ready', journey, resource: toStrategyResource(api), progress })
-        } else {
-          setState({ phase: 'no_strategy', journey })
-        }
-      } catch {
-        if (!cancelled) setState({ phase: 'no_strategy', journey: null as unknown as CurrentJourneyResponse })
-      }
+      const nextState = await loadJourney()
+      if (!cancelled) setState(nextState)
     }
-    load()
-    return () => { cancelled = true }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  async function retryJourney() {
+    setState({ phase: 'loading' })
+    setState(await loadJourney())
+  }
 
   if (state.phase === 'loading') {
     return (
       <section className="flex min-h-40 items-center justify-center">
         <p className="text-sm text-muted-foreground">{tc('loading')}</p>
+      </section>
+    )
+  }
+
+  if (state.phase === 'error') {
+    return (
+      <section className="flex min-h-40 items-center justify-center">
+        <div className="grid max-w-md gap-3 text-center" role="alert">
+          <p className="text-sm text-warning">{t('home.loadError')}</p>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void retryJourney()}
+            >
+              {t('home.retry')}
+            </Button>
+          </div>
+        </div>
       </section>
     )
   }

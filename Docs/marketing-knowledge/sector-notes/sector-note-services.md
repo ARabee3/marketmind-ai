@@ -37,14 +37,14 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: c0ba30f8c7ba1fc03e236ecd95c72b32f81bae5649eedc816d16868a8eeec56b
 ---
 

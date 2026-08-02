@@ -13,7 +13,9 @@ from app.discovery.schemas import AiDiscoveryRespondRequest, AiDiscoveryStartReq
 from app.discovery.service import DiscoveryService
 from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError
 from app.providers.factory import create_provider
+from app.providers.gemini_provider import GeminiDiscoveryProvider
 from app.providers.mock_provider import MockDiscoveryProvider
+from app.providers.openai_provider import OpenAIDiscoveryProvider
 from app.providers.openrouter_provider import OpenRouterDiscoveryProvider
 from app.core.config import Settings, get_settings
 
@@ -261,14 +263,14 @@ class EnglishQuestionProvider(DiscoveryProvider):
         }
 
 
-def test_invalid_provider_output_returns_safe_failure() -> None:
+def test_invalid_provider_output_returns_non_retryable_safe_failure() -> None:
     request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
     result = run(DiscoveryService(InvalidProvider()).start(request))
 
     assert result.action == "safe_failure"
     assert result.safe_error is not None
     assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
-    assert result.safe_error.retryable is True
+    assert result.safe_error.retryable is False
 
 
 def test_provider_failure_returns_retryable_safe_failure() -> None:
@@ -418,6 +420,126 @@ def test_openrouter_provider_repairs_wrong_language_question(
     assert SequencedOpenRouterClient.messages[1][-1]["content"].startswith("Repair")
 
 
+def test_openai_provider_routes_invalid_schema_through_the_repair_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    SequencedOpenAIClient.calls = 0
+    SequencedOpenAIClient.inputs = []
+    monkeypatch.setattr(openai, "OpenAI", SequencedOpenAIClient)
+
+    request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
+    result = run(
+        DiscoveryService(
+            OpenAIDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
+    )
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "What do customers usually buy on busy days?"
+    assert SequencedOpenAIClient.calls == 2
+    assert SequencedOpenAIClient.inputs[1][-1]["content"].startswith("Repair")
+
+
+def test_gemini_provider_routes_invalid_json_through_the_repair_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google import genai
+
+    SequencedGeminiClient.calls = 0
+    SequencedGeminiClient.prompts = []
+    monkeypatch.setattr(genai, "Client", SequencedGeminiClient)
+
+    request = AiDiscoveryStartRequest.model_validate(base_payload("en"))
+    result = run(
+        DiscoveryService(
+            GeminiDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).start(request)
+    )
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "What do customers usually buy on busy days?"
+    assert SequencedGeminiClient.calls == 2
+    assert "Repair" in SequencedGeminiClient.prompts[1]
+
+
+def test_respond_turn_repairs_a_premature_profile_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    DraftThenQuestionOpenRouterClient.calls = 0
+    DraftThenQuestionOpenRouterClient.messages = []
+    monkeypatch.setattr(openai, "OpenAI", DraftThenQuestionOpenRouterClient)
+
+    payload = base_payload("en")
+    payload["messages"] = [
+        {
+            **owner_message("Think about a busy day: who orders, what do they choose?"),
+            "role": "assistant",
+        }
+    ]
+    payload["owner_message"] = owner_message("Office workers order classic bowls at lunch.")
+    request = AiDiscoveryRespondRequest.model_validate(payload)
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).respond(request)
+    )
+
+    assert result.action == "ask_next_question"
+    assert result.next_question == "What brings those office workers back for another order?"
+    assert result.profile_draft is None
+    assert DraftThenQuestionOpenRouterClient.calls == 2
+    assert DraftThenQuestionOpenRouterClient.messages[1][-1]["content"].startswith("Repair")
+
+
+def test_respond_turn_without_fallback_question_stays_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import openai
+
+    AlwaysDraftOpenRouterClient.calls = 0
+    AlwaysDraftOpenRouterClient.messages = []
+    monkeypatch.setattr(openai, "OpenAI", AlwaysDraftOpenRouterClient)
+
+    request = AiDiscoveryRespondRequest.model_validate(
+        {
+            **base_payload("en"),
+            "messages": [],
+            "owner_message": owner_message("Office workers order classic bowls at lunch."),
+        }
+    )
+    result = run(
+        DiscoveryService(
+            OpenRouterDiscoveryProvider(
+                api_key="test-key",
+                model="test-model",
+                timeout_ms=30_000,
+            )
+        ).respond(request)
+    )
+
+    assert result.action == "safe_failure"
+    assert result.safe_error is not None
+    assert result.safe_error.code == "AI_PROVIDER_INVALID_OUTPUT"
+    assert result.safe_error.retryable is False
+    assert AlwaysDraftOpenRouterClient.calls == 2
+
+
 class FakeOpenRouterClient:
     calls = 0
 
@@ -493,6 +615,121 @@ class BlankThenValidOpenRouterClient:
                 "updated_uncertainties": [],
                 "domain_scores": {},
                 "ready_to_summarize": False,
+            }
+        )
+
+
+class SequencedOpenAIClient:
+    calls = 0
+    inputs: list[list[dict[str, object]]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.responses = self
+
+    def parse(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        inputs = kwargs["input"]
+        if isinstance(inputs, list):
+            self.__class__.inputs.append(inputs)
+        output = (
+            {"action": "ask_next_question"}
+            if self.__class__.calls == 1
+            else {
+                "action": "ask_next_question",
+                "next_question": "What do customers usually buy on busy days?",
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "domain_scores": {},
+                "ready_to_summarize": False,
+            }
+        )
+        return SimpleNamespace(output_parsed=output)
+
+
+class SequencedGeminiClient:
+    calls = 0
+    prompts: list[str] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.models = self
+
+    def generate_content(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        contents = kwargs["contents"]
+        if isinstance(contents, list) and contents and isinstance(contents[0], str):
+            self.__class__.prompts.append(contents[0])
+        text = (
+            "not-json"
+            if self.__class__.calls == 1
+            else json.dumps(
+                {
+                    "action": "ask_next_question",
+                    "next_question": "What do customers usually buy on busy days?",
+                    "updated_known_facts": {},
+                    "updated_uncertainties": [],
+                    "domain_scores": {},
+                    "ready_to_summarize": False,
+                }
+            )
+        )
+        return SimpleNamespace(text=text)
+
+
+class DraftThenQuestionOpenRouterClient:
+    calls = 0
+    messages: list[list[dict[str, object]]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.chat = SimpleNamespace(completions=self)
+
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        messages = kwargs["messages"]
+        if isinstance(messages, list):
+            self.__class__.messages.append(messages)
+        if self.__class__.calls > 1:
+            return _openrouter_response(
+                {
+                    "action": "ask_next_question",
+                    "next_question": "What brings those office workers back for another order?",
+                    "updated_known_facts": {},
+                    "updated_uncertainties": [],
+                    "owner_goals": ["Attract more lunch customers."],
+                    "strategy_relevant_notes": [],
+                    "ready_to_summarize": False,
+                    "domain_scores": {},
+                }
+            )
+        return _openrouter_response(
+            {
+                "action": "produce_profile_draft",
+                "next_question": None,
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "owner_goals": ["Attract more lunch customers."],
+                "strategy_relevant_notes": [],
+                "ready_to_summarize": True,
+                "domain_scores": {},
+            }
+        )
+
+
+class AlwaysDraftOpenRouterClient(DraftThenQuestionOpenRouterClient):
+    def create(self, **kwargs: object) -> SimpleNamespace:
+        self.__class__.calls += 1
+        messages = kwargs["messages"]
+        if isinstance(messages, list):
+            self.__class__.messages.append(messages)
+        return _openrouter_response(
+            {
+                "action": "produce_profile_draft",
+                "next_question": None,
+                "updated_known_facts": {},
+                "updated_uncertainties": [],
+                "owner_goals": ["Attract more lunch customers."],
+                "strategy_relevant_notes": [],
+                "ready_to_summarize": True,
+                "domain_scores": {},
             }
         )
 

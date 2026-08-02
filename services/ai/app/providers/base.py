@@ -14,6 +14,7 @@ class DiscoveryProviderRequest(BaseModel):
     turn_kind: TurnKind
     language_mode: LanguageMode
     payload: dict[str, Any]
+    repair_hint: str | None = None
 
 
 class ProviderError(Exception):

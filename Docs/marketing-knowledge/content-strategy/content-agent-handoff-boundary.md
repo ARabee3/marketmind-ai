@@ -25,14 +25,14 @@ channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: cdd9131e8c88c5ff124d3391c61ff7d369385f29d64acffe8ff518a6a13a7fee
 ---
 

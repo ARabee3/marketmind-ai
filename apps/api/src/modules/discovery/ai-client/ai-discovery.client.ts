@@ -103,6 +103,9 @@ export class AiDiscoveryClient {
         if (!result.safe_error.retryable) {
           return result;
         }
+        if (result.safe_error.code === "AI_PROVIDER_INVALID_OUTPUT") {
+          return result;
+        }
         if (attempt < AI_DISCOVERY_ATTEMPTS - 1) {
           await delay(config.aiProviderRetryDelayMs);
         }

@@ -218,6 +218,53 @@ describe("Strategy lifecycle transition matrix", () => {
     });
   });
 
+  describe("StrategyRepository.upsertBrief", () => {
+    it("includes strategyId in the create branch (required FK)", async () => {
+      const upsert = jest.fn().mockResolvedValue({ id: "brief-1" });
+      const prisma = { strategyBrief: { upsert } };
+      const repo = new StrategyRepository(prisma as unknown as PrismaService);
+
+      await repo.upsertBrief("strat-1", {
+        businessProfileVersionId: "bpv-1",
+        primaryObjective: "growth",
+        startDate: new Date("2026-01-01"),
+        planLanguage: "ar",
+        paidMediaAllowed: true,
+        externalBudgetMode: "none",
+        teamCapacity: "part_time",
+        constraints: null,
+        clarificationAnswers: [],
+      });
+
+      expect(upsert).toHaveBeenCalledWith({
+        where: { strategyId: "strat-1" },
+        create: expect.objectContaining({ strategyId: "strat-1" }),
+        update: expect.not.objectContaining({ strategyId: "strat-1" }),
+      });
+    });
+
+    it("does not leak strategyId into the update branch", async () => {
+      const upsert = jest.fn().mockResolvedValue({ id: "brief-1" });
+      const prisma = { strategyBrief: { upsert } };
+      const repo = new StrategyRepository(prisma as unknown as PrismaService);
+
+      await repo.upsertBrief("strat-1", {
+        businessProfileVersionId: "bpv-1",
+        primaryObjective: "growth",
+        startDate: new Date("2026-01-01"),
+        planLanguage: "ar",
+        paidMediaAllowed: true,
+        externalBudgetMode: "none",
+        teamCapacity: "part_time",
+        constraints: null,
+        clarificationAnswers: [],
+      });
+
+      const call = upsert.mock.calls[0][0];
+      expect(call.update.strategyId).toBeUndefined();
+    });
+  });
+
   describe("Strategy progress persistence", () => {
     it("persists retry eligibility alongside the correlation payload", async () => {
       const create = jest.fn().mockResolvedValue({

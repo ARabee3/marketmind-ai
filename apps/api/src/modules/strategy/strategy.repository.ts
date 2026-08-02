@@ -72,17 +72,22 @@ export class StrategyRepository {
   async readStrategy(id: string) {
     return this.prisma.strategy.findUnique({
       where: { id },
-      include: { brief: true },
+      include: {
+        brief: true,
+        business: {
+          select: { id: true, businessType: true, primaryLocale: true, displayName: true },
+        },
+      },
     });
   }
 
   async upsertBrief(
     strategyId: string,
-    data: Omit<Prisma.StrategyBriefUncheckedCreateInput, "id" | "createdAt" | "updatedAt">,
+    data: Omit<Prisma.StrategyBriefUncheckedCreateInput, "id" | "createdAt" | "updatedAt" | "strategyId">,
   ) {
     return this.prisma.strategyBrief.upsert({
       where: { strategyId },
-      create: data,
+      create: { ...data, strategyId },
       update: data,
     });
   }
@@ -161,6 +166,17 @@ export class StrategyRepository {
     });
   }
 
+  /**
+   * Owner-unscoped full profile read used by the server-side BullMQ worker,
+   * which needs the immutable profile JSON to build the AI contract payloads.
+   * Never expose this through an HTTP handler.
+   */
+  async getProfileVersionById(id: string) {
+    return this.prisma.businessProfileVersion.findUnique({
+      where: { id },
+    });
+  }
+
   // ── Retrieval run helpers ───────────────────────────────────────────
   // NOTE: Retrieval runs are persisted by the FastAPI service, which owns the
   // StrategyRetrievalRun / StrategyRetrievalItem / StrategyRetrievalGap
@@ -171,6 +187,18 @@ export class StrategyRepository {
     return this.prisma.strategyRetrievalRun.findFirst({
       where: { strategyId },
       orderBy: { createdAt: "desc" },
+      include: { items: true, gaps: true },
+    });
+  }
+
+  /**
+   * Owner-unscoped read of a specific retrieval run (with its items and gaps)
+   * used by the server-side BullMQ worker to rebuild the contract knowledge
+   * pack from the run the FastAPI service persisted.
+   */
+  async getRetrievalRunById(id: string) {
+    return this.prisma.strategyRetrievalRun.findUnique({
+      where: { id },
       include: { items: true, gaps: true },
     });
   }

@@ -21,7 +21,7 @@ export class DiscoveryRespondDto {
 }
 
 export class ConfirmProfileDto {
-  @IsUUID("4")
+  @IsUUID()
   profile_draft_id!: string;
 
   @IsBoolean()

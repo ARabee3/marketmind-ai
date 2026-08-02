@@ -1,6 +1,6 @@
 ---
 slug: budget-planning-organic-and-scenarios
-version: 2
+version: 3
 kind: budget_playbook
 title: 'Budget Planning: Organic and Scenarios'
 summary: >
@@ -29,15 +29,15 @@ budget_modes:
   - three_month_amount
   - scenario_only
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 06aa144367099f1fc17c708c9e422ee866c532f3938d88330a892662ab151f3a
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 916fb7568bd7f9986fef145c8a7f91fc0eb6634e34273f841f82f53eb502f7f0
 ---
 
 ## When useful
@@ -73,8 +73,9 @@ Suppose an owner can sustain **3,000 EGP/month** and the objective is
 acquisition over 12 weeks.
 
 - **Mode:** `monthly_amount` — commit 3,000 EGP/month for the 12 weeks =
-  roughly 9,000 EGP total, but released flat (3,000/month) so a stop or
-  resume mid-plan does not break it.
+  roughly 9,000 EGP total, released flat at 3,000 EGP/month. If the owner must
+  interrupt that commitment, pause the test and re-plan rather than reading
+  interrupted results as a continuous campaign.
 - **Test-first split:** run the first **1,000 EGP** as an example test slice
   to learn a rough cost-per-new-customer, then either continue or adjust. The
   test duration depends on outcome volume, spend level, sales cycle, and the

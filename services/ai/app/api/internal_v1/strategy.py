@@ -144,17 +144,60 @@ def _language_correction_prompt(
     )
 
 
+def _invalid_output_repair_prompt(
+    prompt: PromptAssembly,
+    error: ProviderError,
+    attempt: int,
+) -> PromptAssembly:
+    return PromptAssembly(
+        system_prompt=(
+            f"{prompt.system_prompt}\n\n"
+            "MANDATORY OUTPUT REPAIR: The previous output was rejected because it did "
+            "not match the StrategyPlan contract. Regenerate the complete plan as a "
+            "single valid JSON object. Reproduce EVERY deterministic channel scorecard "
+            "from the supplied channel_scores verbatim in all_channel_scores, select "
+            "channels ONLY from those scorecards, and keep every numeric total, enum "
+            "value, identifier, and provenance metadata unchanged."
+        ),
+        user_prompt=(
+            f"{prompt.user_prompt}\n\n"
+            f"Validation errors from the rejected output: {error}"
+        ),
+        metadata={**prompt.metadata, "invalid_output_repair_attempt": attempt},
+    )
+
+
 async def _generate_validated_plan(
     provider: StrategyLLMProvider,
     prompt: PromptAssembly,
     request: StrategyGenerateRequest,
 ) -> tuple[StrategyPlan, StrategyValidationResult]:
-    current_prompt = prompt
+    current_prompt = PromptAssembly(
+        system_prompt=prompt.system_prompt,
+        user_prompt=prompt.user_prompt,
+        metadata={
+            **prompt.metadata,
+            "deterministic_channel_scores": [
+                score.model_dump(mode="json")
+                for score in request.deterministic_channel_scores
+            ],
+        },
+    )
 
     for attempt in range(_MAX_GENERATION_ATTEMPTS):
         try:
             plan = await provider.generate_strategy_plan(current_prompt)
         except ProviderError as error:
+            if (
+                error.code == "AI_PROVIDER_INVALID_OUTPUT"
+                and attempt < _MAX_GENERATION_ATTEMPTS - 1
+            ):
+                current_prompt = _invalid_output_repair_prompt(
+                    prompt=current_prompt,
+                    error=error,
+                    attempt=attempt + 1,
+                )
+                continue
             if not error.retryable or attempt == _MAX_GENERATION_ATTEMPTS - 1:
                 status_code = 503 if error.retryable else 400
                 raise HTTPException(
@@ -193,7 +236,7 @@ async def _generate_validated_plan(
             )
 
         current_prompt = _language_correction_prompt(
-            prompt=prompt,
+            prompt=current_prompt,
             validation=validation,
             attempt=attempt + 1,
         )

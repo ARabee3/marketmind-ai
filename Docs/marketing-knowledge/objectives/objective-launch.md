@@ -26,14 +26,14 @@ budget_modes:
   - monthly_amount
   - scenario_only
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
 effective_at: '2026-07-21'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: 89bad7fe4d1e2574ca3210ebc090b77aa710707c93fe330b10d64f22da1a1b72
 ---
 

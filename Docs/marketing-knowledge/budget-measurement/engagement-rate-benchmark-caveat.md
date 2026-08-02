@@ -1,13 +1,12 @@
 ---
 slug: engagement-rate-benchmark-caveat
-version: 2
+version: 3
 kind: measurement_playbook
 title: Engagement-Rate / CPC / CPM Benchmark Caveat
 summary: >
-  A documented knowledge gap: no reliable Egypt-specific engagement-rate, CPC,
-  or CPM benchmark exists, and the global figures that do exist differ by
-  methodology and sample. Treat any externally-quoted figure as unverifiable and
-  use baseline/owner-target KPI modes instead.
+  A documented corpus gap: this review did not accept a methodology-transparent
+  Egypt-specific engagement-rate, CPC, or CPM benchmark. Use the owner's own
+  baseline or target unless a compatible reviewed benchmark is added.
 locale: en
 markets:
   - global
@@ -26,16 +25,16 @@ channels: []
 seasons: []
 budget_modes: []
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'https://www.rivaliq.com/blog/social-media-industry-benchmark-report/'
   - 'https://www.socialinsider.io/blog/social-media-engagement-rates/'
 effective_at: '2026-07-21'
 expires_at: '2027-07-21'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: af56867494dd48120d3ea687e7fec725c37c08278c0a61039da488139ea6c006
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: de7ef5b069dcc649aa487593dd9049be4fb5e5fde1d7312f5aa02e1f4c489e04
 ---
 
 ## When useful
@@ -44,7 +43,7 @@ Use this entry whenever a plan is tempted to set an engagement-rate, CPC,
 or CPM target from a published global benchmark, or whenever the Strategy
 step needs to produce a `knowledge_gaps[]` item for these metrics instead
 of inventing a number. This is the entry that lets the Strategy Agent
-honestly say "no verified Egypt benchmark available" rather than silently
+honestly say "no approved Egypt benchmark is available in this corpus" rather than silently
 omitting the topic or pasting a plausible figure.
 
 ## Poor-fit conditions
@@ -64,21 +63,16 @@ baseline, not to a global number.
 
 ## The documented gap
 
-**No Egypt-specific engagement-rate, CPC, or CPM benchmark was found in
-the research for this corpus.** The global figures that do exist differ by
-methodology and sample. For example, **Rival IQ
-reports a 0.30% median Instagram engagement rate by followers**, while
-**Socialinsider reports 0.48% using the same "by followers" formula on a
-different sample** — same metric, same platform, same window, two
-publishers, about **1.6x apart**. That is enough to make a single global
-figure a weak target for an Egyptian SME unless the source, formula, sample,
-and geography match the plan.
+**As of the corpus review on 2026-08-02, no methodology-transparent,
+Egypt-specific engagement-rate, CPC, or CPM benchmark had been accepted into
+this corpus.** Global reports use different samples, formulas, industries, and
+reporting windows. That makes a single global figure a weak target for an
+Egyptian SME unless the source, formula, sample, geography, and campaign type
+match the plan.
 
-These disagreements are not minor rounding; they mean a single externally
-quoted engagement/CPC/CPM number is not a stable reference point — using it
-to set a target or to claim "we beat benchmark" would be a methodology
-error, and applying a global figure as if it were Egypt-specific would be
-the local-relevance fabrication the ground rules forbid.
+The reports below are retained as examples of why methodology must be checked,
+not as Egypt benchmarks. Applying a global figure as if it were Egypt-specific
+would be the local-relevance fabrication the ground rules forbid.
 
 ## Worked micro-example (illustrative — not real figures)
 
@@ -89,9 +83,8 @@ Suppose a plan wants to set an Instagram engagement target. Instead of
 quoting "0.4%", the plan sets: target mode `establish_baseline` for the
 first two weeks, measuring the owner's own (likes+comments+saves)/followers
 per post; then `owner_target` = a modest lift over that baseline by week
-12. No external benchmark is cited as the reference, because no Egypt-
-specific one exists and the global ones disagree by enough to invalidate
-the comparison. If a fresh, single-source, methodology-matched,
+12. No external benchmark is cited as the reference, because this corpus has no
+approved Egypt-specific entry for that metric. If a fresh, single-source, methodology-matched,
 Egypt-specific figure is later retrieved and cited, a new
 `verified_benchmark` entry may be authored to replace this caveat for
 that specific metric.

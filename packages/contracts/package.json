@@ -3,8 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dist/index.cjs",
   "types": "./src/index.ts",
   "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.cjs",
     "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:policy && npm run check:content-examples && npm run check:content-policy && npm run check:publication-candidate && npm run check:publishing && npm run check:consumers && npm run check:snapshot && npm run check:python && npm run check:content-python",
     "check:content-examples": "node scripts/validate-content-examples.mjs",
     "check:content-policy": "tsx scripts/validate-content-policy.ts",
@@ -18,6 +20,7 @@
     "typecheck": "tsc --project tsconfig.json"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "@types/node": "^22.0.0",
     "tsx": "^4.23.0",
     "typescript": "^5.7.0"

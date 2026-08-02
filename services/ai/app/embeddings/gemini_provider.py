@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal, assert_never
 
 from anyio import to_thread
 
@@ -15,8 +15,8 @@ from app.embeddings.base import (
 class GeminiEmbeddingProvider(EmbeddingProvider):
     """Gemini embedding provider adapter using the google-genai SDK.
 
-    Uses the `models.embed_content` endpoint. Supports models such as
-    `text-embedding-004`.
+    Uses the `models.embed_content` endpoint with Gemini Embedding 2 retrieval
+    formatting and one request per text to preserve vector cardinality.
     """
 
     name = "gemini"
@@ -29,10 +29,37 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 "GEMINI_API_KEY is required when EMBEDDING_PROVIDER_MODE=gemini",
                 retryable=False,
             )
+        if config.model == "text-embedding-004":
+            raise EmbeddingProviderError(
+                "EMBEDDING_MODEL_RETIRED",
+                "text-embedding-004 is retired; use gemini-embedding-2 and rebuild the index",
+                retryable=False,
+            )
         self._api_key = api_key
         self._timeout_ms = timeout_ms
 
-    def _call_gemini(self, texts: list[str], model: str, dimensions: int) -> EmbedResponse:
+    @staticmethod
+    def _format_text(
+        text: str,
+        purpose: Literal["generic", "retrieval_query", "retrieval_document"],
+    ) -> str:
+        match purpose:
+            case "generic":
+                return text
+            case "retrieval_query":
+                return f"task: search result | query: {text}"
+            case "retrieval_document":
+                return f"title: none | text: {text}"
+            case unreachable:
+                assert_never(unreachable)
+
+    def _call_gemini(
+        self,
+        texts: list[str],
+        model: str,
+        dimensions: int,
+        purpose: Literal["generic", "retrieval_query", "retrieval_document"],
+    ) -> EmbedResponse:
         try:
             from google import genai
             from google.genai import types
@@ -47,23 +74,45 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
             api_key=self._api_key,
             http_options=types.HttpOptions(timeout=self._timeout_ms),
         )
-        response = client.models.embed_content(
-            model=model,
-            contents=texts,
-            config=types.EmbedContentConfig(
-                output_dimensionality=dimensions,
-            ),
-        )
-
         embeddings: list[EmbeddingVector] = []
-        for idx, item in enumerate(response.embeddings):
-            embeddings.append(
-                EmbeddingVector(
-                    text=texts[idx],
-                    vector=list(item.values),
-                    index=idx,
+        if model == "gemini-embedding-2":
+            for idx, text in enumerate(texts):
+                response = client.models.embed_content(
+                    model=model,
+                    contents=self._format_text(text, purpose),
+                    config=types.EmbedContentConfig(
+                        output_dimensionality=dimensions,
+                    ),
                 )
+                if len(response.embeddings) != 1:
+                    raise EmbeddingProviderError(
+                        "EMBEDDING_RESPONSE_INVALID",
+                        "Gemini Embedding 2 must return exactly one vector per input",
+                        retryable=False,
+                    )
+                embeddings.append(
+                    EmbeddingVector(
+                        text=text,
+                        vector=list(response.embeddings[0].values),
+                        index=idx,
+                    )
+                )
+        else:
+            response = client.models.embed_content(
+                model=model,
+                contents=texts,
+                config=types.EmbedContentConfig(
+                    output_dimensionality=dimensions,
+                ),
             )
+            for idx, item in enumerate(response.embeddings):
+                embeddings.append(
+                    EmbeddingVector(
+                        text=texts[idx],
+                        vector=list(item.values),
+                        index=idx,
+                    )
+                )
 
         return EmbedResponse(
             embeddings=embeddings,
@@ -81,6 +130,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                 request.texts,
                 model,
                 dimensions,
+                request.purpose,
             )
         except EmbeddingProviderError:
             raise
