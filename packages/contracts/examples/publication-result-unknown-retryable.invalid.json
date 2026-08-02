@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-result-unknown.example.json",
+  "mutation": {
+    "kind": "blind_retry_unknown",
+    "value": true
+  }
+}

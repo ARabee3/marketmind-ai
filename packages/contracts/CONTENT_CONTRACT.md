@@ -153,6 +153,9 @@ checksum, increments `state_version`, and optionally identifies the replacement
 candidate. It never mutates or re-checksums `PublicationCandidateV1`.
 Publishing treats a matching `revoked` or `replaced` status as
 `CONTENT_CANDIDATE_REVOKED` and cancels any not-yet-dispatched intent.
+The consumer-side target, intent, approval, attempt, result, and signed workflow
+rules are frozen separately in `PUBLISHING_CONTRACT.md`; they cannot alter this
+immutable Content payload.
 
 ## Allowed Post-Freeze Changes
 

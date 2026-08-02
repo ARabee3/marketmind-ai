@@ -1,0 +1,17 @@
+{
+  "contract_version": "publishing-workflow-fixture-manifest-v1",
+  "fixture_secret": "publishing-v1-fixture-secret-not-for-production",
+  "valid_dispatch": "publishing-dispatch-real.example.json",
+  "valid_callback": "publishing-callback-published.example.json",
+  "canonical_content_candidate": "../../../packages/contracts/examples/publication-candidate-approved.example.json",
+  "canonical_content_status": "../../../packages/contracts/examples/publication-candidate-status-active.example.json",
+  "canonical_content_created_event": "../../../packages/contracts/examples/publication-candidate-created-event.example.json",
+  "canonical_content_state_changed_event": "../../../packages/contracts/examples/publication-candidate-state-changed-event.example.json",
+  "canonical_asset_bytes_utf8": "marketmind-owner-asset-fixture-v1",
+  "content_candidates": {
+    "valid": "../../../packages/contracts/examples/publication-candidate-approved.example.json",
+    "unapproved": "../../../packages/contracts/examples/publication-candidate-unapproved.invalid.json",
+    "tampered": "../../../packages/contracts/examples/publication-candidate-tampered.invalid.json",
+    "revoked": "../../../packages/contracts/examples/publication-candidate-revoked.invalid.json"
+  }
+}

@@ -23,6 +23,11 @@ export type ContentContractVersion = "content-v1";
 export type CairoTimezone = "Africa/Cairo";
 
 export const CONTENT_ALT_TEXT_MAX_LENGTH = 100;
+export const SHA256_CHECKSUM_PATTERN = /^[a-f0-9]{64}$/;
+
+export function isSha256Checksum(value: unknown): value is string {
+  return typeof value === "string" && SHA256_CHECKSUM_PATTERN.test(value);
+}
 
 export const CONTENT_ERROR_CODES = [
   "CONTENT_STRATEGY_NOT_APPROVED",

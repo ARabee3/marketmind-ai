@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-candidate-approved.example.json",
+  "mutation": {
+    "kind": "invalid_asset_checksum",
+    "value": "not-a-sha256-digest"
+  }
+}

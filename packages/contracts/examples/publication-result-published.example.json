@@ -1,0 +1,19 @@
+{
+  "contract_version": "publication-result-v1",
+  "result_id": "16161616-1616-4161-8161-161616161616",
+  "attempt_id": "15151515-1515-4151-8151-151515151515",
+  "intent_id": "13131313-1313-4131-8131-131313131313",
+  "intent_version": 2,
+  "mode": "real",
+  "outcome": "published",
+  "provider": "meta",
+  "remote_publication_id": "fixture-meta-post-1001",
+  "remote_url": "https://www.facebook.com/fixture/posts/1001",
+  "export_artifact_id": null,
+  "simulation_reference_id": null,
+  "simulation_label": null,
+  "error_code": null,
+  "retryable": false,
+  "reconciliation_required": false,
+  "occurred_at": "2026-08-03T15:30:30Z"
+}

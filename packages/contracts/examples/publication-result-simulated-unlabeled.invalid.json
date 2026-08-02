@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-result-simulated.example.json",
+  "mutation": {
+    "kind": "remove_simulation_label",
+    "value": null
+  }
+}

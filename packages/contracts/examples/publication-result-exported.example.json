@@ -1,0 +1,19 @@
+{
+  "contract_version": "publication-result-v1",
+  "result_id": "22222222-2222-4222-8222-222222222221",
+  "attempt_id": "23232323-2323-4232-8232-232323232323",
+  "intent_id": "24242424-2424-4242-8242-242424242424",
+  "intent_version": 1,
+  "mode": "manual_export",
+  "outcome": "exported",
+  "provider": null,
+  "remote_publication_id": null,
+  "remote_url": null,
+  "export_artifact_id": "25252525-2525-4252-8252-252525252525",
+  "simulation_reference_id": null,
+  "simulation_label": null,
+  "error_code": null,
+  "retryable": false,
+  "reconciliation_required": false,
+  "occurred_at": "2026-08-03T15:31:00Z"
+}

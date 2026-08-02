@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publishing-dispatch-real.example.json",
+  "mutation": {
+    "kind": "expired_timestamp",
+    "value": "2026-08-03T15:00:00Z"
+  }
+}
