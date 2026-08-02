@@ -72,6 +72,22 @@ export type AppendRevisedItemVersionInput = {
   readonly versionChecksum: string;
 };
 
+export type CreateAssetInput = {
+  readonly contentItemVersionId: string;
+  readonly kind: string;
+  readonly status: string;
+  readonly mimeType: string | null;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly storageKey: string | null;
+  readonly checksum: string | null;
+  readonly altText: string;
+  readonly providerName: string | null;
+  readonly providerModel: string | null;
+  readonly providerRequestId: string | null;
+  readonly failureCode: string | null;
+};
+
 export type ContentProgressInput = {
   readonly stage: string;
   readonly status: "started" | "progress" | "complete" | "failed";
@@ -635,6 +651,28 @@ export class ContentPackRepository {
       data: { status },
     });
     return { changed: result.count === 1 };
+  }
+
+  async createAsset(
+    input: CreateAssetInput,
+  ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>>> {
+    return this.prisma.contentAsset.create({
+      data: {
+        contentItemVersionId: input.contentItemVersionId,
+        kind: input.kind,
+        status: input.status,
+        mimeType: input.mimeType,
+        width: input.width,
+        height: input.height,
+        storageKey: input.storageKey,
+        checksum: input.checksum,
+        altText: input.altText,
+        providerName: input.providerName,
+        providerModel: input.providerModel,
+        providerRequestId: input.providerRequestId,
+        failureCode: input.failureCode,
+      },
+    });
   }
 }
 

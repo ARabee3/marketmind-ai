@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
@@ -20,6 +20,7 @@ import { ContentCycleRepository } from "./repositories/content-cycle.repository"
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
+import { AssetStorage, buildAssetStorageKey, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
 import {
   toContentWeekContext,
   toContentPack,
@@ -46,6 +47,16 @@ interface ContentReviseJobData {
   correlationId: string;
 }
 
+interface ContentGenerateStaticAssetJobData {
+  contentItemVersionId: string;
+  creativeBrief: string;
+  altText: string;
+  width: number;
+  height: number;
+  idempotencyKey: string;
+  correlationId: string;
+}
+
 @Processor("content-generation")
 @Injectable()
 export class ContentProcessor extends WorkerHost {
@@ -57,6 +68,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly weekContextRepo: ContentWeekContextRepository,
     private readonly strategyRepo: StrategyRepository,
     private readonly contentAiClient: ContentAiClient,
+    @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
   ) {
     super();
   }
@@ -67,6 +79,10 @@ export class ContentProcessor extends WorkerHost {
         return this.handleGenerate(job as unknown as Job<ContentGenerateJobData>);
       case "revise-content":
         return this.handleRevise(job as unknown as Job<ContentReviseJobData>);
+      case "generate-static-asset":
+        return this.handleGenerateStaticAsset(
+          job as unknown as Job<ContentGenerateStaticAssetJobData>,
+        );
       default:
         this.logger.warn(`Unknown job type: ${job.name}`);
         return;
@@ -394,6 +410,113 @@ export class ContentProcessor extends WorkerHost {
           prior_version_id: baseItemVersionId,
         },
       });
+
+      if (retryable) {
+        throw error;
+      }
+    }
+  }
+
+  private async handleGenerateStaticAsset(
+    job: Job<ContentGenerateStaticAssetJobData>,
+  ): Promise<void> {
+    const {
+      contentItemVersionId,
+      creativeBrief,
+      altText,
+      width,
+      height,
+      idempotencyKey,
+      correlationId,
+    } = job.data;
+
+    this.logger.log(
+      `[Corr: ${correlationId}] Generating static asset for version ${contentItemVersionId}`,
+    );
+
+    try {
+      const request = {
+        contract_version: "content-v1" as const,
+        content_item_version_id: contentItemVersionId,
+        creative_brief: creativeBrief,
+        alt_text: altText,
+        width,
+        height,
+        idempotency_key: idempotencyKey,
+      };
+
+      const response = await this.contentAiClient.generateStaticAsset(request);
+      const asset = response.asset;
+
+      if (asset.status === "ready" && asset.storage_key && asset.checksum) {
+        await this.packRepo.createAsset({
+          contentItemVersionId,
+          kind: asset.kind,
+          status: "ready",
+          mimeType: asset.mime_type,
+          width: asset.width,
+          height: asset.height,
+          storageKey: asset.storage_key,
+          checksum: asset.checksum,
+          altText: asset.alt_text,
+          providerName: asset.provider_name,
+          providerModel: asset.provider_model,
+          providerRequestId: asset.provider_request_id,
+          failureCode: null,
+        });
+
+        this.logger.log(
+          `[Corr: ${correlationId}] Static asset ${asset.id} stored with checksum ${asset.checksum}`,
+        );
+      } else {
+        await this.packRepo.createAsset({
+          contentItemVersionId,
+          kind: asset.kind,
+          status: asset.status,
+          mimeType: asset.mime_type,
+          width: asset.width,
+          height: asset.height,
+          storageKey: null,
+          checksum: null,
+          altText: asset.alt_text,
+          providerName: asset.provider_name,
+          providerModel: asset.provider_model,
+          providerRequestId: asset.provider_request_id,
+          failureCode: asset.failure_code,
+        });
+
+        this.logger.warn(
+          `[Corr: ${correlationId}] Static asset ${asset.id} generated with status ${asset.status}`,
+        );
+      }
+    } catch (error) {
+      const retryable =
+        error instanceof ProviderError ? error.retryable : true;
+
+      const failureCode =
+        error instanceof ProviderError
+          ? error.code
+          : "CONTENT_ASSET_GENERATION_FAILED";
+
+      await this.packRepo.createAsset({
+        contentItemVersionId,
+        kind: "generated_static",
+        status: "failed",
+        mimeType: null,
+        width: null,
+        height: null,
+        storageKey: null,
+        checksum: null,
+        altText: altText,
+        providerName: null,
+        providerModel: null,
+        providerRequestId: null,
+        failureCode,
+      });
+
+      this.logger.error(
+        `[Corr: ${correlationId}] Static asset generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
 
       if (retryable) {
         throw error;
