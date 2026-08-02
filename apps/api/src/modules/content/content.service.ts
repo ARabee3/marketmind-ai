@@ -623,6 +623,13 @@ export class ContentService {
     dto: ContentDecisionRequest,
     ownerUserId: string,
   ): Promise<ContentDecisionResponse> {
+    // revision_requested routes through requestRevision, which records the
+    // decision (item → revision_requested) and enqueues the revise-content job.
+    if (dto.decision === "revision_requested") {
+      const { decision } = await this.requestRevision(packId, itemId, dto, ownerUserId);
+      return { decision, publication_candidate: null };
+    }
+
     const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
     if (!pack) throw new NotFoundException("Content pack not found");
 
@@ -763,6 +770,109 @@ export class ContentService {
     };
   }
 
+  // ── POST /api/v1/content-packs/:id/items/:item_id/decisions (revision) ─
+
+  /**
+   * Records a `revision_requested` owner decision and enqueues the
+   * `revise-content` BullMQ job.
+   *
+   * Mirrors StrategyService's revision path (strategy.service.ts:416-461):
+   * the decision is recorded (the decision repository flips the item to
+   * `revision_requested` — arch doc 536-550) and a job is enqueued so the
+   * processor (todo 24) can call FastAPI and append an immutable version N+1.
+   * The prior version row is preserved by construction: content_item_versions
+   * is insert-only (`@@unique([content_item_id, version])`), so a failed or
+   * successful revision never mutates or deletes the base version.
+   *
+   * The same exact-version gates as `decide` apply — only the item's current
+   * version can be revised, and the submitted checksum must match the persisted
+   * version checksum (CONTENT_VERSION_CONFLICT otherwise). No approval policy
+   * or asset gates apply: a revision request is the owner asking for a change,
+   * not an approval.
+   */
+  async requestRevision(
+    packId: string,
+    itemId: string,
+    dto: ContentDecisionRequest,
+    ownerUserId: string,
+  ): Promise<{ decision: ContentDecision; correlation_id: string }> {
+    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    if (pack.status !== "draft" && pack.status !== "partially_approved") {
+      throw new ConflictException({
+        code: "CONTENT_APPROVAL_BLOCKED",
+        message:
+          "Owner decisions are only accepted while the pack is draft or partially approved.",
+      });
+    }
+
+    const item = await this.packRepository.getItemById(packId, itemId);
+    if (!item) throw new NotFoundException("Content item not found");
+    if (!item.currentVersionId) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message: "The content item has no current version to revise.",
+      });
+    }
+    if (dto.content_item_version_id !== item.currentVersionId) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message:
+          "This item version is no longer the current version. Refresh before requesting a revision.",
+      });
+    }
+
+    const versions = await this.packRepository.listItemVersions(packId, itemId);
+    const currentVersion =
+      versions.find((version) => version.id === item.currentVersionId) ?? null;
+    if (
+      !currentVersion ||
+      dto.content_item_version_checksum !== currentVersion.versionChecksum
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message:
+          "The submitted version checksum no longer matches the current item version.",
+      });
+    }
+
+    const decision = await this.decisionRepository.recordDecision({
+      itemId: item.id,
+      versionId: dto.content_item_version_id,
+      versionNumber: currentVersion.version,
+      versionChecksum: dto.content_item_version_checksum,
+      decision: "revision_requested",
+      revisionNotes: dto.revision_notes,
+      ownerUserId,
+      idempotencyKey: dto.idempotency_key,
+    });
+
+    const correlationId = randomUUID();
+    await this.contentQueue.add(
+      "revise-content",
+      {
+        contentCycleId: pack.contentCycleId,
+        contentPackId: pack.id,
+        contentItemId: item.id,
+        baseItemVersionId: decision.contentItemVersionId,
+        revisionNotes: dto.revision_notes ?? "",
+        idempotencyKey: dto.idempotency_key,
+        correlationId,
+      },
+      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+    );
+
+    this.logger.log(
+      `[ContentItem ${item.id}] [Corr: ${correlationId}] Revision requested. Base version: ${decision.contentItemVersionId}`,
+    );
+
+    return {
+      decision: toContentDecision(decision),
+      correlation_id: correlationId,
+    };
+  }
+
   /**
    * Records owner decisions for several content items in ONE transaction.
    *
@@ -886,8 +996,12 @@ export class ContentService {
         continue;
       }
 
+      // Revision requests are the owner asking for a change, not an approval:
+      // policy and asset-readiness gates do not apply (same rule as `decide`,
+      // which routes revision_requested through requestRevision before any
+      // fixture validation — arch doc 536-550).
       const validation = validateContentPolicyFixture(fixture);
-      if (!validation.valid) {
+      if (!validation.valid && request.decision !== "revision_requested") {
         ineligibleByItemId.set(request.content_item_id, {
           item_id: request.content_item_id,
           status: "ineligible",
@@ -954,6 +1068,32 @@ export class ContentService {
         return bulk;
       },
     );
+
+    // Every recorded revision_requested decision enqueues a revise-content job
+    // (same rule as `requestRevision`; the processor preserves the prior
+    // version row — content_item_versions is insert-only).
+    for (const decision of recorded) {
+      if (decision.decision !== "revision_requested") continue;
+
+      const correlationId = randomUUID();
+      await this.contentQueue.add(
+        "revise-content",
+        {
+          contentCycleId: pack.contentCycleId,
+          contentPackId: pack.id,
+          contentItemId: decision.contentItemId,
+          baseItemVersionId: decision.contentItemVersionId,
+          revisionNotes: decision.revisionNotes ?? "",
+          idempotencyKey: decision.idempotencyKey ?? "",
+          correlationId,
+        },
+        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+      );
+
+      this.logger.log(
+        `[ContentItem ${decision.contentItemId}] [Corr: ${correlationId}] Revision requested (bulk). Base version: ${decision.contentItemVersionId}`,
+      );
+    }
 
     const decisionByItemId = new Map(
       recorded.map((decision) => [decision.contentItemId, decision]),
