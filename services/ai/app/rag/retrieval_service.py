@@ -41,7 +41,7 @@ async def retrieve_strategy_knowledge(
     # 3. Generate Embeddings for subquery texts
     embed_provider = EmbeddingProviderFactory.from_settings(settings)
     texts = [sq.text for sq in subqueries]
-    embed_req = EmbedRequest(texts=texts)
+    embed_req = EmbedRequest(texts=texts, purpose="retrieval_query")
     try:
         embed_resp = await embed_provider.embed(embed_req)
     except Exception as e:
