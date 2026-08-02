@@ -8,13 +8,18 @@
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.cjs",
     "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:policy && npm run check:snapshot && npm run check:python",
+    "check:content-examples": "node scripts/validate-content-examples.mjs",
+    "check:content-policy": "tsx scripts/validate-content-policy.ts",
+    "check:publication-candidate": "tsx scripts/validate-publication-candidate.ts",
     "check:policy": "tsx scripts/validate-strategy-policy.ts",
     "check:snapshot": "node scripts/test-snapshot.mjs",
     "check:python": "uv run --project ../../services/ai python python/test_strategy_contracts.py",
+    "check:content-python": "uv run --project ../../services/ai python python/test_content_contracts.py",
     "typecheck": "tsc --project tsconfig.json"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
+    "@types/node": "^22.0.0",
     "tsx": "^4.23.0",
     "typescript": "^5.7.0"
   }

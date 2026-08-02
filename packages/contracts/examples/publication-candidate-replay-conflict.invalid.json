@@ -1,0 +1,8 @@
+{
+  "base_fixture": "publication-candidate-approved.example.json",
+  "mutation": {
+    "kind": "replay_conflict",
+    "value": "Same candidate identity replayed with different caption bytes.",
+    "candidate_checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

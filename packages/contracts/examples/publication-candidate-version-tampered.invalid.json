@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-candidate-approved.example.json",
+  "mutation": {
+    "kind": "tamper_item_version",
+    "value": 2
+  }
+}

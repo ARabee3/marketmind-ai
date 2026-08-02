@@ -652,6 +652,15 @@ interface PublicationCandidateCreatedEventV1 {
 Delivery is at least once. The automation consumer must deduplicate by
 `event_id` and `candidate_id`, then verify `candidate_checksum`.
 
+Candidate state is not part of the immutable candidate payload. Content stores
+and exposes a separate `PublicationCandidateStatusV1` bound to the exact
+`candidate_id` and `candidate_checksum`. Revocation or replacement emits a
+versioned `content.publication_candidate.state_changed.v1` outbox event with a
+monotonic `state_version`; it never mutates the original candidate bytes.
+Automation deduplicates the state event, rejects a status/checksum mismatch,
+and cancels a not-yet-dispatched intent for a matching `revoked` or `replaced`
+status.
+
 ## 8. Producer and consumer responsibilities
 
 ### Content producer guarantees

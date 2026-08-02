@@ -1,0 +1,6 @@
+{
+  "base_fixture": "content-pack-week-1-ar.example.json",
+  "mutation": {
+    "kind": "approved_decision_without_asset"
+  }
+}

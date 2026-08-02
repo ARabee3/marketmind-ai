@@ -1,0 +1,6 @@
+{
+  "base_fixture": "content-pack-week-1-ar.example.json",
+  "mutation": {
+    "kind": "version_conflict"
+  }
+}
