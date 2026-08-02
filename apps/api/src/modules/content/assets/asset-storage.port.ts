@@ -5,6 +5,9 @@
  * live behind this port so the persistence layer can be swapped (local
  * filesystem today, object storage later) without touching content code.
  */
+
+export const CONTENT_ASSET_STORAGE = Symbol("CONTENT_ASSET_STORAGE");
+
 export interface AssetStorage {
   /**
    * Persists raw bytes under `storageKey` and returns the SHA-256 checksum

@@ -5,9 +5,10 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { Inject } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import {
   CONTENT_CHANNELS,
@@ -60,6 +61,7 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { AssetStorage, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
 
 const CAIRO_TIMEZONE = "Africa/Cairo" as const;
 
@@ -87,6 +89,7 @@ export class ContentService {
     private readonly decisionRepository: ContentDecisionRepository,
     private readonly candidateRepository: PublicationCandidateRepository,
     private readonly prisma: PrismaService,
+    @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
   ) {}
 
@@ -502,6 +505,51 @@ export class ContentService {
 
     const versions = await this.packRepository.listItemVersions(packId, itemId);
     return versions.map(toContentItemVersion);
+  }
+
+  // ── GET /api/v1/content-assets/:id ──────────────────────────────────
+
+  /**
+   * Streams a stored content asset to its owner.
+   *
+   * Ownership is verified by walking asset → item version → pack → cycle →
+   * ownerUserId, so a cross-owner asset id returns 404 rather than leaking
+   * another owner's asset existence (arch doc 439-441). Only a `ready` asset
+   * with a persisted storage key can be served — anything else raises
+   * CONTENT_ASSET_REQUIRED. The stored bytes are re-verified against the
+   * authoritative SHA-256 checksum before they leave the service, so a
+   * corrupted blob never reaches the client as if it were the recorded asset.
+   */
+  async getAsset(
+    assetId: string,
+    ownerUserId: string,
+  ): Promise<{ buffer: Buffer; mimeType: string | null; checksum: string }> {
+    const asset = await this.packRepository.getAssetByIdAndOwner(
+      assetId,
+      ownerUserId,
+    );
+    if (!asset) {
+      throw new NotFoundException("Content asset not found");
+    }
+
+    if (asset.status !== "ready" || !asset.storageKey || !asset.checksum) {
+      throw new BadRequestException({
+        code: "CONTENT_ASSET_REQUIRED",
+        message: `Asset '${assetId}' is not ready for retrieval (status=${asset.status})`,
+      });
+    }
+
+    const buffer = await this.assetStorage.retrieve(asset.storageKey);
+
+    const actualChecksum = createHash("sha256").update(buffer).digest("hex");
+    if (actualChecksum !== asset.checksum) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: `Asset '${assetId}' failed checksum verification`,
+      });
+    }
+
+    return { buffer, mimeType: asset.mimeType, checksum: asset.checksum };
   }
 
   // ── GET /api/v1/content-packs/:id/retry-eligibility ─────────────────

@@ -1,12 +1,14 @@
 import { Reflector } from "@nestjs/core";
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, NotFoundException, ValidationPipe } from "@nestjs/common";
+import { Response } from "express";
 import { RbacService } from "../rbac/rbac.service";
 import { RedisService } from "../redis/redis.service";
 import { Role } from "@prisma/client";
 import {
   ContentCycleController,
   ContentPackController,
+  ContentAssetController,
 } from "./content.controller";
 import { ContentService } from "./content.service";
 import { CreateContentCycleDto } from "./dto/create-content-cycle.dto";
@@ -28,6 +30,7 @@ type MockedService = jest.Mocked<
     | "getItemVersions"
     | "decide"
     | "bulkDecide"
+    | "getAsset"
   >
 >;
 
@@ -53,6 +56,7 @@ describe("ContentCycleController", () => {
       getItemVersions: jest.fn(),
       decide: jest.fn(),
       bulkDecide: jest.fn(),
+      getAsset: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -190,6 +194,7 @@ describe("ContentPackController", () => {
       getItemVersions: jest.fn(),
       decide: jest.fn(),
       bulkDecide: jest.fn(),
+      getAsset: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -284,6 +289,119 @@ describe("ContentPackController", () => {
     });
   });
 });
+
+describe("ContentAssetController", () => {
+  let controller: ContentAssetController;
+  let service: MockedService;
+
+  const mockUser = { id: "user-1", email: "owner@test.com", roles: [Role.OWNER] };
+  const mockReq = { user: mockUser } as never;
+
+  beforeEach(async () => {
+    service = {
+      createCycle: jest.fn(),
+      getCycle: jest.fn(),
+      pauseCycle: jest.fn(),
+      resumeCycle: jest.fn(),
+      listWeeks: jest.fn(),
+      upsertWeekContext: jest.fn(),
+      generateWeek: jest.fn(),
+      getPack: jest.fn(),
+      getPackProgress: jest.fn(),
+      retryPack: jest.fn(),
+      getItemVersions: jest.fn(),
+      decide: jest.fn(),
+      bulkDecide: jest.fn(),
+      getAsset: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [ContentAssetController],
+      providers: [
+        { provide: ContentService, useValue: service },
+        { provide: RbacService, useValue: { hasAllPermissions: jest.fn().mockReturnValue(true) } },
+        { provide: RedisService, useValue: { getClient: jest.fn().mockReturnValue({ pipeline: jest.fn().mockReturnValue({ incr: jest.fn().mockReturnThis(), expire: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([[null, 1], [null, 1]]) }) }) } },
+        Reflector,
+      ],
+    }).compile();
+
+    controller = module.get<ContentAssetController>(ContentAssetController);
+  });
+
+  it("should be defined", () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe("delegation", () => {
+    it("delegates getAsset to the service with the owner id", async () => {
+      service.getAsset.mockResolvedValue({
+        buffer: Buffer.from("bytes"),
+        mimeType: "image/png",
+        checksum: "abc",
+      } as never);
+
+      await controller.getAsset("asset-1", mockReq, makeMockRes());
+
+      expect(service.getAsset).toHaveBeenCalledWith("asset-1", mockUser.id);
+    });
+
+    it("streams the buffer with Content-Type, Content-Disposition and cache headers", async () => {
+      service.getAsset.mockResolvedValue({
+        buffer: Buffer.from("bytes"),
+        mimeType: "image/png",
+        checksum: "abc",
+      } as never);
+      const res = makeMockRes();
+
+      await controller.getAsset("asset-1", mockReq, res);
+
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Disposition",
+        'inline; filename="asset-1"',
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Cache-Control",
+        "private, max-age=3600",
+      );
+      expect(res.setHeader).toHaveBeenCalledWith("ETag", '"abc"');
+      expect(res.send).toHaveBeenCalledWith(Buffer.from("bytes"));
+    });
+
+    it("falls back to octet-stream when the asset has no recorded mime type", async () => {
+      service.getAsset.mockResolvedValue({
+        buffer: Buffer.from("bytes"),
+        mimeType: null,
+        checksum: "abc",
+      } as never);
+      const res = makeMockRes();
+
+      await controller.getAsset("asset-1", mockReq, res);
+
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "application/octet-stream",
+      );
+    });
+
+    it("propagates NotFoundException when asset does not belong to owner", async () => {
+      service.getAsset.mockRejectedValue(new NotFoundException());
+      const res = makeMockRes();
+
+      await expect(
+        controller.getAsset("asset-1", mockReq, res),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+});
+
+function makeMockRes(): Response {
+  return {
+    setHeader: jest.fn(),
+    send: jest.fn(),
+  } as unknown as Response;
+}
+
 
 describe("Content controller ValidationPipe", () => {
   const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true });

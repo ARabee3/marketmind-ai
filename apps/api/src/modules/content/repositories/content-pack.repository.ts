@@ -301,6 +301,30 @@ export class ContentPackRepository {
   }
 
   /**
+   * Reads a single content asset scoped to the owning user.
+   *
+   * Ownership is verified by walking the relation chain
+   * asset → item version → pack → cycle → ownerUserId, so a cross-owner
+   * asset id returns null (404 upstream) instead of leaking another owner's
+   * asset existence.
+   */
+  async getAssetByIdAndOwner(
+    assetId: string,
+    ownerUserId: string,
+  ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>> | null> {
+    return this.prisma.contentAsset.findFirst({
+      where: {
+        id: assetId,
+        contentItemVersion: {
+          contentPack: {
+            contentCycle: { ownerUserId },
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Appends an immutable sequenced progress event. Seq is the event count for
    * the pack at insert time + 1; `@@unique([content_pack_id, seq])` rejects a
    * duplicate seq so two concurrent appends cannot write the same sequence

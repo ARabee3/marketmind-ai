@@ -14,6 +14,7 @@ import type { ContentDecisionRow } from "./repositories/content-decision.reposit
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { AssetStorage, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
 import {
   computePublicationCandidateChecksum,
   isPublicationCandidateChecksumValid,
@@ -326,6 +327,15 @@ function makePrismaService(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeAssetStorage(): jest.Mocked<AssetStorage> {
+  return {
+    store: jest.fn(),
+    retrieve: jest.fn(),
+    exists: jest.fn(),
+    delete: jest.fn(),
+  };
+}
+
 /** Extracts the `code` from a Nest HttpException response body. */
 function errorCode(error: unknown): string | undefined {
   if (error instanceof BadRequestException || error instanceof ConflictException) {
@@ -373,6 +383,7 @@ describe("ContentService.createCycle", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -500,6 +511,7 @@ describe("ContentService.upsertWeekContext", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -624,6 +636,7 @@ describe("ContentService.safeDefaultWeekContext", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -694,6 +707,7 @@ describe("ContentService.generateWeek", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -886,6 +900,7 @@ describe("ContentService.reads", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -1092,6 +1107,7 @@ describe("ContentService.decide", () => {
         { provide: ContentDecisionRepository, useValue: decisionRepo },
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -1367,6 +1383,7 @@ describe("ContentService.bulkDecision", () => {
         { provide: ContentDecisionRepository, useValue: decisionRepo },
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -1556,6 +1573,7 @@ describe("ContentService.pauseCycle", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -1607,6 +1625,7 @@ describe("ContentService.resumeCycle", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 
@@ -1665,6 +1684,7 @@ describe("ContentService.retryPack", () => {
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
         { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
         { provide: PrismaService, useValue: makePrismaService() },
+        { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
     }).compile();
 

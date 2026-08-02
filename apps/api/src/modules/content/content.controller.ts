@@ -6,13 +6,14 @@ import {
   Param,
   Body,
   Req,
+  Res,
   UseGuards,
   UsePipes,
   ValidationPipe,
   ParseUUIDPipe,
   ParseIntPipe,
 } from "@nestjs/common";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
@@ -166,5 +167,39 @@ export class ContentPackController {
     @Body() dto: BulkContentDecisionDto,
   ) {
     return this.contentService.bulkDecide(id, dto.decisions, req.user.id);
+  }
+}
+
+/**
+ * Content asset retrieval endpoint.
+ *
+ * GET /content-assets/:id streams a stored asset's bytes back to its owner
+ * with the recorded Content-Type and cache headers. Ownership is re-verified
+ * server-side (asset → item version → pack → cycle → owner), so a cross-owner
+ * asset id returns 404 rather than leaking another owner's asset existence.
+ * GET requests pass through the rate-limit guard unthrottled.
+ */
+@Controller("content-assets")
+@UseGuards(JwtAuthGuard, PermissionsGuard, ContentRateLimitGuard)
+export class ContentAssetController {
+  constructor(private readonly contentService: ContentService) {}
+
+  @Get(":id")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  async getAsset(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, mimeType, checksum } = await this.contentService.getAsset(
+      id,
+      req.user.id,
+    );
+
+    res.setHeader("Content-Type", mimeType ?? "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${id}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.setHeader("ETag", `"${checksum}"`);
+    res.send(buffer);
   }
 }
