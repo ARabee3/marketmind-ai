@@ -1,7 +1,9 @@
 import json
+from json import JSONDecodeError
 from typing import Any
 
 from anyio import to_thread
+from pydantic import ValidationError
 
 from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
 from app.discovery.schemas import DiscoveryModelOutput
@@ -50,17 +52,26 @@ class GeminiDiscoveryProvider(DiscoveryProvider):
             schema = _strip_additional_properties(DiscoveryModelOutput.model_json_schema())
             client = genai.Client(api_key=self.api_key)
             user_prompt = build_user_context(request.turn_kind, request.payload)
-            response = client.models.generate_content(
-                model=self.model,
-                contents=[user_prompt],
-                config=types.GenerateContentConfig(
-                    system_instruction=DISCOVERY_SYSTEM_PROMPT,
-                    response_mime_type="application/json",
-                    response_schema=schema,
-                    http_options=types.HttpOptions(timeout=self.timeout_ms),
-                ),
-            )
-            return normalize_provider_output(json.loads(response.text or "{}"))
+            if request.repair_hint:
+                user_prompt = f"{user_prompt}\n\n{request.repair_hint}"
+            try:
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=[user_prompt],
+                    config=types.GenerateContentConfig(
+                        system_instruction=DISCOVERY_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        response_schema=schema,
+                        http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    ),
+                )
+                return normalize_provider_output(json.loads(response.text or "{}"))
+            except (JSONDecodeError, ValidationError) as exc:
+                raise ProviderError(
+                    "AI_PROVIDER_INVALID_OUTPUT",
+                    "Gemini returned an invalid Discovery response.",
+                    retryable=False,
+                ) from exc
 
         try:
             return await to_thread.run_sync(call_gemini)

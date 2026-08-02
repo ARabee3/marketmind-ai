@@ -29,7 +29,7 @@ channels: []
 seasons: []
 budget_modes: []
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - >-
     https://openstax.org/books/principles-marketing/pages/2-1-developing-a-strategic-plan
@@ -39,8 +39,8 @@ source_references:
 effective_at: '2026-07-30'
 expires_at: null
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: 1353fb46e4bc10c45caacc54350e54ee738b9e9911b3a0689b6ca21ac39528fc
 ---
 

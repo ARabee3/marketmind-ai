@@ -16,7 +16,11 @@ from typing import Any
 from anyio import to_thread
 from pydantic import ValidationError
 
-from strategy_contracts import BusinessProfileVersionRef, StrategyPlan
+from strategy_contracts import (
+    BusinessProfileVersionRef,
+    DeterministicChannelScorecard,
+    StrategyPlan,
+)
 
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
@@ -209,6 +213,111 @@ def _strip_additional_properties(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def _deterministic_scores_from_prompt(
+    prompt: PromptAssembly,
+) -> list[DeterministicChannelScorecard]:
+    raw_scores = prompt.metadata.get("deterministic_channel_scores")
+    if not isinstance(raw_scores, list):
+        return []
+    return [DeterministicChannelScorecard.model_validate(score) for score in raw_scores]
+
+
+def _normalize_deterministic_channel_scores(
+    plan_dict: dict[str, Any],
+    deterministic_channel_scores: list[DeterministicChannelScorecard],
+) -> dict[str, Any]:
+    if not deterministic_channel_scores:
+        return plan_dict
+
+    normalized = copy.deepcopy(plan_dict)
+    rationales = _channel_rationales(normalized)
+    normalized["channel_score_rule_version"] = "strategy-channel-score-v1"
+    normalized["all_channel_scores"] = [
+        _scorecard_with_rationale(scorecard, rationales)
+        for scorecard in deterministic_channel_scores
+    ]
+    normalized["selected_channels"] = [
+        _scorecard_with_rationale(scorecard, rationales)
+        for scorecard in _selected_scorecards(normalized, deterministic_channel_scores)
+    ]
+    return normalized
+
+
+def _channel_rationales(plan_dict: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rationales: dict[str, dict[str, Any]] = {}
+    for field in ("all_channel_scores", "selected_channels"):
+        values = plan_dict.get(field)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, dict):
+                continue
+            channel = value.get("channel")
+            rationale = value.get("rationale")
+            if isinstance(channel, str) and isinstance(rationale, dict):
+                rationales[channel] = rationale
+    return rationales
+
+
+def _scorecard_with_rationale(
+    scorecard: DeterministicChannelScorecard,
+    rationales: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    scorecard_data = scorecard.model_dump(mode="json")
+    scorecard_data["rationale"] = rationales.get(
+        scorecard.channel,
+        {
+            "text": f"{scorecard.channel} is based on deterministic channel scoring.",
+            "source": "deterministic_result",
+            "citation_ids": [],
+        },
+    )
+    return scorecard_data
+
+
+def _selected_scorecards(
+    plan_dict: dict[str, Any],
+    deterministic_channel_scores: list[DeterministicChannelScorecard],
+) -> list[DeterministicChannelScorecard]:
+    scorecards_by_channel = {
+        scorecard.channel: scorecard for scorecard in deterministic_channel_scores
+    }
+    selected_names = [
+        value.get("channel")
+        for value in plan_dict.get("selected_channels", [])
+        if isinstance(value, dict) and isinstance(value.get("channel"), str)
+    ]
+    selected = [
+        scorecards_by_channel[name]
+        for name in selected_names
+        if name in scorecards_by_channel
+        and scorecards_by_channel[name].excluded_reason is None
+    ]
+    if selected:
+        candidates = selected
+    else:
+        candidates = [
+            scorecard
+            for scorecard in deterministic_channel_scores
+            if scorecard.excluded_reason is None
+        ]
+
+    bounded: list[DeterministicChannelScorecard] = []
+    primary_count = 0
+    supporting_count = 0
+    for scorecard in candidates:
+        if scorecard.role.value == "primary":
+            if primary_count >= 2:
+                continue
+            primary_count += 1
+        else:
+            if supporting_count >= 1:
+                continue
+            supporting_count += 1
+        bounded.append(scorecard)
+    return bounded
+
+
 class GeminiStrategyProvider(StrategyLLMProvider):
     name = "gemini_dev"
 
@@ -252,7 +361,11 @@ class GeminiStrategyProvider(StrategyLLMProvider):
                     retryable=False,
                 ) from exc
             try:
-                return StrategyPlan.model_validate(parsed)
+                normalized = _normalize_deterministic_channel_scores(
+                    parsed,
+                    _deterministic_scores_from_prompt(prompt),
+                )
+                return StrategyPlan.model_validate(normalized)
             except ValidationError as exc:
                 raise ProviderError(
                     "AI_PROVIDER_INVALID_OUTPUT",
@@ -395,7 +508,11 @@ class MockStrategyProvider(StrategyLLMProvider):
 
         recursive_clean(plan_dict)
 
-        return StrategyPlan.model_validate(plan_dict)
+        normalized = _normalize_deterministic_channel_scores(
+            plan_dict,
+            _deterministic_scores_from_prompt(prompt),
+        )
+        return StrategyPlan.model_validate(normalized)
 
 
 def _write_english_mock_owner_text(plan: dict[str, Any]) -> None:

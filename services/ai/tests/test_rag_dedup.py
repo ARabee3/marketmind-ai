@@ -1,10 +1,14 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.rag.schemas import RetrievalCandidate, RegionalCandidate
 from app.rag.dedup import deduplicate_and_cap
 
 
-def _make_rc(entry_id: str, chunk_id: str = None) -> RegionalCandidate:
+def _make_rc(
+    entry_id: UUID,
+    chunk_id: UUID | None = None,
+    category: str = "test",
+) -> RegionalCandidate:
     cid = uuid4() if not chunk_id else chunk_id
     cand = RetrievalCandidate(
         chunk_id=cid,
@@ -12,7 +16,7 @@ def _make_rc(entry_id: str, chunk_id: str = None) -> RegionalCandidate:
         entry_version=1,
         score=0.9,
         payload={},
-        subquery_category="test",
+        subquery_category=category,
     )
     return RegionalCandidate(
         candidate=cand,
@@ -64,3 +68,17 @@ def test_dedup_max_total():
     selected = deduplicate_and_cap(candidates, max_per_entry=2, max_total=8)
     
     assert len(selected) == 8
+
+
+def test_dedup_preserves_category_coverage_before_filling_total_cap():
+    candidates = [
+        *[_make_rc(uuid4(), category="local_channel") for _ in range(8)],
+        _make_rc(uuid4(), category="framework_diagnosis"),
+    ]
+
+    selected = deduplicate_and_cap(candidates, max_per_entry=2, max_total=8)
+
+    assert {item.candidate.subquery_category for item in selected} == {
+        "local_channel",
+        "framework_diagnosis",
+    }

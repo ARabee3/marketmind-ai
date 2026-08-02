@@ -1,6 +1,6 @@
 ---
 slug: channel-instagram
-version: 2
+version: 3
 kind: channel_playbook
 title: 'Instagram Fit, Poor-Fit, and Measurement Guide'
 summary: >
@@ -38,16 +38,16 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
-  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/'
+  - 'https://stats.napoleoncat.com/social-media-users-in-egypt/2026/06/'
 effective_at: '2026-07-21'
 expires_at: '2026-12-31'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 1625235a35f5a8802eee067ad8ef76b7a1a6a3f02847039994382450259167ee
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 8e2e1494214b7e3516e8984c9556b83c10662fd0a6c0eb39a925ff78551d4aa8
 ---
 
 ## Use cases (fit)
@@ -77,18 +77,17 @@ keeps people in-app and starves funnels that have no offramp.
 
 A complete profile: a clear handle matching the business name, a recognisable
 logo, a one-line bio that says what the business is and where, a clear link
-(WhatsApp or website), and a starter set of 9–12 images that represent real
-products or the real space — not stock. Stories and reels capability
+(WhatsApp or website), and enough current images to represent real products
+or the real space — not stock. Stories and reels capability
 requires the owner to be comfortable filming the space or products.
 
 ## Team effort / capacity implications
 
-Instagram is one of the more capacity-intensive channels: the format rewards
-consistency and motion (reels, stories), not static posts alone. A solo
-owner can sustain it with two-to-three posts/stories per week and weekend
-reels, but it competes with the rest of the business for the owner's time.
-For an SME with one part-time helper, Instagram + Facebook is usually a
-joint channel managed from one Meta Business Suite.
+Instagram can be capacity-intensive because visual production and replies
+compete with operating the business. Choose the smallest sustainable mix of
+posts, stories, or reels from the owner's real capacity and audience response;
+do not prescribe a universal weekly cadence. Where Facebook is also selected,
+the owner may manage both through Meta's tools if that reduces work.
 
 ## Organic vs. paid role
 
@@ -127,3 +126,5 @@ rewards authenticity.
 - `internal:reviewed-marketing-methodology` — team-synthesized channel
   fit guidance; reach figure cross-referenced to
   `benchmark-egypt-instagram-reach.md`.
+- NapoleonCat, "Social Media Users in Egypt," June 2026 snapshot:
+  https://stats.napoleoncat.com/social-media-users-in-egypt/2026/06/

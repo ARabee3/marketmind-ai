@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   createStrategy as apiCreateStrategy,
   upsertBrief as apiUpsertBrief,
@@ -11,7 +12,9 @@ import {
   type OwnerDecisionPayload,
   type StrategyApiResponse,
   type BriefApiResponse,
+  type ApiError,
 } from '@/lib/api/strategy'
+import { getStrategyErrorTranslationKey } from '../lib/api-error-localization'
 
 export interface UseStrategyActionsResult {
   create: (businessProfileVersionId: string) => Promise<StrategyApiResponse | null>
@@ -27,6 +30,7 @@ export function useStrategyActions(): UseStrategyActionsResult {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pendingRef = useRef(false)
+  const tErrors = useTranslations('Errors')
 
   const wrap = useCallback(
     <T,>(fn: () => Promise<T>): Promise<T | null> => {
@@ -36,10 +40,13 @@ export function useStrategyActions(): UseStrategyActionsResult {
       setError(null)
       return fn()
         .catch((err: unknown) => {
-          const message = err && typeof err === 'object' && 'message' in err
-            ? (err as { message: string }).message
-            : 'Operation failed'
-          setError(message)
+          const apiErr = err && typeof err === 'object' && 'status' in err
+            ? (err as ApiError)
+            : null
+          const key = apiErr
+            ? getStrategyErrorTranslationKey(apiErr)
+            : 'Errors.networkError'
+          setError(tErrors(key.slice('Errors.'.length) as Parameters<typeof tErrors>[0]))
           return null
         })
         .finally(() => {
@@ -47,7 +54,7 @@ export function useStrategyActions(): UseStrategyActionsResult {
           setPending(false)
         })
     },
-    [],
+    [tErrors],
   )
 
   const create = useCallback(

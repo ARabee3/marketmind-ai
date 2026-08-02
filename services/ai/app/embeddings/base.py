@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ class EmbedRequest(BaseModel):
     texts: list[str] = Field(min_length=1)
     model: str | None = None
     dimensions: int | None = None
+    purpose: Literal["generic", "retrieval_query", "retrieval_document"] = "generic"
 
 
 class EmbedResponse(BaseModel):

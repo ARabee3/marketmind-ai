@@ -28,6 +28,15 @@ describe("Discovery completion DTOs", () => {
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
 
+  it("accepts a v5 profile draft id produced by the AI service", async () => {
+    const dto = plainToInstance(ConfirmProfileDto, {
+      profile_draft_id: "961752b0-ec14-583c-9dc8-a58b43ab5e9b",
+      owner_confirmation: true,
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
   it("rejects non-boolean incomplete acknowledgements", async () => {
     const dto = plainToInstance(ConfirmProfileDto, {
       profile_draft_id: "99999999-9999-4999-8999-999999999999",

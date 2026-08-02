@@ -1,4 +1,5 @@
 from anyio import to_thread
+from pydantic import ValidationError
 
 from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
 from app.discovery.schemas import DiscoveryModelOutput
@@ -32,21 +33,31 @@ class OpenAIDiscoveryProvider(DiscoveryProvider):
                 raise ProviderConfigError("The openai package is not installed.") from exc
 
             client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
-            response = client.responses.parse(
-                model=self.model,
-                input=[
-                    {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": build_user_context(
-                            request.turn_kind,
-                            request.payload,
-                        ),
-                    },
-                ],
-                text_format=DiscoveryModelOutput,
-            )
-            return normalize_provider_output(response.output_parsed)
+            messages = [
+                {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": build_user_context(
+                        request.turn_kind,
+                        request.payload,
+                    ),
+                },
+            ]
+            if request.repair_hint:
+                messages.append({"role": "user", "content": request.repair_hint})
+            try:
+                response = client.responses.parse(
+                    model=self.model,
+                    input=messages,
+                    text_format=DiscoveryModelOutput,
+                )
+                return normalize_provider_output(response.output_parsed)
+            except ValidationError as exc:
+                raise ProviderError(
+                    "AI_PROVIDER_INVALID_OUTPUT",
+                    "OpenAI returned an invalid Discovery response.",
+                    retryable=False,
+                ) from exc
 
         try:
             return await to_thread.run_sync(call_openai)

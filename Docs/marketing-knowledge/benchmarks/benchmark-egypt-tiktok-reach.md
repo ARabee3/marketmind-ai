@@ -25,7 +25,7 @@ seasons: []
 budget_modes:
   - monthly_amount
 evidence_tier: verified_benchmark
-review_status: draft
+review_status: approved
 source_references:
   - 'https://datareportal.com/reports/digital-2026-egypt'
   - >-
@@ -33,8 +33,8 @@ source_references:
 effective_at: '2026-01-01'
 expires_at: '2026-12-31'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: 5ebb5f82c854ff1b71bce1fcedbe60a423b3fcd5203b9a68857c7127b5944344
 ---
 
