@@ -385,6 +385,16 @@ describe("StrategyService", () => {
         }),
         expect.any(Object),
       );
+      const queuedStatusCall = (
+        repository.updateStrategyStatus as jest.Mock
+      ).mock.invocationCallOrder.find(
+        (_callOrder: number, index: number) =>
+          (repository.updateStrategyStatus as jest.Mock).mock.calls[index]?.[1] ===
+          "queued",
+      );
+      const queueAddCall = queue.add.mock.invocationCallOrder[0];
+
+      expect(queuedStatusCall).toBeLessThan(queueAddCall);
       expect(httpService.post).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Object),

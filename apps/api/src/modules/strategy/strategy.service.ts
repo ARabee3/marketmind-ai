@@ -270,13 +270,12 @@ export class StrategyService {
       // generation failures are retried by the owner via POST /:id/retry, never
       // by re-running this job (which would hit an illegal failed → generating
       // transition and crash-loop).
+      await this.strategyRepository.updateStrategyStatus(id, "queued");
       await this.strategyQueue.add(
         "generate-strategy",
         { strategyId: id, retrievalRunId: retrieval_run_id, correlationId },
         { attempts: 1 },
       );
-
-      await this.strategyRepository.updateStrategyStatus(id, "queued");
       await this.recordProgress(id, {
         stage: "queued",
         status: "started",
