@@ -159,6 +159,16 @@ export class ContentCycleRepository {
       return tx.contentCycle.findUniqueOrThrow({ where: { id } });
     });
   }
+
+  async listActiveReadyForNextWeek(): Promise<ContentCycle[]> {
+    return this.prisma.contentCycle.findMany({
+      where: {
+        status: "active",
+        nextGenerationAt: { lte: new Date() },
+        currentWeekNumber: { lt: 12 },
+      },
+    });
+  }
 }
 
 function isUniqueViolation(error: unknown): boolean {

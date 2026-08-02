@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
+import { ScheduleModule } from '@nestjs/schedule';
 import {
   ContentCycleController,
   ContentPackController,
@@ -17,6 +18,7 @@ import { ContentProcessor } from './content.processor';
 import { OutboxDispatcher } from './outbox-dispatcher';
 import { ContentRateLimitGuard } from './content-rate-limit.guard';
 import { ContentExceptionFilter } from './content-exception.filter';
+import { ContentScheduler } from './content-scheduler.service';
 import { PrismaModule } from '../../common/persistence/prisma.module';
 import { AssetStorageModule } from './assets/asset-storage.module';
 
@@ -25,6 +27,7 @@ import { AssetStorageModule } from './assets/asset-storage.module';
     PrismaModule,
     HttpModule,
     AssetStorageModule,
+    ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: 'content-generation' }),
     BullModule.registerQueue({ name: 'content-outbox' }),
   ],
@@ -45,6 +48,7 @@ import { AssetStorageModule } from './assets/asset-storage.module';
     OutboxDispatcher,
     ContentRateLimitGuard,
     ContentExceptionFilter,
+    ContentScheduler,
   ],
   exports: [ContentService],
 })
