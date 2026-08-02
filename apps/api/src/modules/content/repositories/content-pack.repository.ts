@@ -173,6 +173,69 @@ export class ContentPackRepository {
     }
   }
 
+  /**
+   * Atomic weekly claim for the request/scheduler path (arch doc 731-734):
+   * creates a queued pack row with an empty item list. The
+   * `@@unique([content_cycle_id, week_number])` constraint makes a concurrent
+   * duplicate insert return the existing pack, so the scheduler and a manual
+   * generate request always resolve to the same pack (arch doc 932-933).
+   * `created` tells the caller whether it won the claim, so only the winner
+   * enqueues a generation job.
+   */
+  async claimQueuedPack(
+    cycleId: string,
+    weekNumber: number,
+    weekContextId: string,
+  ): Promise<{ pack: ContentPack; created: boolean }> {
+    try {
+      const pack = await this.prisma.$transaction(async (tx) => {
+        const cycle = await tx.contentCycle.findUniqueOrThrow({
+          where: { id: cycleId },
+          select: {
+            businessId: true,
+            strategyId: true,
+            strategyVersion: true,
+            strategyDecisionId: true,
+            profileVersionId: true,
+          },
+        });
+
+        return tx.contentPack.create({
+          data: {
+            contentCycleId: cycleId,
+            weeklyClaimId: randomUUID(),
+            weekNumber,
+            businessId: cycle.businessId,
+            strategyId: cycle.strategyId,
+            strategyVersion: cycle.strategyVersion,
+            strategyDecisionId: cycle.strategyDecisionId,
+            profileVersionId: cycle.profileVersionId,
+            weekContextId,
+            status: "queued",
+            retryEligible: true,
+            itemIds: [],
+          },
+        });
+      });
+      return { pack, created: true };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const existing = await this.prisma.contentPack.findUnique({
+          where: {
+            contentCycleId_weekNumber: {
+              contentCycleId: cycleId,
+              weekNumber,
+            },
+          },
+        });
+        if (existing) {
+          return { pack: existing, created: false };
+        }
+      }
+      throw error;
+    }
+  }
+
   async getPackByIdAndOwner(
     id: string,
     ownerUserId: string,

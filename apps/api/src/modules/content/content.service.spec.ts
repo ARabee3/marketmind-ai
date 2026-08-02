@@ -4,12 +4,15 @@ import {
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
+import { getQueueToken } from "@nestjs/bullmq";
 import { ContentService } from "./content.service";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
+import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import type {
   CreateContentCycleRequest,
+  GenerateContentPackRequest,
   UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
 
@@ -113,6 +116,32 @@ const SYSTEM_DEFAULTED_WEEK_ROW = {
 type MockedStrategyRepo = jest.Mocked<Partial<StrategyRepository>>;
 type MockedCycleRepo = jest.Mocked<Partial<ContentCycleRepository>>;
 type MockedWeekRepo = jest.Mocked<Partial<ContentWeekContextRepository>>;
+type MockedPackRepo = jest.Mocked<Partial<ContentPackRepository>>;
+
+const PACK_ROW = {
+  id: "pack-1",
+  contractVersion: "content-v1",
+  contentCycleId: "cycle-1",
+  weeklyClaimId: "claim-pack-1",
+  weekNumber: 1,
+  businessId: "biz-1",
+  strategyId: "strat-1",
+  strategyVersion: 2,
+  strategyDecisionId: "decision-1",
+  profileVersionId: "prof-1",
+  weekContextId: "week-1",
+  status: "queued",
+  retryEligible: true,
+  itemIds: [],
+  createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-08-01T00:00:00.000Z"),
+};
+
+const GENERATE_DTO: GenerateContentPackRequest = {
+  content_cycle_id: "cycle-1",
+  week_number: 1,
+  idempotency_key: "gen-idem-1",
+};
 
 function makeStrategyRepo(
   overrides: Partial<MockedStrategyRepo> = {},
@@ -145,6 +174,26 @@ function makeWeekRepo(overrides: Partial<MockedWeekRepo> = {}): MockedWeekRepo {
     upsertOwnerContext: jest.fn().mockResolvedValue(WEEK_ROW),
     listWeeks: jest.fn().mockResolvedValue([]),
     createSafeDefaultContext: jest.fn().mockResolvedValue(SYSTEM_DEFAULTED_WEEK_ROW),
+    ...overrides,
+  };
+}
+
+function makePackRepo(overrides: Partial<MockedPackRepo> = {}): MockedPackRepo {
+  return {
+    claimQueuedPack: jest
+      .fn()
+      .mockResolvedValue({ pack: PACK_ROW, created: true }),
+    appendProgressEvent: jest.fn().mockResolvedValue({
+      id: 1n,
+      contentPackId: "pack-1",
+      seq: 1,
+      stage: "queued",
+      status: "started",
+      messageKey: "content.queued",
+      messageText: "Generation job queued.",
+      payload: {},
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    }),
     ...overrides,
   };
 }
@@ -191,6 +240,8 @@ describe("ContentService.createCycle", () => {
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
+        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
       ],
     }).compile();
 
@@ -313,6 +364,8 @@ describe("ContentService.upsertWeekContext", () => {
         { provide: StrategyRepository, useValue: makeStrategyRepo() },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
+        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
       ],
     }).compile();
 
@@ -432,6 +485,8 @@ describe("ContentService.safeDefaultWeekContext", () => {
         { provide: StrategyRepository, useValue: makeStrategyRepo() },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
+        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
       ],
     }).compile();
 
@@ -475,5 +530,150 @@ describe("ContentService.safeDefaultWeekContext", () => {
     expect(result.context_source).toBe("system_defaulted");
     expect(result.confirmed_by_user_id).toBeNull();
     expect(result.system_defaulted_at).toBe("2026-08-15T00:00:00.000Z");
+  });
+});
+
+describe("ContentService.generateWeek", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+  let weekRepo: MockedWeekRepo;
+  let packRepo: MockedPackRepo;
+  let queue: { add: jest.Mock };
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+    weekRepo = makeWeekRepo();
+    packRepo = makePackRepo();
+    queue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: weekRepo },
+        { provide: ContentPackRepository, useValue: packRepo },
+        { provide: getQueueToken("content-generation"), useValue: queue },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the cycle does not exist or is not owned by the caller", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects with CONTENT_CYCLE_PAUSED when the cycle is paused", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "paused",
+    });
+
+    await rejectsWithCode(
+      service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID),
+      "CONTENT_CYCLE_PAUSED",
+    );
+  });
+
+  it("rejects with CONTENT_CYCLE_COMPLETED when the cycle is completed", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "completed",
+    });
+
+    await rejectsWithCode(
+      service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID),
+      "CONTENT_CYCLE_COMPLETED",
+    );
+  });
+
+  it("rejects with CONTENT_WEEK_OUT_OF_RANGE for weeks outside 1-12", async () => {
+    await rejectsWithCode(
+      service.generateWeek("cycle-1", 0, GENERATE_DTO, OWNER_ID),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+    await rejectsWithCode(
+      service.generateWeek("cycle-1", 13, GENERATE_DTO, OWNER_ID),
+      "CONTENT_WEEK_OUT_OF_RANGE",
+    );
+  });
+
+  it("claims the week, enqueues a generation job, and returns the queued pack", async () => {
+    (weekRepo.listWeeks as jest.Mock).mockResolvedValue([WEEK_ROW]);
+
+    const result = await service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID);
+
+    expect(result.status).toBe("queued");
+    expect(result.correlation_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(result.content_pack.id).toBe("pack-1");
+    expect(result.content_pack.status).toBe("queued");
+    expect(result.content_pack.week_number).toBe(1);
+    expect(result.content_pack.item_ids).toEqual([]);
+
+    // The pack is claimed atomically against the resolved week context.
+    expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
+      "cycle-1",
+      1,
+      "week-1",
+    );
+
+    // Exactly one generation job is enqueued with the pack identity and the
+    // retry policy from the architecture pack.
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    expect(queue.add).toHaveBeenCalledWith(
+      "generate-content",
+      {
+        contentCycleId: "cycle-1",
+        weekNumber: 1,
+        contentPackId: "pack-1",
+        idempotencyKey: "gen-idem-1",
+        correlationId: result.correlation_id,
+      },
+      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+    );
+
+    expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
+      "pack-1",
+      expect.objectContaining({
+        stage: "queued",
+        status: "started",
+        messageKey: "content.queued",
+      }),
+    );
+  });
+
+  it("returns the existing pack without enqueuing when another request already claimed the week", async () => {
+    (packRepo.claimQueuedPack as jest.Mock).mockResolvedValue({
+      pack: PACK_ROW,
+      created: false,
+    });
+
+    const result = await service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID);
+
+    expect(result.status).toBe("queued");
+    expect(result.content_pack.id).toBe("pack-1");
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(packRepo.appendProgressEvent).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the safe default week context when none exists yet", async () => {
+    // listWeeks returns [] (makeWeekRepo default) and the repo falls back to
+    // creating a system defaulted context.
+    const result = await service.generateWeek("cycle-1", 3, GENERATE_DTO, OWNER_ID);
+
+    expect(weekRepo.createSafeDefaultContext).toHaveBeenCalled();
+    expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
+      "cycle-1",
+      3,
+      "week-defaulted",
+    );
+    expect(result.content_pack.id).toBe("pack-1");
   });
 });

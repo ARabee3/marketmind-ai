@@ -5,19 +5,26 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { randomUUID } from "node:crypto";
 import type {
   CairoTimezone,
   ContentCtaDestination,
   ContentCycle,
   ContentCycleResponse,
+  ContentPack,
   ContentPromotion,
   ContentWeekContext,
   CreateContentCycleRequest,
+  GenerateContentPackRequest,
   UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
 import type { ContentWeekContext as PrismaWeekContext } from "@prisma/client";
+import type { ContentPack as PrismaContentPack } from "@prisma/client";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
+import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 
 const CAIRO_TIMEZONE = "Africa/Cairo" as const;
@@ -30,6 +37,8 @@ export class ContentService {
     private readonly cycleRepository: ContentCycleRepository,
     private readonly weekContextRepository: ContentWeekContextRepository,
     private readonly strategyRepository: StrategyRepository,
+    private readonly packRepository: ContentPackRepository,
+    @InjectQueue("content-generation") private readonly contentQueue: Queue,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -273,6 +282,100 @@ export class ContentService {
     return toContentWeekContext(persisted);
   }
 
+  // ── POST /api/v1/content-cycles/:id/weeks/:week_number/generate ─────
+
+  /**
+   * Claims one (cycle, week) for generation and enqueues the AI job.
+   *
+   * The request path never calls the AI provider; it only persists the claim
+   * and queues the work (queue + worker only). The claim is atomic: the pack
+   * row insert is guarded by `@@unique([content_cycle_id, week_number])`, so a
+   * scheduler and a manual request share one claim — the first insert wins and
+   * a concurrent one resolves to the same pack (arch doc 731-734, 932-933).
+   *
+   * Preconditions (all re-checked server-side): the cycle exists and belongs
+   * to the owner, is active, and the week is within 1-12. The week context is
+   * resolved from the confirmed/safe-default rows; an absent context becomes
+   * the explicit safe default (arch doc 930) so the pack always references a
+   * valid week context. On an idempotent replay the existing pack is returned
+   * without enqueuing a duplicate job.
+   */
+  async generateWeek(
+    cycleId: string,
+    weekNumber: number,
+    dto: GenerateContentPackRequest,
+    ownerUserId: string,
+  ): Promise<{
+    content_pack: ContentPack;
+    status: "queued";
+    correlation_id: string;
+  }> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      cycleId,
+      ownerUserId,
+    );
+    if (!cycle) {
+      throw new NotFoundException("Content cycle not found");
+    }
+    this.assertCycleActive(cycle);
+    this.assertWeekNumberInRange(weekNumber);
+
+    // Resolve the week context; an absent one becomes the explicit safe
+    // default so the pack row always has a valid week_context_id.
+    const weeks = await this.weekContextRepository.listWeeks(cycleId);
+    const existingWeek = weeks.find((w) => w.weekNumber === weekNumber);
+    const weekContextId =
+      existingWeek?.id ??
+      (await this.safeDefaultWeekContext(cycleId, weekNumber)).id;
+
+    const { pack, created } = await this.packRepository.claimQueuedPack(
+      cycleId,
+      weekNumber,
+      weekContextId,
+    );
+
+    const correlationId = randomUUID();
+    if (!created) {
+      // Idempotent replay: the week is already claimed; return the existing
+      // pack without enqueuing a duplicate job (arch doc 932-933).
+      return {
+        content_pack: toContentPack(pack),
+        status: "queued",
+        correlation_id: correlationId,
+      };
+    }
+
+    await this.contentQueue.add(
+      "generate-content",
+      {
+        contentCycleId: cycleId,
+        weekNumber,
+        contentPackId: pack.id,
+        idempotencyKey: dto.idempotency_key,
+        correlationId,
+      },
+      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+    );
+
+    await this.packRepository.appendProgressEvent(pack.id, {
+      stage: "queued",
+      status: "started",
+      messageKey: "content.queued",
+      messageText: "Generation job queued.",
+      payload: { correlation_id: correlationId },
+    });
+
+    this.logger.log(
+      `[ContentPack ${pack.id}] [Corr: ${correlationId}] Generation queued for week ${weekNumber}.`,
+    );
+
+    return {
+      content_pack: toContentPack(pack),
+      status: "queued",
+      correlation_id: correlationId,
+    };
+  }
+
   private assertCycleActive(cycle: ContentCycleRow): void {
     if (cycle.status === "paused") {
       throw new ConflictException({
@@ -357,6 +460,27 @@ function toContentWeekContext(week: PrismaWeekContext): ContentWeekContext {
     confirmed_by_user_id: null,
     confirmed_at: null,
     system_defaulted_at: (week.systemDefaultedAt as Date).toISOString(),
+  };
+}
+
+function toContentPack(pack: PrismaContentPack): ContentPack {
+  return {
+    id: pack.id,
+    contract_version: pack.contractVersion as ContentPack["contract_version"],
+    content_cycle_id: pack.contentCycleId,
+    weekly_claim_id: pack.weeklyClaimId,
+    week_number: pack.weekNumber,
+    business_id: pack.businessId,
+    strategy_id: pack.strategyId,
+    strategy_version: pack.strategyVersion,
+    strategy_decision_id: pack.strategyDecisionId,
+    profile_version_id: pack.profileVersionId,
+    week_context_id: pack.weekContextId,
+    status: pack.status as ContentPack["status"],
+    retry_eligible: pack.retryEligible,
+    item_ids: toJsonStringArray(pack.itemIds),
+    created_at: pack.createdAt.toISOString(),
+    updated_at: pack.updatedAt.toISOString(),
   };
 }
 

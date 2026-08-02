@@ -186,6 +186,77 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("claimQueuedPack", () => {
+    function makeClaimTx() {
+      const packCreate = jest.fn().mockResolvedValue(PACK_ROW);
+      return {
+        tx: {
+          contentCycle: {
+            findUniqueOrThrow: jest.fn().mockResolvedValue({
+              businessId: "business-1",
+              strategyId: "strategy-1",
+              strategyVersion: 3,
+              strategyDecisionId: "decision-1",
+              profileVersionId: "profile-1",
+            }),
+          },
+          contentPack: { create: packCreate },
+        },
+        packCreate,
+      };
+    }
+
+    it("creates a queued pack row with empty items and reports created=true", async () => {
+      const mocks = makeClaimTx();
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(mocks.tx),
+        ),
+      } as unknown as PrismaService);
+
+      const result = await repo.claimQueuedPack("cycle-1", 3, "week-3");
+
+      expect(result.created).toBe(true);
+      expect(result.pack.id).toBe("pack-1");
+      expect(mocks.packCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contentCycleId: "cycle-1",
+          weekNumber: 3,
+          weekContextId: "week-3",
+          businessId: "business-1",
+          strategyId: "strategy-1",
+          strategyVersion: 3,
+          strategyDecisionId: "decision-1",
+          profileVersionId: "profile-1",
+          status: "queued",
+          retryEligible: true,
+          itemIds: [],
+        }),
+      });
+    });
+
+    it("returns the existing pack with created=false on an idempotent replay (P2002)", async () => {
+      const findUnique = jest.fn().mockResolvedValue(PACK_ROW);
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(() => {
+          throw uniqueViolation();
+        }),
+        contentPack: { findUnique },
+      } as unknown as PrismaService);
+
+      const result = await repo.claimQueuedPack("cycle-1", 1, "week-1");
+
+      expect(result.created).toBe(false);
+      expect(result.pack.id).toBe("pack-1");
+      expect(findUnique).toHaveBeenCalledWith({
+        where: {
+          contentCycleId_weekNumber: { contentCycleId: "cycle-1", weekNumber: 1 },
+        },
+      });
+    });
+  });
+
   describe("getPackByIdAndOwner", () => {
     it("scopes by owner through the cycle", async () => {
       const findFirst = jest.fn().mockResolvedValue(PACK_ROW);
