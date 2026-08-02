@@ -5,8 +5,8 @@
   "nonce": "fixture-dispatch-nonce-0001",
   "key_id": "fixture-key-v1",
   "signature_algorithm": "hmac-sha256",
-  "body_sha256": "be6b8acaf8cec7e3259161de496e2bce06995cbf70514824775173cffac0df4b",
-  "signature": "e118248b3b957431378a838e009aac794bfccd56050d5dd7af7eab5acb076e53",
+  "body_sha256": "e364888b20976495b15c2e8ff45d6d549f80e06c654f829ca2e25a54100cdf76",
+  "signature": "165a1bc4bd6d9486cef8bb9f40a10cdeb97d8243eb1f1f303f8e1bb3deb039cd",
   "body": {
     "contract_version": "publication-dispatch-v1",
     "attempt_id": "15151515-1515-4151-8151-151515151515",
@@ -42,7 +42,7 @@
           "kind": "owner_supplied",
           "mime_type": "image/jpeg",
           "storage_key": "content/111/week-1/owner-product.jpg",
-          "checksum": "sha256-owner-asset"
+          "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4"
         }
       ],
       "recommended_publish_window": {
@@ -58,14 +58,14 @@
         "decided_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
         "decided_at": "2026-08-01T11:00:00+03:00"
       },
-      "candidate_checksum": "7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13",
+      "candidate_checksum": "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
       "created_at": "2026-08-01T11:01:00+03:00"
     },
     "candidate_status": {
       "contract_version": "publication-candidate-status-v1",
       "candidate_id": "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
       "business_id": "11111111-1111-4111-8111-111111111111",
-      "candidate_checksum": "7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13",
+      "candidate_checksum": "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
       "state_version": 1,
       "candidate_state": "active",
       "replacement_candidate_id": null,
@@ -75,7 +75,7 @@
     "assets": [
       {
         "asset_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        "checksum": "sha256-owner-asset",
+        "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
         "mime_type": "image/jpeg",
         "retrieval_url": "https://api.example.test/internal/v1/publishing/assets/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?fixture=1",
         "retrieval_expires_at": "2026-08-03T15:35:00Z"
@@ -104,7 +104,7 @@
       "intent_id": "13131313-1313-4131-8131-131313131313",
       "intent_version": 2,
       "candidate_id": "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
-      "candidate_checksum": "7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13",
+      "candidate_checksum": "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
       "mode": "real",
       "target_id": "12121212-1212-4121-8121-121212121212",
       "scheduled_local": "2026-08-03T18:30:00",
@@ -112,7 +112,7 @@
       "scheduled_utc": "2026-08-03T15:30:00Z",
       "decided_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       "decided_at": "2026-08-01T12:00:00Z",
-      "approval_fingerprint": "43eb70dba61fba3fed647ad2fc75bee103378402b0694122b076228e84c25f68"
+      "approval_fingerprint": "4126ffa615681c54c60b41ecd01ff17749cbb4ddc8c0376a306ec6e23f7133a9"
     },
     "scheduled_utc": "2026-08-03T15:30:00Z"
   }

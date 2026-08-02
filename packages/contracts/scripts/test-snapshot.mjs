@@ -94,7 +94,38 @@ async function run() {
   const publishingSnapshot = JSON.parse(
     await fs.readFile(PUBLISHING_SNAPSHOT_PATH, "utf-8"),
   );
+  const publishingCandidate = JSON.parse(
+    await fs.readFile(
+      new URL("publication-candidate-approved.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const publishingCandidateStatus = JSON.parse(
+    await fs.readFile(
+      new URL("publication-candidate-status-active.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const publishingCandidateCreatedEvent = JSON.parse(
+    await fs.readFile(
+      new URL("publication-candidate-created-event.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
   const publishingFixtures = {
+    PublicationCandidateRecordV1: {
+      contract_version: "publishing-candidate-record-v1",
+      candidate_id: publishingCandidate.candidate_id,
+      event_id: publishingCandidateCreatedEvent.event_id,
+      business_id: publishingCandidate.business_id,
+      candidate_checksum: publishingCandidate.candidate_checksum,
+      event_fingerprint: "0".repeat(64),
+      source_state: publishingCandidateStatus.candidate_state,
+      source_state_version: publishingCandidateStatus.state_version,
+      source_status: publishingCandidateStatus,
+      received_at: publishingCandidateCreatedEvent.occurred_at,
+      payload: publishingCandidate,
+    },
     PublishingTargetV1: JSON.parse(
       await fs.readFile(
         new URL("publishing-target-connected.example.json", EXAMPLES_DIR),

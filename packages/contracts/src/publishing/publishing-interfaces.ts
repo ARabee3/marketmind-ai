@@ -1,6 +1,7 @@
 import type {
   PublicationCandidateCreatedEventV1,
   PublicationCandidateStateChangedEventV1,
+  PublicationCandidateStatusV1,
   PublicationCandidateV1,
 } from "../content/publication-candidate";
 import type {
@@ -30,8 +31,10 @@ export type PublicationCandidateRecordV1 = {
   readonly event_id: UUID;
   readonly business_id: UUID;
   readonly candidate_checksum: string;
+  readonly event_fingerprint: string;
   readonly source_state: "active" | "revoked" | "replaced";
   readonly source_state_version: number;
+  readonly source_status: PublicationCandidateStatusV1;
   readonly received_at: IsoDateTime;
   readonly payload: PublicationCandidateCreatedEventV1["payload"];
 };

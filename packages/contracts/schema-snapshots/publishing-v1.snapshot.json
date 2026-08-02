@@ -1,5 +1,18 @@
 {
   "version": "publishing-v1",
+  "PublicationCandidateRecordV1": [
+    "contract_version",
+    "candidate_id",
+    "event_id",
+    "business_id",
+    "candidate_checksum",
+    "event_fingerprint",
+    "source_state",
+    "source_state_version",
+    "source_status",
+    "received_at",
+    "payload"
+  ],
   "PublishingTargetV1": [
     "contract_version",
     "target_id",

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   ERROR_CODES,
+  computePublicationAssetChecksum,
   computePublicationCandidateChecksum,
   computePublicationApprovalFingerprint,
   computePublishingSha256,
@@ -15,6 +16,7 @@ import {
   publicationAttemptStateForOutcome,
   publicationIntentJobKey,
   publicationIntentStateForOutcome,
+  reducePublicationCandidateEventV1,
   requiresPublicationApprovalInvalidation,
   signPublicationDispatchEnvelope,
   validateCandidateForPublishing,
@@ -27,17 +29,22 @@ import {
   validatePublicationResultV1,
   validatePublicationScheduleInstant,
   validatePublishingTargetV1,
+  validateRetrievedPublicationAssetsV1,
   validateSignedPublicationCallbackEnvelopeV1,
   validateSignedPublicationDispatchEnvelopeV1,
   type PublicationApprovalSnapshotV1,
   type PublicationAttemptV1,
   type PublicationCandidateStatusV1,
+  type PublicationCandidateCreatedEventV1,
+  type PublicationCandidateRecordV1,
+  type PublicationCandidateStateChangedEventV1,
   type PublicationCandidateV1,
   type PublicationIntentV1,
   type SignedPublicationDispatchEnvelopeV1,
   type PublishingEnvelopeValidationContext,
   type PublishingErrorCode,
   type PublishingTargetV1,
+  type RetrievedPublicationAssetV1,
 } from "../src/index";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -61,6 +68,10 @@ async function loadExample(name: string): Promise<JsonObject> {
 
 async function loadWorkflowFixture(name: string): Promise<JsonObject> {
   return loadJson(resolve(workflowFixturesDirectory, name));
+}
+
+async function loadWorkflowReference(path: string): Promise<JsonObject> {
+  return loadJson(resolve(workflowFixturesDirectory, path));
 }
 
 function clone<T>(value: T): T {
@@ -95,6 +106,11 @@ async function materializeContentCandidateDescriptor(name: string): Promise<{
   }
   if (mutation?.kind === "tamper_caption") {
     (candidate as { caption: unknown }).caption = mutation.value;
+  }
+  if (mutation?.kind === "invalid_asset_checksum") {
+    (candidate.assets[0] as { checksum: unknown }).checksum = mutation.value;
+    (candidate as { candidate_checksum: string }).candidate_checksum =
+      computePublicationCandidateChecksum(candidate);
   }
   return {
     candidate,
@@ -203,10 +219,38 @@ function envelopeContext(
   };
 }
 
+function assertDispatchUsesCanonicalContentFixtures(
+  envelope: JsonObject,
+  candidate: PublicationCandidateV1,
+  status: PublicationCandidateStatusV1,
+): void {
+  const body = envelope.body as JsonObject;
+  assert.deepEqual(
+    body.candidate,
+    candidate,
+    "n8n dispatch candidate must be the canonical Content candidate fixture",
+  );
+  assert.deepEqual(
+    body.candidate_status,
+    status,
+    "n8n dispatch status must be the canonical Content status fixture",
+  );
+}
+
 async function validateSingleFile(path: string): Promise<void> {
   const value = await loadJson(resolve(process.cwd(), path));
   const contractVersion = value.contract_version;
   if (contractVersion === "publishing-dispatch-envelope-v1") {
+    const manifest = await loadWorkflowFixture(
+      "publishing-v1.fixture-manifest.json",
+    );
+    const candidate = (await loadWorkflowReference(
+      String(manifest.canonical_content_candidate),
+    )) as PublicationCandidateV1;
+    const status = (await loadWorkflowReference(
+      String(manifest.canonical_content_status),
+    )) as PublicationCandidateStatusV1;
+    assertDispatchUsesCanonicalContentFixtures(value, candidate, status);
     const result = validateSignedPublicationDispatchEnvelopeV1(
       value,
       envelopeContext(value, "publishing-v1-fixture-secret-not-for-production"),
@@ -247,12 +291,29 @@ async function run(): Promise<void> {
     "publishing-v1-fixture-secret-not-for-production",
   );
 
-  const candidate = (await loadExample(
-    "publication-candidate-approved.example.json",
+  const candidate = (await loadWorkflowReference(
+    String(manifest.canonical_content_candidate),
   )) as PublicationCandidateV1;
-  const status = (await loadExample(
-    "publication-candidate-status-active.example.json",
+  const status = (await loadWorkflowReference(
+    String(manifest.canonical_content_status),
   )) as PublicationCandidateStatusV1;
+  const createdEvent = (await loadWorkflowReference(
+    String(manifest.canonical_content_created_event),
+  )) as unknown as PublicationCandidateCreatedEventV1;
+  assert.deepEqual(
+    createdEvent.payload,
+    candidate,
+    "canonical created event must carry the canonical Content candidate fixture",
+  );
+  const candidateIntake = reducePublicationCandidateEventV1(
+    null,
+    createdEvent,
+    createdEvent.occurred_at,
+  );
+  assert.equal(candidateIntake.disposition, "applied");
+  assert.ok(candidateIntake.record);
+  const candidateRecord =
+    candidateIntake.record as PublicationCandidateRecordV1;
   const intent = (await loadExample(
     "publication-intent-real-scheduled.example.json",
   )) as PublicationIntentV1;
@@ -320,6 +381,7 @@ async function run(): Promise<void> {
 
   const dispatch = await loadWorkflowFixture(String(manifest.valid_dispatch));
   const callback = await loadWorkflowFixture(String(manifest.valid_callback));
+  assertDispatchUsesCanonicalContentFixtures(dispatch, candidate, status);
   assert.equal(
     computePublishingSha256(dispatch.body),
     dispatch.body_sha256,
@@ -336,10 +398,107 @@ async function run(): Promise<void> {
         envelope: dispatch,
         intent,
         attempt,
+        candidate_record: candidateRecord,
         context: envelopeContext(dispatch, fixtureSecret),
       }),
     ),
     null,
+  );
+
+  const canonicalAssetBytes = new TextEncoder().encode(
+    String(manifest.canonical_asset_bytes_utf8),
+  );
+  assert.equal(
+    computePublicationAssetChecksum(canonicalAssetBytes),
+    candidate.assets[0]?.checksum,
+    "canonical Content asset checksum must describe the retrieved fixture bytes",
+  );
+  const dispatchBody = dispatch.body as unknown as {
+    assets: readonly {
+      asset_id: string;
+      mime_type: string;
+      checksum: string;
+      retrieval_url: string;
+      retrieval_expires_at: string;
+    }[];
+  };
+  const retrievedAssets: readonly RetrievedPublicationAssetV1[] = [
+    {
+      asset_id: candidate.assets[0]!.asset_id,
+      mime_type: candidate.assets[0]!.mime_type,
+      bytes: canonicalAssetBytes,
+    },
+  ];
+  assert.equal(
+    firstCode(
+      validateRetrievedPublicationAssetsV1({
+        dispatch: dispatchBody,
+        retrieved_assets: retrievedAssets,
+      }),
+    ),
+    null,
+    "retrieved asset bytes must match the approved candidate digest before execution",
+  );
+  assert.equal(
+    firstCode(
+      validateRetrievedPublicationAssetsV1({
+        dispatch: dispatchBody,
+        retrieved_assets: [
+          {
+            ...retrievedAssets[0]!,
+            bytes: new TextEncoder().encode(
+              `${String(manifest.canonical_asset_bytes_utf8)}-tampered`,
+            ),
+          },
+        ],
+      }),
+    ),
+    "PUBLISHING_ASSET_TAMPERED",
+    "retrieved bytes with a mismatched hash must be rejected before dispatch",
+  );
+
+  const driftedDispatchBody = clone(dispatch.body) as JsonObject;
+  const driftedCandidate = driftedDispatchBody.candidate as JsonObject;
+  driftedCandidate.caption =
+    "Internally valid, but not the canonical Content fixture.";
+  driftedCandidate.candidate_checksum = computePublicationCandidateChecksum(
+    driftedCandidate as PublicationCandidateV1,
+  );
+  const driftedStatus = driftedDispatchBody.candidate_status as JsonObject;
+  driftedStatus.candidate_checksum = driftedCandidate.candidate_checksum;
+  const driftedApproval = driftedDispatchBody.approval as JsonObject;
+  driftedApproval.candidate_checksum = driftedCandidate.candidate_checksum;
+  recomputeApprovalFingerprint(driftedApproval);
+  const resignedDriftedDispatch = signPublicationDispatchEnvelope(
+    {
+      contract_version: "publishing-dispatch-envelope-v1",
+      message_id: "27272727-2727-4272-8272-272727272727",
+      sent_at: String(dispatch.sent_at),
+      nonce: "fixture-content-drift-0001",
+      key_id: String(dispatch.key_id),
+      body: driftedDispatchBody as unknown as SignedPublicationDispatchEnvelopeV1["body"],
+    },
+    fixtureSecret,
+  );
+  assert.equal(
+    firstCode(
+      validateSignedPublicationDispatchEnvelopeV1(
+        resignedDriftedDispatch,
+        envelopeContext(resignedDriftedDispatch, fixtureSecret),
+      ),
+    ),
+    null,
+    "drift proof must remain internally signed and schema-valid",
+  );
+  assert.throws(
+    () =>
+      assertDispatchUsesCanonicalContentFixtures(
+        resignedDriftedDispatch as unknown as JsonObject,
+        candidate,
+        status,
+      ),
+    /canonical Content candidate fixture/,
+    "n8n fixture validation must fail when its candidate copy drifts",
   );
   assert.equal(
     firstCode(
@@ -399,6 +558,28 @@ async function run(): Promise<void> {
     ),
     null,
   );
+  const revokedEvent = (await loadWorkflowReference(
+    String(manifest.canonical_content_state_changed_event),
+  )) as unknown as PublicationCandidateStateChangedEventV1;
+  const revokedIntake = reducePublicationCandidateEventV1(
+    candidateRecord,
+    revokedEvent,
+    revokedEvent.occurred_at,
+  );
+  assert.equal(revokedIntake.disposition, "applied");
+  assert.equal(
+    firstCode(
+      validatePublicationDispatchContext({
+        envelope: dispatch,
+        intent,
+        attempt,
+        candidate_record: revokedIntake.record,
+        context: envelopeContext(dispatch, fixtureSecret),
+      }),
+    ),
+    "PUBLISHING_CANDIDATE_REVOKED",
+    "latest authoritative revoked v2 must block a stale active v1 dispatch",
+  );
   assert.equal(
     firstCode(
       validatePublicationScheduleInstant(
@@ -425,6 +606,10 @@ async function run(): Promise<void> {
     [
       "publication-candidate-tampered.invalid.json",
       "PUBLISHING_CANDIDATE_TAMPERED",
+    ],
+    [
+      "publication-candidate-asset-checksum-format.invalid.json",
+      "PUBLISHING_CANDIDATE_INVALID",
     ],
     [
       "publication-candidate-revoked.invalid.json",
@@ -581,7 +766,7 @@ async function run(): Promise<void> {
   );
 
   console.log(
-    "publishing-v1 contracts, exact approval, outcomes, idempotency, and signed workflow fixtures are valid.",
+    "publishing-v1 authoritative status, SHA-256 assets, exact approval, idempotency, and canonical signed workflow fixtures are valid.",
   );
 }
 

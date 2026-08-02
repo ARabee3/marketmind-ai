@@ -5,15 +5,15 @@
   "nonce": "fixture-callback-nonce-0001",
   "key_id": "fixture-key-v1",
   "signature_algorithm": "hmac-sha256",
-  "body_sha256": "fda37f5d8c4da4a501aa5283891379949921c45d731028e9b246db50acda3c53",
-  "signature": "f8a92cc26cee932bcf2809f77bcec318512152894a1bd314b3db997452878979",
+  "body_sha256": "d5740ea33c032175866c70b9819fbb15631a40da49fb7b6245e827ba492ebe8e",
+  "signature": "41ad0bd5b19c74d817218304347ee2c483af26599c43bc9b82d9aa4c8cc97fb6",
   "body": {
     "contract_version": "publication-callback-v1",
     "callback_id": "17171717-1717-4171-8171-171717171717",
     "attempt_id": "15151515-1515-4151-8151-151515151515",
     "intent_id": "13131313-1313-4131-8131-131313131313",
     "intent_version": 2,
-    "request_fingerprint": "be6b8acaf8cec7e3259161de496e2bce06995cbf70514824775173cffac0df4b",
+    "request_fingerprint": "e364888b20976495b15c2e8ff45d6d549f80e06c654f829ca2e25a54100cdf76",
     "workflow_version": "publishing-v1.0.0",
     "result": {
       "contract_version": "publication-result-v1",

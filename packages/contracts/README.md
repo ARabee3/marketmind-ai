@@ -18,7 +18,8 @@ contain NestJS controllers, FastAPI provider code, repositories, or secrets.
 - A lightweight example validator.
 - A human-readable contract guide in `PREPARED_DISCOVERY_CONTRACT.md`.
 - Frozen Content and deterministic Publishing v1 boundaries, including exact
-  owner approval, idempotency, truthful results, and signed workflow fixtures.
+  owner approval, authoritative candidate-status intake, SHA-256 asset-byte
+  verification, idempotency, truthful results, and signed workflow fixtures.
 
 ## Useful Commands
 

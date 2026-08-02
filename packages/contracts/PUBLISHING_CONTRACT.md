@@ -57,13 +57,28 @@ The valid handoff is the exact checked-in
 `publication-candidate-approved.example.json` payload with checksum:
 
 ```text
-7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13
+b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443
 ```
 
 Publishing accepts it only with the matching active
 `publication-candidate-status-v1` snapshot. The same boundary rejects the
 checked-in unapproved, tampered, and revoked fixtures. Candidate status changes
 advance by `state_version` and never mutate checksum-covered candidate bytes.
+
+`reducePublicationCandidateEventV1` is the executable intake rule. It stores
+the immutable candidate payload together with the complete latest status and
+event fingerprint. A newer status is applied, an exact same-version replay is a
+no-op, a lower version is rejected as stale, and different bytes at the same
+version are rejected as a state conflict. `validatePublicationDispatchContext`
+requires that authoritative record, so an active v1 snapshot cannot execute
+after a stored revoked or replaced v2 status.
+
+Every candidate and dispatch asset checksum is a 64-character lowercase
+SHA-256 digest. Matching metadata is not sufficient: after retrieval and before
+any adapter call, the workflow must run
+`validateRetrievedPublicationAssetsV1` against the actual bytes. The canonical
+fixture bytes are the UTF-8 bytes declared by `canonical_asset_bytes_utf8` in
+the workflow manifest.
 
 ## Intent lifecycle
 
@@ -169,7 +184,7 @@ deployable credential.
 | Boundary                      | Identity/version rule                                               | Identical replay                | Conflicting replay                                  |
 | ----------------------------- | ------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------- |
 | Candidate created event       | `event_id`, candidate ID, checksum, canonical event fingerprint     | Return existing inbox record    | `PUBLISHING_CANDIDATE_TAMPERED`                     |
-| Candidate status event        | candidate ID plus strictly increasing `state_version`               | No-op                           | State/security conflict                             |
+| Candidate status event        | candidate ID plus strictly increasing `state_version`               | No-op                           | Reject stale or same-version conflict               |
 | Connect target                | client `idempotency_key` plus canonical request fingerprint         | Return existing connection flow | `PUBLISHING_IDEMPOTENCY_CONFLICT`                   |
 | Verify/disconnect target      | `expected_target_version` plus `idempotency_key`                    | Return existing mutation result | `PUBLISHING_STATE_CONFLICT`                         |
 | Create intent                 | client `idempotency_key` plus canonical request fingerprint         | Return existing intent          | `PUBLISHING_IDEMPOTENCY_CONFLICT`                   |
@@ -226,6 +241,10 @@ owner browser session alone.
   `infra/n8n/fixtures/`.
 - The workflow manifest references the original Content fixtures instead of
   copying them.
+- The publishing check proves that a separately re-signed n8n candidate copy
+  still fails when it drifts from those canonical Content fixtures.
+- The publishing check hashes canonical retrieved bytes and rejects mismatched
+  bytes before execution.
 - `publishing-v1.snapshot.json` freezes required fields.
 - API-style and Web-style compiler probes live in `type-tests/`.
 

@@ -218,9 +218,11 @@ interface PublicationCandidateRecord {
   format: ContentFormat;
   locale: "ar" | "en";
   candidateChecksum: string;
+  eventFingerprint: string;
   payload: PublicationCandidateV1;
   sourceState: "active" | "revoked" | "replaced";
   sourceStateVersion: number;
+  sourceStatus: PublicationCandidateStatusV1;
   receivedAt: IsoDateTime;
 }
 ```
@@ -230,7 +232,10 @@ Candidate delivery is at least once. The inbox has unique constraints for
 record. A repeated identity with different bytes is rejected as tampering.
 State changes arrive through the frozen Content state-change event, bind the
 same candidate checksum, and advance only when `stateVersion` is newer. They
-update `sourceState` without mutating `payload`.
+update `sourceState` and `sourceStatus` without mutating `payload`. The shared
+`reducePublicationCandidateEventV1` function is the reference reducer:
+identical same-version delivery is a no-op, lower versions are stale, and
+different same-version bytes are conflicts.
 
 ### 7.2 Publishing target
 
@@ -434,6 +439,10 @@ Immediately before any real provider call, NestJS rechecks:
 - no successful attempt already exists;
 - the job is due; and
 - the idempotency identity has not already been accepted.
+
+The checksum check hashes the retrieved bytes through
+`validateRetrievedPublicationAssetsV1`; matching IDs or checksum strings alone
+do not authorize an adapter call.
 
 If any check fails, no provider call occurs.
 

@@ -6,7 +6,7 @@
   "attempt_number": 1,
   "idempotency_key": "publishing:13131313-1313-4131-8131-131313131313:v2:attempt:1",
   "workflow_version": "publishing-v1.0.0",
-  "request_fingerprint": "be6b8acaf8cec7e3259161de496e2bce06995cbf70514824775173cffac0df4b",
+  "request_fingerprint": "e364888b20976495b15c2e8ff45d6d549f80e06c654f829ca2e25a54100cdf76",
   "state": "running",
   "started_at": "2026-08-03T15:29:25Z",
   "finished_at": null,

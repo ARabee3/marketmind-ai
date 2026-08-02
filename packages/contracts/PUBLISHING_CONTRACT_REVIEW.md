@@ -36,10 +36,12 @@ npm --workspace @marketmind/web run typecheck
 npm run check
 ```
 
-The publishing check must reject unapproved, tampered, and revoked candidates;
-stale or mismatched approval; missing/invalid signature; expired timestamp;
-replayed nonce; conflicting callback; unlabeled simulation; mode/outcome
-confusion; and blind retry of an unknown provider outcome.
+The publishing check must reject unapproved, tampered, revoked, stale-status,
+and same-version-conflicting candidates; malformed asset digests and mismatched
+retrieved bytes; n8n candidate-fixture drift; stale or mismatched approval;
+missing/invalid signature; expired timestamp; replayed nonce; conflicting
+callback; unlabeled simulation; mode/outcome confusion; and blind retry of an
+unknown provider outcome.
 
 ## Approval rule
 

@@ -24,7 +24,7 @@
       "kind": "owner_supplied",
       "mime_type": "image/jpeg",
       "storage_key": "content/111/week-1/owner-product.jpg",
-      "checksum": "sha256-owner-asset"
+      "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4"
     }
   ],
   "recommended_publish_window": {
@@ -40,6 +40,6 @@
     "decided_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     "decided_at": "2026-08-01T11:00:00+03:00"
   },
-  "candidate_checksum": "7d4e3efb2e9c753055e41b858e11faa84d6a1a98a07b14821dee75f709d4fd13",
+  "candidate_checksum": "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
   "created_at": "2026-08-01T11:01:00+03:00"
 }

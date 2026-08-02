@@ -1,7 +1,11 @@
 import {
+  reducePublicationCandidateEventV1,
   validatePublicationCallbackContext,
   validatePublicationDispatchContext,
+  validateRetrievedPublicationAssetsV1,
   type ApprovePublicationIntentRequestV1,
+  type IngestPublicationCandidateEventRequestV1,
+  type PublicationCandidateRecordV1,
   type PublicationIntentMutationRequestV1,
   type SignedPublicationCallbackEnvelopeV1,
   type SignedPublicationDispatchEnvelopeV1,
@@ -19,6 +23,20 @@ type MutationHasIdempotency = Assert<
 type ApprovalIsRealOnly = Assert<
   ApprovePublicationIntentRequestV1["mode"] extends "real" ? true : false
 >;
+type CandidateRecordStoresCompleteStatus = Assert<
+  PublicationCandidateRecordV1["source_status"]["state_version"] extends number
+    ? true
+    : false
+>;
+
+export function acceptCandidateEventForApi(
+  record: PublicationCandidateRecordV1 | null,
+  event: IngestPublicationCandidateEventRequestV1,
+  receivedAt: string,
+): void {
+  void reducePublicationCandidateEventV1(record, event, receivedAt);
+  void validateRetrievedPublicationAssetsV1;
+}
 
 export function acceptPublishingDispatchForApi(
   envelope: SignedPublicationDispatchEnvelopeV1,
@@ -36,4 +54,5 @@ export function acceptPublishingCallbackForApi(
 
 export type ApiPublishingContractAssertions =
   | MutationHasIdempotency
-  | ApprovalIsRealOnly;
+  | ApprovalIsRealOnly
+  | CandidateRecordStoresCompleteStatus;

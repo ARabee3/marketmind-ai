@@ -2,6 +2,6 @@
   "base_fixture": "publication-candidate-approved.example.json",
   "mutation": {
     "kind": "tamper_asset_checksum",
-    "value": "deadbeefdeadbeefdeadbeefdeadbeef"
+    "value": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
   }
 }

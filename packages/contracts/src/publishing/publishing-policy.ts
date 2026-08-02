@@ -3,6 +3,7 @@ import type {
   PublicationCandidateV1,
 } from "../content/publication-candidate";
 import { validatePublicationCandidateHandoff } from "../content/publication-candidate";
+import { validateAuthoritativePublicationCandidateV1 } from "./publication-candidate-state";
 import {
   computePublishingSha256,
   isPublishingSignatureValid,
@@ -23,6 +24,7 @@ import type {
   SignedPublicationCallbackEnvelopeV1,
   SignedPublicationDispatchEnvelopeV1,
 } from "./publishing-envelope";
+import type { PublicationCandidateRecordV1 } from "./publishing-interfaces";
 import {
   PUBLICATION_ATTEMPT_STATES,
   PUBLICATION_INTENT_STATES,
@@ -1318,6 +1320,7 @@ function validateDispatchBody(value: unknown): PublishingValidationResult {
       if (
         !candidateAsset ||
         seenAssetIds.has(assetId) ||
+        !isSha256(rawAsset.checksum) ||
         candidateAsset.checksum !== rawAsset.checksum ||
         candidateAsset.mime_type !== rawAsset.mime_type
       ) {
@@ -1551,6 +1554,7 @@ export function validatePublicationDispatchContext(input: {
   readonly envelope: unknown;
   readonly intent: unknown;
   readonly attempt: unknown;
+  readonly candidate_record: PublicationCandidateRecordV1 | unknown;
   readonly context: PublishingEnvelopeValidationContext;
 }): PublishingValidationResult {
   for (const result of [
@@ -1564,6 +1568,12 @@ export function validatePublicationDispatchContext(input: {
   const body = envelope.body;
   const intent = input.intent as PublicationIntentV1;
   const attempt = input.attempt as PublicationAttemptV1;
+  const candidateResult = validateAuthoritativePublicationCandidateV1({
+    record: input.candidate_record,
+    candidate: body.candidate,
+    status: body.candidate_status,
+  });
+  if (!candidateResult.valid) return candidateResult;
   if (
     body.attempt_id !== attempt.attempt_id ||
     body.intent_id !== intent.intent_id ||

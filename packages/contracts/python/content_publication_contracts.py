@@ -15,7 +15,7 @@ class PublicationCandidateAssetV1(FrozenModel):
     kind: Literal["owner_supplied", "generated_static"]
     mime_type: str
     storage_key: str
-    checksum: str
+    checksum: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class PublicationCandidateApprovalV1(FrozenModel):
