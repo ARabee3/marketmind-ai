@@ -451,4 +451,160 @@ describe("Content public contract (e2e)", () => {
     const fetched = candidateRes.body.candidate;
     expect(isPublicationCandidateChecksumValid(fetched)).toBe(true);
   });
+
+  // ── Idempotency ───────────────────────────────────────────────────────
+
+  it("returns the same cycle when creating with the same idempotency_key", async () => {
+    const cycleResponse = {
+      content_cycle: {
+        id: CYCLE_ID,
+        contract_version: "content-v1",
+        business_id: BUSINESS_ID,
+        strategy_id: STRATEGY_ID,
+        strategy_version: 1,
+        strategy_decision_id: STRATEGY_DECISION_ID,
+        profile_version_id: "pppppppp-pppp-4ppp-8ppp-pppppppppppp",
+        status: "active",
+        current_week_number: 1,
+        timezone: "Africa/Cairo",
+        pause_reason: null,
+        completed_at: null,
+        created_at: "2026-08-03T00:00:00.000Z",
+      },
+      initial_week_context: {
+        id: "wwwwwwww-wwww-4www-8www-wwwwwwwwwwww",
+        content_cycle_id: CYCLE_ID,
+        week_number: 1,
+        week_start_date: "2026-08-03",
+        promotion_mode: "none",
+        must_include: [],
+        must_avoid: [],
+        approved_asset_ids: [],
+        cta_destination: { type: "none", value: null },
+      },
+    };
+
+    const body = {
+      business_id: BUSINESS_ID,
+      strategy_id: STRATEGY_ID,
+      strategy_version: 1,
+      strategy_decision_id: STRATEGY_DECISION_ID,
+      idempotency_key: "idempotent-create-1",
+      initial_week_context: {
+        week_number: 1,
+        week_start_date: "2026-08-03",
+        promotion_mode: "none",
+        promotion: null,
+        must_include: [],
+        must_avoid: [],
+        approved_asset_ids: [],
+        cta_destination: { type: "none", value: null },
+      },
+    };
+
+    contentService.createCycle.mockResolvedValue(cycleResponse);
+
+    // First call: creates
+    const res1 = await request(app.getHttpServer())
+      .post("/api/v1/content-cycles")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res1.body.content_cycle.id).toBe(CYCLE_ID);
+
+    // Second call with same idempotency_key: returns same cycle
+    const res2 = await request(app.getHttpServer())
+      .post("/api/v1/content-cycles")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res2.body.content_cycle.id).toBe(CYCLE_ID);
+    expect(contentService.createCycle).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns the same pack when generating with the same idempotency_key", async () => {
+    const packResponse = {
+      id: PACK_ID,
+      contract_version: "content-v1",
+      content_cycle_id: CYCLE_ID,
+      week_number: 1,
+      business_id: BUSINESS_ID,
+      strategy_id: STRATEGY_ID,
+      status: "draft",
+      retry_eligible: true,
+      items: [],
+      progress: [],
+    };
+
+    contentService.generateWeek.mockResolvedValue({ pack: packResponse });
+
+    const body = {
+      content_cycle_id: CYCLE_ID,
+      week_number: 1,
+      idempotency_key: "idempotent-gen-1",
+    };
+
+    const res1 = await request(app.getHttpServer())
+      .post(`/api/v1/content-cycles/${CYCLE_ID}/weeks/1/generate`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res1.body.pack.id).toBe(PACK_ID);
+
+    const res2 = await request(app.getHttpServer())
+      .post(`/api/v1/content-cycles/${CYCLE_ID}/weeks/1/generate`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res2.body.pack.id).toBe(PACK_ID);
+    expect(contentService.generateWeek).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns the same decision when approving with the same idempotency_key", async () => {
+    const decideResponse = {
+      decision: {
+        id: DECISION_ID,
+        content_item_id: ITEM_ID,
+        content_item_version_id: ITEM_VERSION_ID,
+        content_item_version: 1,
+        content_item_version_checksum: "abc",
+        decision: "approved",
+        revision_notes: null,
+        decided_by_user_id: "owner-user-id",
+        decided_at: "2026-08-03T10:00:00.000Z",
+      },
+      publication_candidate: null,
+    };
+
+    contentService.decide.mockResolvedValue(decideResponse);
+
+    const body = {
+      content_item_id: ITEM_ID,
+      decision: "approved",
+      content_item_version_id: ITEM_VERSION_ID,
+      content_item_version_checksum: "abc",
+      idempotency_key: "idempotent-decision-1",
+    };
+
+    const res1 = await request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/items/${ITEM_ID}/decisions`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res1.body.decision.id).toBe(DECISION_ID);
+
+    const res2 = await request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/items/${ITEM_ID}/decisions`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send(body)
+      .expect(201);
+
+    expect(res2.body.decision.id).toBe(DECISION_ID);
+    expect(contentService.decide).toHaveBeenCalledTimes(2);
+  });
 });
