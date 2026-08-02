@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   INestApplication,
   NotFoundException,
   ValidationPipe,
@@ -606,5 +607,136 @@ describe("Content public contract (e2e)", () => {
 
     expect(res2.body.decision.id).toBe(DECISION_ID);
     expect(contentService.decide).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Candidate tamper + revision + bulk eligibility ──────────────────
+
+  it("returns CONTENT_CANDIDATE_TAMPERED when checksum validation fails", async () => {
+    contentService.getPublicationCandidate.mockRejectedValue(
+      new ConflictException({
+        code: "CONTENT_CANDIDATE_TAMPERED",
+        message:
+          "The publication candidate checksum does not match the expected payload.",
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/publication-candidates/${CANDIDATE_ID}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .expect(409)
+      .expect((res) => {
+        expect(res.body.code).toBe("CONTENT_CANDIDATE_TAMPERED");
+      });
+  });
+
+  it("returns 409 when a revision request fails while preserving the prior decision", async () => {
+    contentService.decide.mockRejectedValue(
+      new ConflictException({
+        code: "CONTENT_REVISION_FAILED",
+        message: "Revision enqueue failed; the prior item version is preserved.",
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/items/${ITEM_ID}/decisions`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
+        content_item_id: ITEM_ID,
+        decision: "revision_requested",
+        content_item_version_id: ITEM_VERSION_ID,
+        content_item_version_checksum: "verification-checksum",
+        revision_notes: "Make it more engaging",
+        idempotency_key: "revision-fail-1",
+      })
+      .expect(409)
+      .expect((res) => {
+        expect(res.body.code).toBe("CONTENT_REVISION_FAILED");
+        expect(contentService.decide).toHaveBeenCalledTimes(1);
+      });
+  });
+
+  it("bulk approves 2 items and rejects 1 with a stale checksum", async () => {
+    const item2Id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const item3Id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const dec2Id = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+    contentService.bulkDecide.mockResolvedValue([
+      {
+        item_id: ITEM_ID,
+        status: "decided",
+        decision: {
+          id: DECISION_ID,
+          content_item_id: ITEM_ID,
+          content_item_version_id: ITEM_VERSION_ID,
+          content_item_version: 1,
+          content_item_version_checksum: "abc",
+          decision: "approved",
+          revision_notes: null,
+          decided_by_user_id: "owner-user-id",
+          decided_at: "2026-08-03T10:00:00.000Z",
+        },
+        publication_candidate: null,
+      },
+      {
+        item_id: item2Id,
+        status: "decided",
+        decision: {
+          id: dec2Id,
+          content_item_id: item2Id,
+          content_item_version_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          content_item_version: 1,
+          content_item_version_checksum: "def456",
+          decision: "approved",
+          revision_notes: null,
+          decided_by_user_id: "owner-user-id",
+          decided_at: "2026-08-03T10:00:01.000Z",
+        },
+        publication_candidate: null,
+      },
+      {
+        item_id: item3Id,
+        status: "ineligible",
+        error: {
+          code: "CONTENT_VERSION_CONFLICT",
+          message:
+            "This item version is no longer the current version. Refresh before deciding.",
+        },
+      },
+    ]);
+
+    const bulkRes = await request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/decisions/bulk`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
+        decisions: [
+          {
+            content_item_id: ITEM_ID,
+            content_item_version_id: ITEM_VERSION_ID,
+            content_item_version_checksum: "abc",
+            decision: "approved",
+            idempotency_key: "bulk-1",
+          },
+          {
+            content_item_id: item2Id,
+            content_item_version_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            content_item_version_checksum: "def456",
+            decision: "approved",
+            idempotency_key: "bulk-2",
+          },
+          {
+            content_item_id: item3Id,
+            content_item_version_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            content_item_version_checksum: "stale-checksum",
+            decision: "approved",
+            idempotency_key: "bulk-3",
+          },
+        ],
+      });
+    expect(bulkRes.status).toBe(201);
+    expect(bulkRes.body).toHaveLength(3);
+    expect(bulkRes.body[0].status).toBe("decided");
+    expect(bulkRes.body[1].status).toBe("decided");
+    expect(bulkRes.body[2].status).toBe("ineligible");
+    expect(bulkRes.body[2].error.code).toBe("CONTENT_VERSION_CONFLICT");
   });
 });
