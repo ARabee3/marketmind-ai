@@ -18,6 +18,12 @@ _PRIVATE_CONTENT_KEYS = {
     "business_profile",
     "profile",
     "raw_provider_response",
+    "raw_output",
+    "item_versions",
+    "previous_item_version_read_only",
+    "revision_notes",
+    "weekly_context",
+    "grounding_inputs",
 }
 
 

@@ -443,6 +443,7 @@ class MockContentProvider(ContentLLMProvider):
         week_context: dict[str, Any],
         identity: dict[str, Any],
     ) -> ContentItemVersion:
+        """Produce a ContentItemVersion with index-driven distinctiveness."""
         content_item_id = str(
             uuid.uuid5(
                 uuid.NAMESPACE_URL,
@@ -455,6 +456,22 @@ class MockContentProvider(ContentLLMProvider):
         promotion = week_context.get("promotion")
         language_mode = context["generation_identity"]["language_mode"]
         must_include = week_context.get("must_include", [])
+        hooks_ar = [
+            "هل تعلم أن",
+            "اكتشف السر وراء",
+            "نصيحة سريعة من",
+            "خلّي بالك من",
+            "سرّ النجاح في",
+        ]
+        hooks_en = [
+            "Did you know that",
+            "Discover the secret behind",
+            "A quick tip from",
+            "Watch out for",
+            "The key to success in",
+        ]
+        hooks = hooks_en if language_mode == "en" else hooks_ar
+        hook = hooks[index % len(hooks)]
         if language_mode == "en":
             cta = _cta_text(week_context, "en")
             caption_variants = [
@@ -467,6 +484,7 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         cta,
                         "en",
+                        hook=hook,
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#SmallBusiness"],
@@ -485,6 +503,7 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         cta,
                         "ar-EG",
+                        hook=hooks_ar[index % len(hooks_ar)],
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#مشروعك"],
@@ -498,6 +517,7 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         english_cta,
                         "en",
+                        hook=hooks_en[index % len(hooks_en)],
                     ),
                     cta=english_cta,
                     hashtags=["#MarketMind", "#SmallBusiness"],
@@ -515,6 +535,7 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         cta,
                         "ar-EG",
+                        hook=hooks_ar[index % len(hooks_ar)],
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#مشروعك"],
@@ -544,9 +565,9 @@ class MockContentProvider(ContentLLMProvider):
             )
             script = ContentShortVideoScript(
                 hook=(
-                    f"{strategy_week['theme']}: a practical idea for your customer"
-                    if language_mode == "en"
-                    else f"{strategy_week['theme']}: فكرة عملية لعميلك"
+                    f"{hook} {strategy_week['theme']}"
+                    if language_mode != "en"
+                    else f"{strategy_week['theme']}: {hook.lower()} a practical idea"
                 ),
                 scenes=[
                     ContentShortVideoScene(
@@ -558,6 +579,7 @@ class MockContentProvider(ContentLLMProvider):
                 ],
                 closing_cta=cta,
             )
+        pillar_count = len(strategy_week["pillars"])
         data = {
             "id": item_version_id,
             "contract_version": "content-v1",
@@ -573,7 +595,7 @@ class MockContentProvider(ContentLLMProvider):
                 "week_number": identity["week_number"],
                 "pillar_ids": [
                     strategy_week["pillars"][
-                        index % len(strategy_week["pillars"])
+                        index % pillar_count
                     ]["pillar_id"]
                 ],
                 "objective": strategy_week["objective"],
@@ -583,14 +605,14 @@ class MockContentProvider(ContentLLMProvider):
             "cta": cta,
             "hashtags": caption_variants[0].hashtags,
             "creative_brief": (
-                f"أنشئ محتوى {content_format} للفكرة {index + 1} ولموضوع الاستراتيجية: {strategy_week['theme']}."
+                f"أنشئ محتوى {content_format} للفكرة {index + 1} بزاوية '{hook}' لموضوع الاستراتيجية: {strategy_week['theme']}."
                 if language_mode == "ar-EG"
-                else f"Create {content_format} idea {index + 1} for the Strategy theme: {strategy_week['theme']}."
+                else f"Create {content_format} idea {index + 1} with angle '{hook}' for the Strategy theme: {strategy_week['theme']}."
             ),
             "alt_text": (
-                f"مرئي للفكرة {index + 1} عن {strategy_week['theme']}"
+                f"مرئي للفكرة {index + 1} بزاوية '{hook}' عن {strategy_week['theme']}"
                 if language_mode == "ar-EG"
-                else f"Visual for idea {index + 1}: {strategy_week['theme']}"
+                else f"Visual for idea {index + 1} with angle '{hook}': {strategy_week['theme']}"
             )[:100],
             "short_video_script": script.model_dump(mode="json") if script else None,
             "recommended_publish_window": _publish_window(
@@ -650,12 +672,15 @@ def _caption_text(
     must_include: list[str],
     cta: str | None,
     language_mode: str,
+    *,
+    hook: str = "",
 ) -> str:
     owner_requirements = [
         _owner_requirement_copy(requirement) for requirement in must_include
     ]
+    hook_prefix = f"{hook} " if hook else ""
     if language_mode == "en":
-        parts = [f"Explore this week’s focus: {theme}."]
+        parts = [f"{hook_prefix}Explore this week's focus: {theme}."]
         if promotion_text:
             parts.append(promotion_text)
         if promotion_terms:
@@ -664,7 +689,7 @@ def _caption_text(
         if cta:
             parts.append(cta)
         return " ".join(parts)
-    parts = [f"اكتشف موضوع هذا الأسبوع: {theme}."]
+    parts = [f"{hook_prefix}اكتشف موضوع هذا الأسبوع: {theme}."]
     if promotion_text:
         parts.append(promotion_text)
     if promotion_terms:

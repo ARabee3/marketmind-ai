@@ -284,6 +284,46 @@ async def test_gpt_image_adapter_omits_unsupported_response_format(monkeypatch) 
 
 
 @pytest.mark.asyncio
+async def test_image_generate_arguments_contain_safety_rules(monkeypatch) -> None:
+    """The OpenAI Images prompt must include safety instructions."""
+    import openai
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+    captured: dict = {}
+    png = _solid_png(1024, 1024, b"\x10\x20\x30")
+
+    class FakeImages:
+        def generate(self, **arguments):
+            captured["arguments"] = arguments
+            return SimpleNamespace(
+                id="image-request-fictional",
+                data=[
+                    SimpleNamespace(
+                        b64_json=base64.b64encode(png).decode("ascii")
+                    )
+                ],
+            )
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: SimpleNamespace(
+        images=FakeImages()
+    ))
+    provider = OpenAIStaticImageProvider("fictional-key", "dall-e-3", 10)
+
+    await provider.generate_static(request, prompt)
+
+    prompt_arg = captured["arguments"]["prompt"]
+    assert isinstance(prompt_arg, str)
+    assert len(prompt_arg) > 0
+    assert "Do not invent business facts" in prompt_arg
+    assert "Do not render JSON, metadata, IDs" in prompt_arg
+    assert "Never include anything that implies approval" in prompt_arg
+    assert prompt_arg.count("content_item_version_id") == 0
+    assert prompt_arg.count("idempotency_key") == 0
+    assert prompt_arg.count("storage_authority") == 0
+
+
+@pytest.mark.asyncio
 async def test_openai_image_adapter_rejects_unsupported_size_before_call() -> None:
     request = _request()
     provider = OpenAIStaticImageProvider("fictional-key", "gpt-image-1", 10)

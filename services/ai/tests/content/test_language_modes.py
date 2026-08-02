@@ -1,4 +1,4 @@
-"""Arabic, English, mixed-language, and protected-text evaluation cases."""
+"""Arabic, English, mixed-language, protected-text, and payload evaluation cases."""
 
 from __future__ import annotations
 
@@ -135,3 +135,97 @@ def test_approved_promotion_text_and_terms_are_preserved_by_mock() -> None:
     caption_text = items[0].caption_variants[0].caption
     assert promotion.text in caption_text
     assert all(term in caption_text for term in promotion.terms)
+
+
+def test_exact_promotion_wording_preserved_across_all_items() -> None:
+    """Every item must preserve the approved promotion text and terms exactly."""
+    request = _request_for_language("ar-EG")
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+    promotion = request.week_context.promotion
+    assert promotion is not None
+
+    for item in items:
+        for variant in item.caption_variants:
+            assert promotion.text in variant.caption
+            for term in promotion.terms:
+                assert term in variant.caption
+
+
+@pytest.mark.parametrize(
+    ("language_mode", "expected_ar_phrases", "expected_en_phrases"),
+    [
+        ("ar-EG", ["اكتشف", "موضوع"], []),
+        ("en", [], ["Explore", "focus"]),
+        ("mixed", ["اكتشف", "موضوع"], ["Explore", "focus"]),
+    ],
+)
+def test_prompt_evaluation_matrix_language_phrases(
+    language_mode: str,
+    expected_ar_phrases: list[str],
+    expected_en_phrases: list[str],
+) -> None:
+    """Effective-payload evaluation: generated captions match language mode."""
+    request = _request_for_language(language_mode)
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    all_captions = " ".join(
+        variant.caption for item in items for variant in item.caption_variants
+    )
+
+    for phrase in expected_ar_phrases:
+        assert phrase in all_captions, f"Expected Arabic phrase '{phrase}' missing in {language_mode}"
+    for phrase in expected_en_phrases:
+        assert phrase in all_captions, f"Expected English phrase '{phrase}' missing in {language_mode}"
+
+
+def test_missing_grounding_empty_profile_does_not_crash_mock() -> None:
+    """Empty or minimal profile grounding still produces valid output."""
+    request = make_valid_request().model_copy(
+        update={
+            "allowed_formats": ["text_post"],
+            "business_profile": make_valid_request().business_profile.model_copy(
+                update={"profile": {}}
+            ),
+        }
+    )
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    assert len(items) >= 3
+    result = validate_generated_content_pack(request, items)
+    assert result.valid
+
+
+def test_distinct_items_have_different_captions() -> None:
+    """Each item in the weekly pack must have a meaningfully different opening caption."""
+    request = _request_for_language("ar-EG")
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    captions = [
+        variant.caption
+        for item in items
+        for variant in item.caption_variants
+        if variant.locale == "ar"
+    ]
+
+    assert len(captions) == len(items)
+    for i in range(len(captions)):
+        for j in range(i + 1, len(captions)):
+            assert captions[i] != captions[j], (
+                f"Items {i + 1} and {j + 1} have identical captions"
+            )
+
+
+def test_distinct_items_have_different_hooks() -> None:
+    """Each item must use a distinct content idea marker."""
+    request = _request_for_language("ar-EG")
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    for i, item in enumerate(items, start=1):
+        assert f"للفكرة {i}" in item.creative_brief, (
+            f"Item {i} creative_brief missing idea marker: {item.creative_brief}"
+        )

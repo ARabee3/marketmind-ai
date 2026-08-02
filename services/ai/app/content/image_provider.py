@@ -19,6 +19,7 @@ from content_contracts import (
 )
 
 from app.content.assembler import PromptAssembly
+from app.content.prompts import build_asset_image_prompt
 from app.content.storage import AssetStoragePort
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
@@ -154,9 +155,15 @@ class OpenAIStaticImageProvider(StaticImageProvider):
                 timeout=self.timeout_seconds,
                 max_retries=0,
             )
+            provider_prompt = build_asset_image_prompt(
+                creative_brief=request.creative_brief,
+                alt_text=request.alt_text,
+                width=request.width,
+                height=request.height,
+            )
             arguments = {
                 "model": self.model,
-                "prompt": prompt.user_prompt,
+                "prompt": provider_prompt,
                 "size": f"{request.width}x{request.height}",
                 "n": 1,
             }
