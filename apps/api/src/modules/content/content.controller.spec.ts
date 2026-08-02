@@ -9,6 +9,7 @@ import {
   ContentCycleController,
   ContentPackController,
   ContentAssetController,
+  PublicationCandidateController,
 } from "./content.controller";
 import { ContentService } from "./content.service";
 import { CreateContentCycleDto } from "./dto/create-content-cycle.dto";
@@ -31,6 +32,7 @@ type MockedService = jest.Mocked<
     | "decide"
     | "bulkDecide"
     | "getAsset"
+    | "getPublicationCandidate"
   >
 >;
 
@@ -57,6 +59,7 @@ describe("ContentCycleController", () => {
       decide: jest.fn(),
       bulkDecide: jest.fn(),
       getAsset: jest.fn(),
+      getPublicationCandidate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -195,6 +198,7 @@ describe("ContentPackController", () => {
       decide: jest.fn(),
       bulkDecide: jest.fn(),
       getAsset: jest.fn(),
+      getPublicationCandidate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -313,6 +317,7 @@ describe("ContentAssetController", () => {
       decide: jest.fn(),
       bulkDecide: jest.fn(),
       getAsset: jest.fn(),
+      getPublicationCandidate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -391,6 +396,84 @@ describe("ContentAssetController", () => {
       await expect(
         controller.getAsset("asset-1", mockReq, res),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+});
+
+describe("PublicationCandidateController", () => {
+  let controller: PublicationCandidateController;
+  let service: MockedService;
+
+  const mockUser = { id: "user-1", email: "owner@test.com", roles: [Role.OWNER] };
+  const mockReq = { user: mockUser } as never;
+
+  beforeEach(async () => {
+    service = {
+      createCycle: jest.fn(),
+      getCycle: jest.fn(),
+      pauseCycle: jest.fn(),
+      resumeCycle: jest.fn(),
+      listWeeks: jest.fn(),
+      upsertWeekContext: jest.fn(),
+      generateWeek: jest.fn(),
+      getPack: jest.fn(),
+      getPackProgress: jest.fn(),
+      retryPack: jest.fn(),
+      getItemVersions: jest.fn(),
+      decide: jest.fn(),
+      bulkDecide: jest.fn(),
+      getAsset: jest.fn(),
+      getPublicationCandidate: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [PublicationCandidateController],
+      providers: [
+        { provide: ContentService, useValue: service },
+        { provide: RbacService, useValue: { hasAllPermissions: jest.fn().mockReturnValue(true) } },
+        { provide: RedisService, useValue: { getClient: jest.fn().mockReturnValue({ pipeline: jest.fn().mockReturnValue({ incr: jest.fn().mockReturnThis(), expire: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([[null, 1], [null, 1]]) }) }) } },
+        Reflector,
+      ],
+    }).compile();
+
+    controller = module.get<PublicationCandidateController>(PublicationCandidateController);
+  });
+
+  it("should be defined", () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe("delegation", () => {
+    it("delegates getPublicationCandidate to the service with the owner id", async () => {
+      service.getPublicationCandidate.mockResolvedValue({
+        candidate: {},
+        status: {},
+      } as never);
+
+      await controller.getPublicationCandidate("candidate-1", mockReq);
+
+      expect(service.getPublicationCandidate).toHaveBeenCalledWith(
+        "candidate-1",
+        mockUser.id,
+      );
+    });
+
+    it("propagates NotFoundException when candidate does not belong to owner", async () => {
+      service.getPublicationCandidate.mockRejectedValue(new NotFoundException());
+
+      await expect(
+        controller.getPublicationCandidate("candidate-1", mockReq),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("propagates CONTENT_CANDIDATE_REVOKED from the service", async () => {
+      service.getPublicationCandidate.mockRejectedValue(
+        new BadRequestException({ code: "CONTENT_CANDIDATE_REVOKED", message: "revoked" }),
+      );
+
+      await expect(
+        controller.getPublicationCandidate("candidate-1", mockReq),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

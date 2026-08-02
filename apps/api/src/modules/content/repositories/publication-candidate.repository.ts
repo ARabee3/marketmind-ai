@@ -5,6 +5,7 @@ import { PrismaService } from "../../../common/persistence/prisma.service";
 import {
   PublicationCandidateCreatedEventV1,
   PublicationCandidateStateChangedEventV1,
+  PublicationCandidateStatusV1,
   PublicationCandidateV1,
   ContentChannel,
   ContentFormat,
@@ -244,6 +245,66 @@ export class PublicationCandidateRepository {
     });
     if (!row) return null;
     return row.payload as unknown as PublicationCandidateV1;
+  }
+
+  /**
+   * Reads a single frozen candidate scoped to the owning user, together with
+   * its current status (the row with the highest state_version).
+   *
+   * Ownership is verified by walking candidate → content cycle → ownerUserId,
+   * so a cross-owner candidate id returns null (404 upstream) instead of
+   * leaking another owner's candidate existence. The candidate payload is
+   * returned exactly as persisted (immutable), and the current status is
+   * rebuilt from the latest status row using the authoritative candidate
+   * identity columns, so the pair can be re-run through
+   * `validatePublicationCandidateHandoff` by the caller.
+   */
+  async getCandidateByIdAndOwner(
+    candidateId: string,
+    ownerUserId: string,
+  ): Promise<{
+    candidate: PublicationCandidateV1;
+    status: PublicationCandidateStatusV1;
+  } | null> {
+    const row = await this.prisma.publicationCandidate.findFirst({
+      where: {
+        candidateId,
+        contentCycle: { ownerUserId },
+      },
+      include: {
+        statuses: {
+          orderBy: { stateVersion: "desc" },
+          take: 1,
+        },
+      },
+    });
+    if (!row || row.statuses.length === 0) return null;
+
+    const candidate = row.payload as unknown as PublicationCandidateV1;
+    const latest = row.statuses[0];
+    const statusBase = {
+      contract_version: "publication-candidate-status-v1" as const,
+      candidate_id: candidate.candidate_id,
+      business_id: candidate.business_id,
+      candidate_checksum: candidate.candidate_checksum,
+      state_version: latest.stateVersion,
+      changed_by_user_id: latest.changedByUserId ?? null,
+      changed_at: latest.changedAt.toISOString(),
+    };
+    const status: PublicationCandidateStatusV1 =
+      latest.candidateState === "replaced"
+        ? {
+            ...statusBase,
+            candidate_state: "replaced",
+            replacement_candidate_id: latest.replacementCandidateId ?? "",
+          }
+        : {
+            ...statusBase,
+            candidate_state:
+              latest.candidateState === "revoked" ? "revoked" : "active",
+            replacement_candidate_id: null,
+          };
+    return { candidate, status };
   }
 
   /**

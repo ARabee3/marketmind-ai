@@ -13,6 +13,7 @@ import { Prisma } from "@prisma/client";
 import {
   CONTENT_CHANNELS,
   validateContentPolicyFixture,
+  validatePublicationCandidateHandoff,
 } from "@marketmind/contracts";
 import type {
   CairoTimezone,
@@ -35,6 +36,7 @@ import type {
   ContentWeekListResponse,
   CreateContentCycleRequest,
   GenerateContentPackRequest,
+  PublicationCandidateStatusV1,
   PublicationCandidateV1,
   StrategyPlan,
   UpsertContentWeekContextRequest,
@@ -550,6 +552,50 @@ export class ContentService {
     }
 
     return { buffer, mimeType: asset.mimeType, checksum: asset.checksum };
+  }
+
+  // ── GET /api/v1/publication-candidates/:id ──────────────────────────
+
+  /**
+   * Returns the frozen candidate payload plus its current status to the owner.
+   *
+   * Ownership is verified via `getCandidateByIdAndOwner` (candidate → cycle →
+   * ownerUserId), so a cross-owner id returns 404. The candidate/status pair
+   * is re-run through `validatePublicationCandidateHandoff` before it leaves
+   * the service: a revoked or replaced candidate surfaces CONTENT_CANDIDATE_REVOKED,
+   * and a payload that no longer matches its recorded checksum (mutated in the
+   * DB) surfaces CONTENT_CANDIDATE_TAMPERED (arch doc 638-697).
+   */
+  async getPublicationCandidate(
+    candidateId: string,
+    ownerUserId: string,
+  ): Promise<{
+    candidate: PublicationCandidateV1;
+    status: PublicationCandidateStatusV1;
+  }> {
+    const result = await this.candidateRepository.getCandidateByIdAndOwner(
+      candidateId,
+      ownerUserId,
+    );
+    if (!result) {
+      throw new NotFoundException("Publication candidate not found");
+    }
+
+    const validation = validatePublicationCandidateHandoff(
+      result.candidate,
+      result.status,
+    );
+    if (!validation.valid) {
+      const issue = validation.issues[0];
+      throw new BadRequestException({
+        code: issue?.code ?? "CONTENT_SCHEMA_FAILURE",
+        message:
+          issue?.message ?? "Publication candidate failed validation.",
+        issues: validation.issues,
+      });
+    }
+
+    return result;
   }
 
   // ── GET /api/v1/content-packs/:id/retry-eligibility ─────────────────

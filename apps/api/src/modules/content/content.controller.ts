@@ -203,3 +203,24 @@ export class ContentAssetController {
     res.send(buffer);
   }
 }
+
+/**
+ * Publication candidate read endpoint.
+ *
+ * GET requests pass through the rate-limit guard unthrottled, and ownership
+ * is re-verified server-side in the service (cross-owner ids return 404).
+ */
+@Controller("publication-candidates")
+@UseGuards(JwtAuthGuard, PermissionsGuard, ContentRateLimitGuard)
+export class PublicationCandidateController {
+  constructor(private readonly contentService: ContentService) {}
+
+  @Get(":id")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  getPublicationCandidate(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.contentService.getPublicationCandidate(id, req.user.id);
+  }
+}
