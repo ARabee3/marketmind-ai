@@ -6,6 +6,7 @@ import {
   ContentPackRepository,
   AppendPackWithItemsInput,
   ContentItemVersionDraftInput,
+  PersistGeneratedItemsInput,
 } from "./content-pack.repository";
 
 const DRAFT: ContentItemVersionDraftInput = {
@@ -98,6 +99,11 @@ describe("ContentPackRepository", () => {
               strategyVersion: 3,
               strategyDecisionId: "decision-1",
               profileVersionId: "profile-1",
+            }),
+          },
+          contentWeekContext: {
+            findUniqueOrThrow: jest.fn().mockResolvedValue({
+              weeklyClaimId: "claim-1",
             }),
           },
           contentPack: { create: packCreate, update: packUpdate },
@@ -200,6 +206,11 @@ describe("ContentPackRepository", () => {
               profileVersionId: "profile-1",
             }),
           },
+          contentWeekContext: {
+            findUniqueOrThrow: jest.fn().mockResolvedValue({
+              weeklyClaimId: "claim-1",
+            }),
+          },
           contentPack: { create: packCreate },
         },
         packCreate,
@@ -222,6 +233,7 @@ describe("ContentPackRepository", () => {
       expect(mocks.packCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({
           contentCycleId: "cycle-1",
+          weeklyClaimId: "claim-1",
           weekNumber: 3,
           weekContextId: "week-3",
           businessId: "business-1",
@@ -450,6 +462,206 @@ describe("ContentPackRepository", () => {
       const result = await repo.markPackStatus("pack-1", "queued", "generating");
 
       expect(result).toEqual({ changed: false });
+    });
+  });
+
+  describe("getPackById", () => {
+    it("reads a pack without ownership scoping", async () => {
+      const findUnique = jest.fn().mockResolvedValue(PACK_ROW);
+      const repo = new ContentPackRepository({
+        contentPack: { findUnique },
+      } as unknown as PrismaService);
+
+      await repo.getPackById("pack-1");
+
+      expect(findUnique).toHaveBeenCalledWith({ where: { id: "pack-1" } });
+    });
+  });
+
+  describe("persistGeneratedItems", () => {
+    const PROGRESS: import("./content-pack.repository").ContentProgressInput = {
+      stage: "ready",
+      status: "complete",
+      messageKey: "content.ready",
+      messageText: "Pack draft ready.",
+    };
+
+    const PERSIST_INPUT: PersistGeneratedItemsInput = {
+      packId: "pack-1",
+      cycleId: "cycle-1",
+      weekNumber: 1,
+      generationRunId: "run-1",
+      items: [DRAFT, DRAFT, DRAFT],
+      progressEvent: PROGRESS,
+      providerName: "mock",
+      providerModel: "mock-v1",
+      inputHash: "hash-1",
+      latencyMs: 1200,
+      startedAt: new Date("2026-01-01T00:00:00Z"),
+      finishedAt: new Date("2026-01-01T00:00:01Z"),
+    };
+
+    function makePersistTx(status = "validating") {
+      const itemCreate = jest
+        .fn()
+        .mockResolvedValueOnce({ id: "item-1" })
+        .mockResolvedValueOnce({ id: "item-2" })
+        .mockResolvedValueOnce({ id: "item-3" });
+      const versionCreate = jest
+        .fn()
+        .mockResolvedValueOnce({ id: "ver-1" })
+        .mockResolvedValueOnce({ id: "ver-2" })
+        .mockResolvedValueOnce({ id: "ver-3" });
+      const itemUpdate = jest.fn().mockResolvedValue({});
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const genRunCreate = jest.fn().mockResolvedValue({ id: "run-1" });
+      const progCount = jest.fn().mockResolvedValue(2);
+      const progCreate = jest.fn().mockResolvedValue({ id: 1n, seq: 3 });
+      const findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValueOnce({ ...PACK_ROW, status })
+        .mockResolvedValueOnce({
+          ...PACK_ROW,
+          status: "draft",
+          itemIds: ["item-1", "item-2", "item-3"],
+        });
+
+      return {
+        tx: {
+          contentPack: { findUniqueOrThrow, updateMany },
+          contentItem: { create: itemCreate, update: itemUpdate },
+          contentItemVersion: { create: versionCreate },
+          contentGenerationRun: { create: genRunCreate },
+          contentProgressEvent: { count: progCount, create: progCreate },
+        },
+        itemCreate,
+        versionCreate,
+        itemUpdate,
+        updateMany,
+        genRunCreate,
+        progCreate,
+      };
+    }
+
+    it("persists items, versions, generation run, progress event, and transitions validating→draft in one tx", async () => {
+      const mocks = makePersistTx();
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(mocks.tx),
+        ),
+      } as unknown as PrismaService);
+
+      await repo.persistGeneratedItems(PERSIST_INPUT);
+
+      expect(mocks.itemCreate).toHaveBeenCalledTimes(3);
+      expect(mocks.versionCreate).toHaveBeenCalledTimes(3);
+      expect(mocks.versionCreate).toHaveBeenNthCalledWith(1, {
+        data: expect.objectContaining({
+          contentItemId: "item-1",
+          contentPackId: "pack-1",
+          version: 1,
+          channel: "instagram",
+          assetRequired: false,
+        }),
+      });
+      expect(mocks.itemUpdate).toHaveBeenNthCalledWith(1, {
+        where: { id: "item-1" },
+        data: { currentVersionId: "ver-1" },
+      });
+      expect(mocks.updateMany).toHaveBeenCalledWith({
+        where: { id: "pack-1", status: "validating" },
+        data: { itemIds: ["item-1", "item-2", "item-3"], status: "draft" },
+      });
+      expect(mocks.genRunCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: "run-1",
+          contentPackId: "pack-1",
+          contentCycleId: "cycle-1",
+          weekNumber: 1,
+          runType: "generate",
+          status: "completed",
+          providerName: "mock",
+          providerModel: "mock-v1",
+          inputHash: "hash-1",
+          latencyMs: 1200,
+        }),
+      });
+      expect(mocks.progCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contentPackId: "pack-1",
+          seq: 3,
+          stage: "ready",
+          status: "complete",
+        }),
+      });
+    });
+
+    it("throws BadRequestException when pack is not in validating status", async () => {
+      const mocks = makePersistTx("queued");
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(mocks.tx),
+        ),
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.persistGeneratedItems(PERSIST_INPUT),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mocks.itemCreate).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException when conditional UPDATE returns 0 (pack moved)", async () => {
+      const mocks = makePersistTx();
+      mocks.updateMany.mockResolvedValue({ count: 0 });
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(mocks.tx),
+        ),
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.persistGeneratedItems(PERSIST_INPUT),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe("safeFail", () => {
+    it("sets status=failed, retryEligible=true, and appends a progress event in one tx", async () => {
+      const update = jest.fn().mockResolvedValue({});
+      const count = jest.fn().mockResolvedValue(3);
+      const create = jest.fn().mockResolvedValue({ id: 1n, seq: 4 });
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({
+              contentPack: { update },
+              contentProgressEvent: { count, create },
+            }),
+        ),
+      } as unknown as PrismaService);
+
+      await repo.safeFail("pack-1", "content.generation_failed", "AI call failed", {
+        errorCode: "CONTENT_PROVIDER_FAILURE",
+      });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: "pack-1" },
+        data: { status: "failed", retryEligible: true },
+      });
+      expect(create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contentPackId: "pack-1",
+          seq: 4,
+          stage: "failed",
+          status: "failed",
+          messageKey: "content.generation_failed",
+          messageText: "AI call failed",
+          payload: { errorCode: "CONTENT_PROVIDER_FAILURE" },
+        }),
+      });
     });
   });
 });

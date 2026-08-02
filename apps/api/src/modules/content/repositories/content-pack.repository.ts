@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma, ContentPack } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { canTransitionContentPack, ContentPackStatus } from "@marketmind/contracts";
 
@@ -31,6 +30,21 @@ export type AppendPackWithItemsInput = {
   readonly weekContextId: string;
   readonly items: ContentItemVersionDraftInput[];
   readonly generationRunId: string;
+};
+
+export type PersistGeneratedItemsInput = {
+  readonly packId: string;
+  readonly cycleId: string;
+  readonly weekNumber: number;
+  readonly generationRunId: string;
+  readonly items: ContentItemVersionDraftInput[];
+  readonly progressEvent: ContentProgressInput;
+  readonly providerName?: string;
+  readonly providerModel?: string;
+  readonly inputHash?: string;
+  readonly latencyMs: number;
+  readonly startedAt: Date;
+  readonly finishedAt: Date;
 };
 
 export type ContentProgressInput = {
@@ -75,10 +89,15 @@ export class ContentPackRepository {
           },
         });
 
+        const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
+          where: { id: input.weekContextId },
+          select: { weeklyClaimId: true },
+        });
+
         const pack = await tx.contentPack.create({
           data: {
             contentCycleId: input.cycleId,
-            weeklyClaimId: randomUUID(),
+            weeklyClaimId: weekContext.weeklyClaimId,
             weekNumber: input.weekNumber,
             businessId: cycle.businessId,
             strategyId: cycle.strategyId,
@@ -200,10 +219,15 @@ export class ContentPackRepository {
           },
         });
 
+        const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
+          where: { id: weekContextId },
+          select: { weeklyClaimId: true },
+        });
+
         return tx.contentPack.create({
           data: {
             contentCycleId: cycleId,
-            weeklyClaimId: randomUUID(),
+            weeklyClaimId: weekContext.weeklyClaimId,
             weekNumber,
             businessId: cycle.businessId,
             strategyId: cycle.strategyId,
@@ -234,6 +258,15 @@ export class ContentPackRepository {
       }
       throw error;
     }
+  }
+
+  /**
+   * Unscoped read for the processor — returns the pack with its items and
+   * their current version. Ownership is not checked; the caller (processor)
+   * guards against cross-business access via its own short-circuit checks.
+   */
+  async getPackById(id: string): Promise<ContentPack | null> {
+    return this.prisma.contentPack.findUnique({ where: { id } });
   }
 
   async getPackByIdAndOwner(
@@ -376,6 +409,140 @@ export class ContentPackRepository {
     });
 
     return { changed: result.count === 1 };
+  }
+
+  async persistGeneratedItems(
+    input: PersistGeneratedItemsInput,
+  ): Promise<ContentPack> {
+    return this.prisma.$transaction(async (tx) => {
+      const pack = await tx.contentPack.findUniqueOrThrow({
+        where: { id: input.packId },
+      });
+
+      if (pack.status !== "validating") {
+        throw new BadRequestException(
+          `Cannot persist items: pack ${input.packId} is in status ${pack.status}, expected validating`,
+        );
+      }
+
+      const itemIds: string[] = [];
+      for (const draft of input.items) {
+        const item = await tx.contentItem.create({
+          data: {
+            contentPackId: input.packId,
+            status: "draft",
+          },
+        });
+        itemIds.push(item.id);
+
+        const version = await tx.contentItemVersion.create({
+          data: {
+            contentItemId: item.id,
+            contentPackId: input.packId,
+            version: 1,
+            channel: draft.channel,
+            format: draft.format,
+            languageMode: draft.languageMode,
+            strategyTrace: draft.strategyTrace,
+            captionVariants: draft.captionVariants,
+            cta: draft.cta,
+            hashtags: draft.hashtags,
+            creativeBrief: draft.creativeBrief,
+            altText: draft.altText,
+            shortVideoScript: draft.shortVideoScript,
+            recommendedPublishWindow: draft.recommendedPublishWindow,
+            claimSources: draft.claimSources,
+            warnings: draft.warnings,
+            blockers: draft.blockers,
+            assetRequired: draft.assetRequired,
+            assetIds: draft.assetIds,
+            generationProvenance: draft.generationProvenance,
+            versionChecksum: draft.versionChecksum,
+          },
+        });
+
+        await tx.contentItem.update({
+          where: { id: item.id },
+          data: { currentVersionId: version.id },
+        });
+      }
+
+      const updated = await tx.contentPack.updateMany({
+        where: { id: input.packId, status: "validating" },
+        data: { itemIds, status: "draft" },
+      });
+
+      if (updated.count === 0) {
+        throw new BadRequestException(
+          `Pack ${input.packId} is no longer in validating status`,
+        );
+      }
+
+      await tx.contentGenerationRun.create({
+        data: {
+          id: input.generationRunId,
+          contentPackId: input.packId,
+          contentCycleId: input.cycleId,
+          weekNumber: input.weekNumber,
+          runType: "generate",
+          status: "completed",
+          providerName: input.providerName,
+          providerModel: input.providerModel,
+          inputHash: input.inputHash,
+          latencyMs: input.latencyMs,
+          startedAt: input.startedAt,
+          finishedAt: input.finishedAt,
+        },
+      });
+
+      const seq = await tx.contentProgressEvent.count({
+        where: { contentPackId: input.packId },
+      });
+      await tx.contentProgressEvent.create({
+        data: {
+          contentPackId: input.packId,
+          seq: seq + 1,
+          stage: input.progressEvent.stage,
+          status: input.progressEvent.status,
+          messageKey: input.progressEvent.messageKey,
+          messageText: input.progressEvent.messageText,
+          payload: (input.progressEvent.payload ?? {}) as Prisma.InputJsonObject,
+        },
+      });
+
+      return tx.contentPack.findUniqueOrThrow({
+        where: { id: input.packId },
+      });
+    });
+  }
+
+  async safeFail(
+    packId: string,
+    messageKey: string,
+    messageText: string,
+    payload?: Record<string, unknown>,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.contentPack.update({
+        where: { id: packId },
+        data: { status: "failed", retryEligible: true },
+      });
+
+      const seq = await tx.contentProgressEvent.count({
+        where: { contentPackId: packId },
+      });
+      await tx.contentProgressEvent.create({
+        data: {
+          contentPackId: packId,
+          seq: seq + 1,
+          stage: "failed",
+          status: "failed",
+          messageKey,
+          messageText,
+          payload: (payload ?? {}) as Prisma.InputJsonObject,
+        },
+      });
+    });
   }
 }
 

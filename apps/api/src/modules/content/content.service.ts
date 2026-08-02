@@ -1352,7 +1352,7 @@ function toContentCycle(cycle: ContentCycleRow): ContentCycle {
   };
 }
 
-function toContentWeekContext(week: PrismaWeekContext): ContentWeekContext {
+export function toContentWeekContext(week: PrismaWeekContext): ContentWeekContext {
   const base = {
     id: week.id,
     contract_version: "content-v1" as const,
@@ -1388,7 +1388,7 @@ function toContentWeekContext(week: PrismaWeekContext): ContentWeekContext {
   };
 }
 
-function toContentPack(pack: PrismaContentPack): ContentPack {
+export function toContentPack(pack: PrismaContentPack): ContentPack {
   return {
     id: pack.id,
     contract_version: pack.contractVersion as ContentPack["contract_version"],
@@ -1425,7 +1425,7 @@ function toContentProgressEvent(
   };
 }
 
-function toContentItemVersion(
+export function toContentItemVersion(
   version: PrismaContentItemVersion,
 ): ContentItemVersion {
   return {
@@ -1470,7 +1470,7 @@ function toContentDecision(row: ContentDecisionRow): ContentDecision {
   };
 }
 
-function toContentAsset(row: PrismaContentAsset): ContentAsset {
+export function toContentAsset(row: PrismaContentAsset): ContentAsset {
   return {
     id: row.id,
     content_item_version_id: row.contentItemVersionId,
@@ -1527,7 +1527,7 @@ function readyCandidateAssets(
     }));
 }
 
-function planSelectedChannels(planData: unknown): ContentChannel[] {
+export function planSelectedChannels(planData: unknown): ContentChannel[] {
   const plan = toPayload(planData);
   const selected = plan.selected_channels;
   if (!Array.isArray(selected)) return [];
@@ -1543,7 +1543,7 @@ function planSelectedChannels(planData: unknown): ContentChannel[] {
     );
 }
 
-function normalizeStrategyDecision(
+export function normalizeStrategyDecision(
   action: string | null | undefined,
 ): "approved" | "rejected" | "revision_requested" {
   if (action === "approve") return "approved";
@@ -1552,7 +1552,7 @@ function normalizeStrategyDecision(
   return "revision_requested";
 }
 
-function toPayload(value: unknown): Record<string, unknown> {
+export function toPayload(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
 }

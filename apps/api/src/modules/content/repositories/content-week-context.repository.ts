@@ -147,6 +147,10 @@ export class ContentWeekContextRepository {
     });
   }
 
+  async getWeekById(id: string): Promise<ContentWeekContext | null> {
+    return this.prisma.contentWeekContext.findUnique({ where: { id } });
+  }
+
   /**
    * Atomic claim of a (cycle, week): a conditional INSERT guarded by
    * `@@unique([content_cycle_id, week_number])`. The first insert wins; a
