@@ -91,8 +91,9 @@ def _revision_metadata(
     user_prompt: str,
     provider_name: str,
     model: str,
+    generation_request: AiContentGenerateRequest | None = None,
 ) -> dict[str, Any]:
-    return {
+    metadata = {
         "prompt_version": CONTENT_REVISE_PROMPT_VERSION,
         "reference_pattern_version": CONTENT_REFERENCE_PATTERN_VERSION,
         "provider_name": provider_name,
@@ -106,6 +107,19 @@ def _revision_metadata(
         "revision_notes_hash": _sha256(request.revision_notes),
         "input_snapshot_hash": _sha256(user_prompt),
     }
+    if generation_request is not None:
+        metadata.update(
+            {
+                "business_id": generation_request.business_id,
+                "strategy_id": generation_request.strategy_id,
+                "strategy_version": generation_request.strategy_version,
+                "profile_version_id": generation_request.business_profile.id,
+                "profile_version": generation_request.business_profile.version,
+                "content_cycle_id": generation_request.week_context.content_cycle_id,
+                "week_number": generation_request.week_context.week_number,
+            }
+        )
+    return metadata
 
 
 def _asset_metadata(
@@ -147,6 +161,7 @@ def assemble_revision_prompt(
     previous_item_version: ContentItemVersion,
     provider_name: str,
     model: str,
+    generation_request: AiContentGenerateRequest | None = None,
 ) -> PromptAssembly:
     """Assemble a revision prompt after checking immutable item identity."""
     if previous_item_version.id != request.base_item_version_id:
@@ -160,10 +175,35 @@ def assemble_revision_prompt(
         raise ValueError(
             "CONTENT_VERSION_CONFLICT: item version does not belong to the requested pack and item."
         )
-    if not request.revision_notes.strip():
-        raise ValueError("CONTENT_SCHEMA_FAILURE: revision_notes must not be blank.")
+    if not request.revision_notes.strip() or len(request.revision_notes) > 4_000:
+        raise ValueError(
+            "CONTENT_SCHEMA_FAILURE: revision_notes must contain 1-4000 characters."
+        )
+    if not request.idempotency_key.strip() or len(request.idempotency_key) > 256:
+        raise ValueError(
+            "CONTENT_SCHEMA_FAILURE: idempotency_key must contain 1-256 characters."
+        )
+    if generation_request is not None:
+        _raise_for_invalid_generation_request(generation_request)
+        trace = previous_item_version.strategy_trace
+        if (
+            generation_request.content_pack_id != request.content_pack_id
+            or trace.strategy_id != generation_request.strategy_id
+            or trace.strategy_version != generation_request.strategy_version
+            or trace.week_number != generation_request.week_context.week_number
+            or previous_item_version.channel not in generation_request.selected_channels
+            or previous_item_version.format not in generation_request.allowed_formats
+            or previous_item_version.language_mode != generation_request.language_mode
+        ):
+            raise ValueError(
+                "CONTENT_VERSION_CONFLICT: revision grounding does not match the supplied item version."
+            )
 
-    user_prompt = build_revise_user_context(request, previous_item_version)
+    user_prompt = build_revise_user_context(
+        request,
+        previous_item_version,
+        generation_request,
+    )
     return PromptAssembly(
         system_prompt=CONTENT_REVISE_SYSTEM_PROMPT,
         user_prompt=user_prompt,
@@ -173,6 +213,7 @@ def assemble_revision_prompt(
             user_prompt,
             provider_name,
             model,
+            generation_request,
         ),
     )
 
@@ -183,11 +224,21 @@ def assemble_asset_prompt(
     model: str,
 ) -> PromptAssembly:
     """Assemble a static-asset prompt with non-sensitive metadata."""
-    if request.width <= 0 or request.height <= 0:
-        raise ValueError("CONTENT_SCHEMA_FAILURE: asset dimensions must be positive.")
-    if not request.creative_brief.strip() or not request.alt_text.strip():
+    if not 64 <= request.width <= 4_096 or not 64 <= request.height <= 4_096:
         raise ValueError(
-            "CONTENT_SCHEMA_FAILURE: creative_brief and alt_text must not be blank."
+            "CONTENT_SCHEMA_FAILURE: asset dimensions must be between 64 and 4096 pixels."
+        )
+    if (
+        not request.creative_brief.strip()
+        or len(request.creative_brief) > 4_000
+        or not request.alt_text.strip()
+    ):
+        raise ValueError(
+            "CONTENT_SCHEMA_FAILURE: creative_brief must contain 1-4000 characters and alt_text must not be blank."
+        )
+    if not request.idempotency_key.strip() or len(request.idempotency_key) > 256:
+        raise ValueError(
+            "CONTENT_SCHEMA_FAILURE: idempotency_key must contain 1-256 characters."
         )
 
     user_prompt = build_asset_user_context(request)

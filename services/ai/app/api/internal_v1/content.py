@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from content_contracts import (
     AiContentGenerateRequest,
@@ -35,7 +35,7 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
-from app.content.storage_stub import DeterministicAssetStorage
+from app.content.storage import create_asset_storage
 from app.content.validators import (
     validate_content_generation_request,
     validate_generated_content_pack,
@@ -50,12 +50,23 @@ from app.providers.content_provider import create_content_provider
 router = APIRouter(prefix="/internal/v1/ai/content", tags=["internal-ai-content"])
 logger = logging.getLogger(__name__)
 
+_VALUE_ERROR_CODES = {
+    "CONTENT_SCHEMA_FAILURE",
+    "CONTENT_VERSION_CONFLICT",
+    "CONTENT_POLICY_VIOLATION",
+    "CONTENT_CHANNEL_MISMATCH",
+    "CONTENT_OFFER_UNAPPROVED",
+}
+
 
 class ContentRevisionRequestEnvelope(BaseModel):
     """Internal handoff carrying the read-only version NestJS loaded by ID."""
 
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     request: AiContentReviseRequest
     previous_item_version: ContentItemVersion
+    generation_request: AiContentGenerateRequest
 
 
 def _raise_content_http_error(
@@ -88,7 +99,21 @@ def _raise_provider_error(error: ProviderError) -> None:
         "CONTENT_UNSUPPORTED_CLAIM",
     }:
         code = "CONTENT_PROVIDER_FAILURE"
-    _raise_content_http_error(code, str(error), status_code=503 if error.retryable else 422, retryable=error.retryable)
+    _raise_content_http_error(
+        code,
+        str(error),
+        status_code=503 if error.retryable else 422,
+        retryable=error.retryable,
+    )
+
+
+def _raise_value_error(error: ValueError, *, default_code: str) -> None:
+    """Preserve a stable assembler error code without exposing arbitrary data."""
+    message = str(error)
+    prefix, separator, remainder = message.partition(":")
+    code = prefix if prefix in _VALUE_ERROR_CODES else default_code
+    safe_message = remainder.strip() if separator and code == prefix else message
+    _raise_content_http_error(code, safe_message)
 
 
 def _raise_validation(validation: ContentValidationResult) -> None:
@@ -127,7 +152,13 @@ def _build_draft_pack(
 
 
 def _model_name(settings: Settings) -> str:
-    return settings.openai_model or settings.gemini_model or "mock-content-model"
+    if settings.ai_provider_mode == "openai":
+        return settings.openai_model
+    if settings.ai_provider_mode == "gemini_dev":
+        return settings.gemini_model
+    if settings.ai_provider_mode == "openrouter":
+        return settings.open_router_model
+    return "mock-content-model"
 
 
 @router.post(
@@ -155,13 +186,21 @@ async def generate_content(
             content_event_metadata(prompt.metadata),
         )
         provider = create_content_provider(settings)
-        items = await generate_content_pack_with_repair(provider, prompt)
+        items = await generate_content_pack_with_repair(
+            provider,
+            prompt,
+            request=request,
+        )
     except ProviderError as error:
         _raise_provider_error(error)
     except ValueError as error:
-        _raise_content_http_error("CONTENT_SCHEMA_FAILURE", str(error))
+        _raise_value_error(error, default_code="CONTENT_SCHEMA_FAILURE")
 
-    validation = validate_generated_content_pack(request, items)
+    validation = validate_generated_content_pack(
+        request,
+        items,
+        enforce_asset_readiness=False,
+    )
     if not validation.valid:
         _raise_validation(validation)
     log_content_event(
@@ -197,6 +236,7 @@ async def revise_content(
             envelope.previous_item_version,
             provider_name=settings.ai_provider_mode,
             model=_model_name(settings),
+            generation_request=envelope.generation_request,
         )
         log_content_event(
             logger,
@@ -208,13 +248,18 @@ async def revise_content(
             provider,
             prompt,
             base_item_version=envelope.previous_item_version,
+            generation_request=envelope.generation_request,
         )
     except ProviderError as error:
         _raise_provider_error(error)
     except ValueError as error:
-        _raise_content_http_error("CONTENT_VERSION_CONFLICT", str(error))
+        _raise_value_error(error, default_code="CONTENT_VERSION_CONFLICT")
 
-    validation = validate_revision_item(envelope.previous_item_version, item)
+    validation = validate_revision_item(
+        envelope.previous_item_version,
+        item,
+        envelope.generation_request,
+    )
     if not validation.valid:
         _raise_validation(validation)
     log_content_event(
@@ -253,7 +298,10 @@ async def generate_static_content_asset(
             request,
             prompt,
             create_static_image_provider(settings),
-            DeterministicAssetStorage(),
+            create_asset_storage(
+                root=settings.content_asset_storage_dir,
+                allow_test_memory=settings.image_provider_mode in {"mock", "unavailable"},
+            ),
         )
     except ValueError as error:
         _raise_content_http_error("CONTENT_SCHEMA_FAILURE", str(error))

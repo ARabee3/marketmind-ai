@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from content_contracts import ContentItemVersion
@@ -11,10 +13,13 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
+from app.content.validators import compute_content_item_checksum
 from app.providers.base import ProviderError
 from app.providers.content_provider import (
     ContentLLMProvider,
     MockContentProvider,
+    OpenAIContentProvider,
+    _parse_provider_output,
 )
 from tests.content.fixture_helpers import load_example, make_valid_request
 
@@ -79,6 +84,55 @@ def test_mock_provider_returns_three_complete_grounded_items() -> None:
     assert all(item.generation_provenance.provider_name == "mock" for item in items)
 
 
+def test_schema_failure_does_not_echo_private_provider_output() -> None:
+    private_value = "private-owner-profile-value"
+
+    with pytest.raises(ProviderError) as error:
+        _parse_provider_output(
+            {"item_versions": [{"caption_variants": [private_value]}]}
+        )
+
+    assert error.value.code == "CONTENT_SCHEMA_FAILURE"
+    assert private_value not in str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_openai_content_adapter_disables_sdk_retries_and_storage(
+    monkeypatch,
+) -> None:
+    import openai
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "openai", "fictional-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    captured: dict = {}
+
+    class FakeResponses:
+        def parse(self, **arguments):
+            captured["request"] = arguments
+            return SimpleNamespace(
+                output_parsed={
+                    "item_versions": [
+                        item.model_dump(mode="json") for item in valid_items
+                    ]
+                }
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIContentProvider("fictional-key", "fictional-model", 10)
+
+    result = await provider.generate_content_pack(prompt)
+
+    assert len(result) == 3
+    assert captured["client"]["max_retries"] == 0
+    assert captured["request"]["store"] is False
+
+
 @pytest.mark.asyncio
 async def test_generation_repairs_schema_failure_once() -> None:
     request = make_valid_request()
@@ -110,6 +164,44 @@ async def test_generation_schema_failure_becomes_stable_safe_failure() -> None:
     assert error.value.code == "CONTENT_SCHEMA_FAILURE"
     assert not error.value.retryable
     assert provider.pack_calls == 3
+
+
+@pytest.mark.asyncio
+async def test_generation_stamps_server_owned_identity_provenance_and_checksum() -> None:
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+    raw_items = [
+        item.model_copy(
+            update={
+                "id": f"provider-item-{index}",
+                "content_item_id": "provider-stable-id",
+                "content_pack_id": "provider-pack-id",
+                "version": 9,
+                "version_checksum": "provider-checksum",
+            }
+        )
+        for index, item in enumerate(raw_items)
+    ]
+    provider = SequenceProvider([raw_items])
+
+    items = await generate_content_pack_with_repair(
+        provider,
+        prompt,
+        request=request,
+        sleep=no_sleep,
+    )
+
+    assert len({item.id for item in items}) == 3
+    assert len({item.content_item_id for item in items}) == 3
+    assert all(item.content_pack_id == request.content_pack_id for item in items)
+    assert all(item.version == 1 for item in items)
+    assert all(
+        item.generation_provenance.provider_name == provider.name for item in items
+    )
+    assert all(
+        item.version_checksum == compute_content_item_checksum(item) for item in items
+    )
 
 
 @pytest.mark.asyncio

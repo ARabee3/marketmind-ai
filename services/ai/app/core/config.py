@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     image_provider_mode: ImageProviderMode = "mock"
     image_model: str = "gpt-image-1"
     image_request_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
+    content_asset_storage_dir: str = ""
 
     # Embedding provider configuration
     # Default production configuration per STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md.

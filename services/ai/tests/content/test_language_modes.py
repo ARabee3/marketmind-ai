@@ -112,6 +112,19 @@ def test_mixed_output_requires_both_caption_locales() -> None:
     )
 
 
+def test_english_short_video_script_is_fully_english() -> None:
+    request = _request_for_language("en").model_copy(
+        update={"allowed_formats": ["short_video_script"]}
+    )
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    result = validate_generated_content_pack(request, items)
+
+    assert result.valid
+    assert all(item.short_video_script is not None for item in items)
+
+
 def test_approved_promotion_text_and_terms_are_preserved_by_mock() -> None:
     request = _request_for_language("ar-EG")
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")

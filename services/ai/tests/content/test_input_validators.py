@@ -79,3 +79,20 @@ def test_system_defaulted_context_cannot_carry_promotion(
 
     assert not result.valid
     assert "CONTENT_POLICY_VIOLATION" in _codes(result)
+
+
+def test_owner_instructions_cannot_require_and_forbid_the_same_text(
+    valid_request: AiContentGenerateRequest,
+) -> None:
+    context = valid_request.week_context.model_copy(
+        update={
+            "must_include": ["اذكر خدمة التوصيل"],
+            "must_avoid": ["  اذكر خدمة التوصيل  "],
+        }
+    )
+    request = valid_request.model_copy(update={"week_context": context})
+
+    result = validate_content_generation_request(request)
+
+    assert not result.valid
+    assert "CONTENT_POLICY_VIOLATION" in _codes(result)

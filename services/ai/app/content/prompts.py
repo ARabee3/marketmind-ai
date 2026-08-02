@@ -19,6 +19,10 @@ from app.content.prompt_versions import (
     CONTENT_REFERENCE_PATTERN_VERSION,
     CONTENT_REVISE_PROMPT_VERSION,
 )
+from app.content.validators import (
+    derive_strategy_pillar_ids,
+    derive_target_item_count,
+)
 
 
 _SENSITIVE_KEY_PARTS = (
@@ -46,6 +50,7 @@ CONTENT_GENERATE_SYSTEM_PROMPT = "\n".join(
         "- Use only the supplied immutable Strategy plan, confirmed Business Profile, weekly context, and approved asset IDs.",
         "- Tie every item to the supplied Strategy week, at least one Strategy pillar, and a selected channel.",
         "- Generate exactly 3-5 items and use only the requested channels and supported formats.",
+        "- Obey must_include and must_avoid owner instructions exactly across the weekly pack.",
         "- Record a claim source for every material business, owner, promotion, or Strategy claim.",
         "- Never use model memory, live web research, competitor research, or a new RAG run as a source.",
         "- If a required fact is missing, expose the missing input or blocker; do not fill it from memory.",
@@ -61,8 +66,8 @@ CONTENT_GENERATE_SYSTEM_PROMPT = "\n".join(
         "",
         "## Required output",
         "",
-        "Return only valid JSON matching the supplied content-v1 item-version shape.",
-        "Return 3-5 complete ContentItemVersion objects, including caption variants, CTA, hashtags, creative brief, alt text,",
+        "Return one JSON object with an item_versions array matching the supplied provider wrapper schema.",
+        "Return 3-5 complete ContentItemVersion objects in item_versions, including caption variants, CTA, hashtags, creative brief, alt text,",
         "recommended Africa/Cairo posting window, claim_sources, warnings/blockers, generation provenance, and version checksum.",
         "Include a short-video script when the requested format requires it; do not generate video bytes.",
         "The result is always a draft and must never contain an approval or publishing decision.",
@@ -90,7 +95,7 @@ CONTENT_REVISE_SYSTEM_PROMPT = "\n".join(
         "## Immutable fields",
         "",
         "Preserve content_item_id, content_pack_id, channel, format, language_mode, Strategy ID/version,",
-        "week number, pillar IDs, objective, and Strategy trace channel exactly.",
+        "week number, pillar IDs, objective, Strategy trace channel, and asset requirement exactly.",
         "Do not change Strategy decisions, selected channels, promotion approval, or asset ownership.",
         "",
         "## Revision safety",
@@ -100,7 +105,7 @@ CONTENT_REVISE_SYSTEM_PROMPT = "\n".join(
         "Preserve protected names, handles, addresses, URLs, owner text, and approved offer terms exactly.",
         "Do not approve, schedule, publish, or imply that the revised item is approved.",
         "",
-        "Return only one valid content-v1 ContentItemVersion JSON object.",
+        "Return one JSON object with item_versions containing exactly one valid content-v1 ContentItemVersion.",
     ]
 )
 
@@ -153,6 +158,10 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
         week for week in request.strategy_plan.content_strategy.weeks
         if week.week_number == week_number
     )
+    pillar_ids = derive_strategy_pillar_ids(
+        request.strategy_id,
+        len(request.strategy_plan.content_strategy.pillars),
+    )
     return {
         "week": week.model_dump(mode="json", exclude_none=True),
         "theme": week.theme,
@@ -160,8 +169,13 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
             getattr(request.strategy_plan.primary_objective, "value", request.strategy_plan.primary_objective)
         ),
         "pillars": [
-            pillar.model_dump(mode="json", exclude_none=True)
-            for pillar in request.strategy_plan.content_strategy.pillars
+            {
+                "pillar_id": pillar_ids[index],
+                **pillar.model_dump(mode="json", exclude_none=True),
+            }
+            for index, pillar in enumerate(
+                request.strategy_plan.content_strategy.pillars
+            )
         ],
         "selected_channels": [
             scorecard.model_dump(mode="json", exclude_none=True)
@@ -207,6 +221,10 @@ def build_generate_user_context(request: AiContentGenerateRequest) -> str:
         "output_contract": {
             "contract_version": "content-v1",
             "item_count": {"minimum": 3, "maximum": 5},
+            "target_item_count": derive_target_item_count(
+                request.strategy_plan.content_strategy.weekly_cadence
+            ),
+            "wrapper_field": "item_versions",
             "required_fields": [
                 "channel",
                 "format",
@@ -234,6 +252,7 @@ def build_generate_user_context(request: AiContentGenerateRequest) -> str:
 def build_revise_user_context(
     request: AiContentReviseRequest,
     previous_item_version: ContentItemVersion,
+    generation_request: AiContentGenerateRequest | None = None,
 ) -> str:
     """Build a revision context with the previous version as read-only input."""
     context = {
@@ -263,9 +282,28 @@ def build_revise_user_context(
             "strategy_trace.pillar_ids",
             "strategy_trace.objective",
             "strategy_trace.channel",
+            "asset_required",
         ],
-        "output_contract": {"contract_version": "content-v1"},
+        "output_contract": {
+            "contract_version": "content-v1",
+            "wrapper_field": "item_versions",
+            "item_count": 1,
+        },
     }
+    if generation_request is not None:
+        context["grounding_inputs_read_only"] = {
+            "strategy_week": _format_strategy_week(generation_request),
+            "strategy_profile_reference": generation_request.strategy_plan.profile_version.model_dump(
+                mode="json"
+            ),
+            "business_profile": _format_profile(generation_request),
+            "weekly_context": generation_request.week_context.model_dump(
+                mode="json",
+                exclude_none=True,
+            ),
+            "requested_channels": generation_request.selected_channels,
+            "allowed_formats": generation_request.allowed_formats,
+        }
     return (
         "Content revision context follows. The previous item version is read-only; "
         "preserve all locked fields exactly.\n\n"

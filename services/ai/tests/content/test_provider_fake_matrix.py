@@ -19,8 +19,14 @@ from content_contracts import (
 from app.content.assembler import assemble_generation_prompt
 from app.content.service import generate_content_pack_with_repair
 from app.content.validators import validate_generated_content_pack
+from app.core.config import Settings
 from app.providers.base import ProviderError
-from app.providers.content_provider import ContentLLMProvider, MockContentProvider
+from app.providers.content_provider import (
+    ContentLLMProvider,
+    MockContentProvider,
+    OpenRouterContentProvider,
+    create_content_provider,
+)
 from tests.content.fixture_helpers import load_example, make_valid_request
 
 
@@ -181,6 +187,18 @@ async def test_provider_timeout_has_bounded_retry() -> None:
 
     assert len(result) == 3
     assert provider.calls == 2
+
+
+def test_openrouter_mode_never_silently_falls_back_to_mock() -> None:
+    provider = create_content_provider(
+        Settings(
+            ai_provider_mode="openrouter",
+            open_router_api_key="fictional-key",
+            open_router_model="fictional/model",
+        )
+    )
+
+    assert isinstance(provider, OpenRouterContentProvider)
 
 
 def _policy_fixture() -> dict:

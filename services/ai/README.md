@@ -46,6 +46,9 @@ Copy `.env.example` to `.env` and configure the providers you need:
 - `IMAGE_PROVIDER_MODE=openai`: requires `OPENAI_API_KEY` and uses `IMAGE_MODEL`.
 - `IMAGE_PROVIDER_MODE=unavailable`: explicit prompt-only state for provider-disabled environments.
 - `IMAGE_REQUEST_TIMEOUT_MS`: image-provider timeout in milliseconds.
+- `CONTENT_ASSET_STORAGE_DIR`: required with the OpenAI image provider; points
+  to a durable local or shared-volume root. Without it, media remains an
+  explicit failed state and no provider call is made.
 
 Content generation metadata records prompt/reference versions, provider/model,
 exact Strategy/profile/week identities, input hashes, validation codes, and item

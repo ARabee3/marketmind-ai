@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi.testclient import TestClient
 
 from content_contracts import (
@@ -11,8 +13,10 @@ from content_contracts import (
 )
 
 from app.core.config import Settings, get_settings
+from app.content.assembler import assemble_generation_prompt
+from app.providers.content_provider import MockContentProvider
 from app.main import app
-from tests.content.fixture_helpers import load_example, make_valid_request
+from tests.content.fixture_helpers import make_valid_request
 
 
 client = TestClient(app)
@@ -40,6 +44,28 @@ def test_content_generate_endpoint_returns_draft_pack() -> None:
     assert result.content_pack.status == "draft"
     assert len(result.item_versions) == 3
     assert all(item.content_pack_id == request.content_pack_id for item in result.item_versions)
+
+
+def test_content_generate_endpoint_returns_static_drafts_before_assets_are_ready() -> None:
+    app.dependency_overrides[get_settings] = _settings
+    request = make_valid_request()
+
+    try:
+        response = client.post(
+            "/internal/v1/ai/content/generate",
+            json=request.model_dump(mode="json"),
+        )
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert response.status_code == 200
+    result = AiContentGenerateResponse.model_validate(response.json())
+    assert result.validation.valid
+    assert all(item.asset_required for item in result.item_versions)
+    assert all(
+        item.asset_ids or "CONTENT_ASSET_REQUIRED" in item.blockers
+        for item in result.item_versions
+    )
 
 
 def test_content_generate_endpoint_rejects_channel_mismatch() -> None:
@@ -78,7 +104,16 @@ def test_content_generate_endpoint_maps_provider_configuration_failure() -> None
 
 def test_content_revision_endpoint_returns_new_version() -> None:
     app.dependency_overrides[get_settings] = _settings
-    item_data = load_example("content-pack-week-1-ar.example.json")["item_version"]
+    generation_request = make_valid_request().model_copy(
+        update={"allowed_formats": ["text_post"]}
+    )
+    prompt = assemble_generation_prompt(
+        generation_request,
+        "mock",
+        "mock-content-model",
+    )
+    item = asyncio.run(MockContentProvider().generate_content_pack(prompt))[0]
+    item_data = item.model_dump(mode="json")
     request_data = {
         "contract_version": "content-v1",
         "content_pack_id": item_data["content_pack_id"],
@@ -90,6 +125,7 @@ def test_content_revision_endpoint_returns_new_version() -> None:
     body = {
         "request": request_data,
         "previous_item_version": item_data,
+        "generation_request": generation_request.model_dump(mode="json"),
     }
 
     try:
@@ -102,6 +138,39 @@ def test_content_revision_endpoint_returns_new_version() -> None:
     assert result.validation.valid
     assert result.item_version.version == 2
     assert result.item_version.id != item_data["id"]
+
+
+def test_content_revision_endpoint_preserves_schema_error_code() -> None:
+    app.dependency_overrides[get_settings] = _settings
+    generation_request = make_valid_request().model_copy(
+        update={"allowed_formats": ["text_post"]}
+    )
+    prompt = assemble_generation_prompt(
+        generation_request,
+        "mock",
+        "mock-content-model",
+    )
+    item = asyncio.run(MockContentProvider().generate_content_pack(prompt))[0]
+    body = {
+        "request": {
+            "contract_version": "content-v1",
+            "content_pack_id": item.content_pack_id,
+            "content_item_id": item.content_item_id,
+            "base_item_version_id": item.id,
+            "revision_notes": "   ",
+            "idempotency_key": "endpoint-revision-schema-fictional",
+        },
+        "previous_item_version": item.model_dump(mode="json"),
+        "generation_request": generation_request.model_dump(mode="json"),
+    }
+
+    try:
+        response = client.post("/internal/v1/ai/content/revise", json=body)
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["error_type"] == "CONTENT_SCHEMA_FAILURE"
 
 
 def test_content_revision_endpoint_requires_read_only_base_version() -> None:

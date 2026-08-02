@@ -13,6 +13,7 @@ from content_contracts import (
 
 from app.content.assembler import assemble_generation_prompt
 from app.content.validators import (
+    compute_content_item_checksum,
     validate_frozen_content_policy_fixture,
     validate_generated_content_pack,
 )
@@ -44,6 +45,13 @@ def _asset_for(item, *, status: str = "ready", kind: str = "owner_supplied") -> 
         provider_request_id=None,
         failure_code=None,
         created_at=item.created_at,
+    )
+
+
+def _rehash(item):
+    staged = item.model_copy(update={"version_checksum": ""})
+    return staged.model_copy(
+        update={"version_checksum": compute_content_item_checksum(staged)}
     )
 
 
@@ -116,6 +124,130 @@ def test_unsupported_claim_is_blocked() -> None:
     assert "CONTENT_POLICY_VIOLATION" in {issue.code for issue in result.issues}
 
 
+def test_risky_copy_without_matching_claim_source_is_blocked() -> None:
+    request, items = _generated_text_items()
+    item = items[0]
+    variant = item.caption_variants[0]
+    mutated = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={
+                        "caption": f"{variant.caption} نضمن لك الشفاء التام بنسبة ٩٠ بالمئة."
+                    }
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(mutated)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert "CONTENT_POLICY_VIOLATION" in {issue.code for issue in result.issues}
+
+
+def test_invented_opening_hours_are_blocked() -> None:
+    request, items = _generated_text_items()
+    item = items[0]
+    variant = item.caption_variants[0]
+    mutated = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={
+                        "caption": f"{variant.caption} نحن مفتوحون يوميًا من الساعة ٩."
+                    }
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(mutated)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert "CONTENT_UNSUPPORTED_CLAIM" in {
+        issue.code for issue in result.issues
+    }
+
+def test_risky_claim_must_preserve_the_exact_grounded_value() -> None:
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    profile_data = dict(request.business_profile.profile)
+    profile_data["price"] = "50 جنيه"
+    profile = request.business_profile.model_copy(update={"profile": profile_data})
+    request = request.model_copy(update={"business_profile": profile})
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+    item = items[0]
+    variant = item.caption_variants[0]
+    price_claim = ContentClaimSource(
+        claim_type="price",
+        source_type="profile",
+        source_path="business_profile.profile.price",
+        approved=True,
+    )
+    mutated = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} السعر 150 جنيه."}
+                )
+            ],
+            "claim_sources": [*item.claim_sources, price_claim],
+        }
+    )
+    items[0] = _rehash(mutated)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert "CONTENT_UNSUPPORTED_CLAIM" in {
+        issue.code for issue in result.issues
+    }
+
+    grounded_variant = variant.model_copy(
+        update={"caption": f"{variant.caption} السعر 50 جنيه."}
+    )
+    grounded = item.model_copy(
+        update={
+            "caption_variants": [grounded_variant],
+            "claim_sources": [*item.claim_sources, price_claim],
+        }
+    )
+    items[0] = _rehash(grounded)
+
+    grounded_result = validate_generated_content_pack(request, items)
+
+    assert grounded_result.valid
+
+
+def test_duplicate_stable_item_identity_is_rejected() -> None:
+    request, items = _generated_text_items()
+    items[1] = _rehash(
+        items[1].model_copy(update={"content_item_id": items[0].content_item_id})
+    )
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert any("content_item_id" in issue.field for issue in result.issues)
+
+
+def test_strategy_objective_and_version_checksum_are_enforced() -> None:
+    request, items = _generated_text_items()
+    trace = items[0].strategy_trace.model_copy(update={"objective": "invented"})
+    items[0] = _rehash(items[0].model_copy(update={"strategy_trace": trace}))
+    items[1] = items[1].model_copy(update={"version_checksum": "tampered"})
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    fields = {issue.field for issue in result.issues}
+    assert "item.strategy_trace.objective" in fields
+    assert "item.version_checksum" in fields
+
+
 def test_protected_text_mutation_is_blocked_when_reported() -> None:
     request, items = _generated_text_items()
 
@@ -146,6 +278,20 @@ def test_required_static_asset_needs_ready_checksum_addressed_media() -> None:
     # The other generated items reference their own approved asset IDs and are
     # intentionally still blocked until each exact item has ready media.
     assert "CONTENT_VERSION_CONFLICT" in {issue.code for issue in ready_result.issues}
+
+
+def test_static_media_can_leave_fastapi_as_a_truthful_draft() -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+
+    result = validate_generated_content_pack(
+        request,
+        items,
+        enforce_asset_readiness=False,
+    )
+
+    assert result.valid
 
 
 def test_prompt_only_asset_cannot_satisfy_required_media() -> None:

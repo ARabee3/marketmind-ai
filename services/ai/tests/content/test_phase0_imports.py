@@ -15,7 +15,16 @@ from content_contracts import (
     validate_content_policy_fixture,
 )
 
-from app.content import assembler, fixtures, image_provider, prompt_versions, prompts, service, storage_stub, validators
+from app.content import (
+    assembler,
+    fixtures,
+    image_provider,
+    prompt_versions,
+    prompts,
+    service,
+    storage,
+    validators,
+)
 
 
 def test_frozen_content_contract_and_phase_zero_modules_import() -> None:
@@ -41,7 +50,7 @@ def test_frozen_content_contract_and_phase_zero_modules_import() -> None:
             prompt_versions,
             prompts,
             service,
-            storage_stub,
+            storage,
             validators,
         )
     )

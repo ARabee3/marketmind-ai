@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,14 +14,23 @@ from app.content.assembler import assemble_asset_prompt
 from app.content.image_provider import (
     FailingStaticImageProvider,
     MockStaticImageProvider,
+    OpenAIStaticImageProvider,
     UnavailableStaticImageProvider,
+    _solid_png,
     build_blocked_asset,
     build_owner_supplied_asset,
     create_static_image_provider,
     generate_static_asset,
 )
-from app.content.storage_stub import AssetStoragePort, DeterministicAssetStorage, StoredAsset
+from app.content.storage import (
+    AssetStoragePort,
+    DeterministicAssetStorage,
+    FileSystemAssetStorage,
+    StoredAsset,
+    UnavailableAssetStorage,
+)
 from app.core.config import Settings
+from app.providers.base import ProviderError
 
 
 def _request() -> AiStaticAssetGenerateRequest:
@@ -79,6 +90,28 @@ async def test_unavailable_provider_returns_explicit_prompt_only_state() -> None
 
 
 @pytest.mark.asyncio
+async def test_in_memory_test_storage_keeps_asset_identity_immutable() -> None:
+    storage = DeterministicAssetStorage()
+    asset_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    await storage.store(
+        b"first-bytes",
+        mime_type="image/png",
+        width=1024,
+        height=1024,
+        asset_id=asset_id,
+    )
+
+    with pytest.raises(ValueError, match="different bytes"):
+        await storage.store(
+            b"different-bytes",
+            mime_type="image/png",
+            width=1024,
+            height=1024,
+            asset_id=asset_id,
+        )
+
+
+@pytest.mark.asyncio
 async def test_provider_failure_cannot_masquerade_as_generated_ready_asset() -> None:
     request = _request()
     asset = await generate_static_asset(
@@ -122,6 +155,144 @@ async def test_storage_failure_is_explicit_and_has_no_authoritative_reference() 
     assert asset.storage_key is None
     assert asset.checksum is None
     assert asset.failure_code == "CONTENT_PROVIDER_FAILURE"
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_durable_storage_skips_paid_provider_call() -> None:
+    class CountingProvider(MockStaticImageProvider):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def generate_static(self, request, prompt):
+            self.calls += 1
+            return await super().generate_static(request, prompt)
+
+    request = _request()
+    provider = CountingProvider()
+
+    asset = await generate_static_asset(
+        request,
+        _prompt(request),
+        provider,
+        UnavailableAssetStorage(),
+    )
+
+    assert provider.calls == 0
+    assert asset.status == "failed"
+    assert asset.storage_key is None
+
+
+@pytest.mark.asyncio
+async def test_filesystem_storage_is_durable_and_immutable(tmp_path) -> None:
+    storage = FileSystemAssetStorage(tmp_path)
+    first = await storage.store(
+        b"first-bytes",
+        mime_type="image/png",
+        width=1024,
+        height=1024,
+        asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    )
+
+    assert await storage.retrieve(first.storage_key) == b"first-bytes"
+    with pytest.raises(ValueError, match="different bytes"):
+        await storage.store(
+            b"different-bytes",
+            mime_type="image/png",
+            width=1024,
+            height=1024,
+            asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        )
+    with pytest.raises(ValueError, match="different metadata"):
+        await storage.store(
+            b"first-bytes",
+            mime_type="image/jpeg",
+            width=1024,
+            height=1024,
+            asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        )
+
+
+class InconsistentStorage(AssetStoragePort):
+    async def store(
+        self,
+        data: bytes,
+        *,
+        mime_type: str,
+        width: int,
+        height: int,
+        asset_id: str,
+    ) -> StoredAsset:
+        return StoredAsset(
+            storage_key="content/generated/wrong.png",
+            checksum="wrong-checksum",
+            mime_type=mime_type,
+            width=width,
+            height=height,
+        )
+
+
+@pytest.mark.asyncio
+async def test_inconsistent_storage_metadata_cannot_become_ready() -> None:
+    request = _request()
+    asset = await generate_static_asset(
+        request,
+        _prompt(request),
+        MockStaticImageProvider(),
+        InconsistentStorage(),
+    )
+
+    assert asset.status == "failed"
+    assert asset.checksum is None
+    assert asset.storage_key is None
+
+
+@pytest.mark.asyncio
+async def test_gpt_image_adapter_omits_unsupported_response_format(monkeypatch) -> None:
+    import openai
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+    captured: dict = {}
+    png = _solid_png(1024, 1024, b"\x10\x20\x30")
+
+    class FakeImages:
+        def generate(self, **arguments):
+            captured["arguments"] = arguments
+            return SimpleNamespace(
+                id="image-request-fictional",
+                data=[
+                    SimpleNamespace(
+                        b64_json=base64.b64encode(png).decode("ascii")
+                    )
+                ],
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.images = FakeImages()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIStaticImageProvider("fictional-key", "gpt-image-1", 10)
+
+    generated = await provider.generate_static(request, prompt)
+
+    assert generated.data == png
+    assert captured["client"]["max_retries"] == 0
+    assert captured["arguments"]["output_format"] == "png"
+    assert "response_format" not in captured["arguments"]
+
+
+@pytest.mark.asyncio
+async def test_openai_image_adapter_rejects_unsupported_size_before_call() -> None:
+    request = _request()
+    provider = OpenAIStaticImageProvider("fictional-key", "gpt-image-1", 10)
+
+    with pytest.raises(ProviderError) as error:
+        await provider.generate_static(request, _prompt(request))
+
+    assert error.value.code == "CONTENT_SCHEMA_FAILURE"
+    assert not error.value.retryable
 
 
 def test_owner_supplied_asset_is_ready_without_provider_provenance() -> None:
