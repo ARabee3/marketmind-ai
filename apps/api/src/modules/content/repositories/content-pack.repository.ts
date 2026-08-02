@@ -47,6 +47,31 @@ export type PersistGeneratedItemsInput = {
   readonly finishedAt: Date;
 };
 
+export type AppendRevisedItemVersionInput = {
+  readonly packId: string;
+  readonly itemId: string;
+  readonly baseVersionId: string;
+  readonly newVersionNumber: number;
+  readonly channel: string;
+  readonly format: string;
+  readonly languageMode: string;
+  readonly strategyTrace: Prisma.InputJsonValue;
+  readonly captionVariants: Prisma.InputJsonValue;
+  readonly cta: string | null;
+  readonly hashtags: Prisma.InputJsonValue;
+  readonly creativeBrief: string;
+  readonly altText: string;
+  readonly shortVideoScript: Prisma.InputJsonValue | null;
+  readonly recommendedPublishWindow: Prisma.InputJsonValue;
+  readonly claimSources: Prisma.InputJsonValue;
+  readonly warnings: Prisma.InputJsonValue;
+  readonly blockers: Prisma.InputJsonValue;
+  readonly assetRequired: boolean;
+  readonly assetIds: Prisma.InputJsonValue;
+  readonly generationProvenance: Prisma.InputJsonValue;
+  readonly versionChecksum: string;
+};
+
 export type ContentProgressInput = {
   readonly stage: string;
   readonly status: "started" | "progress" | "complete" | "failed";
@@ -543,6 +568,73 @@ export class ContentPackRepository {
         },
       });
     });
+  }
+
+  async appendRevisedItemVersion(
+    input: AppendRevisedItemVersionInput,
+  ): Promise<Prisma.ContentItemVersionGetPayload<Record<string, never>>> {
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.contentItem.findFirst({
+        where: {
+          id: input.itemId,
+          contentPackId: input.packId,
+          currentVersionId: input.baseVersionId,
+        },
+      });
+
+      if (!item) {
+        throw new BadRequestException(
+          `Item ${input.itemId} is not at version ${input.baseVersionId}`,
+        );
+      }
+
+      const newVersion = await tx.contentItemVersion.create({
+        data: {
+          contentItemId: input.itemId,
+          contentPackId: input.packId,
+          version: input.newVersionNumber,
+          channel: input.channel,
+          format: input.format,
+          languageMode: input.languageMode,
+          strategyTrace: input.strategyTrace,
+          captionVariants: input.captionVariants,
+          cta: input.cta,
+          hashtags: input.hashtags,
+          creativeBrief: input.creativeBrief,
+          altText: input.altText,
+          shortVideoScript: input.shortVideoScript,
+          recommendedPublishWindow: input.recommendedPublishWindow,
+          claimSources: input.claimSources,
+          warnings: input.warnings,
+          blockers: input.blockers,
+          assetRequired: input.assetRequired,
+          assetIds: input.assetIds,
+          generationProvenance: input.generationProvenance,
+          versionChecksum: input.versionChecksum,
+        },
+      });
+
+      await tx.contentItem.update({
+        where: { id: input.itemId },
+        data: {
+          currentVersionId: newVersion.id,
+          status: "draft",
+        },
+      });
+
+      return newVersion;
+    });
+  }
+
+  async markItemStatus(
+    itemId: string,
+    status: string,
+  ): Promise<{ changed: boolean }> {
+    const result = await this.prisma.contentItem.updateMany({
+      where: { id: itemId },
+      data: { status },
+    });
+    return { changed: result.count === 1 };
   }
 }
 

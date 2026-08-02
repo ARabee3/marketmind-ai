@@ -36,6 +36,16 @@ interface ContentGenerateJobData {
   correlationId: string;
 }
 
+interface ContentReviseJobData {
+  contentCycleId: string;
+  contentPackId: string;
+  contentItemId: string;
+  baseItemVersionId: string;
+  revisionNotes: string;
+  idempotencyKey: string;
+  correlationId: string;
+}
+
 @Processor("content-generation")
 @Injectable()
 export class ContentProcessor extends WorkerHost {
@@ -55,6 +65,8 @@ export class ContentProcessor extends WorkerHost {
     switch (job.name) {
       case "generate-content":
         return this.handleGenerate(job as unknown as Job<ContentGenerateJobData>);
+      case "revise-content":
+        return this.handleRevise(job as unknown as Job<ContentReviseJobData>);
       default:
         this.logger.warn(`Unknown job type: ${job.name}`);
         return;
@@ -237,6 +249,151 @@ export class ContentProcessor extends WorkerHost {
           correlation_id: correlationId,
         },
       );
+
+      if (retryable) {
+        throw error;
+      }
+    }
+  }
+
+  private async handleRevise(job: Job<ContentReviseJobData>): Promise<void> {
+    const {
+      contentPackId,
+      contentItemId,
+      baseItemVersionId,
+      revisionNotes,
+      idempotencyKey,
+      correlationId,
+    } = job.data;
+
+    const pack = await this.packRepo.getPackById(contentPackId);
+    if (!pack) {
+      this.logger.error(`Pack ${contentPackId} not found for revision`);
+      return;
+    }
+
+    const item = await this.packRepo.getItemById(contentPackId, contentItemId);
+    if (!item) {
+      this.logger.error(`Item ${contentItemId} not found in pack ${contentPackId}`);
+      return;
+    }
+
+    if (item.currentVersionId !== baseItemVersionId) {
+      this.logger.warn(
+        `Item ${contentItemId} current version ${item.currentVersionId} does not match base ${baseItemVersionId}`,
+      );
+      return;
+    }
+
+    await this.packRepo.markItemStatus(contentItemId, "revision_requested");
+    await this.packRepo.appendProgressEvent(pack.id, {
+      stage: "revision",
+      status: "started",
+      messageKey: "content.revision.started",
+      messageText: "Revising content item…",
+      payload: {
+        correlation_id: correlationId,
+        item_id: contentItemId,
+        base_version_id: baseItemVersionId,
+      },
+    });
+
+    try {
+      const versions = await this.packRepo.listItemVersions(
+        contentPackId,
+        contentItemId,
+      );
+      const baseVersion = versions.find((v) => v.id === baseItemVersionId);
+      if (!baseVersion) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Base version ${baseItemVersionId} not found`,
+          false,
+        );
+      }
+
+      const request = {
+        contract_version: "content-v1" as const,
+        content_pack_id: contentPackId,
+        content_item_id: contentItemId,
+        base_item_version_id: baseItemVersionId,
+        revision_notes: revisionNotes,
+        idempotency_key: idempotencyKey,
+      };
+
+      const response = await this.contentAiClient.revise(request);
+
+      const newVersion = response.item_version;
+      const newVersionNumber = baseVersion.version + 1;
+
+      const persisted = await this.packRepo.appendRevisedItemVersion({
+        packId: contentPackId,
+        itemId: contentItemId,
+        baseVersionId: baseItemVersionId,
+        newVersionNumber,
+        channel: newVersion.channel,
+        format: newVersion.format,
+        languageMode: newVersion.language_mode,
+        strategyTrace: newVersion.strategy_trace as Prisma.InputJsonValue,
+        captionVariants: newVersion.caption_variants as Prisma.InputJsonValue,
+        cta: newVersion.cta,
+        hashtags: newVersion.hashtags as Prisma.InputJsonValue,
+        creativeBrief: newVersion.creative_brief,
+        altText: newVersion.alt_text,
+        shortVideoScript:
+          newVersion.short_video_script === null
+            ? null
+            : (newVersion.short_video_script as Prisma.InputJsonValue),
+        recommendedPublishWindow:
+          newVersion.recommended_publish_window as Prisma.InputJsonValue,
+        claimSources: newVersion.claim_sources as Prisma.InputJsonValue,
+        warnings: newVersion.warnings as Prisma.InputJsonValue,
+        blockers: newVersion.blockers as Prisma.InputJsonValue,
+        assetRequired: newVersion.asset_required,
+        assetIds: newVersion.asset_ids as Prisma.InputJsonValue,
+        generationProvenance:
+          newVersion.generation_provenance as Prisma.InputJsonValue,
+        versionChecksum: newVersion.version_checksum,
+      });
+
+      await this.packRepo.appendProgressEvent(pack.id, {
+        stage: "revision",
+        status: "complete",
+        messageKey: "content.revision.complete",
+        messageText: `Revised item ${contentItemId} to version ${newVersionNumber}.`,
+        payload: {
+          correlation_id: correlationId,
+          item_id: contentItemId,
+          new_version_id: persisted.id,
+          new_version_number: newVersionNumber,
+          prior_version_id: baseItemVersionId,
+        },
+      });
+
+      this.logger.log(
+        `Item ${contentItemId} revised to version ${newVersionNumber} (prior: ${baseItemVersionId})`,
+      );
+    } catch (error) {
+      const retryable =
+        error instanceof ProviderError ? error.retryable : true;
+
+      await this.packRepo.markItemStatus(contentItemId, "revision_failed");
+      await this.packRepo.appendProgressEvent(pack.id, {
+        stage: "revision",
+        status: "failed",
+        messageKey: "content.revision.failed",
+        messageText: error instanceof Error ? error.message : "Unknown error",
+        payload: {
+          error_code:
+            error instanceof ProviderError
+              ? error.code
+              : "CONTENT_REVISION_FAILED",
+          retryable,
+          correlation_id: correlationId,
+          item_id: contentItemId,
+          prior_version_id: baseItemVersionId,
+        },
+      });
 
       if (retryable) {
         throw error;
