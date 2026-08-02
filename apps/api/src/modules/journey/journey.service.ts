@@ -16,6 +16,7 @@ import type {
 } from "@marketmind/contracts";
 import {
   JourneyRepository,
+  type JourneyContentRecord,
   type JourneyCurrentRecord,
   type JourneyRepositoryPort,
   type JourneySessionRecord,
@@ -40,6 +41,35 @@ type AvailableStrategyStatus = Extract<
   { readonly availability: "available" }
 >["status"];
 
+/**
+ * Content readiness surfaced by the journey. Read directly from the content
+ * tables via the repository; the API never fabricates progress.
+ */
+export type JourneyContentReadiness = {
+  readonly ready: boolean;
+  readonly reason: "no_cycle" | "cycle_active";
+  readonly cycle:
+    | {
+        readonly id: UUID;
+        readonly status: string;
+        readonly current_week: number;
+      }
+    | null;
+  readonly pack:
+    | {
+        readonly id: UUID;
+        readonly status: string;
+        readonly week_number: number;
+        readonly failed: boolean;
+        readonly pending_decisions: number;
+      }
+    | null;
+};
+
+export type JourneyCurrentResponse = CurrentJourneyResponse & {
+  readonly content: JourneyContentReadiness;
+};
+
 @Injectable()
 export class JourneyService {
   constructor(
@@ -47,8 +77,11 @@ export class JourneyService {
     private readonly repository: JourneyRepositoryPort,
   ) {}
 
-  async getCurrent(ownerUserId: string): Promise<CurrentJourneyResponse> {
-    const record = await this.repository.findCurrentForOwner(ownerUserId);
+  async getCurrent(ownerUserId: string): Promise<JourneyCurrentResponse> {
+    const [record, content] = await Promise.all([
+      this.repository.findCurrentForOwner(ownerUserId),
+      this.repository.findContentForOwner(ownerUserId),
+    ]);
     const journey = currentJourney(record.session);
     const primaryAction = currentAction(journey, record.strategy);
 
@@ -57,6 +90,7 @@ export class JourneyService {
       journey,
       future_phase: strategyContext(journey, record.strategy),
       primary_action: primaryAction,
+      content: contentReadiness(content),
       generated_at: new Date().toISOString(),
     };
   }
@@ -331,4 +365,34 @@ function strategyBusinessSnapshot(
   }
 
   return null;
+}
+
+function contentReadiness(content: JourneyContentRecord): JourneyContentReadiness {
+  if (!content.cycle) {
+    return {
+      ready: false,
+      reason: "no_cycle",
+      cycle: null,
+      pack: null,
+    };
+  }
+
+  return {
+    ready: true,
+    reason: "cycle_active",
+    cycle: {
+      id: content.cycle.id,
+      status: content.cycle.status,
+      current_week: content.cycle.currentWeekNumber,
+    },
+    pack: content.pack
+      ? {
+          id: content.pack.id,
+          status: content.pack.status,
+          week_number: content.pack.weekNumber,
+          failed: content.pack.status === "failed",
+          pending_decisions: content.pack.pendingDecisions,
+        }
+      : null,
+  };
 }

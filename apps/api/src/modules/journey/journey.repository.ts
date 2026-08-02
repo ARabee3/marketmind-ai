@@ -71,8 +71,27 @@ export type JourneyCurrentRecord = {
   readonly strategy: JourneyStrategyRecord | null;
 };
 
+export type JourneyContentCycleRecord = {
+  readonly id: string;
+  readonly status: string;
+  readonly currentWeekNumber: number;
+};
+
+export type JourneyContentPackRecord = {
+  readonly id: string;
+  readonly status: string;
+  readonly weekNumber: number;
+  readonly pendingDecisions: number;
+};
+
+export type JourneyContentRecord = {
+  readonly cycle: JourneyContentCycleRecord | null;
+  readonly pack: JourneyContentPackRecord | null;
+};
+
 export interface JourneyRepositoryPort {
   findCurrentForOwner(ownerUserId: string): Promise<JourneyCurrentRecord>;
+  findContentForOwner(ownerUserId: string): Promise<JourneyContentRecord>;
 }
 
 @Injectable()
@@ -218,6 +237,53 @@ export class JourneyRepository implements JourneyRepositoryPort {
         confirmedProfile,
       },
       strategy: strategyRecord,
+    };
+  }
+
+  async findContentForOwner(ownerUserId: string): Promise<JourneyContentRecord> {
+    const cycle = await this.prisma.contentCycle.findFirst({
+      where: { ownerUserId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        currentWeekNumber: true,
+        packs: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            weekNumber: true,
+            items: {
+              select: { status: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cycle) {
+      return { cycle: null, pack: null };
+    }
+
+    const pack = cycle.packs[0] ?? null;
+    return {
+      cycle: {
+        id: cycle.id,
+        status: cycle.status,
+        currentWeekNumber: cycle.currentWeekNumber,
+      },
+      pack: pack
+        ? {
+            id: pack.id,
+            status: pack.status,
+            weekNumber: pack.weekNumber,
+            pendingDecisions: pack.items.filter(
+              (item) => item.status !== "approved" && item.status !== "rejected",
+            ).length,
+          }
+        : null,
     };
   }
 }

@@ -47,6 +47,12 @@ describe("JourneyController", () => {
         type: "start_discovery",
         destination: "/discovery/new",
       },
+      content: {
+        ready: false,
+        reason: "no_cycle",
+        cycle: null,
+        pack: null,
+      },
       generated_at: "2026-07-17T10:00:00.000Z",
     });
 
