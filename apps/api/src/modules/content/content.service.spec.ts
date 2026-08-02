@@ -252,6 +252,12 @@ function makeCycleRepo(overrides: Partial<MockedCycleRepo> = {}): MockedCycleRep
     createCycle: jest.fn().mockResolvedValue(CYCLE_ROW),
     getCycleByIdAndOwner: jest.fn().mockResolvedValue(CYCLE_ROW),
     getCycleById: jest.fn().mockResolvedValue(CYCLE_ROW),
+    pauseCycle: jest.fn().mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "paused",
+      pauseReason: "paused",
+    }),
+    resumeCycle: jest.fn().mockResolvedValue(CYCLE_ROW),
     ...overrides,
   };
 }
@@ -1529,5 +1535,200 @@ describe("ContentService.bulkDecision", () => {
     expect(candidateRepo.getCandidateByItemVersionId).not.toHaveBeenCalled();
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({ item_id: "item-1", status: "rejected" });
+  });
+});
+
+describe("ContentService.pauseCycle", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
+        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the cycle does not exist or is not owned by the caller", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.pauseCycle("cycle-1", OWNER_ID, "holiday"),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("persists the pause reason and returns the paused cycle", async () => {
+    (cycleRepo.pauseCycle as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "paused",
+      pauseReason: "holiday",
+    });
+
+    const result = await service.pauseCycle("cycle-1", OWNER_ID, "holiday");
+
+    expect(cycleRepo.pauseCycle).toHaveBeenCalledWith(
+      "cycle-1",
+      OWNER_ID,
+      "holiday",
+    );
+    expect(result.status).toBe("paused");
+    expect(result.pause_reason).toBe("holiday");
+  });
+});
+
+describe("ContentService.resumeCycle", () => {
+  let service: ContentService;
+  let cycleRepo: MockedCycleRepo;
+
+  beforeEach(async () => {
+    cycleRepo = makeCycleRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: cycleRepo },
+        { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
+        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the cycle does not exist or is not owned by the caller", async () => {
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.resumeCycle("cycle-1", OWNER_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("resumes the cycle and returns it with a null pause reason", async () => {
+    (cycleRepo.resumeCycle as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      status: "active",
+      pauseReason: null,
+    });
+
+    const result = await service.resumeCycle("cycle-1", OWNER_ID);
+
+    expect(cycleRepo.resumeCycle).toHaveBeenCalledWith("cycle-1", OWNER_ID);
+    expect(result.status).toBe("active");
+    expect(result.pause_reason).toBeNull();
+  });
+});
+
+describe("ContentService.retryPack", () => {
+  let service: ContentService;
+  let packRepo: MockedPackRepo;
+  let queue: { add: jest.Mock };
+
+  const FAILED_PACK_ROW = {
+    ...PACK_ROW,
+    status: "failed",
+    retryEligible: true,
+  };
+
+  beforeEach(async () => {
+    packRepo = makePackRepo({
+      getPackByIdAndOwner: jest.fn().mockResolvedValue(FAILED_PACK_ROW),
+      markPackStatus: jest.fn().mockResolvedValue({ changed: true }),
+    });
+    queue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: makeStrategyRepo() },
+        { provide: ContentCycleRepository, useValue: makeCycleRepo() },
+        { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
+        { provide: ContentPackRepository, useValue: packRepo },
+        { provide: getQueueToken("content-generation"), useValue: queue },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the pack does not exist or is not owned by the caller", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.retryPack("pack-1", OWNER_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("rejects with CONTENT_PACK_NOT_FAILED when the pack is not in the failed state", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(PACK_ROW);
+
+    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_PACK_NOT_FAILED");
+  });
+
+  it("rejects with CONTENT_RETRY_NOT_ALLOWED when the pack is not retry-eligible", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...FAILED_PACK_ROW,
+      retryEligible: false,
+    });
+
+    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_RETRY_NOT_ALLOWED");
+  });
+
+  it("rejects with CONTENT_PACK_RETRY_CONFLICT when the conditional transition does not change a row", async () => {
+    (packRepo.markPackStatus as jest.Mock).mockResolvedValue({ changed: false });
+
+    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_PACK_RETRY_CONFLICT");
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it("re-queues the pack, transitions it to queued, and reports the correlation id", async () => {
+    const result = await service.retryPack("pack-1", OWNER_ID);
+
+    expect(packRepo.markPackStatus).toHaveBeenCalledWith(
+      "pack-1",
+      "failed",
+      "queued",
+    );
+    expect(queue.add).toHaveBeenCalledWith(
+      "generate-content",
+      expect.objectContaining({
+        contentCycleId: "cycle-1",
+        weekNumber: 1,
+        contentPackId: "pack-1",
+        correlationId: expect.any(String),
+      }),
+      expect.objectContaining({ attempts: 3 }),
+    );
+    expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
+      "pack-1",
+      expect.objectContaining({
+        stage: "queued",
+        status: "started",
+        messageKey: "content.retry.queued",
+      }),
+    );
+    expect(result.status).toBe("queued");
+    expect(result.correlation_id).toEqual(expect.any(String));
+    expect(result.content_pack.id).toBe("pack-1");
   });
 });

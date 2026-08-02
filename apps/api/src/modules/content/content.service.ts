@@ -425,6 +425,26 @@ export class ContentService {
     };
   }
 
+  // ── POST /api/v1/content-cycles/:id/pause + /resume ─────────────────
+
+  async pauseCycle(
+    id: string,
+    ownerUserId: string,
+    reason: string | null,
+  ): Promise<ContentCycle> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    if (!cycle) throw new NotFoundException("Content cycle not found");
+    const paused = await this.cycleRepository.pauseCycle(id, ownerUserId, reason ?? "");
+    return toContentCycle(paused);
+  }
+
+  async resumeCycle(id: string, ownerUserId: string): Promise<ContentCycle> {
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    if (!cycle) throw new NotFoundException("Content cycle not found");
+    const resumed = await this.cycleRepository.resumeCycle(id, ownerUserId);
+    return toContentCycle(resumed);
+  }
+
   // ── GET /api/v1/content-cycles/:id ──────────────────────────────────
 
   async getCycle(id: string, ownerUserId: string): Promise<ContentCycle> {
@@ -493,6 +513,86 @@ export class ContentService {
     const pack = await this.packRepository.getPackByIdAndOwner(id, ownerUserId);
     if (!pack) throw new NotFoundException("Content pack not found");
     return { retry_eligible: pack.retryEligible };
+  }
+
+  // ── POST /api/v1/content-packs/:id/retry ────────────────────────────
+
+  /**
+   * Re-queues a failed pack for generation.
+   *
+   * Only a pack in the `failed` state with `retry_eligible=true` can be
+   * retried. The failed → queued transition is a conditional UPDATE (WHERE
+   * status = 'failed'), so a concurrent retry that already moved the pack
+   * sees zero rows and this call reports CONTENT_PACK_RETRY_CONFLICT instead
+   * of enqueueing a duplicate job. Mirrors StrategyService.retryGeneration's
+   * bounded, FSM-guarded retry.
+   */
+  async retryPack(
+    id: string,
+    ownerUserId: string,
+  ): Promise<{
+    content_pack: ContentPack;
+    status: "queued";
+    correlation_id: string;
+  }> {
+    const pack = await this.packRepository.getPackByIdAndOwner(id, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    if (pack.status !== "failed") {
+      throw new BadRequestException({
+        code: "CONTENT_PACK_NOT_FAILED",
+        message: "Only a failed content pack can be retried.",
+      });
+    }
+    if (!pack.retryEligible) {
+      throw new BadRequestException({
+        code: "CONTENT_RETRY_NOT_ALLOWED",
+        message: "This content pack is not eligible for retry.",
+      });
+    }
+
+    const { changed } = await this.packRepository.markPackStatus(
+      pack.id,
+      "failed",
+      "queued",
+    );
+    if (!changed) {
+      throw new ConflictException({
+        code: "CONTENT_PACK_RETRY_CONFLICT",
+        message: "The content pack is no longer failed; a retry is already in progress.",
+      });
+    }
+
+    const correlationId = randomUUID();
+    await this.contentQueue.add(
+      "generate-content",
+      {
+        contentCycleId: pack.contentCycleId,
+        weekNumber: pack.weekNumber,
+        contentPackId: pack.id,
+        idempotencyKey: `retry:${correlationId}`,
+        correlationId,
+      },
+      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+    );
+
+    await this.packRepository.appendProgressEvent(pack.id, {
+      stage: "queued",
+      status: "started",
+      messageKey: "content.retry.queued",
+      messageText: "Generation job re-queued.",
+      payload: { correlation_id: correlationId },
+    });
+
+    this.logger.log(
+      `[ContentPack ${pack.id}] [Corr: ${correlationId}] Retry queued for week ${pack.weekNumber}.`,
+    );
+
+    return {
+      content_pack: toContentPack(pack),
+      status: "queued",
+      correlation_id: correlationId,
+    };
   }
 
   // ── POST /api/v1/content-packs/:id/items/:item_id/decisions ─────────
