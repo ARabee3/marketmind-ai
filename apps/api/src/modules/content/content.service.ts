@@ -8,22 +8,38 @@ import {
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import {
+  CONTENT_CHANNELS,
+  validateContentPolicyFixture,
+} from "@marketmind/contracts";
 import type {
   CairoTimezone,
+  ContentAsset,
   ContentCtaDestination,
+  ContentChannel,
   ContentCycle,
   ContentCycleResponse,
+  ContentCycleStatus,
+  ContentDecision,
+  ContentDecisionRequest,
+  ContentDecisionResponse,
+  ContentErrorCode,
   ContentItemVersion,
   ContentPack,
+  ContentPolicyFixture,
   ContentProgressEvent,
   ContentPromotion,
   ContentWeekContext,
   ContentWeekListResponse,
   CreateContentCycleRequest,
   GenerateContentPackRequest,
+  PublicationCandidateV1,
+  StrategyPlan,
   UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
 import type {
+  ContentAsset as PrismaContentAsset,
   ContentItemVersion as PrismaContentItemVersion,
   ContentWeekContext as PrismaWeekContext,
 } from "@prisma/client";
@@ -32,7 +48,12 @@ import { ContentCycleRepository } from "./repositories/content-cycle.repository"
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
 import type { PersistedContentProgressEvent } from "./repositories/content-pack.repository";
+import { ContentDecisionRepository } from "./repositories/content-decision.repository";
+import type { ContentDecisionRow } from "./repositories/content-decision.repository";
+import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
+import type { PublicationCandidateAssetInput } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
+import { PrismaService } from "../../common/persistence/prisma.service";
 
 const CAIRO_TIMEZONE = "Africa/Cairo" as const;
 
@@ -45,6 +66,9 @@ export class ContentService {
     private readonly weekContextRepository: ContentWeekContextRepository,
     private readonly strategyRepository: StrategyRepository,
     private readonly packRepository: ContentPackRepository,
+    private readonly decisionRepository: ContentDecisionRepository,
+    private readonly candidateRepository: PublicationCandidateRepository,
+    private readonly prisma: PrismaService,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
   ) {}
 
@@ -453,6 +477,255 @@ export class ContentService {
     return { retry_eligible: pack.retryEligible };
   }
 
+  // ── POST /api/v1/content-packs/:id/items/:item_id/decisions ─────────
+
+  /**
+   * Records the owner's exact-version decision on one content item and, on
+   * approval, freezes the publication candidate in the SAME transaction.
+   *
+   * Preconditions (all re-checked server-side against persisted state):
+   * 1. the pack exists and belongs to the owner and is still decidable
+   *    (`draft` / `partially_approved`);
+   * 2. the submitted version IS the item's current version and its checksum
+   *    matches the persisted version checksum (CONTENT_VERSION_CONFLICT
+   *    otherwise — arch doc 559-569);
+   * 3. the deterministic policy fixture validates
+   *    (CONTENT_APPROVAL_BLOCKED on any blocker);
+   * 4. an approval additionally requires ready publishable assets
+   *    (CONTENT_ASSET_REQUIRED).
+   *
+   * The decision and the candidate (on approve) are written atomically, so a
+   * candidate can never reference a decision/version that was not committed
+   * (arch doc 826-828). Reject and revision_requested record the decision only
+   * and return `publication_candidate: null`.
+   */
+  async decide(
+    packId: string,
+    itemId: string,
+    dto: ContentDecisionRequest,
+    ownerUserId: string,
+  ): Promise<ContentDecisionResponse> {
+    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    if (pack.status !== "draft" && pack.status !== "partially_approved") {
+      throw new ConflictException({
+        code: "CONTENT_APPROVAL_BLOCKED",
+        message:
+          "Owner decisions are only accepted while the pack is draft or partially approved.",
+      });
+    }
+
+    const item = await this.packRepository.getItemById(packId, itemId);
+    if (!item) throw new NotFoundException("Content item not found");
+    if (!item.currentVersionId) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message: "The content item has no current version to decide on.",
+      });
+    }
+
+    // Exact-version gate: only the item's current version can be decided, and
+    // the submitted checksum must match the persisted version checksum
+    // (arch doc 559-569). The repository re-checks both inside its
+    // transaction; this earlier gate rejects with a clear, stable code.
+    if (dto.content_item_version_id !== item.currentVersionId) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message:
+          "This item version is no longer the current version. Refresh before deciding.",
+      });
+    }
+
+    const versions = await this.packRepository.listItemVersions(packId, itemId);
+    const currentVersion =
+      versions.find((version) => version.id === item.currentVersionId) ?? null;
+    if (
+      !currentVersion ||
+      dto.content_item_version_checksum !== currentVersion.versionChecksum
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message:
+          "The submitted version checksum no longer matches the current item version.",
+      });
+    }
+
+    const assets = await this.packRepository.listAssetsForVersion(
+      currentVersion.id,
+    );
+    const fixture = await this.assembleDecisionFixture(
+      pack,
+      item,
+      currentVersion,
+      assets,
+      ownerUserId,
+    );
+
+    // Approvals additionally require a ready publishable asset before a
+    // candidate can be frozen (CONTENT_ASSET_REQUIRED).
+    if (
+      dto.decision === "approved" &&
+      fixture.item_version.asset_required &&
+      !hasReadyPublishableAsset(fixture)
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_ASSET_REQUIRED",
+        message:
+          "Approval cannot produce a candidate until required assets are ready.",
+      });
+    }
+
+    const validation = validateContentPolicyFixture(fixture);
+    if (!validation.valid) {
+      throw new ConflictException({
+        code: "CONTENT_APPROVAL_BLOCKED",
+        message:
+          "Content approval is blocked by the deterministic content policy.",
+        issues: validation.issues,
+      });
+    }
+
+    const { decision, publicationCandidate } = await this.prisma.$transaction(
+      async (tx) => {
+        const recorded = await this.decisionRepository.recordDecision(
+          {
+            itemId: item.id,
+            versionId: dto.content_item_version_id,
+            versionNumber: currentVersion.version,
+            versionChecksum: dto.content_item_version_checksum,
+            decision: dto.decision,
+            revisionNotes: dto.revision_notes,
+            ownerUserId,
+            idempotencyKey: dto.idempotency_key,
+          },
+          tx,
+        );
+
+        if (recorded.decision !== "approved") {
+          return { decision: recorded, publicationCandidate: null };
+        }
+
+        // Decision replay (same idempotency key) returns the original decision
+        // row; return its frozen candidate instead of creating a duplicate
+        // (outbox retries and replay never duplicate candidates — arch doc 651-653).
+        const existingCandidate =
+          await this.candidateRepository.getCandidateByItemVersionId(
+            recorded.contentItemVersionId,
+            tx,
+          );
+        if (existingCandidate) {
+          return { decision: recorded, publicationCandidate: existingCandidate };
+        }
+
+        const created = await this.candidateRepository.createCandidate(
+          {
+            approval: recorded,
+            itemVersion: {
+              id: currentVersion.id,
+              contentItemId: currentVersion.contentItemId,
+              contentPackId: currentVersion.contentPackId,
+              version: currentVersion.version,
+              versionChecksum: currentVersion.versionChecksum,
+              channel: currentVersion.channel,
+              format: currentVersion.format,
+              languageMode: currentVersion.languageMode,
+              captionVariants:
+                currentVersion.captionVariants as Prisma.InputJsonValue,
+              cta: currentVersion.cta,
+              hashtags: currentVersion.hashtags as Prisma.InputJsonValue,
+              altText: currentVersion.altText,
+              recommendedPublishWindow:
+                currentVersion.recommendedPublishWindow as Prisma.InputJsonValue,
+            },
+            assets: readyCandidateAssets(fixture),
+            ownerUserId,
+          },
+          tx,
+        );
+
+        return {
+          decision: recorded,
+          publicationCandidate: created.candidate,
+        };
+      },
+    );
+
+    this.logger.log(
+      `[ContentItem ${item.id}] Owner decision ${decision.decision} on version ${decision.contentItemVersion} (${decision.id}) persisted${publicationCandidate ? `; candidate ${publicationCandidate.candidate_id} created` : ""}.`,
+    );
+
+    return {
+      decision: toContentDecision(decision),
+      publication_candidate: publicationCandidate,
+    };
+  }
+
+  private async assembleDecisionFixture(
+    pack: PrismaContentPack,
+    item: NonNullable<
+      Awaited<ReturnType<ContentPackRepository["getItemById"]>>
+    >,
+    currentVersion: PrismaContentItemVersion,
+    assets: PrismaContentAsset[],
+    ownerUserId: string,
+  ): Promise<ContentPolicyFixture> {
+    const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
+      pack.strategyId,
+      ownerUserId,
+    );
+    const strategyDecision = await this.strategyRepository.getDecisionById(
+      pack.strategyDecisionId,
+    );
+    const strategyVersion = await this.strategyRepository.getVersionByNumber(
+      pack.strategyId,
+      pack.strategyVersion,
+    );
+    const currentProfile =
+      await this.strategyRepository.getActiveConfirmedProfileVersion(
+        pack.businessId,
+      );
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      pack.contentCycleId,
+      ownerUserId,
+    );
+    const weeks = await this.weekContextRepository.listWeeks(pack.contentCycleId);
+    const weekContext = weeks.find((week) => week.id === pack.weekContextId);
+    if (!weekContext) {
+      throw new NotFoundException("Content week context not found");
+    }
+
+    return {
+      strategy_status:
+        strategy?.status === "approved"
+          ? "approved"
+          : strategy?.status === "rejected"
+            ? "rejected"
+            : "draft",
+      strategy_id: pack.strategyId,
+      strategy_version: pack.strategyVersion,
+      strategy_decision: {
+        id: strategyDecision?.id ?? pack.strategyDecisionId,
+        strategy_id: pack.strategyId,
+        strategy_version: pack.strategyVersion,
+        decision: normalizeStrategyDecision(strategyDecision?.action),
+      },
+      cycle_status: cycle?.status as ContentCycleStatus,
+      profile_version_id: pack.profileVersionId,
+      current_profile_version_id: currentProfile?.id ?? "",
+      selected_channels: planSelectedChannels(strategyVersion?.planData),
+      existing_weekly_claims: weeks.map((week) => ({
+        content_cycle_id: week.contentCycleId,
+        week_number: week.weekNumber,
+        weekly_claim_id: week.weeklyClaimId,
+      })),
+      week_context: toContentWeekContext(weekContext),
+      pack: toContentPack(pack),
+      item_version: toContentItemVersion(currentVersion),
+      assets: assets.map(toContentAsset),
+    };
+  }
+
   private assertCycleActive(cycle: ContentCycleRow): void {
     if (cycle.status === "paused") {
       throw new ConflictException({
@@ -606,6 +879,107 @@ function toContentItemVersion(
     version_checksum: version.versionChecksum,
     created_at: version.createdAt.toISOString(),
   };
+}
+
+function toContentDecision(row: ContentDecisionRow): ContentDecision {
+  return {
+    id: row.id,
+    content_item_id: row.contentItemId,
+    content_item_version_id: row.contentItemVersionId,
+    content_item_version: row.contentItemVersion,
+    content_item_version_checksum: row.contentItemVersionChecksum,
+    decision: row.decision,
+    revision_notes: row.revisionNotes,
+    decided_by_user_id: row.decidedByUserId,
+    decided_at: row.decidedAt.toISOString(),
+  };
+}
+
+function toContentAsset(row: PrismaContentAsset): ContentAsset {
+  return {
+    id: row.id,
+    content_item_version_id: row.contentItemVersionId,
+    kind: row.kind as ContentAsset["kind"],
+    status: row.status as ContentAsset["status"],
+    mime_type: row.mimeType,
+    storage_key: row.storageKey,
+    checksum: row.checksum,
+    width: row.width,
+    height: row.height,
+    alt_text: row.altText,
+    provider_name: row.providerName,
+    provider_model: row.providerModel,
+    provider_request_id: row.providerRequestId,
+    failure_code: row.failureCode as ContentAsset["failure_code"],
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function hasReadyPublishableAsset(fixture: ContentPolicyFixture): boolean {
+  const assetsById = new Map(fixture.assets.map((asset) => [asset.id, asset]));
+  return fixture.item_version.asset_ids.some((assetId) => {
+    const asset = assetsById.get(assetId);
+    return (
+      asset?.status === "ready" &&
+      (asset.kind === "owner_supplied" || asset.kind === "generated_static") &&
+      asset.checksum !== null &&
+      asset.storage_key !== null
+    );
+  });
+}
+
+function readyCandidateAssets(
+  fixture: ContentPolicyFixture,
+): PublicationCandidateAssetInput[] {
+  const assetsById = new Map(fixture.assets.map((asset) => [asset.id, asset]));
+  return fixture.item_version.asset_ids
+    .map((assetId) => assetsById.get(assetId))
+    .filter(
+      (asset): asset is ContentAsset &
+        { kind: "owner_supplied" | "generated_static" } =>
+        asset !== undefined &&
+        asset.status === "ready" &&
+        (asset.kind === "owner_supplied" || asset.kind === "generated_static") &&
+        asset.checksum !== null &&
+        asset.storage_key !== null,
+    )
+    .map((asset) => ({
+      assetId: asset.id,
+      kind: asset.kind,
+      mimeType: asset.mime_type ?? "",
+      storageKey: asset.storage_key ?? "",
+      checksum: asset.checksum ?? "",
+    }));
+}
+
+function planSelectedChannels(planData: unknown): ContentChannel[] {
+  const plan = toPayload(planData);
+  const selected = plan.selected_channels;
+  if (!Array.isArray(selected)) return [];
+  return selected
+    .map((scorecard) =>
+      typeof scorecard === "object" && scorecard !== null
+        ? (scorecard as { channel?: unknown }).channel
+        : undefined,
+    )
+    .filter(
+      (channel): channel is ContentChannel =>
+        channel === "facebook" || channel === "instagram",
+    );
+}
+
+function normalizeStrategyDecision(
+  action: string | null | undefined,
+): "approved" | "rejected" | "revision_requested" {
+  if (action === "approve") return "approved";
+  if (action === "reject") return "rejected";
+  if (action === "revision_requested") return "revision_requested";
+  return "revision_requested";
+}
+
+function toPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
 }
 
 type ContentCycleRow = Awaited<

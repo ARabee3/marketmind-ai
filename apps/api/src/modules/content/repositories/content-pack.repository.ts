@@ -273,6 +273,34 @@ export class ContentPackRepository {
   }
 
   /**
+   * Reads a single content item scoped to a pack. The pack ownership check is
+   * the caller's job (`getPackByIdAndOwner`); the packId scoping here keeps a
+   * caller that already holds a verified pack from leaking rows across packs.
+   */
+  async getItemById(
+    packId: string,
+    itemId: string,
+  ): Promise<Prisma.ContentItemGetPayload<Record<string, never>> | null> {
+    return this.prisma.contentItem.findFirst({
+      where: { id: itemId, contentPackId: packId },
+    });
+  }
+
+  /**
+   * Lists the asset rows attached to one immutable content item version.
+   * Decision-time asset readiness checks read from here; rows are insert-only
+   * and never mutated, so the list is stable for a given version.
+   */
+  async listAssetsForVersion(
+    versionId: string,
+  ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>>[]> {
+    return this.prisma.contentAsset.findMany({
+      where: { contentItemVersionId: versionId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  /**
    * Appends an immutable sequenced progress event. Seq is the event count for
    * the pack at insert time + 1; `@@unique([content_pack_id, seq])` rejects a
    * duplicate seq so two concurrent appends cannot write the same sequence

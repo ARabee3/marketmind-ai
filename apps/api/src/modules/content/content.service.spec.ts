@@ -9,10 +9,20 @@ import { ContentService } from "./content.service";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
+import { ContentDecisionRepository } from "./repositories/content-decision.repository";
+import type { ContentDecisionRow } from "./repositories/content-decision.repository";
+import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
+import { PrismaService } from "../../common/persistence/prisma.service";
+import {
+  computePublicationCandidateChecksum,
+  isPublicationCandidateChecksumValid,
+} from "@marketmind/contracts";
 import type {
+  ContentDecisionRequest,
   CreateContentCycleRequest,
   GenerateContentPackRequest,
+  PublicationCandidateV1,
   UpsertContentWeekContextRequest,
 } from "@marketmind/contracts";
 
@@ -117,6 +127,8 @@ type MockedStrategyRepo = jest.Mocked<Partial<StrategyRepository>>;
 type MockedCycleRepo = jest.Mocked<Partial<ContentCycleRepository>>;
 type MockedWeekRepo = jest.Mocked<Partial<ContentWeekContextRepository>>;
 type MockedPackRepo = jest.Mocked<Partial<ContentPackRepository>>;
+type MockedDecisionRepo = jest.Mocked<Partial<ContentDecisionRepository>>;
+type MockedCandidateRepo = jest.Mocked<Partial<PublicationCandidateRepository>>;
 
 const PACK_ROW = {
   id: "pack-1",
@@ -143,6 +155,66 @@ const GENERATE_DTO: GenerateContentPackRequest = {
   idempotency_key: "gen-idem-1",
 };
 
+const DECISION_ROW: ContentDecisionRow = {
+  id: "decision-1",
+  contentItemId: "item-1",
+  contentItemVersionId: "ver-2",
+  contentItemVersion: 2,
+  contentItemVersionChecksum: "checksum-2",
+  decision: "approved",
+  revisionNotes: null,
+  decidedByUserId: OWNER_ID,
+  decidedAt: new Date("2026-08-01T01:00:00.000Z"),
+  ownerUserId: OWNER_ID,
+  idempotencyKey: "decision-idem-1",
+  createdAt: new Date("2026-08-01T01:00:00.000Z"),
+};
+
+const CANDIDATE_BASE: Omit<PublicationCandidateV1, "candidate_checksum"> = {
+  contract_version: "publication-candidate-v1",
+  candidate_id: "candidate-1",
+  business_id: "biz-1",
+  strategy_id: "strat-1",
+  strategy_version: 2,
+  content_cycle_id: "cycle-1",
+  strategy_week_number: 1,
+  content_pack_id: "pack-1",
+  content_item_id: "item-1",
+  content_item_version_id: "ver-2",
+  content_item_version: 2,
+  content_item_version_checksum: "checksum-2",
+  target_channel: "instagram",
+  content_format: "static_image_post",
+  selected_locale: "ar",
+  caption: "نص",
+  cta: "call",
+  hashtags: ["#cairo"],
+  alt_text: "alt",
+  assets: [],
+  recommended_publish_window: {
+    starts_at: "2026-08-08T00:00:00.000Z",
+    ends_at: "2026-08-10T00:00:00.000Z",
+    timezone: "Africa/Cairo",
+  },
+  approval: {
+    decision_id: "decision-1",
+    decision: "approved",
+    content_item_version_id: "ver-2",
+    content_item_version_checksum: "checksum-2",
+    decided_by_user_id: OWNER_ID,
+    decided_at: "2026-08-01T01:00:00.000Z",
+  },
+  created_at: "2026-08-01T01:00:00.000Z",
+};
+
+const CANDIDATE: PublicationCandidateV1 = {
+  ...CANDIDATE_BASE,
+  candidate_checksum: computePublicationCandidateChecksum({
+    ...CANDIDATE_BASE,
+    candidate_checksum: "",
+  }),
+};
+
 function makeStrategyRepo(
   overrides: Partial<MockedStrategyRepo> = {},
 ): MockedStrategyRepo {
@@ -156,6 +228,21 @@ function makeStrategyRepo(
     getActiveConfirmedProfileVersion: jest
       .fn()
       .mockResolvedValue({ id: "prof-1" }),
+    getDecisionById: jest.fn().mockResolvedValue({
+      id: "decision-1",
+      strategyVersionId: "v-2",
+      ownerUserId: OWNER_ID,
+      action: "approve",
+      feedback: null,
+    }),
+    getVersionByNumber: jest.fn().mockResolvedValue({
+      id: "v-2",
+      strategyId: "strat-1",
+      version: 2,
+      retrievalRunId: null,
+      planData: { selected_channels: [{ channel: "instagram" }] },
+      promptConfig: {},
+    }),
     ...overrides,
   };
 }
@@ -197,6 +284,38 @@ function makePackRepo(overrides: Partial<MockedPackRepo> = {}): MockedPackRepo {
       payload: {},
       createdAt: new Date("2026-08-01T00:00:00.000Z"),
     }),
+    getItemById: jest.fn().mockResolvedValue(null),
+    listAssetsForVersion: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
+function makeDecisionRepo(
+  overrides: Partial<MockedDecisionRepo> = {},
+): MockedDecisionRepo {
+  return {
+    recordDecision: jest.fn().mockResolvedValue(DECISION_ROW),
+    ...overrides,
+  };
+}
+
+function makeCandidateRepo(
+  overrides: Partial<MockedCandidateRepo> = {},
+): MockedCandidateRepo {
+  return {
+    createCandidate: jest
+      .fn()
+      .mockResolvedValue({ candidate: CANDIDATE, outboxEventId: "outbox-1" }),
+    getCandidateByItemVersionId: jest.fn().mockResolvedValue(null),
+    ...overrides,
+  };
+}
+
+function makePrismaService(overrides: Record<string, unknown> = {}) {
+  return {
+    $transaction: jest.fn(async (callback: (tx: unknown) => unknown) =>
+      callback({}),
+    ),
     ...overrides,
   };
 }
@@ -245,6 +364,9 @@ describe("ContentService.createCycle", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: makePackRepo() },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
       ],
     }).compile();
 
@@ -369,6 +491,9 @@ describe("ContentService.upsertWeekContext", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: makePackRepo() },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
       ],
     }).compile();
 
@@ -490,6 +615,9 @@ describe("ContentService.safeDefaultWeekContext", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: makePackRepo() },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
       ],
     }).compile();
 
@@ -557,6 +685,9 @@ describe("ContentService.generateWeek", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: getQueueToken("content-generation"), useValue: queue },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
       ],
     }).compile();
 
@@ -746,6 +877,9 @@ describe("ContentService.reads", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
+        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        { provide: PrismaService, useValue: makePrismaService() },
       ],
     }).compile();
 
@@ -892,5 +1026,211 @@ describe("ContentService.reads", () => {
         service.getPackRetryEligibility("pack-1", "other-user"),
       ).rejects.toThrow(NotFoundException);
     });
+  });
+});
+
+describe("ContentService.decide", () => {
+  let service: ContentService;
+  let strategyRepo: MockedStrategyRepo;
+  let packRepo: MockedPackRepo;
+  let decisionRepo: MockedDecisionRepo;
+  let candidateRepo: MockedCandidateRepo;
+
+  const DECIDE_PACK_ROW = {
+    ...PACK_ROW,
+    status: "draft",
+    weeklyClaimId: "claim-1",
+    itemIds: ["item-1", "item-2", "item-3"],
+  };
+
+  const DECIDE_ITEM_ROW = {
+    id: "item-1",
+    contentPackId: "pack-1",
+    status: "draft",
+    currentVersionId: "ver-2",
+  };
+
+  const APPROVE_DTO: ContentDecisionRequest = {
+    content_item_id: "item-1",
+    content_item_version_id: "ver-2",
+    content_item_version_checksum: "checksum-2",
+    decision: "approved",
+    revision_notes: null,
+    idempotency_key: "decision-idem-1",
+  };
+
+  beforeEach(async () => {
+    strategyRepo = makeStrategyRepo();
+    packRepo = makePackRepo({
+      getPackByIdAndOwner: jest.fn().mockResolvedValue(DECIDE_PACK_ROW),
+      getItemById: jest.fn().mockResolvedValue(DECIDE_ITEM_ROW),
+      listItemVersions: jest.fn().mockResolvedValue([ITEM_VERSION_ROW]),
+      listAssetsForVersion: jest.fn().mockResolvedValue([]),
+    });
+    decisionRepo = makeDecisionRepo();
+    candidateRepo = makeCandidateRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: strategyRepo },
+        { provide: ContentCycleRepository, useValue: makeCycleRepo() },
+        {
+          provide: ContentWeekContextRepository,
+          useValue: makeWeekRepo({
+            listWeeks: jest.fn().mockResolvedValue([WEEK_ROW]),
+          }),
+        },
+        { provide: ContentPackRepository, useValue: packRepo },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: decisionRepo },
+        { provide: PublicationCandidateRepository, useValue: candidateRepo },
+        { provide: PrismaService, useValue: makePrismaService() },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the pack is not owned by the caller", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.decide("pack-1", "item-1", APPROVE_DTO, "other-user"),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws NotFound when the content item is missing", async () => {
+    (packRepo.getItemById as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws CONTENT_VERSION_CONFLICT when the item has no current version", async () => {
+    (packRepo.getItemById as jest.Mock).mockResolvedValue({
+      ...DECIDE_ITEM_ROW,
+      currentVersionId: null,
+    });
+
+    await rejectsWithCode(
+      service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID),
+      "CONTENT_VERSION_CONFLICT",
+    );
+  });
+
+  it("throws CONTENT_VERSION_CONFLICT when the submitted version id is stale", async () => {
+    await rejectsWithCode(
+      service.decide(
+        "pack-1",
+        "item-1",
+        { ...APPROVE_DTO, content_item_version_id: "ver-1" },
+        OWNER_ID,
+      ),
+      "CONTENT_VERSION_CONFLICT",
+    );
+  });
+
+  it("throws CONTENT_VERSION_CONFLICT when the submitted checksum mismatches", async () => {
+    await rejectsWithCode(
+      service.decide(
+        "pack-1",
+        "item-1",
+        { ...APPROVE_DTO, content_item_version_checksum: "wrong" },
+        OWNER_ID,
+      ),
+      "CONTENT_VERSION_CONFLICT",
+    );
+  });
+
+  it("throws CONTENT_APPROVAL_BLOCKED when the pack is not draft or partially approved", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...DECIDE_PACK_ROW,
+      status: "queued",
+    });
+
+    await rejectsWithCode(
+      service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID),
+      "CONTENT_APPROVAL_BLOCKED",
+    );
+  });
+
+  it("throws CONTENT_ASSET_REQUIRED when approval needs a ready asset that is missing", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockResolvedValue([
+      { ...ITEM_VERSION_ROW, assetRequired: true },
+    ]);
+
+    await rejectsWithCode(
+      service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID),
+      "CONTENT_ASSET_REQUIRED",
+    );
+  });
+
+  it("throws CONTENT_APPROVAL_BLOCKED when the policy fixture is invalid", async () => {
+    (strategyRepo.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...makeStrategyRow(),
+      status: "draft",
+    });
+
+    await rejectsWithCode(
+      service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID),
+      "CONTENT_APPROVAL_BLOCKED",
+    );
+  });
+
+  it("approves: records the decision and creates a publication candidate", async () => {
+    const result = await service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID);
+
+    expect(decisionRepo.recordDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: "item-1",
+        versionId: "ver-2",
+        versionNumber: 2,
+        versionChecksum: "checksum-2",
+        decision: "approved",
+        ownerUserId: OWNER_ID,
+        idempotencyKey: "decision-idem-1",
+      }),
+      expect.anything(),
+    );
+    expect(candidateRepo.getCandidateByItemVersionId).toHaveBeenCalledWith(
+      "ver-2",
+      expect.anything(),
+    );
+    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(1);
+    expect(result.publication_candidate).toEqual(CANDIDATE);
+    expect(result.decision.decision).toBe("approved");
+    expect(result.decision.content_item_version_id).toBe("ver-2");
+  });
+
+  it("rejects: records the decision without creating a candidate", async () => {
+    (decisionRepo.recordDecision as jest.Mock).mockResolvedValue({
+      ...DECISION_ROW,
+      decision: "rejected",
+    });
+
+    const result = await service.decide(
+      "pack-1",
+      "item-1",
+      { ...APPROVE_DTO, decision: "rejected" },
+      OWNER_ID,
+    );
+
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(candidateRepo.getCandidateByItemVersionId).not.toHaveBeenCalled();
+    expect(result.publication_candidate).toBeNull();
+    expect(result.decision.decision).toBe("rejected");
+  });
+
+  it("returns the existing candidate on decision replay without duplicating", async () => {
+    (candidateRepo.getCandidateByItemVersionId as jest.Mock).mockResolvedValue(
+      CANDIDATE,
+    );
+
+    const result = await service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID);
+
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(result.publication_candidate).toEqual(CANDIDATE);
   });
 });

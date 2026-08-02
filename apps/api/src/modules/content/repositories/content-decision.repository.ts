@@ -83,104 +83,119 @@ export class ContentDecisionRepository {
    * Repeated requests with the same idempotency key return the original decision.
    * Stale version (mismatched checksum or non-current version) throws
    * CONTENT_VERSION_CONFLICT before any row is written.
+   *
+   * Pass an existing `tx` when the caller coordinates the decision and the
+   * publication candidate in ONE transaction; otherwise a transaction is opened
+   * here.
    */
   async recordDecision(
     input: RecordContentDecisionInput,
+    tx?: Prisma.TransactionClient,
   ): Promise<ContentDecisionRow> {
-    return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.contentDecision.findUnique({
-        where: {
-          ownerUserId_idempotencyKey: {
-            ownerUserId: input.ownerUserId,
-            idempotencyKey: input.idempotencyKey,
-          },
+    if (tx) {
+      return this.recordDecisionInTransaction(input, tx);
+    }
+    return this.prisma.$transaction((client) =>
+      this.recordDecisionInTransaction(input, client),
+    );
+  }
+
+  private async recordDecisionInTransaction(
+    input: RecordContentDecisionInput,
+    tx: Prisma.TransactionClient,
+  ): Promise<ContentDecisionRow> {
+    const existing = await tx.contentDecision.findUnique({
+      where: {
+        ownerUserId_idempotencyKey: {
+          ownerUserId: input.ownerUserId,
+          idempotencyKey: input.idempotencyKey,
         },
-      });
-      if (existing) {
-        return existing as ContentDecisionRow;
-      }
-
-      const item = await tx.contentItem.findUnique({
-        where: { id: input.itemId },
-        select: { id: true, currentVersionId: true },
-      });
-      if (!item) {
-        throw new NotFoundException("Content item not found");
-      }
-
-      const version = await tx.contentItemVersion.findUnique({
-        where: { id: input.versionId },
-        select: { id: true, version: true, versionChecksum: true },
-      });
-      if (!version) {
-        throw new NotFoundException("Content item version not found");
-      }
-
-      if (item.currentVersionId !== input.versionId) {
-        throw versionConflict(
-          "This item version is no longer the current version. Refresh before deciding.",
-        );
-      }
-      if (
-        version.version !== input.versionNumber ||
-        version.versionChecksum !== input.versionChecksum
-      ) {
-        throw versionConflict(
-          "The submitted version checksum no longer matches the current item version.",
-        );
-      }
-
-      let decision: ContentDecisionRow;
-      try {
-        decision = (await tx.contentDecision.create({
-          data: {
-            contentItemId: input.itemId,
-            contentItemVersionId: input.versionId,
-            contentItemVersion: version.version,
-            contentItemVersionChecksum: version.versionChecksum,
-            decision: input.decision,
-            revisionNotes: input.revisionNotes,
-            decidedByUserId: input.ownerUserId,
-            decidedAt: new Date(),
-            ownerUserId: input.ownerUserId,
-            idempotencyKey: input.idempotencyKey,
-          },
-        })) as ContentDecisionRow;
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          const replayed = await tx.contentDecision.findUnique({
-            where: {
-              ownerUserId_idempotencyKey: {
-                ownerUserId: input.ownerUserId,
-                idempotencyKey: input.idempotencyKey,
-              },
-            },
-          });
-          if (replayed) {
-            return replayed as ContentDecisionRow;
-          }
-        }
-        throw error;
-      }
-
-      // Exact-version guard: only applies while the item still points at the
-      // decided version. A concurrent move to a newer version yields zero
-      // rows and rolls the decision back.
-      const updated = await tx.contentItem.updateMany({
-        where: { id: input.itemId, currentVersionId: input.versionId },
-        data: {
-          currentVersionId: input.versionId,
-          status: STATUS_FOR_DECISION[input.decision],
-        },
-      });
-      if (updated.count === 0) {
-        throw versionConflict(
-          "A concurrent change moved the item away from the submitted version; decision not applied.",
-        );
-      }
-
-      return decision;
+      },
     });
+    if (existing) {
+      return existing as ContentDecisionRow;
+    }
+
+    const item = await tx.contentItem.findUnique({
+      where: { id: input.itemId },
+      select: { id: true, currentVersionId: true },
+    });
+    if (!item) {
+      throw new NotFoundException("Content item not found");
+    }
+
+    const version = await tx.contentItemVersion.findUnique({
+      where: { id: input.versionId },
+      select: { id: true, version: true, versionChecksum: true },
+    });
+    if (!version) {
+      throw new NotFoundException("Content item version not found");
+    }
+
+    if (item.currentVersionId !== input.versionId) {
+      throw versionConflict(
+        "This item version is no longer the current version. Refresh before deciding.",
+      );
+    }
+    if (
+      version.version !== input.versionNumber ||
+      version.versionChecksum !== input.versionChecksum
+    ) {
+      throw versionConflict(
+        "The submitted version checksum no longer matches the current item version.",
+      );
+    }
+
+    let decision: ContentDecisionRow;
+    try {
+      decision = (await tx.contentDecision.create({
+        data: {
+          contentItemId: input.itemId,
+          contentItemVersionId: input.versionId,
+          contentItemVersion: version.version,
+          contentItemVersionChecksum: version.versionChecksum,
+          decision: input.decision,
+          revisionNotes: input.revisionNotes,
+          decidedByUserId: input.ownerUserId,
+          decidedAt: new Date(),
+          ownerUserId: input.ownerUserId,
+          idempotencyKey: input.idempotencyKey,
+        },
+      })) as ContentDecisionRow;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const replayed = await tx.contentDecision.findUnique({
+          where: {
+            ownerUserId_idempotencyKey: {
+              ownerUserId: input.ownerUserId,
+              idempotencyKey: input.idempotencyKey,
+            },
+          },
+        });
+        if (replayed) {
+          return replayed as ContentDecisionRow;
+        }
+      }
+      throw error;
+    }
+
+    // Exact-version guard: only applies while the item still points at the
+    // decided version. A concurrent move to a newer version yields zero
+    // rows and rolls the decision back.
+    const updated = await tx.contentItem.updateMany({
+      where: { id: input.itemId, currentVersionId: input.versionId },
+      data: {
+        currentVersionId: input.versionId,
+        status: STATUS_FOR_DECISION[input.decision],
+      },
+    });
+    if (updated.count === 0) {
+      throw versionConflict(
+        "A concurrent change moved the item away from the submitted version; decision not applied.",
+      );
+    }
+
+    return decision;
   }
 
   /**
