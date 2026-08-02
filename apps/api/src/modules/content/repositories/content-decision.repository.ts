@@ -202,120 +202,136 @@ export class ContentDecisionRepository {
    * Validates every entry (item current version, version checksum, not already
    * decided) and writes the eligible decisions in ONE transaction. Ineligible
    * entries are reported per-item — they do not roll back the eligible ones.
+   *
+   * Pass an existing `tx` when the caller coordinates the decisions and their
+   * publication candidates in ONE transaction; otherwise a transaction is
+   * opened here.
    */
   async bulkRecordDecisions(
     requests: BulkContentDecisionRequest[],
     ownerUserId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<BulkRecordDecisionsResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const itemIds = [...new Set(requests.map((r) => r.itemId))];
-      const versionIds = [...new Set(requests.map((r) => r.versionId))];
-      const idempotencyKeys = [...new Set(requests.map((r) => r.idempotencyKey))];
+    if (tx) {
+      return this.bulkRecordDecisionsInTransaction(requests, ownerUserId, tx);
+    }
+    return this.prisma.$transaction((client) =>
+      this.bulkRecordDecisionsInTransaction(requests, ownerUserId, client),
+    );
+  }
 
-      const [items, versions, decided, byKey] = await Promise.all([
-        tx.contentItem.findMany({
-          where: { id: { in: itemIds } },
-          select: { id: true, currentVersionId: true },
-        }),
-        tx.contentItemVersion.findMany({
-          where: { id: { in: versionIds } },
-          select: { id: true, version: true, versionChecksum: true },
-        }),
-        tx.contentDecision.findMany({
-          where: { contentItemVersionId: { in: versionIds } },
-          select: { contentItemVersionId: true },
-        }),
-        tx.contentDecision.findMany({
-          where: {
-            ownerUserId,
-            idempotencyKey: { in: idempotencyKeys },
-          },
-        }),
-      ]);
+  private async bulkRecordDecisionsInTransaction(
+    requests: BulkContentDecisionRequest[],
+    ownerUserId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<BulkRecordDecisionsResult> {
+    const itemIds = [...new Set(requests.map((r) => r.itemId))];
+    const versionIds = [...new Set(requests.map((r) => r.versionId))];
+    const idempotencyKeys = [...new Set(requests.map((r) => r.idempotencyKey))];
 
-      const itemById = new Map(items.map((i) => [i.id, i]));
-      const versionById = new Map(versions.map((v) => [v.id, v]));
-      const decidedVersionIds = new Set(decided.map((d) => d.contentItemVersionId));
-      const replayByKey = new Map(
-        byKey
-          .filter((d): d is ContentDecisionRow => d.idempotencyKey !== null)
-          .map((d) => [d.idempotencyKey as string, d]),
-      );
+    const [items, versions, decided, byKey] = await Promise.all([
+      tx.contentItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true, currentVersionId: true },
+      }),
+      tx.contentItemVersion.findMany({
+        where: { id: { in: versionIds } },
+        select: { id: true, version: true, versionChecksum: true },
+      }),
+      tx.contentDecision.findMany({
+        where: { contentItemVersionId: { in: versionIds } },
+        select: { contentItemVersionId: true },
+      }),
+      tx.contentDecision.findMany({
+        where: {
+          ownerUserId,
+          idempotencyKey: { in: idempotencyKeys },
+        },
+      }),
+    ]);
 
-      const decisions: ContentDecisionRow[] = [];
-      const errors: BulkDecisionError[] = [];
+    const itemById = new Map(items.map((i) => [i.id, i]));
+    const versionById = new Map(versions.map((v) => [v.id, v]));
+    const decidedVersionIds = new Set(decided.map((d) => d.contentItemVersionId));
+    const replayByKey = new Map(
+      byKey
+        .filter((d): d is ContentDecisionRow => d.idempotencyKey !== null)
+        .map((d) => [d.idempotencyKey as string, d]),
+    );
 
-      for (const req of requests) {
-        const replay = replayByKey.get(req.idempotencyKey);
-        if (replay) {
-          decisions.push(replay);
-          continue;
-        }
+    const decisions: ContentDecisionRow[] = [];
+    const errors: BulkDecisionError[] = [];
 
-        const item = itemById.get(req.itemId);
-        const version = versionById.get(req.versionId);
-
-        if (!item || !version) {
-          errors.push({
-            itemId: req.itemId,
-            code: CONTENT_VERSION_CONFLICT,
-            message: "Content item or version not found.",
-          });
-          continue;
-        }
-        if (item.currentVersionId !== req.versionId) {
-          errors.push({
-            itemId: req.itemId,
-            code: CONTENT_VERSION_CONFLICT,
-            message: "This item version is no longer the current version.",
-          });
-          continue;
-        }
-        if (version.versionChecksum !== req.versionChecksum) {
-          errors.push({
-            itemId: req.itemId,
-            code: CONTENT_VERSION_CONFLICT,
-            message: "The submitted version checksum no longer matches the current item version.",
-          });
-          continue;
-        }
-        if (decidedVersionIds.has(req.versionId)) {
-          errors.push({
-            itemId: req.itemId,
-            code: CONTENT_APPROVAL_BLOCKED,
-            message: "This item version already has a decision.",
-          });
-          continue;
-        }
-
-        const decision = (await tx.contentDecision.create({
-          data: {
-            contentItemId: req.itemId,
-            contentItemVersionId: req.versionId,
-            contentItemVersion: version.version,
-            contentItemVersionChecksum: version.versionChecksum,
-            decision: req.decision,
-            revisionNotes: req.revisionNotes,
-            decidedByUserId: ownerUserId,
-            decidedAt: new Date(),
-            ownerUserId,
-            idempotencyKey: req.idempotencyKey,
-          },
-        })) as ContentDecisionRow;
-        decisions.push(decision);
-
-        const updated = await tx.contentItem.updateMany({
-          where: { id: req.itemId, currentVersionId: req.versionId },
-          data: { status: STATUS_FOR_DECISION[req.decision] },
-        });
-        if (updated.count === 0) {
-          throw versionConflict(
-            "A concurrent change moved the item away from the submitted version; bulk decision not applied.",
-          );
-        }
+    for (const req of requests) {
+      const replay = replayByKey.get(req.idempotencyKey);
+      if (replay) {
+        decisions.push(replay);
+        continue;
       }
 
-      return { decisions, errors };
-    });
+      const item = itemById.get(req.itemId);
+      const version = versionById.get(req.versionId);
+
+      if (!item || !version) {
+        errors.push({
+          itemId: req.itemId,
+          code: CONTENT_VERSION_CONFLICT,
+          message: "Content item or version not found.",
+        });
+        continue;
+      }
+      if (item.currentVersionId !== req.versionId) {
+        errors.push({
+          itemId: req.itemId,
+          code: CONTENT_VERSION_CONFLICT,
+          message: "This item version is no longer the current version.",
+        });
+        continue;
+      }
+      if (version.versionChecksum !== req.versionChecksum) {
+        errors.push({
+          itemId: req.itemId,
+          code: CONTENT_VERSION_CONFLICT,
+          message: "The submitted version checksum no longer matches the current item version.",
+        });
+        continue;
+      }
+      if (decidedVersionIds.has(req.versionId)) {
+        errors.push({
+          itemId: req.itemId,
+          code: CONTENT_APPROVAL_BLOCKED,
+          message: "This item version already has a decision.",
+        });
+        continue;
+      }
+
+      const decision = (await tx.contentDecision.create({
+        data: {
+          contentItemId: req.itemId,
+          contentItemVersionId: req.versionId,
+          contentItemVersion: version.version,
+          contentItemVersionChecksum: version.versionChecksum,
+          decision: req.decision,
+          revisionNotes: req.revisionNotes,
+          decidedByUserId: ownerUserId,
+          decidedAt: new Date(),
+          ownerUserId,
+          idempotencyKey: req.idempotencyKey,
+        },
+      })) as ContentDecisionRow;
+      decisions.push(decision);
+
+      const updated = await tx.contentItem.updateMany({
+        where: { id: req.itemId, currentVersionId: req.versionId },
+        data: { status: STATUS_FOR_DECISION[req.decision] },
+      });
+      if (updated.count === 0) {
+        throw versionConflict(
+          "A concurrent change moved the item away from the submitted version; bulk decision not applied.",
+        );
+      }
+    }
+
+    return { decisions, errors };
   }
 }

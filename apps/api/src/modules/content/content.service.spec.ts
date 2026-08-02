@@ -1234,3 +1234,300 @@ describe("ContentService.decide", () => {
     expect(result.publication_candidate).toEqual(CANDIDATE);
   });
 });
+
+describe("ContentService.bulkDecision", () => {
+  let service: ContentService;
+  let strategyRepo: MockedStrategyRepo;
+  let packRepo: MockedPackRepo;
+  let decisionRepo: MockedDecisionRepo;
+  let candidateRepo: MockedCandidateRepo;
+
+  const BULK_PACK_ROW = {
+    ...PACK_ROW,
+    status: "draft",
+    weeklyClaimId: "claim-1",
+    itemIds: ["item-1", "item-2", "item-3"],
+  };
+
+  const BULK_ITEM_1_ROW = {
+    id: "item-1",
+    contentPackId: "pack-1",
+    status: "draft",
+    currentVersionId: "ver-2",
+  };
+
+  const ITEM_2_ROW = {
+    id: "item-2",
+    contentPackId: "pack-1",
+    status: "draft",
+    currentVersionId: "ver-2b",
+  };
+
+  const ITEM_3_ROW = {
+    id: "item-3",
+    contentPackId: "pack-1",
+    status: "draft",
+    currentVersionId: "ver-2c",
+  };
+
+  const VERSION_2B_ROW = {
+    ...ITEM_VERSION_ROW,
+    id: "ver-2b",
+    contentItemId: "item-2",
+    versionChecksum: "checksum-2b",
+  };
+
+  const VERSION_2C_ROW = {
+    ...ITEM_VERSION_ROW,
+    id: "ver-2c",
+    contentItemId: "item-3",
+    versionChecksum: "checksum-2c",
+  };
+
+  const BULK_DTO: ContentDecisionRequest[] = [
+    {
+      content_item_id: "item-1",
+      content_item_version_id: "ver-2",
+      content_item_version_checksum: "checksum-2",
+      decision: "approved",
+      revision_notes: null,
+      idempotency_key: "bulk-idem-1",
+    },
+    {
+      content_item_id: "item-2",
+      content_item_version_id: "ver-2b",
+      content_item_version_checksum: "checksum-2b",
+      decision: "approved",
+      revision_notes: null,
+      idempotency_key: "bulk-idem-2",
+    },
+    {
+      content_item_id: "item-3",
+      content_item_version_id: "ver-2c",
+      content_item_version_checksum: "checksum-2c",
+      decision: "approved",
+      revision_notes: null,
+      idempotency_key: "bulk-idem-3",
+    },
+  ];
+
+  const bulkDecisionsFor = (itemIds: string[]): ContentDecisionRow[] =>
+    itemIds.map((itemId) => ({
+      ...DECISION_ROW,
+      id: `decision-${itemId}`,
+      contentItemId: itemId,
+      contentItemVersionId:
+        itemId === "item-1" ? "ver-2" : itemId === "item-2" ? "ver-2b" : "ver-2c",
+      idempotencyKey: `bulk-idem-${itemId.slice(-1)}`,
+    }));
+
+  beforeEach(async () => {
+    strategyRepo = makeStrategyRepo();
+    packRepo = makePackRepo({
+      getPackByIdAndOwner: jest.fn().mockResolvedValue(BULK_PACK_ROW),
+      getItemById: jest.fn().mockImplementation((_packId, itemId) => {
+        if (itemId === "item-1") return Promise.resolve(BULK_ITEM_1_ROW);
+        if (itemId === "item-2") return Promise.resolve(ITEM_2_ROW);
+        return Promise.resolve(ITEM_3_ROW);
+      }),
+      listItemVersions: jest.fn().mockImplementation((_packId, itemId) => {
+        if (itemId === "item-1") return Promise.resolve([ITEM_VERSION_ROW]);
+        if (itemId === "item-2") return Promise.resolve([VERSION_2B_ROW]);
+        return Promise.resolve([VERSION_2C_ROW]);
+      }),
+      listAssetsForVersion: jest.fn().mockResolvedValue([]),
+    });
+    decisionRepo = makeDecisionRepo({
+      bulkRecordDecisions: jest.fn().mockResolvedValue({
+        decisions: bulkDecisionsFor(["item-1", "item-2", "item-3"]),
+        errors: [],
+      }),
+    });
+    candidateRepo = makeCandidateRepo();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContentService,
+        { provide: StrategyRepository, useValue: strategyRepo },
+        { provide: ContentCycleRepository, useValue: makeCycleRepo() },
+        {
+          provide: ContentWeekContextRepository,
+          useValue: makeWeekRepo({
+            listWeeks: jest.fn().mockResolvedValue([WEEK_ROW]),
+          }),
+        },
+        { provide: ContentPackRepository, useValue: packRepo },
+        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: ContentDecisionRepository, useValue: decisionRepo },
+        { provide: PublicationCandidateRepository, useValue: candidateRepo },
+        { provide: PrismaService, useValue: makePrismaService() },
+      ],
+    }).compile();
+
+    service = module.get<ContentService>(ContentService);
+  });
+
+  it("throws NotFound when the pack is not owned by the caller", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      service.bulkDecide("pack-1", BULK_DTO, "other-user"),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("throws CONTENT_APPROVAL_BLOCKED when the pack is not draft or partially approved", async () => {
+    (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...BULK_PACK_ROW,
+      status: "queued",
+    });
+
+    await rejectsWithCode(
+      service.bulkDecide("pack-1", BULK_DTO, OWNER_ID),
+      "CONTENT_APPROVAL_BLOCKED",
+    );
+  });
+
+  it("approves all eligible items and creates one candidate per approval", async () => {
+    const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
+
+    expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ itemId: "item-1", idempotencyKey: "bulk-idem-1" }),
+        expect.objectContaining({ itemId: "item-2", idempotencyKey: "bulk-idem-2" }),
+        expect.objectContaining({ itemId: "item-3", idempotencyKey: "bulk-idem-3" }),
+      ],
+      OWNER_ID,
+      expect.anything(),
+    );
+    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(3);
+    expect(result).toHaveLength(3);
+    expect(result.every((entry) => entry.status === "approved")).toBe(true);
+  });
+
+  it("reports a stale-checksum item as ineligible while committing the rest", async () => {
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: bulkDecisionsFor(["item-1", "item-3"]),
+      errors: [],
+    });
+
+    const stale = BULK_DTO.map((request) =>
+      request.content_item_id === "item-2"
+        ? { ...request, content_item_version_checksum: "wrong-checksum" }
+        : request,
+    );
+
+    const result = await service.bulkDecide("pack-1", stale, OWNER_ID);
+
+    expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledTimes(1);
+    expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ itemId: "item-1" }),
+        expect.objectContaining({ itemId: "item-3" }),
+      ],
+      OWNER_ID,
+      expect.anything(),
+    );
+    expect(result).toHaveLength(3);
+    expect(result.find((entry) => entry.item_id === "item-2")).toEqual({
+      item_id: "item-2",
+      status: "ineligible",
+      error: { code: "CONTENT_VERSION_CONFLICT", message: expect.any(String) },
+    });
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
+    expect(result.find((entry) => entry.item_id === "item-3")?.status).toBe("approved");
+  });
+
+  it("reports a repository-rejected item per-item without rolling back the rest", async () => {
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: bulkDecisionsFor(["item-1", "item-3"]),
+      errors: [
+        {
+          itemId: "item-2",
+          code: "CONTENT_APPROVAL_BLOCKED",
+          message: "This item version already has a decision.",
+        },
+      ],
+    });
+
+    const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
+
+    expect(result.find((entry) => entry.item_id === "item-2")).toEqual({
+      item_id: "item-2",
+      status: "ineligible",
+      error: { code: "CONTENT_APPROVAL_BLOCKED", message: expect.any(String) },
+    });
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
+  });
+
+  it("commits nothing when every request is ineligible", async () => {
+    const allStale = BULK_DTO.map((request) => ({
+      ...request,
+      content_item_version_checksum: "wrong-checksum",
+    }));
+
+    const result = await service.bulkDecide("pack-1", allStale, OWNER_ID);
+
+    expect(decisionRepo.bulkRecordDecisions).not.toHaveBeenCalled();
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(result.every((entry) => entry.status === "ineligible")).toBe(true);
+  });
+
+  it("reports an approve with a missing required asset as ineligible while approving the rest", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockImplementation((_packId, itemId) => {
+      if (itemId === "item-2") {
+        return Promise.resolve([
+          { ...VERSION_2B_ROW, assetRequired: true, assetIds: ["asset-1"] },
+        ]);
+      }
+      if (itemId === "item-1") return Promise.resolve([ITEM_VERSION_ROW]);
+      return Promise.resolve([VERSION_2C_ROW]);
+    });
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: bulkDecisionsFor(["item-1", "item-3"]),
+      errors: [],
+    });
+
+    const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
+
+    expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ itemId: "item-1" }),
+        expect.objectContaining({ itemId: "item-3" }),
+      ],
+      OWNER_ID,
+      expect.anything(),
+    );
+    expect(result.find((entry) => entry.item_id === "item-2")).toEqual({
+      item_id: "item-2",
+      status: "ineligible",
+      error: { code: "CONTENT_ASSET_REQUIRED", message: expect.any(String) },
+    });
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
+  });
+
+  it("records a rejected decision without creating a candidate", async () => {
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: [
+        { ...DECISION_ROW, id: "decision-rej", decision: "rejected" as const },
+      ],
+      errors: [],
+    });
+
+    const result = await service.bulkDecide(
+      "pack-1",
+      [
+        {
+          ...BULK_DTO[0],
+          decision: "rejected",
+          idempotency_key: "bulk-idem-rej",
+        },
+      ],
+      OWNER_ID,
+    );
+
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(candidateRepo.getCandidateByItemVersionId).not.toHaveBeenCalled();
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ item_id: "item-1", status: "rejected" });
+  });
+});

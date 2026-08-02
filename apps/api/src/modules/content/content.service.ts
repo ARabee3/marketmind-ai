@@ -49,13 +49,31 @@ import { ContentWeekContextRepository } from "./repositories/content-week-contex
 import { ContentPackRepository } from "./repositories/content-pack.repository";
 import type { PersistedContentProgressEvent } from "./repositories/content-pack.repository";
 import { ContentDecisionRepository } from "./repositories/content-decision.repository";
-import type { ContentDecisionRow } from "./repositories/content-decision.repository";
+import type {
+  BulkContentDecisionRequest,
+  ContentDecisionRow,
+} from "./repositories/content-decision.repository";
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
-import type { PublicationCandidateAssetInput } from "./repositories/publication-candidate.repository";
+import type {
+  CreateCandidateInput,
+  PublicationCandidateAssetInput,
+} from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
 
 const CAIRO_TIMEZONE = "Africa/Cairo" as const;
+
+export type BulkDecisionItemStatus =
+  | "approved"
+  | "rejected"
+  | "revision_requested"
+  | "ineligible";
+
+export type BulkDecisionItemResult = {
+  readonly item_id: string;
+  readonly status: BulkDecisionItemStatus;
+  readonly error?: { readonly code: string; readonly message: string };
+};
 
 @Injectable()
 export class ContentService {
@@ -621,23 +639,7 @@ export class ContentService {
         const created = await this.candidateRepository.createCandidate(
           {
             approval: recorded,
-            itemVersion: {
-              id: currentVersion.id,
-              contentItemId: currentVersion.contentItemId,
-              contentPackId: currentVersion.contentPackId,
-              version: currentVersion.version,
-              versionChecksum: currentVersion.versionChecksum,
-              channel: currentVersion.channel,
-              format: currentVersion.format,
-              languageMode: currentVersion.languageMode,
-              captionVariants:
-                currentVersion.captionVariants as Prisma.InputJsonValue,
-              cta: currentVersion.cta,
-              hashtags: currentVersion.hashtags as Prisma.InputJsonValue,
-              altText: currentVersion.altText,
-              recommendedPublishWindow:
-                currentVersion.recommendedPublishWindow as Prisma.InputJsonValue,
-            },
+            itemVersion: this.candidateItemVersionInput(currentVersion),
             assets: readyCandidateAssets(fixture),
             ownerUserId,
           },
@@ -658,6 +660,245 @@ export class ContentService {
     return {
       decision: toContentDecision(decision),
       publication_candidate: publicationCandidate,
+    };
+  }
+
+  /**
+   * Records owner decisions for several content items in ONE transaction.
+   *
+   * Pack ownership and pack status gate the whole call (same as `decide`).
+   * Every entry is then partitioned per-item:
+   * - eligible: exact current version + checksum match; for approves, the
+   *   policy fixture and asset readiness are validated up front;
+   * - ineligible: stale version/checksum, policy violation, or missing
+   *   required asset — reported per-item WITHOUT rolling back the eligible
+   *   entries (arch doc 113-116 bulk approval).
+   *
+   * The repository re-checks eligibility inside the transaction (item/version/
+   * checksum and "not already decided") and reports anything it rejects as a
+   * per-item error, which this method merges into the `ineligible` results.
+   * Eligible decisions are written with their publication candidates in the
+   * SAME transaction (candidates are replay-safe via
+   * `getCandidateByItemVersionId`).
+   */
+  async bulkDecide(
+    packId: string,
+    decisions: ContentDecisionRequest[],
+    ownerUserId: string,
+  ): Promise<BulkDecisionItemResult[]> {
+    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    if (!pack) throw new NotFoundException("Content pack not found");
+
+    if (pack.status !== "draft" && pack.status !== "partially_approved") {
+      throw new ConflictException({
+        code: "CONTENT_APPROVAL_BLOCKED",
+        message:
+          "Owner decisions are only accepted while the pack is draft or partially approved.",
+      });
+    }
+
+    const ineligibleByItemId = new Map<string, BulkDecisionItemResult>();
+    const eligible: Array<{
+      request: ContentDecisionRequest;
+      currentVersion: PrismaContentItemVersion;
+      fixture: ContentPolicyFixture;
+    }> = [];
+
+    for (const request of decisions) {
+      const item = await this.packRepository.getItemById(packId, request.content_item_id);
+      if (!item) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_VERSION_CONFLICT",
+            message: "Content item not found.",
+          },
+        });
+        continue;
+      }
+      if (!item.currentVersionId) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_VERSION_CONFLICT",
+            message: "The content item has no current version to decide on.",
+          },
+        });
+        continue;
+      }
+      if (request.content_item_version_id !== item.currentVersionId) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_VERSION_CONFLICT",
+            message:
+              "This item version is no longer the current version. Refresh before deciding.",
+          },
+        });
+        continue;
+      }
+
+      const versions = await this.packRepository.listItemVersions(packId, item.id);
+      const currentVersion =
+        versions.find((version) => version.id === item.currentVersionId) ?? null;
+      if (
+        !currentVersion ||
+        request.content_item_version_checksum !== currentVersion.versionChecksum
+      ) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_VERSION_CONFLICT",
+            message:
+              "The submitted version checksum no longer matches the current item version.",
+          },
+        });
+        continue;
+      }
+
+      const assets = await this.packRepository.listAssetsForVersion(currentVersion.id);
+      const fixture = await this.assembleDecisionFixture(
+        pack,
+        item,
+        currentVersion,
+        assets,
+        ownerUserId,
+      );
+
+      if (
+        request.decision === "approved" &&
+        fixture.item_version.asset_required &&
+        !hasReadyPublishableAsset(fixture)
+      ) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_ASSET_REQUIRED",
+            message:
+              "Approval cannot produce a candidate until required assets are ready.",
+          },
+        });
+        continue;
+      }
+
+      const validation = validateContentPolicyFixture(fixture);
+      if (!validation.valid) {
+        ineligibleByItemId.set(request.content_item_id, {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: {
+            code: "CONTENT_APPROVAL_BLOCKED",
+            message: "Content approval is blocked by the deterministic content policy.",
+          },
+        });
+        continue;
+      }
+
+      eligible.push({ request, currentVersion, fixture });
+    }
+
+    // All-ineligible batch: nothing to write.
+    if (eligible.length === 0) {
+      return decisions.map((request) => ineligibleByItemId.get(request.content_item_id)!);
+    }
+
+    const { decisions: recorded, errors } = await this.prisma.$transaction(
+      async (tx) => {
+        const bulk = await this.decisionRepository.bulkRecordDecisions(
+          eligible.map(({ request }) => ({
+            itemId: request.content_item_id,
+            versionId: request.content_item_version_id,
+            versionChecksum: request.content_item_version_checksum,
+            decision: request.decision,
+            revisionNotes: request.revision_notes,
+            idempotencyKey: request.idempotency_key,
+          })),
+          ownerUserId,
+          tx,
+        );
+
+        for (const decision of bulk.decisions) {
+          if (decision.decision !== "approved") continue;
+
+          const entry = eligible.find(
+            (candidate) =>
+              candidate.request.content_item_id === decision.contentItemId,
+          );
+          if (!entry) continue;
+
+          // Replay-safe: a repeated approval returns its frozen candidate
+          // instead of creating a duplicate (same rule as `decide`).
+          const existingCandidate =
+            await this.candidateRepository.getCandidateByItemVersionId(
+              decision.contentItemVersionId,
+              tx,
+            );
+          if (existingCandidate) continue;
+
+          await this.candidateRepository.createCandidate(
+            {
+              approval: decision,
+              itemVersion: this.candidateItemVersionInput(entry.currentVersion),
+              assets: readyCandidateAssets(entry.fixture),
+              ownerUserId,
+            },
+            tx,
+          );
+        }
+
+        return bulk;
+      },
+    );
+
+    const decisionByItemId = new Map(
+      recorded.map((decision) => [decision.contentItemId, decision]),
+    );
+    const errorByItemId = new Map(errors.map((error) => [error.itemId, error]));
+
+    return decisions.map((request) => {
+      const ineligible = ineligibleByItemId.get(request.content_item_id);
+      if (ineligible) return ineligible;
+
+      const repoError = errorByItemId.get(request.content_item_id);
+      if (repoError) {
+        return {
+          item_id: request.content_item_id,
+          status: "ineligible",
+          error: { code: repoError.code, message: repoError.message },
+        };
+      }
+
+      const decision = decisionByItemId.get(request.content_item_id);
+      return {
+        item_id: request.content_item_id,
+        status: decision ? decision.decision : "ineligible",
+      };
+    });
+  }
+
+  private candidateItemVersionInput(
+    currentVersion: PrismaContentItemVersion,
+  ): CreateCandidateInput["itemVersion"] {
+    return {
+      id: currentVersion.id,
+      contentItemId: currentVersion.contentItemId,
+      contentPackId: currentVersion.contentPackId,
+      version: currentVersion.version,
+      versionChecksum: currentVersion.versionChecksum,
+      channel: currentVersion.channel,
+      format: currentVersion.format,
+      languageMode: currentVersion.languageMode,
+      captionVariants: currentVersion.captionVariants as Prisma.InputJsonValue,
+      cta: currentVersion.cta,
+      hashtags: currentVersion.hashtags as Prisma.InputJsonValue,
+      altText: currentVersion.altText,
+      recommendedPublishWindow:
+        currentVersion.recommendedPublishWindow as Prisma.InputJsonValue,
     };
   }
 
