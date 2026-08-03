@@ -12,6 +12,8 @@ import type {
 export type UUID = string;
 export type IsoDateTime = string;
 
+export type IsoDate = string;
+
 export type LanguageMode = "ar-EG" | "en" | "mixed";
 
 export type SocialPlatform =

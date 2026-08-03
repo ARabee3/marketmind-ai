@@ -17,6 +17,9 @@ contain NestJS controllers, FastAPI provider code, repositories, or secrets.
   calls, and public errors.
 - A lightweight example validator.
 - A human-readable contract guide in `PREPARED_DISCOVERY_CONTRACT.md`.
+- Frozen Content and deterministic Publishing v1 boundaries, including exact
+  owner approval, authoritative candidate-status intake, SHA-256 asset-byte
+  verification, idempotency, truthful results, and signed workflow fixtures.
 
 ## Useful Commands
 
@@ -30,6 +33,13 @@ Run only this package:
 
 ```bash
 npm --workspace @marketmind/contracts run check
+```
+
+Publishing-only checks:
+
+```bash
+npm --workspace @marketmind/contracts run check:publishing
+npm --workspace @marketmind/contracts run check:consumers
 ```
 
 ## Important Boundaries

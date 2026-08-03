@@ -24,15 +24,25 @@ EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
 
 
 def _load_bundle_fixtures():
-    journey = json.loads((EXAMPLES_DIR / "cafe-full-journey.example.json").read_text())
+    journey = json.loads(
+        (EXAMPLES_DIR / "cafe-full-journey.example.json").read_text(encoding="utf-8")
+    )
     brief = StrategyBrief.model_validate(
-        json.loads((EXAMPLES_DIR / "strategy-brief.example.json").read_text())
+        json.loads(
+            (EXAMPLES_DIR / "strategy-brief.example.json").read_text(encoding="utf-8")
+        )
     )
     pack = RetrievedKnowledgePack.model_validate(
-        json.loads((EXAMPLES_DIR / "strategy-retrieval-pack.example.json").read_text())
+        json.loads(
+            (EXAMPLES_DIR / "strategy-retrieval-pack.example.json").read_text(
+                encoding="utf-8"
+            )
+        )
     )
     plan = StrategyPlan.model_validate(
-        json.loads((EXAMPLES_DIR / "strategy-plan.example.json").read_text())
+        json.loads(
+            (EXAMPLES_DIR / "strategy-plan.example.json").read_text(encoding="utf-8")
+        )
     )
     profile = BusinessProfilePayload.model_validate(journey["confirmed_business_profile"])
     return profile, brief, pack, plan

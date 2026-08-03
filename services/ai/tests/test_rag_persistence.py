@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import StrategyRetrievalRun
@@ -9,11 +10,26 @@ from app.rag.persistence import save_retrieval_run, get_retrieval_run
 from app.rag.schemas import RetrievedKnowledgePack, HydratedItem, KnowledgeGap
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.mark.asyncio
 async def test_save_and_get_retrieval_run(db_session: AsyncSession):
-    strategy_id = uuid4()
-    brief_id = uuid4()
-    profile_version_id = uuid4()
+    strategy_result = await db_session.execute(
+        text(
+            """
+            SELECT strategy_id, id, business_profile_version_id
+            FROM strategy_briefs
+            ORDER BY created_at
+            LIMIT 1
+            """
+        )
+    )
+    strategy_row = strategy_result.first()
+    if strategy_row is None:
+        pytest.skip("No complete Strategy brief seed exists for the persistence test")
+
+    strategy_id, brief_id, profile_version_id = strategy_row
     run_id = uuid4()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 

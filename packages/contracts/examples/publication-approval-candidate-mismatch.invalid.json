@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-approval-real.example.json",
+  "mutation": {
+    "kind": "candidate_mismatch",
+    "value": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+  }
+}

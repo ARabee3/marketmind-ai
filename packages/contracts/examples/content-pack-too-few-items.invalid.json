@@ -1,0 +1,6 @@
+{
+  "base_fixture": "content-pack-week-1-ar.example.json",
+  "mutation": {
+    "kind": "too_few_item_ids"
+  }
+}
