@@ -12,6 +12,10 @@ import pytest
 
 from app.core.config import Settings
 from app.providers.content_provider import MockContentProvider
+from tests.content.fixture_helpers import make_valid_request
+from tests.evaluation.content.runner.real_provider_prompts import (
+    build_spot_check_generation_prompt,
+)
 from tests.evaluation.content.runner.real_provider_runner import (
     REAL_PROVIDER_FLAG,
     create_real_provider,
@@ -97,3 +101,42 @@ def test_real_provider_runner_imports_do_not_pull_network() -> None:
 
     assert real_provider_runner is not None
     assert MockContentProvider().name == "mock"
+
+
+def test_spot_check_prompt_is_refined_for_real_provider() -> None:
+    """The real-provider prompt contains explicit Phase 6 validation rules."""
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    refined = build_spot_check_generation_prompt(request, "openai", "gpt-4.1-mini")
+
+    assert "Phase 6 spot-check constraints" in refined.system_prompt
+    assert "Generate exactly" in refined.system_prompt
+    assert "content_item_id" in refined.system_prompt
+    assert "strategy_trace.pillar_ids" in refined.system_prompt
+    assert "claim_sources" in refined.system_prompt
+
+
+def test_spot_check_prompt_preserves_base_user_context() -> None:
+    """The refined prompt keeps the same grounded user context as the base prompt."""
+    from app.content.assembler import assemble_generation_prompt
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    base = assemble_generation_prompt(request, "openai", "gpt-4.1-mini")
+    refined = build_spot_check_generation_prompt(request, "openai", "gpt-4.1-mini")
+
+    assert refined.user_prompt == base.user_prompt
+    # assembled_at is generated at call time; compare the stable metadata fields.
+    stable = {k: v for k, v in base.metadata.items() if k != "assembled_at"}
+    refined_stable = {k: v for k, v in refined.metadata.items() if k != "assembled_at"}
+    assert refined_stable == stable
+
+
+def test_spot_check_prompt_fake_provider_can_parse_context() -> None:
+    """The base user context in the refined prompt is still parseable by the fake provider."""
+    import asyncio
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    refined = build_spot_check_generation_prompt(request, "openai", "gpt-4.1-mini")
+
+    fake = MockContentProvider()
+    items = asyncio.run(fake.generate_content_pack(refined))
+    assert 3 <= len(items) <= 5

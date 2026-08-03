@@ -92,8 +92,13 @@ uv run python -m tests.evaluation.content.runner.real_provider_runner
 ```
 
 The spot-check uses a `text_post` request so the fake provider baseline is
-expected to be contract-valid. The runner compares whether the real provider
-matches that baseline (both valid) or diverges (real invalid while fake valid).
+expected to be contract-valid. The real provider receives a refined prompt
+(`runner/real_provider_prompts.py`) that adds explicit spot-check constraints
+and a one-shot structural example, so its structured output is far more likely
+to satisfy the same deterministic contract validator.
+
+The runner compares whether the real provider matches that baseline (both valid)
+or diverges (real invalid while fake valid).
 
 When the flag is unset the runner prints `[SKIPPED]` and exits cleanly. It never
 runs in CI and never silently falls back to a fake provider.

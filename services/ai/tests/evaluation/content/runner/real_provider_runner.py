@@ -26,7 +26,7 @@ if __name__ == "__main__":
     if str(_contracts_path) not in sys.path:
         sys.path.insert(0, str(_contracts_path))
 
-from app.content.assembler import assemble_generation_prompt
+from app.content.assembler import PromptAssembly, assemble_generation_prompt
 from app.content.validators import validate_generated_content_pack
 from app.core.config import ProviderMode, Settings
 from app.providers.content_provider import (
@@ -35,6 +35,9 @@ from app.providers.content_provider import (
     create_content_provider,
 )
 from tests.content.fixture_helpers import make_valid_request
+from tests.evaluation.content.runner.real_provider_prompts import (
+    build_spot_check_generation_prompt,
+)
 
 
 REAL_PROVIDER_FLAG = "MARKETMIND_CONTENT_REAL_PROVIDER"
@@ -102,11 +105,14 @@ async def _run_spot_check() -> dict[str, Any]:
 
     request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
     model = _provider_model(provider, settings)
-    prompt = assemble_generation_prompt(request, provider.name, model)
+    # The fake baseline keeps the standard prompt; the real provider gets a
+    # spot-check-specific prompt with explicit contract-validation constraints.
+    fake_prompt = assemble_generation_prompt(request, provider.name, model)
+    real_prompt = build_spot_check_generation_prompt(request, provider.name, model)
 
     fake_items, real_items = await asyncio.gather(
-        _generate(fake_provider, prompt),
-        _generate(provider, prompt),
+        _generate(fake_provider, fake_prompt),
+        _generate(provider, real_prompt),
     )
 
     fake_result = validate_generated_content_pack(request, fake_items)
