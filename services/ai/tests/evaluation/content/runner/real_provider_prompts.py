@@ -123,7 +123,8 @@ def build_spot_check_generation_prompt(
         ""
         if not request.week_context.must_include
         else (
-            "\n  The exact must_include text to include verbatim in at least one caption: "
+            "\n  The exact must_include SENTENCE to COPY CHARACTER-FOR-CHARACTER into at "
+            + "least one caption (do not paraphrase, translate, or reword any part of it): "
             + f"{[str(v) for v in request.week_context.must_include]!r}"
         )
     )
@@ -167,8 +168,10 @@ def build_spot_check_generation_prompt(
             "must be preserved exactly.",
             f"13. {cta_rule}",
             f"14. {promotion_rule}",
-            "15. Obey every `week_context.must_include` instruction exactly; "
-            "never include any `week_context.must_avoid` text."
+            "15. Obey every `week_context.must_include` instruction exactly: copy the whole "
+            "sentence into one caption unchanged (same letters, same diacritics, same spacing). "
+            "The validator checks that every substantive word of the instruction appears in the "
+            "caption text. Never include any `week_context.must_avoid` text."
             f"{must_include_exact}{must_avoid_exact}",
             "15a. The CTA must include the confirmed destination value exactly as shown above; "
             "do not shorten, reformat, or drop the phone number / URL / handle.",
