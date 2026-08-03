@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +40,7 @@ from app.providers.content_provider import (
     MockContentProvider,
     create_content_provider,
 )
+from content_contracts import AiContentGenerateRequest
 from tests.content.fixture_helpers import make_valid_request
 from tests.evaluation.content.runner.real_provider_prompts import (
     build_spot_check_generation_prompt,
@@ -109,17 +112,99 @@ async def _generate(provider: ContentLLMProvider, prompt: Any) -> list[Any]:
     return await provider.generate_content_pack(prompt)
 
 
-def _finalize_item_checksums(items: list[ContentItemVersion]) -> list[ContentItemVersion]:
-    """Recompute server-side checksums exactly as the production service does.
+def _finalize_spot_check_items(
+    items: list[ContentItemVersion],
+    request: AiContentGenerateRequest,
+    provider: ContentLLMProvider,
+    prompt: PromptAssembly,
+    model: str,
+) -> list[ContentItemVersion]:
+    """Apply server-side metadata finalization exactly as production does.
 
-    Real providers cannot know the exact immutable-byte serialization, so the
-    production pipeline always recomputes `version_checksum` server-side. Doing
-    the same here keeps the spot-check focused on content correctness rather
-    than checksum prediction.
+    Real providers produce the content, but the server owns immutable identities,
+    Strategy trace, generation provenance, and version checksums.  Finalizing here
+    keeps the spot-check focused on content correctness (captions, CTA, language,
+    promotion fidelity) rather than metadata prediction.
     """
+    from content_contracts import (
+        ContentGenerationProvenance,
+        ContentStrategyTrace,
+    )
+
+    generated_at = datetime.now(timezone.utc)
+    run_id = str(
+        uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"content-generation:{prompt.metadata.get('input_snapshot_hash', '')}",
+        )
+    )
+    approved_asset_ids = set(request.week_context.approved_asset_ids)
     finalized: list[ContentItemVersion] = []
-    for item in items:
-        without_checksum = item.model_copy(update={"version_checksum": ""})
+
+    for index, item in enumerate(items, start=1):
+        content_item_id = str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"{request.content_pack_id}:content-item:{index}",
+            )
+        )
+        item_version_id = str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"{content_item_id}:version:1")
+        )
+
+        objective_value = str(
+            getattr(
+                request.strategy_plan.primary_objective,
+                "value",
+                request.strategy_plan.primary_objective,
+            )
+        )
+        trace = item.strategy_trace.model_copy(
+            update={
+                "strategy_id": request.strategy_id,
+                "strategy_version": request.strategy_version,
+                "week_number": request.week_context.week_number,
+                "objective": objective_value,
+                "channel": item.channel,
+            }
+        )
+
+        asset_ids = (
+            [asset_id for asset_id in item.asset_ids if asset_id in approved_asset_ids]
+            if item.asset_required
+            else []
+        )
+        blockers = list(item.blockers)
+        if (
+            item.asset_required
+            and not asset_ids
+            and "CONTENT_ASSET_REQUIRED" not in blockers
+        ):
+            blockers.append("CONTENT_ASSET_REQUIRED")
+
+        provenance = item.generation_provenance.model_copy(
+            update={
+                "generation_run_id": run_id,
+                "provider_name": provider.name,
+                "provider_model": model,
+                "generated_at": generated_at,
+            }
+        )
+
+        staged = item.model_copy(
+            update={
+                "id": item_version_id,
+                "content_item_id": content_item_id,
+                "content_pack_id": request.content_pack_id,
+                "version": 1,
+                "strategy_trace": trace,
+                "asset_ids": asset_ids,
+                "blockers": blockers,
+                "generation_provenance": provenance,
+                "created_at": generated_at,
+            }
+        )
+        without_checksum = staged.model_copy(update={"version_checksum": ""})
         finalized.append(
             without_checksum.model_copy(
                 update={"version_checksum": compute_content_item_checksum(without_checksum)}
@@ -146,10 +231,10 @@ async def _run_spot_check() -> dict[str, Any]:
         _generate(provider, real_prompt),
     )
 
-    # Recompute server-side checksums so the comparison tests content quality,
-    # not the provider's ability to predict immutable-byte checksums.
-    fake_items = _finalize_item_checksums(fake_items)
-    real_items = _finalize_item_checksums(real_items)
+    # Apply server-side metadata finalization so the comparison tests content
+    # quality, not the provider's ability to predict immutable identities or checksums.
+    fake_items = _finalize_spot_check_items(fake_items, request, fake_provider, fake_prompt, model)
+    real_items = _finalize_spot_check_items(real_items, request, provider, real_prompt, model)
 
     fake_result = validate_generated_content_pack(request, fake_items)
     real_result = validate_generated_content_pack(request, real_items)

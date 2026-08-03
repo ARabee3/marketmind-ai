@@ -170,12 +170,16 @@ def build_spot_check_generation_prompt(
             "15. Obey every `week_context.must_include` instruction exactly; "
             "never include any `week_context.must_avoid` text."
             f"{must_include_exact}{must_avoid_exact}",
+            "15a. The CTA must include the confirmed destination value exactly as shown above; "
+            "do not shorten, reformat, or drop the phone number / URL / handle.",
             f"16. `recommended_publish_window.starts_at` and `ends_at` must be "
             f"timezone-aware ISO-8601 datetimes between {week_start.isoformat()} "
             f"and {week_end.isoformat()}, with `ends_at` > `starts_at`.",
-            "17. Every item must include at least one `claim_sources` entry.",
-            "18. `item.hashtags` must match the primary caption variant's `hashtags`.",
-            "19. `item.cta` must match the primary caption variant's `cta`.",
+            "17. Every `hashtags` array must contain only strings that start with `#` and contain no whitespace (e.g. `[\"#MarketMind\", \"#SmallBusiness\"]`).",
+            "18. `generation_provenance.generation_run_id` must be a valid UUID string.",
+            "19. Every item must include at least one `claim_sources` entry.",
+            "20. `item.hashtags` must match the primary caption variant's `hashtags`.",
+            "21. `item.cta` must match the primary caption variant's `cta`.",
             "",
             "Return only the structured JSON object requested by the caller.",
         ]
