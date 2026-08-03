@@ -99,7 +99,72 @@ export function deepStripSecrets<T>(obj: T): T {
   return result as T;
 }
 
-/** Wraps an async HTTP call, sanitizes any error, and re-throws a safe Error. */
+/**
+ * Classifies an outbound HTTP exception as AMBIGUOUS (the request may have
+ * reached the runner and the provider may already have published) versus a
+ * DETERMINISTIC pre-send failure (misconfiguration / hard 4xx rejection before
+ * any provider call). Ambiguous outcomes must never be retried blind.
+ *
+ * Inspected here, at the catch site, while the raw Axios error fields
+ * (`code`, `isAxiosError`, `response.status`) are still available. The typed
+ * {@link SafeHttpError} carries only the resulting boolean flag downstream so
+ * no library internals (and no secrets) leak to callers or logs.
+ */
+export function classifyAmbiguousDelivery(err: unknown): boolean {
+  if (!err) return false;
+  const e = err as {
+    code?: string;
+    response?: { status?: number };
+    isAxiosError?: boolean;
+    name?: string;
+    message?: string;
+  };
+  // Already-sanitized SafeHttpError: trust the precomputed flag.
+  if (e instanceof SafeHttpError) return e.ambiguousDelivery;
+  // Axios/transport ambiguity: timeout, connection reset, dropped connection.
+  if (
+    e.code === "ECONNABORTED" ||
+    e.code === "ETIMEDOUT" ||
+    e.code === "ECONNRESET" ||
+    e.code === "ECONNREFUSED" ||
+    e.code === "EPIPE" ||
+    e.code === "EAI_AGAIN"
+  ) {
+    return true;
+  }
+  // A 5xx after the runner may have started executing is ambiguous.
+  if (e.isAxiosError && typeof e.response?.status === "number") {
+    return e.response.status >= 500;
+  }
+  // No response at all (network) and not a deterministic misconfig — ambiguous.
+  if (e.isAxiosError && e.response === undefined) return true;
+  return false;
+}
+
+/**
+ * Typed, secret-free error thrown by {@link safeHttp}. Carries ONLY the
+ * sanitized metadata plus an `ambiguousDelivery` flag so downstream handlers
+ * (the dispatch processor) can classify the failure without re-inspecting
+ * library internals — which sanitization has already stripped.
+ */
+export class SafeHttpError extends Error {
+  readonly ambiguousDelivery: boolean;
+  readonly safeMetadata: Record<string, unknown>;
+  constructor(
+    label: string,
+    ambiguousDelivery: boolean,
+    safeMetadata: Record<string, unknown>,
+  ) {
+    super(`[${label}] outbound HTTP call failed — see server logs`);
+    this.name = "SafeHttpError";
+    this.ambiguousDelivery = ambiguousDelivery;
+    this.safeMetadata = safeMetadata;
+  }
+}
+
+/** Wraps an async HTTP call, sanitizes any error, and re-throws a typed
+ *  SafeHttpError that preserves the ambiguous-delivery classification without
+ *  leaking library internals or secrets. */
 export async function safeHttp<T>(
   logger: Logger,
   label: string,
@@ -109,7 +174,11 @@ export async function safeHttp<T>(
     return await fn();
   } catch (err) {
     const safe = sanitizeErrorForLogging(err);
-    logger.error(`[${label}] outbound HTTP error`, safe);
-    throw new Error(`[${label}] outbound HTTP call failed — see server logs`);
+    const ambiguous = classifyAmbiguousDelivery(err);
+    logger.error(`[${label}] outbound HTTP error`, {
+      ...safe,
+      ambiguousDelivery: ambiguous,
+    });
+    throw new SafeHttpError(label, ambiguous, safe);
   }
 }

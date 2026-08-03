@@ -1,154 +1,255 @@
+/**
+ * Callback security — frozen envelope validators (P1 #119).
+ *
+ * Replaces the previous custom HMAC/mirror unit tests. These now exercise the
+ * REAL frozen contract validators the controller relies on:
+ *   - `validateSignedPublicationCallbackEnvelopeV1` (signature, timestamp
+ *     window, body checksum, key id, nonce length), and
+ *   - `validatePublicationCallbackContext` (exact-attempt binding by
+ *     attempt_id / intent_id / intent_version / request_fingerprint /
+ *     workflow_version).
+ *
+ * The controller delegates to these same validators, so failures here would
+ * fail the controller too — no mock bypass.
+ */
+
 import * as crypto from "crypto";
-
-/** Mirrors the logic in callbacks.controller.ts for isolated unit testing. */
-
-const CALLBACK_WINDOW_MS = 5 * 60 * 1000;
-
-function isTimestampValid(timestamp: string): boolean {
-  const ts = new Date(timestamp);
-  if (isNaN(ts.getTime())) return false;
-  return Math.abs(Date.now() - ts.getTime()) <= CALLBACK_WINDOW_MS;
-}
-
-function verifySignature(
-  secret: string,
-  body: {
-    attemptId: string;
-    outcome: string;
-    nonce: string;
-    timestamp: string;
-    signature: string;
-  },
-): boolean {
-  const canonical = [
-    body.attemptId,
-    body.outcome,
-    body.nonce,
-    body.timestamp,
-  ].join(":");
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(canonical)
-    .digest();
-  let actual: Buffer;
-  try {
-    actual = Buffer.from(body.signature, "hex");
-  } catch {
-    return false;
-  }
-  if (expected.length !== actual.length) return false;
-  return crypto.timingSafeEqual(expected, actual);
-}
+import {
+  validateSignedPublicationCallbackEnvelopeV1,
+  validatePublicationCallbackContext,
+  signPublicationCallbackEnvelope,
+  type PublicationCallbackBodyV1,
+  type PublicationResultV1,
+  type PublicationAttemptV1,
+} from "@marketmind/contracts";
 
 const SECRET = "test-signing-secret-32chars-long!!";
+const KEY_ID = "kid-1";
+const ATTEMPT_ID = "11111110-0000-4000-8000-0000000000a1";
+const INTENT_ID = "11111110-0000-4000-8000-0000000000b1";
+const REQUEST_FINGERPRINT = crypto
+  .createHash("sha256")
+  .update("dispatch-body")
+  .digest("hex");
 
-function buildValidCallback(
-  overrides: Partial<{
-    timestamp: string;
-    outcome: string;
-    signature: string;
-  }> = {},
-) {
-  const timestamp = overrides.timestamp ?? new Date().toISOString();
-  const outcome = overrides.outcome ?? "published";
-  const nonce = crypto.randomUUID();
-  const canonical = ["attempt-1", outcome, nonce, timestamp].join(":");
-  const signature =
-    overrides.signature ??
-    crypto.createHmac("sha256", SECRET).update(canonical).digest("hex");
-  return { attemptId: "attempt-1", outcome, nonce, timestamp, signature };
+function publishedResult(): PublicationResultV1 {
+  return {
+    contract_version: "publication-result-v1",
+    result_id: crypto.randomUUID(),
+    attempt_id: ATTEMPT_ID,
+    intent_id: INTENT_ID,
+    intent_version: 1,
+    occurred_at: new Date().toISOString(),
+    mode: "real",
+    outcome: "published",
+    provider: "meta",
+    remote_publication_id: "ig-media-123",
+    remote_url: null,
+    export_artifact_id: null,
+    simulation_reference_id: null,
+    simulation_label: null,
+    error_code: null,
+    retryable: false,
+    reconciliation_required: false,
+  } as unknown as PublicationResultV1;
 }
 
-describe("Callback security pipeline", () => {
-  describe("Timestamp replay-window", () => {
-    it("accepts a timestamp within the 5-minute window", () => {
-      const ts = new Date(Date.now() - 60_000).toISOString(); // 1 min ago
-      expect(isTimestampValid(ts)).toBe(true);
+function body(
+  overrides: Partial<PublicationCallbackBodyV1> = {},
+): PublicationCallbackBodyV1 {
+  return {
+    contract_version: "publication-callback-v1",
+    callback_id: crypto.randomUUID(),
+    attempt_id: ATTEMPT_ID,
+    intent_id: INTENT_ID,
+    intent_version: 1,
+    request_fingerprint: REQUEST_FINGERPRINT,
+    workflow_version: "v1",
+    result: publishedResult(),
+    ...overrides,
+  } as PublicationCallbackBodyV1;
+}
+
+function sign(
+  b: PublicationCallbackBodyV1,
+  opts: {
+    sentAt?: string;
+    nonce?: string;
+    keyId?: string;
+    secret?: string;
+  } = {},
+) {
+  return signPublicationCallbackEnvelope(
+    {
+      contract_version: "publishing-callback-envelope-v1",
+      message_id: crypto.randomUUID(),
+      sent_at: opts.sentAt ?? new Date().toISOString(),
+      nonce: opts.nonce ?? crypto.randomUUID() + crypto.randomUUID(),
+      key_id: opts.keyId ?? KEY_ID,
+      body: b,
+    },
+    opts.secret ?? SECRET,
+  );
+}
+
+function attemptV1(
+  overrides: Partial<PublicationAttemptV1> = {},
+): PublicationAttemptV1 {
+  return {
+    contract_version: "publication-attempt-v1",
+    attempt_id: ATTEMPT_ID,
+    intent_id: INTENT_ID,
+    intent_version: 1,
+    attempt_number: 1,
+    idempotency_key: "key-1::dispatch",
+    workflow_version: "v1",
+    request_fingerprint: REQUEST_FINGERPRINT,
+    state: "running",
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+const context = () => ({
+  secret: SECRET,
+  expected_key_id: KEY_ID,
+  now: new Date().toISOString(),
+});
+
+describe("Callback frozen-envelope security", () => {
+  describe("validateSignedPublicationCallbackEnvelopeV1", () => {
+    it("accepts a correctly signed envelope", () => {
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body()),
+        context(),
+      );
+      expect(result.valid).toBe(true);
     });
 
-    it("rejects a timestamp older than 5 minutes (stale replay)", () => {
-      const ts = new Date(Date.now() - 6 * 60 * 1000).toISOString(); // 6 min ago
-      expect(isTimestampValid(ts)).toBe(false);
+    it("rejects a signature made with a different secret (tamper)", () => {
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body(), { secret: "wrong-secret" }),
+        context(),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe("PUBLISHING_WEBHOOK_UNAUTHORIZED");
     });
 
-    it("rejects a future timestamp beyond the window", () => {
-      const ts = new Date(Date.now() + 6 * 60 * 1000).toISOString();
-      expect(isTimestampValid(ts)).toBe(false);
+    it("rejects a stale sent_at outside the 5-minute window", () => {
+      const stale = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body(), { sentAt: stale }),
+        context(),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe(
+        "PUBLISHING_WEBHOOK_TIMESTAMP_INVALID",
+      );
     });
 
-    it("rejects a garbage timestamp string", () => {
-      expect(isTimestampValid("not-a-date")).toBe(false);
+    it("rejects a future sent_at outside the window", () => {
+      const future = new Date(Date.now() + 6 * 60 * 1000).toISOString();
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body(), { sentAt: future }),
+        context(),
+      );
+      expect(result.valid).toBe(false);
+    });
+
+    it("rejects a key id mismatch (rotation boundary)", () => {
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body(), { keyId: "other-kid" }),
+        context(),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe("PUBLISHING_WEBHOOK_UNAUTHORIZED");
+    });
+
+    it("rejects a body mutated after signing (body_sha256 mismatch)", () => {
+      const env = sign(body()) as unknown as {
+        body: PublicationCallbackBodyV1;
+      };
+      const mutatedBody: PublicationCallbackBodyV1 = {
+        ...env.body,
+        result: {
+          ...publishedResult(),
+          remote_publication_id: "tampered" as never,
+        } as never,
+      } as PublicationCallbackBodyV1;
+      const tampered = { ...env, body: mutatedBody } as never;
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        tampered,
+        context(),
+      );
+      expect(result.valid).toBe(false);
+    });
+
+    it("rejects a short nonce (< 16 chars)", () => {
+      const result = validateSignedPublicationCallbackEnvelopeV1(
+        sign(body(), { nonce: "short" }),
+        context(),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe("PUBLISHING_WEBHOOK_UNAUTHORIZED");
     });
   });
 
-  describe("HMAC signature verification (constant-time)", () => {
-    it("accepts a correctly signed payload", () => {
-      const cb = buildValidCallback();
-      expect(verifySignature(SECRET, cb)).toBe(true);
+  describe("validatePublicationCallbackContext — exact-attempt binding", () => {
+    it("accepts a callback that binds the stored exact attempt", () => {
+      const result = validatePublicationCallbackContext({
+        envelope: sign(body()),
+        attempt: attemptV1(),
+        context: context(),
+      });
+      expect(result.valid).toBe(true);
     });
 
-    it("rejects a tampered outcome field", () => {
-      const cb = buildValidCallback();
-      // Signature was built for 'published' but we mutate the outcome
-      expect(verifySignature(SECRET, { ...cb, outcome: "failed" })).toBe(false);
+    it("rejects a callback whose attempt_id differs from the stored attempt", () => {
+      const otherAttempt = crypto.randomUUID();
+      const otherIntent = crypto.randomUUID();
+      const result = validatePublicationCallbackContext({
+        envelope: sign(
+          body({
+            attempt_id: otherAttempt as never,
+            intent_id: otherIntent as never,
+            result: {
+              ...publishedResult(),
+              attempt_id: otherAttempt as never,
+              intent_id: otherIntent as never,
+            } as never,
+          }),
+        ),
+        attempt: attemptV1(),
+        context: context(),
+      });
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe("PUBLISHING_CALLBACK_CONFLICT");
     });
 
-    it("rejects a wrong signature string", () => {
-      const cb = buildValidCallback({ signature: "deadbeef".repeat(8) });
-      expect(verifySignature(SECRET, cb)).toBe(false);
+    it("rejects a callback whose request_fingerprint does not match the stored dispatch fingerprint (drift)", () => {
+      const result = validatePublicationCallbackContext({
+        envelope: sign(body()),
+        attempt: attemptV1({
+          request_fingerprint: crypto
+            .createHash("sha256")
+            .update("different")
+            .digest("hex") as never,
+        }),
+        context: context(),
+      });
+      expect(result.valid).toBe(false);
+      expect(result.issues[0]?.code).toBe("PUBLISHING_CALLBACK_CONFLICT");
     });
 
-    it("rejects an empty signature", () => {
-      const cb = buildValidCallback({ signature: "" });
-      expect(verifySignature(SECRET, cb)).toBe(false);
-    });
-
-    it("rejects a non-hex signature", () => {
-      const cb = buildValidCallback({ signature: "not-hex!!!!" });
-      // Buffer.from with invalid hex returns garbage bytes → comparison fails
-      expect(verifySignature(SECRET, cb)).toBe(false);
-    });
-
-    it("accepts an identical payload replayed within the window (idempotent)", () => {
-      // Same nonce, same signature → verifySignature still returns true (replay detection
-      // is a separate DB-level check, not signature verification)
-      const cb = buildValidCallback();
-      expect(verifySignature(SECRET, cb)).toBe(true);
-      // Second call with identical payload also passes signature check
-      expect(verifySignature(SECRET, cb)).toBe(true);
-    });
-  });
-
-  describe("Outcome mapping", () => {
-    const mapOutcome = (raw: string): string => {
-      switch (raw) {
-        case "published":
-          return "PUBLISHED";
-        case "exported":
-          return "EXPORTED";
-        case "simulated":
-          return "SIMULATED";
-        case "failed":
-          return "FAILED";
-        case "unknown":
-          return "UNKNOWN";
-        default:
-          return "UNKNOWN";
-      }
-    };
-
-    it("maps known outcomes correctly", () => {
-      expect(mapOutcome("published")).toBe("PUBLISHED");
-      expect(mapOutcome("exported")).toBe("EXPORTED");
-      expect(mapOutcome("simulated")).toBe("SIMULATED");
-      expect(mapOutcome("failed")).toBe("FAILED");
-      expect(mapOutcome("unknown")).toBe("UNKNOWN");
-    });
-
-    it("maps any ambiguous/unknown provider value to UNKNOWN, never to PUBLISHED", () => {
-      expect(mapOutcome("partial_success")).toBe("UNKNOWN");
-      expect(mapOutcome("")).toBe("UNKNOWN");
-      expect(mapOutcome("SUCCESS")).toBe("UNKNOWN"); // wrong case → unknown
+    it("rejects a callback whose workflow_version differs from the stored attempt", () => {
+      const result = validatePublicationCallbackContext({
+        envelope: sign(body({ workflow_version: "v9" as never })),
+        attempt: attemptV1(),
+        context: context(),
+      });
+      expect(result.valid).toBe(false);
     });
   });
 });

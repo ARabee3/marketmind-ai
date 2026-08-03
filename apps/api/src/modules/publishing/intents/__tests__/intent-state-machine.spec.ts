@@ -18,7 +18,10 @@ type IntentStatus =
   | "ACTION_REQUIRED";
 
 const CANCELLABLE: IntentStatus[] = ["DRAFT", "AWAITING_APPROVAL", "SCHEDULED"];
-const RETRYABLE: IntentStatus[] = ["FAILED", "ACTION_REQUIRED"];
+// P1 (#119 review): only a proven FAILED intent may retry. ACTION_REQUIRED
+// (UNKNOWN/ambiguous delivery) may already have published, so it must first be
+// reconciled to a proven FAILED before any re-dispatch.
+const RETRYABLE: IntentStatus[] = ["FAILED"];
 const SCHEDULABLE: IntentStatus[] = ["DRAFT", "AWAITING_APPROVAL", "SCHEDULED"];
 
 function canCancel(status: IntentStatus): boolean {
@@ -66,12 +69,9 @@ describe("Intent FSM — cancel transition", () => {
 // ── Retry transition matrix ──────────────────────────────────────────────────
 
 describe("Intent FSM — retry transition", () => {
-  it.each<IntentStatus>(["FAILED", "ACTION_REQUIRED"])(
-    "allows retry from %s",
-    (status) => {
-      expect(canRetry(status)).toBe(true);
-    },
-  );
+  it.each<IntentStatus>(["FAILED"])("allows retry from %s", (status) => {
+    expect(canRetry(status)).toBe(true);
+  });
 
   it.each<IntentStatus>([
     "DRAFT",
@@ -80,6 +80,7 @@ describe("Intent FSM — retry transition", () => {
     "DISPATCHING",
     "SUCCEEDED",
     "CANCELLED",
+    "ACTION_REQUIRED",
   ])("rejects retry from %s", (status) => {
     expect(canRetry(status)).toBe(false);
   });

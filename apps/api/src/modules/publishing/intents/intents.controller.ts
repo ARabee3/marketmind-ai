@@ -116,9 +116,11 @@ export class IntentsController {
     return this.intentsService.retryIntent(intentId, user.businessId, dto);
   }
 
-  /** Manual export dispatch (§8 draft → dispatching → succeeded, no external
-   *  call). The owner's explicit Export action authorizes it; no real-publication
-   *  approval or scheduled delay is required. */
+  /** Manual export dispatch (§8 draft → dispatching, then pending the #121
+   *  archive boundary). The owner's explicit Export action authorizes it; no
+   *  real-publication approval is required. The intent stays DISPATCHING and
+   *  no EXPORTED result is recorded until #121 produces a checksum-addressed
+   *  archive — never a synthesized artifact. */
   @Post(":intentId/dispatch-export")
   dispatchExport(
     @Param("intentId") intentId: string,

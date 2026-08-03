@@ -118,7 +118,8 @@ describe("ReconciliationService.flagStuckAttempts", () => {
           attemptId: stuckAttempt.id,
           intentId: stuckAttempt.intentId,
           outcome: "UNKNOWN",
-          retryable: true,
+          errorCode: "PUBLISHING_PROVIDER_OUTCOME_UNKNOWN",
+          retryable: false,
         }),
       }),
     );

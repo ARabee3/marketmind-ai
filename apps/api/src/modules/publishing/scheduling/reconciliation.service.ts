@@ -111,7 +111,10 @@ export class ReconciliationService {
               intentId: attempt.intentId,
               outcome: "UNKNOWN",
               provider: "meta",
-              retryable: true,
+              errorCode: "PUBLISHING_PROVIDER_OUTCOME_UNKNOWN",
+              // UNKNOWN means the request may already have reached the
+              // provider. It requires reconciliation and is never retryable.
+              retryable: false,
               sanitizedError:
                 "Stuck in QUEUED/DISPATCHING past timeout — delivery outcome unknown",
               occurredAt: new Date(),

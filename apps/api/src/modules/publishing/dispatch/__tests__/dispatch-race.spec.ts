@@ -304,8 +304,106 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     );
     expect(resultCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ outcome: "UNKNOWN", retryable: true }),
+        data: expect.objectContaining({
+          outcome: "UNKNOWN",
+          errorCode: "PUBLISHING_PROVIDER_OUTCOME_UNKNOWN",
+          retryable: false,
+        }),
       }),
     );
+  });
+
+  it("persists the workflow version sent in the frozen dispatch body", async () => {
+    const attemptUpdate = jest.fn().mockResolvedValue({});
+    const tx = {
+      publishingIntent: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: "11111100-0000-4000-8000-000000000002",
+          version: 1,
+          status: "SCHEDULED",
+          candidateId: "11111100-0000-4000-8000-000000000001",
+          targetId: "77777700-0000-4000-8000-000000000001",
+          businessId: "aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa",
+          scheduledUtcAt: new Date("2026-08-03T18:00:00.000Z"),
+          scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
+          timezone: "Africa/Cairo",
+        }),
+      },
+      publishingApproval: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          candidateChecksum:
+            "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+          decidedByUserId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          decidedAt: new Date("2026-08-01T11:00:00+03:00"),
+        }),
+      },
+      publishingCandidate: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          status: "ACTIVE",
+          candidateChecksum:
+            "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+          payload: body.candidate,
+          sourceStatus: body.candidate_status,
+        }),
+      },
+      publishingTarget: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: body.target.target_id,
+          businessId: body.target.business_id,
+          provider: "META",
+          channel: body.target.channel,
+          externalAccountId: body.target.external_account_id,
+          displayName: body.target.display_name,
+          connectionState: "CONNECTED",
+          credentialRef: body.target.credential_ref,
+          capabilities: body.target.capabilities,
+          lastVerifiedAt: null,
+          expiresAt: null,
+          version: body.target.version,
+        }),
+      },
+      publishingAttempt: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null),
+        create: jest.fn().mockResolvedValue({
+          id: body.attempt_id,
+          status: "QUEUED",
+        }),
+        update: attemptUpdate,
+      },
+    };
+    const txPrisma = {
+      $transaction: jest.fn(async (cb: (innerTx: any) => unknown) => cb(tx)),
+    } as unknown as PrismaService;
+    const envelopeBuilder = {
+      buildDispatchBody: jest.fn().mockReturnValue({
+        body,
+        requestFingerprint: "f".repeat(64),
+      }),
+    } as unknown as DispatchEnvelopeBuilder;
+    const txProcessor = new DispatchProcessor(
+      txPrisma,
+      n8n as any,
+      assetIntegrity as any,
+      envelopeBuilder,
+    );
+
+    await (txProcessor as any).runRevalidationAndCreateAttempt(
+      body.intent_id,
+      body.intent_version,
+      body.idempotency_key,
+    );
+
+    expect(attemptUpdate).toHaveBeenCalledWith({
+      where: { id: body.attempt_id },
+      data: {
+        providerRequestFingerprint: "f".repeat(64),
+        workflowVersion: body.workflow_version,
+      },
+    });
   });
 });

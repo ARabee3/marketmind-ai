@@ -6,6 +6,10 @@ import { N8nClientService } from "./n8n-client.service";
 import { AssetIntegrityValidator } from "./asset-integrity-validator";
 import { DispatchEnvelopeBuilder } from "./dispatch-envelope.builder";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import {
+  classifyAmbiguousDelivery,
+  SafeHttpError,
+} from "../common/http/safe-http.util";
 
 export interface DispatchJobData {
   intentId: string;
@@ -207,7 +211,13 @@ export class DispatchProcessor extends WorkerHost {
               intentId,
               outcome: ambiguous ? "UNKNOWN" : ("FAILED" as never),
               provider: "meta",
-              retryable: ambiguous ? true : false,
+              errorCode: ambiguous
+                ? PublishingErrorCode.PROVIDER_OUTCOME_UNKNOWN
+                : PublishingErrorCode.PROVIDER_FAILURE,
+              // A delivery whose outcome is unknown must be reconciled before
+              // another publish can be attempted. The frozen result contract
+              // therefore marks UNKNOWN as non-retryable.
+              retryable: false,
               rawPayloadHash: null,
               sanitizedError: sanitized,
               occurredAt: now,
@@ -431,7 +441,13 @@ export class DispatchProcessor extends WorkerHost {
           });
         await tx.publishingAttempt.update({
           where: { id: attempt.id },
-          data: { providerRequestFingerprint: requestFingerprint },
+          data: {
+            providerRequestFingerprint: requestFingerprint,
+            // The frozen callback binds to the exact workflow version sent in
+            // the dispatch body. Persist it with the request fingerprint so a
+            // real callback can pass validatePublicationCallbackContext.
+            workflowVersion: body.workflow_version,
+          },
         });
 
         return {
@@ -488,35 +504,17 @@ export class DispatchProcessor extends WorkerHost {
    * reached n8n and the provider may already have published) versus a
    * DETERMINISTIC pre-send failure (misconfiguration / hard 4xx rejection
    * before any provider call). Ambiguous outcomes must never be retried blind.
+   *
+   * P1 (#119 review): `N8nClientService.dispatch` routes every failure through
+   * `safeHttp`, which rethrows a typed {@link SafeHttpError} carrying only an
+   * `ambiguousDelivery` flag — the raw Axios `code`/`isAxiosError`/
+   * `response.status` fields are stripped at the catch site. We therefore read
+   * the flag off the typed error and never re-inspect library internals here;
+   * `classifyAmbiguousDelivery` is the single source of truth for both raw
+   * (test) and sanitized (production) errors.
    */
   private isAmbiguousDelivery(err: unknown): boolean {
-    if (!err) return false;
-    const e = err as {
-      code?: string;
-      response?: { status?: number };
-      isAxiosError?: boolean;
-      name?: string;
-      message?: string;
-    };
-    // Axios/transport ambiguity: timeout, connection reset, dropped connection.
-    if (
-      e.code === "ECONNABORTED" ||
-      e.code === "ETIMEDOUT" ||
-      e.code === "ECONNRESET" ||
-      e.code === "ECONNREFUSED" ||
-      e.code === "EPIPE" ||
-      e.code === "EAI_AGAIN"
-    ) {
-      return true;
-    }
-    // A 5xx after the runner may have started executing is ambiguous.
-    if (e.isAxiosError && typeof e.response?.status === "number") {
-      return e.response.status >= 500;
-    }
-    // No response at all (network) and not a deterministic BadRequest misconfig
-    // — treat as ambiguous.
-    if (e.isAxiosError && e.response === undefined) return true;
-    return false;
+    return classifyAmbiguousDelivery(err);
   }
 
   private sanitizeError(err: unknown): string {

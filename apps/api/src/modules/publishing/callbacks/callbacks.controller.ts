@@ -1,4 +1,3 @@
-import * as crypto from "crypto";
 import {
   BadRequestException,
   Body,
@@ -13,38 +12,52 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
-
-/** Max age for a signed callback before it is rejected as stale (§8 replay-window).
- *  Default matches configuration.ts; kept as a fallback only if config is absent. */
-const DEFAULT_CALLBACK_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
-interface N8nCallbackBody {
-  attemptId: string;
-  outcome: "published" | "exported" | "simulated" | "failed" | "unknown";
-  nonce: string;
-  timestamp: string;
-  signature: string;
-  kid?: string; // key id for rotation support
-  executionId?: string;
-  remotePublicationId?: string;
-  errorCode?: string;
-  retryable?: boolean;
-}
+import {
+  computeCallbackFingerprint,
+  publicationAttemptStateForOutcome,
+  publicationIntentStateForOutcome,
+  validatePublicationCallbackContext,
+  type PublicationAttemptV1,
+  type PublicationCallbackBodyV1,
+  type PublicationResultV1,
+  type PublishingValidationIssue,
+  type SignedPublicationCallbackEnvelopeV1,
+} from "@marketmind/contracts";
 
 /**
  * Inbound callback endpoint from n8n.
  *
+ * P1 (#119 review): the wire shape is the FROZEN
+ * `SignedPublicationCallbackEnvelopeV1`, NOT a custom camelCase body. The
+ * envelope signature (HMAC-SHA256 over the canonical envelope fields +
+ * body_sha256) and the body shape are validated by the frozen contract. The
+ * callback is then bound to the EXACT stored attempt via
+ * {@link validatePublicationCallbackContext}: the signed `attempt_id`,
+ * `intent_id`, `intent_version`, `request_fingerprint` (= the stored dispatch
+ * body_sha256), and `workflow_version` must all match the accepted attempt. A
+ * valid signature for attempt A therefore cannot mutate attempt B, and a
+ * conflicting subsequent callback cannot split result/attempt/intent truth.
+ *
  * Security pipeline (§8):
- * 1. Timestamp replay-window check (before any identity lookup)
- * 2. Constant-time HMAC-SHA256 signature verification
- * 3. Idempotency / replay logic via publishing_callback_identities
- * 4. Transactional result write + intent status update
+ *   1. reject route↔signed-attempt-id mismatch BEFORE any DB lookup;
+ *   2. load the stored attempt + build the frozen PublicationAttemptV1;
+ *   3. validatePublicationCallbackContext (signature, timestamp window, body
+ *      shape, result identity, and exact-attempt binding);
+ *   4. nonce (`callback_id`) idempotency on `publishing_callback_identities`
+ *      (race-safe via the unique `external_callback_id` index);
+ *   5. reject a conflicting subsequent callback before any state mutation;
+ *   6. one immutable result row per attempt + transactional attempt/intent
+ *      status transition.
+ *
+ * The canonical callback fingerprint (`computeCallbackFingerprint(body)`) is
+ * persisted as the result `raw_payload_hash` so admin reconciliation can
+ * reproduce the exact accepted callback.
  */
 @Controller()
 export class CallbacksController {
   private readonly logger = new Logger(CallbacksController.name);
   private readonly signingSecret: string;
-  private readonly callbackWindowMs: number;
+  private readonly signingKeyId: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,98 +67,87 @@ export class CallbacksController {
       "publishing.n8nSigningSecret",
       "",
     );
-    this.callbackWindowMs = this.config.get<number>(
-      "publishing.callbackWindowMs",
-      DEFAULT_CALLBACK_WINDOW_MS,
+    this.signingKeyId = this.config.get<string>(
+      "publishing.n8nSigningKeyId",
+      "",
     );
   }
 
-  /** Public-facing path matches architecture doc §11 */
+  /** Public-facing path matches architecture doc §11. */
   @Post("internal/v1/publishing/dispatch/:attemptId/callback")
   @HttpCode(200)
   async handleCallback(
     @Param("attemptId") attemptId: string,
-    @Body() body: N8nCallbackBody,
+    @Body() envelope: unknown,
   ): Promise<{ ok: boolean }> {
-    // ── Step 1: Replay-window check ─────────────────────────────────────────
-    const payloadTs = new Date(body.timestamp);
-    if (isNaN(payloadTs.getTime())) {
-      throw new UnauthorizedException(
-        PublishingErrorCode.WEBHOOK_TIMESTAMP_INVALID,
-      );
-    }
-    const age = Math.abs(Date.now() - payloadTs.getTime());
-    if (age > this.callbackWindowMs) {
-      this.logger.warn(
-        `Callback rejected: timestamp out of window (age=${age}ms)`,
-      );
-      throw new UnauthorizedException(
-        PublishingErrorCode.WEBHOOK_TIMESTAMP_INVALID,
-      );
-    }
-
-    // ── Step 2: Constant-time HMAC signature verification ───────────────────
-    const canonicalString = [
-      body.attemptId,
-      body.outcome,
-      body.nonce,
-      body.timestamp,
-    ].join(":");
-
-    const expected = crypto
-      .createHmac("sha256", this.signingSecret)
-      .update(canonicalString)
-      .digest();
-
-    let actual: Buffer;
-    try {
-      actual = Buffer.from(body.signature, "hex");
-    } catch {
-      throw new UnauthorizedException(PublishingErrorCode.WEBHOOK_UNAUTHORIZED);
-    }
-
-    // timingSafeEqual requires same-length buffers — pad/truncate to prevent length oracle
-    const safe =
-      expected.length === actual.length &&
-      crypto.timingSafeEqual(expected, actual);
-
-    if (!safe) {
-      this.logger.warn(
-        `Callback rejected: invalid HMAC signature for attempt=${attemptId}`,
+    // Fail closed on misconfiguration instead of accepting an unsigned body.
+    if (!this.signingSecret || !this.signingKeyId) {
+      this.logger.error(
+        "Callback signing secret/key id is not configured — rejecting inbound callback",
       );
       throw new UnauthorizedException(PublishingErrorCode.WEBHOOK_UNAUTHORIZED);
     }
 
-    // ── P1: bind the route attempt to the signed callback attempt ────────────
-    // The HMAC covers body.attemptId, but the URL carries a separate attemptId.
-    // Without an equality check a valid callback signed for attempt A can be
-    // POSTed to attempt B's URL and mutate B. Reject unless both IDs match.
-    if (body.attemptId !== attemptId) {
+    // ── Step 1: route ↔ signed-attempt-id binding (before any DB lookup) ──
+    // The signature binds `body.attempt_id`; the URL carries a separate
+    // attemptId. Reject unless they match so a valid callback signed for
+    // attempt A cannot be POSTed to attempt B's URL and mutate B.
+    const signedBody = (envelope as { body?: PublicationCallbackBodyV1 })?.body;
+    if (!signedBody || signedBody.attempt_id !== attemptId) {
       this.logger.warn(
-        `Callback attemptId rebinding rejected: signed attemptId=${body.attemptId} vs route attemptId=${attemptId}`,
+        `Callback attemptId rebinding rejected: signed attemptId=${signedBody?.attempt_id} vs route attemptId=${attemptId}`,
       );
       throw new UnauthorizedException(PublishingErrorCode.WEBHOOK_UNAUTHORIZED);
     }
 
-    // ── Step 3/4/5: Atomically resolve nonce + attempt + intent ─────────────
-    // Idempotency is enforced inside the $transaction so the unique
-    // external_callback_id insert is race-free with the replay lookup.
-    const payloadHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(body))
-      .digest("hex");
+    const context = {
+      secret: this.signingSecret,
+      expected_key_id: this.signingKeyId,
+      now: new Date().toISOString(),
+    };
 
+    // The canonical fingerprint of the frozen callback body — persisted as the
+    // result `raw_payload_hash` and used to tell an identical replay from a
+    // conflicting subsequent callback.
+    const callbackFingerprint = computeCallbackFingerprint(signedBody);
+    const sentAt = (envelope as { sent_at?: string })?.sent_at;
+    const payloadTimestamp = sentAt ? new Date(sentAt) : new Date();
+
+    // ── Steps 2–6: atomically resolve attempt + validate + persist ──────
     const intentId = await this.prisma.$transaction(async (tx) => {
-      // ── Resolve attempt + intent (read-only) ─────────────────────────────
+      // ── Resolve attempt + intent ───────────────────────────────────────
       const attempt = await tx.publishingAttempt.findUnique({
         where: { id: attemptId },
         include: { intent: true },
       });
-
       if (!attempt) {
         this.logger.warn(`Callback references unknown attempt=${attemptId}`);
         throw new BadRequestException(PublishingErrorCode.CALLBACK_INVALID);
       }
+
+      // Build the frozen PublicationAttemptV1 from the stored row so the
+      // frozen validator can bind the signed callback to the EXACT accepted
+      // attempt (attempt_id, intent_id, intent_version, request_fingerprint =
+      // the stored dispatch body_sha256, and workflow_version).
+      const attemptV1 = this.toPublicationAttemptV1(attempt);
+
+      // ── Step 3: frozen context validation (signature, body, exact attempt)
+      const validation = validatePublicationCallbackContext({
+        envelope,
+        attempt: attemptV1,
+        context,
+      });
+      if (!validation.valid) {
+        const issue = validation.issues[0];
+        this.logger.warn(
+          `Callback rejected for attempt=${attemptId}: ${issue?.code} ${issue?.field} ${issue?.message}`,
+        );
+        throw this.toException(issue);
+      }
+
+      const signed = envelope as SignedPublicationCallbackEnvelopeV1;
+      const resultBody = signed.body.result as PublicationResultV1;
+      const outcome = resultBody.outcome;
 
       // Check if this attempt is still the current one for this intent+version
       const latestAttempt = await tx.publishingAttempt.findFirst({
@@ -153,36 +155,33 @@ export class CallbacksController {
         orderBy: [{ intentVersion: "desc" }, { attemptSequence: "desc" }],
       });
       const isSuperseded = latestAttempt?.id !== attempt.id;
-
       if (isSuperseded) {
         this.logger.warn(
           `Superseded-attempt callback: attempt=${attemptId} is no longer current for intent=${attempt.intentId} — recording for audit only`,
         );
       }
 
-      // ── Nonce idempotency (race-safe on unique external_callback_id) ──────
+      // ── Step 4: nonce (callback_id) idempotency — race-safe on the unique
+      // external_callback_id index ─────────────────────────────────────────
       try {
         await tx.publishingCallbackIdentity.create({
           data: {
             attemptId,
-            externalCallbackId: body.nonce,
+            externalCallbackId: signed.body.callback_id,
             signatureValid: true,
-            payloadHash,
-            payloadTimestamp: payloadTs,
-            outcome: this.mapOutcome(body.outcome),
+            payloadHash: callbackFingerprint,
+            payloadTimestamp,
+            outcome: outcome.toUpperCase(),
           },
         });
       } catch (err) {
-        // P2002: a concurrent handler already consumed this nonce.
-        // (Check err.code rather than instanceof to stay robust across Prisma
-        // versions and plain-object errors.)
         if ((err as { code?: string })?.code === "P2002") {
           const existing = await tx.publishingCallbackIdentity.findUnique({
-            where: { externalCallbackId: body.nonce },
+            where: { externalCallbackId: signed.body.callback_id },
           });
-          if (existing && existing.payloadHash === payloadHash) {
+          if (existing && existing.payloadHash === callbackFingerprint) {
             this.logger.log(
-              `Identical callback replay for nonce=${body.nonce} — returning 200 no-op`,
+              `Identical callback replay for callback_id=${signed.body.callback_id} — returning 200 no-op`,
             );
             return ""; // idempotent replay — nothing to write
           }
@@ -191,25 +190,20 @@ export class CallbacksController {
         throw err;
       }
 
-      // Map outcome (ambiguity → unknown, never force-mapped to success/failed)
-      const outcome = this.mapOutcome(body.outcome);
-      const intentNextStatus = isSuperseded
-        ? null
-        : this.outcomeToIntentStatus(outcome);
-
-      // ── P1: reject a CONFLICTING subsequent callback before any state
+      // ── Step 5: reject a CONFLICTING subsequent callback before any state
       // mutation. The result row is immutable once written; a second signed
-      // callback (different nonce) for the same attempt is either an identical
-      // replay (same canonical fingerprint → no-op) or a conflicting callback
-      // that must NOT overwrite the attempt/intent status beside the existing
-      // immutable result (e.g. a late FAILED after a PUBLISHED result).
+      // callback (different callback_id) for the same attempt is either an
+      // identical replay (same canonical fingerprint → no-op, already handled
+      // by the identity check above) or a conflicting callback that must NOT
+      // overwrite the attempt/intent status beside the existing immutable
+      // result (e.g. a late FAILED after a PUBLISHED result).
       const existingResult = await tx.publishingResult.findUnique({
         where: { attemptId },
       });
       if (existingResult) {
-        if (existingResult.rawPayloadHash === payloadHash) {
+        if (existingResult.rawPayloadHash === callbackFingerprint) {
           this.logger.log(
-            `Identical subsequent callback for attempt=${attemptId} (nonce=${body.nonce}) — 200 no-op`,
+            `Identical subsequent callback for attempt=${attemptId} — 200 no-op`,
           );
           return ""; // identical replay — do not mutate attempt/intent
         }
@@ -219,38 +213,41 @@ export class CallbacksController {
         throw new ConflictException(PublishingErrorCode.CALLBACK_CONFLICT);
       }
 
+      // ── Step 6: one immutable result row + transactional status transition
+      const attemptState = publicationAttemptStateForOutcome(outcome);
+      const intentState = publicationIntentStateForOutcome(outcome);
+
       await tx.publishingResult.create({
         data: {
           attemptId,
           intentId: attempt.intentId,
-          outcome: outcome as never,
-          provider: "meta",
-          remotePublicationId: body.remotePublicationId ?? null,
-          // Never store remoteUrl if it may contain signed URLs — omit for now
-          errorCode: body.errorCode ?? null,
-          retryable: body.retryable ?? false,
-          rawPayloadHash: payloadHash,
-          occurredAt: payloadTs,
+          outcome: outcome.toUpperCase() as never,
+          provider: resultBody.provider,
+          remotePublicationId: resultBody.remote_publication_id,
+          remoteUrl: resultBody.remote_url,
+          exportArtifactId: resultBody.export_artifact_id,
+          simulationLabel: resultBody.simulation_label,
+          errorCode: resultBody.error_code,
+          retryable: resultBody.retryable,
+          rawPayloadHash: callbackFingerprint,
+          sanitizedError: null,
+          occurredAt: new Date(resultBody.occurred_at),
         },
       });
 
-      // Update attempt status — must stay consistent with intent status.
-      const attemptStatus =
-        outcome === "UNKNOWN"
-          ? "UNKNOWN"
-          : outcome === "FAILED"
-            ? "FAILED"
-            : "SUCCEEDED";
       await tx.publishingAttempt.update({
         where: { id: attemptId },
-        data: { status: attemptStatus as never, finishedAt: new Date() },
+        data: {
+          status: attemptState.toUpperCase() as never,
+          finishedAt: new Date(),
+        },
       });
 
-      // Only update intent status from the current (non-superseded) attempt
-      if (intentNextStatus) {
+      // Only update intent status from the current (non-superseded) attempt.
+      if (!isSuperseded) {
         await tx.publishingIntent.update({
           where: { id: attempt.intentId },
-          data: { status: intentNextStatus as never },
+          data: { status: intentState.toUpperCase() as never },
         });
       }
 
@@ -262,44 +259,86 @@ export class CallbacksController {
     }
 
     this.logger.log(
-      `Callback processed: attempt=${attemptId} outcome=${this.mapOutcome(body.outcome)}`,
+      `Callback processed: attempt=${attemptId} outcome=${
+        (signedBody as PublicationCallbackBodyV1).result.outcome
+      }`,
     );
     return { ok: true };
   }
 
-  /** Map provider outcome — ambiguity always → UNKNOWN, never guessed into PUBLISHED. */
-  private mapOutcome(raw: string): string {
-    switch (raw) {
-      case "published":
-        return "PUBLISHED";
-      case "exported":
-        return "EXPORTED";
-      case "simulated":
-        return "SIMULATED";
-      case "failed":
-        return "FAILED";
-      case "unknown":
-        return "UNKNOWN";
+  /** Maps a stored `publishing_attempts` row to the frozen
+   *  `PublicationAttemptV1` shape the contract validator binds against. The DB
+   *  `DISPATCHING`/`RUNNING` statuses both project to the frozen `running`
+   *  state (the runner is in flight, awaiting a callback). */
+  private toPublicationAttemptV1(attempt: {
+    id: string;
+    intentId: string;
+    intentVersion: number;
+    attemptSequence: number;
+    status: string;
+    workflowVersion: string | null;
+    providerRequestFingerprint: string | null;
+    idempotencyKey: string;
+    startedAt: Date | null;
+    finishedAt: Date | null;
+    createdAt: Date;
+  }): PublicationAttemptV1 {
+    return {
+      contract_version: "publication-attempt-v1",
+      attempt_id: attempt.id,
+      intent_id: attempt.intentId,
+      intent_version: attempt.intentVersion,
+      attempt_number: attempt.attemptSequence,
+      idempotency_key: attempt.idempotencyKey,
+      workflow_version: attempt.workflowVersion ?? "",
+      request_fingerprint: attempt.providerRequestFingerprint ?? "",
+      state: this.toFrozenAttemptState(attempt.status),
+      started_at: attempt.startedAt ? attempt.startedAt.toISOString() : null,
+      finished_at: attempt.finishedAt ? attempt.finishedAt.toISOString() : null,
+      created_at: attempt.createdAt.toISOString(),
+    };
+  }
+
+  private toFrozenAttemptState(
+    dbStatus: string,
+  ): PublicationAttemptV1["state"] {
+    switch (dbStatus) {
+      case "QUEUED":
+        return "queued";
+      case "RUNNING":
+      case "DISPATCHING":
+        return "running";
+      case "SUCCEEDED":
+        return "succeeded";
+      case "FAILED":
+        return "failed";
+      case "UNKNOWN":
+        return "unknown";
+      case "CANCELLED":
+        return "cancelled";
       default:
-        this.logger.warn(
-          `Unrecognized callback outcome "${raw}" — mapping to UNKNOWN`,
-        );
-        return "UNKNOWN";
+        return "queued";
     }
   }
 
-  private outcomeToIntentStatus(outcome: string): string | null {
-    switch (outcome) {
-      case "PUBLISHED":
-      case "EXPORTED":
-      case "SIMULATED":
-        return "SUCCEEDED";
-      case "FAILED":
-        return "FAILED";
-      case "UNKNOWN":
-        return "ACTION_REQUIRED";
+  /** Maps a frozen validation issue to the matching HTTP exception. Signature
+   *  / timestamp / replay failures are 401; shape/conflict failures are 400
+   *  or 409. Never leaks the raw issue message — only the stable error code. */
+  private toException(issue: PublishingValidationIssue | undefined): Error {
+    if (!issue) {
+      return new BadRequestException(PublishingErrorCode.CALLBACK_INVALID);
+    }
+    switch (issue.code) {
+      case "PUBLISHING_WEBHOOK_UNAUTHORIZED":
+      case "PUBLISHING_WEBHOOK_TIMESTAMP_INVALID":
+      case "PUBLISHING_WEBHOOK_NONCE_REPLAYED":
+        return new UnauthorizedException(issue.code);
+      case "PUBLISHING_CALLBACK_CONFLICT":
+      case "PUBLISHING_IDEMPOTENCY_CONFLICT":
+      case "PUBLISHING_STATE_CONFLICT":
+        return new ConflictException(issue.code);
       default:
-        return null;
+        return new BadRequestException(issue.code);
     }
   }
 }

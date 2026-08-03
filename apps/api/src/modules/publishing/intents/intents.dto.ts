@@ -116,6 +116,17 @@ export class RetryIntentDto {
   @Min(1)
   currentVersion!: number;
 
+  /** The attempt number of the latest FAILED attempt for this intent. P1
+   *  (#119 review): a retry may only proceed against a proven, known failure.
+   *  The service rejects the retry if the intent's latest attempt is not FAILED
+   *  or its sequence differs — so an unresolved UNKNOWN/ACTION_REQUIRED
+   *  outcome (which may already have published) can never be blindly retried,
+   *  and a stale client view (an older attempt number) can never re-dispatch.
+   *  Mirrors the frozen `RetryPublicationIntentRequestV1.expected_last_attempt_number`. */
+  @IsInt()
+  @Min(1)
+  expectedLastAttemptNumber!: number;
+
   /** Contract RetryPublicationIntentRequestV1.idempotency_key. A retry creates
    *  a NEW attempt under the same intent; a fresh key ensures the new attempt
    *  is distinct from prior dispatch attempts. */
