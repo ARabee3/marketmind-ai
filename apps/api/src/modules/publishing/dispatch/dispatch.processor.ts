@@ -397,37 +397,38 @@ export class DispatchProcessor extends WorkerHost {
 
         // Assemble the frozen dispatch body (P1) and stamp the canonical
         // request fingerprint on the attempt so the signed callback can bind.
-        const { body, requestFingerprint } = this.envelopeBuilder.buildDispatchBody({
-          attemptId: attempt.id,
-          intentId,
-          intentVersion: version,
-          businessId: intent.businessId,
-          idempotencyKey,
-          candidate: candidate.payload as never,
-          candidateStatus: candidate.sourceStatus as never,
-          target: {
-            id: target.id,
-            businessId: target.businessId,
-            provider: target.provider,
-            channel: target.channel,
-            externalAccountId: target.externalAccountId,
-            displayName: target.displayName,
-            connectionState: target.connectionState,
-            credentialRef: target.credentialRef,
-            capabilities: target.capabilities,
-            lastVerifiedAt: target.lastVerifiedAt,
-            version: target.version,
-          },
-          approval: {
-            id: approval.id,
-            candidateChecksum: approval.candidateChecksum,
-            decidedByUserId: approval.decidedByUserId,
-            decidedAt: approval.decidedAt,
-          },
-          scheduledUtcAt: intent.scheduledUtcAt!,
-          scheduledLocalAt: intent.scheduledLocalAt,
-          timezone: intent.timezone,
-        });
+        const { body, requestFingerprint } =
+          this.envelopeBuilder.buildDispatchBody({
+            attemptId: attempt.id,
+            intentId,
+            intentVersion: version,
+            businessId: intent.businessId,
+            idempotencyKey,
+            candidate: candidate.payload as never,
+            candidateStatus: candidate.sourceStatus as never,
+            target: {
+              id: target.id,
+              businessId: target.businessId,
+              provider: target.provider,
+              channel: target.channel,
+              externalAccountId: target.externalAccountId,
+              displayName: target.displayName,
+              connectionState: target.connectionState,
+              credentialRef: target.credentialRef,
+              capabilities: target.capabilities,
+              lastVerifiedAt: target.lastVerifiedAt,
+              version: target.version,
+            },
+            approval: {
+              id: approval.id,
+              candidateChecksum: approval.candidateChecksum,
+              decidedByUserId: approval.decidedByUserId,
+              decidedAt: approval.decidedAt,
+            },
+            scheduledUtcAt: intent.scheduledUtcAt!,
+            scheduledLocalAt: intent.scheduledLocalAt,
+            timezone: intent.timezone,
+          });
         await tx.publishingAttempt.update({
           where: { id: attempt.id },
           data: { providerRequestFingerprint: requestFingerprint },

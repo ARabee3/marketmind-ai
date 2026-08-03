@@ -78,7 +78,10 @@ export class DispatchEnvelopeBuilder {
   constructor(config: ConfigService) {
     this.callbackBaseUrl = config.get<string>("publishing.callbackBaseUrl", "");
     this.signingKeyId = config.get<string>("publishing.n8nSigningKeyId", "");
-    this.workflowVersion = config.get<string>("publishing.workflowVersion", "v1");
+    this.workflowVersion = config.get<string>(
+      "publishing.workflowVersion",
+      "v1",
+    );
   }
 
   /** Assemble the frozen dispatch body + its canonical request fingerprint. */
@@ -86,12 +89,17 @@ export class DispatchEnvelopeBuilder {
     body: PublicationDispatchBodyV1;
     requestFingerprint: string;
   } {
-    const operation = publicationOperationForMode("real") as "meta.publish_static_image";
+    const operation = publicationOperationForMode(
+      "real",
+    ) as "meta.publish_static_image";
 
     // Approval snapshot — canonical fingerprint over every material field
     // (mirrors publication-approval-v1). Computed by the frozen contract helper
     // so the runner can reproduce it exactly.
-    const approvalSnapshot: Omit<PublicationApprovalSnapshotV1, "approval_fingerprint"> = {
+    const approvalSnapshot: Omit<
+      PublicationApprovalSnapshotV1,
+      "approval_fingerprint"
+    > = {
       contract_version: "publication-approval-v1",
       decision_id: input.approval.id,
       intent_id: input.intentId,
@@ -140,16 +148,18 @@ export class DispatchEnvelopeBuilder {
     // Assets with the frozen internal retrieval route (real signed URLs land
     // with #121). The retrieval_expires_at is bounded so a stale URL is never
     // accepted as live.
-    const retrievalExpiresAt = new Date(Date.now() + ASSET_RETRIEVAL_TTL_MS).toISOString();
-    const assets: PublicationDispatchAssetV1[] = (input.candidate.assets ?? []).map(
-      (a) => ({
-        asset_id: a.asset_id,
-        checksum: a.checksum,
-        mime_type: a.mime_type,
-        retrieval_url: `${this.callbackBaseUrl}/internal/v1/publishing/assets/${a.asset_id}`,
-        retrieval_expires_at: retrievalExpiresAt,
-      }),
-    );
+    const retrievalExpiresAt = new Date(
+      Date.now() + ASSET_RETRIEVAL_TTL_MS,
+    ).toISOString();
+    const assets: PublicationDispatchAssetV1[] = (
+      input.candidate.assets ?? []
+    ).map((a) => ({
+      asset_id: a.asset_id,
+      checksum: a.checksum,
+      mime_type: a.mime_type,
+      retrieval_url: `${this.callbackBaseUrl}/internal/v1/publishing/assets/${a.asset_id}`,
+      retrieval_expires_at: retrievalExpiresAt,
+    }));
 
     const body: PublicationDispatchBodyV1 = {
       contract_version: "publication-dispatch-v1",
@@ -161,10 +171,11 @@ export class DispatchEnvelopeBuilder {
       idempotency_key: input.idempotencyKey,
       workflow_version: this.workflowVersion,
       candidate: input.candidate,
-      candidate_status: input.candidateStatus as PublicationCandidateStatusV1 & {
-        candidate_state: "active";
-        replacement_candidate_id: null;
-      },
+      candidate_status:
+        input.candidateStatus as PublicationCandidateStatusV1 & {
+          candidate_state: "active";
+          replacement_candidate_id: null;
+        },
       assets,
       callback_url: `${this.callbackBaseUrl}/internal/v1/publishing/dispatch/${input.attemptId}/callback`,
       mode: "real",

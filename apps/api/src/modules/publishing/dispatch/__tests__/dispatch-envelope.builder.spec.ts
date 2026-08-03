@@ -111,9 +111,9 @@ describe("DispatchEnvelopeBuilder (frozen contract validators — P1 #119)", () 
     );
     // Candidate bytes + active status + immutable target snapshot travel inline.
     expect(body.candidate).toBe(CANDIDATE_PAYLOAD);
-    expect((body.candidate_status as { candidate_state: string }).candidate_state).toBe(
-      "active",
-    );
+    expect(
+      (body.candidate_status as { candidate_state: string }).candidate_state,
+    ).toBe("active");
     expect(body.target.connection_state).toBe("connected");
     expect(body.target.credential_ref).toBe("cred-ref");
     expect(body.assets).toHaveLength(1);
@@ -155,7 +155,10 @@ describe("DispatchEnvelopeBuilder (frozen contract validators — P1 #119)", () 
     });
     if (!result.valid) {
       // eslint-disable-next-line no-console
-      console.error("ENVELOPE_VALIDATION_ISSUES", JSON.stringify(result.issues));
+      console.error(
+        "ENVELOPE_VALIDATION_ISSUES",
+        JSON.stringify(result.issues),
+      );
     }
     expect(result.valid).toBe(true);
   });
