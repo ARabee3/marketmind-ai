@@ -79,6 +79,25 @@ export type BulkDecisionItemResult = {
   readonly error?: { readonly code: string; readonly message: string };
 };
 
+type DecisionFixtureCache = {
+  readonly strategy: Awaited<
+    ReturnType<StrategyRepository["getStrategyByIdAndOwner"]>
+  >;
+  readonly strategyDecision: Awaited<
+    ReturnType<StrategyRepository["getDecisionById"]>
+  >;
+  readonly strategyVersion: Awaited<
+    ReturnType<StrategyRepository["getVersionByNumber"]>
+  >;
+  readonly currentProfile: Awaited<
+    ReturnType<StrategyRepository["getActiveConfirmedProfileVersion"]>
+  >;
+  readonly cycle: Awaited<
+    ReturnType<ContentCycleRepository["getCycleByIdAndOwner"]>
+  >;
+  readonly weeks: Awaited<ReturnType<ContentWeekContextRepository["listWeeks"]>>;
+};
+
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger(ContentService.name);
@@ -395,7 +414,7 @@ export class ContentService {
       return {
         content_pack: toContentPack(pack),
         status: "queued",
-        correlation_id: correlationId,
+        correlation_id: `pack:${pack.id}`,
       };
     }
 
@@ -1008,6 +1027,32 @@ export class ContentService {
       fixture: ContentPolicyFixture;
     }> = [];
 
+    // Prefetch the pack-scoped inputs to the decision fixture once; the same
+    // strategy, decision, version, profile, cycle, and weeks apply to every
+    // item in this bulk, so re-querying them per item was N×6 round trips.
+    const prefetched: DecisionFixtureCache = {
+      strategy: await this.strategyRepository.getStrategyByIdAndOwner(
+        pack.strategyId,
+        ownerUserId,
+      ),
+      strategyDecision: await this.strategyRepository.getDecisionById(
+        pack.strategyDecisionId,
+      ),
+      strategyVersion: await this.strategyRepository.getVersionByNumber(
+        pack.strategyId,
+        pack.strategyVersion,
+      ),
+      currentProfile:
+        await this.strategyRepository.getActiveConfirmedProfileVersion(
+          pack.businessId,
+        ),
+      cycle: await this.cycleRepository.getCycleByIdAndOwner(
+        pack.contentCycleId,
+        ownerUserId,
+      ),
+      weeks: await this.weekContextRepository.listWeeks(pack.contentCycleId),
+    };
+
     for (const request of decisions) {
       const item = await this.packRepository.getItemById(packId, request.content_item_id);
       if (!item) {
@@ -1071,6 +1116,7 @@ export class ContentService {
         currentVersion,
         assets,
         ownerUserId,
+        prefetched,
       );
 
       if (
@@ -1244,27 +1290,37 @@ export class ContentService {
     currentVersion: PrismaContentItemVersion,
     assets: PrismaContentAsset[],
     ownerUserId: string,
+    prefetched?: DecisionFixtureCache,
   ): Promise<ContentPolicyFixture> {
-    const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
-      pack.strategyId,
-      ownerUserId,
-    );
-    const strategyDecision = await this.strategyRepository.getDecisionById(
-      pack.strategyDecisionId,
-    );
-    const strategyVersion = await this.strategyRepository.getVersionByNumber(
-      pack.strategyId,
-      pack.strategyVersion,
-    );
+    const strategy =
+      prefetched?.strategy ??
+      (await this.strategyRepository.getStrategyByIdAndOwner(
+        pack.strategyId,
+        ownerUserId,
+      ));
+    const strategyDecision =
+      prefetched?.strategyDecision ??
+      (await this.strategyRepository.getDecisionById(pack.strategyDecisionId));
+    const strategyVersion =
+      prefetched?.strategyVersion ??
+      (await this.strategyRepository.getVersionByNumber(
+        pack.strategyId,
+        pack.strategyVersion,
+      ));
     const currentProfile =
-      await this.strategyRepository.getActiveConfirmedProfileVersion(
+      prefetched?.currentProfile ??
+      (await this.strategyRepository.getActiveConfirmedProfileVersion(
         pack.businessId,
-      );
-    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
-      pack.contentCycleId,
-      ownerUserId,
-    );
-    const weeks = await this.weekContextRepository.listWeeks(pack.contentCycleId);
+      ));
+    const cycle =
+      prefetched?.cycle ??
+      (await this.cycleRepository.getCycleByIdAndOwner(
+        pack.contentCycleId,
+        ownerUserId,
+      ));
+    const weeks =
+      prefetched?.weeks ??
+      (await this.weekContextRepository.listWeeks(pack.contentCycleId));
     const weekContext = weeks.find((week) => week.id === pack.weekContextId);
     if (!weekContext) {
       throw new NotFoundException("Content week context not found");
@@ -1370,21 +1426,31 @@ export function toContentWeekContext(week: PrismaWeekContext): ContentWeekContex
   };
 
   if (week.contextSource === "owner_confirmed") {
+    if (week.confirmedByUserId === null || week.confirmedAt === null) {
+      throw new Error(
+        `Week context ${week.id} is marked owner_confirmed but is missing confirmation fields`,
+      );
+    }
     return {
       ...base,
       context_source: "owner_confirmed",
-      confirmed_by_user_id: week.confirmedByUserId as string,
-      confirmed_at: (week.confirmedAt as Date).toISOString(),
+      confirmed_by_user_id: week.confirmedByUserId,
+      confirmed_at: week.confirmedAt.toISOString(),
       system_defaulted_at: null,
     };
   }
 
+  if (week.systemDefaultedAt === null) {
+    throw new Error(
+      `Week context ${week.id} is marked system_defaulted but is missing system_defaulted_at`,
+    );
+  }
   return {
     ...base,
     context_source: "system_defaulted",
     confirmed_by_user_id: null,
     confirmed_at: null,
-    system_defaulted_at: (week.systemDefaultedAt as Date).toISOString(),
+    system_defaulted_at: week.systemDefaultedAt.toISOString(),
   };
 }
 
@@ -1531,6 +1597,9 @@ export function planSelectedChannels(planData: unknown): ContentChannel[] {
   const plan = toPayload(planData);
   const selected = plan.selected_channels;
   if (!Array.isArray(selected)) return [];
+  // MVP content pipeline supports facebook + instagram only; other channels in
+  // the strategy scorecard are intentionally dropped here. Lift this allowlist
+  // when the content processor and asset providers gain the new formats.
   return selected
     .map((scorecard) =>
       typeof scorecard === "object" && scorecard !== null
