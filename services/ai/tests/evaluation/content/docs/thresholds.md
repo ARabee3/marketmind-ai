@@ -69,8 +69,11 @@ uv run python -m tests.evaluation.content.runner.threshold
 
 - [x] `runner/threshold.py` applies expected-outcome matching per case.
 - [x] `GUARDRAIL_CHECK_MAP` covers every `per_guardrail` key used in the datasets.
-- [x] Hard-guardrail bar is 1.0 and met by the current 33-case run.
-- [x] Rubric bar is 0.9 and met by the current 33-case run.
+- [x] Hard-guardrail bar is 1.0 and met by the current 34-case run.
+- [x] Rubric bar is 0.9; not yet met because no reviewer has signed off a case
+  (rubric sign-off is gated on `reviewers.ai_product_merzk.signed_off`), so the
+  verdict intentionally reports `rubric_met: 0.0`. This is expected and tracked
+  as an open phase in `alignment.md`.
 - [x] Provider-timeout and revision-preservation count as met via per-guardrail matching.
 - [x] Aggregate bars never hide individual unmet cases.
 - [x] `runner/test_threshold.py` covers matching and bar evaluation.

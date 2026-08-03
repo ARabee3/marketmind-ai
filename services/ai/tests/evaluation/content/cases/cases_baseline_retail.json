@@ -38,6 +38,11 @@
         ],
         "owner_inputs": [
           "feature fictional organic produce"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -120,6 +125,12 @@
           "notes": "Arabic retail case with owner-approved offer."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic retail case with owner-approved offer."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -374,6 +385,11 @@
         ],
         "owner_inputs": [
           "feature fictional organic produce"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -437,6 +453,12 @@
           "notes": "Safe default context, English."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Safe default context, English."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -680,6 +702,11 @@
         ],
         "owner_inputs": [
           "feature fictional organic produce"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -742,6 +769,12 @@
           "notes": "Rubric N/A: hard guardrail rejects before content review."
         },
         "cta": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "dialect": {
           "score": 0,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",

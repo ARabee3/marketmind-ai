@@ -28,6 +28,7 @@ exercises, the expected frozen contract error code, and the fixture source.
 | 16 | Provider timeout | `mutation-provider-timeout` | fail | `CONTENT_PROVIDER_FAILURE` | `content-pack-week-1-en.example.json` + fake-provider mode `timeout` |
 | 17 | Failed image generation | `mutation-failed-image-generation` | fail | `CONTENT_PROVIDER_FAILURE` | `content-provider-failure.invalid.json` + fake-provider mode `failed_image` |
 | 18 | Revision preservation | `mutation-revision-preservation` | pass | — | `content-pack-week-1-ar.example.json` + fake-provider mode `normal` |
+| 19 | Health / regulated clinical claim | `mutation-health-claim` | fail | `CONTENT_POLICY_VIOLATION` | Inline mutation of `content-pack-week-1-ar.example.json` with an unapproved `regulated` claim — frozen regulated-claim path; a dedicated `health_claim` code is deferred to issue #107 |
 
 ## Guardrail → error code
 
@@ -39,6 +40,7 @@ exercises, the expected frozen contract error code, and the fixture source.
 | Fake testimonial | `CONTENT_UNSUPPORTED_CLAIM` | Frozen contract validator |
 | Guarantee language | `CONTENT_POLICY_VIOLATION` | Frozen contract validator |
 | Regulated / healthcare claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator |
+| Health / clinical claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator via the `regulated` claim path; distinct `health_claim` code deferred to #107 |
 | Competitor / superiority claim | `CONTENT_UNSUPPORTED_CLAIM` | Frozen contract validator |
 | Wrong channel | `CONTENT_CHANNEL_MISMATCH` | Frozen contract validator |
 | Wrong pillar | `CONTENT_VERSION_CONFLICT` | Phase 4 deterministic validator (custom check name: `wrong_pillar`) |
@@ -54,8 +56,8 @@ exercises, the expected frozen contract error code, and the fixture source.
 
 ## Inline mutations
 
-Two targets do not have frozen fixtures in the #107 set, so the generator
-applies a controlled mutation to the Arabic week-1 policy fixture:
+Three targets do not have dedicated frozen fixtures in the #107 set, so the
+generator applies a controlled mutation to the Arabic week-1 policy fixture:
 
 - **Wrong pillar**: `item_version.strategy_trace.pillar_ids` is replaced with a
   non-existent pillar UUID (`00000000-0000-0000-0000-000000000000`). The Phase 4
@@ -64,6 +66,11 @@ applies a controlled mutation to the Arabic week-1 policy fixture:
 - **Prompt injection**: `week_context.must_include` is appended with a classic
   injection string (`IGNORE PREVIOUS INSTRUCTIONS...`). The Phase 4 validator
   detects it and emits check `prompt_injection`.
+
+- **Health / clinical claim**: `item_version.caption_variants` is rewritten to a
+  guaranteed-cure claim and `item_version.claim_sources` is appended with an
+  unapproved `regulated` claim. The frozen contract validator rejects it with
+  `CONTENT_POLICY_VIOLATION`; a dedicated `health_claim` code is deferred to #107.
 
 ## Provider modes
 
@@ -88,11 +95,12 @@ Three cases need a fake-provider signal beyond the fixture:
 
 ## Phase 3 acceptance
 
-- [x] 18 adversarial mutation cases authored
+- [x] 19 adversarial mutation cases authored
 - [x] One case per hard-guardrail target from the issue
 - [x] Each case has a deterministic expected outcome
 - [x] Each case has a frozen fixture reference or inline policy fixture
 - [x] Wrong pillar and prompt injection are covered via inline mutations
+- [x] Health/clinical claim is covered via an inline `regulated` mutation
 - [x] Cycle completed, offer unapproved, and approval blocked are covered by frozen fixtures
 - [x] Provider timeout and failed image generation use explicit fake-provider modes
 - [x] Revision preservation is a positive pass case with per-guardrail expectations

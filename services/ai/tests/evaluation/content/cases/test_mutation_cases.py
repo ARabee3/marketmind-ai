@@ -90,6 +90,10 @@ REQUIRED_MUTATION_TARGETS = {
         "case_id": "mutation-approval-blocked",
         "error_code": "CONTENT_APPROVAL_BLOCKED",
     },
+    "health_claim": {
+        "case_id": "mutation-health-claim",
+        "error_code": "CONTENT_POLICY_VIOLATION",
+    },
 }
 
 
@@ -109,8 +113,8 @@ def mutation_cases() -> list[ContentEvalCase]:
 # ---------------------------------------------------------------------------
 
 
-def test_mutation_dataset_has_18_cases(mutation_cases: list[ContentEvalCase]) -> None:
-    assert len(mutation_cases) == 18
+def test_mutation_dataset_has_19_cases(mutation_cases: list[ContentEvalCase]) -> None:
+    assert len(mutation_cases) == 19
 
 
 def test_every_required_target_is_present(

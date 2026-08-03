@@ -106,6 +106,9 @@ def _rubric(score: int = 4, notes: str = "") -> HumanRubric:
         cta=RubricScore(
             score=score, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
         ),
+        dialect=RubricScore(
+            score=score, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
+        ),
     )
 
 
@@ -118,6 +121,7 @@ def _strategy_snapshot(
     content_count: int,
     fact_sources: list[str],
     owner_inputs: list[str],
+    funnel_stages: list[str] | None = None,
 ) -> StrategySnapshot:
     return StrategySnapshot(
         approved_channels=channels,  # type: ignore[arg-type]
@@ -127,6 +131,7 @@ def _strategy_snapshot(
         content_count=content_count,
         fact_sources=fact_sources,
         owner_inputs=owner_inputs,
+        funnel_stages=funnel_stages or [],
     )
 
 
@@ -678,6 +683,7 @@ def _build_hospitality_cases() -> list[ContentEvalCase]:
         content_count=3,
         fact_sources=["owner_business_profile", "owner_week_context"],
         owner_inputs=["feature the fictional Nile view"],
+        funnel_stages=["awareness", "consideration", "conversion"],
     )
     cycle_id = "cc-hosp-0000-0000-0000-000000000001"
     now = _frozen_now()
@@ -708,6 +714,7 @@ def _build_hospitality_cases() -> list[ContentEvalCase]:
             "channel_match": "pass",
             "item_count": "pass",
             "asset_ready": "pass",
+            "funnel_mix": "pass",
         },
         expected_error_codes=[],
         failure_category="no_failure",
@@ -849,6 +856,7 @@ def _build_retail_cases() -> list[ContentEvalCase]:
         content_count=4,
         fact_sources=["owner_business_profile", "owner_week_context"],
         owner_inputs=["feature fictional organic produce"],
+        funnel_stages=["awareness", "consideration", "conversion"],
     )
     cycle_id = "cc-retail-0000-0000-0000-000000000001"
     now = _frozen_now()
@@ -1002,6 +1010,7 @@ def _build_services_cases() -> list[ContentEvalCase]:
         content_count=3,
         fact_sources=["owner_business_profile", "owner_week_context"],
         owner_inputs=["show fictional trained staff"],
+        funnel_stages=["awareness", "consideration", "conversion"],
     )
     cycle_id = "cc-services-0000-0000-0000-000000000001"
     now = _frozen_now()
@@ -1165,6 +1174,7 @@ def _build_education_cases() -> list[ContentEvalCase]:
         content_count=5,
         fact_sources=["owner_business_profile", "owner_week_context"],
         owner_inputs=["emphasize fictional small groups"],
+        funnel_stages=["awareness", "consideration", "conversion"],
     )
     cycle_id = "cc-education-0000-0000-0000-000000000001"
     now = _frozen_now()
@@ -1328,6 +1338,7 @@ def _build_healthcare_cases() -> list[ContentEvalCase]:
         content_count=3,
         fact_sources=["owner_business_profile", "owner_week_context"],
         owner_inputs=["share only fictional wellness tips"],
+        funnel_stages=["awareness"],
     )
     cycle_id = "cc-healthcare-0000-0000-0000-000000000001"
 
@@ -1359,6 +1370,7 @@ def _build_healthcare_cases() -> list[ContentEvalCase]:
             "channel_match": "pass",
             "item_count": "pass",
             "regulated_claim": "pass",
+            "funnel_mix": "pass",
         },
         expected_error_codes=[],
         failure_category="no_failure",
@@ -1405,6 +1417,7 @@ def _build_healthcare_cases() -> list[ContentEvalCase]:
             "channel_match": "pass",
             "item_count": "pass",
             "consecutive_week": "pass",
+            "funnel_mix": "pass",
         },
         expected_error_codes=[],
         failure_category="no_failure",
@@ -1450,6 +1463,7 @@ def _build_healthcare_cases() -> list[ContentEvalCase]:
             "channel_match": "pass",
             "item_count": "pass",
             "week_12_completion": "pass",
+            "funnel_mix": "pass",
         },
         expected_error_codes=[],
         failure_category="no_failure",

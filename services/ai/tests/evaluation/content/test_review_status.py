@@ -103,6 +103,9 @@ def _make_case(
             cta=RubricScore(
                 score=4, reviewer_handle="@mostafamerzk", reviewed_at="2026-08-01"
             ),
+            dialect=RubricScore(
+                score=4, reviewer_handle="@mostafamerzk", reviewed_at="2026-08-01"
+            ),
         ),
         reviewers=signoffs,
         description="Minimal case for review status tests.",

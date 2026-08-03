@@ -38,6 +38,11 @@
         ],
         "owner_inputs": [
           "show fictional trained staff"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -113,6 +118,12 @@
           "notes": "Mixed-language services baseline."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -366,6 +377,11 @@
         ],
         "owner_inputs": [
           "show fictional trained staff"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -444,6 +460,12 @@
           "notes": "Arabic consecutive-week services case."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -695,6 +717,11 @@
         ],
         "owner_inputs": [
           "show fictional trained staff"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -768,6 +795,12 @@
           "notes": "Rubric N/A: hard guardrail rejects before content review."
         },
         "cta": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "dialect": {
           "score": 0,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",

@@ -58,6 +58,7 @@ At least one of `fixture_ref` or `policy_fixture` must be present.
 | `content_count` | `int` | `3 <= content_count <= 5` |
 | `fact_sources` | `list[str]` | `min_length=1` |
 | `owner_inputs` | `list[str]` | allowed empty |
+| `funnel_stages` | `list[str]` | Advisory funnel stages across the week pack (e.g. `awareness`, `consideration`, `conversion`). Empty by default; the `funnel_mix` check is advisory-only and never blocks. |
 
 ### CycleState
 
@@ -126,13 +127,14 @@ than a hard-guardrail failure.
 
 ### HumanRubric
 
-All five dimensions are `RubricScore`:
+All six dimensions are `RubricScore`:
 
 - `language`
 - `tone`
 - `usefulness`
 - `pillar_alignment`
 - `cta`
+- `dialect` (Arabic-first market: dialect suitability is scored separately)
 
 `RubricScore`:
 
@@ -157,7 +159,7 @@ A case is `final` only when all four `signed_off` flags are `True`.
 ## Derived properties
 
 - `ContentEvalCase.is_final` — `True` when all four reviewers signed off.
-- `ContentEvalCase.average_rubric_score` — average of the five rubric scores.
+- `ContentEvalCase.average_rubric_score` — average of the six rubric scores.
 
 ## Language mapping
 

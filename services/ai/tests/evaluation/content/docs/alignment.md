@@ -205,7 +205,7 @@ slots (Phase 1 schema). A case is `final` only when all four are signed.
 | --- | --- | --- | --- |
 | `owner_mokhtar` | Owner | `@MOKHXXXXXX` | Can explain why every case exists |
 | `eval_mostafa` | Eval reviewer | `@MostafaAhmed22` | Evaluation methodology + safety/approval/publishing boundaries |
-| `ai_product_merzk` | AI/product reviewer | `@mostafamerzk` | Language/tone/usefulness/Strategy-alignment rubric |
+| `ai_product_merzk` | AI/product reviewer | `@mostafamerzk` | Language/tone/usefulness/Strategy-alignment/dialect rubric |
 | `safety_rabee` | Safety reviewer | `@ARabee3` | Contract + evaluator behavior (ties to #107) |
 
 `review_status.py` (Phase 7) will surface which cases still need which reviewer.
@@ -287,7 +287,7 @@ Phase 11 is complete when the following verification steps have been run and
 accepted:
 
 - [x] Evaluator self-tests pass (`tests/evaluation/content/test_validators.py`).
-- [x] Full deterministic dataset run passes: 15 baseline + 18 mutation cases (33 total).
+- [x] Full deterministic dataset run passes: 15 baseline + 19 mutation cases (34 total).
 - [x] Guardrail mutation tests pass (`tests/evaluation/content/cases/test_mutation_cases.py`).
 - [x] Arabic / English / mixed protected-fictional-field checks pass
       (`test_baseline_cases.py` + schema language tests).
@@ -297,13 +297,16 @@ accepted:
       (`runner/real_provider_runner.py`). Result: fake valid, real invalid,
       `Match: False` — tracked as enhancement issue #136.
 - [x] Acceptance criteria line-by-line:
-  - [x] ≥15 cases: 33 cases (15 baseline + 18 mutation).
+  - [x] ≥15 cases: 34 cases (15 baseline + 19 mutation).
   - [x] 5 sectors covered (hospitality, retail, services, education, healthcare).
   - [x] ar / en / mixed language modes covered across all sectors.
   - [x] Both success and every failure category tested. All 18 content-side
         `FailureCategory` values are exercised directly in the dataset or via
         validator self-tests; only `candidate_tampered` and `candidate_revoked`
         (publishing-v1 #118) are out of scope and documented.
+  - [x] Marketing-quality additions (issue #109): dialect rubric dimension added,
+        funnel-mix advisory check added (never blocks), and health/clinical-claim
+        mutation case added via the frozen regulated path.
   - [x] 100% hard guardrails met (threshold verdict `1.0`).
   - [x] Rubric threshold is configured at 0.9 and is gated by reviewer sign-off
         (`reviewers.ai_product_merzk.signed_off`).  It will report 1.0 once the

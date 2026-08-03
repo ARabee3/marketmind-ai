@@ -39,6 +39,11 @@
         ],
         "owner_inputs": [
           "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -90,7 +95,8 @@
           "strategy_approval": "pass",
           "channel_match": "pass",
           "item_count": "pass",
-          "asset_ready": "pass"
+          "asset_ready": "pass",
+          "funnel_mix": "pass"
         },
         "expected_error_codes": []
       },
@@ -121,6 +127,12 @@
           "notes": "Clean English baseline."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -375,6 +387,11 @@
         ],
         "owner_inputs": [
           "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -451,6 +468,12 @@
           "notes": "Arabic consecutive-week rollover."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -696,6 +719,11 @@
         ],
         "owner_inputs": [
           "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -772,6 +800,12 @@
           "notes": "Week 12 clean completion, mixed language."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",

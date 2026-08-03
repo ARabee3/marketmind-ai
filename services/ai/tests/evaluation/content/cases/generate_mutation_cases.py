@@ -21,7 +21,7 @@ sys.path.insert(
     0, str(Path(__file__).resolve().parents[6] / "packages" / "contracts" / "python")
 )
 
-from content_contracts import ContentPolicyFixture
+from content_contracts import ContentClaimSource, ContentPolicyFixture
 
 from tests.evaluation.content.schema import (
     ContentEvalCase,
@@ -70,6 +70,9 @@ def _rubric(score: int = 0, notes: str = "Rubric N/A: hard guardrail failure.") 
         cta=RubricScore(
             score=score, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
         ),
+        dialect=RubricScore(
+            score=score, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
+        ),
     )
 
 
@@ -88,6 +91,9 @@ def _rubric_pass(notes: str = "") -> HumanRubric:
             score=4, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
         ),
         cta=RubricScore(
+            score=4, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
+        ),
+        dialect=RubricScore(
             score=4, reviewer_handle=REVIEWER, reviewed_at=REVIEWED_AT, notes=notes
         ),
     )
@@ -566,12 +572,63 @@ def _build_mutation_cases() -> list[ContentEvalCase]:
         )
     )
 
+    # 19. Health / regulated clinical claim
+    base = _load_ar_fixture()
+    health_claim_sources = list(base.item_version.claim_sources) + [
+        ContentClaimSource(
+            claim_type="regulated",
+            source_type="week_context",
+            source_path="week_context.promotion",
+            approved=False,
+        )
+    ]
+    health_item = base.item_version.model_copy(
+        update={
+            "claim_sources": health_claim_sources,
+            "caption_variants": [
+                v.model_copy(
+                    update={
+                        "caption": (
+                            "This fictional clinic can cure fictional symptoms "
+                            "guaranteed within a week."
+                        )
+                    }
+                )
+                for v in base.item_version.caption_variants
+            ],
+        }
+    )
+    health_fixture = _mutate_fixture(
+        base,
+        item_version=health_item.model_dump(mode="json"),
+    )
+    cases.append(
+        _base_case(
+            case_id="mutation-health-claim",
+            failure_category="policy_violation",
+            expected_result="fail",
+            per_guardrail={"regulated_claim": "fail"},
+            expected_error_codes=["CONTENT_POLICY_VIOLATION"],
+            description=(
+                "Adversarial: item makes a health/clinical efficacy claim "
+                "(treated as guaranteed cure within a week) without approved "
+                "evidence. Uses the frozen regulated-claim path and must fire "
+                "CONTENT_POLICY_VIOLATION. A dedicated health_claim code is "
+                "deferred to issue #107."
+            ),
+            fixture_ref=None,
+            policy_fixture=health_fixture,
+            provider_mode=None,
+            rubric=_rubric(),
+        )
+    )
+
     return cases
 
 
 def generate() -> None:
     cases = _build_mutation_cases()
-    assert len(cases) == 18, f"expected 18 mutation cases, got {len(cases)}"
+    assert len(cases) == 19, f"expected 19 mutation cases, got {len(cases)}"
 
     dataset = ContentEvalDataset(
         version=DATASET_VERSION,
@@ -605,6 +662,7 @@ def generate() -> None:
         "mutation-offer-unapproved",
         "mutation-approval-blocked",
         "mutation-revision-preservation",
+        "mutation-health-claim",
     }
     assert {c.case_id for c in cases} == required_targets
     print(f"Wrote {len(cases)} mutation cases to {output_path}")

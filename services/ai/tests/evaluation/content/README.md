@@ -55,7 +55,7 @@ safety rules that the frozen #107 contract already owns.
 | --- | --- | --- |
 | Owner | `@MOKHXXXXXX` | Can explain why every case exists |
 | Eval reviewer | `@MostafaAhmed22` | Evaluation methodology + safety/approval/publishing boundaries |
-| AI/product reviewer | `@mostafamerzk` | Language/tone/usefulness/Strategy-alignment rubric |
+| AI/product reviewer | `@mostafamerzk` | Language/tone/usefulness/Strategy-alignment/dialect rubric |
 | Safety reviewer | `@ARabee3` | Contract + evaluator behavior (ties to #107) |
 
 A case is `final` only when all four reviewers have signed off. Sign-off status

@@ -99,6 +99,11 @@ def _base_valid_case() -> ContentEvalCase:
                 reviewer_handle="@mostafamerzk",
                 reviewed_at="2026-08-01",
             ),
+            dialect=RubricScore(
+                score=4,
+                reviewer_handle="@mostafamerzk",
+                reviewed_at="2026-08-01",
+            ),
         ),
         reviewers=default_reviewer_signoffs(),
         description="Baseline retail English case.",
@@ -409,10 +414,13 @@ def test_average_rubric_score_computed_correctly() -> None:
                 cta=RubricScore(
                     score=5, reviewer_handle="@mostafamerzk", reviewed_at="2026-08-01"
                 ),
+                dialect=RubricScore(
+                    score=3, reviewer_handle="@mostafamerzk", reviewed_at="2026-08-01"
+                ),
             )
         }
     )
-    assert case.average_rubric_score == 4.2
+    assert case.average_rubric_score == 4.0
 
 
 # ---------------------------------------------------------------------------

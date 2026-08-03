@@ -38,6 +38,9 @@
         ],
         "owner_inputs": [
           "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
         ]
       },
       "cycle_state": {
@@ -85,7 +88,8 @@
           "strategy_approval": "pass",
           "channel_match": "pass",
           "item_count": "pass",
-          "regulated_claim": "pass"
+          "regulated_claim": "pass",
+          "funnel_mix": "pass"
         },
         "expected_error_codes": []
       },
@@ -116,6 +120,12 @@
           "notes": "Arabic healthcare baseline, regulated-claim safe."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -362,6 +372,9 @@
         ],
         "owner_inputs": [
           "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
         ]
       },
       "cycle_state": {
@@ -407,7 +420,8 @@
           "strategy_approval": "pass",
           "channel_match": "pass",
           "item_count": "pass",
-          "consecutive_week": "pass"
+          "consecutive_week": "pass",
+          "funnel_mix": "pass"
         },
         "expected_error_codes": []
       },
@@ -438,6 +452,12 @@
           "notes": "Healthcare Week 11 consecutive, mixed language."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -691,6 +711,9 @@
         ],
         "owner_inputs": [
           "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
         ]
       },
       "cycle_state": {
@@ -723,7 +746,8 @@
           "strategy_approval": "pass",
           "channel_match": "pass",
           "item_count": "pass",
-          "week_12_completion": "pass"
+          "week_12_completion": "pass",
+          "funnel_mix": "pass"
         },
         "expected_error_codes": []
       },
@@ -754,6 +778,12 @@
           "notes": "Healthcare Week 12 clean completion, English."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",

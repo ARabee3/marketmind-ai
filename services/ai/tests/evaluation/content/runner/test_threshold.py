@@ -34,13 +34,13 @@ def test_guardrail_map_covers_all_dataset_guardrails() -> None:
     assert not missing, f"unmapped guardrails: {missing}"
 
 
-def test_all_33_cases_hard_guardrails_match_expected_outcome() -> None:
+def test_all_34_cases_hard_guardrails_match_expected_outcome() -> None:
     """Hard guardrails 100% irrespective of rubric sign-off state."""
     verdict = evaluate_thresholds(
         _real_results(),
         config=ThresholdConfig(hard_guardrails_required=1.0, rubric_required=0.0),
     )
-    assert verdict.total_cases == 33
+    assert verdict.total_cases == 34
     assert verdict.hard_guardrails_met == 1.0
     assert verdict.hard_guardrails_passed is True
     assert verdict.unmet_case_ids == []
@@ -179,7 +179,7 @@ def test_verdict_to_dict_and_metrics_round_trip() -> None:
     )
     data = verdict.to_dict()
     assert data["passed"] is True
-    assert data["total_cases"] == 33
+    assert data["total_cases"] == 34
     metrics = report_threshold_metrics(verdict)
     assert metrics["threshold_passed"] is True
     assert metrics["unmet_case_ids"] == []

@@ -356,6 +356,35 @@ def _check_week_range(case: ContentEvalCase, fixture: dict[str, Any]) -> CheckRe
     )
 
 
+def _check_funnel_mix(case: ContentEvalCase) -> CheckResult:
+    """Advisory: flag a homogeneous funnel mix on the week pack.
+
+    Never a hard blocker. Funnel stages are advisory metadata supplied on the
+    eval case's StrategySnapshot; a pack whose items all share one funnel stage
+    (e.g. all ``conversion``) surfaces a caution so the human reviewer inspects
+    balance across the funnel.
+    """
+    stages = case.strategy_snapshot.funnel_stages
+    if not stages:
+        return CheckResult(
+            "funnel_mix", True, "No funnel stages declared; funnel-mix advisory skipped"
+        )
+
+    distinct = len(set(stages))
+    if distinct <= 1:
+        return CheckResult(
+            "funnel_mix",
+            True,
+            f"Advisory: all {len(stages)} items share funnel stage(s) "
+            f"{sorted(set(stages))}; blend awareness/consideration/conversion",
+        )
+    return CheckResult(
+        "funnel_mix",
+        True,
+        f"Advisory: funnel stages span {distinct} stage(s); balanced mix",
+    )
+
+
 def validate_case(case: ContentEvalCase) -> CaseValidationResult:
     """Run the deterministic Phase 4 validators against one eval case."""
     try:
@@ -394,6 +423,7 @@ def validate_case(case: ContentEvalCase) -> CaseValidationResult:
     checks.append(_check_prompt_injection(case, fixture))
     checks.append(_check_wrong_pillar(case, fixture))
     checks.append(_check_no_publishing_guardrail(fixture))
+    checks.append(_check_funnel_mix(case))
 
     # 3. Week-range / completion checks for all fixtures.
     if not fixture.get("is_week_context_only"):

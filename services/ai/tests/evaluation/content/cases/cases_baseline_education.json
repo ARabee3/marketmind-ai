@@ -38,6 +38,11 @@
         ],
         "owner_inputs": [
           "emphasize fictional small groups"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -116,6 +121,12 @@
           "notes": "English education baseline with 5 items."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -369,6 +380,11 @@
         ],
         "owner_inputs": [
           "emphasize fictional small groups"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -432,6 +448,12 @@
           "notes": "Arabic safe-default context."
         },
         "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        },
+        "dialect": {
           "score": 4,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",
@@ -676,6 +698,11 @@
         ],
         "owner_inputs": [
           "emphasize fictional small groups"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
         ]
       },
       "cycle_state": {
@@ -749,6 +776,12 @@
           "notes": "Rubric N/A: hard guardrail rejects before content review."
         },
         "cta": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "dialect": {
           "score": 0,
           "reviewer_handle": "@mostafamerzk",
           "reviewed_at": "2026-08-03",

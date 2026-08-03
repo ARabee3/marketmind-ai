@@ -13,7 +13,7 @@ Schema version: `content-eval-v1`
 | Language modes | ar, en, mixed (one per sector) |
 | Passing cases | 12 |
 | Hard-guardrail failure cases | 3 |
-| Mutation cases | 18 (one per hard-guardrail target) |
+| Mutation cases | 19 (one per hard-guardrail target, including the health/regulated claim) |
 
 ## Case grid
 

@@ -101,6 +101,7 @@ def _make_base_case(
             usefulness=RubricScore(score=4, reviewer_handle="@test", reviewed_at="2026-08-01"),
             pillar_alignment=RubricScore(score=4, reviewer_handle="@test", reviewed_at="2026-08-01"),
             cta=RubricScore(score=4, reviewer_handle="@test", reviewed_at="2026-08-01"),
+            dialect=RubricScore(score=4, reviewer_handle="@test", reviewed_at="2026-08-01"),
         ),
         reviewers={
             "owner_mokhtar": {"role": "Owner", "handle": "@MOKHXXXXXX"},
@@ -439,21 +440,21 @@ def test_report_includes_error_cases() -> None:
 
 def test_runner_loads_all_baseline_and_mutation_cases() -> None:
     cases = load_all_cases()
-    assert len(cases) == 33  # 15 baseline + 18 mutation
+    assert len(cases) == 34  # 15 baseline + 19 mutation
 
 
 def test_runner_runs_without_exceptions() -> None:
     report = run_all()
-    assert report.total_cases == 33
+    assert report.total_cases == 34
     # Some mutation cases are expected to fail validation; the report must still
     # be complete and every case checked.
-    assert report.cases_checked == 33
-    assert len(report.per_case) == 33
+    assert report.cases_checked == 34
+    assert len(report.per_case) == 34
 
 
 def test_runner_expected_failures_match_mutation_cases() -> None:
     report = run_all()
-    # All 18 mutation cases are designed to fail deterministic validators (or, in
+    # All 19 mutation cases are designed to fail deterministic validators (or, in
     # revision-preservation, to pass). The exact outcomes depend on fixture type,
     # but every case should be checked.
     for entry in report.per_case:

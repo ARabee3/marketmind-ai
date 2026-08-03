@@ -66,9 +66,18 @@ GUARDRAIL_CHECK_MAP: dict[str, list[str]] = {
     "offer_approved": [],
     "offer_unapproved": ["contract:CONTENT_OFFER_UNAPPROVED"],
     "approval_blocked": ["contract:CONTENT_APPROVAL_BLOCKED"],
+    # Advisory-only guardrail: never a hard blocker; passes whenever present.
+    "funnel_mix": [],
 }
 
-RUBRIC_DIMENSIONS = ("language", "tone", "usefulness", "pillar_alignment", "cta")
+RUBRIC_DIMENSIONS = (
+    "language",
+    "tone",
+    "usefulness",
+    "pillar_alignment",
+    "cta",
+    "dialect",
+)
 
 DEFAULT_HARD_GUARDRAILS_REQUIRED = 1.0
 DEFAULT_RUBRIC_REQUIRED = 0.9
@@ -257,6 +266,7 @@ def _rubric_covered(case: ContentEvalCase) -> tuple[int, int]:
                 rubric.usefulness,
                 rubric.pillar_alignment,
                 rubric.cta,
+                rubric.dialect,
             )
             if not (d.score == 0 and d.notes.lstrip().startswith("Rubric N/A"))
         ]
@@ -269,6 +279,7 @@ def _rubric_covered(case: ContentEvalCase) -> tuple[int, int]:
         rubric.usefulness,
         rubric.pillar_alignment,
         rubric.cta,
+        rubric.dialect,
     ]
     applicable = [
         d

@@ -66,6 +66,7 @@ class StrategySnapshot(FrozenModel):
     content_count: int = Field(ge=3, le=5)
     fact_sources: list[str] = Field(min_length=1)
     owner_inputs: list[str]
+    funnel_stages: list[str] = []
 
 
 class NextWeekContext(FrozenModel):
@@ -123,13 +124,14 @@ class RubricScore(FrozenModel):
 
 
 class HumanRubric(FrozenModel):
-    """Human-reviewed rubric: language, tone, usefulness, pillar, CTA."""
+    """Human-reviewed rubric: language, tone, usefulness, pillar, CTA, dialect."""
 
     language: RubricScore
     tone: RubricScore
     usefulness: RubricScore
     pillar_alignment: RubricScore
     cta: RubricScore
+    dialect: RubricScore
 
 
 class ReviewerSignOff(FrozenModel):
@@ -240,13 +242,14 @@ class ContentEvalCase(FrozenModel):
 
     @property
     def average_rubric_score(self) -> float:
-        """Average of the five human rubric scores."""
+        """Average of the six human rubric scores."""
         scores = [
             self.human_rubric.language.score,
             self.human_rubric.tone.score,
             self.human_rubric.usefulness.score,
             self.human_rubric.pillar_alignment.score,
             self.human_rubric.cta.score,
+            self.human_rubric.dialect.score,
         ]
         return sum(scores) / len(scores)
 
