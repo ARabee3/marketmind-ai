@@ -116,6 +116,17 @@ export class CallbacksController {
       throw new UnauthorizedException(PublishingErrorCode.WEBHOOK_UNAUTHORIZED);
     }
 
+    // ── P1: bind the route attempt to the signed callback attempt ────────────
+    // The HMAC covers body.attemptId, but the URL carries a separate attemptId.
+    // Without an equality check a valid callback signed for attempt A can be
+    // POSTed to attempt B's URL and mutate B. Reject unless both IDs match.
+    if (body.attemptId !== attemptId) {
+      this.logger.warn(
+        `Callback attemptId rebinding rejected: signed attemptId=${body.attemptId} vs route attemptId=${attemptId}`,
+      );
+      throw new UnauthorizedException(PublishingErrorCode.WEBHOOK_UNAUTHORIZED);
+    }
+
     // ── Step 3/4/5: Atomically resolve nonce + attempt + intent ─────────────
     // Idempotency is enforced inside the $transaction so the unique
     // external_callback_id insert is race-free with the replay lookup.
@@ -186,26 +197,42 @@ export class CallbacksController {
         ? null
         : this.outcomeToIntentStatus(outcome);
 
-      // Write immutable result row
+      // ── P1: reject a CONFLICTING subsequent callback before any state
+      // mutation. The result row is immutable once written; a second signed
+      // callback (different nonce) for the same attempt is either an identical
+      // replay (same canonical fingerprint → no-op) or a conflicting callback
+      // that must NOT overwrite the attempt/intent status beside the existing
+      // immutable result (e.g. a late FAILED after a PUBLISHED result).
       const existingResult = await tx.publishingResult.findUnique({
         where: { attemptId },
       });
-      if (!existingResult) {
-        await tx.publishingResult.create({
-          data: {
-            attemptId,
-            intentId: attempt.intentId,
-            outcome: outcome as never,
-            provider: "meta",
-            remotePublicationId: body.remotePublicationId ?? null,
-            // Never store remoteUrl if it may contain signed URLs — omit for now
-            errorCode: body.errorCode ?? null,
-            retryable: body.retryable ?? false,
-            rawPayloadHash: payloadHash,
-            occurredAt: payloadTs,
-          },
-        });
+      if (existingResult) {
+        if (existingResult.rawPayloadHash === payloadHash) {
+          this.logger.log(
+            `Identical subsequent callback for attempt=${attemptId} (nonce=${body.nonce}) — 200 no-op`,
+          );
+          return ""; // identical replay — do not mutate attempt/intent
+        }
+        this.logger.warn(
+          `Conflicting subsequent callback for attempt=${attemptId}: existing outcome=${existingResult.outcome} vs new outcome=${outcome}`,
+        );
+        throw new ConflictException(PublishingErrorCode.CALLBACK_CONFLICT);
       }
+
+      await tx.publishingResult.create({
+        data: {
+          attemptId,
+          intentId: attempt.intentId,
+          outcome: outcome as never,
+          provider: "meta",
+          remotePublicationId: body.remotePublicationId ?? null,
+          // Never store remoteUrl if it may contain signed URLs — omit for now
+          errorCode: body.errorCode ?? null,
+          retryable: body.retryable ?? false,
+          rawPayloadHash: payloadHash,
+          occurredAt: payloadTs,
+        },
+      });
 
       // Update attempt status — must stay consistent with intent status.
       const attemptStatus =
