@@ -89,6 +89,14 @@ def _validation_summary(result: Any) -> dict[str, Any]:
         "valid": result.valid,
         "issue_codes": sorted({issue.code for issue in result.issues}),
         "issue_count": len(result.issues),
+        "issues": [
+            {
+                "code": issue.code,
+                "field": issue.field,
+                "message": issue.message,
+            }
+            for issue in result.issues
+        ],
     }
 
 
@@ -181,9 +189,17 @@ def format_spot_check_summary(report: dict[str, Any]) -> str:
         if not report["fake"]["valid"]:
             fake_codes = ", ".join(report["fake"]["issue_codes"]) or "none"
             lines.append(f"Fake issue codes: {fake_codes}")
+            for issue in report["fake"].get("issues", []):
+                lines.append(
+                    f"    - {issue['code']} ({issue['field']}): {issue['message']}"
+                )
         if not report["real"]["valid"]:
             real_codes = ", ".join(report["real"]["issue_codes"]) or "none"
             lines.append(f"Real issue codes: {real_codes}")
+            for issue in report["real"].get("issues", []):
+                lines.append(
+                    f"    - {issue['code']} ({issue['field']}): {issue['message']}"
+                )
         return "\n".join(lines)
     return f"[UNKNOWN] {report}"
 

@@ -83,6 +83,21 @@ def build_spot_check_generation_prompt(
         else request.strategy_plan.primary_objective
     )
 
+    promotion = request.week_context.promotion
+    promotion_rule = (
+        "No weekly promotion is set; do not invent or mention any offer, discount, "
+        "price, or promotion terms."
+        if request.week_context.promotion_mode != "owner_approved" or promotion is None
+        else (
+            "The weekly context contains an owner-approved promotion. "
+            "You must include the exact promotion text and every term verbatim "
+            "in at least one caption, and you must add a claim_sources entry with "
+            "claim_type='promotion', source_type='week_context', "
+            "source_path='week_context.promotion', approved=true. "
+            "Do not add extra promotion details that are not in the supplied terms."
+        )
+    )
+
     supplement = "\n".join(
         [
             "## Phase 6 spot-check constraints",
@@ -95,24 +110,28 @@ def build_spot_check_generation_prompt(
             f"3. Every item must use one of these formats: {request.allowed_formats!r}.",
             "4. `asset_required` must be `false` for `text_post`; "
             "it must be `true` for `static_image_post` and `carousel_brief`.",
-            "5. `content_item_id` and `id` must be different valid UUIDs. "
-            "Never reuse IDs across items.",
-            f"6. `content_pack_id` must equal {request.content_pack_id!r}.",
-            f"7. `strategy_trace.strategy_id` = {request.strategy_id!r}; "
+            "5. `version` must be `1` for every generated item.",
+            "6. `content_item_id` and `id` must be two different valid UUIDs. "
+            "Never reuse either value across items.",
+            f"7. `content_pack_id` must equal {request.content_pack_id!r}.",
+            f"8. `strategy_trace.strategy_id` = {request.strategy_id!r}; "
             f"`strategy_trace.strategy_version` = {request.strategy_version!r}; "
             f"`strategy_trace.week_number` = {request.week_context.week_number}.",
-            "8. `strategy_trace.channel` must match the item's `channel`.",
-            f"9. `strategy_trace.pillar_ids` must be chosen only from {expected_pillars!r}.",
-            f"10. `strategy_trace.objective` must equal {objective_value!r}.",
-            f"11. `language_mode` must equal {language_mode_value!r}; "
+            "9. `strategy_trace.channel` must match the item's `channel`.",
+            f"10. `strategy_trace.pillar_ids` must be chosen only from {expected_pillars!r}.",
+            f"11. `strategy_trace.objective` must equal exactly {objective_value!r}.",
+            f"12. `language_mode` must equal {language_mode_value!r}; "
             f"`caption_variants` must include locale {expected_locale!r}.",
-            f"12. {cta_rule}",
-            f"13. `recommended_publish_window.starts_at` and `ends_at` must be "
+            f"13. {cta_rule}",
+            f"14. {promotion_rule}",
+            "15. Obey every `week_context.must_include` instruction exactly; "
+            "never include any `week_context.must_avoid` text.",
+            f"16. `recommended_publish_window.starts_at` and `ends_at` must be "
             f"timezone-aware ISO-8601 datetimes between {week_start.isoformat()} "
             f"and {week_end.isoformat()}, with `ends_at` > `starts_at`.",
-            "14. Every item must include at least one `claim_sources` entry.",
-            "15. `item.hashtags` must match the primary caption variant's `hashtags`.",
-            "16. `item.cta` must match the primary caption variant's `cta`.",
+            "17. Every item must include at least one `claim_sources` entry.",
+            "18. `item.hashtags` must match the primary caption variant's `hashtags`.",
+            "19. `item.cta` must match the primary caption variant's `cta`.",
             "",
             "Return only the structured JSON object requested by the caller.",
         ]
@@ -177,6 +196,12 @@ def _spot_check_one_shot_example() -> str:
         '          "claim_type": "business_fact",\n'
         '          "source_type": "profile",\n'
         '          "source_path": "business_profile.profile",\n'
+        '          "approved": true\n'
+        "        },\n"
+        "        {\n"
+        '          "claim_type": "promotion",\n'
+        '          "source_type": "week_context",\n'
+        '          "source_path": "week_context.promotion",\n'
         '          "approved": true\n'
         "        }\n"
         "      ],\n"
