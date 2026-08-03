@@ -1,0 +1,985 @@
+{
+  "version": "content-eval-baseline-v1",
+  "schema_version": "content-eval-v1",
+  "cases": [
+    {
+      "case_id": "services-mixed-week1-baseline",
+      "schema_version": "content-eval-v1",
+      "sector": "services",
+      "language_mode": "mixed",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "services-trust",
+            "name": "Before/after tips"
+          },
+          {
+            "pillar_id": "services-engagement",
+            "name": "Customer Q&A"
+          },
+          {
+            "pillar_id": "services-booking",
+            "name": "Booking prompts"
+          }
+        ],
+        "tone": "professional, reliable, and local",
+        "formats": [
+          "static_image_post",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "show fictional trained staff"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+        "week_number": 1,
+        "prior_content_pack_id": null,
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [
+            "trained fictional staff"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "phone",
+          "cta_destination_value": "+201000000003"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Cairo Sparkle Cleaning — Fictional",
+        "owner_name": "Hassan Fictional",
+        "handles": [
+          "@fictionalcairosparkle"
+        ],
+        "addresses": [
+          "7 Fictional Office Tower, Demo District, New Cairo"
+        ],
+        "prices": [
+          "EGP 300 per fictional session"
+        ],
+        "offer_terms": [
+          "10% off first fictional booking"
+        ],
+        "owner_text": "Owner says: focus on fictional trained staff and avoid guaranteeing same-day service."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Mixed-language services baseline."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Services Week 1 mixed-language baseline with no promotion.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "d9d934ed-8b3b-524a-98ab-9a9894e3f856",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "1aa6f324-dee4-5230-82e5-f112d28f6bce",
+          "strategy_id": "d9d934ed-8b3b-524a-98ab-9a9894e3f856",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "186a97b0-e0fc-5894-bb0d-8c743ca631ea",
+        "current_profile_version_id": "186a97b0-e0fc-5894-bb0d-8c743ca631ea",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+            "week_number": 1,
+            "weekly_claim_id": "a196172d-08f3-533a-a544-87df1f178c4f"
+          }
+        ],
+        "week_context": {
+          "id": "3860709e-9fc3-5fce-bab6-22b5e6ed7be2",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "week_number": 1,
+          "week_start_date": "2026-08-03",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [
+            "trained fictional staff"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "4e92009b-f471-5a99-a3d3-7b2307fc84f3"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000003"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "a196172d-08f3-533a-a544-87df1f178c4f"
+        },
+        "pack": {
+          "id": "17531507-f59e-5182-8cd9-cb3c0ad9aa61",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "weekly_claim_id": "a196172d-08f3-533a-a544-87df1f178c4f",
+          "week_number": 1,
+          "business_id": "73e6d636-a6a4-54b9-b2da-c618dcb1041d",
+          "strategy_id": "d9d934ed-8b3b-524a-98ab-9a9894e3f856",
+          "strategy_version": 1,
+          "strategy_decision_id": "1aa6f324-dee4-5230-82e5-f112d28f6bce",
+          "profile_version_id": "186a97b0-e0fc-5894-bb0d-8c743ca631ea",
+          "week_context_id": "3860709e-9fc3-5fce-bab6-22b5e6ed7be2",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "272a7a6e-12b4-5663-8862-b67bf19f1ff0",
+            "824434a4-4f2a-52b3-acd6-22717e966008",
+            "a4695c68-3d5f-5e67-b2ec-90cd96fc2ef4"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "e39d0347-e8e7-5751-b16a-c94638171fae",
+          "contract_version": "content-v1",
+          "content_item_id": "272a7a6e-12b4-5663-8862-b67bf19f1ff0",
+          "content_pack_id": "17531507-f59e-5182-8cd9-cb3c0ad9aa61",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "mixed",
+          "strategy_trace": {
+            "strategy_id": "d9d934ed-8b3b-524a-98ab-9a9894e3f856",
+            "strategy_version": 1,
+            "week_number": 1,
+            "pillar_ids": [
+              "services-trust"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Before/after tips. trained fictional staff Contact via phone: +201000000003",
+              "cta": "Contact via phone: +201000000003",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            },
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Before/after tips. trained fictional staff Contact via phone: +201000000003",
+              "cta": "Contact via phone: +201000000003",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via phone: +201000000003",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for services-mixed-week1-baseline.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Before/after tips. trained fictional staff Contact via phone: +201000000003",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "4e92009b-f471-5a99-a3d3-7b2307fc84f3"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "4a12a08b-4eb8-5c6a-b1dd-cc1a08d5facc",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "4e92009b-f471-5a99-a3d3-7b2307fc84f3",
+            "content_item_version_id": "e39d0347-e8e7-5751-b16a-c94638171fae",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/73e6d636-a6a4-54b9-b2da-c618dcb1041d/week-1/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Before/after tips. trained fictional staff Contact via phone: +201000000003",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "services-ar-week4-consecutive",
+      "schema_version": "content-eval-v1",
+      "sector": "services",
+      "language_mode": "ar",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "services-trust",
+            "name": "Before/after tips"
+          },
+          {
+            "pillar_id": "services-engagement",
+            "name": "Customer Q&A"
+          },
+          {
+            "pillar_id": "services-booking",
+            "name": "Booking prompts"
+          }
+        ],
+        "tone": "professional, reliable, and local",
+        "formats": [
+          "static_image_post",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "show fictional trained staff"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+        "week_number": 4,
+        "prior_content_pack_id": "pack-services-week3-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "owner_approved",
+          "promotion_text": "خصم 10% على الحجز الخيالي للأسبوع القادم",
+          "promotion_terms": [
+            "للحجز قبل نهاية الأسبوع"
+          ],
+          "valid_from": "2026-08-03T10:00:00+03:00",
+          "valid_until": "2026-08-10T10:00:00+03:00",
+          "must_include": [
+            "الموظفون الخياليون المدربون"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "whatsapp",
+          "cta_destination_value": "+201000000003"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Cairo Sparkle Cleaning — Fictional",
+        "owner_name": "Hassan Fictional",
+        "handles": [
+          "@fictionalcairosparkle"
+        ],
+        "addresses": [
+          "7 Fictional Office Tower, Demo District, New Cairo"
+        ],
+        "prices": [
+          "EGP 300 per fictional session"
+        ],
+        "offer_terms": [
+          "10% off first fictional booking"
+        ],
+        "owner_text": "يقول المالك: ركّز على الموظفين الخياليين المدربين وتجنب ضمان الخدمة في نفس اليوم."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "consecutive_week": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week services case."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Services Week 4 Arabic consecutive-week generation: Week 3 is active, Week 4 draft is prepared with an owner-approved next-week promotion.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "70528f96-d83d-5f0b-8642-e30816f07072",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "9b2543e6-9810-58dc-95f7-e8be14d995bd",
+          "strategy_id": "70528f96-d83d-5f0b-8642-e30816f07072",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "8a93a7ec-e595-539d-9f6b-c7df47338df9",
+        "current_profile_version_id": "8a93a7ec-e595-539d-9f6b-c7df47338df9",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+            "week_number": 4,
+            "weekly_claim_id": "c9e65e57-42e8-5a50-8feb-923dadd71f3f"
+          }
+        ],
+        "week_context": {
+          "id": "57b34f51-af5a-57b6-9ac2-e5bf99f7e600",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "week_number": 4,
+          "week_start_date": "2026-08-24",
+          "promotion_mode": "owner_approved",
+          "promotion": {
+            "text": "خصم 10% على الحجز الخيالي للأسبوع القادم",
+            "terms": [
+              "للحجز قبل نهاية الأسبوع"
+            ],
+            "valid_from": "2026-08-03T10:00:00+03:00",
+            "valid_until": "2026-08-10T10:00:00+03:00"
+          },
+          "must_include": [
+            "الموظفون الخياليون المدربون"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "058b49a9-79e6-54d0-a728-c825e5b3b566"
+          ],
+          "cta_destination": {
+            "type": "whatsapp",
+            "value": "+201000000003"
+          },
+          "context_source": "owner_confirmed",
+          "confirmed_by_user_id": "770444de-b761-54f2-b2dc-69791ff31d33",
+          "confirmed_at": "2026-08-03T10:00:00+03:00",
+          "system_defaulted_at": null,
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "c9e65e57-42e8-5a50-8feb-923dadd71f3f"
+        },
+        "pack": {
+          "id": "6b7b9be9-de9e-53eb-b303-1ec64507924a",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "weekly_claim_id": "c9e65e57-42e8-5a50-8feb-923dadd71f3f",
+          "week_number": 4,
+          "business_id": "cd9b0eb0-ce40-5502-8da3-37086c28fdeb",
+          "strategy_id": "70528f96-d83d-5f0b-8642-e30816f07072",
+          "strategy_version": 1,
+          "strategy_decision_id": "9b2543e6-9810-58dc-95f7-e8be14d995bd",
+          "profile_version_id": "8a93a7ec-e595-539d-9f6b-c7df47338df9",
+          "week_context_id": "57b34f51-af5a-57b6-9ac2-e5bf99f7e600",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "bffc46be-3ad8-5463-b8ac-f30bc1c37348",
+            "5e8eba07-0b97-57e5-8a1b-ddbdf38a3529",
+            "efc57e30-496e-56ce-8162-ff6beded90f1"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "9a0276e4-5a8e-5749-a8f5-ee71cb0768c7",
+          "contract_version": "content-v1",
+          "content_item_id": "bffc46be-3ad8-5463-b8ac-f30bc1c37348",
+          "content_pack_id": "6b7b9be9-de9e-53eb-b303-1ec64507924a",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "ar-EG",
+          "strategy_trace": {
+            "strategy_id": "70528f96-d83d-5f0b-8642-e30816f07072",
+            "strategy_version": 1,
+            "week_number": 4,
+            "pillar_ids": [
+              "services-trust"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Customer Q&A. خصم 10% على الحجز الخيالي للأسبوع القادم الشروط: للحجز قبل نهاية الأسبوع الموظفون الخياليون المدربون تواصل معنا عبر whatsapp: +201000000003",
+              "cta": "تواصل معنا عبر whatsapp: +201000000003",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            }
+          ],
+          "cta": "تواصل معنا عبر whatsapp: +201000000003",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for services-ar-week4-consecutive.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Customer Q&A. خصم 10% على الحجز الخيالي للأسبوع القادم الشروط: للحجز قبل نه",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "058b49a9-79e6-54d0-a728-c825e5b3b566"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "2cf664ee-1adf-57b1-a309-b2f99403d01e",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "058b49a9-79e6-54d0-a728-c825e5b3b566",
+            "content_item_version_id": "9a0276e4-5a8e-5749-a8f5-ee71cb0768c7",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/cd9b0eb0-ce40-5502-8da3-37086c28fdeb/week-4/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Customer Q&A. خصم 10% على الحجز الخيالي للأسبوع القادم الشروط: للحجز قبل نه",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "services-en-week2-duplicate-claim",
+      "schema_version": "content-eval-v1",
+      "sector": "services",
+      "language_mode": "en",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "services-trust",
+            "name": "Before/after tips"
+          },
+          {
+            "pillar_id": "services-engagement",
+            "name": "Customer Q&A"
+          },
+          {
+            "pillar_id": "services-booking",
+            "name": "Booking prompts"
+          }
+        ],
+        "tone": "professional, reliable, and local",
+        "formats": [
+          "static_image_post",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "show fictional trained staff"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+        "week_number": 2,
+        "prior_content_pack_id": "pack-services-week1-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "phone",
+          "cta_destination_value": "+201000000003"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Cairo Sparkle Cleaning — Fictional",
+        "owner_name": "Hassan Fictional",
+        "handles": [
+          "@fictionalcairosparkle"
+        ],
+        "addresses": [
+          "7 Fictional Office Tower, Demo District, New Cairo"
+        ],
+        "prices": [
+          "EGP 300 per fictional session"
+        ],
+        "offer_terms": [
+          "10% off first fictional booking"
+        ],
+        "owner_text": "Owner says: focus on fictional trained staff and avoid guaranteeing same-day service."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "fail",
+        "per_guardrail": {
+          "atomic_weekly_claim": "fail"
+        },
+        "expected_error_codes": [
+          "CONTENT_WEEK_ALREADY_CLAIMED"
+        ]
+      },
+      "failure_category": "week_already_claimed",
+      "human_rubric": {
+        "language": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "tone": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "usefulness": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "pillar_alignment": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "cta": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Services Week 2 duplicate trigger collision: scheduler, manual generate, and retry all hit the same (cycle_id, week_number) and must resolve to a single atomic claim.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "e9259356-abed-588f-9866-75008645de91",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "e7f79691-ea32-58ae-9867-fc1640da3d86",
+          "strategy_id": "e9259356-abed-588f-9866-75008645de91",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "91261f3c-9031-536a-a3f8-db413f192066",
+        "current_profile_version_id": "91261f3c-9031-536a-a3f8-db413f192066",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+            "week_number": 2,
+            "weekly_claim_id": "38031f61-2224-59cd-ab6c-a42e53967b57"
+          },
+          {
+            "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+            "week_number": 2,
+            "weekly_claim_id": "a3483f87-37e1-5f42-93ac-938fde066dab"
+          }
+        ],
+        "week_context": {
+          "id": "0fda1dce-2965-5c50-aefb-90c75b3b7160",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "week_number": 2,
+          "week_start_date": "2026-08-10",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "18bf9633-9013-5dbb-b90e-a31d53460bfd"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000003"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "38031f61-2224-59cd-ab6c-a42e53967b57"
+        },
+        "pack": {
+          "id": "c9f71327-1192-5db5-b305-15c2269718b9",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-services-0000-0000-0000-000000000001",
+          "weekly_claim_id": "38031f61-2224-59cd-ab6c-a42e53967b57",
+          "week_number": 2,
+          "business_id": "7b9f152e-d651-511a-88bf-0a66ee2887e4",
+          "strategy_id": "e9259356-abed-588f-9866-75008645de91",
+          "strategy_version": 1,
+          "strategy_decision_id": "e7f79691-ea32-58ae-9867-fc1640da3d86",
+          "profile_version_id": "91261f3c-9031-536a-a3f8-db413f192066",
+          "week_context_id": "0fda1dce-2965-5c50-aefb-90c75b3b7160",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "05ee9e77-dcfc-5d7b-9766-18bf189ef811",
+            "1cde8f1d-cd1c-514d-9f68-9b1ff783ef8e",
+            "3ab80c7f-2ce6-5b16-89e6-ecd9405c7032"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "2bacbce3-62c0-5ccb-8958-8c9093b933ad",
+          "contract_version": "content-v1",
+          "content_item_id": "05ee9e77-dcfc-5d7b-9766-18bf189ef811",
+          "content_pack_id": "c9f71327-1192-5db5-b305-15c2269718b9",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "en",
+          "strategy_trace": {
+            "strategy_id": "e9259356-abed-588f-9866-75008645de91",
+            "strategy_version": 1,
+            "week_number": 2,
+            "pillar_ids": [
+              "services-trust"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Booking prompts. Contact via phone: +201000000003",
+              "cta": "Contact via phone: +201000000003",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via phone: +201000000003",
+          "hashtags": [
+            "#MarketMind",
+            "#SmallBusiness"
+          ],
+          "creative_brief": "Creative brief for services-en-week2-duplicate-claim.",
+          "alt_text": "Explore this week's focus: Booking prompts. Contact via phone: +201000000003",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "18bf9633-9013-5dbb-b90e-a31d53460bfd"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "8c779521-59b4-5c66-b52c-f1fd6aec3f91",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "18bf9633-9013-5dbb-b90e-a31d53460bfd",
+            "content_item_version_id": "2bacbce3-62c0-5ccb-8958-8c9093b933ad",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/7b9f152e-d651-511a-88bf-0a66ee2887e4/week-2/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "Explore this week's focus: Booking prompts. Contact via phone: +201000000003",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    }
+  ],
+  "created_at": "2026-08-03",
+  "updated_at": null
+}

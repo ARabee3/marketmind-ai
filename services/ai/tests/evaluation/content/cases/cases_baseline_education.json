@@ -1,0 +1,972 @@
+{
+  "version": "content-eval-baseline-v1",
+  "schema_version": "content-eval-v1",
+  "cases": [
+    {
+      "case_id": "education-en-week1-baseline",
+      "schema_version": "content-eval-v1",
+      "sector": "education",
+      "language_mode": "en",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "edu-awareness",
+            "name": "Study tips"
+          },
+          {
+            "pillar_id": "edu-trust",
+            "name": "Tutor credentials"
+          },
+          {
+            "pillar_id": "edu-enrollment",
+            "name": "Enrollment prompts"
+          }
+        ],
+        "tone": "encouraging, credible, and parent-friendly",
+        "formats": [
+          "static_image_post",
+          "carousel_brief"
+        ],
+        "content_count": 5,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "emphasize fictional small groups"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+        "week_number": 1,
+        "prior_content_pack_id": null,
+        "next_week_context": {
+          "promotion_mode": "owner_approved",
+          "promotion_text": "Free fictional trial lesson this week",
+          "promotion_terms": [
+            "one per family"
+          ],
+          "valid_from": "2026-08-03T10:00:00+03:00",
+          "valid_until": "2026-08-10T10:00:00+03:00",
+          "must_include": [
+            "small fictional groups"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "whatsapp",
+          "cta_destination_value": "+201000000004"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Bright Horizon Tutors — Fictional",
+        "owner_name": "Dr. Samira Fictional",
+        "handles": [
+          "@fictionalbrighthorizon"
+        ],
+        "addresses": [
+          "22 Fictional Learning Lane, Demo District, Giza"
+        ],
+        "prices": [
+          "EGP 250 per fictional hour"
+        ],
+        "offer_terms": [
+          "Free fictional trial lesson"
+        ],
+        "owner_text": "Owner says: promote the fictional small-group approach, never claim guaranteed grades."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "offer_approved": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "English education baseline with 5 items."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Education Week 1 English baseline at the upper content-count boundary with an owner-approved trial offer.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "35e52c15-2778-5f27-87be-1ae3dceee44a",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "28294fca-06ad-56e7-9761-bb7dd465ce67",
+          "strategy_id": "35e52c15-2778-5f27-87be-1ae3dceee44a",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "a822127f-7dc6-5438-a2bf-ba63e54fd5cc",
+        "current_profile_version_id": "a822127f-7dc6-5438-a2bf-ba63e54fd5cc",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+            "week_number": 1,
+            "weekly_claim_id": "d0f87cc4-fb2b-58a1-b40c-f09f0e7da714"
+          }
+        ],
+        "week_context": {
+          "id": "0f174d37-b842-5e74-9c48-4ddad615305d",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "week_number": 1,
+          "week_start_date": "2026-08-03",
+          "promotion_mode": "owner_approved",
+          "promotion": {
+            "text": "Free fictional trial lesson this week",
+            "terms": [
+              "one per family"
+            ],
+            "valid_from": "2026-08-03T10:00:00+03:00",
+            "valid_until": "2026-08-10T10:00:00+03:00"
+          },
+          "must_include": [
+            "small fictional groups"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "eeb15ca7-e3e8-520d-a48f-a39f5ba40424"
+          ],
+          "cta_destination": {
+            "type": "whatsapp",
+            "value": "+201000000004"
+          },
+          "context_source": "owner_confirmed",
+          "confirmed_by_user_id": "8c1c45d0-44d2-568d-9dd5-d99d3f76817b",
+          "confirmed_at": "2026-08-03T10:00:00+03:00",
+          "system_defaulted_at": null,
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "d0f87cc4-fb2b-58a1-b40c-f09f0e7da714"
+        },
+        "pack": {
+          "id": "579b24c5-9012-5c46-86ed-065e469b6b36",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "weekly_claim_id": "d0f87cc4-fb2b-58a1-b40c-f09f0e7da714",
+          "week_number": 1,
+          "business_id": "c050c75b-ad64-52b3-abe2-182ad2fd9a3c",
+          "strategy_id": "35e52c15-2778-5f27-87be-1ae3dceee44a",
+          "strategy_version": 1,
+          "strategy_decision_id": "28294fca-06ad-56e7-9761-bb7dd465ce67",
+          "profile_version_id": "a822127f-7dc6-5438-a2bf-ba63e54fd5cc",
+          "week_context_id": "0f174d37-b842-5e74-9c48-4ddad615305d",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "83b40888-4a6b-5c40-a99f-bebbb6703d90",
+            "ca517ed4-94ec-5110-afd8-bf1c7d1b1471",
+            "c24e2376-bae4-57e5-a098-d5caacc19961",
+            "54018323-1223-5258-94c2-71baf77cb3fa",
+            "36be5112-64f0-5cd5-9834-ac197f32c29c"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "67d9e747-35a8-56a2-a664-843957b51474",
+          "contract_version": "content-v1",
+          "content_item_id": "83b40888-4a6b-5c40-a99f-bebbb6703d90",
+          "content_pack_id": "579b24c5-9012-5c46-86ed-065e469b6b36",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "en",
+          "strategy_trace": {
+            "strategy_id": "35e52c15-2778-5f27-87be-1ae3dceee44a",
+            "strategy_version": 1,
+            "week_number": 1,
+            "pillar_ids": [
+              "edu-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Study tips. Free fictional trial lesson this week Terms: one per family small fictional groups Contact via whatsapp: +201000000004",
+              "cta": "Contact via whatsapp: +201000000004",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via whatsapp: +201000000004",
+          "hashtags": [
+            "#MarketMind",
+            "#SmallBusiness"
+          ],
+          "creative_brief": "Creative brief for education-en-week1-baseline.",
+          "alt_text": "Explore this week's focus: Study tips. Free fictional trial lesson this week Terms: one per family s",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "eeb15ca7-e3e8-520d-a48f-a39f5ba40424"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "5fa7a7e0-d866-55de-a005-fc10a143120e",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "eeb15ca7-e3e8-520d-a48f-a39f5ba40424",
+            "content_item_version_id": "67d9e747-35a8-56a2-a664-843957b51474",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/c050c75b-ad64-52b3-abe2-182ad2fd9a3c/week-1/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "Explore this week's focus: Study tips. Free fictional trial lesson this week Terms: one per family s",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "education-ar-week5-safe-default",
+      "schema_version": "content-eval-v1",
+      "sector": "education",
+      "language_mode": "ar",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "edu-awareness",
+            "name": "Study tips"
+          },
+          {
+            "pillar_id": "edu-trust",
+            "name": "Tutor credentials"
+          },
+          {
+            "pillar_id": "edu-enrollment",
+            "name": "Enrollment prompts"
+          }
+        ],
+        "tone": "encouraging, credible, and parent-friendly",
+        "formats": [
+          "static_image_post",
+          "carousel_brief"
+        ],
+        "content_count": 5,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "emphasize fictional small groups"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+        "week_number": 5,
+        "prior_content_pack_id": "pack-education-week4-0000-0000-0000-000000000001",
+        "next_week_context": null,
+        "next_week_context_absent": true
+      },
+      "protected_fictional_fields": {
+        "business_name": "Bright Horizon Tutors — Fictional",
+        "owner_name": "Dr. Samira Fictional",
+        "handles": [
+          "@fictionalbrighthorizon"
+        ],
+        "addresses": [
+          "22 Fictional Learning Lane, Demo District, Giza"
+        ],
+        "prices": [
+          "EGP 250 per fictional hour"
+        ],
+        "offer_terms": [
+          "Free fictional trial lesson"
+        ],
+        "owner_text": "يقول المالك: ركّز على المجموعات الصغيرة الخيالية ولا تعد بدرجات مضمونة."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "safe_default_context": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic safe-default context."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Education Week 5 Arabic safe-default context: owner did not supply next-week input, so generation must fall back to no promotion and no invented timely facts.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "8b4b79c0-ea4f-56b9-907f-113ca077d45b",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "3cc4a850-2c25-5905-93ad-f9a87795af05",
+          "strategy_id": "8b4b79c0-ea4f-56b9-907f-113ca077d45b",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "6b6398db-830a-5f12-b655-100661b2c3fd",
+        "current_profile_version_id": "6b6398db-830a-5f12-b655-100661b2c3fd",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+            "week_number": 5,
+            "weekly_claim_id": "33dc1688-e4d0-5ecb-8e3d-8b28fd9853b0"
+          }
+        ],
+        "week_context": {
+          "id": "da35449d-81a0-5d3c-bcf5-082eaff0f907",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "week_number": 5,
+          "week_start_date": "2026-08-31",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "405753b5-d4df-5c73-b5b8-a18ce0e7e0ef"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000004"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "33dc1688-e4d0-5ecb-8e3d-8b28fd9853b0"
+        },
+        "pack": {
+          "id": "7de0b924-2b01-5fe9-81d6-aac9baefd74d",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "weekly_claim_id": "33dc1688-e4d0-5ecb-8e3d-8b28fd9853b0",
+          "week_number": 5,
+          "business_id": "e5e4d300-cc8f-5b22-9a26-baa2269549a8",
+          "strategy_id": "8b4b79c0-ea4f-56b9-907f-113ca077d45b",
+          "strategy_version": 1,
+          "strategy_decision_id": "3cc4a850-2c25-5905-93ad-f9a87795af05",
+          "profile_version_id": "6b6398db-830a-5f12-b655-100661b2c3fd",
+          "week_context_id": "da35449d-81a0-5d3c-bcf5-082eaff0f907",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "1702825f-faba-5dc8-bc9f-04218a51e58c",
+            "8982d3a6-f811-5f81-9f5b-bfba053dce47",
+            "8a0d20d3-2cd2-50fd-8fc3-cf6d173f7a14",
+            "039cf7ba-a3a0-5794-9090-67578899d427",
+            "8dd50b0d-ca18-5433-bb15-ec26e22da70a"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "bd830eae-53e8-595d-8def-68f9376dc365",
+          "contract_version": "content-v1",
+          "content_item_id": "1702825f-faba-5dc8-bc9f-04218a51e58c",
+          "content_pack_id": "7de0b924-2b01-5fe9-81d6-aac9baefd74d",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "ar-EG",
+          "strategy_trace": {
+            "strategy_id": "8b4b79c0-ea4f-56b9-907f-113ca077d45b",
+            "strategy_version": 1,
+            "week_number": 5,
+            "pillar_ids": [
+              "edu-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Tutor credentials. تواصل معنا عبر phone: +201000000004",
+              "cta": "تواصل معنا عبر phone: +201000000004",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            }
+          ],
+          "cta": "تواصل معنا عبر phone: +201000000004",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for education-ar-week5-safe-default.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Tutor credentials. تواصل معنا عبر phone: +201000000004",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "405753b5-d4df-5c73-b5b8-a18ce0e7e0ef"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "bcbdff37-4cd2-5b80-86b5-59d61ccbc9bc",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "405753b5-d4df-5c73-b5b8-a18ce0e7e0ef",
+            "content_item_version_id": "bd830eae-53e8-595d-8def-68f9376dc365",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/e5e4d300-cc8f-5b22-9a26-baa2269549a8/week-5/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Tutor credentials. تواصل معنا عبر phone: +201000000004",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "education-mixed-superseded-cycle",
+      "schema_version": "content-eval-v1",
+      "sector": "education",
+      "language_mode": "mixed",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "edu-awareness",
+            "name": "Study tips"
+          },
+          {
+            "pillar_id": "edu-trust",
+            "name": "Tutor credentials"
+          },
+          {
+            "pillar_id": "edu-enrollment",
+            "name": "Enrollment prompts"
+          }
+        ],
+        "tone": "encouraging, credible, and parent-friendly",
+        "formats": [
+          "static_image_post",
+          "carousel_brief"
+        ],
+        "content_count": 5,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "emphasize fictional small groups"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+        "week_number": 2,
+        "prior_content_pack_id": "pack-education-week1-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "phone",
+          "cta_destination_value": "+201000000004"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Bright Horizon Tutors — Fictional",
+        "owner_name": "Dr. Samira Fictional",
+        "handles": [
+          "@fictionalbrighthorizon"
+        ],
+        "addresses": [
+          "22 Fictional Learning Lane, Demo District, Giza"
+        ],
+        "prices": [
+          "EGP 250 per fictional hour"
+        ],
+        "offer_terms": [
+          "Free fictional trial lesson"
+        ],
+        "owner_text": "Owner says: promote the fictional small-group approach, never claim guaranteed grades."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "fail",
+        "per_guardrail": {
+          "cycle_status": "fail"
+        },
+        "expected_error_codes": [
+          "CONTENT_CYCLE_PAUSED"
+        ]
+      },
+      "failure_category": "cycle_paused",
+      "human_rubric": {
+        "language": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "tone": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "usefulness": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "pillar_alignment": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        },
+        "cta": {
+          "score": 0,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Rubric N/A: hard guardrail rejects before content review."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Education mixed-language superseded cycle: a new Strategy version is approved mid-cycle, the old cycle pauses, and future generation on the old cycle must stop.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "a6522cef-3527-5ef2-bbf7-afcaa5436937",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "1b1e8e52-0228-5a29-ad78-b683126c12ec",
+          "strategy_id": "a6522cef-3527-5ef2-bbf7-afcaa5436937",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "paused",
+        "profile_version_id": "abdef772-09a8-534d-b4e5-2e3c8acbcdac",
+        "current_profile_version_id": "abdef772-09a8-534d-b4e5-2e3c8acbcdac",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+            "week_number": 2,
+            "weekly_claim_id": "0b125535-389b-5d41-a650-598bee926579"
+          }
+        ],
+        "week_context": {
+          "id": "e8deb0b4-3224-5ee5-87c7-196fad4356da",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "week_number": 2,
+          "week_start_date": "2026-08-10",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "4a310606-91f2-5e14-b7bb-ab97c30b0ea4"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000004"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "0b125535-389b-5d41-a650-598bee926579"
+        },
+        "pack": {
+          "id": "9cda180f-b114-541c-9646-86d018e41cb5",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-education-0000-0000-0000-000000000001",
+          "weekly_claim_id": "0b125535-389b-5d41-a650-598bee926579",
+          "week_number": 2,
+          "business_id": "86cf08b0-fa72-5043-a02b-827f91a17226",
+          "strategy_id": "a6522cef-3527-5ef2-bbf7-afcaa5436937",
+          "strategy_version": 1,
+          "strategy_decision_id": "1b1e8e52-0228-5a29-ad78-b683126c12ec",
+          "profile_version_id": "abdef772-09a8-534d-b4e5-2e3c8acbcdac",
+          "week_context_id": "e8deb0b4-3224-5ee5-87c7-196fad4356da",
+          "status": "failed",
+          "retry_eligible": false,
+          "item_ids": [
+            "071719db-75f3-50c6-87b0-0ffada65d376",
+            "2667b164-7af8-5c54-b75e-55ab5f88e35d",
+            "21e70aec-96a8-5d9b-90b3-f3e694ed39f2",
+            "0ccaef5b-99af-52b6-9f6a-217407153222",
+            "35a4762e-e44f-5562-b0b9-b23a653821e5"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "d31fcaf0-ed07-5c2f-8d9f-4b7a9b4962dc",
+          "contract_version": "content-v1",
+          "content_item_id": "071719db-75f3-50c6-87b0-0ffada65d376",
+          "content_pack_id": "9cda180f-b114-541c-9646-86d018e41cb5",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "mixed",
+          "strategy_trace": {
+            "strategy_id": "a6522cef-3527-5ef2-bbf7-afcaa5436937",
+            "strategy_version": 1,
+            "week_number": 2,
+            "pillar_ids": [
+              "edu-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Enrollment prompts. Contact via phone: +201000000004",
+              "cta": "Contact via phone: +201000000004",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            },
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Enrollment prompts. Contact via phone: +201000000004",
+              "cta": "Contact via phone: +201000000004",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via phone: +201000000004",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for education-mixed-superseded-cycle.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Enrollment prompts. Contact via phone: +201000000004",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "4a310606-91f2-5e14-b7bb-ab97c30b0ea4"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "98e3a6b7-372f-5945-9484-d6f0e8b94dfd",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "4a310606-91f2-5e14-b7bb-ab97c30b0ea4",
+            "content_item_version_id": "d31fcaf0-ed07-5c2f-8d9f-4b7a9b4962dc",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/86cf08b0-fa72-5043-a02b-827f91a17226/week-2/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Enrollment prompts. Contact via phone: +201000000004",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    }
+  ],
+  "created_at": "2026-08-03",
+  "updated_at": null
+}
