@@ -1,58 +1,34 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Req,
-  UseGuards,
-} from "@nestjs/common";
+import { Controller, Get, Param, Req, UseGuards } from "@nestjs/common";
 import { CandidatesService } from "./candidates.service";
-import { IngestCandidateDto, UpdateCandidateStateDto } from "./candidates.dto";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { BusinessOwnershipGuard } from "../common/guards/business-ownership.guard";
 
+/**
+ * Owner-facing candidate routes — READ-ONLY.
+ *
+ * P1 (#119 review): candidates come from the authoritative content-service
+ * handoff (see InternalCandidatesController + reducePublicationCandidateEventV1).
+ * An owner JWT MUST NOT be able to invent an approved candidate payload or
+ * mutate candidate state, so this controller exposes only list/get. Ingestion
+ * lives under /internal/v1/... guarded by InternalAuthGuard.
+ */
 @Controller("publication-candidates")
 @UseGuards(JwtAuthGuard, BusinessOwnershipGuard)
 export class CandidatesController {
   constructor(private readonly candidatesService: CandidatesService) {}
 
-  /** Ingest a candidate from the content pipeline.
-   *  businessId is taken from the authenticated owner session, NOT the body —
-   *  the body field is ignored to prevent cross-tenant injection (issue #119 G10). */
-  @Post()
-  async ingest(
-    @Body() dto: IngestCandidateDto,
-    @Req() req: Record<string, unknown>,
-  ) {
-    const user = req["user"] as { businessId?: string };
-    return this.candidatesService.ingestCandidate({
-      ...dto,
-      businessId: user.businessId!,
-    });
-  }
-
   @Get()
-  async list(@Req() req: Record<string, unknown>) {
-    const user = req["user"] as { businessId?: string };
-    return this.candidatesService.listCandidates(user.businessId!);
+  list(@Req() req: Record<string, unknown>) {
+    const user = req["user"] as { businessId: string };
+    return this.candidatesService.listCandidates(user.businessId);
   }
 
   @Get(":candidateId")
-  async getOne(
+  getOne(
     @Param("candidateId") candidateId: string,
     @Req() req: Record<string, unknown>,
   ) {
-    const user = req["user"] as { businessId?: string };
-    return this.candidatesService.getCandidate(candidateId, user.businessId!);
-  }
-
-  @Patch(":candidateId/state")
-  async updateState(
-    @Param("candidateId") candidateId: string,
-    @Body() dto: UpdateCandidateStateDto,
-  ) {
-    return this.candidatesService.updateCandidateState(candidateId, dto);
+    const user = req["user"] as { businessId: string };
+    return this.candidatesService.getCandidate(candidateId, user.businessId);
   }
 }

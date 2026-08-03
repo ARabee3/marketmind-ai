@@ -29,7 +29,16 @@ CREATE TABLE "publishing_candidates" (
     "external_content_id" TEXT NOT NULL,
     "candidate_checksum" TEXT NOT NULL,
     "event_fingerprint" TEXT NOT NULL,
+    -- Originating content-service event id (PublicationCandidateRecordV1.event_id).
+    -- Updated on each applied state-changed event so the authoritative record
+    -- round-trips through reducePublicationCandidateEventV1.
+    "event_id" UUID NOT NULL,
     "status" "PublishingCandidateStatus" NOT NULL DEFAULT 'ACTIVE',
+    -- Full frozen PublicationCandidateStatusV1 object last applied. Stored as
+    -- JSONB so the candidate reducer can validate the existing record exactly
+    -- on a state-changed event (issue #119 P1: ingestion via the frozen
+    -- content-service handoff, not an owner JWT).
+    "source_status" JSONB NOT NULL,
     "payload" JSONB NOT NULL,
     "channel" TEXT NOT NULL,
     "format" TEXT NOT NULL,

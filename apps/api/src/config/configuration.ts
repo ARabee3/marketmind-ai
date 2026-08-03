@@ -101,5 +101,10 @@ export const configuration = () => ({
       process.env.PUBLISHING_CALLBACK_WINDOW_MS || "300000",
       10,
     ),
+    // SEPARATE shared bearer token authenticating INTERNAL publishing routes
+    // (authoritative content-service candidate handoff, future internal asset
+    // route). Distinct from the owner access JWT and the n8n HMAC signing
+    // secret; never put on the browser. Empty → internal routes fail closed.
+    internalServiceToken: process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN || "",
   },
 });

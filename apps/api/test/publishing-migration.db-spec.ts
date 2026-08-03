@@ -216,8 +216,8 @@ describe("publishing-v1 migration + DB invariants (Issue #119 G1/G2/G6/G8/G9/G11
       // Mirror the NOT NULL / FK shape the migration enforces, hand-rolled so
       // we exercise the raw schema (not the Prisma client typing).
       await testClient.$executeRawUnsafe(
-        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at)
-         VALUES ('11111100-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa','content-1','chk1','fp1','ACTIVE','{}','facebook','static_image','ar',1,1,now())`,
+        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at, event_id, source_status)
+         VALUES ('11111100-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa','content-1','chk1','fp1','ACTIVE','{}','facebook','static_image','ar',1,1,now(),'deded000-0000-4000-8000-000000000001','{"contract_version":"publication-candidate-status-v1","candidate_state":"active"}'::jsonb)`,
       );
       await testClient.$executeRawUnsafe(
         `INSERT INTO publishing_intents (id, business_id, candidate_id, mode, status, version, created_by_user_id, updated_at)
@@ -240,8 +240,8 @@ describe("publishing-v1 migration + DB invariants (Issue #119 G1/G2/G6/G8/G9/G11
       const cand = "22222200-0000-4000-8000-000000000001";
       const intent = "22222200-0000-4000-8000-000000000002";
       await testClient.$executeRawUnsafe(
-        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at)
-         VALUES ('${cand}','cccccccc-cccc-4000-8000-cccccccccccc','c-2','chk2','fp2','ACTIVE','{}','facebook','static_image','ar',1,1,now())`,
+        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at, event_id, source_status)
+         VALUES ('${cand}','cccccccc-cccc-4000-8000-cccccccccccc','c-2','chk2','fp2','ACTIVE','{}','facebook','static_image','ar',1,1,now(),'deded000-0000-4000-8000-000000000001','{"contract_version":"publication-candidate-status-v1","candidate_state":"active"}'::jsonb)`,
       );
       await testClient.$executeRawUnsafe(
         `INSERT INTO publishing_intents (id, business_id, candidate_id, mode, status, version, created_by_user_id, updated_at)
@@ -298,8 +298,8 @@ describe("publishing-v1 migration + DB invariants (Issue #119 G1/G2/G6/G8/G9/G11
       const intent = "44444400-0000-4000-8000-000000000002";
       const cand = "44444400-0000-4000-8000-000000000001";
       await testClient.$executeRawUnsafe(
-        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at)
-         VALUES ('${cand}','44444444-4444-4000-8000-444444444444','c-4','chk4','fp4','ACTIVE','{}','facebook','static_image','ar',1,1,now())`,
+        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at, event_id, source_status)
+         VALUES ('${cand}','44444444-4444-4000-8000-444444444444','c-4','chk4','fp4','ACTIVE','{}','facebook','static_image','ar',1,1,now(),'deded000-0000-4000-8000-000000000001','{"contract_version":"publication-candidate-status-v1","candidate_state":"active"}'::jsonb)`,
       );
       await testClient.$executeRawUnsafe(
         `INSERT INTO publishing_intents (id, business_id, candidate_id, mode, status, version, created_by_user_id, updated_at)
@@ -337,8 +337,8 @@ describe("publishing-v1 migration + DB invariants (Issue #119 G1/G2/G6/G8/G9/G11
       const cand = "66666600-0000-4000-8000-000000000001";
       const intent = "66666600-0000-4000-8000-000000000002";
       await testClient.$executeRawUnsafe(
-        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at)
-         VALUES ('${cand}','66666666-6666-4000-8000-666666666666','c-6','chk6','fp6','ACTIVE','{}','facebook','static_image','ar',1,1,now())`,
+        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at, event_id, source_status)
+         VALUES ('${cand}','66666666-6666-4000-8000-666666666666','c-6','chk6','fp6','ACTIVE','{}','facebook','static_image','ar',1,1,now(),'deded000-0000-4000-8000-000000000001','{"contract_version":"publication-candidate-status-v1","candidate_state":"active"}'::jsonb)`,
       );
       await testClient.$executeRawUnsafe(
         `INSERT INTO publishing_intents (id, business_id, candidate_id, mode, status, version, created_by_user_id, updated_at)
@@ -396,8 +396,8 @@ describe("publishing-v1 migration + DB invariants (Issue #119 G1/G2/G6/G8/G9/G11
       const cand = "88888800-0000-4000-8000-000000000001";
       const intent = "88888800-0000-4000-8000-000000000002";
       await testClient.$executeRawUnsafe(
-        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at)
-         VALUES ('${cand}','88888888-8888-4000-8000-888888888888','c-8','chk8','fp8','ACTIVE','{}','facebook','static_image','ar',1,1,now())`,
+        `INSERT INTO publishing_candidates (id, business_id, external_content_id, candidate_checksum, event_fingerprint, status, payload, channel, format, locale, source_state_version, version, updated_at, event_id, source_status)
+         VALUES ('${cand}','88888888-8888-4000-8000-888888888888','c-8','chk8','fp8','ACTIVE','{}','facebook','static_image','ar',1,1,now(),'deded000-0000-4000-8000-000000000001','{"contract_version":"publication-candidate-status-v1","candidate_state":"active"}'::jsonb)`,
       );
       await testClient.$executeRawUnsafe(
         `INSERT INTO publishing_intents (id, business_id, candidate_id, mode, status, version, created_by_user_id, updated_at)

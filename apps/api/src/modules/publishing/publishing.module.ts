@@ -7,6 +7,7 @@ import { PrismaModule } from "../../common/persistence/prisma.module";
 
 // Candidates
 import { CandidatesController } from "./candidates/candidates.controller";
+import { InternalCandidatesController } from "./candidates/candidates.internal.controller";
 import { CandidatesService } from "./candidates/candidates.service";
 
 // Targets
@@ -37,6 +38,7 @@ import { AdminController } from "./admin/admin.controller";
 
 // Guards
 import { BusinessOwnershipGuard } from "./common/guards/business-ownership.guard";
+import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { BusinessOwnershipGuard } from "./common/guards/business-ownership.guard
   ],
   controllers: [
     CandidatesController,
+    InternalCandidatesController,
     TargetsController,
     IntentsController,
     CallbacksController,
@@ -60,6 +63,7 @@ import { BusinessOwnershipGuard } from "./common/guards/business-ownership.guard
     N8nClientService,
     ReconciliationService,
     BusinessOwnershipGuard,
+    InternalAuthGuard,
     // Asset integrity boundary (issue #119 G4 / §9.2). The default
     // NullAssetByteRetriever throws PUBLISHING_ASSET_UNAVAILABLE so real
     // dispatch is blocked (never faked) until #121 supplies byte retrieval.
