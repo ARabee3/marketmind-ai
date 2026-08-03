@@ -302,9 +302,9 @@ export class ContentProcessor extends WorkerHost {
     }
 
     // `recordDecision` already set item.status to "revision_requested". Gate the
-// processor on that persisted status so duplicate/orphaned jobs (failed
-// enqueue, client retry, Redis blip) are no-ops, not double-writes.
-if (item.status !== "revision_requested") {
+    // processor on that persisted status so duplicate/orphaned jobs (failed
+    // enqueue, client retry, Redis blip) are no-ops, not double-writes.
+    if (item.status !== "revision_requested") {
       this.logger.warn(
         `Item ${contentItemId} status is "${item.status}", not "revision_requested"; revision job ${job.id} is a no-op`,
       );
@@ -350,6 +350,54 @@ if (item.status !== "revision_requested") {
 
       const newVersion = response.item_version;
       const newVersionNumber = baseVersion.version + 1;
+
+      // AC-4: every AI output must pass deterministic validation before
+      // being persisted.  Replicates the handleGenerate fixture pattern
+      // using the pack's stored identity pointers (no owner needed —
+      // the processor is a system actor).
+      {
+        const [cycle, weekContext, strategy, strategyVersion, strategyDecision, profileVersion] =
+          await Promise.all([
+            this.cycleRepo.getCycleById(pack.contentCycleId),
+            this.weekContextRepo.getWeekById(pack.weekContextId),
+            this.strategyRepo.readStrategy(pack.strategyId),
+            this.strategyRepo.getVersionByNumber(pack.strategyId, pack.strategyVersion),
+            this.strategyRepo.getDecisionById(pack.strategyDecisionId),
+            this.strategyRepo.getActiveConfirmedProfileVersion(pack.businessId),
+          ]);
+
+        if (cycle && weekContext && strategy && strategyVersion && profileVersion) {
+          const fixture: ContentPolicyFixture = {
+            strategy_id: pack.strategyId,
+            strategy_version: pack.strategyVersion,
+            strategy_status: strategy.status as ContentPolicyFixture["strategy_status"],
+            strategy_decision: {
+              id: pack.strategyDecisionId,
+              strategy_id: pack.strategyId,
+              strategy_version: pack.strategyVersion,
+              decision: normalizeStrategyDecision(strategyDecision?.action),
+            },
+            cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
+            profile_version_id: pack.profileVersionId,
+            current_profile_version_id: profileVersion.id,
+            selected_channels: planSelectedChannels(strategyVersion.planData),
+            existing_weekly_claims: [],
+            week_context: toContentWeekContext(weekContext),
+            pack: { ...toContentPack(pack), item_ids: [] },
+            item_version: newVersion,
+            assets: [],
+          };
+
+          const result = validateContentPolicyFixture(fixture);
+          if (!result.valid) {
+            throw new ProviderError(
+              result.issues[0].code,
+              `Revision policy validation failed: ${result.issues[0].message}`,
+              false,
+            );
+          }
+        }
+      }
 
       const persisted = await this.packRepo.appendRevisedItemVersion({
         packId: contentPackId,

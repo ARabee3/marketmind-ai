@@ -31,11 +31,20 @@ export class ContentScheduler {
             week_number: nextWeek,
             idempotency_key: `scheduler:${cycle.id}:week:${nextWeek}`,
           },
+          // The scheduler acts as a system worker, not a user. It passes the
+          // cycle owner's user ID to preserve the ownership invariant inside
+          // getCycleByIdAndOwner — future refactors that add system-only
+          // service methods must still verify the cycle belongs to its owner.
           cycle.ownerUserId,
         );
         this.logger.log(
           `Scheduled week ${nextWeek} for cycle ${cycle.id} (correlation_id=${correlationId})`,
         );
+
+        if (nextWeek === 12) {
+          await this.cycleRepository.markCycleCompleted(cycle.id);
+          this.logger.log(`Marked cycle ${cycle.id} completed after week 12`);
+        }
       } catch (error) {
         this.logger.error(
           `Failed to schedule week ${nextWeek} for cycle ${cycle.id}: ${(error as Error).message}`,

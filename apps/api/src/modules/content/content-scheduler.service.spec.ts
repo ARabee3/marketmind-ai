@@ -4,12 +4,15 @@ import { ContentService } from "./content.service";
 
 describe("ContentScheduler", () => {
   let scheduler: ContentScheduler;
-  let cycleRepo: jest.Mocked<Pick<ContentCycleRepository, "listActiveReadyForNextWeek">>;
+  let cycleRepo: jest.Mocked<
+    Pick<ContentCycleRepository, "listActiveReadyForNextWeek" | "markCycleCompleted">
+  >;
   let contentService: jest.Mocked<Pick<ContentService, "generateWeek">>;
 
   beforeEach(() => {
     cycleRepo = {
       listActiveReadyForNextWeek: jest.fn(),
+      markCycleCompleted: jest.fn(),
     };
     contentService = {
       generateWeek: jest.fn().mockResolvedValue({
@@ -76,5 +79,22 @@ describe("ContentScheduler", () => {
       expect.objectContaining({ idempotency_key: "scheduler:good:week:4" }),
       "owner-2",
     );
+  });
+
+  it("marks the cycle completed after generating week 12", async () => {
+    const cycles = [
+      { id: "cycle-1", ownerUserId: "owner-1", currentWeekNumber: 11 },
+    ];
+    cycleRepo.listActiveReadyForNextWeek.mockResolvedValue(cycles as any);
+    cycleRepo.markCycleCompleted.mockResolvedValue(undefined);
+
+    await scheduler.progressWeeks();
+
+    expect(contentService.generateWeek).toHaveBeenCalledWith(
+      "cycle-1", 12,
+      expect.objectContaining({ idempotency_key: "scheduler:cycle-1:week:12" }),
+      "owner-1",
+    );
+    expect(cycleRepo.markCycleCompleted).toHaveBeenCalledWith("cycle-1");
   });
 });

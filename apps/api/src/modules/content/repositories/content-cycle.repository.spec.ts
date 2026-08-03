@@ -314,4 +314,40 @@ describe("ContentCycleRepository", () => {
       );
     });
   });
+
+  describe("listActiveReadyForNextWeek", () => {
+    it("filters active cycles past their next-generation cutoff", async () => {
+      const findMany = jest.fn().mockResolvedValue([CYCLE_ROW]);
+      const repo = new ContentCycleRepository(
+        { contentCycle: { findMany } } as unknown as PrismaService,
+      );
+
+      const result = await repo.listActiveReadyForNextWeek();
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: {
+          status: "active",
+          nextGenerationAt: { lte: expect.any(Date) },
+          currentWeekNumber: { lt: 12 },
+        },
+      });
+      expect(result[0].ownerUserId).toBe("owner-1");
+    });
+  });
+
+  describe("markCycleCompleted", () => {
+    it("marks an active cycle completed", async () => {
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const repo = new ContentCycleRepository(
+        { contentCycle: { updateMany } } as unknown as PrismaService,
+      );
+
+      await repo.markCycleCompleted("cycle-1");
+
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: "cycle-1", status: "active" },
+        data: { status: "completed", completedAt: expect.any(Date) },
+      });
+    });
+  });
 });

@@ -168,6 +168,16 @@ describe("Content public contract (e2e)", () => {
       .get(`/api/v1/publication-candidates/${CANDIDATE_ID}`)
       .expect(401));
 
+  it("rejects unauthenticated pack retry", () =>
+    request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/retry`)
+      .expect(401));
+
+  it("rejects unauthenticated bulk decision", () =>
+    request(app.getHttpServer())
+      .post(`/api/v1/content-packs/${PACK_ID}/decisions/bulk`)
+      .expect(401));
+
   // ── Cycle creation ───────────────────────────────────────────────────
 
   it("accepts a valid cycle creation request", () => {

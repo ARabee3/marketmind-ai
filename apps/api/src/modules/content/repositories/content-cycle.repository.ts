@@ -169,6 +169,13 @@ export class ContentCycleRepository {
       },
     });
   }
+
+  async markCycleCompleted(id: string): Promise<void> {
+    await this.prisma.contentCycle.updateMany({
+      where: { id, status: "active" },
+      data: { status: "completed", completedAt: new Date() },
+    });
+  }
 }
 
 function isUniqueViolation(error: unknown): boolean {

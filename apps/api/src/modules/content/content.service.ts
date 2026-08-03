@@ -112,6 +112,7 @@ export class ContentService {
     private readonly prisma: PrismaService,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
+    @InjectQueue("content-outbox") private readonly outboxQueue: Queue,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -824,7 +825,8 @@ export class ContentService {
       });
     }
 
-    const { decision, publicationCandidate } = await this.prisma.$transaction(
+    const { decision, publicationCandidate, outboxEventId } =
+      await this.prisma.$transaction(
       async (tx) => {
         const recorded = await this.decisionRepository.recordDecision(
           {
@@ -841,7 +843,7 @@ export class ContentService {
         );
 
         if (recorded.decision !== "approved") {
-          return { decision: recorded, publicationCandidate: null };
+          return { decision: recorded, publicationCandidate: null, outboxEventId: null as string | null };
         }
 
         // Decision replay (same idempotency key) returns the original decision
@@ -853,7 +855,7 @@ export class ContentService {
             tx,
           );
         if (existingCandidate) {
-          return { decision: recorded, publicationCandidate: existingCandidate };
+          return { decision: recorded, publicationCandidate: existingCandidate, outboxEventId: null as string | null };
         }
 
         const created = await this.candidateRepository.createCandidate(
@@ -869,9 +871,16 @@ export class ContentService {
         return {
           decision: recorded,
           publicationCandidate: created.candidate,
+          outboxEventId: created.outboxEventId,
         };
       },
     );
+
+    if (outboxEventId) {
+      await this.outboxQueue.add("dispatch-outbox", {
+        eventId: outboxEventId,
+      });
+    }
 
     this.logger.log(
       `[ContentItem ${item.id}] Owner decision ${decision.decision} on version ${decision.contentItemVersion} (${decision.id}) persisted${publicationCandidate ? `; candidate ${publicationCandidate.candidate_id} created` : ""}.`,
@@ -1161,7 +1170,8 @@ export class ContentService {
       return decisions.map((request) => ineligibleByItemId.get(request.content_item_id)!);
     }
 
-    const { decisions: recorded, errors } = await this.prisma.$transaction(
+    const { decisions: recorded, errors, outboxEventIds } =
+      await this.prisma.$transaction(
       async (tx) => {
         const bulk = await this.decisionRepository.bulkRecordDecisions(
           eligible.map(({ request }) => ({
@@ -1175,6 +1185,8 @@ export class ContentService {
           ownerUserId,
           tx,
         );
+
+        const outboxIds: string[] = [];
 
         for (const decision of bulk.decisions) {
           if (decision.decision !== "approved") continue;
@@ -1194,7 +1206,7 @@ export class ContentService {
             );
           if (existingCandidate) continue;
 
-          await this.candidateRepository.createCandidate(
+          const created = await this.candidateRepository.createCandidate(
             {
               approval: decision,
               itemVersion: this.candidateItemVersionInput(entry.currentVersion),
@@ -1203,11 +1215,16 @@ export class ContentService {
             },
             tx,
           );
+          outboxIds.push(created.outboxEventId);
         }
 
-        return bulk;
+        return { ...bulk, outboxEventIds: outboxIds };
       },
     );
+
+    for (const eventId of outboxEventIds) {
+      await this.outboxQueue.add("dispatch-outbox", { eventId });
+    }
 
     // Every recorded revision_requested decision enqueues a revise-content job
     // (same rule as `requestRevision`; the processor preserves the prior

@@ -144,6 +144,7 @@ describe("ContentService.getPublicationCandidate", () => {
         { provide: ContentWeekContextRepository, useValue: { listWeeks: jest.fn() } },
         { provide: ContentPackRepository, useValue: { getAssetByIdAndOwner: jest.fn() } },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
+        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
         { provide: ContentDecisionRepository, useValue: { recordDecision: jest.fn() } },
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
