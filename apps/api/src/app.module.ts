@@ -17,6 +17,7 @@ import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
 import { StrategyModule } from './modules/strategy/strategy.module';
+import { PublishingModule } from './modules/publishing/publishing.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { StrategyModule } from './modules/strategy/strategy.module';
     JourneyModule,
     MarketingKnowledgeModule,
     StrategyModule,
+    PublishingModule,
   ],
   controllers: [AppController],
 })
