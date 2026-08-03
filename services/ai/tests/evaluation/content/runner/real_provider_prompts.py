@@ -94,6 +94,18 @@ def build_spot_check_generation_prompt(
     )
 
     promotion = request.week_context.promotion
+    promotion_exact = (
+        ""
+        if request.week_context.promotion_mode != "owner_approved" or promotion is None
+        else (
+            "\n"
+            f"  Promotion text to include verbatim: {promotion.text!r}\n"
+            f"  Promotion terms to include verbatim: {[str(t) for t in promotion.terms]!r}\n"
+            "  Add this exact claim_sources entry: "
+            "claim_type='promotion', source_type='week_context', "
+            "source_path='week_context.promotion', approved=true."
+        )
+    )
     promotion_rule = (
         "No weekly promotion is set; do not invent or mention any offer, discount, "
         "price, or promotion terms."
@@ -101,10 +113,26 @@ def build_spot_check_generation_prompt(
         else (
             "The weekly context contains an owner-approved promotion. "
             "You must include the exact promotion text and every term verbatim "
-            "in at least one caption, and you must add a claim_sources entry with "
-            "claim_type='promotion', source_type='week_context', "
-            "source_path='week_context.promotion', approved=true. "
-            "Do not add extra promotion details that are not in the supplied terms."
+            "in at least one caption. Do not add extra promotion details that are "
+            "not in the supplied terms."
+            f"{promotion_exact}"
+        )
+    )
+
+    must_include_exact = (
+        ""
+        if not request.week_context.must_include
+        else (
+            "\n  The exact must_include text to include verbatim in at least one caption: "
+            + f"{[str(v) for v in request.week_context.must_include]!r}"
+        )
+    )
+    must_avoid_exact = (
+        ""
+        if not request.week_context.must_avoid
+        else (
+            "\n  The exact must_avoid text that must NOT appear anywhere: "
+            + f"{[str(v) for v in request.week_context.must_avoid]!r}"
         )
     )
 
@@ -140,7 +168,8 @@ def build_spot_check_generation_prompt(
             f"13. {cta_rule}",
             f"14. {promotion_rule}",
             "15. Obey every `week_context.must_include` instruction exactly; "
-            "never include any `week_context.must_avoid` text.",
+            "never include any `week_context.must_avoid` text."
+            f"{must_include_exact}{must_avoid_exact}",
             f"16. `recommended_publish_window.starts_at` and `ends_at` must be "
             f"timezone-aware ISO-8601 datetimes between {week_start.isoformat()} "
             f"and {week_end.isoformat()}, with `ends_at` > `starts_at`.",
