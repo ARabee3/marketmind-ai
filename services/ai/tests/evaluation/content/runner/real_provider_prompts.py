@@ -74,7 +74,10 @@ def build_spot_check_generation_prompt(
         cta_rule = (
             "If the weekly context has a CTA destination, "
             f"the generated CTA copy must include the confirmed destination value: {destination_value!r}."
-            f"{language_note}"
+            f"{language_note} "
+            "The CTA wording around the destination value must be in the same language as the caption "
+            "(Arabic for ar-EG; English for en). Do not use English action words such as 'Order now', "
+            "'WhatsApp', or 'Call us' in an Arabic CTA."
         )
     else:
         cta_rule = (
@@ -173,6 +176,11 @@ def build_spot_check_generation_prompt(
             "The validator checks that every substantive word of the instruction appears in the "
             "caption text. Never include any `week_context.must_avoid` text."
             f"{must_include_exact}{must_avoid_exact}",
+            "15b. Protected owner or business values (business name, phone, WhatsApp number, URL, "
+            "handle, address) must be used exactly as provided in the request or omitted entirely. "
+            "Do not translate, transliterate, or rewrite them into Arabic script or a different form. "
+            "For example, if the business name is supplied in Latin characters, keep it in Latin "
+            "characters; if the phone number is '+201000000000', do not shorten or reformat it.",
             "15a. The CTA must include the confirmed destination value exactly as shown above; "
             "do not shorten, reformat, or drop the phone number / URL / handle.",
             f"16. `recommended_publish_window.starts_at` and `ends_at` must be "
