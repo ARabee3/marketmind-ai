@@ -414,7 +414,13 @@ export class PublicationCandidateRepository {
 
   async listOutboxPending(limit: number) {
     return this.prisma.publicationCandidateOutbox.findMany({
-      where: { state: "pending" },
+      where: {
+        state: "pending",
+        OR: [
+          { nextAttemptAt: null },
+          { nextAttemptAt: { lte: new Date() } },
+        ],
+      },
       orderBy: { createdAt: "asc" },
       take: limit,
     });
@@ -428,9 +434,20 @@ export class PublicationCandidateRepository {
   }
 
   async markOutboxFailed(eventId: string, error: string): Promise<void> {
+    const attempts = await this.prisma.publicationCandidateOutbox.aggregate({
+      where: { eventId },
+      _max: { attempts: true },
+    });
+    const nextAttempts = (attempts._max.attempts ?? 0) + 1;
+    const backoffMs = Math.min(2 ** nextAttempts * 1000, 60_000);
     await this.prisma.publicationCandidateOutbox.updateMany({
       where: { eventId },
-      data: { state: "failed", lastError: error, attempts: { increment: 1 } },
+      data: {
+        state: "pending",
+        lastError: error,
+        attempts: { increment: 1 },
+        nextAttemptAt: new Date(Date.now() + backoffMs),
+      },
     });
   }
 

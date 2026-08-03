@@ -380,7 +380,13 @@ describe("PublicationCandidateRepository", () => {
       await repo.listOutboxPending(10);
 
       expect(findMany).toHaveBeenCalledWith({
-        where: { state: "pending" },
+        where: {
+          state: "pending",
+          OR: [
+            { nextAttemptAt: null },
+            { nextAttemptAt: { lte: expect.any(Date) } },
+          ],
+        },
         orderBy: { createdAt: "asc" },
         take: 10,
       });
@@ -404,9 +410,12 @@ describe("PublicationCandidateRepository", () => {
     });
 
     it("marks an event failed with an error and increments attempts", async () => {
+      const aggregate = jest
+        .fn()
+        .mockResolvedValue({ _max: { attempts: 2 } });
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
       const repo = new PublicationCandidateRepository({
-        publicationCandidateOutbox: { updateMany },
+        publicationCandidateOutbox: { aggregate, updateMany },
       } as unknown as PrismaService);
 
       await repo.markOutboxFailed("event-1", "consumer boom");
@@ -414,9 +423,10 @@ describe("PublicationCandidateRepository", () => {
       expect(updateMany).toHaveBeenCalledWith({
         where: { eventId: "event-1" },
         data: {
-          state: "failed",
+          state: "pending",
           lastError: "consumer boom",
           attempts: { increment: 1 },
+          nextAttemptAt: expect.any(Date),
         },
       });
     });

@@ -41,7 +41,7 @@ describe('ContentProcessor - Revision Flow', () => {
     id: randomUUID(),
     contentPackId: mockPack.id,
     currentVersionId: randomUUID(),
-    status: 'draft',
+    status: 'revision_requested',
     createdAt: new Date(),
   };
 
@@ -209,11 +209,6 @@ describe('ContentProcessor - Revision Flow', () => {
       });
 
       await processor.process(createJob({}) as any);
-
-      expect(packRepo.markItemStatus).toHaveBeenCalledWith(
-        mockItem.id,
-        'revision_requested',
-      );
 
       expect(aiClient.revise).toHaveBeenCalledWith({
         contract_version: 'content-v1',

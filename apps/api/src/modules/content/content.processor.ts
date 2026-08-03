@@ -301,7 +301,16 @@ export class ContentProcessor extends WorkerHost {
       return;
     }
 
-    await this.packRepo.markItemStatus(contentItemId, "revision_requested");
+    // `recordDecision` already set item.status to "revision_requested". Gate the
+// processor on that persisted status so duplicate/orphaned jobs (failed
+// enqueue, client retry, Redis blip) are no-ops, not double-writes.
+if (item.status !== "revision_requested") {
+      this.logger.warn(
+        `Item ${contentItemId} status is "${item.status}", not "revision_requested"; revision job ${job.id} is a no-op`,
+      );
+      return;
+    }
+
     await this.packRepo.appendProgressEvent(pack.id, {
       stage: "revision",
       status: "started",
@@ -556,6 +565,9 @@ function extractAllowedFormats(planData: unknown): ContentFormat[] {
   const plan = toPayload(planData);
   const formats = plan["allowed_formats"];
   if (!Array.isArray(formats)) return [];
+  // MVP content pipeline supports post/story/reel only; other formats in the
+  // strategy are intentionally dropped here. Lift this allowlist when the
+  // content processor and asset providers gain the new formats.
   return formats.filter(
     (f): f is ContentFormat =>
       typeof f === "string" && ["post", "story", "reel"].includes(f),
