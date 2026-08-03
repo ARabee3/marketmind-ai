@@ -502,6 +502,7 @@ def _build_policy_fixture(
                 provider_model=None,
                 provider_request_id=None,
                 failure_code=None,
+                review_required=False,
                 created_at=now,
             )
         )
@@ -522,6 +523,7 @@ def _build_policy_fixture(
                 provider_model=None,
                 provider_request_id=None,
                 failure_code=None,
+                review_required=True,
                 created_at=now,
             )
         )

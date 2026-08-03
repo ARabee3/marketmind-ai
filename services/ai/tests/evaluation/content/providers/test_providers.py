@@ -194,6 +194,7 @@ class MislabeledAssetProvider(FakeContentProvider):
                 provider_model="fake-image-model",
                 provider_request_id=None,
                 failure_code=None,
+                review_required=True,
                 created_at=datetime.now(UTC),
             )
         ]

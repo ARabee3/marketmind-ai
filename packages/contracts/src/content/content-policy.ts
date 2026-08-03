@@ -58,6 +58,7 @@ const blockedClaimCodes: Record<string, ContentErrorCode> = {
   regulated: "CONTENT_POLICY_VIOLATION",
   branded_sponsored: "CONTENT_POLICY_VIOLATION",
   competitor_comparison: "CONTENT_UNSUPPORTED_CLAIM",
+  health_claim: "CONTENT_POLICY_VIOLATION",
 };
 
 const addIssue = (
@@ -407,6 +408,36 @@ export function validateContentPolicyFixture(
       "CONTENT_VERSION_CONFLICT",
       "decision.content_item_version_id",
       "Approval must reference the exact immutable Content item version and checksum.",
+    );
+  }
+
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateRecommendedWindow(
+  window: ContentItemVersion["recommended_publish_window"],
+): ContentValidationResult {
+  const issues: ContentValidationIssue[] = [];
+
+  const start = Date.parse(window.starts_at);
+  const end = Date.parse(window.ends_at);
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "recommended_publish_window",
+      "Recommended publish window must have a valid start before its end.",
+    );
+    return { valid: issues.length === 0, issues };
+  }
+
+  const startHour = new Date(start).getUTCHours();
+  if (window.time_of_day_hint === "night" && startHour < 20 && startHour >= 6) {
+    addIssue(
+      issues,
+      "CONTENT_PLATFORM_CONSTRAINT",
+      "recommended_publish_window.time_of_day_hint",
+      "Night-hint window starts in a busy daytime hour; check the business-audience rationale.",
     );
   }
 

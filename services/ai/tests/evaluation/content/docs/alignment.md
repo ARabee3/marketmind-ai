@@ -307,6 +307,9 @@ accepted:
   - [x] Marketing-quality additions (issue #109): dialect rubric dimension added,
         funnel-mix advisory check added (never blocks), and health/clinical-claim
         mutation case added via the frozen regulated path.
+  - [x] #139 follow-up contract additions landed on the eval branch: dedicated
+        `health_claim` blocked code, `platform_constraints` advisory, and
+        `review_required` asset truthfulness check added to the validator.
   - [x] 100% hard guardrails met (threshold verdict `1.0`).
   - [x] Rubric threshold is configured at 0.9 and is gated by reviewer sign-off
         (`reviewers.ai_product_merzk.signed_off`).  It will report 1.0 once the

@@ -26,6 +26,11 @@ from tests.evaluation.content.validators.content_validator import (
     validate_case,
 )
 from tests.evaluation.content.reports.report import Report, build_report
+from platform_constraints import (
+    PLATFORM_CONSTRAINTS as PY_PLATFORM_CONSTRAINTS,
+    validate_platform_constraints as py_validate_constraints,
+)
+
 from tests.evaluation.content.runner.runner import load_all_cases, run_all
 
 
@@ -454,8 +459,385 @@ def test_runner_runs_without_exceptions() -> None:
 
 def test_runner_expected_failures_match_mutation_cases() -> None:
     report = run_all()
-    # All 19 mutation cases are designed to fail deterministic validators (or, in
-    # revision-preservation, to pass). The exact outcomes depend on fixture type,
-    # but every case should be checked.
     for entry in report.per_case:
         assert entry["checked"] is True, f"{entry['case_id']} was not checked"
+
+
+# ---------------------------------------------------------------------------
+# review_required — generated_static assets must request human review
+# ---------------------------------------------------------------------------
+
+
+def _craft_fixture_with_assets(assets: list[dict[str, object]]) -> dict[str, object]:
+    return {"assets": assets, "item_version": {"channel": "facebook", "format": "static_image_post"}}
+
+
+def test_review_required_flags_generated_without_review_flag() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_review_required,
+    )
+
+    fixture = _craft_fixture_with_assets(
+        [
+            {
+                "id": "asset-1",
+                "kind": "generated_static",
+                "review_required": False,
+            },
+        ]
+    )
+    result = _check_review_required(fixture)
+    assert not result.passed
+    assert "asset-1" in result.reason
+
+
+def test_review_required_passes_generated_with_review_flag() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_review_required,
+    )
+
+    fixture = _craft_fixture_with_assets(
+        [
+            {
+                "id": "asset-1",
+                "kind": "generated_static",
+                "review_required": True,
+            },
+            {
+                "id": "asset-2",
+                "kind": "owner_supplied",
+                "review_required": False,
+            },
+        ]
+    )
+    result = _check_review_required(fixture)
+    assert result.passed
+
+
+def test_review_required_passes_owner_supplied_only() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_review_required,
+    )
+
+    fixture = _craft_fixture_with_assets(
+        [
+            {
+                "id": "asset-1",
+                "kind": "owner_supplied",
+                "review_required": False,
+            },
+        ]
+    )
+    result = _check_review_required(fixture)
+    assert result.passed
+
+
+def test_review_required_integration_mislabeled_asset_caught_by_validate_case() -> None:
+    base = _load_base_policy_fixture()
+    data = base.model_dump(mode="json")
+    # Replace the first asset with a generated_static lacking review_required
+    if data.get("assets"):
+        first = dict(data["assets"][0])
+        first["kind"] = "generated_static"
+        first["review_required"] = False
+        data["assets"][0] = first
+    fixture = ContentPolicyFixture.model_validate(data)
+    case = _make_base_case(
+        case_id="self-test-review-required",
+        expected_result="pass",
+        expected_error_codes=[],
+        failure_category="no_failure",
+        policy_fixture=fixture,
+    )
+    result = validate_case(case)
+    review_checks = [c for c in result.checks if c.name == "review_required"]
+    assert len(review_checks) == 1
+    assert not review_checks[0].passed
+    assert "review_required=True" in review_checks[0].reason
+
+
+# ---------------------------------------------------------------------------
+# platform_constraints — advisory warnings must be visible in the report
+# ---------------------------------------------------------------------------
+
+
+def test_platform_constraints_no_warning_on_valid_item() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_platform_constraints,
+    )
+
+    fixture = {
+        "item_version": {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [
+                {"locale": "ar", "caption": "short caption", "cta": None, "hashtags": []}
+            ],
+            "hashtags": [],
+            "alt_text": "short alt",
+        }
+    }
+    result = _check_platform_constraints(fixture)
+    assert result.passed
+    assert "within platform" in result.reason.lower()
+
+
+def test_platform_constraints_warning_on_overlong_instagram_caption() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_platform_constraints,
+    )
+
+    overlong = "x" * 2500
+    fixture = {
+        "item_version": {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [
+                {"locale": "ar", "caption": overlong, "cta": None, "hashtags": []}
+            ],
+            "hashtags": [],
+            "alt_text": "short alt",
+        }
+    }
+    result = _check_platform_constraints(fixture)
+    assert result.passed
+    assert "over the" in result.reason.lower()
+    assert "caption" in result.reason.lower()
+    assert "instagram" in result.reason.lower()
+
+
+def test_platform_constraints_warning_on_overlimit_hashtags() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_platform_constraints,
+    )
+
+    fixture = {
+        "item_version": {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [
+                {"locale": "ar", "caption": "ok", "cta": None, "hashtags": []}
+            ],
+            "hashtags": [f"tag{i}" for i in range(35)],
+            "alt_text": "short alt",
+        }
+    }
+    result = _check_platform_constraints(fixture)
+    assert result.passed
+    assert "over the" in result.reason.lower()
+    assert "hashtags" in result.reason.lower()
+
+
+def test_platform_constraints_warning_on_overlimit_alt_text() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_platform_constraints,
+    )
+
+    fixture = {
+        "item_version": {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [
+                {"locale": "ar", "caption": "ok", "cta": None, "hashtags": []}
+            ],
+            "hashtags": [],
+            "alt_text": "a" * 150,
+        }
+    }
+    result = _check_platform_constraints(fixture)
+    assert result.passed
+    assert "over the" in result.reason.lower()
+    assert "alt_text" in result.reason.lower()
+
+
+def test_platform_constraints_skipped_on_week_context_only_fixture() -> None:
+    from tests.evaluation.content.validators.content_validator import (
+        _check_platform_constraints,
+    )
+
+    fixture = {"is_week_context_only": True}
+    result = _check_platform_constraints(fixture)
+    assert result.passed
+    assert "week-context-only" in result.reason.lower()
+
+
+def test_platform_constraints_visibility_in_validate_case() -> None:
+    base = _load_base_policy_fixture()
+    data = base.model_dump(mode="json")
+    data["item_version"]["channel"] = "instagram"
+    data["item_version"]["strategy_trace"]["channel"] = "instagram"
+    data["item_version"]["format"] = "static_image_post"
+    # Make the AR caption exceed Instagram limit
+    for variant in data["item_version"]["caption_variants"]:
+        if variant.get("locale") == "ar":
+            variant["caption"] = "x" * 2500
+    data["selected_channels"] = ["instagram"]
+    fixture = ContentPolicyFixture.model_validate(data)
+    case = _make_base_case(
+        case_id="self-test-platform-constraint-visible",
+        expected_result="pass",
+        expected_error_codes=[],
+        failure_category="no_failure",
+        policy_fixture=fixture,
+    )
+    result = validate_case(case)
+    platform_checks = [c for c in result.checks if c.name == "platform_constraints"]
+    assert len(platform_checks) == 1
+    assert platform_checks[0].passed
+    assert "over the" in platform_checks[0].reason.lower()
+    assert "instagram" in platform_checks[0].reason.lower()
+
+
+# ---------------------------------------------------------------------------
+# Python platform_constraints mirror — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_py_validate_constraints_returns_empty_on_valid_item() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [{"locale": "ar", "caption": "ok"}],
+            "hashtags": [],
+            "alt_text": "ok",
+        }
+    )
+    assert len(warnings) == 0
+
+
+def test_py_validate_constraints_warns_on_overlong_caption() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [{"locale": "ar", "caption": "x" * 3000}],
+            "hashtags": [],
+            "alt_text": "ok",
+        }
+    )
+    assert len(warnings) == 1
+    assert warnings[0].field == "caption"
+    assert "over the" in warnings[0].message.lower()
+
+
+def test_py_validate_constraints_warns_on_overlimit_hashtags() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [{"locale": "ar", "caption": "ok"}],
+            "hashtags": [f"t{i}" for i in range(40)],
+            "alt_text": "ok",
+        }
+    )
+    assert len(warnings) == 1
+    assert warnings[0].field == "hashtags"
+
+
+def test_py_validate_constraints_warns_on_overlimit_alt_text() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [{"locale": "ar", "caption": "ok"}],
+            "hashtags": [],
+            "alt_text": "a" * 120,
+        }
+    )
+    assert len(warnings) == 1
+    assert warnings[0].field == "alt_text"
+
+
+def test_py_validate_constraints_returns_empty_on_unknown_channel_format() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "unknown",
+            "format": "unknown",
+            "caption_variants": [{"locale": "ar", "caption": "x" * 9999}],
+            "hashtags": [],
+            "alt_text": "a" * 999,
+        }
+    )
+    assert len(warnings) == 0
+
+
+def test_py_validate_constraints_handles_missing_caption_variants() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "hashtags": [],
+            "alt_text": "ok",
+        }
+    )
+    assert len(warnings) == 0
+
+
+# ---------------------------------------------------------------------------
+# TS ↔ Python platform_constraints mirror-sync cross-check
+# ---------------------------------------------------------------------------
+
+
+def test_platform_constraints_ts_python_mirror_sync() -> None:
+    import re
+
+    py_map: dict[tuple[str, str], dict[str, object]] = {}
+    for c in PY_PLATFORM_CONSTRAINTS:
+        py_map[(c.channel, c.format)] = {
+            "max_caption_length": c.max_caption_length,
+            "max_hashtags": c.max_hashtags,
+            "max_alt_text_length": c.max_alt_text_length,
+        }
+
+    ts_path = (
+        Path(__file__).resolve().parents[5]
+        / "packages"
+        / "contracts"
+        / "src"
+        / "content"
+        / "platform-constraints.ts"
+    )
+    ts_text = ts_path.read_text(encoding="utf-8")
+
+    entry_pattern = re.compile(
+        r"channel:\s*\"(?P<channel>\w+)\".*?"
+        r"format:\s*\"(?P<format>[\w_]+)\".*?"
+        r"max_caption_length:\s*(?P<cap>\d+|null).*?"
+        r"max_hashtags:\s*(?P<tags>\d+|null).*?"
+        r"max_alt_text_length:\s*(?P<alt>\d+|null)",
+        re.DOTALL,
+    )
+
+    ts_entries: dict[tuple[str, str], dict[str, object]] = {}
+    for m in entry_pattern.finditer(ts_text):
+        key = (m.group("channel"), m.group("format"))
+        ts_entries[key] = {
+            "max_caption_length": (
+                int(m.group("cap")) if m.group("cap") != "null" else None
+            ),
+            "max_hashtags": (
+                int(m.group("tags")) if m.group("tags") != "null" else None
+            ),
+            "max_alt_text_length": (
+                int(m.group("alt")) if m.group("alt") != "null" else None
+            ),
+        }
+
+    assert ts_entries, "TS PLATFORM_CONSTRAINTS table must have entries"
+    assert len(ts_entries) == len(
+        py_map
+    ), f"TS has {len(ts_entries)} entries, Python has {len(py_map)}"
+
+    for key, ts_entry in ts_entries.items():
+        assert key in py_map, f"TS entry {key} not found in Python PLATFORM_CONSTRAINTS"
+        py = py_map[key]
+        assert (
+            py["max_caption_length"] == ts_entry["max_caption_length"]
+        ), f"caption-length mismatch on {key}: py={py['max_caption_length']} ts={ts_entry['max_caption_length']}"
+        assert (
+            py["max_hashtags"] == ts_entry["max_hashtags"]
+        ), f"hashtags mismatch on {key}: py={py['max_hashtags']} ts={ts_entry['max_hashtags']}"
+        assert (
+            py["max_alt_text_length"] == ts_entry["max_alt_text_length"]
+        ), f"alt-text-length mismatch on {key}: py={py['max_alt_text_length']} ts={ts_entry['max_alt_text_length']}"

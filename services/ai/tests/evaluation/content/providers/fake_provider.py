@@ -601,6 +601,7 @@ def _generated_asset(
         provider_model=provider_model,
         provider_request_id=_uuid(f"{asset_id}:request"),
         failure_code=failure_code,
+        review_required=True,
         created_at=datetime.now(UTC),
     )
 

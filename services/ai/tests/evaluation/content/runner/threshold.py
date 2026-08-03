@@ -38,6 +38,7 @@ GUARDRAIL_CHECK_MAP: dict[str, list[str]] = {
     "unsupported_claim": ["contract:CONTENT_UNSUPPORTED_CLAIM"],
     "guarantee_claim": ["contract:CONTENT_POLICY_VIOLATION"],
     "regulated_claim": ["contract:CONTENT_POLICY_VIOLATION"],
+    "health_claim": ["contract:CONTENT_POLICY_VIOLATION"],
     "competitor_claim": ["contract:CONTENT_UNSUPPORTED_CLAIM"],
     "selected_channel": ["contract:CONTENT_CHANNEL_MISMATCH"],
     "pillar_alignment": ["wrong_pillar"],

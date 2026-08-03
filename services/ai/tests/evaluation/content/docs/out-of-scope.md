@@ -24,27 +24,34 @@ abandoned scope. They belong to the owning issue (#107 / future issues), not to
   the case's `protected_fictional_fields.owner_text`. It is (eval-only synthetic
   text, never real business data).
 
-## #107 follow-up items (frozen-contract work deferred to a new issue)
+## #107 follow-up items (frozen-contract work tracked in issue #139)
 
-The eval harness covers the following behaviours today via existing frozen
-paths, but a dedicated frozen-contract change belongs to a new follow-up issue
-(parent #106, label `sprint-5`, assignee `@mostafamerzk`), not to #109:
+The eval harness originally covered the following behaviours via existing frozen
+paths, but the dedicated `content-v1` contract / package changes belong to a
+follow-up issue (#139, parent #106, label `sprint-5`, assignee `@mostafamerzk`),
+not to #109:
 
 - **`health_claim` claim_type + blocked code.** The health/clinical-claim
-  mutation case (`mutation-health-claim`) fires `CONTENT_POLICY_VIOLATION`
-  through the frozen `regulated` path. A distinct `health_claim` claim_type and
-  its own blocked error code would need a `content-v1` contract change, which is
-  deferred because the contract is frozen (#107 closed).
-- **`platform-constraints.ts` + `platform_constraint` warnings.** The harness
-  validates channels against the approved Strategy (`CONTENT_CHANNEL_MISMATCH`)
-  but has no per-platform constraint vocabulary (e.g. Instagram link-in-bio
-  limitations). That belongs to a contract/package change in the follow-up.
-- **`review_required` asset flag.** Asset readiness is checked via
-  `CONTENT_ASSET_REQUIRED` and the Phase 5 asset-state checks; a first-class
-  `review_required` flag on assets/items is a follow-up contract item.
+  mutation case (`mutation-health-claim`) now uses a distinct `health_claim`
+  claim_type and fires `CONTENT_POLICY_VIOLATION` through the blocked
+  `health_claim` code (contract + Python mirror updated, dataset regenerated).
+- **`platform-constraints.ts` + `platform_constraint` warnings.** A shared
+  `platform-constraints` vocabulary (TS + Python mirror) now validates
+  per-platform caption/hashtag/alt-text limits as advisory warnings
+  (`platform_constraints` check), never hard blockers.
+- **`review_required` asset flag.** `generated_static` assets now carry
+  `review_required=True` (set explicitly by the image provider); the harness
+  enforces this with the `review_required` deterministic check.
+- **Publishing timing hints.** `ContentRecommendedWindow` carries
+  `day_preference`, `time_of_day_hint`, and `rationale`; the producer is
+  instructed to explain the chosen window.
+- **Arabic dialect + brand voice.** `ContentCaptionVariant.dialect` plus a
+  `voice_examples` input on the generate request guide a consistent,
+  brand-appropriate Arabic voice.
+- **Funnel-stage mapping.** `strategy_trace` carries `funnel_stage` and
+  `content_purpose`; the `funnel_mix` advisory uses them for balance.
 
-These items and their dependent eval assertions are tracked in the new issue
-and will be added when the frozen contract surface is updated.
+All six items and their dependent eval assertions are tracked in #139.
 
 ## What the harness never evaluates
 

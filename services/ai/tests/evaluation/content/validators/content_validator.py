@@ -385,6 +385,87 @@ def _check_funnel_mix(case: ContentEvalCase) -> CheckResult:
     )
 
 
+def _check_platform_constraints(fixture: dict[str, Any]) -> CheckResult:
+    """Advisory: per-platform caption/hashtag/alt-text limits.
+
+    Warnings only, never a hard blocker. Uses the contract's shared
+    platform-constraints vocabulary on the item version so the human reviewer
+    sees the exact field that is over the platform limit.
+    """
+    if fixture.get("is_week_context_only"):
+        return CheckResult(
+            "platform_constraints",
+            True,
+            "Week-context-only fixture carries no item caption/hashtags",
+        )
+
+    item = fixture.get("item_version", {})
+    channel = item.get("channel")
+    fmt = item.get("format")
+    if not channel or not fmt:
+        return CheckResult(
+            "platform_constraints", True, "Item has no channel/format; advisory skipped"
+        )
+
+    from platform_constraints import validate_platform_constraints
+
+    try:
+        warnings = validate_platform_constraints(item)
+    except Exception as exc:
+        return CheckResult(
+            "platform_constraints",
+            False,
+            f"Platform-constraint validation failed: {exc}",
+        )
+
+    if warnings:
+        detail = "; ".join(w.message for w in warnings)
+        return CheckResult(
+            "platform_constraints",
+            True,
+            f"Advisory: {detail}",
+        )
+    return CheckResult(
+        "platform_constraints",
+        True,
+        f"{channel}/{fmt} is within platform caption, hashtag, and alt-text limits",
+    )
+
+
+def _check_review_required(fixture: dict[str, Any]) -> CheckResult:
+    """Truthful-asset check: generated_static assets must request human review.
+
+    Generated media is never assumed safe without an owner; a ready or failed
+    generated_static asset must carry review_required=True so the human can sign
+    off before anything is approved or published.
+    """
+    if fixture.get("is_week_context_only"):
+        return CheckResult(
+            "review_required", True, "Week-context-only fixture carries no assets"
+        )
+
+    assets = fixture.get("assets", [])
+    if not assets:
+        return CheckResult("review_required", True, "No assets to review")
+
+    missing: list[str] = []
+    for asset in assets:
+        if asset.get("kind") == "generated_static" and asset.get(
+            "review_required"
+        ) is not True:
+            missing.append(asset.get("id", "unknown"))
+
+    if missing:
+        return CheckResult(
+            "review_required",
+            False,
+            f"generated_static asset(s) missing review_required=True: {missing}",
+        )
+    return CheckResult(
+        "review_required", True, "All generated_static assets request human review"
+    )
+
+
 def validate_case(case: ContentEvalCase) -> CaseValidationResult:
     """Run the deterministic Phase 4 validators against one eval case."""
     try:
@@ -424,6 +505,8 @@ def validate_case(case: ContentEvalCase) -> CaseValidationResult:
     checks.append(_check_wrong_pillar(case, fixture))
     checks.append(_check_no_publishing_guardrail(fixture))
     checks.append(_check_funnel_mix(case))
+    checks.append(_check_platform_constraints(fixture))
+    checks.append(_check_review_required(fixture))
 
     # 3. Week-range / completion checks for all fixtures.
     if not fixture.get("is_week_context_only"):

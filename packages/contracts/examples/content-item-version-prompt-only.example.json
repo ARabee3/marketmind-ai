@@ -13,11 +13,14 @@
     "week_number": 1,
     "pillar_ids": ["12121212-1212-4121-8121-121212121212"],
     "objective": "awareness",
-    "channel": "facebook"
+    "channel": "facebook",
+    "funnel_stage": "consideration",
+    "content_purpose": "Present the product range as a short browse-and-ask carousel."
   },
   "caption_variants": [
     {
       "locale": "ar",
+      "dialect": "masry",
       "caption": "منتجك اليوم من Al Nada Store جاهز للتوصيل المحلي.",
       "cta": "راسلنا",
       "hashtags": ["#AlNada", "#منتج_محلي"]
@@ -31,7 +34,10 @@
   "recommended_publish_window": {
     "starts_at": "2026-08-05T18:00:00+03:00",
     "ends_at": "2026-08-05T21:00:00+03:00",
-    "timezone": "Africa/Cairo"
+    "timezone": "Africa/Cairo",
+    "day_preference": "weekday",
+    "time_of_day_hint": "evening",
+    "rationale": "Weekday early-evening reaches the store's active customer base after work."
   },
   "claim_sources": [
     {

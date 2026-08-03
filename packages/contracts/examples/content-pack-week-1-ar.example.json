@@ -139,6 +139,7 @@
       "provider_model": null,
       "provider_request_id": null,
       "failure_code": null,
+      "review_required": false,
       "created_at": "2026-08-01T09:30:00+03:00"
     }
   ],

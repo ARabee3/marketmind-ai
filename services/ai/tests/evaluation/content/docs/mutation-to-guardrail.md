@@ -28,7 +28,7 @@ exercises, the expected frozen contract error code, and the fixture source.
 | 16 | Provider timeout | `mutation-provider-timeout` | fail | `CONTENT_PROVIDER_FAILURE` | `content-pack-week-1-en.example.json` + fake-provider mode `timeout` |
 | 17 | Failed image generation | `mutation-failed-image-generation` | fail | `CONTENT_PROVIDER_FAILURE` | `content-provider-failure.invalid.json` + fake-provider mode `failed_image` |
 | 18 | Revision preservation | `mutation-revision-preservation` | pass | — | `content-pack-week-1-ar.example.json` + fake-provider mode `normal` |
-| 19 | Health / regulated clinical claim | `mutation-health-claim` | fail | `CONTENT_POLICY_VIOLATION` | Inline mutation of `content-pack-week-1-ar.example.json` with an unapproved `regulated` claim — frozen regulated-claim path; a dedicated `health_claim` code is deferred to issue #107 |
+| 19 | Health / regulated clinical claim | `mutation-health-claim` | fail | `CONTENT_POLICY_VIOLATION` | Inline mutation of `content-pack-week-1-ar.example.json` with an unapproved `health_claim` claim type — dedicated `health_claim` blocked code via #139 |
 
 ## Guardrail → error code
 
@@ -40,7 +40,7 @@ exercises, the expected frozen contract error code, and the fixture source.
 | Fake testimonial | `CONTENT_UNSUPPORTED_CLAIM` | Frozen contract validator |
 | Guarantee language | `CONTENT_POLICY_VIOLATION` | Frozen contract validator |
 | Regulated / healthcare claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator |
-| Health / clinical claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator via the `regulated` claim path; distinct `health_claim` code deferred to #107 |
+| Health / clinical claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator via the dedicated `health_claim` claim type (added in #139) |
 | Competitor / superiority claim | `CONTENT_UNSUPPORTED_CLAIM` | Frozen contract validator |
 | Wrong channel | `CONTENT_CHANNEL_MISMATCH` | Frozen contract validator |
 | Wrong pillar | `CONTENT_VERSION_CONFLICT` | Phase 4 deterministic validator (custom check name: `wrong_pillar`) |

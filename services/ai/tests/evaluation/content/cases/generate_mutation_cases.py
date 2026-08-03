@@ -576,7 +576,7 @@ def _build_mutation_cases() -> list[ContentEvalCase]:
     base = _load_ar_fixture()
     health_claim_sources = list(base.item_version.claim_sources) + [
         ContentClaimSource(
-            claim_type="regulated",
+            claim_type="health_claim",
             source_type="week_context",
             source_path="week_context.promotion",
             approved=False,
@@ -607,14 +607,14 @@ def _build_mutation_cases() -> list[ContentEvalCase]:
             case_id="mutation-health-claim",
             failure_category="policy_violation",
             expected_result="fail",
-            per_guardrail={"regulated_claim": "fail"},
+            per_guardrail={"health_claim": "fail"},
             expected_error_codes=["CONTENT_POLICY_VIOLATION"],
             description=(
                 "Adversarial: item makes a health/clinical efficacy claim "
                 "(treated as guaranteed cure within a week) without approved "
-                "evidence. Uses the frozen regulated-claim path and must fire "
-                "CONTENT_POLICY_VIOLATION. A dedicated health_claim code is "
-                "deferred to issue #107."
+                "evidence. Uses the dedicated health_claim claim type and must "
+                "fire CONTENT_POLICY_VIOLATION through the blocked health_claim "
+                "code."
             ),
             fixture_ref=None,
             policy_fixture=health_fixture,

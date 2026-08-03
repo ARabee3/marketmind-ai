@@ -1330,11 +1330,14 @@
               "00000000-0000-0000-0000-000000000000"
             ],
             "objective": "awareness",
-            "channel": "facebook"
+            "channel": "facebook",
+            "funnel_stage": "awareness",
+            "content_purpose": ""
           },
           "caption_variants": [
             {
               "locale": "ar",
+              "dialect": "neutral",
               "caption": "ابدأ الأسبوع بعرض واضح من متجر الندى. اطلب عبر واتساب وخدمة التوصيل متاحة داخل المنطقة.",
               "cta": "راسلنا على واتساب",
               "hashtags": [
@@ -1354,7 +1357,10 @@
           "recommended_publish_window": {
             "starts_at": "2026-08-03T18:00:00+03:00",
             "ends_at": "2026-08-03T21:00:00+03:00",
-            "timezone": "Africa/Cairo"
+            "timezone": "Africa/Cairo",
+            "day_preference": "any",
+            "time_of_day_hint": "any",
+            "rationale": ""
           },
           "claim_sources": [
             {
@@ -1401,6 +1407,7 @@
             "provider_model": null,
             "provider_request_id": null,
             "failure_code": null,
+            "review_required": false,
             "created_at": "2026-08-01T09:30:00+03:00"
           }
         ],
@@ -1636,11 +1643,14 @@
               "12121212-1212-4121-8121-121212121212"
             ],
             "objective": "awareness",
-            "channel": "facebook"
+            "channel": "facebook",
+            "funnel_stage": "awareness",
+            "content_purpose": ""
           },
           "caption_variants": [
             {
               "locale": "ar",
+              "dialect": "neutral",
               "caption": "ابدأ الأسبوع بعرض واضح من متجر الندى. اطلب عبر واتساب وخدمة التوصيل متاحة داخل المنطقة.",
               "cta": "راسلنا على واتساب",
               "hashtags": [
@@ -1660,7 +1670,10 @@
           "recommended_publish_window": {
             "starts_at": "2026-08-03T18:00:00+03:00",
             "ends_at": "2026-08-03T21:00:00+03:00",
-            "timezone": "Africa/Cairo"
+            "timezone": "Africa/Cairo",
+            "day_preference": "any",
+            "time_of_day_hint": "any",
+            "rationale": ""
           },
           "claim_sources": [
             {
@@ -1707,6 +1720,7 @@
             "provider_model": null,
             "provider_request_id": null,
             "failure_code": null,
+            "review_required": false,
             "created_at": "2026-08-01T09:30:00+03:00"
           }
         ],
@@ -2879,7 +2893,7 @@
       "expected_hard_outcome": {
         "expected_result": "fail",
         "per_guardrail": {
-          "regulated_claim": "fail"
+          "health_claim": "fail"
         },
         "expected_error_codes": [
           "CONTENT_POLICY_VIOLATION"
@@ -2954,7 +2968,7 @@
           "notes": ""
         }
       },
-      "description": "Adversarial: item makes a health/clinical efficacy claim (treated as guaranteed cure within a week) without approved evidence. Uses the frozen regulated-claim path and must fire CONTENT_POLICY_VIOLATION. A dedicated health_claim code is deferred to issue #107.",
+      "description": "Adversarial: item makes a health/clinical efficacy claim (treated as guaranteed cure within a week) without approved evidence. Uses the dedicated health_claim claim type and must fire CONTENT_POLICY_VIOLATION through the blocked health_claim code.",
       "fixture_ref": null,
       "policy_fixture": {
         "strategy_status": "approved",
@@ -3047,11 +3061,14 @@
               "12121212-1212-4121-8121-121212121212"
             ],
             "objective": "awareness",
-            "channel": "facebook"
+            "channel": "facebook",
+            "funnel_stage": "awareness",
+            "content_purpose": ""
           },
           "caption_variants": [
             {
               "locale": "ar",
+              "dialect": "neutral",
               "caption": "This fictional clinic can cure fictional symptoms guaranteed within a week.",
               "cta": "راسلنا على واتساب",
               "hashtags": [
@@ -3071,7 +3088,10 @@
           "recommended_publish_window": {
             "starts_at": "2026-08-03T18:00:00+03:00",
             "ends_at": "2026-08-03T21:00:00+03:00",
-            "timezone": "Africa/Cairo"
+            "timezone": "Africa/Cairo",
+            "day_preference": "any",
+            "time_of_day_hint": "any",
+            "rationale": ""
           },
           "claim_sources": [
             {
@@ -3087,7 +3107,7 @@
               "approved": true
             },
             {
-              "claim_type": "regulated",
+              "claim_type": "health_claim",
               "source_type": "week_context",
               "source_path": "week_context.promotion",
               "approved": false
@@ -3124,6 +3144,7 @@
             "provider_model": null,
             "provider_request_id": null,
             "failure_code": null,
+            "review_required": false,
             "created_at": "2026-08-01T09:30:00+03:00"
           }
         ],
