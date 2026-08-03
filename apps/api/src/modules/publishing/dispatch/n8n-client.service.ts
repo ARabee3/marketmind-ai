@@ -4,31 +4,30 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as crypto from "crypto";
 import { safeHttp } from "../common/http/safe-http.util";
-
-export interface N8nDispatchPayload {
-  attemptId: string;
-  intentId: string;
-  intentVersion: number;
-  candidateId: string;
-  targetId: string;
-  mode: string;
-  scheduledUtcAt: string;
-  workflowVersion: string;
-  callbackUrl: string;
-  // Key id for the HMAC signing secret — present when key rotation is enabled,
-  // so n8n (and inbound callbacks) can resolve which secret validates the
-  // signature. Empty string in single-key mode.
-  kid: string;
-  nonce: string;
-  timestamp: string;
-  signature: string;
-}
+import {
+  signPublicationDispatchEnvelope,
+  type PublicationDispatchBodyV1,
+  type SignedPublicationDispatchEnvelopeV1,
+} from "@marketmind/contracts";
 
 export interface N8nDispatchResponse {
   executionId?: string;
   accepted: boolean;
 }
 
+/**
+ * N8nClientService — sends the frozen `SignedPublicationDispatchEnvelopeV1`
+ * (#120 boundary) to the n8n runner.
+ *
+ * P1 (#119 review): the outbound body is the frozen envelope built by
+ * `DispatchEnvelopeBuilder`, NOT a custom camelCase shape. Two DISTINCT
+ * credentials are used (issue #119):
+ *  - `n8nAuthToken`   → `Authorization: Bearer ...` transport credential.
+ *  - `signingSecret`  → HMAC-SHA256 over the canonical envelope (proven by the
+ *                       runner and reused to verify inbound callbacks). NEVER a
+ *                       bearer token.
+ * Neither is logged — all errors go through safeHttp().
+ */
 @Injectable()
 export class N8nClientService {
   private readonly logger = new Logger(N8nClientService.name);
@@ -36,8 +35,6 @@ export class N8nClientService {
   private readonly signingSecret: string;
   private readonly signingKeyId: string;
   private readonly n8nAuthToken: string;
-  private readonly callbackBaseUrl: string;
-  private readonly workflowVersion: string;
 
   constructor(
     private readonly http: HttpService,
@@ -56,44 +53,18 @@ export class N8nClientService {
       "",
     );
     this.n8nAuthToken = this.config.get<string>("publishing.n8nAuthToken", "");
-    this.callbackBaseUrl = this.config.get<string>(
-      "publishing.callbackBaseUrl",
-      "",
-    );
-    this.workflowVersion = this.config.get<string>(
-      "publishing.workflowVersion",
-      "v1",
-    );
   }
 
   /**
-   * Dispatches a publishing attempt to n8n via authenticated webhook.
-   *
-   * Two DISTINCT credentials are used (issue #119):
-   *  - `n8nAuthToken`  → sent as `Authorization: Bearer ...` to authenticate
-   *                      the transport (n8n proves we are allowed to call it).
-   *  - `signingSecret`  → HMAC-SHA256 over the canonical body, proving the
-   *                      payload integrity and origin to n8n, and the SAME
-   *                      secret verifies inbound callbacks. It is NEVER put on
-   *                      the wire as a bearer token: a shared MAC secret used
-   *                      as transport auth collapses two boundaries and has no
-   *                      rotation seam.
-   * Neither is logged — all errors go through safeHttp().
+   * Signs the frozen dispatch body and POSTs the
+   * `SignedPublicationDispatchEnvelopeV1` to n8n. The envelope carries a fresh
+   * `message_id`/`nonce`/`sent_at`; the `body_sha256` is the canonical hash the
+   * runner validates against the attempt's `request_fingerprint`.
    */
   async dispatch(
-    attemptId: string,
-    intentId: string,
-    intentVersion: number,
-    candidateId: string,
-    targetId: string,
-    mode: string,
-    scheduledUtcAt: Date,
-    credentialRef: string,
+    body: PublicationDispatchBodyV1,
   ): Promise<N8nDispatchResponse> {
-    // Fail fast on misconfiguration instead of silently sending an empty
-    // bearer or an unsigned body to n8n. These are operator errors, not
-    // provider/transient failures, so they surface as BadRequest here and the
-    // dispatch processor records the attempt as FAILED.
+    // Fail fast on misconfiguration instead of sending an unsigned body.
     if (!this.n8nAuthToken) {
       throw new BadRequestException(
         "PUBLISHING_WEBHOOK_UNAUTHORIZED: PUBLISHING_N8N_AUTH_TOKEN is not configured — cannot authenticate outbound dispatch to n8n",
@@ -105,55 +76,25 @@ export class N8nClientService {
       );
     }
 
-    const nonce = crypto.randomUUID();
-    const timestamp = new Date().toISOString();
-    const callbackUrl = `${this.callbackBaseUrl}/internal/v1/publishing/dispatch/${attemptId}/callback`;
-
-    const canonicalBody = JSON.stringify({
-      attemptId,
-      intentId,
-      intentVersion,
-      candidateId,
-      targetId,
-      mode,
-      scheduledUtcAt: scheduledUtcAt.toISOString(),
-      workflowVersion: this.workflowVersion,
-      callbackUrl,
-      kid: this.signingKeyId,
-      nonce,
-      timestamp,
-      credentialRef,
-    });
-
-    const signature = crypto
-      .createHmac("sha256", this.signingSecret)
-      .update(canonicalBody)
-      .digest("hex");
-
-    const payload = {
-      attemptId,
-      intentId,
-      intentVersion,
-      candidateId,
-      targetId,
-      mode,
-      scheduledUtcAt: scheduledUtcAt.toISOString(),
-      workflowVersion: this.workflowVersion,
-      callbackUrl,
-      kid: this.signingKeyId,
-      nonce,
-      timestamp,
-      signature,
-      credentialRef, // opaque ref — n8n resolves from its own secrets store
-    };
+    const envelope: SignedPublicationDispatchEnvelopeV1 =
+      signPublicationDispatchEnvelope(
+        {
+          contract_version: "publishing-dispatch-envelope-v1",
+          message_id: crypto.randomUUID(),
+          sent_at: new Date().toISOString(),
+          nonce: crypto.randomUUID(),
+          key_id: this.signingKeyId,
+          body,
+        },
+        this.signingSecret,
+      );
 
     return safeHttp(this.logger, "N8nClient.dispatch", async () => {
       const response = await firstValueFrom(
-        this.http.post<N8nDispatchResponse>(this.n8nWebhookUrl, payload, {
+        this.http.post<N8nDispatchResponse>(this.n8nWebhookUrl, envelope, {
           headers: {
             "Content-Type": "application/json",
-            // Bearer is the SEPARATE transport credential (PUBLISHING_N8N_AUTH_TOKEN),
-            // NOT the HMAC signing secret. n8n authenticates the caller with this.
+            // Bearer is the SEPARATE transport credential, NOT the HMAC secret.
             Authorization: `Bearer ${this.n8nAuthToken}`,
           },
           timeout: 15_000,

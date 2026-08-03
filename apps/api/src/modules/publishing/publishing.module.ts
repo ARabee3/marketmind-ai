@@ -21,6 +21,7 @@ import { IntentsService } from "./intents/intents.service";
 // Dispatch
 import { DispatchProcessor } from "./dispatch/dispatch.processor";
 import { N8nClientService } from "./dispatch/n8n-client.service";
+import { DispatchEnvelopeBuilder } from "./dispatch/dispatch-envelope.builder";
 import {
   AssetIntegrityValidator,
   ASSET_BYTE_RETRIEVER,
@@ -61,6 +62,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     IntentsService,
     DispatchProcessor,
     N8nClientService,
+    DispatchEnvelopeBuilder,
     ReconciliationService,
     BusinessOwnershipGuard,
     InternalAuthGuard,

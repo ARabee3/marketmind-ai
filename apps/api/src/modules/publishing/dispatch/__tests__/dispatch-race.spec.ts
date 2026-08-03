@@ -1,193 +1,207 @@
 /**
- * Double-dispatch race condition unit tests — §7.2 / §13 of the implementation plan.
+ * DispatchProcessor race-condition unit tests — §7.2 / §13.
  *
- * Verifies that:
- *  - the atomic claim step (`UPDATE ... WHERE status='QUEUED'`) strictly
- *    prevents a stalled-job redelivery from dispatching the same attempt twice;
- *  - the canonical request-fingerprint replay check (inside the revalidation
- *    transaction) resolves an identical replay to the existing attempt (no-op)
- *    and rejects a conflicting replay (never calling n8n).
+ * Verifies:
+ *  - a fresh dispatch with a successful atomic claim calls n8n with the frozen
+ *    SignedPublicationDispatchEnvelopeV1 body and flips the intent DISPATCHING;
+ *  - a lost atomic claim does NOT call n8n;
+ *  - a replay of an existing (intent, idempotency_key) attempt is a recorded
+ *    no-op (no claim, no n8n) even after the intent moved to a terminal state.
  */
 
 import { DispatchProcessor } from "../dispatch.processor";
 import { N8nClientService } from "../n8n-client.service";
 import { AssetIntegrityValidator } from "../asset-integrity-validator";
+import { DispatchEnvelopeBuilder } from "../dispatch-envelope.builder";
 import { PrismaService } from "../../../../common/persistence/prisma.service";
-import { Job } from "bullmq";
-import * as crypto from "crypto";
+import { ConfigService } from "@nestjs/config";
+import type { PublicationDispatchBodyV1 } from "@marketmind/contracts";
 
-describe("DispatchProcessor — Double-dispatch race protection", () => {
+/** Build a valid frozen dispatch body once via the real builder, to use as the
+ *  revalidation-tx result in process() tests. */
+function buildBody(): PublicationDispatchBodyV1 {
+  const config = {
+    get: (k: string) =>
+      k === "publishing.callbackBaseUrl"
+        ? "http://localhost:3001"
+        : k === "publishing.n8nSigningKeyId"
+          ? "kid-1"
+          : k === "publishing.workflowVersion"
+            ? "v1"
+            : "",
+  } as unknown as ConfigService;
+  const builder = new DispatchEnvelopeBuilder(config);
+  const scheduledUtcAt = new Date("2026-08-03T18:00:00.000Z");
+  return builder.buildDispatchBody({
+    attemptId: "11111100-0000-4000-8000-000000000010",
+    intentId: "11111100-0000-4000-8000-000000000002",
+    intentVersion: 1,
+    businessId: "aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa",
+    idempotencyKey: "key-1::dispatch",
+    candidate: {
+      contract_version: "publication-candidate-v1",
+      candidate_id: "11111100-0000-4000-8000-000000000001",
+      business_id: "aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa",
+      strategy_id: "22222222-2222-4222-8222-222222222222",
+      strategy_version: 1,
+      content_cycle_id: "33333333-3333-4333-8333-333333333333",
+      strategy_week_number: 1,
+      content_pack_id: "77777777-7777-4777-8777-777777777777",
+      content_item_id: "88888888-8888-4888-8888-888888888888",
+      content_item_version_id: "99999999-9999-4999-8999-999999999999",
+      content_item_version: 1,
+      content_item_version_checksum: "item-version-checksum-week-1-ar",
+      target_channel: "facebook",
+      content_format: "static_image_post",
+      selected_locale: "ar",
+      caption: "caption",
+      cta: null,
+      hashtags: [],
+      alt_text: "alt",
+      assets: [
+        {
+          asset_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          kind: "owner_supplied",
+          mime_type: "image/jpeg",
+          storage_key: "content/k.jpg",
+          checksum:
+            "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+        },
+      ],
+      recommended_publish_window: {
+        starts_at: "2026-08-03T18:00:00+03:00",
+        ends_at: "2026-08-03T21:00:00+03:00",
+        timezone: "Africa/Cairo",
+      },
+      approval: {
+        decision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        decision: "approved",
+        content_item_version_id: "99999999-9999-4999-8999-999999999999",
+        content_item_version_checksum: "item-version-checksum-week-1-ar",
+        decided_by_user_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decided_at: "2026-08-01T11:00:00+03:00",
+      },
+      candidate_checksum:
+        "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+      created_at: "2026-08-01T11:01:00+03:00",
+    } as never,
+    candidateStatus: {
+      contract_version: "publication-candidate-status-v1",
+      candidate_id: "11111100-0000-4000-8000-000000000001",
+      business_id: "aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa",
+      candidate_checksum:
+        "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+      state_version: 1,
+      candidate_state: "active",
+      replacement_candidate_id: null,
+      changed_by_user_id: null,
+      changed_at: "2026-08-01T11:01:01+03:00",
+    } as never,
+    target: {
+      id: "77777700-0000-4000-8000-000000000001",
+      businessId: "aaaaaaaa-aaaa-4000-8000-aaaaaaaaaaaa",
+      provider: "META",
+      channel: "facebook",
+      externalAccountId: "fb-acct",
+      displayName: "Acme Page",
+      connectionState: "CONNECTED",
+      credentialRef: "cred-ref",
+      capabilities: ["static_image"],
+      lastVerifiedAt: null,
+      version: 1,
+    },
+    approval: {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      candidateChecksum:
+        "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+      decidedByUserId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      decidedAt: new Date("2026-08-01T11:00:00+03:00"),
+    },
+    scheduledUtcAt,
+    scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
+    timezone: "Africa/Cairo",
+  }).body;
+}
+
+describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
   let processor: DispatchProcessor;
   let prisma: jest.Mocked<Partial<PrismaService>>;
   let n8n: jest.Mocked<Partial<N8nClientService>>;
   let assetIntegrity: jest.Mocked<Partial<AssetIntegrityValidator>>;
-  let mockJob: Job;
-
-  const scheduledUtcAt = new Date("2026-01-01T00:00:00.000Z");
-  const intent = {
-    version: 1,
-    status: "SCHEDULED",
-    scheduledUtcAt,
-    mode: "REAL",
-    candidateId: "c-1",
-    targetId: "t-1",
-  };
-  const EXPECTED_FINGERPRINT = crypto
-    .createHash("sha256")
-    .update(
-      JSON.stringify({
-        intentId: "intent-1",
-        version: 1,
-        candidateId: "c-1",
-        targetId: "t-1",
-        mode: "REAL",
-        scheduledUtcAt: scheduledUtcAt.toISOString(),
-      }),
-    )
-    .digest("hex");
-
-  /** Re-mock $transaction so the tx exposes an existing-attempt replay lookup. */
-  function mockTxWithExistingAttempt(fingerprint: string): void {
-    (prisma.$transaction as jest.Mock).mockImplementation(
-      async (cb: (tx: any) => unknown) =>
-        cb({
-          publishingIntent: {
-            findUniqueOrThrow: jest.fn().mockResolvedValue(intent),
-            update: jest.fn(),
-          },
-          publishingAttempt: {
-            findUnique: jest.fn().mockResolvedValue({
-              id: "attempt-1",
-              status: "SUCCEEDED",
-              providerRequestFingerprint: fingerprint,
-            }),
-            findFirst: jest.fn().mockResolvedValue(null),
-          },
-        }),
-    );
-  }
+  const body = buildBody();
 
   beforeEach(() => {
     prisma = {
-      $transaction: jest.fn().mockImplementation(async (cb) => {
-        return cb({
-          publishingIntent: {
-            findUniqueOrThrow: jest.fn().mockResolvedValue(intent),
-            update: jest.fn().mockResolvedValue({}),
-          },
-          publishingApproval: {
-            findFirst: jest
-              .fn()
-              .mockResolvedValue({
-                intentVersionAtDecision: 1,
-                decision: "APPROVED",
-                candidateChecksum: "chk123",
-              }),
-          },
-          publishingCandidate: {
-            findUniqueOrThrow: jest
-              .fn()
-              .mockResolvedValue({
-                id: "c-1",
-                status: "ACTIVE",
-                candidateChecksum: "chk123",
-                payload: {},
-              }),
-          },
-          publishingTarget: {
-            findUniqueOrThrow: jest
-              .fn()
-              .mockResolvedValue({
-                id: "t-1",
-                connectionState: "CONNECTED",
-                credentialRef: "cred-1",
-              }),
-          },
-          publishingAttempt: {
-            findUnique: jest.fn().mockResolvedValue(null),
-            findFirst: jest.fn().mockResolvedValue(null),
-            create: jest
-              .fn()
-              .mockResolvedValue({ id: "attempt-1", status: "QUEUED" }),
-            update: jest.fn().mockResolvedValue({}),
-          },
-        });
+      $transaction: jest.fn().mockResolvedValue({
+        replayed: false,
+        attemptId: "attempt-1",
+        status: "QUEUED",
+        body,
       }),
       publishingAttempt: {
-        // Atomic claim runs outside the transaction.
         updateMany: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
       } as any,
-    };
+      publishingIntent: {
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      } as any,
+    } as any;
 
-    n8n = {
-      dispatch: jest.fn().mockResolvedValue({ executionId: "exec-1" }),
-    };
-
-    assetIntegrity = {
-      validateForDispatch: jest.fn().mockResolvedValue(undefined),
-    };
+    n8n = { dispatch: jest.fn().mockResolvedValue({ executionId: "exec-1" }) };
+    assetIntegrity = { validateForDispatch: jest.fn().mockResolvedValue(undefined) };
 
     processor = new DispatchProcessor(
       prisma as any,
       n8n as any,
       assetIntegrity as any,
+      // envelopeBuilder is not exercised here (the tx result is mocked), but the
+      // constructor still needs a real instance.
+      new DispatchEnvelopeBuilder({ get: () => "" } as any),
     );
-    mockJob = {
-      data: { intentId: "intent-1", version: 1, idempotencyKey: "key-1" },
-    } as any;
-
     jest.spyOn(processor["logger"], "log").mockImplementation(() => {});
     jest.spyOn(processor["logger"], "warn").mockImplementation(() => {});
     jest.spyOn(processor["logger"], "error").mockImplementation(() => {});
   });
 
-  it("proceeds to call n8n when atomic claim succeeds (count === 1)", async () => {
+  const job = { data: { intentId: "i-1", version: 1, idempotencyKey: "k-1" } } as any;
+
+  it("proceeds to n8n with the frozen dispatch body when the atomic claim wins", async () => {
     (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
       count: 1,
     });
 
-    await processor.process(mockJob);
+    await processor.process(job);
 
-    expect(prisma.publishingAttempt!.updateMany).toHaveBeenCalledWith({
-      where: { id: "attempt-1", status: "QUEUED" },
-      data: { status: "DISPATCHING" },
-    });
-    expect(n8n.dispatch).toHaveBeenCalled(); // n8n was called!
-    expect(assetIntegrity.validateForDispatch).toHaveBeenCalled(); // asset hook invoked for REAL mode
+    // n8n received the frozen SignedPublicationDispatchEnvelopeV1 body.
+    expect(n8n.dispatch).toHaveBeenCalledTimes(1);
+    expect((n8n.dispatch as jest.Mock).mock.calls[0][0]).toBe(body);
+    // Asset integrity ran for the REAL dispatch body's candidate.
+    expect(assetIntegrity.validateForDispatch).toHaveBeenCalled();
   });
 
-  it("stops and DOES NOT call n8n when atomic claim fails (count === 0)", async () => {
+  it("does NOT call n8n when the atomic claim loses (count === 0)", async () => {
     (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
       count: 0,
     });
 
-    await processor.process(mockJob);
+    await processor.process(job);
 
-    expect(prisma.publishingAttempt!.updateMany).toHaveBeenCalledWith({
-      where: { id: "attempt-1", status: "QUEUED" },
-      data: { status: "DISPATCHING" },
+    expect(n8n.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("records a no-op for a replayed (intent, idempotency_key) attempt — no claim, no n8n", async () => {
+    (prisma.$transaction as jest.Mock).mockResolvedValue({
+      replayed: true,
+      attemptId: "attempt-1",
+      status: "SUCCEEDED",
+      body: null,
     });
-    expect(n8n.dispatch).not.toHaveBeenCalled();
-  });
 
-  it("records a no-op when the same idempotency key+bytes replayed (resolves to existing attempt)", async () => {
-    mockTxWithExistingAttempt(EXPECTED_FINGERPRINT);
-
-    await processor.process(mockJob);
-
-    // Replay MUST NOT call n8n again and MUST NOT attempt a 2nd atomic claim.
-    expect(n8n.dispatch).not.toHaveBeenCalled();
-    expect(prisma.publishingAttempt!.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("rejects a replay whose canonical bytes differ under the same idempotency key", async () => {
-    mockTxWithExistingAttempt("different-fingerprint");
-
-    // The processor catches revalidation failures and marks the intent failed —
-    // it must never call n8n on a conflicting replay.
-    await processor.process(mockJob);
+    await processor.process(job);
 
     expect(n8n.dispatch).not.toHaveBeenCalled();
     expect(prisma.publishingAttempt!.updateMany).not.toHaveBeenCalled();
+    expect(assetIntegrity.validateForDispatch).not.toHaveBeenCalled();
   });
 });

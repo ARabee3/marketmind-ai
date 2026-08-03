@@ -1,10 +1,10 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { ConflictException, Injectable, Logger } from "@nestjs/common";
-import * as crypto from "crypto";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { N8nClientService } from "./n8n-client.service";
 import { AssetIntegrityValidator } from "./asset-integrity-validator";
+import { DispatchEnvelopeBuilder } from "./dispatch-envelope.builder";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 
 export interface DispatchJobData {
@@ -51,6 +51,7 @@ export class DispatchProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly n8n: N8nClientService,
     private readonly assetIntegrity: AssetIntegrityValidator,
+    private readonly envelopeBuilder: DispatchEnvelopeBuilder,
   ) {
     super();
   }
@@ -101,21 +102,18 @@ export class DispatchProcessor extends WorkerHost {
       return;
     }
 
-    const {
-      attemptId,
-      credentialRef,
-      candidateId,
-      targetId,
-      scheduledUtcAt,
-      mode,
-      candidatePayload,
-    } = result;
+    const { attemptId, body } = result as {
+      attemptId: string;
+      body: import("@marketmind/contracts").PublicationDispatchBodyV1 | null;
+    };
 
     // ── Step 3: Asset integrity check (§9.2 #6) — OUTSIDE the tx ───────────
     // Real byte retrieval (#121) is network/IO; must not hold DB locks.
-    if (mode === "REAL") {
+    // For a REAL dispatch, the body carries the frozen candidate bytes + asset
+    // digests the validator checks against retrieved bytes.
+    if (body && body.mode === "real") {
       try {
-        await this.assetIntegrity.validateForDispatch(candidatePayload);
+        await this.assetIntegrity.validateForDispatch(body.candidate as never);
       } catch (err) {
         this.logger.warn(
           `Asset integrity check blocked dispatch for attempt=${attemptId}: ${(err as Error).message}`,
@@ -154,16 +152,7 @@ export class DispatchProcessor extends WorkerHost {
 
     // ── Step 5: Outbound call to n8n (outside any transaction) ─────────────
     try {
-      const n8nResult = await this.n8n.dispatch(
-        attemptId,
-        intentId,
-        version,
-        candidateId,
-        targetId,
-        mode,
-        scheduledUtcAt,
-        credentialRef,
-      );
+      const n8nResult = await this.n8n.dispatch(body!);
 
       await this.prisma.$transaction(async (tx) => {
         await tx.publishingAttempt.update({
@@ -239,31 +228,6 @@ export class DispatchProcessor extends WorkerHost {
   }
 
   /**
-   * Computes the canonical dispatch fingerprint: a SHA-256 over the signed
-   * dispatch body fields (intentId, version, candidate, target, mode, time).
-   * Identical replays produce the identical fingerprint; a different
-   * fingerprint under the same idempotency key is a conflict.
-   */
-  private computeDispatchFingerprint(input: {
-    intentId: string;
-    version: number;
-    candidateId: string;
-    targetId: string;
-    mode: string;
-    scheduledUtcAt: Date;
-  }): string {
-    const canonical = JSON.stringify({
-      intentId: input.intentId,
-      version: input.version,
-      candidateId: input.candidateId,
-      targetId: input.targetId,
-      mode: input.mode,
-      scheduledUtcAt: input.scheduledUtcAt.toISOString(),
-    });
-    return crypto.createHash("sha256").update(canonical).digest("hex");
-  }
-
-  /**
    * Opens a single transaction, runs the replay-resolution + full §9.2
    * revalidation checklist, creates the attempt row (with idempotency_key +
    * request_fingerprint), commits. Lock duration is short: no network calls
@@ -283,34 +247,27 @@ export class DispatchProcessor extends WorkerHost {
   ) {
     return this.prisma.$transaction(
       async (tx) => {
-        // Load intent first (also needed to compute the canonical fingerprint).
+        // Load intent first.
         const intent = await tx.publishingIntent.findUniqueOrThrow({
           where: { id: intentId },
         });
 
-        // §9.2 Check 0: idempotent replay resolution.
-        const fingerprint = this.computeDispatchFingerprint({
-          intentId,
-          version,
-          candidateId: intent.candidateId,
-          targetId: intent.targetId ?? "",
-          mode: intent.mode,
-          scheduledUtcAt: intent.scheduledUtcAt ?? new Date(0),
-        });
+        // §9.2 Check 0: idempotent replay resolution. The (intent_id,
+        // idempotency_key) unique index makes the existing attempt THE attempt
+        // for this key — a replay of the same delayed job short-circuits to it
+        // as a recorded no-op, even if the intent has since moved to a terminal
+        // state. (Per-key uniqueness means a different dispatch request cannot
+        // reuse the key — it is insert-blocked by the index.)
         const existingByKey = await tx.publishingAttempt.findUnique({
           where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
         });
         if (existingByKey) {
-          if (existingByKey.providerRequestFingerprint === fingerprint) {
-            return {
-              replayed: true,
-              attemptId: existingByKey.id,
-              status: existingByKey.status,
-            };
-          }
-          throw new ConflictException(
-            `${PublishingErrorCode.IDEMPOTENCY_CONFLICT}: idempotency key ${idempotencyKey} was reused with different canonical dispatch bytes`,
-          );
+          return {
+            replayed: true,
+            attemptId: existingByKey.id,
+            status: existingByKey.status,
+            body: null,
+          } as const;
         }
 
         // §9.2 Check 1: version match
@@ -340,7 +297,7 @@ export class DispatchProcessor extends WorkerHost {
           );
         }
 
-        // Load candidate.
+        // Load candidate (with the frozen payload + active status snapshot).
         const candidate = await tx.publishingCandidate.findUniqueOrThrow({
           where: { id: intent.candidateId },
         });
@@ -387,14 +344,13 @@ export class DispatchProcessor extends WorkerHost {
           );
         }
 
-        // All checks passed — create attempt row with idempotency key + fingerprint.
+        // All checks passed — create attempt row (provisional fingerprint; the
+        // canonical body hash needs the created attempt id and is stamped next).
         const lastAttempt = await tx.publishingAttempt.findFirst({
           where: { intentId, intentVersion: version },
           orderBy: { attemptSequence: "desc" },
         });
         const nextSeq = lastAttempt ? lastAttempt.attemptSequence + 1 : 1;
-
-        const candidatePayload = candidate.payload as unknown;
 
         let attempt: { id: string; status: string };
         try {
@@ -405,20 +361,23 @@ export class DispatchProcessor extends WorkerHost {
               attemptSequence: nextSeq,
               status: "QUEUED",
               idempotencyKey,
-              providerRequestFingerprint: fingerprint,
+              // P1 (#119 review): the request fingerprint is the frozen
+              // SignedPublicationDispatchEnvelopeV1 body hash (body_sha256).
+              // It is stamped after the body is assembled with this attempt id
+              // so attempt.request_fingerprint === envelope.body_sha256.
+              providerRequestFingerprint: null,
               startedAt: new Date(),
             },
           });
         } catch (err) {
           // P2002 on (intent_id, idempotency_key): a concurrent worker created
-          // the attempt first. Resolve to the SAME attempt as a recorded no-op
-          // when the canonical bytes match; otherwise it is an idempotency
-          // conflict. Never treat this as intent failure.
+          // the attempt first — resolve to it as a recorded no-op (the unique
+          // index guarantees it is THE attempt for this key). Never fail intent.
           if ((err as { code?: string })?.code === "P2002") {
             const winner = await tx.publishingAttempt.findUnique({
               where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
             });
-            if (winner && winner.providerRequestFingerprint === fingerprint) {
+            if (winner) {
               this.logger.warn(
                 `Concurrent attempt create race for key=${idempotencyKey} — resolving to existing attempt=${winner.id}`,
               );
@@ -426,26 +385,60 @@ export class DispatchProcessor extends WorkerHost {
                 replayed: true,
                 attemptId: winner.id,
                 status: winner.status,
-              };
+                body: null,
+              } as const;
             }
             throw new ConflictException(
-              `${PublishingErrorCode.IDEMPOTENCY_CONFLICT}: idempotency key ${idempotencyKey} was reused with different canonical dispatch bytes`,
+              `${PublishingErrorCode.IDEMPOTENCY_CONFLICT}: idempotency key ${idempotencyKey} race with no winner`,
             );
           }
           throw err;
         }
 
+        // Assemble the frozen dispatch body (P1) and stamp the canonical
+        // request fingerprint on the attempt so the signed callback can bind.
+        const { body, requestFingerprint } = this.envelopeBuilder.buildDispatchBody({
+          attemptId: attempt.id,
+          intentId,
+          intentVersion: version,
+          businessId: intent.businessId,
+          idempotencyKey,
+          candidate: candidate.payload as never,
+          candidateStatus: candidate.sourceStatus as never,
+          target: {
+            id: target.id,
+            businessId: target.businessId,
+            provider: target.provider,
+            channel: target.channel,
+            externalAccountId: target.externalAccountId,
+            displayName: target.displayName,
+            connectionState: target.connectionState,
+            credentialRef: target.credentialRef,
+            capabilities: target.capabilities,
+            lastVerifiedAt: target.lastVerifiedAt,
+            version: target.version,
+          },
+          approval: {
+            id: approval.id,
+            candidateChecksum: approval.candidateChecksum,
+            decidedByUserId: approval.decidedByUserId,
+            decidedAt: approval.decidedAt,
+          },
+          scheduledUtcAt: intent.scheduledUtcAt!,
+          scheduledLocalAt: intent.scheduledLocalAt,
+          timezone: intent.timezone,
+        });
+        await tx.publishingAttempt.update({
+          where: { id: attempt.id },
+          data: { providerRequestFingerprint: requestFingerprint },
+        });
+
         return {
           replayed: false,
           attemptId: attempt.id,
           status: attempt.status,
-          credentialRef: target.credentialRef, // opaque ref — used only for n8n call
-          candidateId: candidate.id,
-          targetId: target.id,
-          scheduledUtcAt: intent.scheduledUtcAt!,
-          mode: intent.mode,
-          candidatePayload,
-        };
+          body,
+        } as const;
       },
       { timeout: 10_000 }, // short lock duration — no network calls inside
     );
