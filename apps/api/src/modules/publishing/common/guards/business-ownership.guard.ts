@@ -10,13 +10,21 @@ import { PrismaService } from "../../../../common/persistence/prisma.service";
 import { PublishingErrorCode } from "../errors/publishing-error-codes";
 
 /**
- * Guard that runs before every handler under /publishing/*.
- * Requires the route to have :intentId, :candidateId, :targetId, or :attemptId
- * as a param — whichever is present is used to resolve the owning businessId,
- * which is then compared to the authenticated user's businessId.
+ * Guard that runs before every owner-facing handler under /publishing/*.
  *
- * If none of these params are present the guard passes (list/create endpoints
- * scope themselves by businessId in the query/body instead).
+ * P1 (issue #119 review): `JwtStrategy.validate()` only returns
+ * `{ id, email, roles }` — it does NOT carry `businessId`. The frozen
+ * publishing routes are business-scoped, so this guard derives the
+ * authenticated owner's business from the DB ONCE, attaches it to
+ * `req.user.businessId`, and FAILS CLOSED (403) when the owner has no
+ * business. Only after a business scope is resolved does it run the
+ * per-resource ownership checks (intent/candidate/target/attempt):
+ *
+ *  - if the route has :intentId/:candidateId/:targetId/:attemptId that
+ *    resource's businessId must equal the caller's, otherwise 403 (404 to
+ *    avoid enumeration when the resource itself is missing);
+ *  - list/create handlers (no resource param) just receive the resolved
+ *    business scope from `req.user.businessId`.
  */
 @Injectable()
 export class BusinessOwnershipGuard implements CanActivate {
@@ -26,11 +34,31 @@ export class BusinessOwnershipGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const user = req.user as { id: string; businessId?: string } | undefined;
+    const user = req.user as
+      | { id: string; businessId?: string }
+      | undefined;
 
-    if (!user?.businessId) {
-      // No business context — guard cannot verify; defer to service layer
+    if (!user?.id) {
+      // No authenticated principal — let JwtAuthGuard's 401 stand; nothing to scope.
       return true;
+    }
+
+    // Resolve the caller's business scope, fail closed when absent.
+    if (!user.businessId) {
+      const business = await this.prisma.business.findFirst({
+        where: { ownerUserId: user.id },
+        select: { id: true },
+      });
+      if (!business) {
+        this.logger.warn(
+          `Owner ${user.id} has no business scope for publishing routes`,
+        );
+        throw new ForbiddenException(
+          PublishingErrorCode.FORBIDDEN_NO_BUSINESS,
+        );
+      }
+      // Attach the resolved scope so downstream handlers/services read it.
+      user.businessId = business.id;
     }
 
     const params = req.params as Record<string, string>;
