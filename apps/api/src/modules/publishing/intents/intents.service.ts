@@ -31,12 +31,19 @@ import {
 
 import { PublishingIntentStatus } from "@prisma/client";
 
-/** Statuses that are still "active" (prevent a duplicate active intent). */
-const ACTIVE_STATUSES: PublishingIntentStatus[] = [
+/** Statuses that occupy the one-intent-per-candidate slot (P1 #119 review):
+ *  only CANCELLED frees the candidate, so a succeeded/failed/action-required
+ *  outcome cannot be followed by a fresh intent that would duplicate or
+ *  republish a confirmed candidate. The DB partial unique index is the
+ *  race-proof guarantee; this is the friendly fast-path mirror. */
+const INTENT_SLOT_STATUSES: PublishingIntentStatus[] = [
   "DRAFT",
   "AWAITING_APPROVAL",
   "SCHEDULED",
   "DISPATCHING",
+  "SUCCEEDED",
+  "FAILED",
+  "ACTION_REQUIRED",
 ];
 
 /** Statuses from which cancel is valid. */
@@ -143,13 +150,14 @@ export class IntentsService {
         );
       }
 
-      // At most one active intent per candidate — friendly fast-path; the
+      // At most one logical intent per candidate (active, terminal, or ambiguous —
+      // only CANCELLED frees the slot, see P1). Friendly fast-path; the
       // authoritative partial unique index in the migration is the guarantee.
       const existing = await tx.publishingIntent.findFirst({
         where: {
           businessId,
           candidateId: dto.candidateId,
-          status: { in: ACTIVE_STATUSES },
+          status: { in: INTENT_SLOT_STATUSES },
         },
       });
       if (existing) {

@@ -26,11 +26,18 @@ import { PrismaClient } from "@prisma/client";
  */
 const prisma = new PrismaClient();
 const SUITE_SCHEMA = `_pub_idx_verify_${Date.now()}`;
+// P1 (#119 review): the one-intent-per-candidate slot is occupied across
+// active, terminal, AND ambiguous outcomes — only CANCELLED frees it. This
+// prevents a second intent after a succeeded/failed/action-required outcome
+// that could duplicate or republish a confirmed candidate.
 const ACTIVE_STATUSES = [
   "DRAFT",
   "AWAITING_APPROVAL",
   "SCHEDULED",
   "DISPATCHING",
+  "SUCCEEDED",
+  "FAILED",
+  "ACTION_REQUIRED",
 ];
 
 // Prisma's $executeRawUnsafe forbids multi-statement strings ("cannot insert
@@ -89,10 +96,11 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
       `CREATE TABLE ${SUITE_SCHEMA}.publishing_intents (id uuid primary key, candidate_id uuid not null, status text not null)`,
     );
     // Apply the EXACT index DDL shape from the migration (with the WHERE clause).
+    // Mirrors the migration: only CANCELLED frees the candidate slot.
     await prisma.$executeRawUnsafe(
       `CREATE UNIQUE INDEX publishing_intents_candidate_id_active_uniq
            ON ${SUITE_SCHEMA}.publishing_intents (candidate_id)
-           WHERE status IN ('DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING')`,
+           WHERE status IN ('DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING', 'SUCCEEDED', 'FAILED', 'ACTION_REQUIRED')`,
     );
   });
 
@@ -190,5 +198,10 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
     expect(migration).toContain("publishing_intents_candidate_id_active_uniq");
     expect(migration).toMatch(/CREATE\s+UNIQUE\s+INDEX/i);
     expect(migration).toMatch(/WHERE\s+"?status"?\s+IN\s*\(/i);
+    // P1: the slot covers active + terminal + ambiguous outcomes (only CANCELLED
+    // frees it), so the migration WHERE must list these statuses explicitly.
+    for (const s of ["SUCCEEDED", "FAILED", "ACTION_REQUIRED"]) {
+      expect(migration).toContain(s);
+    }
   });
 });

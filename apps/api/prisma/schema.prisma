@@ -884,15 +884,19 @@ model PublishingTarget {
 }
 
 /// One intent = the owner's plan for one candidate on one target.
-/// Partial unique index enforces at-most-one active intent per candidate.
+/// Partial unique index enforces ONE logical publication intent per candidate
+/// across active, terminal, AND ambiguous outcomes (only CANCELLED frees the
+/// slot) — see P1 (#119 review): a second intent after a succeeded/failed/
+/// action-required outcome could duplicate or republish a confirmed candidate.
 ///
 /// NOTE: Prisma's schema DSL cannot express a *filtered* unique index, so the
 /// authoritative constraint lives as raw SQL in the migration
 /// (publishing_intents_candidate_id_active_uniq): a partial UNIQUE index on
 /// (candidate_id) WHERE status IN (DRAFT, AWAITING_APPROVAL, SCHEDULED,
-/// DISPATCHING). The app-layer check in IntentsService.createIntent is a
-/// friendly fast-path only; the DB index is the race-proof guarantee and the
-/// duplicate-insert is mapped to PUBLISHING_STATE_CONFLICT.
+/// DISPATCHING, SUCCEEDED, FAILED, ACTION_REQUIRED). The app-layer check in
+/// IntentsService.createIntent is a friendly fast-path only; the DB index is
+/// the race-proof guarantee and the duplicate-insert is mapped to
+/// PUBLISHING_STATE_CONFLICT.
 model PublishingIntent {
   id               String                 @id @default(uuid()) @db.Uuid
   businessId       String                 @map("business_id") @db.Uuid

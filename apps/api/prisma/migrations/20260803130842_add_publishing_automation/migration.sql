@@ -284,17 +284,26 @@ ALTER TABLE "publishing_export_metadata" ADD CONSTRAINT "publishing_export_metad
 -- The app-layer `findFirst` check in IntentsService.createIntent is a friendly
 -- fast-path, but it is a TOCTOU race — two concurrent POSTs both pass the check
 -- and both insert. This partial unique index is the authoritative guarantee:
--- a duplicate active insert raises SQL state 23505 (Prisma P2002), which the
--- service maps to PUBLISHING_STATE_CONFLICT.
+-- a duplicate insert raises SQL state 23505 (Prisma P2002), which the service
+-- maps to PUBLISHING_STATE_CONFLICT.
+--
+-- P1 (#119 review): keep ONE logical publication intent per candidate across
+-- active, terminal, AND ambiguous outcomes. Only CANCELLED frees the slot.
+-- Excluding FAILED/ACTION_REQUIRED/SUCCEEDED previously let a candidate get a
+-- fresh intent after an unknown or succeeded outcome — which can duplicate a
+-- publication or republish an already-succeeded candidate. Retry/reconcile
+-- must operate on the SAME intent; a second intent is blocked here.
 --
 -- Prisma's schema DSL cannot express filtered unique indexes, so this index is
 -- managed in raw SQL (mirrored by a documentation comment on the model in
--- schema.prisma). Cancelled/failed/succeeded intents do NOT occupy the slot,
--- so a candidate whose intent was cancelled can later receive a fresh intent.
+-- schema.prisma).
 CREATE UNIQUE INDEX "publishing_intents_candidate_id_active_uniq"
   ON "publishing_intents" ("candidate_id")
   WHERE
-    "status" IN ('DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING');
+    "status" IN (
+      'DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING',
+      'SUCCEEDED', 'FAILED', 'ACTION_REQUIRED'
+    );
 
 -- ── Partial unique index: idempotent create-intent per (business, owner key) ──
 -- Contract idempotency matrix "Create intent": an identical create replay with
