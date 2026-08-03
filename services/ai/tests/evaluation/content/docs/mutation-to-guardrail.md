@@ -18,8 +18,8 @@ exercises, the expected frozen contract error code, and the fixture source.
 | 6 | Unsafe healthcare / regulated claim | `mutation-unsafe-regulated-claim` | fail | `CONTENT_POLICY_VIOLATION` | `content-regulated-claim.invalid.json` |
 | 7 | Competitor claim | `mutation-competitor-claim` | fail | `CONTENT_UNSUPPORTED_CLAIM` | `content-competitor-superiority.invalid.json` |
 | 8 | Wrong channel | `mutation-wrong-channel` | fail | `CONTENT_CHANNEL_MISMATCH` | `content-wrong-channel.invalid.json` |
-| 9 | Wrong pillar | `mutation-wrong-pillar` | fail | `CONTENT_VERSION_CONFLICT` | Inline mutation of `content-pack-week-1-ar.example.json` |
-| 10 | Prompt injection | `mutation-prompt-injection` | fail | `CONTENT_POLICY_VIOLATION` | Inline mutation of `content-pack-week-1-ar.example.json` |
+| 9 | Wrong pillar | `mutation-wrong-pillar` | fail | `CONTENT_VERSION_CONFLICT` | Inline mutation of `content-pack-week-1-ar.example.json` — Phase 4 custom validator emits check `wrong_pillar` |
+| 10 | Prompt injection | `mutation-prompt-injection` | fail | `CONTENT_POLICY_VIOLATION` | Inline mutation of `content-pack-week-1-ar.example.json` — Phase 4 custom validator emits check `prompt_injection` |
 | 11 | Missing required asset | `mutation-missing-required-asset` | fail | `CONTENT_ASSET_REQUIRED` | `content-missing-required-asset.invalid.json` |
 | 12 | Invalid schema | `mutation-invalid-schema` | fail | `CONTENT_SCHEMA_FAILURE` | `content-schema-failure.invalid.json` |
 | 13 | Cycle completed | `mutation-cycle-completed` | fail | `CONTENT_CYCLE_COMPLETED` | `content-cycle-completed.invalid.json` |
@@ -41,8 +41,8 @@ exercises, the expected frozen contract error code, and the fixture source.
 | Regulated / healthcare claim | `CONTENT_POLICY_VIOLATION` | Frozen contract validator |
 | Competitor / superiority claim | `CONTENT_UNSUPPORTED_CLAIM` | Frozen contract validator |
 | Wrong channel | `CONTENT_CHANNEL_MISMATCH` | Frozen contract validator |
-| Wrong pillar | `CONTENT_VERSION_CONFLICT` | No frozen pillar-mismatch fixture exists; added as Phase 4 deterministic validator |
-| Prompt injection | `CONTENT_POLICY_VIOLATION` | No frozen prompt-injection fixture exists; added as Phase 4 deterministic validator |
+| Wrong pillar | `CONTENT_VERSION_CONFLICT` | Phase 4 deterministic validator (custom check name: `wrong_pillar`) |
+| Prompt injection | `CONTENT_POLICY_VIOLATION` | Phase 4 deterministic validator (custom check name: `prompt_injection`) |
 | Missing required asset | `CONTENT_ASSET_REQUIRED` | Frozen contract validator |
 | Invalid schema | `CONTENT_SCHEMA_FAILURE` | Frozen contract validator |
 | Cycle completed | `CONTENT_CYCLE_COMPLETED` | Frozen contract validator |
@@ -59,11 +59,11 @@ applies a controlled mutation to the Arabic week-1 policy fixture:
 
 - **Wrong pillar**: `item_version.strategy_trace.pillar_ids` is replaced with a
   non-existent pillar UUID (`00000000-0000-0000-0000-000000000000`). The Phase 4
-  validator will detect a pillar mismatch and emit `CONTENT_VERSION_CONFLICT`.
+  validator detects a pillar mismatch and emits check `wrong_pillar`.
 
 - **Prompt injection**: `week_context.must_include` is appended with a classic
   injection string (`IGNORE PREVIOUS INSTRUCTIONS...`). The Phase 4 validator
-  will detect it and emit `CONTENT_POLICY_VIOLATION`.
+  detects it and emits check `prompt_injection`.
 
 ## Provider modes
 

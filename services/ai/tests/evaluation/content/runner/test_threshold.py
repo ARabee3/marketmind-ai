@@ -34,8 +34,12 @@ def test_guardrail_map_covers_all_dataset_guardrails() -> None:
     assert not missing, f"unmapped guardrails: {missing}"
 
 
-def test_all_33_cases_match_expected_outcome() -> None:
-    verdict = evaluate_thresholds(_real_results())
+def test_all_33_cases_hard_guardrails_match_expected_outcome() -> None:
+    """Hard guardrails 100% irrespective of rubric sign-off state."""
+    verdict = evaluate_thresholds(
+        _real_results(),
+        config=ThresholdConfig(hard_guardrails_required=1.0, rubric_required=0.0),
+    )
     assert verdict.total_cases == 33
     assert verdict.hard_guardrails_met == 1.0
     assert verdict.hard_guardrails_passed is True
@@ -111,9 +115,53 @@ def test_error_case_is_unmet() -> None:
     assert any("errored" in r for r in match.reasons)
 
 
-def test_rubric_met_excludes_na_cases() -> None:
-    """Hard-guardrail-rejection cases carry no rubric; only applicable dims count."""
-    verdict = evaluate_thresholds(_real_results())
+def test_rubric_met_zero_when_no_reviewer_signed_off() -> None:
+    """Rubric dimensions require ai_product_merzk.signed_off — placeholder scores don't count."""
+    verdict = evaluate_thresholds(
+        _real_results(),
+        config=ThresholdConfig(hard_guardrails_required=0.0, rubric_required=0.9),
+    )
+    assert verdict.rubric_met == 0.0
+    assert verdict.rubric_passed is False
+    assert verdict.passed is False
+
+
+def test_rubric_passes_when_signed_off() -> None:
+    """Individual case with signed-off reviewer counts rubric as reviewed."""
+    from tests.evaluation.content.validators.common import (
+        CaseValidationResult,
+        CheckResult,
+    )
+
+    cases = load_all_cases()
+    c = next(x for x in cases if x.case_id == "hospitality-en-week1-baseline")
+    updated_reviewers = c.reviewers.model_copy(
+        update={
+            "ai_product_merzk": c.reviewers.ai_product_merzk.model_copy(
+                update={"signed_off": True, "signed_at": "2026-08-03"}
+            ),
+            "owner_mokhtar": c.reviewers.owner_mokhtar.model_copy(
+                update={"signed_off": True, "signed_at": "2026-08-03"}
+            ),
+            "eval_mostafa": c.reviewers.eval_mostafa.model_copy(
+                update={"signed_off": True, "signed_at": "2026-08-03"}
+            ),
+            "safety_rabee": c.reviewers.safety_rabee.model_copy(
+                update={"signed_off": True, "signed_at": "2026-08-03"}
+            ),
+        }
+    )
+    signed = c.model_copy(update={"reviewers": updated_reviewers})
+
+    fake_result = CaseValidationResult(
+        case_id=signed.case_id,
+        checked=True,
+        checks=[CheckResult("contract_policy", True)],
+    )
+    verdict = evaluate_thresholds(
+        [(signed, fake_result)],
+        config=ThresholdConfig(hard_guardrails_required=0.0, rubric_required=0.5),
+    )
     assert verdict.rubric_met == 1.0
     assert verdict.rubric_passed is True
 
@@ -125,7 +173,10 @@ def test_threshold_config_bars_default() -> None:
 
 
 def test_verdict_to_dict_and_metrics_round_trip() -> None:
-    verdict = evaluate_thresholds(_real_results())
+    verdict = evaluate_thresholds(
+        _real_results(),
+        config=ThresholdConfig(hard_guardrails_required=1.0, rubric_required=0.0),
+    )
     data = verdict.to_dict()
     assert data["passed"] is True
     assert data["total_cases"] == 33
@@ -135,7 +186,10 @@ def test_verdict_to_dict_and_metrics_round_trip() -> None:
 
 
 def test_format_summary_lists_none_when_all_met() -> None:
-    verdict = evaluate_thresholds(_real_results())
+    verdict = evaluate_thresholds(
+        _real_results(),
+        config=ThresholdConfig(hard_guardrails_required=1.0, rubric_required=0.0),
+    )
     summary = format_threshold_summary(verdict)
     assert "PASS" in summary
     assert "None" in summary
@@ -152,7 +206,7 @@ def test_summary_lists_unmet_cases_with_reasons() -> None:
     fake_result = CaseValidationResult(
         case_id=case.case_id,
         checked=True,
-        checks=[CheckResult("prompt_injection", True)],
+        checks=[CheckResult("no_publishing_guardrail", True)],
     )
     verdict = evaluate_thresholds(
         [(case, fake_result)],

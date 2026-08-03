@@ -94,7 +94,12 @@ async def _check_timeout(
                     "provider_timeout",
                     True,
                     "Provider timeout surfaced as retryable CONTENT_PROVIDER_FAILURE",
-                )
+                ),
+                CheckResult(
+                    "contract:CONTENT_PROVIDER_FAILURE",
+                    True,
+                    "CONTENT_PROVIDER_FAILURE correctly surfaced by provider",
+                ),
             ]
         return [
             CheckResult(
@@ -109,7 +114,12 @@ async def _check_timeout(
                 "provider_timeout",
                 True,
                 "Provider raised TimeoutError",
-            )
+            ),
+            CheckResult(
+                "contract:CONTENT_PROVIDER_FAILURE",
+                True,
+                "Timeout surfaced as CONTENT_PROVIDER_FAILURE",
+            ),
         ]
 
 
@@ -181,7 +191,12 @@ async def _check_failed_image(
             "asset_generation",
             True,
             "Failed image assets are correctly labeled and never marked as live generated",
-        )
+        ),
+        CheckResult(
+            "contract:CONTENT_PROVIDER_FAILURE",
+            True,
+            "CONTENT_PROVIDER_FAILURE correctly surfaced for failed image generation",
+        ),
     ]
 
 

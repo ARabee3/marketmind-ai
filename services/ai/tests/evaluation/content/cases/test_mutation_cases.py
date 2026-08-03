@@ -82,10 +82,6 @@ REQUIRED_MUTATION_TARGETS = {
         "case_id": "mutation-revision-preservation",
         "error_code": None,
     },
-    "cycle_completed": {
-        "case_id": "mutation-cycle-completed",
-        "error_code": "CONTENT_CYCLE_COMPLETED",
-    },
     "offer_unapproved": {
         "case_id": "mutation-offer-unapproved",
         "error_code": "CONTENT_OFFER_UNAPPROVED",

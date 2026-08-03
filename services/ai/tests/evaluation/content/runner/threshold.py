@@ -40,12 +40,12 @@ GUARDRAIL_CHECK_MAP: dict[str, list[str]] = {
     "regulated_claim": ["contract:CONTENT_POLICY_VIOLATION"],
     "competitor_claim": ["contract:CONTENT_UNSUPPORTED_CLAIM"],
     "selected_channel": ["contract:CONTENT_CHANNEL_MISMATCH"],
-    "pillar_alignment": ["wrong_pillar", "contract:CONTENT_VERSION_CONFLICT"],
+    "pillar_alignment": ["wrong_pillar"],
     "prompt_injection": ["prompt_injection"],
     "required_asset": ["contract:CONTENT_ASSET_REQUIRED"],
     "schema_validity": ["contract:CONTENT_SCHEMA_FAILURE"],
-    "provider_timeout": ["provider_timeout"],
-    "asset_generation": ["asset_generation"],
+    "provider_timeout": ["provider_timeout", "contract:CONTENT_PROVIDER_FAILURE"],
+    "asset_generation": ["asset_generation", "contract:CONTENT_PROVIDER_FAILURE"],
     "revision_preserves_caption": ["revision_preserves_caption"],
     "revision_preserves_creative_brief": ["revision_preserves_creative_brief"],
     "revision_preserves_alt_text": ["revision_preserves_alt_text"],
@@ -239,9 +239,29 @@ def _rubric_covered(case: ContentEvalCase) -> tuple[int, int]:
     A rubric dimension only *applies* where content was actually produced for a
     human to score. Cases rejected by a hard guardrail before any content exists
     carry an N/A rubric (score 0 with ``Rubric N/A`` notes) and are excluded from
-    both the numerator and the denominator. An applicable dimension is ``covered``
-    when it is scored by a named reviewer with a timestamp.
+    both the numerator and the denominator.
+
+    An applicable dimension is ``covered`` only when the AI/product reviewer
+    (@mostafamerzk) has actually signed off on the case.  Generator-authored
+    placeholder scores with a timestamp do not count — the reviewer must have
+    explicitly signed the case via the ``reviewers.ai_product_merzk.signed_off``
+    flag.
     """
+    if not case.reviewers.ai_product_merzk.signed_off:
+        rubric: HumanRubric = case.human_rubric
+        applicable = [
+            d
+            for d in (
+                rubric.language,
+                rubric.tone,
+                rubric.usefulness,
+                rubric.pillar_alignment,
+                rubric.cta,
+            )
+            if not (d.score == 0 and d.notes.lstrip().startswith("Rubric N/A"))
+        ]
+        return 0, len(applicable)
+
     rubric: HumanRubric = case.human_rubric
     dims = [
         rubric.language,
