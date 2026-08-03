@@ -97,6 +97,27 @@ export class ReconciliationService {
           where: { id: attempt.id },
           data: { status: "UNKNOWN", finishedAt: new Date() },
         });
+        // Create an UNKNOWN result row (only if none exists) so an admin can
+        // resolve it via /publishing/admin/results/:id/resolve — the resolve
+        // endpoint requires a result id. Without this row a stuck attempt is
+        // unresolvable (#119 non-blocking truthfulness gap).
+        const existing = await tx.publishingResult.findUnique({
+          where: { attemptId: attempt.id },
+        });
+        if (!existing) {
+          await tx.publishingResult.create({
+            data: {
+              attemptId: attempt.id,
+              intentId: attempt.intentId,
+              outcome: "UNKNOWN",
+              provider: "meta",
+              retryable: true,
+              sanitizedError:
+                "Stuck in QUEUED/DISPATCHING past timeout — delivery outcome unknown",
+              occurredAt: new Date(),
+            },
+          });
+        }
         // Only transition intent if it's still in SCHEDULED/DISPATCHING
         await tx.publishingIntent.updateMany({
           where: {

@@ -49,6 +49,12 @@ function makePrisma(
       return fn({
         publishingAttempt: { update: jest.fn().mockResolvedValue({}) },
         publishingIntent: { updateMany: jest.fn().mockResolvedValue({}) },
+        // flagStuckAttempts now also creates an UNKNOWN result row so an admin can
+        // resolve the stuck attempt (P1 #119 non-blocking gap).
+        publishingResult: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({}),
+        },
       });
     }),
   } as any;
@@ -83,6 +89,39 @@ describe("ReconciliationService.flagStuckAttempts", () => {
     await service.flagStuckAttempts();
 
     expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it("P1 (#119 non-blocking): also writes an UNKNOWN result row so an admin can resolve the stuck attempt", async () => {
+    const stuckAttempt = makeAttempt("QUEUED", STUCK_TIMEOUT_MS + 1000);
+    const resultFindUnique = jest.fn().mockResolvedValue(null);
+    const resultCreate = jest.fn().mockResolvedValue({});
+    const prisma = makePrisma({ attempts: [stuckAttempt] });
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (cb: (tx: any) => any) =>
+        cb({
+          publishingAttempt: { update: jest.fn().mockResolvedValue({}) },
+          publishingIntent: { updateMany: jest.fn().mockResolvedValue({}) },
+          publishingResult: {
+            findUnique: resultFindUnique,
+            create: resultCreate,
+          },
+        }),
+    );
+    const service = new ReconciliationService(prisma, makeQueue());
+
+    await service.flagStuckAttempts();
+
+    expect(resultFindUnique).toHaveBeenCalled();
+    expect(resultCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          attemptId: stuckAttempt.id,
+          intentId: stuckAttempt.intentId,
+          outcome: "UNKNOWN",
+          retryable: true,
+        }),
+      }),
+    );
   });
 
   it("does NOT flag an attempt within the timeout window", async () => {

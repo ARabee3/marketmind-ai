@@ -149,7 +149,9 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     } as any;
 
     n8n = { dispatch: jest.fn().mockResolvedValue({ executionId: "exec-1" }) };
-    assetIntegrity = { validateForDispatch: jest.fn().mockResolvedValue(undefined) };
+    assetIntegrity = {
+      validateForDispatch: jest.fn().mockResolvedValue(undefined),
+    };
 
     processor = new DispatchProcessor(
       prisma as any,
@@ -164,7 +166,9 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     jest.spyOn(processor["logger"], "error").mockImplementation(() => {});
   });
 
-  const job = { data: { intentId: "i-1", version: 1, idempotencyKey: "k-1" } } as any;
+  const job = {
+    data: { intentId: "i-1", version: 1, idempotencyKey: "k-1" },
+  } as any;
 
   it("proceeds to n8n with the frozen dispatch body when the atomic claim wins", async () => {
     (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
@@ -203,5 +207,105 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(n8n.dispatch).not.toHaveBeenCalled();
     expect(prisma.publishingAttempt!.updateMany).not.toHaveBeenCalled();
     expect(assetIntegrity.validateForDispatch).not.toHaveBeenCalled();
+  });
+
+  it("P1-6: a stale vN revalidation failure does NOT fail a newer vN+1 intent — markIntentFailed is version-predicated (0 rows)", async () => {
+    // Simulate the revalidation tx rejecting because the job's version (1) is
+    // stale against the current intent version (2). markIntentFailed must
+    // update ONLY rows where version === 1 — there are none, so the newer
+    // SCHEDULED intent is untouched.
+    jest
+      .spyOn(processor as never, "runRevalidationAndCreateAttempt" as never)
+      .mockRejectedValue(
+        new Error(
+          "PUBLISHING_STATE_CONFLICT: intent version mismatch (expected 1, current 2)",
+        ) as never,
+      );
+    (prisma.publishingIntent!.updateMany as jest.Mock).mockResolvedValue({
+      count: 0,
+    });
+
+    await processor.process(job);
+
+    expect(prisma.publishingIntent!.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "i-1",
+          version: 1,
+          status: { in: ["SCHEDULED", "DISPATCHING"] },
+        }),
+        data: { status: "FAILED" },
+      }),
+    );
+    // A stale job must not touch a different/current intent version.
+    expect(
+      (prisma.publishingIntent!.updateMany as jest.Mock).mock.calls[0][0].where
+        .version,
+    ).toBe(1);
+  });
+
+  it("P1-7: an ambiguous n8n delivery (timeout) persists UNKNOWN + ACTION_REQUIRED and a result row — never a blind FAILED retry", async () => {
+    // Revalidation returns a fresh REAL attempt; asset integrity passes; the
+    // atomic claim wins; n8n then times out ambiguously.
+    jest
+      .spyOn(processor as never, "runRevalidationAndCreateAttempt" as never)
+      .mockResolvedValue({
+        replayed: false,
+        attemptId: "attempt-1",
+        status: "QUEUED",
+        body,
+      } as never);
+    (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+    const axiosTimeout: Error & {
+      code?: string;
+      isAxiosError?: boolean;
+    } = new Error("timeout of 15000ms exceeded");
+    axiosTimeout.code = "ECONNABORTED";
+    axiosTimeout.isAxiosError = true;
+    (n8n.dispatch as jest.Mock).mockRejectedValue(axiosTimeout);
+
+    // Track the post-failure write transaction.
+    const attemptUpdate = jest.fn().mockResolvedValue({});
+    const resultFindUnique = jest.fn().mockResolvedValue(null);
+    const resultCreate = jest.fn().mockResolvedValue({});
+    const intentUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (cb: (tx: any) => any) =>
+        cb({
+          publishingAttempt: { update: attemptUpdate },
+          publishingResult: {
+            findUnique: resultFindUnique,
+            create: resultCreate,
+          },
+          publishingIntent: { updateMany: intentUpdateMany },
+        }),
+    );
+
+    await processor.process(job);
+
+    // Ambiguous → attempt UNKNOWN, intent ACTION_REQUIRED (version-predicated),
+    // and a matching UNKNOWN result row for reconciliation/admin resolution.
+    expect(attemptUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "UNKNOWN" }),
+      }),
+    );
+    expect(intentUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "i-1",
+          version: 1,
+          status: { in: ["SCHEDULED", "DISPATCHING"] },
+        }),
+        data: { status: "ACTION_REQUIRED" },
+      }),
+    );
+    expect(resultCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ outcome: "UNKNOWN", retryable: true }),
+      }),
+    );
   });
 });
