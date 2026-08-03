@@ -13,7 +13,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EXTERNAL_BUDGET_MODES, ExternalBudgetMode } from '@marketmind/contracts';
+import {
+  EXTERNAL_BUDGET_MODES,
+  ExternalBudgetMode,
+  STRATEGY_OBJECTIVES,
+} from '@marketmind/contracts';
 
 /**
  * Optional budget amount or range (in EGP). Required when
@@ -54,7 +58,7 @@ export class UpsertBriefDto {
   businessProfileVersionId: string;
 
   @IsString()
-  @MinLength(3)
+  @IsIn(STRATEGY_OBJECTIVES)
   primaryObjective: string;
 
   @IsDateString()

@@ -475,6 +475,12 @@ class MockStrategyProvider(StrategyLLMProvider):
             plan_dict["primary_objective"] = primary_objective_value
             plan_dict["plan_language"] = language_mode_value
             plan_dict["budget_mode"] = budget_mode_value
+            budget_scenarios = meta.get("deterministic_budget_scenarios")
+            if isinstance(budget_scenarios, list):
+                plan_dict["budget_scenarios"] = budget_scenarios
+            kpi_targets = meta.get("deterministic_kpi_targets")
+            if isinstance(kpi_targets, list):
+                plan_dict["kpi_targets"] = kpi_targets
             if language_mode_value == "en":
                 _write_english_mock_owner_text(plan_dict)
             if budget_mode_value == "organic_only":

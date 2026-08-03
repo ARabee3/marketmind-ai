@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 from strategy_contracts import (
     ChannelDimensionScores,
+    ChannelRole,
     ExternalBudgetMode,
     StrategyBrief,
     calculate_channel_total,
 )
-from strategy_contracts import ChannelRole
 
 from app.decisions.config import (
     AUDIENCE_FIT_NEUTRAL,
@@ -28,7 +28,7 @@ from app.decisions.config import (
     OBJECTIVE_ADJACENT_FUNNEL_STAGES,
     STANDARD_CHANNELS,
 )
-from app.decisions.normalize import CapacityTier, NormalizedInputs
+from app.decisions.normalize import NormalizedInputs
 from app.rag.schemas import HydratedItem, KnowledgeGap, RetrievedKnowledgePack
 
 
@@ -41,6 +41,11 @@ class DimensionResult:
 @dataclass
 class ScoringContext:
     knowledge_gaps: list[KnowledgeGap] = field(default_factory=list)
+
+
+ASSET_REQUIREMENT_GROUPS: Final[dict[str, tuple[tuple[str, ...], ...]]] = {
+    "delivery_platforms": (("menu", "catalog"), ("photo", "image")),
+}
 
 
 def _channel_items(items: list[HydratedItem], channel: str) -> list[HydratedItem]:
@@ -185,13 +190,22 @@ def score_asset_format_fit(
 
     assets = _profile_marketing(profile).get("available_assets", [])
     asset_text = " ".join(str(a).lower() for a in assets)
-    matched = [kw for kw in required if kw in asset_text]
-    score = len(matched) / len(required)
+    requirement_groups = ASSET_REQUIREMENT_GROUPS.get(channel, (required,))
+    matched_groups = [
+        [keyword for keyword in group if keyword in asset_text]
+        for group in requirement_groups
+    ]
+    fulfilled_groups = [group for group in matched_groups if group]
+    score = len(fulfilled_groups) / len(requirement_groups)
     return DimensionResult(
         score,
         [
-            f"Matched {len(matched)}/{len(required)} asset categories",
-            f"Required: {list(required)}",
+            (
+                "Matched "
+                f"{len(fulfilled_groups)}/{len(requirement_groups)} "
+                "asset requirement groups"
+            ),
+            f"Matched asset keywords by group: {fulfilled_groups}",
         ],
     )
 

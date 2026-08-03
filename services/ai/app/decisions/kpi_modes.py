@@ -53,6 +53,16 @@ def _item_tags(item: Any) -> dict[str, list[str]]:
     return item.tags
 
 
+def _owner_facing_text(
+    brief: StrategyBrief,
+    arabic: str,
+    english: str,
+) -> str:
+    if brief.plan_language.value == "ar-EG":
+        return arabic
+    return english
+
+
 def _verified_benchmark_item(
     items: list[Any],
     *,
@@ -99,9 +109,17 @@ def select_kpi_target_mode(
             target_mode=KpiTargetMode.verified_benchmark_range,
             target_value=excerpt[:120] if excerpt else "benchmark range",
             benchmark_citation_id=citation_id,
-            measurement_method=f"Track {metric} weekly",
+            measurement_method=_owner_facing_text(
+                brief,
+                f"تتبّع {metric} أسبوعيًا من خلال بيانات القناة.",
+                f"Track {metric} weekly",
+            ),
             notes=SourcedClaim(
-                text=f"Verified benchmark from retrieved knowledge: {benchmark_item.title}",
+                text=_owner_facing_text(
+                    brief,
+                    "استخدم معيارًا موثّقًا من المعرفة المسترجعة للمقارنة.",
+                    f"Verified benchmark from retrieved knowledge: {benchmark_item.title}",
+                ),
                 source=ClaimSource.retrieved_evidence,
                 citation_ids=[citation_id],
             ),
@@ -117,7 +135,11 @@ def select_kpi_target_mode(
                     target_value=prior.target_value or "Improve from prior baseline",
                     measurement_method=prior.measurement_method,
                     notes=SourcedClaim(
-                        text=f"Improvement target based on prior plan metric '{prior.metric}'.",
+                    text=_owner_facing_text(
+                        brief,
+                        "هدف التحسين مبني على نتيجة الخطة السابقة.",
+                        f"Improvement target based on prior plan metric '{prior.metric}'.",
+                    ),
                         source=ClaimSource.deterministic_result,
                         citation_ids=[],
                     ),
@@ -130,9 +152,17 @@ def select_kpi_target_mode(
             funnel_stage=funnel_stage,
             target_mode=KpiTargetMode.owner_target,
             target_value=owner_value,
-            measurement_method=f"Track {metric} against owner-stated target",
+            measurement_method=_owner_facing_text(
+                brief,
+                f"تتبّع {metric} مقابل هدف المالك المعلن.",
+                f"Track {metric} against owner-stated target",
+            ),
             notes=SourcedClaim(
-                text="Owner stated an explicit numeric target in brief constraints or clarifications.",
+                text=_owner_facing_text(
+                    brief,
+                    "حدّد المالك هدفًا رقميًا صريحًا في القيود أو الإيضاحات.",
+                    "Owner stated an explicit numeric target in brief constraints or clarifications.",
+                ),
                 source=ClaimSource.owner_input,
                 citation_ids=[],
             ),
@@ -143,9 +173,17 @@ def select_kpi_target_mode(
         funnel_stage=funnel_stage,
         target_mode=KpiTargetMode.establish_baseline,
         target_value=None,
-        measurement_method=f"Establish and track baseline for {metric}",
+        measurement_method=_owner_facing_text(
+            brief,
+            f"حدّد وتتبّع خط الأساس لمؤشر {metric}.",
+            f"Establish and track baseline for {metric}",
+        ),
         notes=SourcedClaim(
-            text="No verified benchmark or owner target; establish baseline first.",
+            text=_owner_facing_text(
+                brief,
+                "لا يوجد معيار موثّق أو هدف من المالك؛ ابدأ بقياس خط الأساس.",
+                "No verified benchmark or owner target; establish baseline first.",
+            ),
             source=ClaimSource.deterministic_result,
             citation_ids=[],
         ),

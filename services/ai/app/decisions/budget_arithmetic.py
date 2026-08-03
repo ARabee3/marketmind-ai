@@ -101,9 +101,18 @@ def _allocations_for_scenario(
     ]
 
 
-def _scenario_notes(scenario_type: ScenarioType, total: int) -> SourcedClaim:
+def _scenario_notes(
+    scenario_type: ScenarioType,
+    total: int,
+    plan_language: str,
+) -> SourcedClaim:
+    text = (
+        f"سيناريو {scenario_type.value} محدد آليًا بإجمالي {total} جنيه مصري."
+        if plan_language == "ar-EG"
+        else f"Deterministic {scenario_type.value} scenario at {total} EGP."
+    )
     return SourcedClaim(
-        text=f"Deterministic {scenario_type.value} scenario at {total} EGP.",
+        text=text,
         source=ClaimSource.deterministic_result,
         citation_ids=[],
     )
@@ -164,7 +173,11 @@ def compute_budget_scenarios(
                     selected=selected,
                 ),
                 requires_owner_budget_approval=requires_approval,
-                notes=_scenario_notes(scenario_type, total),
+                notes=_scenario_notes(
+                    scenario_type,
+                    total,
+                    brief.plan_language.value,
+                ),
             )
         )
     return scenarios
