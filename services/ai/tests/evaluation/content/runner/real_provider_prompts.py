@@ -56,6 +56,15 @@ def build_spot_check_generation_prompt(
         destination_type = getattr(destination, "type", None)
         destination_value = getattr(destination, "value", None)
 
+    language_note = (
+        " It must be written in Arabic (Egyptian Arabic) because language_mode is ar-EG."
+        if request.language_mode == "ar-EG"
+        else (
+            " It must be written in English because language_mode is en."
+            if request.language_mode == "en"
+            else ""
+        )
+    )
     if destination_type == "none":
         cta_rule = (
             "The weekly context has no CTA destination (type=none). "
@@ -65,6 +74,7 @@ def build_spot_check_generation_prompt(
         cta_rule = (
             "If the weekly context has a CTA destination, "
             f"the generated CTA copy must include the confirmed destination value: {destination_value!r}."
+            f"{language_note}"
         )
     else:
         cta_rule = (
@@ -121,7 +131,12 @@ def build_spot_check_generation_prompt(
             f"10. `strategy_trace.pillar_ids` must be chosen only from {expected_pillars!r}.",
             f"11. `strategy_trace.objective` must equal exactly {objective_value!r}.",
             f"12. `language_mode` must equal {language_mode_value!r}; "
-            f"`caption_variants` must include locale {expected_locale!r}.",
+            f"`caption_variants` must include locale {expected_locale!r}. "
+            "For language_mode=ar-EG, every owner-facing field "
+            "(`caption`, `cta`, `creative_brief`, `alt_text`) must be predominantly Arabic. "
+            "For language_mode=en, those fields must be predominantly English. "
+            "Protected values such as phone numbers, URLs, handles, and approved owner text "
+            "must be preserved exactly.",
             f"13. {cta_rule}",
             f"14. {promotion_rule}",
             "15. Obey every `week_context.must_include` instruction exactly; "

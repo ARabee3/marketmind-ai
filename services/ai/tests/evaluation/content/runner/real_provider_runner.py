@@ -27,7 +27,11 @@ if __name__ == "__main__":
         sys.path.insert(0, str(_contracts_path))
 
 from app.content.assembler import PromptAssembly, assemble_generation_prompt
-from app.content.validators import validate_generated_content_pack
+from app.content.validators import (
+    compute_content_item_checksum,
+    validate_generated_content_pack,
+)
+from content_contracts import ContentItemVersion
 from app.core.config import ProviderMode, Settings
 from app.providers.content_provider import (
     ContentLLMProvider,
@@ -105,6 +109,25 @@ async def _generate(provider: ContentLLMProvider, prompt: Any) -> list[Any]:
     return await provider.generate_content_pack(prompt)
 
 
+def _finalize_item_checksums(items: list[ContentItemVersion]) -> list[ContentItemVersion]:
+    """Recompute server-side checksums exactly as the production service does.
+
+    Real providers cannot know the exact immutable-byte serialization, so the
+    production pipeline always recomputes `version_checksum` server-side. Doing
+    the same here keeps the spot-check focused on content correctness rather
+    than checksum prediction.
+    """
+    finalized: list[ContentItemVersion] = []
+    for item in items:
+        without_checksum = item.model_copy(update={"version_checksum": ""})
+        finalized.append(
+            without_checksum.model_copy(
+                update={"version_checksum": compute_content_item_checksum(without_checksum)}
+            )
+        )
+    return finalized
+
+
 async def _run_spot_check() -> dict[str, Any]:
     """Run the real provider against the representative request and compare."""
     settings = _real_provider_settings()
@@ -122,6 +145,11 @@ async def _run_spot_check() -> dict[str, Any]:
         _generate(fake_provider, fake_prompt),
         _generate(provider, real_prompt),
     )
+
+    # Recompute server-side checksums so the comparison tests content quality,
+    # not the provider's ability to predict immutable-byte checksums.
+    fake_items = _finalize_item_checksums(fake_items)
+    real_items = _finalize_item_checksums(real_items)
 
     fake_result = validate_generated_content_pack(request, fake_items)
     real_result = validate_generated_content_pack(request, real_items)
