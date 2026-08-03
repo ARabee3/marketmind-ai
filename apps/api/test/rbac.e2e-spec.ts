@@ -98,18 +98,21 @@ describe("RBAC (e2e)", () => {
             "business:read", "business:update", "discovery:confirm_profile",
             "discovery:continue", "discovery:start", "strategy:start",
           ].sort());
+          // owner must NOT have either admin permission
           expect(res.body.permissions).not.toContain("admin:manage_library");
+          expect(res.body.permissions).not.toContain("admin:publishing");
         }));
 
-    it("should return all 7 permissions for admin", () =>
+    it("should return all 8 permissions for admin (includes admin:publishing)", () =>
       request(app.getHttpServer())
         .get("/api/v1/rbac/me/permissions")
         .set("Authorization", `Bearer ${adminToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body.roles).toEqual(["admin"]);
-          expect(res.body.permissions).toHaveLength(7);
+          expect(res.body.permissions).toHaveLength(8);
           expect(res.body.permissions).toContain("admin:manage_library");
+          expect(res.body.permissions).toContain("admin:publishing");
         }));
 
     it("should return the 3 limited developer_demo permissions", () =>

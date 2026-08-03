@@ -40,6 +40,8 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
     "Confirm a Discovery business profile draft.",
   [PERMISSIONS.STRATEGY_START]: "Start a strategy generation flow.",
   [PERMISSIONS.ADMIN_MANAGE_LIBRARY]: "Manage the admin content library.",
+  [PERMISSIONS.PUBLISHING_ADMIN]:
+    "Admin publishing reconciliation: trigger sweeps, resolve unknown results, read attempts.",
 };
 
 async function main() {

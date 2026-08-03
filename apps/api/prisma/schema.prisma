@@ -763,3 +763,331 @@ model StrategyProgressEvent {
   @@index([strategyId, createdAt])
   @@map("strategy_progress_events")
 }
+
+// ── Publishing Automation ─────────────────────────────────────────────────────
+// Deterministic publishing lifecycle. PostgreSQL is the only source of truth.
+// n8n is an execution runner whose state is always reconciled toward Postgres.
+
+enum PublishingCandidateStatus {
+  ACTIVE
+  REVOKED
+  REPLACED
+}
+
+enum PublishingTargetProvider {
+  META
+}
+
+enum PublishingTargetConnectionState {
+  CONNECTED
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+enum PublishingIntentStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  SCHEDULED
+  DISPATCHING
+  SUCCEEDED
+  FAILED
+  ACTION_REQUIRED
+  CANCELLED
+}
+
+enum PublishingMode {
+  REAL
+  MANUAL_EXPORT
+  SIMULATION
+}
+
+enum PublishingApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum PublishingAttemptStatus {
+  QUEUED
+  RUNNING
+  DISPATCHING
+  SUCCEEDED
+  FAILED
+  UNKNOWN
+  CANCELLED
+}
+
+enum PublishingOutcome {
+  PUBLISHED
+  EXPORTED
+  SIMULATED
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+/// Candidate inbox — one row per approved PublicationCandidateV1 received
+/// from the content pipeline. Dedup key: (businessId, externalContentId, candidateChecksum).
+model PublishingCandidate {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  businessId         String                    @map("business_id") @db.Uuid
+  externalContentId  String                    @map("external_content_id")
+  candidateChecksum  String                    @map("candidate_checksum")
+  eventFingerprint   String                    @map("event_fingerprint")
+  /// Originating content-service event id (frozen PublicationCandidateRecordV1.event_id).
+  /// Updated on each applied state-changed event so the record round-trips.
+  eventId            String                    @map("event_id") @db.Uuid
+  status             PublishingCandidateStatus @default(ACTIVE)
+  /// Full frozen PublicationCandidateStatusV1 object last applied (round-trips
+  /// through reducePublicationCandidateEventV1 — the reducer validates this).
+  sourceStatus       Json                       @map("source_status")
+  /// Full frozen content payload — never mutated after receipt
+  payload            Json
+  channel            String
+  format             String
+  locale             String                    @default("ar")
+  strategyWeekNumber Int?                      @map("strategy_week_number")
+  sourceStateVersion Int                       @default(1) @map("source_state_version")
+  receivedAt         DateTime                  @default(now()) @map("received_at")
+  version            Int                       @default(1)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+
+  intents PublishingIntent[]
+
+  /// Dedup: same content id + checksum is a no-op; different checksum under same id → reject
+  @@unique([businessId, externalContentId, candidateChecksum])
+  /// Fast lookup by eventFingerprint for at-least-once delivery idempotency
+  @@unique([eventFingerprint])
+  @@index([businessId, status])
+  @@map("publishing_candidates")
+}
+
+/// A connected social publishing target (Facebook Page, Instagram account).
+/// credentialRef is an opaque pointer into the secret store — never the token.
+model PublishingTarget {
+  id                String                          @id @default(uuid()) @db.Uuid
+  businessId        String                          @map("business_id") @db.Uuid
+  provider          PublishingTargetProvider
+  channel           String
+  externalAccountId String                          @map("external_account_id")
+  displayName       String                          @map("display_name")
+  connectionState   PublishingTargetConnectionState @default(CONNECTED) @map("connection_state")
+  /// Opaque pointer to secret store — NEVER the raw token value
+  credentialRef     String                          @map("credential_ref")
+  /// JSON array of capability strings, e.g. ["static_image"]
+  capabilities      Json                            @default("[]")
+  lastVerifiedAt    DateTime?                       @map("last_verified_at")
+  expiresAt         DateTime?                       @map("expires_at")
+  version           Int                             @default(1)
+  createdAt         DateTime                        @default(now()) @map("created_at")
+  updatedAt         DateTime                        @updatedAt @map("updated_at")
+
+  intents PublishingIntent[]
+
+  @@index([businessId, connectionState])
+  @@map("publishing_targets")
+}
+
+/// One intent = the owner's plan for one candidate on one target.
+/// Partial unique index enforces ONE logical publication intent per candidate
+/// across active, terminal, AND ambiguous outcomes (only CANCELLED frees the
+/// slot) — see P1 (#119 review): a second intent after a succeeded/failed/
+/// action-required outcome could duplicate or republish a confirmed candidate.
+///
+/// NOTE: Prisma's schema DSL cannot express a *filtered* unique index, so the
+/// authoritative constraint lives as raw SQL in the migration
+/// (publishing_intents_candidate_id_active_uniq): a partial UNIQUE index on
+/// (candidate_id) WHERE status IN (DRAFT, AWAITING_APPROVAL, SCHEDULED,
+/// DISPATCHING, SUCCEEDED, FAILED, ACTION_REQUIRED). The app-layer check in
+/// IntentsService.createIntent is a friendly fast-path only; the DB index is
+/// the race-proof guarantee and the duplicate-insert is mapped to
+/// PUBLISHING_STATE_CONFLICT.
+model PublishingIntent {
+  id               String                 @id @default(uuid()) @db.Uuid
+  businessId       String                 @map("business_id") @db.Uuid
+  candidateId      String                 @map("candidate_id") @db.Uuid
+  targetId         String?                @map("target_id") @db.Uuid
+  mode             PublishingMode         @default(REAL)
+  status           PublishingIntentStatus @default(DRAFT)
+  /// Naive local datetime as entered by the owner (Cairo wall-clock)
+  scheduledLocalAt DateTime?              @map("scheduled_local_at") @db.Timestamp(6)
+  /// IANA timezone string, e.g. "Africa/Cairo"
+  timezone         String?
+  /// Derived normalized UTC instant — computed server-side, never from client
+  scheduledUtcAt   DateTime?              @map("scheduled_utc_at") @db.Timestamptz(6)
+  /// Bumped on every schedule/reschedule/approval-invalidating change
+  version          Int                    @default(1)
+  createdByUserId  String                 @map("created_by_user_id") @db.Uuid
+  /// Client idempotency key per owner create action (contract
+  /// publication-intent-v1). A partial UNIQUE index on
+  /// (business_id, idempotency_key) WHERE idempotency_key IS NOT NULL is
+  /// applied as raw SQL in the migration: an identical create replay resolves
+  /// to the existing intent (no-op), while reusing a key with different bytes
+  /// surfaces as PUBLISHING_IDEMPOTENCY_CONFLICT.
+  idempotencyKey    String?                @map("idempotency_key")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  candidate  PublishingCandidate        @relation(fields: [candidateId], references: [id])
+  target     PublishingTarget?          @relation(fields: [targetId], references: [id])
+  approvals  PublishingApproval[]
+  attempts   PublishingAttempt[]
+  exportMeta PublishingExportMetadata[]
+
+  @@index([businessId, status])
+  @@index([candidateId])
+  @@index([scheduledUtcAt])
+  @@map("publishing_intents")
+}
+
+/// Exact publication approval snapshot. Invalidated when intent version changes.
+///
+/// NOTE: a filtered UNIQUE index on `approval_fingerprint` is applied as raw
+/// SQL in the migration (publishing_approvals_approval_fingerprint_key) since
+/// Prisma's DSL cannot express a plain unique on a single column cheaper than
+/// the inherent uniqueness — actually this is a plain unique, so it IS
+/// modelled below. The idempotency_key index remains raw-SQL-only as a
+/// non-unique lookup helper.
+model PublishingApproval {
+  id                      String                     @id @default(uuid()) @db.Uuid
+  intentId                String                     @map("intent_id") @db.Uuid
+  /// The intent version at decision time — used to detect post-approval schedule changes
+  intentVersionAtDecision Int                        @map("intent_version_at_decision")
+  candidateChecksum       String                     @map("candidate_checksum")
+  decision                PublishingApprovalDecision
+  decidedByUserId        String                     @map("decided_by_user_id") @db.Uuid
+  decidedAt               DateTime                   @default(now()) @map("decided_at")
+  notes                   String?
+  /// Canonical HMAC of the exact approved decision (contract
+  /// publication-approval-v1.approval_fingerprint). Unique per approval so a
+  /// replayed exact decision resolves to the existing row (no-op) while a
+  /// conflicting decision surfaces as PUBLISHING_STATE_CONFLICT.
+  approvalFingerprint     String                     @unique @map("approval_fingerprint")
+  /// One idempotency key per owner decision action (contract requirement).
+  idempotencyKey          String                     @map("idempotency_key")
+  createdAt               DateTime                   @default(now()) @map("created_at")
+
+  intent PublishingIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([intentId])
+  @@index([idempotencyKey])
+  @@map("publishing_approvals")
+}
+
+/// One attempt per dispatch invocation. Retries create new rows (new sequence).
+/// Unique key: (intentId, intentVersion, attemptSequence)
+///
+/// Idempotency model (contract publication-attempt-v1):
+///  - `idempotencyKey` is one per owner action, unique per intent
+///    (`@@unique([intentId, idempotencyKey])`). A delayed-job BullMQ replay
+///    carrying the same key resolves to the SAME attempt row (identical replay
+///    → no-op) — the dispatch processor looks it up before creating.
+///  - `providerRequestFingerprint` is the canonical hash of the signed dispatch
+///    body; identical fingerprint on replay confirms the bytes match.
+///  - Conflicting canonical bytes under the same key surface as
+///    PUBLISHING_IDEMPOTENCY_CONFLICT at the app layer.
+model PublishingAttempt {
+  id                         String                  @id @default(uuid()) @db.Uuid
+  intentId                   String                  @map("intent_id") @db.Uuid
+  intentVersion              Int                     @map("intent_version")
+  attemptSequence            Int                     @map("attempt_sequence")
+  status                     PublishingAttemptStatus @default(QUEUED)
+  workflowVersion            String?                 @map("workflow_version")
+  providerRequestFingerprint String?                 @map("provider_request_fingerprint")
+  /// One idempotency key per owner action (contract). Unique per intent so a
+  /// replayed job resolves to the same attempt, not a new one.
+  idempotencyKey             String                  @map("idempotency_key")
+  /// Reference only — n8n execution ref, never treated as authoritative state
+  n8nExecutionRef            String?                 @map("n8n_execution_ref")
+  /// Sanitized error — never raw provider messages, headers, or tokens
+  sanitizedError             String?                 @map("sanitized_error")
+  dispatchedAt               DateTime?               @map("dispatched_at")
+  startedAt                  DateTime?               @map("started_at")
+  finishedAt                 DateTime?               @map("finished_at")
+  createdAt                  DateTime                @default(now()) @map("created_at")
+  updatedAt                  DateTime                @updatedAt @map("updated_at")
+
+  intent    PublishingIntent             @relation(fields: [intentId], references: [id], onDelete: Cascade)
+  result    PublishingResult?
+  callbacks PublishingCallbackIdentity[]
+
+  /// Unique per intent+version+sequence — allows multiple pure-infra retries
+  @@unique([intentId, intentVersion, attemptSequence])
+  /// One attempt per idempotency key per intent — replay resolves to same row
+  @@unique([intentId, idempotencyKey])
+  @@index([intentId, intentVersion])
+  @@index([status, createdAt])
+  @@index([providerRequestFingerprint])
+  @@map("publishing_attempts")
+}
+
+/// Immutable result record — 1:1 with attempt. Never overwritten; conflicts rejected.
+///
+/// NOTE: a partial UNIQUE index on `(intent_id) WHERE outcome = 'PUBLISHED'`
+/// is applied as raw SQL in the migration
+/// (publishing_results_intent_id_published_uniq) — Prisma's DSL cannot express
+/// a filtered unique. This is the authoritative DB guarantee that one intent
+/// can never have two confirmed remote publications (issue #119 acceptance).
+/// Exported/Simulated are deliberately excluded (re-running export can
+/// legitimately yield a second EXPORTED row with a new artifact id).
+model PublishingResult {
+  id                  String            @id @default(uuid()) @db.Uuid
+  attemptId           String            @unique @map("attempt_id") @db.Uuid
+  intentId            String            @map("intent_id") @db.Uuid
+  outcome             PublishingOutcome
+  provider            String?
+  remotePublicationId String?           @map("remote_publication_id")
+  remoteUrl           String?           @map("remote_url")
+  exportArtifactId    String?           @map("export_artifact_id") @db.Uuid
+  simulationLabel     String?           @map("simulation_label")
+  errorCode           String?           @map("error_code")
+  retryable           Boolean           @default(false)
+  /// Hash of raw callback body — never the raw body if it may contain secrets
+  rawPayloadHash      String?           @map("raw_payload_hash")
+  /// Sanitized error — no tokens, headers, or signed URLs
+  sanitizedError      String?           @map("sanitized_error")
+  occurredAt          DateTime          @map("occurred_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+
+  attempt PublishingAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([intentId])
+  @@map("publishing_results")
+}
+
+/// Tracks every inbound callback for replay/idempotency independent of outcome changes.
+model PublishingCallbackIdentity {
+  id                 String   @id @default(uuid()) @db.Uuid
+  attemptId          String   @map("attempt_id") @db.Uuid
+  /// Unique nonce or hash(payload) from n8n — used for replay detection
+  externalCallbackId String   @unique @map("external_callback_id")
+  signatureValid     Boolean  @map("signature_valid")
+  payloadHash        String   @map("payload_hash")
+  /// Timestamp claimed inside the signed payload — checked against replay window
+  payloadTimestamp   DateTime @map("payload_timestamp")
+  outcome            String
+  receivedAt         DateTime @default(now()) @map("received_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  attempt PublishingAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@map("publishing_callback_identities")
+}
+
+/// Metadata about export packages generated for manual-export mode intents.
+model PublishingExportMetadata {
+  id             String   @id @default(uuid()) @db.Uuid
+  intentId       String   @map("intent_id") @db.Uuid
+  exportType     String   @map("export_type")
+  destinationRef String   @map("destination_ref")
+  checksum       String
+  exportedAt     DateTime @map("exported_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  intent PublishingIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([intentId])
+  @@map("publishing_export_metadata")
+}

@@ -49,6 +49,7 @@ describe("RbacService", () => {
           PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
           PERMISSIONS.STRATEGY_START,
           PERMISSIONS.ADMIN_MANAGE_LIBRARY,
+          PERMISSIONS.PUBLISHING_ADMIN,
         ].sort(),
       );
     });

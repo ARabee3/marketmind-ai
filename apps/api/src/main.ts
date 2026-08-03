@@ -35,8 +35,20 @@ async function bootstrap() {
   // filter precedence turning ordinary 4xx responses into generic 500s.
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Global API prefix — all routes start with /api/v1
-  app.setGlobalPrefix("api/v1");
+  // Global API prefix — all public routes start with /api/v1.
+  // Internal routes (the inbound n8n callback lives under /internal/v1/...,
+  // see PUBLISHING_AUTOMATION_ARCHITECTURE.md §11 and the URL advertised to n8n
+  // in N8nClientService) are excluded so they keep their own /internal/ prefix
+  // and are not reachable through the normal /api/v1 owner surface.
+  //
+  // NestJS `exclude` in this build (nestjs/core 11.x) accepts string paths
+  // compiled by path-to-regexp v8; a named wildcard `*splat` is required to
+  // match the full remaining path (a bare `internal` would only match the
+  // exact `/internal` token, and RegExp entries are NOT supported here despite
+  // older docs).
+  app.setGlobalPrefix("api/v1", {
+    exclude: ["internal/*splat"],
+  });
 
   const port = configService.get<number>("port") || 3001;
   await app.listen(port);
