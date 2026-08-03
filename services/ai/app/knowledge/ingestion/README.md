@@ -45,7 +45,7 @@ All variables live in `services/ai/.env`.
 | `KNOWLEDGE_CHUNK_MAX_TOKENS` | Yes | Target chunk size. |
 | `KNOWLEDGE_CHUNK_OVERLAP_TOKENS` | Yes | Overlap between chunks. |
 | `EMBEDDING_PROVIDER_MODE` | Yes | `fake`, `openai`, or `gemini`. |
-| `EMBEDDING_MODEL` | Yes | e.g. `text-embedding-3-large` or `text-embedding-004`. |
+| `EMBEDDING_MODEL` | Yes | e.g. `text-embedding-3-large` or `gemini-embedding-2`. |
 | `EMBEDDING_DIMENSIONS` | Yes | Must match the model. |
 | `GEMINI_API_KEY` | Only for `gemini` | Reused from the Gemini AI provider; required for Gemini embeddings. |
 | `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_COLLECTION_NAME` | Yes | Qdrant target. |
@@ -87,11 +87,14 @@ Exit codes:
 ```bash
 # services/ai/.env
 EMBEDDING_PROVIDER_MODE=gemini
-EMBEDDING_MODEL=text-embedding-004
+EMBEDDING_MODEL=gemini-embedding-2
 EMBEDDING_DIMENSIONS=768
 EMBEDDING_BATCH_SIZE=32
 GEMINI_API_KEY=your-gemini-api-key
 ```
+
+Changing the embedding model requires a new Qdrant collection name and a full
+`rebuild`; vectors from different models must never share a collection.
 
 ## Idempotency
 

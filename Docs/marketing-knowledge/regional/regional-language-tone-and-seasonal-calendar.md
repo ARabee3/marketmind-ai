@@ -1,6 +1,6 @@
 ---
 slug: regional-language-tone-and-seasonal-calendar
-version: 2
+version: 3
 kind: regional_guidance
 title: 'Arabic Language, Tone, and Egyptian Seasonal Calendar'
 summary: >
@@ -31,7 +31,7 @@ seasons:
   - winter_holidays
 budget_modes: []
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - >-
@@ -42,9 +42,9 @@ source_references:
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: c8a28bee712f24784ed893b3c1d6355311e57fab636e42b4d427fda68d4d8565
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 550924930ab0e378a078fda50471c2304c4f1855cc4930ec41274eb3a2375172
 ---
 
 ## When useful
@@ -83,23 +83,23 @@ product language ("fresh today", "deliver to your door") over abstract claims
   the exact dates, demand pattern, stock, staffing, and fulfillment capacity
   for the current planning cycle.
 
-**2026/2027 planning-cycle windows.**
+**Seasonal planning windows.** Exact dates and demand patterns must be checked
+for the Strategy plan's current window rather than copied from an older cycle.
 
-- **Ramadan** — pacing, not silence: the first week can be preparation and
-  announcements, mid-Ramadan can be a conversion window for relevant
-  food/qsr/bakery and gift offers, while the last 10 days and Eid prep can
-  matter for relevant retail categories. NTRA and Ipsos both show
-  Ramadan-specific digital and shopping behaviour, but that context is not a
-  guarantee of demand for every SME. For non-food businesses, test whether
-  attention and offer fit support a seasonal push before increasing cadence.
-- **Eid al-Fitr** — short burst window immediately after Ramadan; retail
-  and gifting may peak before and during the first day, then taper.
-- **Eid al-Adha** — different buyer mix (meat, livestock, gifts, clothing);
-  relevant to some retail and hospitality offers, not to most services.
-- **Back to school** — verify the Ministry of Education calendar each cycle;
-  the cited 2025/2026 example scheduled the new academic year for September
-  20, 2025. Education, uniforms/stationery retail, and tutoring centers may
-  plan before the official start; food businesses should not force this angle.
+- **Ramadan** — NTRA and Ipsos sources show Ramadan-specific digital and
+  shopping behaviour, but they do not establish one universal sub-period or
+  cadence for every SME. Validate the audience need, offer, timing, margin,
+  stock, staffing, and fulfilment capacity before changing activity.
+- **Eid al-Fitr** — use only when the category, customer behaviour, and offer
+  support a time-bounded opportunity verified for the current cycle.
+- **Eid al-Adha** — use only where the business has a relevant buyer need and
+  can fulfil it; do not infer a retail or hospitality opportunity from the
+  holiday alone.
+- **Back to school** — verify the Ministry of Education calendar each cycle.
+  The cited 2025/2026 item is only an example of the official source to consult,
+  not a current 2026/2027 date. Education, uniforms/stationery retail, and
+  tutoring centers may plan around verified intake and school dates; unrelated
+  businesses should not force this angle.
 - **Summer** — relevant only where heat, travel, tourism, sports, or category
   usage changes the buyer need; plan around real capacity and demand signals.
 - **Winter holidays** — narrow in Egypt but present for gifts/hospitality;

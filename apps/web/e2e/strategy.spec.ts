@@ -459,7 +459,7 @@ async function mockStrategyApi(
         await json(
           route,
           {
-            code: 'CONFLICT',
+            code: 'STRATEGY_VERSION_CONFLICT',
             message: options.decisionError.message,
           },
           options.decisionError.status,

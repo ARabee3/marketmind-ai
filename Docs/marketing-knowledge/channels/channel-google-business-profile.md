@@ -37,7 +37,7 @@ seasons: []
 budget_modes:
   - organic_only
 evidence_tier: reviewed_guidance
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://support.google.com/business/answer/9918094'
@@ -46,8 +46,8 @@ source_references:
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
 checksum: c228ed76c828ed2db0b386852cf9ee9ff7bf00db6c4882ac9870f6ece8b7a9b4
 ---
 

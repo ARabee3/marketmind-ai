@@ -6,8 +6,7 @@ from anyio import to_thread
 from pydantic import ValidationError
 
 from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
-from app.discovery.question_language import question_matches_language
-from app.discovery.schemas import DiscoveryModelOutput, LanguageMode
+from app.discovery.schemas import DiscoveryModelOutput
 from app.providers.base import (
     DiscoveryProvider,
     DiscoveryProviderRequest,
@@ -19,12 +18,6 @@ from app.providers.base import (
 
 OPENROUTER_BASE_URL: Final = "https://openrouter.ai/api/v1"
 DISCOVERY_ATTEMPT_TIMEOUT_RATIO: Final = 0.45
-QUESTION_ACTIONS: Final = {"ask_next_question", "ask_clarification"}
-QUESTION_REPAIR_MESSAGE: Final = (
-    "Repair the previous Discovery response. Return valid JSON for the schema. "
-    "If action is ask_next_question or ask_clarification, next_question is required "
-    "and must match the requested language_mode."
-)
 
 
 class OpenRouterDiscoveryProvider(DiscoveryProvider):
@@ -58,7 +51,7 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
                 max_retries=0,
             )
 
-            base_messages = [
+            messages = [
                 {"role": "system", "content": DISCOVERY_SYSTEM_PROMPT},
                 {
                     "role": "user",
@@ -68,53 +61,33 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
                     ),
                 },
             ]
+            if request.repair_hint:
+                messages.append({"role": "user", "content": request.repair_hint})
 
-            last_invalid: ProviderError | None = None
-            for attempt in range(2):
-                messages = base_messages
-                if attempt == 1:
-                    messages = [
-                        *base_messages,
-                        {"role": "user", "content": QUESTION_REPAIR_MESSAGE},
-                    ]
-                try:
-                    response = client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        response_format=_json_schema_response_format(
-                            "discovery_model_output",
-                            DiscoveryModelOutput.model_json_schema(),
-                        ),
-                    )
-                    return _normalize_openrouter_output(
-                        _message_content(response),
-                        request.language_mode,
-                    )
-                except OpenAIError as exc:
-                    raise ProviderError(
-                        "AI_PROVIDER_FAILURE",
-                        "OpenRouter provider call failed.",
-                        retryable=True,
-                    ) from exc
-                except (JSONDecodeError, ValidationError) as exc:
-                    last_invalid = ProviderError(
-                        "AI_PROVIDER_INVALID_OUTPUT",
-                        "OpenRouter returned invalid Discovery JSON.",
-                        retryable=True,
-                    )
-                    last_invalid.__cause__ = exc
-                except ProviderError as exc:
-                    if exc.code != "AI_PROVIDER_INVALID_OUTPUT":
-                        raise
-                    last_invalid = exc
-
-            if last_invalid is not None:
-                raise last_invalid
-            raise ProviderError(
-                "AI_PROVIDER_INVALID_OUTPUT",
-                "OpenRouter returned invalid Discovery JSON.",
-                retryable=True,
-            )
+            try:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format=_json_schema_response_format(
+                        "discovery_model_output",
+                        DiscoveryModelOutput.model_json_schema(),
+                    ),
+                )
+                return _normalize_openrouter_output(_message_content(response))
+            except OpenAIError as exc:
+                raise ProviderError(
+                    "AI_PROVIDER_FAILURE",
+                    "OpenRouter provider call failed.",
+                    retryable=True,
+                ) from exc
+            except (JSONDecodeError, ValidationError) as exc:
+                raise ProviderError(
+                    "AI_PROVIDER_INVALID_OUTPUT",
+                    "OpenRouter returned invalid Discovery JSON.",
+                    retryable=False,
+                ) from exc
+            except ProviderError as exc:
+                raise
 
         try:
             return await to_thread.run_sync(call_openrouter, abandon_on_cancel=True)
@@ -152,25 +125,5 @@ def _message_content(response: Any) -> str:
     return content
 
 
-def _normalize_openrouter_output(
-    content: str,
-    language_mode: LanguageMode,
-) -> DiscoveryModelOutput:
-    raw_output = json.loads(content)
-    if isinstance(raw_output, dict) and raw_output.get("action") in QUESTION_ACTIONS:
-        next_question = raw_output.get("next_question")
-        if (
-            not isinstance(next_question, str)
-            or not next_question.strip()
-            or not question_matches_language(
-            next_question,
-            language_mode,
-            )
-        ):
-            raise ProviderError(
-                "AI_PROVIDER_INVALID_OUTPUT",
-                "OpenRouter returned a Discovery question in the wrong language.",
-                retryable=True,
-            )
-
-    return normalize_provider_output(raw_output)
+def _normalize_openrouter_output(content: str) -> DiscoveryModelOutput:
+    return normalize_provider_output(json.loads(content))

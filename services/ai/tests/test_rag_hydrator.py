@@ -14,6 +14,9 @@ from app.rag.schemas import RetrievalCandidate, RegionalCandidate, RetrievalSubq
 from app.rag.hydrator import hydrate_candidates
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.mark.asyncio
 async def test_hydrate_candidates_and_gaps(db_session: AsyncSession):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -87,7 +90,7 @@ async def test_hydrate_candidates_and_gaps(db_session: AsyncSession):
     )
     db_session.add(expired_version)
     await db_session.flush()
-    
+
     expired_chunk = MarketingKnowledgeChunk(
         chunk_id=uuid4(),
         entry_version_id=expired_version.id,
@@ -101,7 +104,7 @@ async def test_hydrate_candidates_and_gaps(db_session: AsyncSession):
         embedding_version="1",
     )
     db_session.add(expired_chunk)
-    
+
     await db_session.commit()
 
     # 2. Setup Qdrant Candidates

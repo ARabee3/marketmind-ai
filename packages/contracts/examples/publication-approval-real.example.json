@@ -1,0 +1,16 @@
+{
+  "contract_version": "publication-approval-v1",
+  "decision_id": "14141414-1414-4141-8141-141414141414",
+  "intent_id": "13131313-1313-4131-8131-131313131313",
+  "intent_version": 2,
+  "candidate_id": "cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd",
+  "candidate_checksum": "b5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3443",
+  "mode": "real",
+  "target_id": "12121212-1212-4121-8121-121212121212",
+  "scheduled_local": "2026-08-03T18:30:00",
+  "time_zone": "Africa/Cairo",
+  "scheduled_utc": "2026-08-03T15:30:00Z",
+  "decided_by_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "decided_at": "2026-08-01T12:00:00Z",
+  "approval_fingerprint": "4126ffa615681c54c60b41ecd01ff17749cbb4ddc8c0376a306ec6e23f7133a9"
+}

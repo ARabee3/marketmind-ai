@@ -1,12 +1,12 @@
 ---
 slug: sector-note-healthcare
-version: 2
+version: 3
 kind: sector_note
-title: 'Sector Note: Healthcare (Clinics and Wellness)'
+title: 'Sector Note: Physician-Led Clinics'
 summary: >
-  A starting-point contextual note for healthcare SMEs in Egypt — when it is
-  useful, its poor-fit conditions, and 3–5 concrete observations. Not a complete
-  healthcare strategy.
+  A conservative compliance boundary for physician-led clinics in Egypt. It
+  blocks promotional medical marketing by default and is not a complete
+  healthcare growth strategy.
 locale: mixed
 markets:
   - egypt
@@ -17,7 +17,6 @@ business_models:
   - clinic
 objectives:
   - awareness
-  - acquisition
   - retention
 funnel_stages:
   - awareness
@@ -26,97 +25,83 @@ funnel_stages:
   - retention
 channels:
   - google_business_profile
-  - facebook
   - website
-  - instagram
 seasons: []
 budget_modes:
   - organic_only
-  - monthly_amount
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf'
   - >-
     https://www.edaegypt.gov.eg/en/the-regulatory-reference-of-the-egyptian-drug-authority-eda/regulatory-guidelines/regulatory-guideline-for-central-administration-of-pharmaceutical-care/
-  - 'https://www.ehc.gov.eg/ethics-medicine'
+  - 'https://www.ehc.gov.eg/en/web/cemta/ethics-medicine'
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: 88bf72895afc461135dfab32742d21c723ff16c79d5a4fd836b4e6e2880322ca
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: 72856281ac6ac23ef80594018fa2066c690a653c60c18af5a286a154341aa7cd
 ---
 
 ## When useful
 
-Use this note for owner-scale healthcare providers — clinics, dentists,
-specialists, physiotherapy, wellness — where growth depends on trust,
-appointment booking, and repeat visits, and where ethical advertising
-limits matter.
+Use this note only for a physician-led human-medicine clinic where the
+responsible professional must first decide whether any public communication is
+permitted. It provides a conservative boundary for factual service information,
+patient privacy, consented care communication, and compliance review.
 
 ## Poor-fit conditions
 
-A poor fit for pharmacies/networks/large hospitals and for any service
-that cannot or should not advertise specific medical claims. Also a poor
-fit for telehealth-style products whose customer-acquisition model
-differs materially from a local clinic.
+Do not apply this note to dentistry, physiotherapy, wellness services,
+pharmacies, hospitals, medicines, devices, supplements, or telehealth without
+their own profession- and product-specific legal review. It is also a poor fit
+when the requested plan depends on paid acquisition, discounts, testimonials,
+influencers, comparative claims, treatment outcomes, or practitioner
+promotion; hold those actions rather than adapting them from another sector.
 
 ## Concrete sector-specific observations
 
-1. **Trust and credibility are core fit signals.** the practitioner's
-   credentials, reviews, and clear professional location can support
-   conversion; a polished social feed without credibility signals is weak in
-   this sector.
-2. **Regulatory review is a gate, not polish.** any campaign touching
-   diagnosis, treatment, medicine, devices, supplements, procedures, or
-   wellness outcomes needs legal/regulatory review before publishing. Medical
-   claims and product claims must be limited to approved indications,
-   licensed services, capability, availability, and patient-experience
-   language; do not promise outcomes, superiority, a promised cure, or a
-   result the practitioner cannot substantiate.
-3. **Google Business Profile and a clear booking path are practical
-   baselines.** when the owner has evidence that local search already drives
-   fit enquiries, GBP reviews plus a timely reply path (WhatsApp/phone with
-   clear hours) can be a stronger starting point than a generic awareness
-   campaign at SME scale.
-4. **Retention = consented follow-up and recall.** reminders for chronic-care
-   follow-ups, recall for periodic checkups, and review requests post-visit
-   are useful only when patient consent, purpose, sender identity, and opt-out
-   are documented. Treat appointment notes, diagnoses, symptoms, photos, and
-   treatment history as sensitive health data; do not use them for marketing,
-   lookalike audiences, or public proof unless the lawful basis, data
-   minimisation, and consent record are clear.
-5. **Seasonality is limited and condition-specific.** allergy seasons,
-   flu season, and school-start checkups create narrow windows, but most
-   clinics should not force a "Ramadan sale" angle onto healthcare;
-   instead time seasonal content to genuinely relevant health moments, not
-   to retail-style marketing.
+1. **Professional advertising restrictions are the first gate.** The Egyptian
+   Health Council ethics charter states that physicians may not advertise
+   themselves through publication, audio, video, the internet, or other means.
+   Do not treat a channel playbook as permission to promote a physician.
+2. **Education is not an advertising loophole.** A proposed educational post
+   can still promote the practitioner, a procedure, or a claim. Hold its
+   channel, wording, call to action, and targeting for profession-specific
+   review before publication.
+3. **Factual access information must remain restrained.** Location, operating
+   hours, contact details, and booking instructions may support patient access,
+   but the responsible reviewer must confirm the exact presentation. Do not add
+   superiority, urgency, discounts, outcomes, or testimonial language.
+4. **Care communication is not marketing permission.** A clinically necessary
+   appointment reminder or follow-up must not be reused as a promotional list.
+   Keep purpose, sender identity, recipient choice, and withdrawal handling
+   explicit.
+5. **Health information is sensitive personal data.** Do not use diagnoses,
+   symptoms, treatment histories, images, scans, patient lists, or inferred
+   conditions for targeting, lookalikes, testimonials, or public proof.
 
 ## Regulated-sector safeguards
 
-- Run legal/regulatory review before publishing claims about clinical
-  effectiveness, medicines, medical devices, supplements, procedures, or
-  practitioner superiority. When EDA guidance could apply, hold the content
-  until the responsible reviewer confirms the allowed wording.
-- Keep patient consent separate from care delivery consent. Marketing consent
-  must be specific, informed, freely given, recorded, and easy to withdraw;
-  withdrawal must stop marketing use without affecting care.
-- Do not use patient stories, patient photos, case details, diagnoses, scans,
-  or testimonials by default. Use generic service explanations, clinician
-  credentials, operating hours, location, booking flow, and aggregate service
-  facts instead. If a testimonial is proposed, require documented patient
-  consent, anonymisation where possible, and regulatory review of the claim.
-- Follow the Egyptian Health Council ethics boundary: public communication
-  should be educational and professionally restrained, not commercial
-  self-promotion or remote diagnosis.
+- Block paid acquisition, discounts, influencer promotion, testimonials,
+  comparative claims, promised outcomes, and practitioner self-promotion by
+  default.
+- Patient consent does not override a professional advertising restriction.
+  It only addresses the permitted processing for the stated purpose.
+- EDA rules for medicines, devices, supplements, and related advertising are a
+  separate product-regulatory boundary; this clinic note does not authorize
+  them.
+- Never diagnose, triage, or recommend treatment through generated marketing
+  content.
 
 ## Explicit limitation
 
-This is a starting point, not a complete healthcare strategy. Combine
-with situation diagnosis, STP, the chosen objective, and the relevant
-channel playbooks before producing a plan.
+This is a blocking compliance note, not a growth strategy. If a proposed
+Strategy depends on healthcare promotion, return a compliance knowledge gap
+and require profession-specific human review before selecting channels,
+messages, budget, or tactics.
 
 ## Sources
 
@@ -128,4 +113,4 @@ channel playbooks before producing a plan.
   advertising materials:
   https://www.edaegypt.gov.eg/en/the-regulatory-reference-of-the-egyptian-drug-authority-eda/regulatory-guidelines/regulatory-guideline-for-central-administration-of-pharmaceutical-care/
 - Egyptian Health Council ethics charter for human medicine:
-  https://www.ehc.gov.eg/ethics-medicine
+  https://www.ehc.gov.eg/en/web/cemta/ethics-medicine

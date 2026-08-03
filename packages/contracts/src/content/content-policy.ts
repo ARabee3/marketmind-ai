@@ -17,7 +17,10 @@ import type {
   IsoDateTime,
   UUID,
 } from "./content-types";
-import { CONTENT_ALT_TEXT_MAX_LENGTH } from "./content-types";
+import {
+  CONTENT_ALT_TEXT_MAX_LENGTH,
+  isSha256Checksum,
+} from "./content-types";
 
 export type ContentPolicyFixture = {
   readonly strategy_status: "approved" | "draft" | "rejected";
@@ -87,7 +90,7 @@ function hasReadyPublishableAsset(fixture: ContentPolicyFixture): boolean {
     return (
       asset?.status === "ready" &&
       (asset.kind === "owner_supplied" || asset.kind === "generated_static") &&
-      asset.checksum !== null &&
+      isSha256Checksum(asset.checksum) &&
       asset.storage_key !== null
     );
   });

@@ -276,7 +276,10 @@ async def _embed_chunks_in_batches(
     vectors: dict[UUID, list[float]] = {}
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
-        request = EmbedRequest(texts=[c.text for c in batch])
+        request = EmbedRequest(
+            texts=[c.text for c in batch],
+            purpose="retrieval_document",
+        )
         response = await provider.embed(request)
         for embedding in response.embeddings:
             chunk_id = batch[embedding.index].chunk_id

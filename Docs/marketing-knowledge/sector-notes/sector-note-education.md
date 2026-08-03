@@ -1,6 +1,6 @@
 ---
 slug: sector-note-education
-version: 2
+version: 3
 kind: sector_note
 title: 'Sector Note: Education'
 summary: >
@@ -37,17 +37,19 @@ budget_modes:
   - organic_only
   - monthly_amount
 evidence_tier: contextual_note
-review_status: draft
+review_status: approved
 source_references:
   - 'internal:reviewed-marketing-methodology'
   - 'https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf'
+  - >-
+    https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
   - 'https://moe.gov.eg/en/what-s-on/news/18-9-25/'
 effective_at: '2026-07-21'
 expires_at: '2027-06-30'
 author: abdulazimRabie
-reviewer: null
-reviewed_at: null
-checksum: ce6924dbaf5f1c61a678d10a9242b0e60deb5d974acde2af877759a6366733a2
+reviewer: mostafamerzk
+reviewed_at: '2026-08-02'
+checksum: b14c498ec323d90f6e77501fb76c191a2aa9aeac33e81e44aeed5c80c3783a03
 ---
 
 ## When useful
@@ -82,8 +84,9 @@ fills waiting lists.
    progress indicators are safer conversion proof than identifiable student
    stories. Do not publish an identifiable student, student photos, voice,
    grades, certificates, classroom footage, or testimonials unless guardian
-   consent, the student's assent where appropriate, the marketing purpose,
-   retention period, and withdrawal path are documented.
+   consent required for children's sensitive data is documented. Student
+   assent is an additional ethical safeguard where appropriate, alongside a
+   recorded marketing purpose, retention period, and withdrawal path.
 4. **Retention = term renewal.** the LTV lever is term-to-term renewal and
    referral, not monthly churn; a retention plan should schedule around
    renewal moments, not run like a retail loyalty program.
@@ -117,6 +120,9 @@ playbooks before producing a plan.
   contextual sector note; no externally sourced numeric claim.
 - PDPC Data Subject Consent Guidelines:
   https://pdpc.gov.eg/assets/pdf-data/Guidelines/DSConsent.pdf
+- NATLEX, `Law 151/2020 on the Protection of Personal Data` — children's data
+  is sensitive personal data and processing requires guardian consent:
+  https://natlex.ilo.org/dyn/natlex2/natlex2/files/download/111246/EGY111246%20Eng.pdf
 - Ministry of Education and Technical Education, 18/09/2025 news item — example
   of official academic-year timing to verify each cycle:
   https://moe.gov.eg/en/what-s-on/news/18-9-25/

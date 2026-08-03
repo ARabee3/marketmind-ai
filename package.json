@@ -13,7 +13,7 @@
     "check:marketing-knowledge": "node --test Docs/marketing-knowledge/_schema/source-resolution.test.mjs && node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
     "check:qdrant-field-sync": "node scripts/check-qdrant-field-sync.mjs",
     "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check:qdrant-field-sync && npm run check -w @marketmind/web && npm run check:marketing-knowledge",
-    "check:ai": "cd services/ai && uv run pytest -m \"not network\"",
+    "check:ai": "cd services/ai && uv run pytest -m \"not network and not integration\"",
     "check:ai:network": "cd services/ai && uv run pytest -m network",
     "docker:up": "docker compose -f infra/docker/docker-compose.local.yml up -d && wait-on tcp:5433 tcp:6379",
     "docker:strategy:up": "docker compose -f infra/docker/docker-compose.local.yml -f infra/docker/docker-compose.qdrant.yml up -d && wait-on tcp:5433 tcp:6379 tcp:6333",

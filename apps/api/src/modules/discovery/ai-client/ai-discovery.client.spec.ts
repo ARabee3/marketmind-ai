@@ -212,6 +212,36 @@ describe("AiDiscoveryClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not retry AI_PROVIDER_INVALID_OUTPUT safe errors", async () => {
+    const safeError = {
+      code: "AI_PROVIDER_INVALID_OUTPUT",
+      message: "The AI provider returned an invalid Discovery response.",
+      retryable: true,
+    };
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        action: "safe_failure",
+        next_question: null,
+        updated_known_facts: emptyMarketAwareBusinessFacts(),
+        updated_uncertainties: [],
+        research_observations: [],
+        source_refs: [],
+        domain_scores: emptyDiscoveryDomainScores(),
+        ready_to_summarize: false,
+        safe_error: safeError,
+      }),
+    );
+
+    const result = await new AiDiscoveryClient().start(
+      "11111111-1111-4111-8111-111111111111",
+      dto,
+      intelligence,
+    );
+
+    expect(result.safe_error).toEqual(safeError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("retries retryable discovery safe errors before returning success", async () => {
     fetchMock
       .mockResolvedValueOnce(

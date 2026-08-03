@@ -79,6 +79,9 @@ def apply_mutation(base: dict, mutation: dict) -> dict:
         doc["caption"] = mutation["value"]
     elif kind == "tamper_asset_checksum":
         doc["assets"][0]["checksum"] = mutation["value"]
+    elif kind == "invalid_asset_checksum":
+        doc["assets"][0]["checksum"] = mutation["value"]
+        doc["candidate_checksum"] = compute_publication_candidate_checksum(doc)
     elif kind == "tamper_target_channel":
         doc["target_channel"] = mutation["value"]
     elif kind == "tamper_approval_id":
@@ -267,6 +270,13 @@ class TestContentContracts(unittest.TestCase):
 
     def test_candidate_prompt_only_is_rejected(self):
         candidate = self.load_descriptor("publication-candidate-prompt-only.invalid.json")
+        with self.assertRaises(ValidationError):
+            PublicationCandidateV1.model_validate(candidate)
+
+    def test_candidate_asset_checksum_must_be_sha256(self):
+        candidate = self.load_descriptor(
+            "publication-candidate-asset-checksum-format.invalid.json"
+        )
         with self.assertRaises(ValidationError):
             PublicationCandidateV1.model_validate(candidate)
 

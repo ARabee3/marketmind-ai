@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publishing-target-connected.example.json",
+  "mutation": {
+    "kind": "expire_target",
+    "value": "expired"
+  }
+}

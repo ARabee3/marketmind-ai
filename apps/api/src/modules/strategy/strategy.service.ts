@@ -23,6 +23,8 @@ import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
 import { OwnerDecisionDto } from "./dto/owner-decision.dto";
+import { buildRetrievalQueryContext } from "./strategy-ai-contract";
+import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 
 /** Owner-initiated retry limit (distinct from BullMQ queue-level job retries). */
 const MAX_OWNER_RETRIES = 3;
@@ -34,6 +36,7 @@ const GENERATION_IDLE: Array<"ready"> = ["ready"];
 export class StrategyService {
   private readonly logger = new Logger(StrategyService.name);
   private readonly aiUrl: string;
+  private readonly aiRequestTimeoutMs: number;
 
   constructor(
     private readonly strategyRepository: StrategyRepository,
@@ -41,22 +44,30 @@ export class StrategyService {
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
   ) {
-    this.aiUrl = this.config.get<string>("aiService.url") ?? "http://localhost:8000";
+    this.aiUrl =
+      this.config.get<string>("aiService.url") ?? "http://localhost:8000";
+    this.aiRequestTimeoutMs =
+      this.config.get<number>("aiService.requestTimeoutMs") ??
+      DEFAULT_AI_REQUEST_TIMEOUT_MS;
   }
 
   // ── POST /api/v1/strategies ─────────────────────────────────────────
 
   async createStrategy(dto: CreateStrategyDto, ownerUserId: string) {
-    const profile = await this.strategyRepository.getConfirmedProfileVersionByIdAndOwner(
-      dto.businessProfileVersionId,
-      ownerUserId,
-    );
+    const profile =
+      await this.strategyRepository.getConfirmedProfileVersionByIdAndOwner(
+        dto.businessProfileVersionId,
+        ownerUserId,
+      );
     if (!profile) {
       throw new BadRequestException(
         "No confirmed business profile found for this owner.",
       );
     }
-    return this.strategyRepository.createStrategy(profile.businessId, ownerUserId);
+    return this.strategyRepository.createStrategy(
+      profile.businessId,
+      ownerUserId,
+    );
   }
 
   // ── PUT /api/v1/strategies/:id/brief ───────────────────────────────
@@ -66,7 +77,8 @@ export class StrategyService {
       id,
       ownerUserId,
     );
-    if (!strategy) throw new NotFoundException("Strategy not found or unauthorized");
+    if (!strategy)
+      throw new NotFoundException("Strategy not found or unauthorized");
 
     if (strategy.status !== "needs_brief" && strategy.status !== "ready") {
       throw new ConflictException(
@@ -111,7 +123,7 @@ export class StrategyService {
     const brief = await this.strategyRepository.upsertBrief(id, {
       businessProfileVersionId: dto.businessProfileVersionId,
       primaryObjective: dto.primaryObjective,
-      startDate: dto.startDate,
+      startDate: normalizeStartDate(dto.startDate),
       planLanguage: dto.planLanguage,
       paidMediaAllowed: dto.paidMediaAllowed,
       externalBudgetMode: dto.externalBudgetMode,
@@ -178,9 +190,10 @@ export class StrategyService {
 
     // Stale-profile detection — must run AFTER the claim so a duplicate request
     // cannot enqueue against an outdated profile.
-    const latestProfile = await this.strategyRepository.getActiveConfirmedProfileVersion(
-      strategy.businessId,
-    );
+    const latestProfile =
+      await this.strategyRepository.getActiveConfirmedProfileVersion(
+        strategy.businessId,
+      );
     if (
       !latestProfile ||
       latestProfile.id !== strategy.brief.businessProfileVersionId
@@ -215,17 +228,26 @@ export class StrategyService {
     });
 
     try {
-      const payload = {
-        strategy_id: strategy.id,
-        brief: strategy.brief,
-        profile_version_id: strategy.brief.businessProfileVersionId,
-        correlation_id: correlationId,
-      };
+      const brief = strategy.brief;
+      const queryContext = buildRetrievalQueryContext(
+        brief,
+        latestProfile,
+        strategy.business,
+      );
 
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiUrl}/internal/v1/ai/strategy/retrieve`, payload, {
-          timeout: 10_000,
-        }),
+        this.httpService.post(
+          `${this.aiUrl}/internal/v1/ai/strategy/retrieve`,
+          queryContext,
+          {
+            params: {
+              strategy_id: strategy.id,
+              brief_id: brief.id,
+              profile_version_id: brief.businessProfileVersionId,
+            },
+            timeout: this.aiRequestTimeoutMs,
+          },
+        ),
       );
 
       const { retrieval_run_id } = response.data;
@@ -244,13 +266,16 @@ export class StrategyService {
         payload: { retrieval_run_id, correlation_id: correlationId },
       });
 
+      // No BullMQ auto-retry: the strategy FSM only allows failed → ready, so
+      // generation failures are retried by the owner via POST /:id/retry, never
+      // by re-running this job (which would hit an illegal failed → generating
+      // transition and crash-loop).
+      await this.strategyRepository.updateStrategyStatus(id, "queued");
       await this.strategyQueue.add(
         "generate-strategy",
         { strategyId: id, retrievalRunId: retrieval_run_id, correlationId },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
-
-      await this.strategyRepository.updateStrategyStatus(id, "queued");
       await this.recordProgress(id, {
         stage: "queued",
         status: "started",
@@ -298,9 +323,7 @@ export class StrategyService {
     return {
       ...strategy,
       latestPlan:
-        currentVersion?.strategyId === id
-          ? currentVersion.planData
-          : null,
+        currentVersion?.strategyId === id ? currentVersion.planData : null,
     };
   }
 
@@ -317,7 +340,8 @@ export class StrategyService {
     const retrievalRunIds = versions
       .map((version) => version.retrievalRunId)
       .filter((runId): runId is string => runId !== null);
-    const runBriefIds = await this.strategyRepository.listRetrievalRunBriefIds(retrievalRunIds);
+    const runBriefIds =
+      await this.strategyRepository.listRetrievalRunBriefIds(retrievalRunIds);
     const briefIdByRunId = new Map(
       runBriefIds.map((run) => [run.id, run.briefId]),
     );
@@ -342,7 +366,8 @@ export class StrategyService {
     if (!strategy) throw new NotFoundException("Strategy not found");
 
     const v = await this.strategyRepository.getVersionByNumber(id, version);
-    if (!v) throw new NotFoundException(`Strategy version ${version} not found`);
+    if (!v)
+      throw new NotFoundException(`Strategy version ${version} not found`);
     return v.planData;
   }
 
@@ -356,11 +381,15 @@ export class StrategyService {
     if (!strategy) throw new NotFoundException("Strategy not found");
 
     const run = await this.strategyRepository.getLatestRetrievalRun(id);
-    if (!run) throw new NotFoundException("No retrieval pack found for this strategy");
+    if (!run)
+      throw new NotFoundException("No retrieval pack found for this strategy");
     return toRetrievalPack(run);
   }
 
-  async getProgressEvents(id: string, ownerUserId: string): Promise<StrategyProgressEvent[]> {
+  async getProgressEvents(
+    id: string,
+    ownerUserId: string,
+  ): Promise<StrategyProgressEvent[]> {
     const strategy = await this.strategyRepository.getStrategyByIdAndOwner(
       id,
       ownerUserId,
@@ -381,10 +410,15 @@ export class StrategyService {
     if (!strategy) throw new NotFoundException("Strategy not found");
 
     if (strategy.status !== "draft") {
-      throw new BadRequestException("Decisions can only be made on a draft strategy");
+      throw new BadRequestException(
+        "Decisions can only be made on a draft strategy",
+      );
     }
 
-    if (!strategy.currentVersionId || strategy.currentVersionId !== dto.versionId) {
+    if (
+      !strategy.currentVersionId ||
+      strategy.currentVersionId !== dto.versionId
+    ) {
       throw new ConflictException({
         code: "STRATEGY_VERSION_CONFLICT",
         message:
@@ -393,14 +427,16 @@ export class StrategyService {
       });
     }
 
-    const targetVersion = await this.strategyRepository.getVersionById(dto.versionId);
+    const targetVersion = await this.strategyRepository.getVersionById(
+      dto.versionId,
+    );
     if (!targetVersion || targetVersion.strategyId !== id) {
       throw new NotFoundException("Strategy version not found");
     }
 
     if (
-      (dto.action === "reject" || dto.action === "revision_requested")
-      && !dto.feedback?.trim()
+      (dto.action === "reject" || dto.action === "revision_requested") &&
+      !dto.feedback?.trim()
     ) {
       throw new BadRequestException(
         "Owner feedback is required when rejecting or requesting a revision",
@@ -442,6 +478,8 @@ export class StrategyService {
       );
 
       const correlationId = randomUUID();
+      // No BullMQ auto-retry — the owner retries a failed revision via
+      // POST /:id/retry (failed → ready), never by re-running this job.
       await this.strategyQueue.add(
         "revise-strategy",
         {
@@ -450,7 +488,7 @@ export class StrategyService {
           feedback: dto.feedback,
           correlationId,
         },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
 
       this.logger.log(
@@ -461,21 +499,20 @@ export class StrategyService {
     }
 
     // approve / reject — recordOwnerDecision enforces FSM + transitions atomically.
-    const { decision, nextStatus } = await this.strategyRepository.recordOwnerDecision(
-      dto.versionId,
-      ownerUserId,
-      dto.action,
-      dto.feedback,
-    );
+    const { decision, nextStatus } =
+      await this.strategyRepository.recordOwnerDecision(
+        dto.versionId,
+        ownerUserId,
+        dto.action,
+        dto.feedback,
+      );
 
     if (nextStatus) {
       await this.recordProgress(id, {
         stage: nextStatus,
         status: "complete",
         messageKey:
-          nextStatus === "approved"
-            ? "strategy.approved"
-            : "strategy.rejected",
+          nextStatus === "approved" ? "strategy.approved" : "strategy.rejected",
         messageText:
           nextStatus === "approved"
             ? "Strategy plan approved by owner."
@@ -499,9 +536,14 @@ export class StrategyService {
       throw new BadRequestException("Strategy is not in a failed state");
     }
 
-    const latestProgress = await this.strategyRepository.getLatestProgressEvent(id);
+    const latestProgress =
+      await this.strategyRepository.getLatestProgressEvent(id);
     const latestPayload = toPayload(latestProgress?.payload);
-    if (!latestProgress || latestProgress.status !== "failed" || latestPayload.retryable !== true) {
+    if (
+      !latestProgress ||
+      latestProgress.status !== "failed" ||
+      latestPayload.retryable !== true
+    ) {
       throw new BadRequestException({
         code: "STRATEGY_RETRY_NOT_ALLOWED",
         message: "The latest Strategy failure is not retryable.",
@@ -520,9 +562,10 @@ export class StrategyService {
     // run must not silently proceed against an outdated brief/profile. This
     // runs BEFORE recording the retry decision so a stale-profile rejection
     // does not consume the retry budget.
-    const latestProfile = await this.strategyRepository.getActiveConfirmedProfileVersion(
-      strategy.businessId,
-    );
+    const latestProfile =
+      await this.strategyRepository.getActiveConfirmedProfileVersion(
+        strategy.businessId,
+      );
     if (!strategy.brief || !latestProfile) {
       throw new BadRequestException("Brief or confirmed profile is missing");
     }
@@ -539,52 +582,65 @@ export class StrategyService {
     // so a stale-profile rejection does not consume the retry budget.
     const latestVersion = await this.strategyRepository.getLatestVersion(id);
     if (latestVersion) {
-      await this.strategyRepository.recordRetryDecision(latestVersion.id, ownerUserId);
+      await this.strategyRepository.recordRetryDecision(
+        latestVersion.id,
+        ownerUserId,
+      );
     }
 
     const latestRun = await this.strategyRepository.getLatestRetrievalRun(id);
 
-    // If a retrieval already succeeded we can resume generation directly, but
-    // we still must go through the legal FSM path. failed → ready → queued is
-    // a two-hop but performs both atomically via claimForGeneration so there
-    // is no observable window in "ready".
     const correlationId = randomUUID();
 
     if (latestRun && latestRun.status === "completed") {
-      // Claim failed → ready atomically; a concurrent retry cannot also claim.
-      const { claimed: readyClaimed } = await this.strategyRepository.claimForGeneration(
-        id,
-        ["failed"],
-        "ready",
-      );
+      const { claimed: readyClaimed } =
+        await this.strategyRepository.claimForGeneration(
+          id,
+          ["failed"],
+          "ready",
+        );
       if (!readyClaimed) {
         throw new BadRequestException("Retry is already in progress");
       }
+      const { claimed: retrievingClaimed } =
+        await this.strategyRepository.claimForGeneration(
+          id,
+          ["ready"],
+          "retrieving",
+        );
+      if (!retrievingClaimed) {
+        throw new BadRequestException("Retry is already in progress");
+      }
       await this.strategyRepository.updateStrategyStatus(id, "queued");
+      // No BullMQ auto-retry — retries go through the FSM-approved owner path.
       await this.strategyQueue.add(
         "generate-strategy",
         { strategyId: id, retrievalRunId: latestRun.id, correlationId },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        { attempts: 1 },
       );
       await this.recordProgress(id, {
         stage: "queued",
         status: "started",
         messageKey: "strategy.retry.resumed",
         messageText: "Resuming generation from completed retrieval.",
-        payload: { retrieval_run_id: latestRun.id, correlation_id: correlationId },
+        payload: {
+          retrieval_run_id: latestRun.id,
+          correlation_id: correlationId,
+        },
       });
-      return { status: "queued", message: "Resuming from completed retrieval", correlationId };
+      return {
+        status: "queued",
+        message: "Resuming from completed retrieval",
+        correlationId,
+      };
     }
 
     // Retrieval also failed — restart from the beginning. The FSM only
     // allows failed → ready, so transition to ready first, then
     // startGeneration will atomically claim ready → retrieving.
     // Use claimForGeneration so a concurrent retry cannot also transition.
-    const { claimed: restartClaimed } = await this.strategyRepository.claimForGeneration(
-      id,
-      ["failed"],
-      "ready",
-    );
+    const { claimed: restartClaimed } =
+      await this.strategyRepository.claimForGeneration(id, ["failed"], "ready");
     if (!restartClaimed) {
       throw new BadRequestException("Retry is already in progress");
     }
@@ -604,9 +660,9 @@ export class StrategyService {
         strategy.businessId,
       );
     if (
-      !strategy.brief
-      || !latestProfile
-      || latestProfile.id !== strategy.brief.businessProfileVersionId
+      !strategy.brief ||
+      !latestProfile ||
+      latestProfile.id !== strategy.brief.businessProfileVersionId
     ) {
       throw new ConflictException({
         code: "STRATEGY_PROFILE_STALE",
@@ -619,9 +675,9 @@ export class StrategyService {
     const blockers = Array.isArray(plan.blockers) ? plan.blockers : [];
     const hasBlockingItem = blockers.some(
       (blocker) =>
-        blocker
-        && typeof blocker === "object"
-        && (blocker as { severity?: unknown }).severity === "blocking",
+        blocker &&
+        typeof blocker === "object" &&
+        (blocker as { severity?: unknown }).severity === "blocking",
     );
     if (hasBlockingItem) {
       throw new BadRequestException({
@@ -630,8 +686,14 @@ export class StrategyService {
       });
     }
 
-    const run = await this.strategyRepository.getLatestRetrievalRun(strategy.id);
-    if (!run || run.id !== version.retrievalRunId || run.status !== "completed") {
+    const run = await this.strategyRepository.getLatestRetrievalRun(
+      strategy.id,
+    );
+    if (
+      !run ||
+      run.id !== version.retrievalRunId ||
+      run.status !== "completed"
+    ) {
       throw new BadRequestException({
         code: "STRATEGY_RETRIEVAL_FAILURE",
         message: "The persisted retrieval pack for this draft is unavailable.",
@@ -643,23 +705,24 @@ export class StrategyService {
       run.items
         .filter(
           (item) =>
-            item.reviewStatus === "approved"
-            && item.effectiveAt.getTime() <= now
-            && (item.expiresAt === null || item.expiresAt.getTime() > now),
+            item.reviewStatus === "approved" &&
+            item.effectiveAt.getTime() <= now &&
+            (item.expiresAt === null || item.expiresAt.getTime() > now),
         )
         .map((item) => [item.chunkId, item]),
     );
     const citations = Array.isArray(plan.citations) ? plan.citations : [];
     const everyCitationResolves =
-      citations.length > 0
-      && citations.every(
+      citations.length > 0 &&
+      citations.every(
         (citation) =>
-          citation
-          && typeof citation === "object"
-          && typeof (citation as { chunk_id?: unknown }).chunk_id === "string"
-          && typeof (citation as { entry_id?: unknown }).entry_id === "string"
-          && typeof (citation as { entry_version?: unknown }).entry_version === "number"
-          && (() => {
+          citation &&
+          typeof citation === "object" &&
+          typeof (citation as { chunk_id?: unknown }).chunk_id === "string" &&
+          typeof (citation as { entry_id?: unknown }).entry_id === "string" &&
+          typeof (citation as { entry_version?: unknown }).entry_version ===
+            "number" &&
+          (() => {
             const typedCitation = citation as {
               chunk_id: string;
               entry_id: string;
@@ -667,9 +730,9 @@ export class StrategyService {
             };
             const item = eligibleItems.get(typedCitation.chunk_id);
             return Boolean(
-              item
-              && item.entryId === typedCitation.entry_id
-              && item.entryVersion === typedCitation.entry_version,
+              item &&
+              item.entryId === typedCitation.entry_id &&
+              item.entryVersion === typedCitation.entry_version,
             );
           })(),
       );
@@ -735,43 +798,63 @@ function normalizeExternalBudgetEgp(
   return null;
 }
 
+/**
+ * Normalizes the DTO startDate (an ISO-8601 date string that may be
+ * date-only, e.g. "2026-08-01") into a `Date` Prisma can persist. Prisma's
+ * DateTime scalar rejects date-only strings, so a bare YYYY-MM-DD would
+ * otherwise surface as a raw PrismaClientValidationError.
+ */
+function normalizeStartDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(
+      `startDate is not a valid ISO-8601 date: ${value}`,
+    );
+  }
+  return date;
+}
+
 function toVersionSummary(
   v: Awaited<ReturnType<StrategyRepository["listVersions"]>>[number],
   briefId: string | null | undefined,
   currentStrategyStatus: string | null,
 ): StrategyVersionSummary {
   const persistedDecision = v.decisions
-    ?.filter((item) =>
-      item.action === "approve"
-      || item.action === "reject"
-      || item.action === "revision_requested",
+    ?.filter(
+      (item) =>
+        item.action === "approve" ||
+        item.action === "reject" ||
+        item.action === "revision_requested",
     )
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+    .sort(
+      (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+    )[0];
   const normalizedDecision = persistedDecision
     ? normalizeOwnerDecision(persistedDecision.action)
     : null;
-  const decision = persistedDecision && normalizedDecision
-    ? {
-        id: persistedDecision.id,
-        strategy_id: v.strategyId,
-        strategy_version: v.version,
-        decision: normalizedDecision,
-        revision_notes: persistedDecision.feedback,
-        decided_by_user_id: persistedDecision.ownerUserId,
-        decided_at: persistedDecision.createdAt.toISOString(),
-      }
-    : undefined;
+  const decision =
+    persistedDecision && normalizedDecision
+      ? {
+          id: persistedDecision.id,
+          strategy_id: v.strategyId,
+          strategy_version: v.version,
+          decision: normalizedDecision,
+          revision_notes: persistedDecision.feedback,
+          decided_by_user_id: persistedDecision.ownerUserId,
+          decided_at: persistedDecision.createdAt.toISOString(),
+        }
+      : undefined;
   const plan = toPayload(v.planData);
   const profileVersion = toPayload(plan.profile_version);
   const profileVersionId = profileVersion.business_profile_version_id;
   const profileConfirmedAt = profileVersion.confirmed_at;
   const profileVersionNumber = profileVersion.version;
   if (
-    !briefId
-    || !v.retrievalRunId
-    || typeof profileVersionId !== "string"
-    || typeof profileConfirmedAt !== "string"
-    || typeof profileVersionNumber !== "number"
+    !briefId ||
+    !v.retrievalRunId ||
+    typeof profileVersionId !== "string" ||
+    typeof profileConfirmedAt !== "string" ||
+    typeof profileVersionNumber !== "number"
   ) {
     throw new InternalServerErrorException(
       `Strategy version ${v.id} has incomplete provenance metadata.`,
@@ -820,10 +903,10 @@ function sanitizePromptConfig(
       continue;
     }
     if (
-      typeof item === "string"
-      || typeof item === "number"
-      || typeof item === "boolean"
-      || item === null
+      typeof item === "string" ||
+      typeof item === "number" ||
+      typeof item === "boolean" ||
+      item === null
     ) {
       safe[key] = item as string | number | boolean | null;
     }
@@ -889,14 +972,19 @@ function toStringArrayRecord(value: unknown): Record<string, string[]> {
   const input = toPayload(value);
   const result: Record<string, string[]> = {};
   for (const [key, item] of Object.entries(input)) {
-    if (Array.isArray(item) && item.every((entry) => typeof entry === "string")) {
+    if (
+      Array.isArray(item) &&
+      item.every((entry) => typeof entry === "string")
+    ) {
       result[key] = item;
     }
   }
   return result;
 }
 
-function toProgressEvent(event: Awaited<ReturnType<StrategyRepository["listProgressEvents"]>>[number]): StrategyProgressEvent {
+function toProgressEvent(
+  event: Awaited<ReturnType<StrategyRepository["listProgressEvents"]>>[number],
+): StrategyProgressEvent {
   const payload = toPayload(event.payload);
   return {
     type: "strategy_progress",

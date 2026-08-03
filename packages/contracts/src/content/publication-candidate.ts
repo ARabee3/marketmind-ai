@@ -15,6 +15,7 @@ import {
   CONTENT_ALT_TEXT_MAX_LENGTH,
   CONTENT_CHANNELS,
   CONTENT_FORMATS,
+  isSha256Checksum,
 } from "./content-types";
 
 export const PUBLICATION_CANDIDATE_STATES = [
@@ -405,14 +406,20 @@ export function validatePublicationCandidateV1(
         (asset.kind !== "owner_supplied" &&
           asset.kind !== "generated_static") ||
         !isNonEmptyString(asset.mime_type) ||
-        !isNonEmptyString(asset.storage_key) ||
-        !isNonEmptyString(asset.checksum)
+        !isNonEmptyString(asset.storage_key)
       ) {
         addCandidateIssue(
           issues,
           "CONTENT_ASSET_REQUIRED",
           `assets[${index}]`,
           "Every candidate asset must be ready, immutable, and checksum-addressed.",
+        );
+      } else if (!isSha256Checksum(asset.checksum)) {
+        addCandidateIssue(
+          issues,
+          "CONTENT_ASSET_REQUIRED",
+          `assets[${index}].checksum`,
+          "Every candidate asset checksum must be a lowercase SHA-256 digest.",
         );
       }
     }
@@ -469,7 +476,7 @@ export function validatePublicationCandidateV1(
       "Publication candidate creation time is invalid.",
     );
   }
-  if (!/^[a-f0-9]{64}$/.test(String(candidate.candidate_checksum ?? ""))) {
+  if (!isSha256Checksum(candidate.candidate_checksum)) {
     addCandidateIssue(
       issues,
       "CONTENT_SCHEMA_FAILURE",
@@ -533,7 +540,7 @@ export function validatePublicationCandidateStatusV1(
       );
     }
   }
-  if (!/^[a-f0-9]{64}$/.test(String(value.candidate_checksum ?? ""))) {
+  if (!isSha256Checksum(value.candidate_checksum)) {
     addCandidateIssue(
       issues,
       "CONTENT_SCHEMA_FAILURE",

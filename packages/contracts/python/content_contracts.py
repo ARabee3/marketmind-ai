@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Literal
 
@@ -424,7 +425,8 @@ def _has_ready_publishable_asset(fixture: dict) -> bool:
             asset is not None
             and asset["status"] == "ready"
             and asset["kind"] in ("owner_supplied", "generated_static")
-            and asset["checksum"] is not None
+            and isinstance(asset["checksum"], str)
+            and re.fullmatch(r"[a-f0-9]{64}", asset["checksum"]) is not None
             and asset["storage_key"] is not None
         ):
             return True

@@ -1,0 +1,7 @@
+{
+  "base_fixture": "publication-approval-real.example.json",
+  "mutation": {
+    "kind": "stale_intent_version",
+    "value": 1
+  }
+}

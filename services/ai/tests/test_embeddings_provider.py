@@ -1,3 +1,4 @@
+from typing import Literal
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -156,6 +157,18 @@ def test_gemini_provider_requires_api_key(fake_config: EmbeddingConfig) -> None:
     assert not exc_info.value.retryable
 
 
+def test_gemini_provider_rejects_retired_model(fake_config: EmbeddingConfig) -> None:
+    config = fake_config.model_copy(
+        update={"provider": "gemini", "model": "text-embedding-004", "dimensions": 768}
+    )
+
+    with pytest.raises(EmbeddingProviderError) as exc_info:
+        GeminiEmbeddingProvider(config, api_key="test-key")
+
+    assert exc_info.value.code == "EMBEDDING_MODEL_RETIRED"
+    assert not exc_info.value.retryable
+
+
 @pytest.mark.anyio
 async def test_gemini_provider_embeds_texts(fake_config: EmbeddingConfig) -> None:
     config = fake_config.model_copy(update={"provider": "gemini", "dimensions": 768})
@@ -190,6 +203,64 @@ async def test_gemini_provider_embeds_texts(fake_config: EmbeddingConfig) -> Non
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("purpose", "expected_contents"),
+    [
+        (
+            "retrieval_query",
+            [
+                "task: search result | query: زيادة مبيعات محل حلويات",
+                "task: search result | query: منافسون محليون",
+            ],
+        ),
+        (
+            "retrieval_document",
+            [
+                "title: none | text: دليل تسويق محلي",
+                "title: none | text: قاعدة اختيار القناة",
+            ],
+        ),
+    ],
+)
+async def test_gemini_embedding_2_preserves_one_vector_per_formatted_input(
+    fake_config: EmbeddingConfig,
+    purpose: Literal["retrieval_query", "retrieval_document"],
+    expected_contents: list[str],
+) -> None:
+    config = fake_config.model_copy(
+        update={"provider": "gemini", "model": "gemini-embedding-2", "dimensions": 768}
+    )
+    provider = GeminiEmbeddingProvider(config, api_key="test-key")
+
+    class FakeEmbedding:
+        def __init__(self, values: list[float]) -> None:
+            self.values = values
+
+    class FakeResponse:
+        def __init__(self, value: float) -> None:
+            self.embeddings = [FakeEmbedding([value] * 768)]
+
+    with patch("google.genai.Client") as mock_client_cls:
+        embed_content = mock_client_cls.return_value.models.embed_content
+        embed_content.side_effect = [FakeResponse(0.1), FakeResponse(0.2)]
+
+        response = await provider.embed(
+            EmbedRequest(
+                texts=["زيادة مبيعات محل حلويات", "منافسون محليون"]
+                if purpose == "retrieval_query"
+                else ["دليل تسويق محلي", "قاعدة اختيار القناة"],
+                purpose=purpose,
+            )
+        )
+
+    assert len(response.embeddings) == 2
+    assert [embedding.index for embedding in response.embeddings] == [0, 1]
+    assert [
+        call.kwargs["contents"] for call in embed_content.call_args_list
+    ] == expected_contents
+
+
+@pytest.mark.anyio
 async def test_gemini_provider_maps_errors_without_exposing_input(
     fake_config: EmbeddingConfig,
 ) -> None:
@@ -215,7 +286,7 @@ def test_factory_returns_gemini_provider_when_configured() -> None:
             (),
             {
                 "embedding_provider_mode": "gemini",
-                "embedding_model": "text-embedding-004",
+                "embedding_model": "gemini-embedding-2",
                 "embedding_dimensions": 768,
                 "embedding_batch_size": 32,
                 "embedding_request_timeout_ms": 60000,
@@ -224,4 +295,4 @@ def test_factory_returns_gemini_provider_when_configured() -> None:
         )()
         provider = EmbeddingProviderFactory.from_settings()
         assert provider.name == "gemini"
-        assert provider.config.model == "text-embedding-004"
+        assert provider.config.model == "gemini-embedding-2"
