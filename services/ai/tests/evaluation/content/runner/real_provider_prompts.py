@@ -196,8 +196,9 @@ def build_spot_check_generation_prompt(
         ]
     )
 
+    example = _spot_check_one_shot_example(request)
     refined_system_prompt = "\n\n".join(
-        [base.system_prompt, supplement, _spot_check_one_shot_example()]
+        [base.system_prompt, supplement, example]
     )
 
     return PromptAssembly(
@@ -207,8 +208,52 @@ def build_spot_check_generation_prompt(
     )
 
 
-def _spot_check_one_shot_example() -> str:
-    """Return a concise structural example of a valid spot-check item."""
+def _spot_check_one_shot_example(request: AiContentGenerateRequest) -> str:
+    """Return a realistic example using the actual request values."""
+    language_mode_value = (
+        request.language_mode.value
+        if hasattr(request.language_mode, "value")
+        else request.language_mode
+    )
+    expected_locale = "ar" if language_mode_value == "ar-EG" else "en"
+
+    cta_destination = request.week_context.cta_destination
+    destination_type = (
+        cta_destination.type.value
+        if hasattr(cta_destination.type, "value")
+        else cta_destination.type
+    )
+    destination_value = cta_destination.value or ""
+    cta_text = "CTA text or null"
+    if destination_type != "none" and destination_value:
+        cta_text = f"تواصل معنا على واتساب: {destination_value}"
+
+    promotion = request.week_context.promotion
+    promotion_text = promotion.text if promotion else ""
+    promotion_terms = " ".join(str(t) for t in promotion.terms) if promotion else ""
+    must_include = " ".join(str(v) for v in request.week_context.must_include)
+
+    business_name = ""
+    profile = request.business_profile.profile
+    if isinstance(profile, dict):
+        business_name = profile.get("business_name", "")
+    elif hasattr(profile, "business_name"):
+        business_name = getattr(profile, "business_name", "")
+
+    # The example caption embeds the promotion, must_include, and CTA exactly.
+    caption_example = (
+        "استمتع بعرض الأسبوع! "
+        f"{promotion_text} {promotion_terms} "
+        f"{must_include} "
+        f"{cta_text}"
+    ).strip()
+    if business_name:
+        caption_example = f"{business_name} — {caption_example}"
+
+    brief_example = (
+        "منشور تعريفي بالعرض الأسبوعي يشجع الجمهور على التواصل عبر واتساب."
+    )
+
     return (
         "## Example of a valid spot-check item (use the real request values above, "
         "not these placeholder UUIDs):\n"
@@ -220,31 +265,31 @@ def _spot_check_one_shot_example() -> str:
         '      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",\n'
         '      "contract_version": "content-v1",\n'
         '      "content_item_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",\n'
-        '      "content_pack_id": "<use request.content_pack_id>",\n'
+        f'      "content_pack_id": {request.content_pack_id!r},\n'
         '      "version": 1,\n'
-        '      "channel": "<use one of request.selected_channels>",\n'
-        '      "format": "<use one of request.allowed_formats>",\n'
-        '      "language_mode": "<use request.language_mode>",\n'
+        f'      "channel": {request.selected_channels[0]!r},\n'
+        f'      "format": {request.allowed_formats[0]!r},\n'
+        f'      "language_mode": {language_mode_value!r},\n'
         '      "strategy_trace": {\n'
-        '        "strategy_id": "<use request.strategy_id>",\n'
-        '        "strategy_version": "<use request.strategy_version>",\n'
-        '        "week_number": <use request.week_context.week_number>,\n'
+        f'        "strategy_id": {request.strategy_id!r},\n'
+        f'        "strategy_version": {request.strategy_version!r},\n'
+        f'        "week_number": {request.week_context.week_number},\n'
         '        "pillar_ids": ["<use one derived pillar id>"],\n'
         '        "objective": "<use request.strategy_plan.primary_objective>",\n'
         '        "channel": "<same as item.channel>"\n'
         "      },\n"
         '      "caption_variants": [\n'
         "        {\n"
-        '          "locale": "<ar or en>",\n'
-        '          "caption": "Owner-facing caption text.",\n'
-        '          "cta": "CTA text or null",\n'
+        f'          "locale": {expected_locale!r},\n'
+        f'          "caption": {caption_example!r},\n'
+        f'          "cta": {cta_text!r},\n'
         '          "hashtags": ["#Example"]\n'
         "        }\n"
         "      ],\n"
-        '      "cta": "CTA text or null",\n'
+        f'      "cta": {cta_text!r},\n'
         '      "hashtags": ["#Example"],\n'
-        '      "creative_brief": "Brief for this item.",\n'
-        '      "alt_text": "Alt text for this item.",\n'
+        f'      "creative_brief": {brief_example!r},\n'
+        '      "alt_text": "<Arabic alt text for the post>",\n'
         '      "recommended_publish_window": {\n'
         '        "starts_at": "2026-01-05T10:00:00+02:00",\n'
         '        "ends_at": "2026-01-05T12:00:00+02:00",\n'
