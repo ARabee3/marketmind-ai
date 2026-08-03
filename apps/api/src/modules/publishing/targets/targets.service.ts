@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,9 +10,7 @@ import {
 import { PublishingTarget } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import {
-  CreateTargetDto,
   TargetProjection,
-  UpdateTargetConnectionStateDto,
   VerifyTargetDto,
 } from "./targets.dto";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
@@ -46,22 +46,6 @@ export class TargetsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createTarget(dto: CreateTargetDto): Promise<TargetProjection> {
-    const raw = await this.prisma.publishingTarget.create({
-      data: {
-        businessId: dto.businessId,
-        provider: dto.provider,
-        channel: dto.channel,
-        externalAccountId: dto.externalAccountId,
-        displayName: dto.displayName,
-        credentialRef: dto.credentialRef,
-        capabilities: dto.capabilities ?? ["static_image"],
-        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
-      },
-    });
-    return toTargetProjection(raw);
-  }
-
   async listTargets(businessId: string): Promise<TargetProjection[]> {
     const raw = await this.prisma.publishingTarget.findMany({
       where: { businessId },
@@ -81,44 +65,69 @@ export class TargetsService {
     return toTargetProjection(raw);
   }
 
-  async updateConnectionState(
-    targetId: string,
-    businessId: string,
-    dto: UpdateTargetConnectionStateDto,
-  ): Promise<TargetProjection> {
-    return this.prisma.$transaction(async (tx) => {
-      const current = await tx.publishingTarget.findUniqueOrThrow({
-        where: { id: targetId },
-      });
-      // Ownership: a connection-state mutation is cross-tenant-safe scoped to
-      // the owning business (issue #119 G10). 404 (not 403) avoids enumeration.
-      if (current.businessId !== businessId) {
-        throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-      }
-      if (current.version !== dto.currentVersion) {
-        throw new ConflictException(PublishingErrorCode.VERSION_CONFLICT);
-      }
-      const updated = await tx.publishingTarget.update({
-        where: { id: targetId },
-        data: {
-          connectionState: dto.connectionState,
-          version: { increment: 1 },
-          expiresAt: dto.expiresAt
-            ? new Date(dto.expiresAt)
-            : current.expiresAt,
-          lastVerifiedAt: new Date(),
-        },
-      });
-      return toTargetProjection(updated);
-    });
-  }
-
   async deleteTarget(targetId: string, businessId: string): Promise<void> {
     const target = await this.prisma.publishingTarget.findFirst({
       where: { id: targetId, businessId },
     });
     if (!target) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
     await this.prisma.publishingTarget.delete({ where: { id: targetId } });
+  }
+
+  /**
+   * Frozen `POST /publishing-targets/meta/connect` — the provider OAuth
+   * boundary that initiates account-ownership proof and creates the opaque
+   * credential reference. The owner browser NEVER supplies `credentialRef`.
+   *
+   * The real Meta OAuth integration is owned by the runner/provider boundary
+   * issues (#120 / #122); this slice surfaces a clear 501 instead of
+   * fabricating a credential or a signed authorization URL (anti-pattern:
+   * never present a fake provider connection as real). When #120 lands, this
+   * method returns the OAuth authorization URL consumed by the browser.
+   */
+  async connectMetaTarget(
+    _businessId: string,
+    _provider: string,
+    _channel: string,
+  ): Promise<never> {
+    this.logger.warn(
+      "meta/connect invoked but Meta OAuth is not integrated in this slice (see #120/#122)",
+    );
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.NOT_IMPLEMENTED,
+        code: PublishingErrorCode.CONTRACT_UNSUPPORTED,
+        message:
+          "Meta OAuth connect is not integrated in this slice — see issues #120/#122.",
+      },
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  /**
+   * Frozen `POST /publishing-targets/meta/callback` — completes the OAuth
+   * boundary, proves account ownership, and creates the CONNECTED target row
+   * with the provider-derived opaque credential reference. See connectMetaTarget
+   * for the integration status; this slice surfaces a clear 501.
+   */
+  async completeMetaCallback(
+    _businessId: string,
+    _provider: string,
+    _channel: string,
+    _code: string,
+    _state: string,
+  ): Promise<never> {
+    this.logger.warn(
+      "meta/callback invoked but Meta OAuth is not integrated in this slice (see #120/#122)",
+    );
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.NOT_IMPLEMENTED,
+        code: PublishingErrorCode.CONTRACT_UNSUPPORTED,
+        message:
+          "Meta OAuth callback is not integrated in this slice — see issues #120/#122.",
+      },
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   /**
