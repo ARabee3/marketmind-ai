@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from strategy_contracts import ExternalBudgetMode
+from strategy_contracts import ExternalBudgetMode, StrategyObjective
 
 from app.decisions.channel_scoring import (
     score_all_channels,
@@ -19,6 +19,7 @@ from tests.decisions.fixtures.base import (
     default_brief,
     default_business_profile,
     default_retrieval_pack,
+    pack_without_items,
     profile_with_customers,
     profile_with_marketing,
     retrieval_pack_with_channel_item,
@@ -84,6 +85,53 @@ def test_objective_fit_no_item_adds_gap():
     )
     assert result.value == 0.0
     assert any("website" in gap.category for gap in ctx.knowledge_gaps)
+
+
+def test_objective_fit_conversion_credits_warm_social_presence():
+    profile = profile_with_marketing(
+        default_business_profile(),
+        active_channels=["facebook"],
+    )
+    brief = default_brief().model_copy(
+        update={"primary_objective": StrategyObjective.conversion}
+    )
+    pack = pack_without_items(default_retrieval_pack())
+    result = score_objective_fit(
+        "facebook",
+        profile.profile,
+        brief,
+        pack,
+        NormalizedInputs(
+            capacity_tier=CapacityTier.medium,
+            budget_anchor_egp=7000.0,
+            budget_is_range=False,
+        ),
+        _make_context(),
+    )
+
+    assert result.value > 0.0
+
+
+def test_objective_fit_conversion_credits_restaurant_delivery_platforms():
+    profile = default_business_profile()
+    brief = default_brief().model_copy(
+        update={"primary_objective": StrategyObjective.conversion}
+    )
+    pack = pack_without_items(default_retrieval_pack())
+    result = score_objective_fit(
+        "delivery_platforms",
+        profile.profile,
+        brief,
+        pack,
+        NormalizedInputs(
+            capacity_tier=CapacityTier.medium,
+            budget_anchor_egp=7000.0,
+            budget_is_range=False,
+        ),
+        _make_context(),
+    )
+
+    assert result.value > 0.0
 
 
 def test_audience_fit_perfect_overlap():

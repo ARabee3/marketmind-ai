@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from strategy_contracts import ChannelRole, ChannelDimensionScores
+from strategy_contracts import ChannelDimensionScores, ChannelRole
 
 from app.decisions.channel_selection import select_channels
 from app.decisions.config import SUPPORTING_CHANNEL_MIN_TOTAL_SCORE
-
 
 DIMENSION_NAMES = [
     "objective_fit",
@@ -141,5 +140,25 @@ def test_no_selected_channels_when_all_excluded():
         scores = ChannelDimensionScores(**dict(zip(DIMENSION_NAMES, (r.value for r in dim_results))))
         total = sum(r.value for r in dim_results)
         scored.append((channel, scores, dim_results, total))
-    all_scorecards, selected = select_channels(scored)
+    _all_scorecards, selected = select_channels(scored)
     assert selected == []
+
+
+def test_select_channels_dedupes_google_local_search_ecosystem():
+    scored = _make_scored({
+        "google_business_profile": 5.0,
+        "google_maps": 4.9,
+        "facebook": 4.8,
+        "delivery_platforms": 4.2,
+    })
+
+    all_scorecards, selected = select_channels(scored)
+
+    selected_channels = [card.channel for card in selected]
+    google_maps = next(card for card in all_scorecards if card.channel == "google_maps")
+    assert set(selected_channels) == {
+        "facebook",
+        "google_business_profile",
+        "delivery_platforms",
+    }
+    assert google_maps.excluded_reason == "duplicate_local_search_ecosystem"

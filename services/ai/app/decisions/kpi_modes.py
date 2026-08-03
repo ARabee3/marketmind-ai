@@ -11,12 +11,11 @@ from strategy_contracts import (
     KpiTargetMode,
     SourcedClaim,
     StrategyBrief,
-    StrategyObjective,
     StrategyPlan,
 )
 
 from app.decisions.config import OBJECTIVE_KPI_METRICS
-from app.rag.schemas import HydratedItem, RetrievedKnowledgePack
+from app.rag.schemas import RetrievedKnowledgePack
 
 _NUMERIC_TARGET_PATTERN = re.compile(
     r"\b(\d[\d,]*(?:\.\d+)?)\s*(%|percent|followers|orders|leads|customers)?",
@@ -61,6 +60,20 @@ def _owner_facing_text(
     if brief.plan_language.value == "ar-EG":
         return arabic
     return english
+
+
+def _fallback_target_value(
+    brief: StrategyBrief,
+    *,
+    funnel_stage: str,
+) -> str | None:
+    if funnel_stage != "conversion":
+        return None
+    return _owner_facing_text(
+        brief,
+        "الأسبوع 1-2: تثبيت خط الأساس؛ الأسبوع 4: +10%؛ الأسبوع 8: +20%؛ الأسبوع 12: +30% أو عائد إعلاني 3:1.",
+        "Weeks 1-2: establish baseline; Week 4: +10%; Week 8: +20%; Week 12: +30% or 3:1 ROAS.",
+    )
 
 
 def _verified_benchmark_item(
@@ -168,21 +181,25 @@ def select_kpi_target_mode(
             ),
         )
 
+    fallback_target_value = _fallback_target_value(
+        brief,
+        funnel_stage=funnel_stage,
+    )
     return KpiTarget(
         metric=metric,
         funnel_stage=funnel_stage,
         target_mode=KpiTargetMode.establish_baseline,
-        target_value=None,
+        target_value=fallback_target_value,
         measurement_method=_owner_facing_text(
             brief,
-            f"حدّد وتتبّع خط الأساس لمؤشر {metric}.",
-            f"Establish and track baseline for {metric}",
+            f"حدّد خط الأساس لمؤشر {metric} في أول أسبوعين ثم راجع التقدم أسبوعيًا.",
+            f"Establish the {metric} baseline in the first two weeks, then review weekly progress.",
         ),
         notes=SourcedClaim(
             text=_owner_facing_text(
                 brief,
-                "لا يوجد معيار موثّق أو هدف من المالك؛ ابدأ بقياس خط الأساس.",
-                "No verified benchmark or owner target; establish baseline first.",
+                "لا يوجد معيار موثّق أو هدف من المالك؛ استخدم هدفًا مرحليًا محافظًا حتى يتوفر خط الأساس.",
+                "No verified benchmark or owner target; use a conservative phased target until the baseline is known.",
             ),
             source=ClaimSource.deterministic_result,
             citation_ids=[],

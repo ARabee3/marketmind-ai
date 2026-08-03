@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 import pytest
 
@@ -20,16 +19,13 @@ from app.strategy.prompt_versions import (
 )
 from tests.strategy.fixtures import (
     default_brief,
-    default_business_profile,
     default_plan,
-    default_retrieval_pack,
     english_brief,
     make_decision_bundle,
     make_generate_request,
     make_revise_request,
     mixed_brief,
 )
-
 
 PROVIDER_NAME = "mock"
 MODEL_NAME = "mock-strategy-model"
@@ -135,6 +131,19 @@ class TestPromptAssembly:
         assert "deterministic_decisions" in parsed["provenance"]
         assert parsed["output_contract"]["contract_version"] == "strategy-v1"
 
+    def test_generation_user_context_includes_strategy_quality_requirements(self):
+        request = make_generate_request()
+        bundle = make_decision_bundle()
+
+        assembly = assemble_generation_prompt(request, bundle, PROVIDER_NAME, MODEL_NAME)
+        parsed = json.loads(assembly.user_prompt.split("\n\n", 1)[1])
+        requirements = parsed["output_contract"]["strategy_quality_requirements"]
+
+        assert requirements["platform_specific_format_mix"] is True
+        assert requirements["competitive_response_without_margin_destroying_discount"] is True
+        assert requirements["loyalty_or_retention_mechanic_before_week_4"] is True
+        assert requirements["delivery_channel_has_activation_or_blocker_when_relevant"] is True
+
     def test_assemble_revision_prompt_returns_expected_shape(self):
         request = make_revise_request()
         bundle = make_decision_bundle()
@@ -168,6 +177,17 @@ class TestPromptAssembly:
         assert request.revision_notes in user
         assert "previous_plan" in user
         assert "owner_revision_notes" in user
+
+    def test_revision_user_context_includes_strategy_quality_requirements(self):
+        request = make_revise_request()
+        bundle = make_decision_bundle()
+
+        assembly = assemble_revision_prompt(request, bundle, PROVIDER_NAME, MODEL_NAME)
+        parsed = json.loads(assembly.user_prompt.split("\n\n", 1)[1])
+        requirements = parsed["output_contract"]["strategy_quality_requirements"]
+
+        assert requirements["platform_specific_format_mix"] is True
+        assert requirements["weekly_cadence_names_platforms_and_frequency"] is True
 
     def test_revision_system_prompt_forbids_mutating_prior_plan(self):
         request = make_revise_request()

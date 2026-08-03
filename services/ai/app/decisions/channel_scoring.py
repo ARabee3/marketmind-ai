@@ -46,6 +46,21 @@ class ScoringContext:
 ASSET_REQUIREMENT_GROUPS: Final[dict[str, tuple[tuple[str, ...], ...]]] = {
     "delivery_platforms": (("menu", "catalog"), ("photo", "image")),
 }
+SOCIAL_CONVERSION_CHANNELS: Final[tuple[str, ...]] = (
+    "facebook",
+    "instagram",
+    "tiktok",
+)
+RESTAURANT_KEYWORDS: Final[tuple[str, ...]] = (
+    "restaurant",
+    "qsr",
+    "food",
+    "chicken",
+    "fried",
+    "مطعم",
+    "فرايد",
+    "دجاج",
+)
 
 
 def _channel_items(items: list[HydratedItem], channel: str) -> list[HydratedItem]:
@@ -67,6 +82,42 @@ def _profile_marketing(profile: dict[str, Any]) -> dict[str, Any]:
     return profile.get("confirmed_facts", {}).get("current_marketing", {})
 
 
+def _profile_business_type(profile: dict[str, Any]) -> str:
+    identity = profile.get("confirmed_facts", {}).get("identity", {})
+    return str(identity.get("business_type", "")).lower()
+
+
+def _has_existing_presence(profile: dict[str, Any], channel: str) -> bool:
+    marketing = _profile_marketing(profile)
+    activities = marketing.get("current_activities", []) + marketing.get(
+        "active_channels", []
+    )
+    return any(_activity_matches_channel(str(activity), channel) for activity in activities)
+
+
+def _conversion_fallback(
+    channel: str,
+    profile: dict[str, Any],
+    brief: StrategyBrief,
+) -> DimensionResult | None:
+    if brief.primary_objective.value != "conversion":
+        return None
+    if channel in SOCIAL_CONVERSION_CHANNELS and _has_existing_presence(profile, channel):
+        return DimensionResult(
+            0.75,
+            ["Warm social audience can support conversion through DMs and retargeting"],
+        )
+    business_type = _profile_business_type(profile)
+    if channel == "delivery_platforms" and any(
+        keyword in business_type for keyword in RESTAURANT_KEYWORDS
+    ):
+        return DimensionResult(
+            0.75,
+            ["Restaurant delivery platforms can support order conversion"],
+        )
+    return None
+
+
 def score_objective_fit(
     channel: str,
     profile: dict[str, Any],
@@ -75,10 +126,13 @@ def score_objective_fit(
     normalized: NormalizedInputs,
     ctx: ScoringContext,
 ) -> DimensionResult:
-    del profile, normalized
+    del normalized
     items = _playbook_items(retrieval_pack.items, channel)
     objective = brief.primary_objective.value
+    fallback = _conversion_fallback(channel, profile, brief)
     if not items:
+        if fallback is not None:
+            return fallback
         ctx.knowledge_gaps.append(
             KnowledgeGap(
                 category=f"channel_playbook:{channel}",
@@ -101,6 +155,9 @@ def score_objective_fit(
                 0.5,
                 [f"Adjacent funnel stage overlap for objective '{objective}'"],
             )
+
+    if fallback is not None:
+        return fallback
 
     return DimensionResult(0.0, ["No objective or adjacent funnel match in playbook tags"])
 

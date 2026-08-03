@@ -43,6 +43,13 @@ CHANNEL_ALIASES: dict[str, tuple[str, ...]] = {
 # NEEDS MARKETING SIGN-OFF: minimum total score (of 8.0) for a supporting channel.
 SUPPORTING_CHANNEL_MIN_TOTAL_SCORE = 3.0
 
+CHANNEL_SELECTION_GROUPS: dict[str, str] = {
+    "google_business_profile": "google_local",
+    "google_maps": "google_local",
+}
+
+WEBSITE_OWNED_ASSET_BUDGET_CAP_PERCENT = 5
+
 # NEEDS MARKETING SIGN-OFF: budget scenario multipliers relative to base.
 CONSERVATIVE_BUDGET_RATIO = 0.70
 GROWTH_BUDGET_RATIO = 1.50

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from hypothesis import given, strategies as st
-
+from hypothesis import given
+from hypothesis import strategies as st
 from strategy_contracts import ExternalBudgetMode
 
 from app.decisions.budget_arithmetic import (
@@ -12,7 +12,6 @@ from app.decisions.budget_arithmetic import (
     distribute_exactly,
 )
 from app.decisions.normalize import NormalizedInputs
-
 from tests.decisions.fixtures.base import default_brief
 
 
@@ -307,3 +306,58 @@ def test_no_selected_channels_returns_none():
         selected_scorecards=[],
     )
     assert scenarios is None
+
+
+def test_website_allocation_is_capped_as_owned_asset():
+    from strategy_contracts import (
+        ChannelDimensionScores,
+        ChannelRole,
+        DeterministicChannelScorecard,
+    )
+
+    from app.decisions.normalize import CapacityTier
+
+    scores = ChannelDimensionScores(
+        objective_fit=1,
+        audience_fit=1,
+        existing_presence=1,
+        asset_format_fit=1,
+        team_capacity=1,
+        budget_fit=1,
+        evidence_strength=1,
+        measurement_readiness=1,
+    )
+    selected = [
+        DeterministicChannelScorecard(
+            channel="facebook",
+            role=ChannelRole.primary,
+            scores=scores,
+            total_score=4.8,
+        ),
+        DeterministicChannelScorecard(
+            channel="google_business_profile",
+            role=ChannelRole.primary,
+            scores=scores,
+            total_score=4.5,
+        ),
+        DeterministicChannelScorecard(
+            channel="website",
+            role=ChannelRole.supporting,
+            scores=scores,
+            total_score=4.3,
+        ),
+    ]
+
+    scenarios = compute_budget_scenarios(
+        brief=default_brief(budget_egp=7000.0),
+        normalized=NormalizedInputs(
+            capacity_tier=CapacityTier.medium,
+            budget_anchor_egp=7000.0,
+            budget_is_range=False,
+        ),
+        selected_scorecards=selected,
+    )
+
+    base = next(s for s in scenarios or [] if s.scenario_type.value == "base")
+    website = next(a for a in base.channel_allocations if a.channel == "website")
+    assert website.percentage <= 5
