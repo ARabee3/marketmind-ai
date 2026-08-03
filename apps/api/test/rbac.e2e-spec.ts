@@ -87,7 +87,7 @@ describe("RBAC (e2e)", () => {
     it("should reject unauthenticated access with 401", () =>
       request(app.getHttpServer()).get("/api/v1/rbac/me/permissions").expect(401));
 
-    it("should return the owner's roles and 6 permissions", () =>
+    it("should return the owner's roles and 7 permissions", () =>
       request(app.getHttpServer())
         .get("/api/v1/rbac/me/permissions")
         .set("Authorization", `Bearer ${ownerToken}`)
@@ -95,21 +95,23 @@ describe("RBAC (e2e)", () => {
         .expect((res) => {
           expect(res.body.roles).toEqual(["owner"]);
           expect(res.body.permissions).toEqual([
-            "business:read", "business:update", "discovery:confirm_profile",
+            "business:read", "business:update", "content:start",
+            "discovery:confirm_profile",
             "discovery:continue", "discovery:start", "strategy:start",
           ].sort());
           expect(res.body.permissions).not.toContain("admin:manage_library");
         }));
 
-    it("should return all 7 permissions for admin", () =>
+    it("should return all 8 permissions for admin", () =>
       request(app.getHttpServer())
         .get("/api/v1/rbac/me/permissions")
         .set("Authorization", `Bearer ${adminToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body.roles).toEqual(["admin"]);
-          expect(res.body.permissions).toHaveLength(7);
+          expect(res.body.permissions).toHaveLength(8);
           expect(res.body.permissions).toContain("admin:manage_library");
+          expect(res.body.permissions).toContain("content:start");
         }));
 
     it("should return the 3 limited developer_demo permissions", () =>
