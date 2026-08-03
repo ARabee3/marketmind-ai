@@ -84,8 +84,12 @@ export class DispatchProcessor extends WorkerHost {
       this.logger.warn(
         `Dispatch revalidation failed for intent=${intentId} v=${version}: ${(err as Error).message}`,
       );
-      // Non-retryable failure — mark intent failed with sanitized reason
-      await this.markIntentFailed(intentId, this.sanitizeError(err));
+      // P1: predicate the failure transition on the job's expected version so a
+      // stale vN job (e.g. from a stalled BullMQ delivery) cannot flip a newly
+      // approved vN+1 SCHEDULED intent to FAILED. If the intent has since moved
+      // (a newer version exists), markIntentFailed updates 0 rows — a recorded
+      // no-op for the stale job.
+      await this.markIntentFailed(intentId, version, this.sanitizeError(err));
       return; // do not throw — job is considered handled
     }
 
@@ -125,9 +129,11 @@ export class DispatchProcessor extends WorkerHost {
               finishedAt: new Date(),
             },
           });
+          // Version-predicated: a stale job must not fail a newer intent version.
           await tx.publishingIntent.updateMany({
             where: {
               id: intentId,
+              version,
               status: { in: ["SCHEDULED", "DISPATCHING"] },
             },
             data: { status: "FAILED" },
@@ -178,22 +184,55 @@ export class DispatchProcessor extends WorkerHost {
         `Dispatch succeeded for attempt=${attemptId}, n8n execution=${n8nResult.executionId}`,
       );
     } catch (err) {
-      this.logger.error(
-        `Dispatch call to n8n failed for attempt=${attemptId}: ${(err as Error).message}`,
-      );
+      // P1: distinguish a PRE-SEND failure from an AMBIGUOUS post-send outcome.
+      // Once the request may have reached n8n (timeout / connection reset / 5xx
+      // after the runner accepted), the provider might already have published.
+      // Marking FAILED would make the intent eligible for a blind retry that
+      // could double-publish. Instead, persist the attempt as UNKNOWN with a
+      // matching UNKNOWN result row and move the intent to ACTION_REQUIRED so
+      // reconciliation (or admin investigation) resolves it using the SAME
+      // idempotency key — never an automatic re-dispatch.
+      const ambiguous = this.isAmbiguousDelivery(err);
       const sanitized = this.sanitizeError(err);
+      this.logger.error(
+        `Dispatch ${ambiguous ? "timed out ambiguously" : "failed deterministically"} for attempt=${attemptId}: ${(err as Error).message}`,
+      );
       await this.prisma.$transaction(async (tx) => {
+        const now = new Date();
         await tx.publishingAttempt.update({
           where: { id: attemptId },
           data: {
-            status: "FAILED",
+            status: ambiguous ? "UNKNOWN" : "FAILED",
             sanitizedError: sanitized,
-            finishedAt: new Date(),
+            finishedAt: now,
           },
         });
-        await tx.publishingIntent.update({
-          where: { id: intentId },
-          data: { status: "FAILED" },
+        // One result row per attempt (unique on attempt_id); only create if absent.
+        const existingResult = await tx.publishingResult.findUnique({
+          where: { attemptId },
+        });
+        if (!existingResult) {
+          await tx.publishingResult.create({
+            data: {
+              attemptId,
+              intentId,
+              outcome: ambiguous ? "UNKNOWN" : ("FAILED" as never),
+              provider: "meta",
+              retryable: ambiguous ? true : false,
+              rawPayloadHash: null,
+              sanitizedError: sanitized,
+              occurredAt: now,
+            },
+          });
+        }
+        // Version-predicated intent transition (stale-job guard, see P1-6).
+        await tx.publishingIntent.updateMany({
+          where: {
+            id: intentId,
+            version,
+            status: { in: ["SCHEDULED", "DISPATCHING"] },
+          },
+          data: { status: ambiguous ? "ACTION_REQUIRED" : "FAILED" },
         });
       });
     }
@@ -424,18 +463,66 @@ export class DispatchProcessor extends WorkerHost {
     return result.count === 1;
   }
 
+  /**
+   * Fail the intent ONLY if it is still at the job's expected version and in a
+   * non-terminal state. This is the stale-job guard (P1-6): a stalled BullMQ
+   * delivery for vN must not flip a newly approved vN+1 SCHEDULED intent to
+   * FAILED. `updateMany` with a version predicate updates 0 rows for a stale
+   * job — a recorded no-op.
+   */
   private async markIntentFailed(
     intentId: string,
+    version: number,
     sanitizedError: string,
   ): Promise<void> {
     try {
       await this.prisma.publishingIntent.updateMany({
-        where: { id: intentId, status: { in: ["SCHEDULED", "DISPATCHING"] } },
+        where: {
+          id: intentId,
+          version,
+          status: { in: ["SCHEDULED", "DISPATCHING"] },
+        },
         data: { status: "FAILED" },
       });
     } catch (e) {
       this.logger.error(`Failed to mark intent ${intentId} as failed`, e);
     }
+  }
+
+  /**
+   * Classifies a dispatch-time exception as AMBIGUOUS (the request may have
+   * reached n8n and the provider may already have published) versus a
+   * DETERMINISTIC pre-send failure (misconfiguration / hard 4xx rejection
+   * before any provider call). Ambiguous outcomes must never be retried blind.
+   */
+  private isAmbiguousDelivery(err: unknown): boolean {
+    if (!err) return false;
+    const e = err as {
+      code?: string;
+      response?: { status?: number };
+      isAxiosError?: boolean;
+      name?: string;
+      message?: string;
+    };
+    // Axios/transport ambiguity: timeout, connection reset, dropped connection.
+    if (
+      e.code === "ECONNABORTED" ||
+      e.code === "ETIMEDOUT" ||
+      e.code === "ECONNRESET" ||
+      e.code === "ECONNREFUSED" ||
+      e.code === "EPIPE" ||
+      e.code === "EAI_AGAIN"
+    ) {
+      return true;
+    }
+    // A 5xx after the runner may have started executing is ambiguous.
+    if (e.isAxiosError && typeof e.response?.status === "number") {
+      return e.response.status >= 500;
+    }
+    // No response at all (network) and not a deterministic BadRequest misconfig
+    // — treat as ambiguous.
+    if (e.isAxiosError && e.response === undefined) return true;
+    return false;
   }
 
   private sanitizeError(err: unknown): string {
