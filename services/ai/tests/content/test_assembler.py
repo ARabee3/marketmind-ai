@@ -99,6 +99,7 @@ def test_revision_assembly_rejects_mismatched_base_version() -> None:
 def test_asset_assembly_records_dimensions_without_raw_brief_metadata() -> None:
     request = AiStaticAssetGenerateRequest(
         contract_version="content-v1",
+        asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         content_item_version_id="99999999-9999-4999-8999-999999999999",
         creative_brief="Fictional Koshary Corner static image brief.",
         alt_text="Fictional koshary dish",
@@ -127,6 +128,7 @@ def test_asset_assembly_records_dimensions_without_raw_brief_metadata() -> None:
 def test_asset_assembly_rejects_invalid_input(request_update: dict) -> None:
     request = AiStaticAssetGenerateRequest(
         contract_version="content-v1",
+        asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         content_item_version_id="99999999-9999-4999-8999-999999999999",
         creative_brief="Fictional creative brief.",
         alt_text="Fictional alt text",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from app.content.validators import compute_content_item_checksum
 from tests.content.fixture_helpers import load_example
 
@@ -42,3 +44,10 @@ def test_changing_an_immutable_field_changes_the_checksum() -> None:
     }
     assert compute_content_item_checksum(valid) == vector["expected_checksum"]
     assert compute_content_item_checksum(tampered) != vector["expected_checksum"]
+
+
+def test_generated_asset_identity_is_version_and_role_addressed() -> None:
+    version_id = "99999999-9999-4999-8999-999999999999"
+    assert str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"content-asset:{version_id}:generated_static")
+    ) == "25f5f5f0-9156-5319-97a5-601a4067faec"

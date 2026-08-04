@@ -79,6 +79,20 @@ describe("content-item-version-normalizer", () => {
     );
   });
 
+  it("allocates one deterministic generated-static asset and removes only its provisional blocker", () => {
+    const item = makeItem({
+      asset_required: true,
+      blockers: ["CONTENT_ASSET_REQUIRED"],
+    });
+    const normalized = normalizeAiContentItemVersion(item, EXPECTED);
+
+    expect(normalized.asset_ids).toHaveLength(1);
+    expect(normalized.blockers).toEqual([]);
+    expect(normalized.version_checksum).toBe(
+      computeContentItemVersionChecksum(normalized),
+    );
+  });
+
   it("rejects a checksum-invalid provider response before persistence", () => {
     const item = {
       ...makeItem(),

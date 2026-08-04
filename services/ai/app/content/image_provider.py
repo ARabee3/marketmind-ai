@@ -290,12 +290,19 @@ async def generate_static_asset(
     storage: AssetStoragePort,
 ) -> ContentAsset:
     """Generate, store, and return one truthful immutable ContentAsset record."""
-    asset_id = str(
+    expected_asset_id = str(
         uuid.uuid5(
             uuid.NAMESPACE_URL,
-            f"content-asset:{request.content_item_version_id}:{request.idempotency_key}",
+            f"content-asset:{request.content_item_version_id}:generated_static",
         )
     )
+    if request.asset_id != expected_asset_id:
+        raise ProviderError(
+            "CONTENT_SCHEMA_FAILURE",
+            "Static asset request does not carry the deterministic planned asset identity.",
+            retryable=False,
+        )
+    asset_id = request.asset_id
     created_at = datetime.now(timezone.utc)
     if not storage.available:
         return ContentAsset(

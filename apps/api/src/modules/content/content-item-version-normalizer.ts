@@ -1,6 +1,7 @@
 import type { ContentItemVersion, ContentPack } from "@marketmind/contracts";
 import {
   computeContentItemVersionChecksum,
+  deterministicGeneratedAssetId,
   normalizeContentTimestamps,
   normalizeContentTimestamp,
 } from "@marketmind/contracts";
@@ -83,9 +84,24 @@ export function normalizeAiContentItemVersion(
   }
 
   const createdAt = normalizeContentTimestamp(item.created_at);
+  if (new Set(item.asset_ids).size !== item.asset_ids.length) {
+    throw schemaFailure(
+      `Generated item ${item.id} contains duplicate asset IDs.`,
+    );
+  }
+  const allocatedAssetId =
+    item.asset_required && item.asset_ids.length === 0
+      ? deterministicGeneratedAssetId(item.id)
+      : null;
+  const assetIds = allocatedAssetId ? [allocatedAssetId] : [...item.asset_ids];
+  const blockers = allocatedAssetId
+    ? item.blockers.filter((blocker) => blocker !== "CONTENT_ASSET_REQUIRED")
+    : item.blockers;
   const normalized = normalizeContentTimestamps({
     ...item,
     created_at: createdAt,
+    asset_ids: assetIds,
+    blockers,
   }) as ContentItemVersion;
   const versionChecksum = computeContentItemVersionChecksum(normalized);
 

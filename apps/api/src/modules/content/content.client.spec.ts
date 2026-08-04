@@ -74,6 +74,7 @@ const REVISE_RESPONSE: AiContentReviseResponse = {
 
 const STATIC_ASSET_REQUEST: AiStaticAssetGenerateRequest = {
   contract_version: "content-v1",
+  asset_id: "asset-1",
   content_item_version_id: "ver-1",
   creative_brief: "brief",
   alt_text: "alt",
@@ -149,7 +150,9 @@ describe("ContentAiClient", () => {
         throwError(() => ({ response: { status: 503 } })),
       );
 
-      await expect(client.generate(makeGenerateRequest())).rejects.toMatchObject({
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
         code: "CONTENT_PROVIDER_FAILURE",
         retryable: true,
       });
@@ -160,7 +163,9 @@ describe("ContentAiClient", () => {
         throwError(() => ({ code: "ECONNABORTED" })),
       );
 
-      await expect(client.generate(makeGenerateRequest())).rejects.toMatchObject({
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
         code: "CONTENT_PROVIDER_FAILURE",
         retryable: true,
       });
@@ -171,16 +176,22 @@ describe("ContentAiClient", () => {
         throwError(() => ({ response: { status: 422 } })),
       );
 
-      await expect(client.generate(makeGenerateRequest())).rejects.toMatchObject({
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
         code: "CONTENT_PROVIDER_FAILURE",
         retryable: false,
       });
     });
 
     it("rejects a malformed response body with CONTENT_SCHEMA_FAILURE", async () => {
-      httpService.post.mockReturnValue(of({ data: { contract_version: "content-v1" } }));
+      httpService.post.mockReturnValue(
+        of({ data: { contract_version: "content-v1" } }),
+      );
 
-      await expect(client.generate(makeGenerateRequest())).rejects.toMatchObject({
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
         code: "CONTENT_SCHEMA_FAILURE",
         retryable: false,
       });
@@ -193,7 +204,9 @@ describe("ContentAiClient", () => {
       response.validation = { valid: false, issues: [] };
       httpService.post.mockReturnValue(of({ data: response }));
 
-      await expect(client.generate(makeGenerateRequest())).rejects.toMatchObject({
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
         code: "CONTENT_SCHEMA_FAILURE",
         retryable: false,
       });
@@ -241,7 +254,9 @@ describe("ContentAiClient", () => {
     });
 
     it("rejects a malformed asset response with CONTENT_SCHEMA_FAILURE", async () => {
-      httpService.post.mockReturnValue(of({ data: { contract_version: "content-v1" } }));
+      httpService.post.mockReturnValue(
+        of({ data: { contract_version: "content-v1" } }),
+      );
 
       await expect(
         client.generateStaticAsset(STATIC_ASSET_REQUEST),

@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import type { ContentItemVersion } from "@marketmind/contracts";
-import { computeContentItemVersionChecksum } from "@marketmind/contracts";
+import {
+  computeContentItemVersionChecksum,
+  deterministicGeneratedAssetId,
+} from "@marketmind/contracts";
 import { PrismaService } from "../src/common/persistence/prisma.service";
 import { normalizeAiContentItemVersion } from "../src/modules/content/content-item-version-normalizer";
 import { toContentItemVersion } from "../src/modules/content/content.service";
@@ -310,5 +313,81 @@ describe("Content item version checksum DB round-trip", () => {
       roundTrippedRevision.version_checksum,
     );
     expect(roundTrippedRevision.created_at).toBe("2026-08-01T04:05:06.123Z");
+
+    const assetId = deterministicGeneratedAssetId(ids.baseVersion);
+    await repository.createAsset({
+      id: assetId,
+      contentItemVersionId: ids.baseVersion,
+      kind: "generated_static",
+      status: "generating",
+      mimeType: null,
+      width: null,
+      height: null,
+      storageKey: null,
+      checksum: null,
+      altText: "وصف اختبار",
+      providerName: null,
+      providerModel: null,
+      providerRequestId: null,
+      failureCode: null,
+    });
+    await repository.createAsset({
+      id: assetId,
+      contentItemVersionId: ids.baseVersion,
+      kind: "generated_static",
+      status: "generating",
+      mimeType: null,
+      width: null,
+      height: null,
+      storageKey: null,
+      checksum: null,
+      altText: "وصف اختبار",
+      providerName: null,
+      providerModel: null,
+      providerRequestId: null,
+      failureCode: null,
+    });
+    await repository.markAssetReady({
+      assetId,
+      contentItemVersionId: ids.baseVersion,
+      mimeType: "image/png",
+      width: 1080,
+      height: 1080,
+      storageKey: `${ids.baseVersion}/${assetId}.png`,
+      checksum:
+        "c092df87ad240efa9f032f792b57f5d3812a833b47de33172f59cf70ee2f01c4",
+      providerName: "mock-image",
+      providerModel: "mock-static-image-v1",
+      providerRequestId: "asset-request-1",
+    });
+    const assets = await repository.listAssetsForVersion(ids.baseVersion);
+    expect(assets).toHaveLength(1);
+    expect(assets[0]?.id).toBe(assetId);
+    expect(assets[0]?.status).toBe("ready");
+
+    await repository.createAsset({
+      id: assetId,
+      contentItemVersionId: ids.revisedVersion,
+      kind: "owner_supplied",
+      status: "ready",
+      mimeType: "image/png",
+      width: 1080,
+      height: 1080,
+      storageKey: `${ids.baseVersion}/${assetId}.png`,
+      checksum:
+        "c092df87ad240efa9f032f792b57f5d3812a833b47de33172f59cf70ee2f01c4",
+      altText: "وصف اختبار",
+      providerName: null,
+      providerModel: null,
+      providerRequestId: null,
+      failureCode: null,
+    });
+    const reusedAssets = await repository.listAssetsForVersion(
+      ids.revisedVersion,
+    );
+    expect(reusedAssets).toHaveLength(1);
+    expect(reusedAssets[0]?.id).toBe(assetId);
+    expect(reusedAssets[0]?.contentItemVersionId).toBe(ids.revisedVersion);
+    expect(await prisma.contentAsset.count({ where: { id: assetId } })).toBe(1);
   });
 });

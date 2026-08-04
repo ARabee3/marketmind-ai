@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { getQueueToken } from "@nestjs/bullmq";
 import { ProviderError } from "../../common/errors/provider-error";
 import { ContentProcessor } from "./content.processor";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
@@ -300,6 +301,10 @@ describe("ContentProcessor", () => {
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: client },
         { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
       ],
     }).compile();
 

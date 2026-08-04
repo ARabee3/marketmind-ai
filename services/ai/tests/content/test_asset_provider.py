@@ -36,6 +36,7 @@ from app.providers.base import ProviderError
 def _request() -> AiStaticAssetGenerateRequest:
     return AiStaticAssetGenerateRequest(
         contract_version="content-v1",
+        asset_id="25f5f5f0-9156-5319-97a5-601a4067faec",
         content_item_version_id="99999999-9999-4999-8999-999999999999",
         creative_brief="Fictional static image for a grounded local business post.",
         alt_text="Fictional local business product image",

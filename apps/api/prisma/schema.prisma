@@ -917,6 +917,7 @@ model ContentItemVersion {
   contentItem ContentItem       @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
   contentPack ContentPack       @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
   assets      ContentAsset[]
+  assetLinks  ContentItemVersionAsset[]
   decisions   ContentDecision[]
 
   @@unique([contentItemId, version])
@@ -926,7 +927,7 @@ model ContentItemVersion {
 
 model ContentAsset {
   id                   String   @id @default(uuid()) @db.Uuid
-  contentItemVersionId String   @map("content_item_version_id") @db.Uuid
+  contentItemVersionId String?  @map("content_item_version_id") @db.Uuid
   kind                 String
   status               String
   mimeType             String?  @map("mime_type")
@@ -941,11 +942,24 @@ model ContentAsset {
   failureCode          String?  @map("failure_code")
   createdAt            DateTime @default(now()) @map("created_at")
 
-  contentItemVersion ContentItemVersion @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+  contentItemVersion ContentItemVersion? @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+  versionLinks       ContentItemVersionAsset[]
 
   @@index([contentItemVersionId])
   @@index([checksum])
   @@map("content_assets")
+}
+
+model ContentItemVersionAsset {
+  contentItemVersionId String @map("content_item_version_id") @db.Uuid
+  assetId              String @map("asset_id") @db.Uuid
+
+  contentItemVersion ContentItemVersion @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+  asset              ContentAsset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([contentItemVersionId, assetId])
+  @@index([assetId])
+  @@map("content_item_version_assets")
 }
 
 model ContentGenerationRun {

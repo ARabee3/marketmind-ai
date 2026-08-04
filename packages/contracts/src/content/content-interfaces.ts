@@ -111,6 +111,7 @@ export type AiContentReviseResponse = {
 
 export type AiStaticAssetGenerateRequest = {
   readonly contract_version: "content-v1";
+  readonly asset_id: UUID;
   readonly content_item_version_id: UUID;
   readonly creative_brief: string;
   readonly alt_text: string;

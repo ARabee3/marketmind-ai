@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { getQueueToken } from "@nestjs/bullmq";
 import { ContentProcessor } from "./content.processor";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
@@ -220,6 +221,10 @@ describe("ContentProcessor - Revision Flow", () => {
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: aiClient },
         { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
       ],
     }).compile();
 

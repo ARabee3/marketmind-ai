@@ -199,6 +199,7 @@ def test_static_asset_endpoint_returns_generated_ready_asset() -> None:
     app.dependency_overrides[get_settings] = _settings
     request = {
         "contract_version": "content-v1",
+        "asset_id": "25f5f5f0-9156-5319-97a5-601a4067faec",
         "content_item_version_id": "99999999-9999-4999-8999-999999999999",
         "creative_brief": "Fictional static image brief.",
         "alt_text": "Fictional asset",
@@ -231,6 +232,7 @@ def test_static_asset_endpoint_exposes_provider_unavailable_state() -> None:
     )
     request = {
         "contract_version": "content-v1",
+        "asset_id": "25f5f5f0-9156-5319-97a5-601a4067faec",
         "content_item_version_id": "99999999-9999-4999-8999-999999999999",
         "creative_brief": "Fictional static image brief.",
         "alt_text": "Fictional asset",

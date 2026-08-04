@@ -377,6 +377,7 @@ class AiContentReviseResponse(FrozenModel):
 
 class AiStaticAssetGenerateRequest(FrozenModel):
     contract_version: Literal["content-v1"]
+    asset_id: UUID
     content_item_version_id: UUID
     creative_brief: str
     alt_text: str

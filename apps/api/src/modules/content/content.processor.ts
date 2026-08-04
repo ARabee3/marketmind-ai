@@ -1,8 +1,9 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
+import { Queue } from "bullmq";
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
 import {
   ContentItemVersion,
@@ -59,6 +60,7 @@ interface ContentReviseJobData {
 }
 
 interface ContentGenerateStaticAssetJobData {
+  assetId: string;
   contentItemVersionId: string;
   creativeBrief: string;
   altText: string;
@@ -80,6 +82,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly strategyRepo: StrategyRepository,
     private readonly contentAiClient: ContentAiClient,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
+    @InjectQueue("content-generation") private readonly contentQueue: Queue,
   ) {
     super();
   }
@@ -280,6 +283,18 @@ export class ContentProcessor extends WorkerHost {
         startedAt,
         finishedAt,
       });
+      try {
+        await this.queuePlannedAssetJobs(normalizedItemVersions, correlationId);
+      } catch (error) {
+        // PostgreSQL already contains the planned asset rows. The durable job
+        // outbox/reconciler repairs delivery; a transient queue failure must
+        // not roll a successfully persisted content draft back to failed.
+        this.logger.error(
+          `Asset work for pack ${pack.id} could not be enqueued: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
 
       this.logger.log(
         `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
@@ -537,6 +552,15 @@ export class ContentProcessor extends WorkerHost {
         versionChecksum: normalizedNewVersion.version_checksum,
         createdAt: new Date(normalizedNewVersion.created_at),
       });
+      try {
+        await this.queuePlannedAssetJobs([normalizedNewVersion], correlationId);
+      } catch (error) {
+        this.logger.error(
+          `Asset work for revised item ${contentItemId} could not be enqueued: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
 
       await this.packRepo.appendProgressEvent(pack.id, {
         stage: "revision",
@@ -586,6 +610,7 @@ export class ContentProcessor extends WorkerHost {
     job: Job<ContentGenerateStaticAssetJobData>,
   ): Promise<void> {
     const {
+      assetId,
       contentItemVersionId,
       creativeBrief,
       altText,
@@ -596,12 +621,30 @@ export class ContentProcessor extends WorkerHost {
     } = job.data;
 
     this.logger.log(
-      `[Corr: ${correlationId}] Generating static asset for version ${contentItemVersionId}`,
+      `[Corr: ${correlationId}] Generating static asset ${assetId} for version ${contentItemVersionId}`,
     );
 
     try {
+      const existing = await this.packRepo.getAssetById(assetId);
+      if (!existing) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Planned asset ${assetId} does not exist.`,
+          false,
+        );
+      }
+      if (existing.contentItemVersionId !== contentItemVersionId) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Planned asset ${assetId} belongs to a different item version.`,
+          false,
+        );
+      }
+      if (existing.status === "ready") return;
+
       const request = {
         contract_version: "content-v1" as const,
+        asset_id: assetId,
         content_item_version_id: contentItemVersionId,
         creative_brief: creativeBrief,
         alt_text: altText,
@@ -613,41 +656,55 @@ export class ContentProcessor extends WorkerHost {
       const response = await this.contentAiClient.generateStaticAsset(request);
       const asset = response.asset;
 
+      if (
+        asset.id !== assetId ||
+        asset.content_item_version_id !== contentItemVersionId
+      ) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          "Static asset provider returned a different planned asset identity.",
+          false,
+        );
+      }
+
       if (asset.status === "ready" && asset.storage_key && asset.checksum) {
-        await this.packRepo.createAsset({
+        if (!(await this.assetStorage.exists(asset.storage_key))) {
+          throw new ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            `Static asset ${assetId} storage bytes are missing.`,
+            true,
+          );
+        }
+        const bytes = await this.assetStorage.retrieve(asset.storage_key);
+        const checksum = createHash("sha256").update(bytes).digest("hex");
+        if (checksum !== asset.checksum) {
+          throw new ProviderError(
+            "CONTENT_SCHEMA_FAILURE",
+            `Static asset ${assetId} failed storage checksum verification.`,
+            false,
+          );
+        }
+        await this.packRepo.markAssetReady({
+          assetId,
           contentItemVersionId,
-          kind: asset.kind,
-          status: "ready",
           mimeType: asset.mime_type,
           width: asset.width,
           height: asset.height,
           storageKey: asset.storage_key,
           checksum: asset.checksum,
-          altText: asset.alt_text,
           providerName: asset.provider_name,
           providerModel: asset.provider_model,
           providerRequestId: asset.provider_request_id,
-          failureCode: null,
         });
 
         this.logger.log(
           `[Corr: ${correlationId}] Static asset ${asset.id} stored with checksum ${asset.checksum}`,
         );
       } else {
-        await this.packRepo.createAsset({
+        await this.packRepo.markAssetFailed({
+          assetId,
           contentItemVersionId,
-          kind: asset.kind,
-          status: asset.status,
-          mimeType: asset.mime_type,
-          width: asset.width,
-          height: asset.height,
-          storageKey: null,
-          checksum: null,
-          altText: asset.alt_text,
-          providerName: asset.provider_name,
-          providerModel: asset.provider_model,
-          providerRequestId: asset.provider_request_id,
-          failureCode: asset.failure_code,
+          failureCode: asset.failure_code ?? "CONTENT_ASSET_REQUIRED",
         });
 
         this.logger.warn(
@@ -662,19 +719,9 @@ export class ContentProcessor extends WorkerHost {
           ? error.code
           : "CONTENT_ASSET_GENERATION_FAILED";
 
-      await this.packRepo.createAsset({
+      await this.packRepo.markAssetFailed({
+        assetId,
         contentItemVersionId,
-        kind: "generated_static",
-        status: "failed",
-        mimeType: null,
-        width: null,
-        height: null,
-        storageKey: null,
-        checksum: null,
-        altText: altText,
-        providerName: null,
-        providerModel: null,
-        providerRequestId: null,
         failureCode,
       });
 
@@ -684,6 +731,43 @@ export class ContentProcessor extends WorkerHost {
 
       if (retryable) {
         throw error;
+      }
+    }
+  }
+
+  private async queuePlannedAssetJobs(
+    itemVersions: readonly ContentItemVersion[],
+    correlationId: string,
+  ): Promise<void> {
+    for (const item of itemVersions) {
+      if (!item.asset_required) continue;
+      for (const assetId of item.asset_ids) {
+        const asset = await this.packRepo.getAssetById(assetId);
+        if (
+          !asset ||
+          asset.contentItemVersionId !== item.id ||
+          asset.status !== "generating"
+        ) {
+          continue;
+        }
+        await this.contentQueue.add(
+          "generate-static-asset",
+          {
+            assetId,
+            contentItemVersionId: item.id,
+            creativeBrief: item.creative_brief,
+            altText: item.alt_text,
+            width: 1080,
+            height: 1080,
+            idempotencyKey: `asset:${assetId}`,
+            correlationId,
+          },
+          {
+            jobId: `asset:${assetId}`,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 2000 },
+          },
+        );
       }
     }
   }

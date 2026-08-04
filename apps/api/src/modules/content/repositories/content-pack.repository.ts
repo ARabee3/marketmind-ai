@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma, ContentPack } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import {
   canTransitionContentPack,
@@ -82,6 +83,7 @@ export type AppendRevisedItemVersionInput = {
 };
 
 export type CreateAssetInput = {
+  readonly id?: string;
   readonly contentItemVersionId: string;
   readonly kind: string;
   readonly status: string;
@@ -199,6 +201,12 @@ export class ContentPackRepository {
               createdAt: draft.createdAt,
             },
           });
+          await linkVersionAssets(
+            tx,
+            version.id,
+            draft.assetIds,
+            draft.altText,
+          );
 
           await tx.contentItem.update({
             where: { id: item.id },
@@ -468,10 +476,22 @@ export class ContentPackRepository {
   async listAssetsForVersion(
     versionId: string,
   ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>>[]> {
-    return this.prisma.contentAsset.findMany({
-      where: { contentItemVersionId: versionId },
+    const assets = await this.prisma.contentAsset.findMany({
+      where: {
+        OR: [
+          { contentItemVersionId: versionId },
+          { versionLinks: { some: { contentItemVersionId: versionId } } },
+        ],
+      },
       orderBy: { createdAt: "asc" },
     });
+    // The relation, not the legacy nullable owner column, is authoritative for
+    // a reused asset. Project the requested immutable version identity into
+    // the frozen contract without mutating the original asset row.
+    return assets.map((asset) => ({
+      ...asset,
+      contentItemVersionId: versionId,
+    }));
   }
 
   /**
@@ -489,13 +509,32 @@ export class ContentPackRepository {
     return this.prisma.contentAsset.findFirst({
       where: {
         id: assetId,
-        contentItemVersion: {
-          contentPack: {
-            contentCycle: { ownerUserId },
+        OR: [
+          {
+            contentItemVersion: {
+              contentPack: {
+                contentCycle: { ownerUserId },
+              },
+            },
           },
-        },
+          {
+            versionLinks: {
+              some: {
+                contentItemVersion: {
+                  contentPack: { contentCycle: { ownerUserId } },
+                },
+              },
+            },
+          },
+        ],
       },
     });
+  }
+
+  async getAssetById(
+    assetId: string,
+  ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>> | null> {
+    return this.prisma.contentAsset.findUnique({ where: { id: assetId } });
   }
 
   /**
@@ -651,6 +690,7 @@ export class ContentPackRepository {
             createdAt: draft.createdAt,
           },
         });
+        await linkVersionAssets(tx, version.id, draft.assetIds, draft.altText);
 
         await tx.contentItem.update({
           where: { id: item.id },
@@ -793,6 +833,7 @@ export class ContentPackRepository {
           createdAt: input.createdAt,
         },
       });
+      await linkVersionAssets(tx, newVersion.id, input.assetIds, input.altText);
 
       await tx.contentItem.update({
         where: { id: input.itemId },
@@ -820,23 +861,102 @@ export class ContentPackRepository {
   async createAsset(
     input: CreateAssetInput,
   ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>>> {
-    return this.prisma.contentAsset.create({
-      data: {
+    const assetId = input.id ?? randomUUID();
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.contentAsset.findUnique({
+        where: { id: assetId },
+      });
+      const asset = existing
+        ? existing
+        : await tx.contentAsset.create({
+            data: {
+              id: assetId,
+              contentItemVersionId: input.contentItemVersionId,
+              kind: input.kind,
+              status: input.status,
+              mimeType: input.mimeType,
+              width: input.width,
+              height: input.height,
+              storageKey: input.storageKey,
+              checksum: input.checksum,
+              altText: input.altText,
+              providerName: input.providerName,
+              providerModel: input.providerModel,
+              providerRequestId: input.providerRequestId,
+              failureCode: input.failureCode,
+            },
+          });
+
+      await tx.contentItemVersionAsset.upsert({
+        where: {
+          contentItemVersionId_assetId: {
+            contentItemVersionId: input.contentItemVersionId,
+            assetId,
+          },
+        },
+        create: {
+          contentItemVersionId: input.contentItemVersionId,
+          assetId,
+        },
+        update: {},
+      });
+      return asset;
+    });
+  }
+
+  async markAssetReady(input: {
+    readonly assetId: string;
+    readonly contentItemVersionId: string;
+    readonly mimeType: string;
+    readonly width: number;
+    readonly height: number;
+    readonly storageKey: string;
+    readonly checksum: string;
+    readonly providerName: string | null;
+    readonly providerModel: string | null;
+    readonly providerRequestId: string | null;
+  }): Promise<{ changed: boolean }> {
+    const result = await this.prisma.contentAsset.updateMany({
+      where: {
+        id: input.assetId,
         contentItemVersionId: input.contentItemVersionId,
-        kind: input.kind,
-        status: input.status,
+        status: { in: ["generating", "failed", "missing"] },
+      },
+      data: {
+        status: "ready",
         mimeType: input.mimeType,
         width: input.width,
         height: input.height,
         storageKey: input.storageKey,
         checksum: input.checksum,
-        altText: input.altText,
         providerName: input.providerName,
         providerModel: input.providerModel,
         providerRequestId: input.providerRequestId,
+        failureCode: null,
+      },
+    });
+    return { changed: result.count === 1 };
+  }
+
+  async markAssetFailed(input: {
+    readonly assetId: string;
+    readonly contentItemVersionId: string;
+    readonly failureCode: string;
+  }): Promise<{ changed: boolean }> {
+    const result = await this.prisma.contentAsset.updateMany({
+      where: {
+        id: input.assetId,
+        contentItemVersionId: input.contentItemVersionId,
+        status: { not: "ready" },
+      },
+      data: {
+        status: "failed",
+        storageKey: null,
+        checksum: null,
         failureCode: input.failureCode,
       },
     });
+    return { changed: result.count === 1 };
   }
 }
 
@@ -857,4 +977,49 @@ function isUniqueViolation(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   );
+}
+
+async function linkVersionAssets(
+  tx: Prisma.TransactionClient,
+  contentItemVersionId: string,
+  assetIdsValue: Prisma.InputJsonValue,
+  altText: string,
+): Promise<void> {
+  const assetIds = Array.isArray(assetIdsValue)
+    ? assetIdsValue.filter(
+        (assetId): assetId is string => typeof assetId === "string",
+      )
+    : [];
+  for (const assetId of assetIds) {
+    const existing = await tx.contentAsset.findUnique({
+      where: { id: assetId },
+    });
+    if (!existing) {
+      await tx.contentAsset.create({
+        data: {
+          id: assetId,
+          contentItemVersionId,
+          kind: "generated_static",
+          status: "generating",
+          mimeType: null,
+          width: null,
+          height: null,
+          storageKey: null,
+          checksum: null,
+          altText,
+          providerName: null,
+          providerModel: null,
+          providerRequestId: null,
+          failureCode: null,
+        },
+      });
+    }
+    await tx.contentItemVersionAsset.upsert({
+      where: {
+        contentItemVersionId_assetId: { contentItemVersionId, assetId },
+      },
+      create: { contentItemVersionId, assetId },
+      update: {},
+    });
+  }
 }
