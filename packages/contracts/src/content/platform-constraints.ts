@@ -106,10 +106,14 @@ export function validatePlatformConstraints(
     });
   };
 
-  const selectedCaption =
-    item.caption_variants.find((variant) => variant.locale === "ar") ??
-    item.caption_variants[0];
-  check("caption", selectedCaption?.caption.length ?? null, constraint.max_caption_length);
+  const captionLengths = item.caption_variants.map(
+    (variant) => variant.caption.length,
+  );
+  check(
+    "caption",
+    captionLengths.length > 0 ? Math.max(...captionLengths) : null,
+    constraint.max_caption_length,
+  );
   check("hashtags", item.hashtags?.length ?? null, constraint.max_hashtags);
   check("alt_text", item.alt_text?.length ?? null, constraint.max_alt_text_length);
 

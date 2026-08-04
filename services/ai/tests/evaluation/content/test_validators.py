@@ -721,6 +721,25 @@ def test_py_validate_constraints_warns_on_overlong_caption() -> None:
     assert "over the" in warnings[0].message.lower()
 
 
+def test_py_validate_constraints_checks_every_caption_variant() -> None:
+    warnings = py_validate_constraints(
+        {
+            "channel": "instagram",
+            "format": "static_image_post",
+            "caption_variants": [
+                {"locale": "ar", "caption": "قصير"},
+                {"locale": "en", "caption": "x" * 3000},
+            ],
+            "hashtags": [],
+            "alt_text": "ok",
+        }
+    )
+
+    assert len(warnings) == 1
+    assert warnings[0].field == "caption"
+    assert warnings[0].actual == 3000
+
+
 def test_py_validate_constraints_warns_on_overlimit_hashtags() -> None:
     warnings = py_validate_constraints(
         {

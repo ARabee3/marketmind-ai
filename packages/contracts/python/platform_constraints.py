@@ -128,13 +128,14 @@ def validate_platform_constraints(item: dict[str, Any]) -> list[PlatformConstrai
         )
 
     caption_variants = item.get("caption_variants") or []
-    selected_caption = next(
-        (v for v in caption_variants if v.get("locale") == "ar"),
-        caption_variants[0] if caption_variants else None,
-    )
+    caption_lengths = [
+        len(variant.get("caption") or "")
+        for variant in caption_variants
+        if isinstance(variant, dict)
+    ]
     check(
         "caption",
-        len(selected_caption.get("caption") or "") if selected_caption else None,
+        max(caption_lengths, default=None),
         constraint.max_caption_length,
     )
     check(

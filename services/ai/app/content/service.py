@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from content_contracts import AiContentGenerateRequest, ContentItemVersion
+from platform_constraints import validate_platform_constraints
 
 from app.content.assembler import PromptAssembly
 from app.providers.base import ProviderError
@@ -103,6 +104,18 @@ def _with_checksum(item: ContentItemVersion) -> ContentItemVersion:
     )
 
 
+def _with_platform_constraint_warning(
+    item: ContentItemVersion,
+) -> ContentItemVersion:
+    """Canonicalize the advisory platform warning on a finalized item."""
+    warnings = [
+        code for code in item.warnings if code != "CONTENT_PLATFORM_CONSTRAINT"
+    ]
+    if validate_platform_constraints(item.model_dump(mode="json")):
+        warnings.append("CONTENT_PLATFORM_CONSTRAINT")
+    return item.model_copy(update={"warnings": warnings})
+
+
 def _finalize_generated_items(
     request: AiContentGenerateRequest,
     items: list[ContentItemVersion],
@@ -167,7 +180,7 @@ def _finalize_generated_items(
                 "created_at": generated_at,
             }
         )
-        finalized.append(_with_checksum(staged))
+        finalized.append(_with_checksum(_with_platform_constraint_warning(staged)))
     return finalized
 
 
@@ -201,7 +214,7 @@ def _finalize_revised_item(
             "created_at": generated_at,
         }
     )
-    return _with_checksum(staged)
+    return _with_checksum(_with_platform_constraint_warning(staged))
 
 
 async def generate_content_pack_with_repair(
