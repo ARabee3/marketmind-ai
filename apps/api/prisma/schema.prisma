@@ -46,7 +46,6 @@ model User {
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
   contentWeekContextsConfirmed ContentWeekContext[]
   publicationCandidateStatuses PublicationCandidateStatus[]
-  billingAccount              BillingAccount?
 }
 
 model RefreshSession {
@@ -137,224 +136,10 @@ model Business {
   contentCycles           ContentCycle[]
   contentPacks            ContentPack[]
   publicationCandidates   PublicationCandidate[]
-  billingAccounts         BillingAccount[]
 
   @@index([ownerUserId])
   @@index([city, area])
   @@map("businesses")
-}
-
-// ── Billing / subscriptions ─────────────────────────────────────────────
-// Payments are deterministic infrastructure. Provider payloads are kept at
-// the adapter/event boundary; this local state is the entitlement source of
-// truth. Amounts are whole Egyptian pounds for the launch catalog.
-
-model BillingAccount {
-  id              String    @id @default(uuid()) @db.Uuid
-  ownerUserId     String    @unique @map("owner_user_id") @db.Uuid
-  activeBusinessId String?  @map("active_business_id") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  ownerUser       User       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  activeBusiness  Business?  @relation(fields: [activeBusinessId], references: [id], onDelete: SetNull)
-  subscriptions   BillingSubscription[]
-  checkouts       BillingCheckoutAttempt[]
-  transactions    BillingPaymentTransaction[]
-  providerEvents  BillingProviderEvent[]
-  usageLedger     BillingUsageLedger[]
-  costLedger      BillingProviderCostLedger[]
-  outbox          BillingOutbox[]
-
-  @@index([activeBusinessId])
-  @@map("billing_accounts")
-}
-
-model BillingPrice {
-  id             String   @id @default(uuid()) @db.Uuid
-  code           String   @unique
-  planCode       String   @map("plan_code")
-  interval       String
-  amountEgp      Int      @map("amount_egp")
-  currency       String   @default("EGP")
-  periodDays     Int      @map("period_days")
-  public         Boolean  @default(true)
-  displayNameEn  String   @map("display_name_en")
-  displayNameAr  String   @map("display_name_ar")
-  entitlements   Json     @default("{}")
-  activeFrom     DateTime @default(now()) @map("active_from")
-  retiredAt      DateTime? @map("retired_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  subscriptions    BillingSubscription[]
-  checkouts        BillingCheckoutAttempt[]
-
-  @@index([planCode, public, retiredAt])
-  @@map("billing_prices")
-}
-
-model BillingSubscription {
-  id                    String   @id @default(uuid()) @db.Uuid
-  billingAccountId      String   @map("billing_account_id") @db.Uuid
-  priceId               String   @map("price_id") @db.Uuid
-  state                 String   @default("trialing")
-  renewalMode           String   @default("none") @map("renewal_mode")
-  provider              String?
-  providerCustomerRef   String?  @map("provider_customer_ref")
-  providerAgreementRef  String?  @map("provider_agreement_ref")
-  maskedPaymentMethod   String?  @map("masked_payment_method")
-  trialStartedAt        DateTime? @map("trial_started_at")
-  trialEndsAt           DateTime? @map("trial_ends_at")
-  paidThroughAt         DateTime? @map("paid_through_at")
-  graceEndsAt           DateTime? @map("grace_ends_at")
-  cancelAtPeriodEnd     Boolean  @default(false) @map("cancel_at_period_end")
-  cancelRequestedAt     DateTime? @map("cancel_requested_at")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-  price         BillingPrice   @relation(fields: [priceId], references: [id])
-  transactions  BillingPaymentTransaction[]
-
-  @@index([billingAccountId, state, createdAt])
-  @@index([paidThroughAt])
-  @@map("billing_subscriptions")
-}
-
-model BillingCheckoutAttempt {
-  id                    String   @id @default(uuid()) @db.Uuid
-  billingAccountId      String   @map("billing_account_id") @db.Uuid
-  priceId               String   @map("price_id") @db.Uuid
-  idempotencyKey        String   @map("idempotency_key")
-  requestFingerprint    String   @map("request_fingerprint")
-  provider              String
-  providerCheckoutRef   String?  @unique @map("provider_checkout_ref")
-  providerCheckoutUrl   String?  @map("provider_checkout_url")
-  amountEgp             Int      @map("amount_egp")
-  currency              String   @default("EGP")
-  paymentMode           String   @map("payment_mode")
-  sandbox               Boolean  @default(false)
-  status                String   @default("pending")
-  expiresAt             DateTime @map("expires_at")
-  confirmedAt           DateTime? @map("confirmed_at")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-  price         BillingPrice   @relation(fields: [priceId], references: [id])
-  transactions  BillingPaymentTransaction[]
-
-  @@unique([billingAccountId, idempotencyKey])
-  @@index([billingAccountId, status])
-  @@index([expiresAt, status])
-  @@map("billing_checkout_attempts")
-}
-
-model BillingPaymentTransaction {
-  id                  String   @id @default(uuid()) @db.Uuid
-  billingAccountId    String   @map("billing_account_id") @db.Uuid
-  subscriptionId      String?  @map("subscription_id") @db.Uuid
-  checkoutAttemptId   String?  @map("checkout_attempt_id") @db.Uuid
-  provider            String
-  providerTransactionId String  @map("provider_transaction_id")
-  kind                String
-  status              String
-  amountEgp           Int      @map("amount_egp")
-  currency            String   @default("EGP")
-  paymentMode         String?  @map("payment_mode")
-  occurredAt          DateTime @map("occurred_at")
-  createdAt           DateTime @default(now()) @map("created_at")
-
-  billingAccount BillingAccount          @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-  subscription   BillingSubscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  checkout       BillingCheckoutAttempt? @relation(fields: [checkoutAttemptId], references: [id], onDelete: SetNull)
-
-  @@unique([provider, providerTransactionId])
-  @@index([billingAccountId, occurredAt])
-  @@map("billing_payment_transactions")
-}
-
-model BillingProviderEvent {
-  id              String   @id @default(uuid()) @db.Uuid
-  billingAccountId String? @map("billing_account_id") @db.Uuid
-  provider        String
-  externalEventId String   @map("external_event_id")
-  fingerprint     String
-  eventType       String   @map("event_type")
-  signatureValid  Boolean  @map("signature_valid")
-  status          String   @default("received")
-  payload         Json     @default("{}")
-  receivedAt      DateTime @default(now()) @map("received_at")
-  processedAt     DateTime? @map("processed_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  billingAccount BillingAccount? @relation(fields: [billingAccountId], references: [id], onDelete: SetNull)
-
-  @@unique([provider, externalEventId])
-  @@index([fingerprint])
-  @@index([status, receivedAt])
-  @@map("billing_provider_events")
-}
-
-model BillingUsageLedger {
-  id              String   @id @default(uuid()) @db.Uuid
-  billingAccountId String  @map("billing_account_id") @db.Uuid
-  businessId      String?  @map("business_id") @db.Uuid
-  metric          String
-  periodStart     DateTime @map("period_start")
-  periodEnd       DateTime @map("period_end")
-  units           Int      @default(0)
-  claimKey        String   @map("claim_key")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([billingAccountId, metric, periodStart, claimKey])
-  @@index([billingAccountId, metric, periodStart, periodEnd])
-  @@map("billing_usage_ledger")
-}
-
-model BillingProviderCostLedger {
-  id                  String   @id @default(uuid()) @db.Uuid
-  billingAccountId    String   @map("billing_account_id") @db.Uuid
-  businessId          String?  @map("business_id") @db.Uuid
-  billingPeriodStart  DateTime @map("billing_period_start")
-  provider            String
-  model               String?
-  logicalArtifactKey  String   @map("logical_artifact_key")
-  inputUnits          Int?     @map("input_units")
-  outputUnits         Int?     @map("output_units")
-  nativeCost          Decimal? @map("native_cost") @db.Decimal(18, 8)
-  nativeCurrency      String?  @map("native_currency")
-  egpRate             Decimal? @map("egp_rate") @db.Decimal(18, 8)
-  egpCost             Decimal? @map("egp_cost") @db.Decimal(18, 8)
-  successfulArtifact  Boolean  @default(false) @map("successful_artifact")
-  quotaEffect        Int      @default(0) @map("quota_effect")
-  retryCount         Int      @default(0) @map("retry_count")
-  snapshotVersion    String   @map("snapshot_version")
-  createdAt          DateTime @default(now()) @map("created_at")
-
-  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([billingAccountId, logicalArtifactKey])
-  @@index([billingAccountId, billingPeriodStart])
-  @@map("billing_provider_cost_ledger")
-}
-
-model BillingOutbox {
-  id              String   @id @default(uuid()) @db.Uuid
-  billingAccountId String  @map("billing_account_id") @db.Uuid
-  eventType       String   @map("event_type")
-  dedupeKey       String   @unique @map("dedupe_key")
-  payload         Json     @default("{}")
-  dispatchedAt    DateTime? @map("dispatched_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
-
-  @@index([dispatchedAt, createdAt])
-  @@map("billing_outbox")
 }
 
 model DiscoverySession {
@@ -990,25 +775,25 @@ model StrategyProgressEvent {
 }
 
 model ContentCycle {
-  id                 String    @id @default(uuid()) @db.Uuid
-  contractVersion    String    @default("content-v1") @map("contract_version")
-  businessId         String    @map("business_id") @db.Uuid
-  strategyId         String    @map("strategy_id") @db.Uuid
-  strategyVersion    Int       @map("strategy_version")
-  strategyDecisionId String    @map("strategy_decision_id") @db.Uuid
-  profileVersionId   String    @map("profile_version_id") @db.Uuid
-  status             String    @default("active")
-  currentWeekNumber  Int       @default(1) @map("current_week_number")
-  week1StartDate     DateTime  @map("week_1_start_date") @db.Date
-  nextGenerationAt   DateTime? @map("next_generation_at")
-  timezone           String    @default("Africa/Cairo")
-  pauseReason        String?   @map("pause_reason")
-  completedAt        DateTime? @map("completed_at")
-  ownerUserId        String    @map("owner_user_id") @db.Uuid
-  idempotencyKey     String?   @map("idempotency_key")
-  idempotencyFingerprint String? @map("idempotency_fingerprint")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                     String    @id @default(uuid()) @db.Uuid
+  contractVersion        String    @default("content-v1") @map("contract_version")
+  businessId             String    @map("business_id") @db.Uuid
+  strategyId             String    @map("strategy_id") @db.Uuid
+  strategyVersion        Int       @map("strategy_version")
+  strategyDecisionId     String    @map("strategy_decision_id") @db.Uuid
+  profileVersionId       String    @map("profile_version_id") @db.Uuid
+  status                 String    @default("active")
+  currentWeekNumber      Int       @default(1) @map("current_week_number")
+  week1StartDate         DateTime  @map("week_1_start_date") @db.Date
+  nextGenerationAt       DateTime? @map("next_generation_at")
+  timezone               String    @default("Africa/Cairo")
+  pauseReason            String?   @map("pause_reason")
+  completedAt            DateTime? @map("completed_at")
+  ownerUserId            String    @map("owner_user_id") @db.Uuid
+  idempotencyKey         String?   @map("idempotency_key")
+  idempotencyFingerprint String?   @map("idempotency_fingerprint")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   business              Business               @relation(fields: [businessId], references: [id])
   ownerUser             User                   @relation(fields: [ownerUserId], references: [id])
@@ -1129,8 +914,8 @@ model ContentItemVersion {
   versionChecksum          String   @map("version_checksum")
   createdAt                DateTime @default(now()) @map("created_at")
 
-  contentItem ContentItem       @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
-  contentPack ContentPack       @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
+  contentItem ContentItem               @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  contentPack ContentPack               @relation(fields: [contentPackId], references: [id], onDelete: Cascade)
   assets      ContentAsset[]
   assetLinks  ContentItemVersionAsset[]
   decisions   ContentDecision[]
@@ -1157,7 +942,7 @@ model ContentAsset {
   failureCode          String?  @map("failure_code")
   createdAt            DateTime @default(now()) @map("created_at")
 
-  contentItemVersion ContentItemVersion? @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
+  contentItemVersion ContentItemVersion?       @relation(fields: [contentItemVersionId], references: [id], onDelete: Cascade)
   versionLinks       ContentItemVersionAsset[]
 
   @@index([contentItemVersionId])
@@ -1292,21 +1077,21 @@ model PublicationCandidateStatus {
 }
 
 model PublicationCandidateOutbox {
-  id            BigInt    @id @default(autoincrement())
-  eventId       String    @unique @map("event_id") @db.Uuid
-  eventType     String    @map("event_type")
-  correlationId String    @map("correlation_id") @db.Uuid
-  candidateId   String    @map("candidate_id") @db.Uuid
-  payload       Json
-  state         String    @default("pending")
-  attempts      Int       @default(0)
-  leaseOwner    String?   @map("lease_owner")
+  id             BigInt    @id @default(autoincrement())
+  eventId        String    @unique @map("event_id") @db.Uuid
+  eventType      String    @map("event_type")
+  correlationId  String    @map("correlation_id") @db.Uuid
+  candidateId    String    @map("candidate_id") @db.Uuid
+  payload        Json
+  state          String    @default("pending")
+  attempts       Int       @default(0)
+  leaseOwner     String?   @map("lease_owner")
   leaseExpiresAt DateTime? @map("lease_expires_at")
-  lastError     String?   @map("last_error")
-  nextAttemptAt DateTime? @map("next_attempt_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  dispatchedAt  DateTime? @map("dispatched_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime? @map("next_attempt_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  dispatchedAt   DateTime? @map("dispatched_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([state, nextAttemptAt])
   @@index([leaseExpiresAt])
@@ -1411,7 +1196,7 @@ model PublishingCandidate {
   status             PublishingCandidateStatus @default(ACTIVE)
   /// Full frozen PublicationCandidateStatusV1 object last applied (round-trips
   /// through reducePublicationCandidateEventV1 — the reducer validates this).
-  sourceStatus       Json                       @map("source_status")
+  sourceStatus       Json                      @map("source_status")
   /// Full frozen content payload — never mutated after receipt
   payload            Json
   channel            String
@@ -1496,7 +1281,7 @@ model PublishingIntent {
   /// applied as raw SQL in the migration: an identical create replay resolves
   /// to the existing intent (no-op), while reusing a key with different bytes
   /// surfaces as PUBLISHING_IDEMPOTENCY_CONFLICT.
-  idempotencyKey    String?                @map("idempotency_key")
+  idempotencyKey   String?                @map("idempotency_key")
   createdAt        DateTime               @default(now()) @map("created_at")
   updatedAt        DateTime               @updatedAt @map("updated_at")
 
@@ -1527,7 +1312,7 @@ model PublishingApproval {
   intentVersionAtDecision Int                        @map("intent_version_at_decision")
   candidateChecksum       String                     @map("candidate_checksum")
   decision                PublishingApprovalDecision
-  decidedByUserId        String                     @map("decided_by_user_id") @db.Uuid
+  decidedByUserId         String                     @map("decided_by_user_id") @db.Uuid
   decidedAt               DateTime                   @default(now()) @map("decided_at")
   notes                   String?
   /// Canonical HMAC of the exact approved decision (contract

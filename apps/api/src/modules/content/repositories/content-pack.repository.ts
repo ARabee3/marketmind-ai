@@ -636,54 +636,6 @@ export class ContentPackRepository {
   }
 
   /**
-   * Resolves only the ownership context needed by billing at the worker
-   * boundary. Asset bytes and provider payloads are deliberately not loaded.
-   */
-  async getAssetBillingContext(assetId: string): Promise<{
-    ownerUserId: string;
-    businessId: string;
-  } | null> {
-    const asset = await this.prisma.contentAsset.findUnique({
-      where: { id: assetId },
-      select: {
-        contentItemVersion: {
-          select: {
-            contentPack: {
-              select: {
-                businessId: true,
-                contentCycle: { select: { ownerUserId: true } },
-              },
-            },
-          },
-        },
-        versionLinks: {
-          take: 1,
-          select: {
-            contentItemVersion: {
-              select: {
-                contentPack: {
-                  select: {
-                    businessId: true,
-                    contentCycle: { select: { ownerUserId: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-    const context =
-      asset?.contentItemVersion?.contentPack ??
-      asset?.versionLinks[0]?.contentItemVersion.contentPack;
-    if (!context) return null;
-    return {
-      ownerUserId: context.contentCycle.ownerUserId,
-      businessId: context.businessId,
-    };
-  }
-
-  /**
    * Appends an immutable sequenced progress event. Seq is the event count for
    * the pack at insert time + 1; `@@unique([content_pack_id, seq])` rejects a
    * duplicate seq so two concurrent appends cannot write the same sequence
