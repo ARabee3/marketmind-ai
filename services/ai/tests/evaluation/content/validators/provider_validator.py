@@ -47,8 +47,6 @@ async def provider_checks(
     # Normal mode: generate a pack and optionally run a revision preservation check.
     checks: list[CheckResult] = []
     items = await _generate(provider, case, fixture, pack_id)
-    if items is None:
-        return checks
 
     checks.append(_check_item_count(items, case))
     if case.failure_category == "revision_preservation":
@@ -61,13 +59,15 @@ async def _generate(
     case: ContentEvalCase,
     fixture: dict[str, Any],
     pack_id: str,
-) -> list[ContentItemVersion] | None:
-    """Run the fake provider's generate and return items, or None on failure."""
+) -> list[ContentItemVersion]:
+    """Run the fake provider's generate call.
+
+    Provider errors must propagate to ``validate_case`` so the evaluation report
+    records a failed ``provider_execution`` check instead of treating an empty
+    check list as a passing result.
+    """
     prompt = build_generation_prompt(case, fixture, pack_id)
-    try:
-        return await provider.generate_content_pack(prompt)
-    except Exception as exc:
-        return None
+    return await provider.generate_content_pack(prompt)
 
 
 async def _check_timeout(
@@ -131,15 +131,6 @@ async def _check_failed_image(
 ) -> list[CheckResult]:
     """Check that failed-image assets are never labeled as live generated assets."""
     items = await _generate(provider, case, fixture, pack_id)
-    if items is None:
-        return [
-            CheckResult(
-                "asset_generation",
-                False,
-                "provider_mode=failed_image but generate_content_pack raised an exception",
-            )
-        ]
-
     assets = provider.generated_assets
     if not assets:
         return [

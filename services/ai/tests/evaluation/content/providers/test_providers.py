@@ -21,6 +21,7 @@ from tests.evaluation.content.providers.fake_provider import (
     build_revision_prompt,
 )
 from tests.evaluation.content.runner.runner import load_all_cases
+from tests.evaluation.content.runner.threshold import match_expected_outcome
 from tests.evaluation.content.validators.content_validator import (
     _load_policy_fixture_dict,
     validate_case,
@@ -163,6 +164,27 @@ def test_provider_revision_validator_checks() -> None:
         check = next((c for c in result.checks if c.name == name), None)
         assert check is not None, f"missing {name}"
         assert check.passed, f"{name} failed: {check.reason}"
+
+
+def test_provider_generation_exception_fails_the_case(monkeypatch) -> None:
+    case = _load_case("mutation-revision-preservation")
+
+    async def raise_generation_error(self, prompt):
+        raise RuntimeError("simulated provider regression")
+
+    monkeypatch.setattr(
+        FakeContentProvider,
+        "generate_content_pack",
+        raise_generation_error,
+    )
+
+    result = validate_case(case)
+
+    assert not result.passed
+    execution = next(c for c in result.checks if c.name == "provider_execution")
+    assert not execution.passed
+    assert "simulated provider regression" in execution.reason
+    assert not match_expected_outcome(case, result).matched
 
 
 def test_provider_execution_in_report() -> None:
