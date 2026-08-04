@@ -171,7 +171,28 @@ Purpose:
 
 Never block the demo on external platform permissions.
 
-### Step 7 — Monitoring and optimization
+### Step 7 — Commercial readiness: subscriptions and payments
+
+After the publishing/export slice is stable, validate one paid SME plan, prove
+real provider costs, and integrate one Egypt-friendly payment gateway. The
+current public test hypothesis is EGP 299 monthly, conditional on an EGP 70
+95th-percentile paid-month direct-cost ceiling and an EGP 20 trial ceiling.
+Remove multiplied queue/provider retries and make image quality explicit before
+billing gates depend on those numbers. Start with a hosted one-time EGP payment
+and verified webhooks before adding eligible-card automatic renewal. Keep
+manual wallet/kiosk renewal available when enabled by the selected merchant
+account.
+
+Use:
+
+`sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md`
+
+Purpose:
+
+Turn the working MVP into a sellable product without inventing agency tiers,
+trusting browser redirects, or depending on Stripe.
+
+### Step 8 — Monitoring and optimization
 
 Add metrics and improvement suggestions.
 
