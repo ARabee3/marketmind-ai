@@ -1,0 +1,1 @@
+"""Content eval documentation: alignment, schema, coverage, mutation map, thresholds, out-of-scope (Phase 2/3/8/9)."""

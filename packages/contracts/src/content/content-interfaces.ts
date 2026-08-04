@@ -138,6 +138,7 @@ export type InternalContentGenerateRequest = {
   readonly selected_channels: readonly ContentChannel[];
   readonly allowed_formats: readonly ContentFormat[];
   readonly language_mode: LanguageMode;
+  readonly voice_examples?: readonly string[];
 };
 
 export type InternalContentGenerateResponse = {

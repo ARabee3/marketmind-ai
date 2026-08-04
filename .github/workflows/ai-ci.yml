@@ -31,3 +31,20 @@ jobs:
         run: uv sync --frozen
       - name: Run evaluation smoke tests
         run: uv run pytest tests/evaluation -m eval_smoke -v
+
+  content-eval:
+    name: content eval deterministic suite (#109)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          cache-dependency-path: services/ai/pyproject.toml
+      - name: Install deps
+        run: uv sync --frozen
+      - name: Run content eval deterministic suite
+        run: uv run pytest tests/evaluation/content -m "not network and not integration" -v
+      - name: Assert automated hard-guardrail threshold
+        run: uv run python -m tests.evaluation.content.runner.threshold --hard-guardrails-only

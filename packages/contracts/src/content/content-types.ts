@@ -22,6 +22,29 @@ export type ContentLocale = "ar" | "en";
 export type ContentContractVersion = "content-v1";
 export type CairoTimezone = "Africa/Cairo";
 
+export const CONTENT_DIALECTS = ["fusha", "masry", "khaliji", "neutral"] as const;
+export type ContentDialect = (typeof CONTENT_DIALECTS)[number];
+
+export const CONTENT_FUNNEL_STAGES = [
+  "awareness",
+  "consideration",
+  "conversion",
+  "retention",
+] as const;
+export type ContentFunnelStage = (typeof CONTENT_FUNNEL_STAGES)[number];
+
+export const CONTENT_DAY_PREFERENCES = ["weekday", "weekend", "any"] as const;
+export type ContentDayPreference = (typeof CONTENT_DAY_PREFERENCES)[number];
+
+export const CONTENT_TIME_OF_DAY_HINTS = [
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+  "any",
+] as const;
+export type ContentTimeOfDayHint = (typeof CONTENT_TIME_OF_DAY_HINTS)[number];
+
 export const CONTENT_ALT_TEXT_MAX_LENGTH = 100;
 export const SHA256_CHECKSUM_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -47,6 +70,7 @@ export const CONTENT_ERROR_CODES = [
   "CONTENT_PROVIDER_FAILURE",
   "CONTENT_CANDIDATE_TAMPERED",
   "CONTENT_CANDIDATE_REVOKED",
+  "CONTENT_PLATFORM_CONSTRAINT",
 ] as const;
 export type ContentErrorCode = (typeof CONTENT_ERROR_CODES)[number];
 
