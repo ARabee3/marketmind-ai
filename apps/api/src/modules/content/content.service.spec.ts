@@ -1452,6 +1452,11 @@ describe("ContentService.bulkDecision", () => {
   let packRepo: MockedPackRepo;
   let decisionRepo: MockedDecisionRepo;
   let candidateRepo: MockedCandidateRepo;
+  let generationQueue: { add: jest.Mock };
+  let jobOutbox: {
+    createIntent: jest.Mock;
+    markDirectDispatched: jest.Mock;
+  };
 
   const BULK_PACK_ROW = {
     ...PACK_ROW,
@@ -1559,6 +1564,11 @@ describe("ContentService.bulkDecision", () => {
       }),
     });
     candidateRepo = makeCandidateRepo();
+    generationQueue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) };
+    jobOutbox = {
+      createIntent: jest.fn().mockResolvedValue({}),
+      markDirectDispatched: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1574,7 +1584,7 @@ describe("ContentService.bulkDecision", () => {
         { provide: ContentPackRepository, useValue: packRepo },
         {
           provide: getQueueToken("content-generation"),
-          useValue: { add: jest.fn() },
+          useValue: generationQueue,
         },
         {
           provide: getQueueToken("content-outbox"),
@@ -1584,6 +1594,7 @@ describe("ContentService.bulkDecision", () => {
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
+        { provide: ContentJobOutboxRepository, useValue: jobOutbox },
       ],
     }).compile();
 
@@ -1771,6 +1782,83 @@ describe("ContentService.bulkDecision", () => {
     expect(candidateRepo.getCandidateByItemVersionId).not.toHaveBeenCalled();
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({ item_id: "item-1", status: "rejected" });
+  });
+
+  it("persists a durable revision intent before enqueueing a bulk revision", async () => {
+    const request: ContentDecisionRequest = {
+      ...BULK_DTO[0],
+      decision: "revision_requested",
+      revision_notes: "Use the approved offer wording.",
+    };
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: [
+        {
+          ...DECISION_ROW,
+          decision: "revision_requested",
+          idempotencyKey: request.idempotency_key,
+          revisionNotes: request.revision_notes,
+        },
+      ],
+      errors: [],
+    });
+
+    const result = await service.bulkDecide("pack-1", [request], OWNER_ID);
+
+    expect(result).toEqual([
+      { item_id: "item-1", status: "revision_requested" },
+    ]);
+    expect(jobOutbox.createIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: `revise-content:${request.idempotency_key}`,
+        queueName: "content-generation",
+        jobName: "revise-content",
+        payload: expect.objectContaining({
+          contentItemId: "item-1",
+          idempotencyKey: request.idempotency_key,
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(generationQueue.add).toHaveBeenCalledWith(
+      "revise-content",
+      expect.objectContaining({
+        contentItemId: "item-1",
+        idempotencyKey: request.idempotency_key,
+      }),
+      expect.objectContaining({
+        jobId: `revise-content:${request.idempotency_key}`,
+      }),
+    );
+    expect(jobOutbox.markDirectDispatched).toHaveBeenCalledWith(
+      `revise-content:${request.idempotency_key}`,
+    );
+  });
+
+  it("keeps a bulk revision intent pending when Redis enqueue fails", async () => {
+    const request: ContentDecisionRequest = {
+      ...BULK_DTO[0],
+      decision: "revision_requested",
+      revision_notes: "Rework the opening line.",
+    };
+    (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
+      decisions: [
+        {
+          ...DECISION_ROW,
+          decision: "revision_requested",
+          idempotencyKey: request.idempotency_key,
+          revisionNotes: request.revision_notes,
+        },
+      ],
+      errors: [],
+    });
+    generationQueue.add.mockRejectedValue(new Error("Redis unavailable"));
+
+    await expect(
+      service.bulkDecide("pack-1", [request], OWNER_ID),
+    ).rejects.toThrow("Redis unavailable");
+
+    expect(jobOutbox.createIntent).toHaveBeenCalled();
+    expect(jobOutbox.markDirectDispatched).not.toHaveBeenCalled();
   });
 });
 

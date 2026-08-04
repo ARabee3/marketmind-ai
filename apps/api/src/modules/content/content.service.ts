@@ -1454,6 +1454,38 @@ export class ContentService {
       );
     }
 
+    const revisionJobs = new Map<
+      string,
+      {
+        readonly jobId: string;
+        readonly payload: {
+          contentCycleId: string;
+          contentPackId: string;
+          contentItemId: string;
+          baseItemVersionId: string;
+          revisionNotes: string;
+          idempotencyKey: string;
+          correlationId: string;
+        };
+      }
+    >();
+    for (const entry of eligible) {
+      if (entry.request.decision !== "revision_requested") continue;
+      const jobId = `revise-content:${entry.request.idempotency_key}`;
+      revisionJobs.set(entry.request.idempotency_key, {
+        jobId,
+        payload: {
+          contentCycleId: pack.contentCycleId,
+          contentPackId: pack.id,
+          contentItemId: entry.request.content_item_id,
+          baseItemVersionId: entry.currentVersion.id,
+          revisionNotes: entry.request.revision_notes ?? "",
+          idempotencyKey: entry.request.idempotency_key,
+          correlationId: `revision:${jobId}`,
+        },
+      });
+    }
+
     const {
       decisions: recorded,
       errors,
@@ -1481,6 +1513,25 @@ export class ContentService {
         ownerUserId,
         tx,
       );
+
+      // Commit bulk revision decisions and their delivery intents together so
+      // a Redis outage leaves a recoverable pending intent.
+      if (this.jobOutbox) {
+        for (const decision of bulk.decisions) {
+          if (decision.decision !== "revision_requested") continue;
+          const job = revisionJobs.get(decision.idempotencyKey ?? "");
+          if (!job) continue;
+          await this.jobOutbox.createIntent(
+            {
+              jobId: job.jobId,
+              queueName: "content-generation",
+              jobName: "revise-content",
+              payload: job.payload,
+            },
+            tx,
+          );
+        }
+      }
 
       const outboxIds: string[] = [];
 
@@ -1537,23 +1588,25 @@ export class ContentService {
     for (const decision of recorded) {
       if (decision.decision !== "revision_requested") continue;
 
-      const correlationId = randomUUID();
+      const job = revisionJobs.get(decision.idempotencyKey ?? "");
+      if (!job) continue;
       await this.contentQueue.add(
         "revise-content",
-        {
-          contentCycleId: pack.contentCycleId,
-          contentPackId: pack.id,
-          contentItemId: decision.contentItemId,
-          baseItemVersionId: decision.contentItemVersionId,
-          revisionNotes: decision.revisionNotes ?? "",
-          idempotencyKey: decision.idempotencyKey ?? "",
-          correlationId,
-        },
-        { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        this.jobOutbox
+          ? job.payload
+          : { ...job.payload, correlationId: randomUUID() },
+        this.jobOutbox
+          ? {
+              jobId: job.jobId,
+              attempts: 3,
+              backoff: { type: "exponential", delay: 2000 },
+            }
+          : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
       );
+      await this.jobOutbox?.markDirectDispatched(job.jobId);
 
       this.logger.log(
-        `[ContentItem ${decision.contentItemId}] [Corr: ${correlationId}] Revision requested (bulk). Base version: ${decision.contentItemVersionId}`,
+        `[ContentItem ${decision.contentItemId}] [Corr: ${job.payload.correlationId}] Revision requested (bulk). Base version: ${decision.contentItemVersionId}`,
       );
     }
 
