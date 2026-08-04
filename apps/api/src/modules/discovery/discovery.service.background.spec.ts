@@ -14,6 +14,7 @@ describe("DiscoveryService enqueue behavior", () => {
     findSessionForOwner: jest.fn(),
     updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
+    hasConfirmedProfile: jest.fn().mockResolvedValue(false),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const conversationRepository = {
     listMessages: jest.fn(),
@@ -37,6 +38,7 @@ describe("DiscoveryService enqueue behavior", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    repository.hasConfirmedProfile.mockResolvedValue(false);
     repository.appendProgressEvent.mockImplementation(
       async (_sessionId, event) => ({
         type: "progress" as const,

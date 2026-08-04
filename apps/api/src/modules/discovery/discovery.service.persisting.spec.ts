@@ -13,6 +13,7 @@ describe("DiscoveryService persistence progress", () => {
     findSessionForOwner: jest.fn(),
     updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
+    hasConfirmedProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const conversationRepository = {
     listMessages: jest.fn(),
@@ -34,6 +35,7 @@ describe("DiscoveryService persistence progress", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    repository.hasConfirmedProfile.mockResolvedValue(false);
     repository.createPreparedSession.mockResolvedValue({
       id: SESSION_ID,
       startedAt: new Date("2026-06-29T10:00:00.000Z"),
