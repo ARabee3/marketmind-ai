@@ -2,12 +2,27 @@ import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import * as cookieParser from "cookie-parser";
+import { json } from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
   const configService = app.get(ConfigService);
+
+  // Keep the exact JSON bytes available for payment-provider HMAC
+  // verification. The billing webhook controller still rejects invalid
+  // signatures before any state change; ordinary JSON routes continue to use
+  // the same parsed body.
+  app.use(
+    json({
+      verify: (request, _response, buffer) => {
+        (request as typeof request & { rawBody?: Buffer }).rawBody = Buffer.from(
+          buffer,
+        );
+      },
+    }),
+  );
 
   // Cookie parser — required to read HttpOnly refresh token cookies
   app.use(cookieParser());
@@ -17,7 +32,12 @@ async function bootstrap() {
     origin: configService.get<string>("cors.origin"),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Idempotency-Key",
+      "X-Billing-Signature",
+    ],
   });
 
   // Global validation pipe — enables class-validator decorators on DTOs

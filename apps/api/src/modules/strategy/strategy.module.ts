@@ -7,10 +7,12 @@ import { StrategyRepository } from './strategy.repository';
 import { PrismaModule } from '../../common/persistence/prisma.module';
 import { StrategyProcessor } from './strategy.processor';
 import { StrategyRateLimitGuard } from './strategy-rate-limit.guard';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
     PrismaModule,
+    BillingModule,
     HttpModule,
     BullModule.registerQueue({ name: 'strategy-generation' }),
   ],
