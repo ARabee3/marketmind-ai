@@ -124,7 +124,8 @@ uv run python -m tests.evaluation.content.runner.threshold
 
 Applies expected-outcome matching to every case and reports whether the
 documented bars (`docs/thresholds.md`) are met: hard guardrails `1.0`, rubric
-`0.9`. The verdict never hides unmet cases. It is also exposed programmatically
+quality `0.9` (at least 90% of applicable dimensions score 4/5 or better after
+AI/product reviewer sign-off). The verdict never hides unmet cases. It is also exposed programmatically
 via `evaluate_thresholds()` / `run_all_verdict()`, and `run_all()` embeds the
 threshold metrics into the run report.
 

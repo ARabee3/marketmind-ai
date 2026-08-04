@@ -12,7 +12,7 @@ close on an aggregate-only green result or on an unstated pass/fail rule.
 | Bar | Value | Meaning |
 | --- | --- | --- |
 | Hard guardrails required | **1.0** | Every eval case's expected outcome must match the actual deterministic validator outcome. |
-| Rubric review required | **0.9** | At least 90% of *applicable* human rubric dimensions must be reviewed (scored, named reviewer, timestamp). |
+| Rubric quality required | **0.9** | At least 90% of *applicable* human rubric dimensions must be reviewed and score at least 4/5. |
 
 The overall verdict passes only when both bars are met.
 
@@ -48,8 +48,8 @@ right guardrail fires, e.g. `mutation-unapproved-strategy` fires
 A rubric dimension only applies where content was actually produced for a human
 to score. Cases rejected by a hard guardrail before any content exists carry an
 N/A rubric (`score 0` with `Rubric N/A` notes) and are excluded from the rubric
-denominator. An applicable dimension is covered when scored by a named reviewer
-with a timestamp.
+denominator. An applicable dimension passes when it is scored at least 4/5 by a
+named reviewer with a timestamp and the AI/product reviewer signs off the case.
 
 ## Behavior guarantees
 
@@ -70,7 +70,7 @@ uv run python -m tests.evaluation.content.runner.threshold
 - [x] `runner/threshold.py` applies expected-outcome matching per case.
 - [x] `GUARDRAIL_CHECK_MAP` covers every `per_guardrail` key used in the datasets.
 - [x] Hard-guardrail bar is 1.0 and met by the current 34-case run.
-- [x] Rubric bar is 0.9; not yet met because no reviewer has signed off a case
+- [x] Rubric quality bar is 0.9; not yet met because no reviewer has signed off a case
   (rubric sign-off is gated on `reviewers.ai_product_merzk.signed_off`), so the
   verdict intentionally reports `rubric_met: 0.0`. This is expected and tracked
   as an open phase in `alignment.md`.

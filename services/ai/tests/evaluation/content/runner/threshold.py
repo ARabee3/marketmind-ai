@@ -10,9 +10,8 @@ Two aggregate bars are then evaluated:
 
 - ``hard_guardrails_met`` — fraction of cases whose expected outcome matched the
   actual validator outcome. Required: ``1.0`` (every case must match).
-- ``rubric_met`` — fraction of human rubric dimensions across all cases that are
-  actually reviewed (score present with a named reviewer and a timestamp).
-  Required: ``0.9``.
+- ``rubric_met`` — fraction of applicable human rubric dimensions across all
+  cases that are reviewed and meet the minimum passing score. Required: ``0.9``.
 
 The verdict never hides individual cases: every non-matching case is listed with
 its reasons, even when the aggregate bars are met.
@@ -82,6 +81,13 @@ RUBRIC_DIMENSIONS = (
 
 DEFAULT_HARD_GUARDRAILS_REQUIRED = 1.0
 DEFAULT_RUBRIC_REQUIRED = 0.9
+RUBRIC_PASS_SCORE = 4
+
+CUSTOM_CHECK_ERROR_CODES: dict[str, str] = {
+    "wrong_pillar": "CONTENT_VERSION_CONFLICT",
+    "prompt_injection": "CONTENT_POLICY_VIOLATION",
+    "week_in_range": "CONTENT_WEEK_OUT_OF_RANGE",
+}
 
 
 @dataclass(frozen=True)
@@ -155,6 +161,18 @@ def _check_status(result: CaseValidationResult) -> dict[str, bool]:
     return {check.name: check.passed for check in result.checks}
 
 
+def _observed_error_codes(result: CaseValidationResult) -> set[str]:
+    """Return stable error codes actually surfaced by the case checks."""
+    observed: set[str] = set()
+    for check in result.checks:
+        if check.name.startswith("contract:"):
+            observed.add(check.name.removeprefix("contract:"))
+            continue
+        if not check.passed and check.name in CUSTOM_CHECK_ERROR_CODES:
+            observed.add(CUSTOM_CHECK_ERROR_CODES[check.name])
+    return observed
+
+
 def _guardrail_met(
     guardrail: str,
     expected: str,
@@ -194,11 +212,36 @@ def match_expected_outcome(
             reasons=reasons,
         )
 
+    if not result.checked:
+        reasons.append("case evaluation did not run")
+        return ExpectedOutcomeMatch(
+            case_id=case.case_id,
+            expected_result=expected,
+            matched=False,
+            reasons=reasons,
+        )
+
     status = _check_status(result)
+    expected_codes = set(case.expected_hard_outcome.expected_error_codes)
+    observed_codes = _observed_error_codes(result)
+    missing_codes = sorted(expected_codes - observed_codes)
+    codes_ok = not missing_codes
+    if missing_codes:
+        reasons.append(
+            "expected error code(s) were not surfaced: " + ", ".join(missing_codes)
+        )
+
+    raw_result_ok = True
+    if expected == "pass" and not result.passed:
+        raw_result_ok = False
+        failed_names = [check.name for check in result.failed_checks]
+        reasons.append(
+            "passing case had failed check(s): " + ", ".join(failed_names)
+        )
 
     per_guardrail = case.expected_hard_outcome.per_guardrail
     if per_guardrail:
-        ok = True
+        ok = codes_ok and raw_result_ok
         for guardrail, exp in per_guardrail.items():
             met, reason = _guardrail_met(guardrail, exp, status)
             if not met:
@@ -220,7 +263,7 @@ def match_expected_outcome(
 
     # No per-guardrail detail: fall back to the top-level expected result.
     actual_passed = result.passed
-    if (expected == "pass") == actual_passed:
+    if codes_ok and (expected == "pass") == actual_passed:
         reasons.append(
             f"top-level expected {expected} and validator "
             f"{'passed' if actual_passed else 'failed'}"
@@ -243,19 +286,17 @@ def match_expected_outcome(
     )
 
 
-def _rubric_covered(case: ContentEvalCase) -> tuple[int, int]:
-    """Return (covered, applicable) rubric dimensions for a case.
+def _rubric_passed(case: ContentEvalCase) -> tuple[int, int]:
+    """Return (passed, applicable) rubric dimensions for a case.
 
     A rubric dimension only *applies* where content was actually produced for a
     human to score. Cases rejected by a hard guardrail before any content exists
     carry an N/A rubric (score 0 with ``Rubric N/A`` notes) and are excluded from
     both the numerator and the denominator.
 
-    An applicable dimension is ``covered`` only when the AI/product reviewer
-    (@mostafamerzk) has actually signed off on the case.  Generator-authored
-    placeholder scores with a timestamp do not count — the reviewer must have
-    explicitly signed the case via the ``reviewers.ai_product_merzk.signed_off``
-    flag.
+    An applicable dimension passes only when the AI/product reviewer
+    (@mostafamerzk) has signed off and the score is at least
+    ``RUBRIC_PASS_SCORE``. Generator-authored placeholder scores do not count.
     """
     if not case.reviewers.ai_product_merzk.signed_off:
         rubric: HumanRubric = case.human_rubric
@@ -287,12 +328,12 @@ def _rubric_covered(case: ContentEvalCase) -> tuple[int, int]:
         for d in dims
         if not (d.score == 0 and d.notes.lstrip().startswith("Rubric N/A"))
     ]
-    covered = sum(
+    passed = sum(
         1
         for d in applicable
-        if d.score > 0 and d.reviewer_handle and d.reviewed_at
+        if d.score >= RUBRIC_PASS_SCORE and d.reviewer_handle and d.reviewed_at
     )
-    return covered, len(applicable)
+    return passed, len(applicable)
 
 
 def evaluate_thresholds(
@@ -308,9 +349,13 @@ def evaluate_thresholds(
     total = len(case_results)
     hard_met = (matched_count / total) if total else 0.0
 
-    rubric_covered = sum(_rubric_covered(case)[0] for case, _ in case_results)
-    rubric_total = sum(_rubric_covered(case)[1] for case, _ in case_results)
-    rubric_met = (rubric_covered / rubric_total) if rubric_total else 0.0
+    rubric_dimensions_passed = sum(
+        _rubric_passed(case)[0] for case, _ in case_results
+    )
+    rubric_total = sum(_rubric_passed(case)[1] for case, _ in case_results)
+    rubric_met = (
+        rubric_dimensions_passed / rubric_total if rubric_total else 0.0
+    )
 
     hard_passed = hard_met >= config.hard_guardrails_required
     rubric_passed = rubric_met >= config.rubric_required
@@ -337,7 +382,7 @@ def format_threshold_summary(verdict: ThresholdVerdict) -> str:
         f"Hard guardrails: {verdict.hard_guardrails_met:.2%} "
         f"(required {verdict.hard_guardrails_required:.0%}) -> "
         f"{'PASS' if verdict.hard_guardrails_passed else 'FAIL'}",
-        f"Rubric review: {verdict.rubric_met:.2%} "
+        f"Rubric quality: {verdict.rubric_met:.2%} "
         f"(required {verdict.rubric_required:.0%}) -> "
         f"{'PASS' if verdict.rubric_passed else 'FAIL'}",
         "",

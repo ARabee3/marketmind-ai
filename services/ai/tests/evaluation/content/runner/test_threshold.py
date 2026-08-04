@@ -82,6 +82,21 @@ def test_expected_fail_case_with_wrong_check_is_unmet() -> None:
     assert any("strategy_approval" in r for r in match.reasons)
 
 
+def test_expected_error_code_must_be_observed() -> None:
+    case = next(c for c in load_all_cases() if c.case_id == "mutation-unapproved-strategy")
+    wrong_outcome = case.expected_hard_outcome.model_copy(
+        update={"expected_error_codes": ["CONTENT_PROVIDER_FAILURE"]}
+    )
+    wrong_code_case = case.model_copy(
+        update={"expected_hard_outcome": wrong_outcome}
+    )
+
+    match = match_expected_outcome(wrong_code_case, validate_case(case))
+
+    assert match.matched is False
+    assert any("CONTENT_PROVIDER_FAILURE" in reason for reason in match.reasons)
+
+
 def test_expected_pass_case_with_fired_check_is_unmet() -> None:
     """A guardrail expected to pass but firing must be unmet."""
     case = next(c for c in load_all_cases() if c.case_id == "hospitality-en-week1-baseline")
@@ -164,6 +179,52 @@ def test_rubric_passes_when_signed_off() -> None:
     )
     assert verdict.rubric_met == 1.0
     assert verdict.rubric_passed is True
+
+
+def test_signed_low_rubric_scores_do_not_pass() -> None:
+    from tests.evaluation.content.validators.common import (
+        CaseValidationResult,
+        CheckResult,
+    )
+
+    case = next(
+        c for c in load_all_cases() if c.case_id == "hospitality-en-week1-baseline"
+    )
+    low_dimensions = {
+        name: getattr(case.human_rubric, name).model_copy(update={"score": 1})
+        for name in (
+            "language",
+            "tone",
+            "usefulness",
+            "pillar_alignment",
+            "cta",
+            "dialect",
+        )
+    }
+    rubric = case.human_rubric.model_copy(update=low_dimensions)
+    reviewers = case.reviewers.model_copy(
+        update={
+            "ai_product_merzk": case.reviewers.ai_product_merzk.model_copy(
+                update={"signed_off": True, "signed_at": "2026-08-04"}
+            )
+        }
+    )
+    signed_low = case.model_copy(
+        update={"human_rubric": rubric, "reviewers": reviewers}
+    )
+    result = CaseValidationResult(
+        case_id=signed_low.case_id,
+        checked=True,
+        checks=[CheckResult("contract_policy", True)],
+    )
+
+    verdict = evaluate_thresholds(
+        [(signed_low, result)],
+        config=ThresholdConfig(hard_guardrails_required=0.0, rubric_required=0.9),
+    )
+
+    assert verdict.rubric_met == 0.0
+    assert verdict.rubric_passed is False
 
 
 def test_threshold_config_bars_default() -> None:
