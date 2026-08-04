@@ -89,6 +89,16 @@ export class DiscoveryRepository {
     });
   }
 
+  async hasConfirmedProfile(ownerUserId: string): Promise<boolean> {
+    const count = await this.prisma.discoverySession.count({
+      where: {
+        ownerUserId,
+        status: "confirmed",
+      },
+    });
+    return count > 0;
+  }
+
   async findSessionForOwner(
     ownerUserId: string,
     sessionId: string,
