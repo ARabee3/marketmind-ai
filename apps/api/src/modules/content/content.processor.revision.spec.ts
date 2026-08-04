@@ -1,23 +1,24 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ContentProcessor } from './content.processor';
-import { ContentPackRepository } from './repositories/content-pack.repository';
-import { ContentCycleRepository } from './repositories/content-cycle.repository';
-import { ContentWeekContextRepository } from './repositories/content-week-context.repository';
-import { StrategyRepository } from '../strategy/strategy.repository';
-import { ContentAiClient } from './content.client';
-import { ProviderError } from '../../common/errors/provider-error';
-import { randomUUID } from 'crypto';
-import { CONTENT_ASSET_STORAGE } from './assets/asset-storage.port';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ContentProcessor } from "./content.processor";
+import { ContentPackRepository } from "./repositories/content-pack.repository";
+import { ContentCycleRepository } from "./repositories/content-cycle.repository";
+import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
+import { StrategyRepository } from "../strategy/strategy.repository";
+import { ContentAiClient } from "./content.client";
+import { ProviderError } from "../../common/errors/provider-error";
+import { randomUUID } from "crypto";
+import { CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
+import { computeContentItemVersionChecksum } from "@marketmind/contracts";
 
-jest.mock('@marketmind/contracts', () => {
-  const actual = jest.requireActual('@marketmind/contracts');
+jest.mock("@marketmind/contracts", () => {
+  const actual = jest.requireActual("@marketmind/contracts");
   return {
     ...actual,
     validateContentPolicyFixture: jest.fn(() => ({ valid: true, issues: [] })),
   };
 });
 
-describe('ContentProcessor - Revision Flow', () => {
+describe("ContentProcessor - Revision Flow", () => {
   let processor: ContentProcessor;
   let packRepo: jest.Mocked<ContentPackRepository>;
   let cycleRepo: jest.Mocked<ContentCycleRepository>;
@@ -28,7 +29,7 @@ describe('ContentProcessor - Revision Flow', () => {
 
   const mockPack = {
     id: randomUUID(),
-    contractVersion: 'content-v1',
+    contractVersion: "content-v1",
     contentCycleId: randomUUID(),
     weeklyClaimId: randomUUID(),
     weekNumber: 1,
@@ -38,7 +39,7 @@ describe('ContentProcessor - Revision Flow', () => {
     strategyDecisionId: randomUUID(),
     profileVersionId: randomUUID(),
     weekContextId: randomUUID(),
-    status: 'draft',
+    status: "draft",
     retryEligible: true,
     itemIds: [],
     createdAt: new Date(),
@@ -49,25 +50,25 @@ describe('ContentProcessor - Revision Flow', () => {
     id: randomUUID(),
     contentPackId: mockPack.id,
     currentVersionId: randomUUID(),
-    status: 'revision_requested',
+    status: "revision_requested",
     createdAt: new Date(),
   };
 
   const mockBaseVersion = {
     id: mockItem.currentVersionId!,
-    contractVersion: 'content-v1',
+    contractVersion: "content-v1",
     contentItemId: mockItem.id,
     contentPackId: mockPack.id,
     version: 1,
-    channel: 'instagram',
-    format: 'post',
-    languageMode: 'ar-EG',
+    channel: "instagram",
+    format: "post",
+    languageMode: "ar-EG",
     strategyTrace: {},
     captionVariants: [],
     cta: null,
     hashtags: [],
-    creativeBrief: 'Test brief',
-    altText: 'Test alt',
+    creativeBrief: "Test brief",
+    altText: "Test alt",
     shortVideoScript: null,
     recommendedPublishWindow: {},
     claimSources: [],
@@ -76,7 +77,7 @@ describe('ContentProcessor - Revision Flow', () => {
     assetRequired: false,
     assetIds: [],
     generationProvenance: {},
-    versionChecksum: 'abc123',
+    versionChecksum: "abc123",
     createdAt: new Date(),
   };
 
@@ -84,37 +85,37 @@ describe('ContentProcessor - Revision Flow', () => {
     ...mockBaseVersion,
     id: randomUUID(),
     version: 2,
-    creativeBrief: 'Revised brief',
-    versionChecksum: 'def456',
+    creativeBrief: "Revised brief",
+    versionChecksum: "def456",
   };
 
   const mockContractItemVersion = {
     id: mockRevisedVersion.id,
-    contract_version: 'content-v1' as const,
+    contract_version: "content-v1" as const,
     content_item_id: mockItem.id,
     content_pack_id: mockPack.id,
     version: 2,
-    channel: 'instagram' as const,
-    format: 'static_image_post' as const,
-    language_mode: 'ar-EG' as const,
+    channel: "instagram" as const,
+    format: "static_image_post" as const,
+    language_mode: "ar-EG" as const,
     strategy_trace: {
       strategy_id: mockPack.strategyId,
       strategy_version: mockPack.strategyVersion,
       week_number: mockPack.weekNumber,
       pillar_ids: [],
-      objective: 'awareness',
-      channel: 'instagram' as const,
+      objective: "awareness",
+      channel: "instagram" as const,
     },
     caption_variants: [],
     cta: null,
     hashtags: [],
-    creative_brief: 'Revised brief',
-    alt_text: 'Test alt',
+    creative_brief: "Revised brief",
+    alt_text: "Test alt",
     short_video_script: null,
     recommended_publish_window: {
-      starts_at: '2026-01-01T10:00:00Z',
-      ends_at: '2026-01-01T18:00:00Z',
-      timezone: 'Africa/Cairo' as const,
+      starts_at: "2026-01-01T10:00:00.000Z",
+      ends_at: "2026-01-01T18:00:00.000Z",
+      timezone: "Africa/Cairo" as const,
     },
     claim_sources: [],
     warnings: [],
@@ -123,13 +124,16 @@ describe('ContentProcessor - Revision Flow', () => {
     asset_ids: [],
     generation_provenance: {
       generation_run_id: randomUUID(),
-      provider_name: 'test-provider',
-      provider_model: 'test-model',
+      provider_name: "test-provider",
+      provider_model: "test-model",
       generated_at: new Date().toISOString(),
     },
-    version_checksum: 'def456',
+    version_checksum: "def456",
     created_at: new Date().toISOString(),
   };
+  mockContractItemVersion.version_checksum = computeContentItemVersionChecksum(
+    mockContractItemVersion,
+  );
 
   beforeEach(async () => {
     packRepo = {
@@ -179,12 +183,16 @@ describe('ContentProcessor - Revision Flow', () => {
     strategyRepo.readStrategy.mockResolvedValue({ status: "approved" } as any);
     strategyRepo.getVersionByNumber.mockResolvedValue({
       planData: {
-        content_strategy: { weeks: [{ week_number: 1, formats: ["static_image_post"] }] },
+        content_strategy: {
+          weeks: [{ week_number: 1, formats: ["static_image_post"] }],
+        },
         selected_channels: [{ channel: "facebook" }, { channel: "instagram" }],
         plan_language: "ar-EG",
       },
     } as any);
-    strategyRepo.getDecisionById.mockResolvedValue({ action: "approve" } as any);
+    strategyRepo.getDecisionById.mockResolvedValue({
+      action: "approve",
+    } as any);
     strategyRepo.getActiveConfirmedProfileVersion.mockResolvedValue({
       id: mockPack.profileVersionId,
       businessId: "biz-1",
@@ -218,13 +226,13 @@ describe('ContentProcessor - Revision Flow', () => {
     processor = module.get<ContentProcessor>(ContentProcessor);
   });
 
-  describe('handleRevise', () => {
+  describe("handleRevise", () => {
     const correlationId = randomUUID();
-    const revisionNotes = 'Please make it more engaging';
+    const revisionNotes = "Please make it more engaging";
     const idempotencyKey = randomUUID();
 
     const createJob = (data: any) => ({
-      name: 'revise-content',
+      name: "revise-content",
       data: {
         contentPackId: mockPack.id,
         contentItemId: mockItem.id,
@@ -245,9 +253,9 @@ describe('ContentProcessor - Revision Flow', () => {
       packRepo.appendRevisedItemVersion.mockResolvedValue(mockRevisedVersion);
     });
 
-    it('should successfully revise an item and create a new version', async () => {
+    it("should successfully revise an item and create a new version", async () => {
       aiClient.revise.mockResolvedValue({
-        contract_version: 'content-v1',
+        contract_version: "content-v1",
         item_version: mockContractItemVersion,
         validation: {
           valid: true,
@@ -260,7 +268,7 @@ describe('ContentProcessor - Revision Flow', () => {
       expect(aiClient.revise).toHaveBeenCalledWith(
         expect.objectContaining({
           request: expect.objectContaining({
-            contract_version: 'content-v1',
+            contract_version: "content-v1",
             content_pack_id: mockPack.id,
             content_item_id: mockItem.id,
             base_item_version_id: mockBaseVersion.id,
@@ -286,7 +294,8 @@ describe('ContentProcessor - Revision Flow', () => {
         creativeBrief: mockContractItemVersion.creative_brief,
         altText: mockContractItemVersion.alt_text,
         shortVideoScript: mockContractItemVersion.short_video_script,
-        recommendedPublishWindow: mockContractItemVersion.recommended_publish_window,
+        recommendedPublishWindow:
+          mockContractItemVersion.recommended_publish_window,
         claimSources: mockContractItemVersion.claim_sources,
         warnings: mockContractItemVersion.warnings,
         blockers: mockContractItemVersion.blockers,
@@ -294,14 +303,15 @@ describe('ContentProcessor - Revision Flow', () => {
         assetIds: mockContractItemVersion.asset_ids,
         generationProvenance: mockContractItemVersion.generation_provenance,
         versionChecksum: mockContractItemVersion.version_checksum,
+        createdAt: new Date(mockContractItemVersion.created_at),
       });
 
       expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
         mockPack.id,
         expect.objectContaining({
-          stage: 'revision',
-          status: 'complete',
-          messageKey: 'content.revision.complete',
+          stage: "revision",
+          status: "complete",
+          messageKey: "content.revision.complete",
           payload: expect.objectContaining({
             item_id: mockItem.id,
             new_version_id: mockRevisedVersion.id,
@@ -312,10 +322,10 @@ describe('ContentProcessor - Revision Flow', () => {
       );
     });
 
-    it('should preserve prior version when AI client fails with retryable error', async () => {
+    it("should preserve prior version when AI client fails with retryable error", async () => {
       const providerError = new ProviderError(
-        'CONTENT_PROVIDER_FAILURE',
-        'AI service unavailable',
+        "CONTENT_PROVIDER_FAILURE",
+        "AI service unavailable",
         true,
       );
       aiClient.revise.mockRejectedValue(providerError);
@@ -326,17 +336,17 @@ describe('ContentProcessor - Revision Flow', () => {
 
       expect(packRepo.markItemStatus).toHaveBeenCalledWith(
         mockItem.id,
-        'revision_failed',
+        "revision_failed",
       );
 
       expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
         mockPack.id,
         expect.objectContaining({
-          stage: 'revision',
-          status: 'failed',
-          messageKey: 'content.revision.failed',
+          stage: "revision",
+          status: "failed",
+          messageKey: "content.revision.failed",
           payload: expect.objectContaining({
-            error_code: 'CONTENT_PROVIDER_FAILURE',
+            error_code: "CONTENT_PROVIDER_FAILURE",
             retryable: true,
             item_id: mockItem.id,
             prior_version_id: mockBaseVersion.id,
@@ -354,10 +364,10 @@ describe('ContentProcessor - Revision Flow', () => {
       expect(fetchedItem?.currentVersionId).toBe(mockBaseVersion.id);
     });
 
-    it('should preserve prior version when AI client fails with non-retryable error', async () => {
+    it("should preserve prior version when AI client fails with non-retryable error", async () => {
       const providerError = new ProviderError(
-        'CONTENT_SCHEMA_FAILURE',
-        'Invalid revision request',
+        "CONTENT_SCHEMA_FAILURE",
+        "Invalid revision request",
         false,
       );
       aiClient.revise.mockRejectedValue(providerError);
@@ -366,17 +376,17 @@ describe('ContentProcessor - Revision Flow', () => {
 
       expect(packRepo.markItemStatus).toHaveBeenCalledWith(
         mockItem.id,
-        'revision_failed',
+        "revision_failed",
       );
 
       expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
         mockPack.id,
         expect.objectContaining({
-          stage: 'revision',
-          status: 'failed',
-          messageKey: 'content.revision.failed',
+          stage: "revision",
+          status: "failed",
+          messageKey: "content.revision.failed",
           payload: expect.objectContaining({
-            error_code: 'CONTENT_SCHEMA_FAILURE',
+            error_code: "CONTENT_SCHEMA_FAILURE",
             retryable: false,
             item_id: mockItem.id,
             prior_version_id: mockBaseVersion.id,
@@ -387,7 +397,7 @@ describe('ContentProcessor - Revision Flow', () => {
       expect(packRepo.appendRevisedItemVersion).not.toHaveBeenCalled();
     });
 
-    it('should handle missing pack gracefully', async () => {
+    it("should handle missing pack gracefully", async () => {
       packRepo.getPackById.mockResolvedValue(null);
 
       await processor.process(createJob({}) as any);
@@ -396,7 +406,7 @@ describe('ContentProcessor - Revision Flow', () => {
       expect(packRepo.appendRevisedItemVersion).not.toHaveBeenCalled();
     });
 
-    it('should handle missing item gracefully', async () => {
+    it("should handle missing item gracefully", async () => {
       packRepo.getItemById.mockResolvedValue(null);
 
       await processor.process(createJob({}) as any);
@@ -405,7 +415,7 @@ describe('ContentProcessor - Revision Flow', () => {
       expect(packRepo.appendRevisedItemVersion).not.toHaveBeenCalled();
     });
 
-    it('should calculate correct version number for subsequent revisions', async () => {
+    it("should calculate correct version number for subsequent revisions", async () => {
       const currentVersion = { ...mockBaseVersion, version: 2 };
 
       const mockVersion3Prisma = {
@@ -419,10 +429,15 @@ describe('ContentProcessor - Revision Flow', () => {
         id: mockVersion3Prisma.id,
         version: 3,
       };
+      mockVersion3Contract.version_checksum =
+        computeContentItemVersionChecksum(mockVersion3Contract);
 
-      packRepo.listItemVersions.mockResolvedValue([mockVersion3Prisma, currentVersion]);
+      packRepo.listItemVersions.mockResolvedValue([
+        mockVersion3Prisma,
+        currentVersion,
+      ]);
       aiClient.revise.mockResolvedValue({
-        contract_version: 'content-v1',
+        contract_version: "content-v1",
         item_version: mockVersion3Contract,
         validation: {
           valid: true,

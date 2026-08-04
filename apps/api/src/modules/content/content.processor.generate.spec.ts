@@ -8,17 +8,17 @@ import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
 import { CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
 
-jest.mock(
-  "@marketmind/contracts",
-  () => ({
-    ...jest.requireActual("@marketmind/contracts"),
-    validateContentPolicyFixture: jest
-      .fn()
-      .mockReturnValue({ valid: true, issues: [] }),
-  }),
-);
+jest.mock("@marketmind/contracts", () => ({
+  ...jest.requireActual("@marketmind/contracts"),
+  validateContentPolicyFixture: jest
+    .fn()
+    .mockReturnValue({ valid: true, issues: [] }),
+}));
 
-import { validateContentPolicyFixture } from "@marketmind/contracts";
+import {
+  computeContentItemVersionChecksum,
+  validateContentPolicyFixture,
+} from "@marketmind/contracts";
 
 // ── Fixtures ──────────────────────────────────────────────────────────
 
@@ -99,7 +99,11 @@ const STRATEGY_VERSION = {
     plan_language: "ar-EG",
     content_strategy: {
       weeks: [
-        { week_number: 1, theme: "التعريف", formats: ["reels", "photo", "poll"] },
+        {
+          week_number: 1,
+          theme: "التعريف",
+          formats: ["reels", "photo", "poll"],
+        },
       ],
     },
     selected_channels: [{ channel: "instagram" }, { channel: "facebook" }],
@@ -137,7 +141,7 @@ function makeItemVersion(
   id: string,
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  return {
+  const item = {
     id,
     contract_version: "content-v1",
     content_item_id: `item-${id}`,
@@ -146,14 +150,22 @@ function makeItemVersion(
     channel: "instagram",
     format: "post",
     language_mode: "ar-EG",
-    strategy_trace: { strategy_id: "strategy-1", strategy_version: 3, week_number: 1 },
+    strategy_trace: {
+      strategy_id: "strategy-1",
+      strategy_version: 3,
+      week_number: 1,
+      channel: "instagram",
+    },
     caption_variants: [{ locale: "ar-EG", caption: "نص تجريبي" }],
     cta: "رابط",
     hashtags: ["#cairo"],
     creative_brief: "إعلان تجريبي",
     alt_text: "وصف الصورة",
     short_video_script: null,
-    recommended_publish_window: { starts_at: "2026-01-03", ends_at: "2026-01-04" },
+    recommended_publish_window: {
+      starts_at: "2026-01-03",
+      ends_at: "2026-01-04",
+    },
     claim_sources: [],
     warnings: [],
     blockers: [],
@@ -165,9 +177,12 @@ function makeItemVersion(
       provider_model: "mock-v1",
       generated_at: "2026-01-01T00:00:00.000Z",
     },
-    version_checksum: "abc123",
     created_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
+  };
+  return {
+    ...item,
+    version_checksum: computeContentItemVersionChecksum(item),
   };
 }
 
@@ -245,9 +260,7 @@ describe("ContentProcessor", () => {
   beforeEach(async () => {
     packRepo = {
       getPackById: jest.fn().mockResolvedValue(PACK),
-      markPackStatus: jest
-        .fn()
-        .mockResolvedValue({ changed: true }),
+      markPackStatus: jest.fn().mockResolvedValue({ changed: true }),
       appendProgressEvent: jest.fn().mockResolvedValue({}),
       persistGeneratedItems: jest.fn().mockResolvedValue(PACK),
       safeFail: jest.fn().mockResolvedValue(undefined),
@@ -360,7 +373,8 @@ describe("ContentProcessor", () => {
           languageMode: "ar-EG",
           assetRequired: false,
           assetIds: [],
-          versionChecksum: "abc123",
+          versionChecksum:
+            AI_RESPONSE_3_ITEMS.item_versions[0].version_checksum,
         }),
       );
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -415,19 +429,17 @@ describe("ContentProcessor", () => {
 
   describe("generate-content — schema failure", () => {
     it("marks pack failed without persisting garbage when AI returns 6 items", async () => {
-      const failOnCount = jest
-        .fn()
-        .mockReturnValue({
-          valid: false,
-          issues: [
-            {
-              code: "CONTENT_SCHEMA_FAILURE",
-              field: "pack.item_ids",
-              message: "Content pack must have between 3 and 5 items.",
-              retryable: false,
-            },
-          ],
-        });
+      const failOnCount = jest.fn().mockReturnValue({
+        valid: false,
+        issues: [
+          {
+            code: "CONTENT_SCHEMA_FAILURE",
+            field: "pack.item_ids",
+            message: "Content pack must have between 3 and 5 items.",
+            retryable: false,
+          },
+        ],
+      });
       (validateContentPolicyFixture as jest.Mock).mockImplementation(
         failOnCount,
       );

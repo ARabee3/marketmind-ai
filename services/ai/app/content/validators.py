@@ -8,7 +8,7 @@ import re
 import unicodedata
 import uuid
 from collections.abc import Iterable
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -416,20 +416,68 @@ def derive_target_item_count(weekly_cadence: str) -> int | None:
     return None
 
 
-def compute_content_item_checksum(item: ContentItemVersion | dict[str, Any]) -> str:
-    """Hash canonical JSON after excluding the checksum field itself."""
+_CONTENT_TIMESTAMP_PATTERN = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$"
+)
+
+
+def _normalize_content_timestamp(value: str) -> str:
+    """Match Nest's Date#toISOString precision and UTC representation."""
+    if _CONTENT_TIMESTAMP_PATTERN.fullmatch(value) is None:
+        return value
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return value
+        utc = parsed.astimezone(timezone.utc)
+        # Prisma/Nest round-trips through JavaScript Date, which exposes
+        # millisecond precision. Truncate, rather than round, like JS Date.
+        utc = utc.replace(microsecond=(utc.microsecond // 1000) * 1000)
+        return utc.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    except ValueError:
+        return value
+
+
+def _normalize_content_checksum_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return _normalize_content_timestamp(value.isoformat())
+    if isinstance(value, str):
+        return _normalize_content_timestamp(value)
+    if isinstance(value, list):
+        return [_normalize_content_checksum_value(child) for child in value]
+    if isinstance(value, dict):
+        return {
+            key: _normalize_content_checksum_value(child)
+            for key, child in value.items()
+        }
+    return value
+
+
+def canonical_content_item_version_json(
+    item: ContentItemVersion | dict[str, Any],
+) -> str:
+    """Serialize an item version using the shared content-v1 checksum rules."""
     if isinstance(item, ContentItemVersion):
         payload = item.model_dump(mode="json")
     else:
         payload = dict(item)
     payload.pop("version_checksum", None)
     canonical = json.dumps(
-        payload,
+        _normalize_content_checksum_value(payload),
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
+        allow_nan=False,
     )
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return canonical
+
+
+def compute_content_item_checksum(item: ContentItemVersion | dict[str, Any]) -> str:
+    """Hash canonical JSON after excluding only the checksum field itself."""
+    return hashlib.sha256(
+        canonical_content_item_version_json(item).encode("utf-8")
+    ).hexdigest()
 
 
 def _add_output_issue(

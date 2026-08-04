@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma, ContentPack } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
-import { canTransitionContentPack, ContentPackStatus } from "@marketmind/contracts";
+import {
+  canTransitionContentPack,
+  ContentPackStatus,
+} from "@marketmind/contracts";
 import { startOfCairoDay, addDaysIso } from "../content.service";
 
 export type ContentItemVersionDraftInput = {
@@ -25,6 +28,7 @@ export type ContentItemVersionDraftInput = {
   readonly assetIds: Prisma.InputJsonValue;
   readonly generationProvenance: Prisma.InputJsonValue;
   readonly versionChecksum: string;
+  readonly createdAt: Date;
 };
 
 export type AppendPackWithItemsInput = {
@@ -74,6 +78,7 @@ export type AppendRevisedItemVersionInput = {
   readonly assetIds: Prisma.InputJsonValue;
   readonly generationProvenance: Prisma.InputJsonValue;
   readonly versionChecksum: string;
+  readonly createdAt: Date;
 };
 
 export type CreateAssetInput = {
@@ -294,7 +299,10 @@ export class ContentPackRepository {
           data: {
             currentWeekNumber: weekNumber,
             nextGenerationAt: startOfCairoDay(
-              addDaysIso(weekContext.weekStartDate.toISOString().slice(0, 10), 7),
+              addDaysIso(
+                weekContext.weekStartDate.toISOString().slice(0, 10),
+                7,
+              ),
             ),
           },
         });
@@ -355,7 +363,9 @@ export class ContentPackRepository {
     });
   }
 
-  async getProgressEvents(packId: string): Promise<PersistedContentProgressEvent[]> {
+  async getProgressEvents(
+    packId: string,
+  ): Promise<PersistedContentProgressEvent[]> {
     return this.prisma.contentProgressEvent.findMany({
       where: { contentPackId: packId },
       orderBy: { seq: "asc" },
@@ -505,7 +515,10 @@ export class ContentPackRepository {
     });
     if (!pack || pack.status === "failed") return;
     if (pack.status === targetStatus) return;
-    if (!canTransitionContentPack(pack.status as ContentPackStatus, targetStatus)) return;
+    if (
+      !canTransitionContentPack(pack.status as ContentPackStatus, targetStatus)
+    )
+      return;
 
     await this.prisma.contentPack.updateMany({
       where: { id: packId, status: pack.status },
@@ -562,6 +575,7 @@ export class ContentPackRepository {
             assetIds: draft.assetIds,
             generationProvenance: draft.generationProvenance,
             versionChecksum: draft.versionChecksum,
+            createdAt: draft.createdAt,
           },
         });
 
@@ -610,7 +624,8 @@ export class ContentPackRepository {
           status: input.progressEvent.status,
           messageKey: input.progressEvent.messageKey,
           messageText: input.progressEvent.messageText,
-          payload: (input.progressEvent.payload ?? {}) as Prisma.InputJsonObject,
+          payload: (input.progressEvent.payload ??
+            {}) as Prisma.InputJsonObject,
         },
       });
 
@@ -691,6 +706,7 @@ export class ContentPackRepository {
           assetIds: input.assetIds,
           generationProvenance: input.generationProvenance,
           versionChecksum: input.versionChecksum,
+          createdAt: input.createdAt,
         },
       });
 

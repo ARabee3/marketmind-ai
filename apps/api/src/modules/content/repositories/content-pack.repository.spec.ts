@@ -30,6 +30,7 @@ const DRAFT: ContentItemVersionDraftInput = {
   assetIds: [],
   generationProvenance: { provider: "mock", model: "mock" },
   versionChecksum: "abc123",
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
 const APPEND_INPUT: AppendPackWithItemsInput = {
@@ -188,7 +189,10 @@ describe("ContentPackRepository", () => {
       expect(result.id).toBe("pack-1");
       expect(findUnique).toHaveBeenCalledWith({
         where: {
-          contentCycleId_weekNumber: { contentCycleId: "cycle-1", weekNumber: 1 },
+          contentCycleId_weekNumber: {
+            contentCycleId: "cycle-1",
+            weekNumber: 1,
+          },
         },
       });
     });
@@ -270,7 +274,10 @@ describe("ContentPackRepository", () => {
       expect(result.pack.id).toBe("pack-1");
       expect(findUnique).toHaveBeenCalledWith({
         where: {
-          contentCycleId_weekNumber: { contentCycleId: "cycle-1", weekNumber: 1 },
+          contentCycleId_weekNumber: {
+            contentCycleId: "cycle-1",
+            weekNumber: 1,
+          },
         },
       });
     });
@@ -405,9 +412,7 @@ describe("ContentPackRepository", () => {
     });
 
     it("propagates a duplicate-seq error instead of writing twice", async () => {
-      const create = jest
-        .fn()
-        .mockRejectedValue(uniqueViolation());
+      const create = jest.fn().mockRejectedValue(uniqueViolation());
       const $transaction = jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
@@ -451,7 +456,11 @@ describe("ContentPackRepository", () => {
         contentPack: { updateMany },
       } as unknown as PrismaService);
 
-      const result = await repo.markPackStatus("pack-1", "queued", "generating");
+      const result = await repo.markPackStatus(
+        "pack-1",
+        "queued",
+        "generating",
+      );
 
       expect(result).toEqual({ changed: true });
       expect(updateMany).toHaveBeenCalledWith({
@@ -466,7 +475,11 @@ describe("ContentPackRepository", () => {
         contentPack: { updateMany },
       } as unknown as PrismaService);
 
-      const result = await repo.markPackStatus("pack-1", "queued", "generating");
+      const result = await repo.markPackStatus(
+        "pack-1",
+        "queued",
+        "generating",
+      );
 
       expect(result).toEqual({ changed: false });
     });
@@ -650,9 +663,14 @@ describe("ContentPackRepository", () => {
         ),
       } as unknown as PrismaService);
 
-      await repo.safeFail("pack-1", "content.generation_failed", "AI call failed", {
-        errorCode: "CONTENT_PROVIDER_FAILURE",
-      });
+      await repo.safeFail(
+        "pack-1",
+        "content.generation_failed",
+        "AI call failed",
+        {
+          errorCode: "CONTENT_PROVIDER_FAILURE",
+        },
+      );
 
       expect(update).toHaveBeenCalledWith({
         where: { id: "pack-1" },

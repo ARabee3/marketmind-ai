@@ -9,16 +9,20 @@ import {
   ContentPolicyFixture,
   validateContentPolicyFixture,
 } from "@marketmind/contracts";
-import type {
-  StrategyPlan,
-  BusinessProfileData,
-} from "@marketmind/contracts";
-import { ContentPackRepository, ContentItemVersionDraftInput } from "./repositories/content-pack.repository";
+import type { StrategyPlan, BusinessProfileData } from "@marketmind/contracts";
+import {
+  ContentPackRepository,
+  ContentItemVersionDraftInput,
+} from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
-import { AssetStorage, buildAssetStorageKey, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
+import {
+  AssetStorage,
+  buildAssetStorageKey,
+  CONTENT_ASSET_STORAGE,
+} from "./assets/asset-storage.port";
 import {
   toContentWeekContext,
   toContentPack,
@@ -30,6 +34,11 @@ import {
   adaptLanguageMode,
   adaptSelectedChannelsOrThrow,
 } from "./content-strategy.adapter";
+import {
+  assertGeneratedContentPackIdentity,
+  normalizeAiContentItemVersion,
+  normalizeGeneratedContentItemVersions,
+} from "./content-item-version-normalizer";
 
 interface ContentGenerateJobData {
   contentCycleId: string;
@@ -78,7 +87,9 @@ export class ContentProcessor extends WorkerHost {
   async process(job: Job<unknown, unknown, string>): Promise<unknown> {
     switch (job.name) {
       case "generate-content":
-        return this.handleGenerate(job as unknown as Job<ContentGenerateJobData>);
+        return this.handleGenerate(
+          job as unknown as Job<ContentGenerateJobData>,
+        );
       case "revise-content":
         return this.handleRevise(job as unknown as Job<ContentReviseJobData>);
       case "generate-static-asset":
@@ -91,7 +102,9 @@ export class ContentProcessor extends WorkerHost {
     }
   }
 
-  private async handleGenerate(job: Job<ContentGenerateJobData>): Promise<void> {
+  private async handleGenerate(
+    job: Job<ContentGenerateJobData>,
+  ): Promise<void> {
     const { contentCycleId, weekNumber, contentPackId, correlationId } =
       job.data;
     const startedAt = new Date();
@@ -187,23 +200,42 @@ export class ContentProcessor extends WorkerHost {
 
       await this.packRepo.markPackStatus(pack.id, "generating", "validating");
 
+      assertGeneratedContentPackIdentity(response.content_pack, {
+        contentPackId: pack.id,
+        contentCycleId: contentCycleId,
+        weekNumber,
+        strategyId: pack.strategyId,
+        strategyVersion: pack.strategyVersion,
+        strategyDecisionId: pack.strategyDecisionId,
+        profileVersionId: pack.profileVersionId,
+      });
+      const normalizedItemVersions = normalizeGeneratedContentItemVersions(
+        response.item_versions,
+        {
+          contentPackId: pack.id,
+          strategyId: pack.strategyId,
+          strategyVersion: pack.strategyVersion,
+          weekNumber,
+          itemIds: response.content_pack.item_ids,
+        },
+      );
+
       const fixturePack = {
         ...toContentPack(pack),
-        item_ids: response.content_pack.item_ids,
+        item_ids: normalizedItemVersions.map((item) => item.content_item_id),
       };
 
-      for (const itemVersion of response.item_versions) {
+      for (const itemVersion of normalizedItemVersions) {
         const fixture: ContentPolicyFixture = {
           strategy_id: pack.strategyId,
           strategy_version: pack.strategyVersion,
-          strategy_status: strategy.status as ContentPolicyFixture["strategy_status"],
+          strategy_status:
+            strategy.status as ContentPolicyFixture["strategy_status"],
           strategy_decision: {
             id: pack.strategyDecisionId,
             strategy_id: pack.strategyId,
             strategy_version: pack.strategyVersion,
-            decision: normalizeStrategyDecision(
-              strategyDecision?.action,
-            ),
+            decision: normalizeStrategyDecision(strategyDecision?.action),
           },
           cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
           profile_version_id: pack.profileVersionId,
@@ -221,11 +253,7 @@ export class ContentProcessor extends WorkerHost {
           (issue) => issue.code !== "CONTENT_ASSET_REQUIRED",
         );
         if (blocking.length > 0) {
-          throw new ProviderError(
-            blocking[0].code,
-            blocking[0].message,
-            false,
-          );
+          throw new ProviderError(blocking[0].code, blocking[0].message, false);
         }
       }
 
@@ -237,7 +265,7 @@ export class ContentProcessor extends WorkerHost {
         cycleId: contentCycleId,
         weekNumber,
         generationRunId,
-        items: response.item_versions.map(toDraftInput),
+        items: normalizedItemVersions.map(toDraftInput),
         progressEvent: {
           stage: "ready",
           status: "complete",
@@ -245,9 +273,9 @@ export class ContentProcessor extends WorkerHost {
           messageText: "Content pack draft ready for review.",
         },
         providerName:
-          response.item_versions[0]?.generation_provenance?.provider_name,
+          normalizedItemVersions[0]?.generation_provenance?.provider_name,
         providerModel:
-          response.item_versions[0]?.generation_provenance?.provider_model,
+          normalizedItemVersions[0]?.generation_provenance?.provider_model,
         latencyMs: finishedAt.getTime() - startedAt.getTime(),
         startedAt,
         finishedAt,
@@ -257,8 +285,7 @@ export class ContentProcessor extends WorkerHost {
         `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
       );
     } catch (error) {
-      const retryable =
-        error instanceof ProviderError ? error.retryable : true;
+      const retryable = error instanceof ProviderError ? error.retryable : true;
 
       await this.packRepo.safeFail(
         pack.id,
@@ -298,7 +325,9 @@ export class ContentProcessor extends WorkerHost {
 
     const item = await this.packRepo.getItemById(contentPackId, contentItemId);
     if (!item) {
-      this.logger.error(`Item ${contentItemId} not found in pack ${contentPackId}`);
+      this.logger.error(
+        `Item ${contentItemId} not found in pack ${contentPackId}`,
+      );
       return;
     }
 
@@ -345,17 +374,32 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
-      const [cycle, weekContext, strategy, strategyVersion, strategyDecision, profileVersion] =
-        await Promise.all([
-          this.cycleRepo.getCycleById(pack.contentCycleId),
-          this.weekContextRepo.getWeekById(pack.weekContextId),
-          this.strategyRepo.readStrategy(pack.strategyId),
-          this.strategyRepo.getVersionByNumber(pack.strategyId, pack.strategyVersion),
-          this.strategyRepo.getDecisionById(pack.strategyDecisionId),
-          this.strategyRepo.getActiveConfirmedProfileVersion(pack.businessId),
-        ]);
+      const [
+        cycle,
+        weekContext,
+        strategy,
+        strategyVersion,
+        strategyDecision,
+        profileVersion,
+      ] = await Promise.all([
+        this.cycleRepo.getCycleById(pack.contentCycleId),
+        this.weekContextRepo.getWeekById(pack.weekContextId),
+        this.strategyRepo.readStrategy(pack.strategyId),
+        this.strategyRepo.getVersionByNumber(
+          pack.strategyId,
+          pack.strategyVersion,
+        ),
+        this.strategyRepo.getDecisionById(pack.strategyDecisionId),
+        this.strategyRepo.getActiveConfirmedProfileVersion(pack.businessId),
+      ]);
 
-      if (!cycle || !weekContext || !strategy || !strategyVersion || !profileVersion) {
+      if (
+        !cycle ||
+        !weekContext ||
+        !strategy ||
+        !strategyVersion ||
+        !profileVersion
+      ) {
         throw new ProviderError(
           "CONTENT_SCHEMA_FAILURE",
           `Missing required data for revision of pack ${pack.id}`,
@@ -363,7 +407,9 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
-      const selectedChannels = adaptSelectedChannelsOrThrow(strategyVersion.planData);
+      const selectedChannels = adaptSelectedChannelsOrThrow(
+        strategyVersion.planData,
+      );
 
       const generationRequest = {
         contract_version: "content-v1" as const,
@@ -409,6 +455,14 @@ export class ContentProcessor extends WorkerHost {
 
       const newVersion = response.item_version;
       const newVersionNumber = baseVersion.version + 1;
+      const normalizedNewVersion = normalizeAiContentItemVersion(newVersion, {
+        contentPackId: contentPackId,
+        contentItemId,
+        version: newVersionNumber,
+        strategyId: pack.strategyId,
+        strategyVersion: pack.strategyVersion,
+        weekNumber: pack.weekNumber,
+      });
 
       // AC-4: validate revised output. Use the persisted pack identity (item_ids)
       // and skip CONTENT_ASSET_REQUIRED at the draft gate — assets are generated
@@ -417,7 +471,8 @@ export class ContentProcessor extends WorkerHost {
         const fixture: ContentPolicyFixture = {
           strategy_id: pack.strategyId,
           strategy_version: pack.strategyVersion,
-          strategy_status: strategy.status as ContentPolicyFixture["strategy_status"],
+          strategy_status:
+            strategy.status as ContentPolicyFixture["strategy_status"],
           strategy_decision: {
             id: pack.strategyDecisionId,
             strategy_id: pack.strategyId,
@@ -431,7 +486,7 @@ export class ContentProcessor extends WorkerHost {
           existing_weekly_claims: [],
           week_context: toContentWeekContext(weekContext),
           pack: toContentPack(pack),
-          item_version: newVersion,
+          item_version: normalizedNewVersion,
           assets: [],
         };
 
@@ -449,34 +504,38 @@ export class ContentProcessor extends WorkerHost {
       }
 
       const persisted = await this.packRepo.appendRevisedItemVersion({
-        id: newVersion.id,
+        id: normalizedNewVersion.id,
         packId: contentPackId,
         itemId: contentItemId,
         baseVersionId: baseItemVersionId,
         newVersionNumber,
-        channel: newVersion.channel,
-        format: newVersion.format,
-        languageMode: newVersion.language_mode,
-        strategyTrace: newVersion.strategy_trace as Prisma.InputJsonValue,
-        captionVariants: newVersion.caption_variants as Prisma.InputJsonValue,
-        cta: newVersion.cta,
-        hashtags: newVersion.hashtags as Prisma.InputJsonValue,
-        creativeBrief: newVersion.creative_brief,
-        altText: newVersion.alt_text,
+        channel: normalizedNewVersion.channel,
+        format: normalizedNewVersion.format,
+        languageMode: normalizedNewVersion.language_mode,
+        strategyTrace:
+          normalizedNewVersion.strategy_trace as Prisma.InputJsonValue,
+        captionVariants:
+          normalizedNewVersion.caption_variants as Prisma.InputJsonValue,
+        cta: normalizedNewVersion.cta,
+        hashtags: normalizedNewVersion.hashtags as Prisma.InputJsonValue,
+        creativeBrief: normalizedNewVersion.creative_brief,
+        altText: normalizedNewVersion.alt_text,
         shortVideoScript:
-          newVersion.short_video_script === null
+          normalizedNewVersion.short_video_script === null
             ? null
-            : (newVersion.short_video_script as Prisma.InputJsonValue),
+            : (normalizedNewVersion.short_video_script as Prisma.InputJsonValue),
         recommendedPublishWindow:
-          newVersion.recommended_publish_window as Prisma.InputJsonValue,
-        claimSources: newVersion.claim_sources as Prisma.InputJsonValue,
-        warnings: newVersion.warnings as Prisma.InputJsonValue,
-        blockers: newVersion.blockers as Prisma.InputJsonValue,
-        assetRequired: newVersion.asset_required,
-        assetIds: newVersion.asset_ids as Prisma.InputJsonValue,
+          normalizedNewVersion.recommended_publish_window as Prisma.InputJsonValue,
+        claimSources:
+          normalizedNewVersion.claim_sources as Prisma.InputJsonValue,
+        warnings: normalizedNewVersion.warnings as Prisma.InputJsonValue,
+        blockers: normalizedNewVersion.blockers as Prisma.InputJsonValue,
+        assetRequired: normalizedNewVersion.asset_required,
+        assetIds: normalizedNewVersion.asset_ids as Prisma.InputJsonValue,
         generationProvenance:
-          newVersion.generation_provenance as Prisma.InputJsonValue,
-        versionChecksum: newVersion.version_checksum,
+          normalizedNewVersion.generation_provenance as Prisma.InputJsonValue,
+        versionChecksum: normalizedNewVersion.version_checksum,
+        createdAt: new Date(normalizedNewVersion.created_at),
       });
 
       await this.packRepo.appendProgressEvent(pack.id, {
@@ -497,8 +556,7 @@ export class ContentProcessor extends WorkerHost {
         `Item ${contentItemId} revised to version ${newVersionNumber} (prior: ${baseItemVersionId})`,
       );
     } catch (error) {
-      const retryable =
-        error instanceof ProviderError ? error.retryable : true;
+      const retryable = error instanceof ProviderError ? error.retryable : true;
 
       await this.packRepo.markItemStatus(contentItemId, "revision_failed");
       await this.packRepo.appendProgressEvent(pack.id, {
@@ -597,8 +655,7 @@ export class ContentProcessor extends WorkerHost {
         );
       }
     } catch (error) {
-      const retryable =
-        error instanceof ProviderError ? error.retryable : true;
+      const retryable = error instanceof ProviderError ? error.retryable : true;
 
       const failureCode =
         error instanceof ProviderError
@@ -658,5 +715,6 @@ function toDraftInput(iv: ContentItemVersion): ContentItemVersionDraftInput {
     assetIds: iv.asset_ids as Prisma.InputJsonValue,
     generationProvenance: iv.generation_provenance as Prisma.InputJsonValue,
     versionChecksum: iv.version_checksum,
+    createdAt: new Date(iv.created_at),
   };
 }
