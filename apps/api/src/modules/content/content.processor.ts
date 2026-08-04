@@ -8,13 +8,10 @@ import {
   ContentItemVersion,
   ContentPolicyFixture,
   validateContentPolicyFixture,
-  CONTENT_FORMATS,
 } from "@marketmind/contracts";
 import type {
   StrategyPlan,
-  ContentFormat,
   BusinessProfileData,
-  LanguageMode,
 } from "@marketmind/contracts";
 import { ContentPackRepository, ContentItemVersionDraftInput } from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
@@ -26,10 +23,13 @@ import {
   toContentWeekContext,
   toContentPack,
   toContentItemVersion,
-  toPayload,
-  planSelectedChannels,
   normalizeStrategyDecision,
 } from "./content.service";
+import {
+  adaptStrategyWeekFormats,
+  adaptLanguageMode,
+  adaptSelectedChannelsOrThrow,
+} from "./content-strategy.adapter";
 
 interface ContentGenerateJobData {
   contentCycleId: string;
@@ -152,7 +152,7 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
-      const selectedChannels = planSelectedChannels(
+      const selectedChannels = adaptSelectedChannelsOrThrow(
         strategyVersion.planData,
       );
 
@@ -176,8 +176,11 @@ export class ContentProcessor extends WorkerHost {
         },
         week_context: toContentWeekContext(weekContext),
         selected_channels: selectedChannels,
-        allowed_formats: extractAllowedFormats(strategyVersion.planData, pack.weekNumber),
-        language_mode: extractLanguageMode(strategyVersion.planData),
+        allowed_formats: adaptStrategyWeekFormats(
+          strategyVersion.planData,
+          pack.weekNumber,
+        ),
+        language_mode: adaptLanguageMode(strategyVersion.planData),
       };
 
       const response = await this.contentAiClient.generate(request);
@@ -360,7 +363,7 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
-      const selectedChannels = planSelectedChannels(strategyVersion.planData);
+      const selectedChannels = adaptSelectedChannelsOrThrow(strategyVersion.planData);
 
       const generationRequest = {
         contract_version: "content-v1" as const,
@@ -382,8 +385,11 @@ export class ContentProcessor extends WorkerHost {
         },
         week_context: toContentWeekContext(weekContext),
         selected_channels: selectedChannels,
-        allowed_formats: extractAllowedFormats(strategyVersion.planData, pack.weekNumber),
-        language_mode: extractLanguageMode(strategyVersion.planData),
+        allowed_formats: adaptStrategyWeekFormats(
+          strategyVersion.planData,
+          pack.weekNumber,
+        ),
+        language_mode: adaptLanguageMode(strategyVersion.planData),
       };
 
       const reviseRequest = {
@@ -653,45 +659,4 @@ function toDraftInput(iv: ContentItemVersion): ContentItemVersionDraftInput {
     generationProvenance: iv.generation_provenance as Prisma.InputJsonValue,
     versionChecksum: iv.version_checksum,
   };
-}
-
-function extractAllowedFormats(
-  planData: unknown,
-  weekNumber: number,
-): ContentFormat[] {
-  const plan = toPayload(planData);
-  const contentStrategy = plan["content_strategy"];
-  if (
-    !contentStrategy ||
-    typeof contentStrategy !== "object" ||
-    Array.isArray(contentStrategy)
-  ) {
-    return [...CONTENT_FORMATS];
-  }
-  const weeks = (contentStrategy as Record<string, unknown>)["weeks"];
-  if (!Array.isArray(weeks) || weeks.length === 0) {
-    return [...CONTENT_FORMATS];
-  }
-  const weekPlan = weeks.find(
-    (w) =>
-      typeof w === "object" &&
-      w !== null &&
-      String((w as Record<string, unknown>)["week_number"]) ===
-        String(weekNumber),
-  );
-  if (!weekPlan || typeof weekPlan !== "object") {
-    return [...CONTENT_FORMATS];
-  }
-  const formats = (weekPlan as Record<string, unknown>)["formats"];
-  if (!Array.isArray(formats)) return [...CONTENT_FORMATS];
-  return formats.filter(
-    (f): f is ContentFormat => typeof f === "string" && (CONTENT_FORMATS as readonly string[]).includes(f),
-  );
-}
-
-function extractLanguageMode(planData: unknown): LanguageMode {
-  const plan = toPayload(planData);
-  const lang = plan["plan_language"];
-  if (lang === "ar-EG" || lang === "en" || lang === "mixed") return lang;
-  return "ar-EG";
 }

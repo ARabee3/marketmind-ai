@@ -97,7 +97,11 @@ const STRATEGY_VERSION = {
   version: 3,
   planData: {
     plan_language: "ar-EG",
-    allowed_formats: ["post", "story"],
+    content_strategy: {
+      weeks: [
+        { week_number: 1, theme: "التعريف", formats: ["reels", "photo", "poll"] },
+      ],
+    },
     selected_channels: [{ channel: "instagram" }, { channel: "facebook" }],
   },
   created_at: new Date("2026-01-01"),
