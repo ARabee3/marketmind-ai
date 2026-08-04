@@ -25,7 +25,8 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "seed:publishing-demo": "ts-node scripts/seed-publishing-demo.ts"
   },
   "dependencies": {
     "@marketmind/contracts": "0.0.0",
