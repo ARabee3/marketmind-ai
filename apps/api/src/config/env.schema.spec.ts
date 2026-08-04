@@ -97,3 +97,24 @@ describe("envSchema Facebook enrichment configuration", () => {
     );
   });
 });
+
+describe("envSchema billing provider configuration", () => {
+  it("requires the Paymob merchant boundary before enabling Paymob", () => {
+    expect(() =>
+      envSchema({ ...validConfig(), BILLING_PROVIDER: "paymob" }),
+    ).toThrow("PAYMOB_API_KEY is required when BILLING_PROVIDER=paymob");
+  });
+
+  it("accepts a configured Paymob sandbox boundary", () => {
+    const config = {
+      ...validConfig(),
+      BILLING_PROVIDER: "paymob",
+      PAYMOB_API_KEY: "secret",
+      PAYMOB_PUBLIC_KEY: "pk_test_123",
+      PAYMOB_INTEGRATION_IDS: "987",
+      PAYMOB_HMAC_SECRET: "hmac",
+    };
+
+    expect(envSchema(config)).toBe(config);
+  });
+});

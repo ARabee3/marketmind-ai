@@ -5,6 +5,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -25,6 +26,7 @@ import { UpsertBriefDto } from "./dto/upsert-brief.dto";
 import { OwnerDecisionDto } from "./dto/owner-decision.dto";
 import { buildRetrievalQueryContext } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
+import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 
 /** Owner-initiated retry limit (distinct from BullMQ queue-level job retries). */
 const MAX_OWNER_RETRIES = 3;
@@ -43,6 +45,7 @@ export class StrategyService {
     @InjectQueue("strategy-generation") private readonly strategyQueue: Queue,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     this.aiUrl =
       this.config.get<string>("aiService.url") ?? "http://localhost:8000";
@@ -173,6 +176,12 @@ export class StrategyService {
     if (!strategy || !strategy.brief) {
       throw new NotFoundException("Strategy or brief not found");
     }
+
+    await this.billingEntitlements?.assertAllowed(
+      ownerUserId,
+      "strategy_cycle",
+      1,
+    );
 
     // Atomic idempotency guard: a single conditional transition to "retrieving"
     // rejects any concurrent duplicate request before enqueuing a job or
@@ -450,6 +459,11 @@ export class StrategyService {
     // Atomic idempotency: claim via the terminal transition so a concurrent
     // duplicate approve/reject cannot both succeed.
     if (dto.action === "revision_requested") {
+      await this.billingEntitlements?.assertAllowed(
+        ownerUserId,
+        "strategy_revision",
+        1,
+      );
       // transition draft → ready is the legal revising path. claim atomically.
       const { claimed } = await this.strategyRepository.claimForGeneration(
         id,

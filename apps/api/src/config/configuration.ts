@@ -114,4 +114,26 @@ content: {
     // secret; never put on the browser. Empty → internal routes fail closed.
     internalServiceToken: process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN || "",
   },
+
+  billing: {
+    // Keep the fake provider as the default. A live Paymob/Geidea secret must
+    // be supplied only after the merchant procurement gate is complete.
+    fakeWebhookSecret:
+      process.env.BILLING_FAKE_WEBHOOK_SECRET ||
+      "marketmind-development-billing-webhook",
+    provider: process.env.BILLING_PROVIDER || "fake",
+    paymob: {
+      baseUrl: process.env.PAYMOB_BASE_URL || "https://accept.paymob.com",
+      apiKey: process.env.PAYMOB_API_KEY || "",
+      publicKey: process.env.PAYMOB_PUBLIC_KEY || "",
+      integrationIds: (process.env.PAYMOB_INTEGRATION_IDS || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      hmacSecret: process.env.PAYMOB_HMAC_SECRET || "",
+      timeoutMs:
+        parseInt(process.env.PAYMOB_TIMEOUT_MS || "15000", 10) || 15000,
+      sandbox: process.env.PAYMOB_SANDBOX === "true",
+    },
+  },
 });
