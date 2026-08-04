@@ -332,7 +332,12 @@ describe("ContentCycleRepository", () => {
 
   describe("listActiveReadyForNextWeek", () => {
     it("filters active cycles past their next-generation cutoff", async () => {
-      const findMany = jest.fn().mockResolvedValue([CYCLE_ROW]);
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          ...CYCLE_ROW,
+          packs: [{ weekNumber: 1, status: "draft" }],
+        },
+      ]);
       const repo = new ContentCycleRepository({
         contentCycle: { findMany },
       } as unknown as PrismaService);
@@ -345,8 +350,35 @@ describe("ContentCycleRepository", () => {
           nextGenerationAt: { lte: expect.any(Date) },
           currentWeekNumber: { lt: 12 },
         },
+        include: {
+          packs: {
+            select: { weekNumber: true, status: true },
+          },
+        },
       });
       expect(result[0].ownerUserId).toBe("owner-1");
+    });
+
+    it("excludes cycles whose current pack is still queued, generating, or failed", async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          ...CYCLE_ROW,
+          id: "ready",
+          packs: [{ weekNumber: 1, status: "draft" }],
+        },
+        {
+          ...CYCLE_ROW,
+          id: "incomplete",
+          packs: [{ weekNumber: 1, status: "generating" }],
+        },
+      ]);
+      const repo = new ContentCycleRepository({
+        contentCycle: { findMany },
+      } as unknown as PrismaService);
+
+      const result = await repo.listActiveReadyForNextWeek();
+
+      expect(result.map((cycle) => cycle.id)).toEqual(["ready"]);
     });
   });
 

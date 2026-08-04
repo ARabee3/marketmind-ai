@@ -203,6 +203,12 @@ describe("ContentPackRepository", () => {
     function makeClaimTx() {
       const packCreate = jest.fn().mockResolvedValue(PACK_ROW);
       const cycleUpdate = jest.fn().mockResolvedValue({ id: "cycle-1" });
+      const packFindUnique = jest.fn().mockImplementation(({ where }: any) => {
+        const weekNumber = where.contentCycleId_weekNumber.weekNumber;
+        return Promise.resolve(
+          weekNumber === 3 ? null : { status: "draft" },
+        );
+      });
       return {
         tx: {
           $queryRaw: jest.fn().mockResolvedValue([]),
@@ -229,12 +235,13 @@ describe("ContentPackRepository", () => {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           },
           contentPack: {
-            findUnique: jest.fn().mockResolvedValue(null),
+            findUnique: packFindUnique,
             create: packCreate,
           },
         },
         packCreate,
         cycleUpdate,
+        packFindUnique,
       };
     }
 
@@ -267,6 +274,29 @@ describe("ContentPackRepository", () => {
           itemIds: [],
         }),
       });
+    });
+
+    it("does not skip an incomplete previous week", async () => {
+      const mocks = makeClaimTx();
+      mocks.tx.contentPack.findUnique = jest
+        .fn()
+        .mockImplementation(({ where }: any) => {
+          const weekNumber = where.contentCycleId_weekNumber.weekNumber;
+          return Promise.resolve(
+            weekNumber === 3 ? null : { status: "failed" },
+          );
+        });
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(mocks.tx),
+        ),
+      } as unknown as PrismaService);
+
+      await expect(repo.claimQueuedPack("cycle-1", 3, "week-3")).rejects.toThrow(
+        "Week 2 is not complete",
+      );
+      expect(mocks.packCreate).not.toHaveBeenCalled();
     });
 
     it("returns the existing pack with created=false on an idempotent replay (P2002)", async () => {

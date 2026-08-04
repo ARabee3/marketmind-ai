@@ -328,7 +328,7 @@ export class ContentPackRepository {
           );
         }
         if (
-          !(
+          !( 
             (weekNumber === 1 && cycle.currentWeekNumber === 1) ||
             weekNumber === cycle.currentWeekNumber + 1
           )
@@ -336,6 +336,23 @@ export class ContentPackRepository {
           throw new BadRequestException(
             `Week ${weekNumber} is not the exact next eligible week for cycle ${cycleId}.`,
           );
+        }
+
+        if (weekNumber > 1) {
+          const previousPack = await tx.contentPack.findUnique({
+            where: {
+              contentCycleId_weekNumber: {
+                contentCycleId: cycleId,
+                weekNumber: weekNumber - 1,
+              },
+            },
+            select: { status: true },
+          });
+          if (!previousPack || !isCompletedPackStatus(previousPack.status)) {
+            throw new BadRequestException(
+              `Week ${weekNumber - 1} is not complete; cannot claim week ${weekNumber}.`,
+            );
+          }
         }
 
         const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
@@ -1085,6 +1102,10 @@ function isUniqueViolation(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   );
+}
+
+function isCompletedPackStatus(status: string): boolean {
+  return ["draft", "partially_approved", "approved"].includes(status);
 }
 
 async function linkVersionAssets(

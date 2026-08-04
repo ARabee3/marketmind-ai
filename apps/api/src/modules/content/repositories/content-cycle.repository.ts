@@ -323,13 +323,31 @@ export class ContentCycleRepository {
   }
 
   async listActiveReadyForNextWeek(): Promise<ContentCycle[]> {
-    return this.prisma.contentCycle.findMany({
+    const cycles = await this.prisma.contentCycle.findMany({
       where: {
         status: "active",
         nextGenerationAt: { lte: new Date() },
         currentWeekNumber: { lt: 12 },
       },
+      include: {
+        packs: {
+          select: { weekNumber: true, status: true },
+        },
+      },
     });
+
+    return cycles
+      .filter((cycle) =>
+        cycle.packs.some(
+          (pack) =>
+            pack.weekNumber === cycle.currentWeekNumber &&
+            isCompletedPackStatus(pack.status),
+        ),
+      )
+      .map((cycle) => {
+        const { packs: _packs, ...withoutPacks } = cycle;
+        return withoutPacks;
+      });
   }
 
   async markCycleCompleted(id: string): Promise<void> {
@@ -338,6 +356,10 @@ export class ContentCycleRepository {
       data: { status: "completed", completedAt: new Date() },
     });
   }
+}
+
+function isCompletedPackStatus(status: string): boolean {
+  return ["draft", "partially_approved", "approved"].includes(status);
 }
 
 function isUniqueViolation(error: unknown): boolean {
