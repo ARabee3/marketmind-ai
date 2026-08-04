@@ -833,31 +833,61 @@ export class ContentService {
       });
     }
 
-    const { changed } = await this.packRepository.markPackStatus(
-      pack.id,
-      "failed",
-      "queued",
-    );
-    if (!changed) {
-      throw new ConflictException({
-        code: "CONTENT_PACK_RETRY_CONFLICT",
-        message:
-          "The content pack is no longer failed; a retry is already in progress.",
-      });
-    }
-
     const correlationId = randomUUID();
+    const jobId = `generate-content:retry:${pack.id}:${correlationId}`;
+    const durableJobPayload = {
+      contentCycleId: pack.contentCycleId,
+      weekNumber: pack.weekNumber,
+      contentPackId: pack.id,
+      idempotencyKey: `retry:${correlationId}`,
+      correlationId,
+    };
+
+    // The failed → queued transition and the delivery intent must commit
+    // together. If Redis is unavailable after this point, the content-job
+    // outbox reconciler can still deliver the pending intent.
+    await this.prisma.$transaction(async (tx) => {
+      const { changed } = await this.packRepository.markPackStatus(
+        pack.id,
+        "failed",
+        "queued",
+        tx,
+      );
+      if (!changed) {
+        throw new ConflictException({
+          code: "CONTENT_PACK_RETRY_CONFLICT",
+          message:
+            "The content pack is no longer failed; a retry is already in progress.",
+        });
+      }
+
+      if (this.jobOutbox) {
+        await this.jobOutbox.createIntent(
+          {
+            jobId,
+            queueName: "content-generation",
+            jobName: "generate-content",
+            payload: durableJobPayload,
+          },
+          tx,
+        );
+      }
+    });
+
     await this.contentQueue.add(
       "generate-content",
-      {
-        contentCycleId: pack.contentCycleId,
-        weekNumber: pack.weekNumber,
-        contentPackId: pack.id,
-        idempotencyKey: `retry:${correlationId}`,
-        correlationId,
-      },
-      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+      this.jobOutbox
+        ? durableJobPayload
+        : { ...durableJobPayload, correlationId },
+      this.jobOutbox
+        ? {
+            jobId,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 2000 },
+          }
+        : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
     );
+    await this.jobOutbox?.markDirectDispatched(jobId);
 
     await this.packRepository.appendProgressEvent(pack.id, {
       stage: "queued",
@@ -872,7 +902,7 @@ export class ContentService {
     );
 
     return {
-      content_pack: toContentPack(pack),
+      content_pack: toContentPack({ ...pack, status: "queued" }),
       status: "queued",
       correlation_id: correlationId,
     };

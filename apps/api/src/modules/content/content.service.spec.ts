@@ -12,6 +12,7 @@ import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { ContentDecisionRepository } from "./repositories/content-decision.repository";
 import type { ContentDecisionRow } from "./repositories/content-decision.repository";
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
+import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import {
@@ -1897,6 +1898,10 @@ describe("ContentService.retryPack", () => {
   let service: ContentService;
   let packRepo: MockedPackRepo;
   let queue: { add: jest.Mock };
+  let jobOutbox: {
+    createIntent: jest.Mock;
+    markDirectDispatched: jest.Mock;
+  };
 
   const FAILED_PACK_ROW = {
     ...PACK_ROW,
@@ -1910,6 +1915,10 @@ describe("ContentService.retryPack", () => {
       markPackStatus: jest.fn().mockResolvedValue({ changed: true }),
     });
     queue = { add: jest.fn().mockResolvedValue({ id: "job-1" }) };
+    jobOutbox = {
+      createIntent: jest.fn().mockResolvedValue({}),
+      markDirectDispatched: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1930,6 +1939,7 @@ describe("ContentService.retryPack", () => {
         },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
+        { provide: ContentJobOutboxRepository, useValue: jobOutbox },
       ],
     }).compile();
 
@@ -1984,6 +1994,7 @@ describe("ContentService.retryPack", () => {
       "pack-1",
       "failed",
       "queued",
+      expect.anything(),
     );
     expect(queue.add).toHaveBeenCalledWith(
       "generate-content",
@@ -1993,7 +2004,22 @@ describe("ContentService.retryPack", () => {
         contentPackId: "pack-1",
         correlationId: expect.any(String),
       }),
-      expect.objectContaining({ attempts: 3 }),
+      expect.objectContaining({ attempts: 3, jobId: expect.any(String) }),
+    );
+    expect(jobOutbox.createIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: expect.stringContaining("generate-content:retry:pack-1:"),
+        queueName: "content-generation",
+        jobName: "generate-content",
+        payload: expect.objectContaining({
+          contentPackId: "pack-1",
+          idempotencyKey: expect.stringMatching(/^retry:/),
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(jobOutbox.markDirectDispatched).toHaveBeenCalledWith(
+      expect.stringContaining("generate-content:retry:pack-1:"),
     );
     expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
       "pack-1",
@@ -2006,5 +2032,19 @@ describe("ContentService.retryPack", () => {
     expect(result.status).toBe("queued");
     expect(result.correlation_id).toEqual(expect.any(String));
     expect(result.content_pack.id).toBe("pack-1");
+  });
+
+  it("keeps the durable retry intent when Redis enqueue fails", async () => {
+    queue.add.mockRejectedValue(new Error("Redis unavailable"));
+
+    await expect(service.retryPack("pack-1", OWNER_ID)).rejects.toThrow(
+      "Redis unavailable",
+    );
+
+    expect(jobOutbox.createIntent).toHaveBeenCalledWith(
+      expect.objectContaining({ jobName: "generate-content" }),
+      expect.anything(),
+    );
+    expect(jobOutbox.markDirectDispatched).not.toHaveBeenCalled();
   });
 });
