@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
 ImageProviderMode = Literal["mock", "openai", "unavailable"]
+AssetStorageProvider = Literal["filesystem", "r2", "unavailable"]
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,17 @@ class Settings(BaseSettings):
     image_model: str = "gpt-image-1"
     image_request_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     content_asset_storage_dir: str = ""
+
+    # Content asset storage backend: filesystem dir or Cloudflare R2.
+    asset_storage_provider: AssetStorageProvider = "filesystem"
+    cloudflare_r2_access_key_id: str = ""
+    cloudflare_r2_secret_access_key: str = ""
+    cloudflare_r2_bucket: str = ""
+    cloudflare_r2_endpoint: str = ""
+    cloudflare_r2_use_path_style_endpoint: bool = True
+    cloudflare_r2_request_timeout_ms: int = Field(
+        default=30_000, ge=1_000, le=300_000
+    )
 
     # Embedding provider configuration
     # Default production configuration per STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md.

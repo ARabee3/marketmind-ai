@@ -35,7 +35,7 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
-from app.content.storage import create_asset_storage
+from app.content.storage import R2StorageConfig, create_asset_storage
 from app.content.validators import (
     validate_content_generation_request,
     validate_generated_content_pack,
@@ -301,6 +301,11 @@ async def generate_static_content_asset(
             create_asset_storage(
                 root=settings.content_asset_storage_dir,
                 allow_test_memory=settings.image_provider_mode in {"mock", "unavailable"},
+                r2=(
+                    R2StorageConfig.from_settings(settings)
+                    if settings.asset_storage_provider == "r2"
+                    else None
+                ),
             ),
         )
     except ValueError as error:

@@ -7,6 +7,7 @@ import os
 import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 from anyio import to_thread
@@ -220,8 +221,167 @@ class FileSystemAssetStorage(AssetStoragePort):
         return await to_thread.run_sync(target.read_bytes)
 
 
-def create_asset_storage(*, root: str, allow_test_memory: bool) -> AssetStoragePort:
-    """Select durable storage, an explicitly labelled test store, or unavailable."""
+@dataclass(frozen=True)
+class R2StorageConfig:
+    endpoint_url: str
+    access_key_id: str
+    secret_access_key: str
+    bucket: str
+    region: str = "auto"
+    timeout_seconds: float = 30.0
+    use_path_style_endpoint: bool = True
+
+    @classmethod
+    def from_settings(cls, settings) -> "R2StorageConfig":
+        return cls(
+            endpoint_url=settings.cloudflare_r2_endpoint,
+            access_key_id=settings.cloudflare_r2_access_key_id,
+            secret_access_key=settings.cloudflare_r2_secret_access_key,
+            bucket=settings.cloudflare_r2_bucket,
+            use_path_style_endpoint=settings.cloudflare_r2_use_path_style_endpoint,
+            timeout_seconds=settings.cloudflare_r2_request_timeout_ms / 1000,
+        )
+
+
+class R2AssetStorage(AssetStoragePort):
+    """S3-compatible driver for Cloudflare R2 with atomic immutable writes."""
+
+    available = True
+
+    def __init__(self, config: R2StorageConfig) -> None:
+        self._config = config
+
+    async def store(
+        self,
+        data: bytes,
+        *,
+        mime_type: str,
+        width: int,
+        height: int,
+        asset_id: str,
+    ) -> StoredAsset:
+        return await to_thread.run_sync(
+            self._store_sync, bytes(data), mime_type, width, height, asset_id
+        )
+
+    def _store_sync(
+        self,
+        data: bytes,
+        mime_type: str,
+        width: int,
+        height: int,
+        asset_id: str,
+    ) -> StoredAsset:
+        if not data:
+            raise ValueError("asset bytes must not be empty")
+        extension = _MIME_EXTENSIONS.get(mime_type)
+        if extension is None:
+            raise ValueError("unsupported asset MIME type")
+
+        storage_key = f"content/generated/{asset_id}.{extension}"
+        checksum = hashlib.sha256(data).hexdigest()
+        client = _r2_client(self._config)
+        try:
+            client.put_object(
+                Bucket=self._config.bucket,
+                Key=storage_key,
+                Body=data,
+                ContentType=mime_type,
+                CacheControl="public, max-age=31536000, immutable",
+                Metadata={"width": str(width), "height": str(height)},
+                IfNoneMatch="*",
+            )
+        except Exception as error:
+            if _is_precondition_failed(error):
+                existing = self._retrieve_sync(client, storage_key)
+                if existing != data:
+                    raise ValueError(
+                        "immutable asset identity already stores different bytes"
+                    ) from error
+            else:
+                raise
+
+        return StoredAsset(
+            storage_key=storage_key,
+            checksum=checksum,
+            mime_type=mime_type,
+            width=width,
+            height=height,
+        )
+
+    async def retrieve(self, storage_key: str) -> bytes:
+        return await to_thread.run_sync(self._retrieve_sync, _r2_client(self._config), storage_key)
+
+    def _retrieve_sync(self, client, storage_key: str) -> bytes:
+        _validate_storage_key(storage_key)
+        response = client.get_object(Bucket=self._config.bucket, Key=storage_key)
+        return response["Body"].read()
+
+    async def presign_read_url(self, storage_key: str, expires_seconds: int = 3600) -> str:
+        _validate_storage_key(storage_key)
+        client = _r2_client(self._config)
+        return await to_thread.run_sync(
+            partial(
+                client.generate_presigned_url,
+                "get_object",
+                Params={"Bucket": self._config.bucket, "Key": storage_key},
+                ExpiresIn=expires_seconds,
+            )
+        )
+
+
+def _validate_storage_key(storage_key: str) -> None:
+    root = Path("content/generated")
+    target = Path(storage_key)
+    try:
+        target.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError("asset retrieval path escaped its configured root") from exc
+
+
+def _is_precondition_failed(error: Exception) -> bool:
+    response = getattr(error, "response", None)
+    if not isinstance(response, dict):
+        return False
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    if status == 412:
+        return True
+    code = response.get("Error", {}).get("Code")
+    return code in {"PreconditionFailed", "ConditionalRequestConflict"}
+
+
+def _r2_client(config: R2StorageConfig):
+    try:
+        import boto3
+        from botocore.config import Config
+    except ImportError as exc:
+        raise ValueError("boto3 is required for the r2 asset storage provider") from exc
+    return boto3.client(
+        "s3",
+        endpoint_url=config.endpoint_url,
+        aws_access_key_id=config.access_key_id,
+        aws_secret_access_key=config.secret_access_key,
+        region_name=config.region,
+        config=Config(
+            signature_version="s3v4",
+            connect_timeout=config.timeout_seconds,
+            read_timeout=config.timeout_seconds,
+            s3={
+                "addressing_style": "path" if config.use_path_style_endpoint else "auto"
+            },
+        ),
+    )
+
+
+def create_asset_storage(
+    *,
+    root: str,
+    allow_test_memory: bool,
+    r2: R2StorageConfig | None = None,
+) -> AssetStoragePort:
+    """Select R2, durable filesystem, an explicitly labelled test store, or unavailable."""
+    if r2 is not None:
+        return R2AssetStorage(r2)
     if root.strip():
         return FileSystemAssetStorage(root)
     if allow_test_memory:
