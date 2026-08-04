@@ -60,6 +60,12 @@ const REVISE_REQUEST: AiContentReviseRequest = {
   idempotency_key: "rev-1",
 };
 
+const REVISE_ENVELOPE = {
+  request: REVISE_REQUEST,
+  previous_item_version: { id: "ver-1" } as any,
+  generation_request: { contract_version: "content-v1" } as any,
+};
+
 const REVISE_RESPONSE: AiContentReviseResponse = {
   contract_version: "content-v1",
   item_version: { id: "ver-2" },
@@ -198,11 +204,11 @@ describe("ContentAiClient", () => {
     it("posts to the revise endpoint and returns the validated response", async () => {
       httpService.post.mockReturnValue(of({ data: REVISE_RESPONSE }));
 
-      const result = await client.revise(REVISE_REQUEST);
+      const result = await client.revise(REVISE_ENVELOPE);
 
       expect(httpService.post).toHaveBeenCalledWith(
         "http://localhost:8000/internal/v1/ai/content/revise",
-        REVISE_REQUEST,
+        REVISE_ENVELOPE,
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
       expect(result).toEqual(REVISE_RESPONSE);
@@ -213,7 +219,7 @@ describe("ContentAiClient", () => {
         throwError(() => ({ response: { status: 503 } })),
       );
 
-      await expect(client.revise(REVISE_REQUEST)).rejects.toMatchObject({
+      await expect(client.revise(REVISE_ENVELOPE)).rejects.toMatchObject({
         code: "CONTENT_PROVIDER_FAILURE",
         retryable: true,
       });

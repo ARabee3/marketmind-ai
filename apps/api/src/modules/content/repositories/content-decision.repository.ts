@@ -137,16 +137,31 @@ export class ContentDecisionRepository {
         "This item version is no longer the current version. Refresh before deciding.",
       );
     }
-    if (
-      version.version !== input.versionNumber ||
-      version.versionChecksum !== input.versionChecksum
-    ) {
-      throw versionConflict(
-        "The submitted version checksum no longer matches the current item version.",
-      );
-    }
+if (
+    version.version !== input.versionNumber
+    || version.versionChecksum !== input.versionChecksum
+  ) {
+    throw versionConflict(
+      "The submitted version checksum no longer matches the current item version.",
+    );
+  }
 
-    let decision: ContentDecisionRow;
+  // One terminal decision per exact item version: reject a second decision
+  // with a different idempotency key before inserting (arch doc 559-569).
+  const existingTerminal = await tx.contentDecision.findFirst({
+    where: {
+      contentItemId: input.itemId,
+      contentItemVersionId: input.versionId,
+    },
+    select: { id: true },
+  });
+  if (existingTerminal) {
+    throw versionConflict(
+      "This item version has already received a terminal decision.",
+    );
+  }
+
+  let decision: ContentDecisionRow;
     try {
       decision = (await tx.contentDecision.create({
         data: {

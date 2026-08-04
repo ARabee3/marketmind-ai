@@ -10,10 +10,17 @@ import {
   AiContentReviseResponse,
   AiStaticAssetGenerateRequest,
   AiStaticAssetGenerateResponse,
+  ContentItemVersion,
   validateInternalContentGenerateRequest,
 } from "@marketmind/contracts";
 
 const CONTENT_AI_REQUEST_TIMEOUT_MS = 60_000;
+
+type ContentReviseEnvelope = {
+  readonly request: AiContentReviseRequest;
+  readonly previous_item_version: ContentItemVersion;
+  readonly generation_request: AiContentGenerateRequest;
+};
 
 /**
  * HTTP client for the FastAPI content-generation service.
@@ -68,11 +75,11 @@ export class ContentAiClient {
   }
 
   async revise(
-    request: AiContentReviseRequest,
+    envelope: ContentReviseEnvelope,
   ): Promise<AiContentReviseResponse> {
     const response = await this.post<AiContentReviseResponse>(
       "/internal/v1/ai/content/revise",
-      request,
+      envelope,
     );
 
     if (!isReviseResponse(response)) {

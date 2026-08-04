@@ -451,6 +451,12 @@ export class PublicationCandidateRepository {
     });
   }
 
+  async getOutboxEventById(eventId: string) {
+    return this.prisma.publicationCandidateOutbox.findUnique({
+      where: { eventId },
+    });
+  }
+
   private selectCaption(
     captionVariants: Prisma.InputJsonValue,
     languageMode: string,

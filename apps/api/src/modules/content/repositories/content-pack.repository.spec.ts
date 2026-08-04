@@ -10,6 +10,8 @@ import {
 } from "./content-pack.repository";
 
 const DRAFT: ContentItemVersionDraftInput = {
+  id: "version-1",
+  contentItemId: "item-1",
   channel: "instagram",
   format: "post",
   languageMode: "ar",
@@ -195,6 +197,7 @@ describe("ContentPackRepository", () => {
   describe("claimQueuedPack", () => {
     function makeClaimTx() {
       const packCreate = jest.fn().mockResolvedValue(PACK_ROW);
+      const cycleUpdate = jest.fn().mockResolvedValue({ id: "cycle-1" });
       return {
         tx: {
           contentCycle: {
@@ -204,16 +207,20 @@ describe("ContentPackRepository", () => {
               strategyVersion: 3,
               strategyDecisionId: "decision-1",
               profileVersionId: "profile-1",
+              currentWeekNumber: 2,
             }),
+            update: cycleUpdate,
           },
           contentWeekContext: {
             findUniqueOrThrow: jest.fn().mockResolvedValue({
               weeklyClaimId: "claim-1",
+              weekStartDate: new Date("2026-01-01"),
             }),
           },
           contentPack: { create: packCreate },
         },
         packCreate,
+        cycleUpdate,
       };
     }
 

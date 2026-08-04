@@ -9,6 +9,14 @@ import { ProviderError } from '../../common/errors/provider-error';
 import { randomUUID } from 'crypto';
 import { CONTENT_ASSET_STORAGE } from './assets/asset-storage.port';
 
+jest.mock('@marketmind/contracts', () => {
+  const actual = jest.requireActual('@marketmind/contracts');
+  return {
+    ...actual,
+    validateContentPolicyFixture: jest.fn(() => ({ valid: true, issues: [] })),
+  };
+});
+
 describe('ContentProcessor - Revision Flow', () => {
   let processor: ContentProcessor;
   let packRepo: jest.Mocked<ContentPackRepository>;
@@ -148,6 +156,45 @@ describe('ContentProcessor - Revision Flow', () => {
       getActiveConfirmedProfileVersion: jest.fn(),
     } as any;
 
+    cycleRepo.getCycleById.mockResolvedValue({ status: "active" } as any);
+    weekContextRepo.getWeekById.mockResolvedValue({
+      id: "week-1",
+      contractVersion: "content-v1",
+      contentCycleId: mockPack.contentCycleId,
+      weekNumber: mockPack.weekNumber,
+      weekStartDate: new Date("2026-01-01"),
+      promotionMode: "none",
+      promotion: null,
+      mustInclude: [],
+      mustAvoid: [],
+      approvedAssetIds: [],
+      ctaDestination: { type: "none", value: null },
+      generationCutoffAt: new Date("2026-01-08"),
+      weeklyClaimId: "claim-1",
+      contextSource: "system_defaulted",
+      confirmedByUserId: null,
+      confirmedAt: null,
+      systemDefaultedAt: new Date("2026-01-01"),
+    } as any);
+    strategyRepo.readStrategy.mockResolvedValue({ status: "approved" } as any);
+    strategyRepo.getVersionByNumber.mockResolvedValue({
+      planData: {
+        content_strategy: { weeks: [{ week_number: 1, formats: ["static_image_post"] }] },
+        selected_channels: [{ channel: "facebook" }, { channel: "instagram" }],
+        plan_language: "ar-EG",
+      },
+    } as any);
+    strategyRepo.getDecisionById.mockResolvedValue({ action: "approve" } as any);
+    strategyRepo.getActiveConfirmedProfileVersion.mockResolvedValue({
+      id: mockPack.profileVersionId,
+      businessId: "biz-1",
+      version: 1,
+      profile: {},
+      confirmedByUserId: "owner-1",
+      confirmedAt: new Date(),
+      createdAt: new Date(),
+    } as any);
+
     aiClient = {
       revise: jest.fn(),
     } as any;
@@ -210,16 +257,21 @@ describe('ContentProcessor - Revision Flow', () => {
 
       await processor.process(createJob({}) as any);
 
-      expect(aiClient.revise).toHaveBeenCalledWith({
-        contract_version: 'content-v1',
-        content_pack_id: mockPack.id,
-        content_item_id: mockItem.id,
-        base_item_version_id: mockBaseVersion.id,
-        revision_notes: revisionNotes,
-        idempotency_key: idempotencyKey,
-      });
+      expect(aiClient.revise).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request: expect.objectContaining({
+            contract_version: 'content-v1',
+            content_pack_id: mockPack.id,
+            content_item_id: mockItem.id,
+            base_item_version_id: mockBaseVersion.id,
+            revision_notes: revisionNotes,
+            idempotency_key: idempotencyKey,
+          }),
+        }),
+      );
 
       expect(packRepo.appendRevisedItemVersion).toHaveBeenCalledWith({
+        id: expect.any(String),
         packId: mockPack.id,
         itemId: mockItem.id,
         baseVersionId: mockBaseVersion.id,
@@ -384,6 +436,7 @@ describe('ContentProcessor - Revision Flow', () => {
 
       expect(packRepo.appendRevisedItemVersion).toHaveBeenCalledWith(
         expect.objectContaining({
+          id: expect.any(String),
           newVersionNumber: 3,
         }),
       );

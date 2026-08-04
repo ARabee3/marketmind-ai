@@ -293,6 +293,8 @@ function makePackRepo(overrides: Partial<MockedPackRepo> = {}): MockedPackRepo {
     }),
     getItemById: jest.fn().mockResolvedValue(null),
     listAssetsForVersion: jest.fn().mockResolvedValue([]),
+    hasPackForWeek: jest.fn().mockResolvedValue(false),
+    derivePackStatusFromItems: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -366,11 +368,13 @@ describe("ContentService.createCycle", () => {
   let strategyRepo: MockedStrategyRepo;
   let cycleRepo: MockedCycleRepo;
   let weekRepo: MockedWeekRepo;
+  let packRepo: MockedPackRepo;
 
   beforeEach(async () => {
     strategyRepo = makeStrategyRepo();
     cycleRepo = makeCycleRepo();
     weekRepo = makeWeekRepo();
+    packRepo = makePackRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -378,7 +382,7 @@ describe("ContentService.createCycle", () => {
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
-        { provide: ContentPackRepository, useValue: makePackRepo() },
+        { provide: ContentPackRepository, useValue: packRepo },
         { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
         { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
@@ -478,6 +482,13 @@ describe("ContentService.createCycle", () => {
         week_start_date: "2026-08-01",
       }),
       OWNER_ID,
+    );
+
+    // Issue #110 requires week 1 to be queued immediately on cycle creation.
+    expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
+      "cycle-1",
+      1,
+      expect.any(String),
     );
   });
 
@@ -809,7 +820,7 @@ describe("ContentService.generateWeek", () => {
 
   it("returns the existing pack without enqueuing when another request already claimed the week", async () => {
     (packRepo.claimQueuedPack as jest.Mock).mockResolvedValue({
-      pack: PACK_ROW,
+      pack: { ...PACK_ROW, itemIds: ["item-1"] },
       created: false,
     });
 

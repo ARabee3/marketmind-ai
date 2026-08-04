@@ -9,7 +9,7 @@ describe('ContentExceptionFilter', () => {
 
   beforeEach(() => {
     filter = new ContentExceptionFilter();
-    
+
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),

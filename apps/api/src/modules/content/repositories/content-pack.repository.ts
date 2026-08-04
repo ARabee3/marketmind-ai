@@ -2,8 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma, ContentPack } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { canTransitionContentPack, ContentPackStatus } from "@marketmind/contracts";
+import { startOfCairoDay, addDaysIso } from "../content.service";
 
 export type ContentItemVersionDraftInput = {
+  readonly id: string;
+  readonly contentItemId: string;
   readonly channel: string;
   readonly format: string;
   readonly languageMode: string;
@@ -48,6 +51,7 @@ export type PersistGeneratedItemsInput = {
 };
 
 export type AppendRevisedItemVersionInput = {
+  readonly id: string;
   readonly packId: string;
   readonly itemId: string;
   readonly baseVersionId: string;
@@ -156,6 +160,7 @@ export class ContentPackRepository {
         for (const [index, draft] of input.items.entries()) {
           const item = await tx.contentItem.create({
             data: {
+              id: draft.contentItemId,
               contentPackId: pack.id,
               status: "draft",
             },
@@ -164,6 +169,7 @@ export class ContentPackRepository {
 
           const version = await tx.contentItemVersion.create({
             data: {
+              id: draft.id,
               contentItemId: item.id,
               contentPackId: pack.id,
               version: 1,
@@ -257,15 +263,16 @@ export class ContentPackRepository {
             strategyVersion: true,
             strategyDecisionId: true,
             profileVersionId: true,
+            currentWeekNumber: true,
           },
         });
 
         const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
           where: { id: weekContextId },
-          select: { weeklyClaimId: true },
+          select: { weeklyClaimId: true, weekStartDate: true },
         });
 
-        return tx.contentPack.create({
+        const createdPack = await tx.contentPack.create({
           data: {
             contentCycleId: cycleId,
             weeklyClaimId: weekContext.weeklyClaimId,
@@ -281,6 +288,18 @@ export class ContentPackRepository {
             itemIds: [],
           },
         });
+
+        await tx.contentCycle.update({
+          where: { id: cycleId },
+          data: {
+            currentWeekNumber: weekNumber,
+            nextGenerationAt: startOfCairoDay(
+              addDaysIso(weekContext.weekStartDate.toISOString().slice(0, 10), 7),
+            ),
+          },
+        });
+
+        return createdPack;
       });
       return { pack, created: true };
     } catch (error) {
@@ -308,6 +327,13 @@ export class ContentPackRepository {
    */
   async getPackById(id: string): Promise<ContentPack | null> {
     return this.prisma.contentPack.findUnique({ where: { id } });
+  }
+
+  async hasPackForWeek(cycleId: string, weekNumber: number): Promise<boolean> {
+    const count = await this.prisma.contentPack.count({
+      where: { contentCycleId: cycleId, weekNumber },
+    });
+    return count > 0;
   }
 
   async getPackByIdAndOwner(
@@ -452,6 +478,41 @@ export class ContentPackRepository {
     return { changed: result.count === 1 };
   }
 
+  /**
+   * Re-derives pack status from every item's current status after owner
+   * decisions. All items approved -> "approved"; some approved ->
+   * "partially_approved"; none approved -> "draft".
+   */
+  async derivePackStatusFromItems(packId: string): Promise<void> {
+    const items = await this.prisma.contentItem.findMany({
+      where: { contentPackId: packId },
+      select: { status: true },
+    });
+    if (items.length === 0) return;
+
+    const allApproved = items.every((item) => item.status === "approved");
+    const anyApproved = items.some((item) => item.status === "approved");
+
+    const targetStatus: ContentPackStatus = allApproved
+      ? "approved"
+      : anyApproved
+        ? "partially_approved"
+        : "draft";
+
+    const pack = await this.prisma.contentPack.findUnique({
+      where: { id: packId },
+      select: { status: true },
+    });
+    if (!pack || pack.status === "failed") return;
+    if (pack.status === targetStatus) return;
+    if (!canTransitionContentPack(pack.status as ContentPackStatus, targetStatus)) return;
+
+    await this.prisma.contentPack.updateMany({
+      where: { id: packId, status: pack.status },
+      data: { status: targetStatus },
+    });
+  }
+
   async persistGeneratedItems(
     input: PersistGeneratedItemsInput,
   ): Promise<ContentPack> {
@@ -470,6 +531,7 @@ export class ContentPackRepository {
       for (const draft of input.items) {
         const item = await tx.contentItem.create({
           data: {
+            id: draft.contentItemId,
             contentPackId: input.packId,
             status: "draft",
           },
@@ -478,6 +540,7 @@ export class ContentPackRepository {
 
         const version = await tx.contentItemVersion.create({
           data: {
+            id: draft.id,
             contentItemId: item.id,
             contentPackId: input.packId,
             version: 1,
@@ -606,6 +669,7 @@ export class ContentPackRepository {
 
       const newVersion = await tx.contentItemVersion.create({
         data: {
+          id: input.id,
           contentItemId: input.itemId,
           contentPackId: input.packId,
           version: input.newVersionNumber,

@@ -8,6 +8,7 @@ import {
   ContentItemVersion,
   ContentPolicyFixture,
   validateContentPolicyFixture,
+  CONTENT_FORMATS,
 } from "@marketmind/contracts";
 import type {
   StrategyPlan,
@@ -24,6 +25,7 @@ import { AssetStorage, buildAssetStorageKey, CONTENT_ASSET_STORAGE } from "./ass
 import {
   toContentWeekContext,
   toContentPack,
+  toContentItemVersion,
   toPayload,
   planSelectedChannels,
   normalizeStrategyDecision,
@@ -174,7 +176,7 @@ export class ContentProcessor extends WorkerHost {
         },
         week_context: toContentWeekContext(weekContext),
         selected_channels: selectedChannels,
-        allowed_formats: extractAllowedFormats(strategyVersion.planData),
+        allowed_formats: extractAllowedFormats(strategyVersion.planData, pack.weekNumber),
         language_mode: extractLanguageMode(strategyVersion.planData),
       };
 
@@ -212,10 +214,13 @@ export class ContentProcessor extends WorkerHost {
         };
 
         const result = validateContentPolicyFixture(fixture);
-        if (result.issues.length > 0) {
+        const blocking = result.issues.filter(
+          (issue) => issue.code !== "CONTENT_ASSET_REQUIRED",
+        );
+        if (blocking.length > 0) {
           throw new ProviderError(
-            result.issues[0].code,
-            result.issues[0].message,
+            blocking[0].code,
+            blocking[0].message,
             false,
           );
         }
@@ -337,7 +342,51 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
-      const request = {
+      const [cycle, weekContext, strategy, strategyVersion, strategyDecision, profileVersion] =
+        await Promise.all([
+          this.cycleRepo.getCycleById(pack.contentCycleId),
+          this.weekContextRepo.getWeekById(pack.weekContextId),
+          this.strategyRepo.readStrategy(pack.strategyId),
+          this.strategyRepo.getVersionByNumber(pack.strategyId, pack.strategyVersion),
+          this.strategyRepo.getDecisionById(pack.strategyDecisionId),
+          this.strategyRepo.getActiveConfirmedProfileVersion(pack.businessId),
+        ]);
+
+      if (!cycle || !weekContext || !strategy || !strategyVersion || !profileVersion) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Missing required data for revision of pack ${pack.id}`,
+          false,
+        );
+      }
+
+      const selectedChannels = planSelectedChannels(strategyVersion.planData);
+
+      const generationRequest = {
+        contract_version: "content-v1" as const,
+        content_pack_id: contentPackId,
+        business_id: pack.businessId,
+        strategy_id: pack.strategyId,
+        strategy_version: pack.strategyVersion,
+        strategy_decision_id: pack.strategyDecisionId,
+        strategy_plan: strategyVersion.planData as unknown as StrategyPlan,
+        business_profile: {
+          id: profileVersion.id,
+          business_id: profileVersion.businessId,
+          draft_id: profileVersion.id,
+          version: profileVersion.version,
+          profile: profileVersion.profile as unknown as BusinessProfileData,
+          confirmed_by_user_id: profileVersion.confirmedByUserId ?? undefined,
+          confirmed_at: profileVersion.confirmedAt?.toISOString() ?? undefined,
+          created_at: profileVersion.createdAt.toISOString(),
+        },
+        week_context: toContentWeekContext(weekContext),
+        selected_channels: selectedChannels,
+        allowed_formats: extractAllowedFormats(strategyVersion.planData, pack.weekNumber),
+        language_mode: extractLanguageMode(strategyVersion.planData),
+      };
+
+      const reviseRequest = {
         contract_version: "content-v1" as const,
         content_pack_id: contentPackId,
         content_item_id: contentItemId,
@@ -346,60 +395,55 @@ export class ContentProcessor extends WorkerHost {
         idempotency_key: idempotencyKey,
       };
 
-      const response = await this.contentAiClient.revise(request);
+      const response = await this.contentAiClient.revise({
+        request: reviseRequest,
+        previous_item_version: toContentItemVersion(baseVersion),
+        generation_request: generationRequest,
+      });
 
       const newVersion = response.item_version;
       const newVersionNumber = baseVersion.version + 1;
 
-      // AC-4: every AI output must pass deterministic validation before
-      // being persisted.  Replicates the handleGenerate fixture pattern
-      // using the pack's stored identity pointers (no owner needed —
-      // the processor is a system actor).
+      // AC-4: validate revised output. Use the persisted pack identity (item_ids)
+      // and skip CONTENT_ASSET_REQUIRED at the draft gate — assets are generated
+      // by the static-asset worker and enforced at approval time.
       {
-        const [cycle, weekContext, strategy, strategyVersion, strategyDecision, profileVersion] =
-          await Promise.all([
-            this.cycleRepo.getCycleById(pack.contentCycleId),
-            this.weekContextRepo.getWeekById(pack.weekContextId),
-            this.strategyRepo.readStrategy(pack.strategyId),
-            this.strategyRepo.getVersionByNumber(pack.strategyId, pack.strategyVersion),
-            this.strategyRepo.getDecisionById(pack.strategyDecisionId),
-            this.strategyRepo.getActiveConfirmedProfileVersion(pack.businessId),
-          ]);
-
-        if (cycle && weekContext && strategy && strategyVersion && profileVersion) {
-          const fixture: ContentPolicyFixture = {
+        const fixture: ContentPolicyFixture = {
+          strategy_id: pack.strategyId,
+          strategy_version: pack.strategyVersion,
+          strategy_status: strategy.status as ContentPolicyFixture["strategy_status"],
+          strategy_decision: {
+            id: pack.strategyDecisionId,
             strategy_id: pack.strategyId,
             strategy_version: pack.strategyVersion,
-            strategy_status: strategy.status as ContentPolicyFixture["strategy_status"],
-            strategy_decision: {
-              id: pack.strategyDecisionId,
-              strategy_id: pack.strategyId,
-              strategy_version: pack.strategyVersion,
-              decision: normalizeStrategyDecision(strategyDecision?.action),
-            },
-            cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
-            profile_version_id: pack.profileVersionId,
-            current_profile_version_id: profileVersion.id,
-            selected_channels: planSelectedChannels(strategyVersion.planData),
-            existing_weekly_claims: [],
-            week_context: toContentWeekContext(weekContext),
-            pack: { ...toContentPack(pack), item_ids: [] },
-            item_version: newVersion,
-            assets: [],
-          };
+            decision: normalizeStrategyDecision(strategyDecision?.action),
+          },
+          cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
+          profile_version_id: pack.profileVersionId,
+          current_profile_version_id: profileVersion.id,
+          selected_channels: selectedChannels,
+          existing_weekly_claims: [],
+          week_context: toContentWeekContext(weekContext),
+          pack: toContentPack(pack),
+          item_version: newVersion,
+          assets: [],
+        };
 
-          const result = validateContentPolicyFixture(fixture);
-          if (!result.valid) {
-            throw new ProviderError(
-              result.issues[0].code,
-              `Revision policy validation failed: ${result.issues[0].message}`,
-              false,
-            );
-          }
+        const result = validateContentPolicyFixture(fixture);
+        const blocking = result.issues.filter(
+          (issue) => issue.code !== "CONTENT_ASSET_REQUIRED",
+        );
+        if (blocking.length > 0) {
+          throw new ProviderError(
+            blocking[0].code,
+            `Revision policy validation failed: ${blocking[0].message}`,
+            false,
+          );
         }
       }
 
       const persisted = await this.packRepo.appendRevisedItemVersion({
+        id: newVersion.id,
         packId: contentPackId,
         itemId: contentItemId,
         baseVersionId: baseItemVersionId,
@@ -584,6 +628,8 @@ export class ContentProcessor extends WorkerHost {
 
 function toDraftInput(iv: ContentItemVersion): ContentItemVersionDraftInput {
   return {
+    id: iv.id,
+    contentItemId: iv.content_item_id,
     channel: iv.channel,
     format: iv.format,
     languageMode: iv.language_mode,
@@ -609,16 +655,37 @@ function toDraftInput(iv: ContentItemVersion): ContentItemVersionDraftInput {
   };
 }
 
-function extractAllowedFormats(planData: unknown): ContentFormat[] {
+function extractAllowedFormats(
+  planData: unknown,
+  weekNumber: number,
+): ContentFormat[] {
   const plan = toPayload(planData);
-  const formats = plan["allowed_formats"];
-  if (!Array.isArray(formats)) return [];
-  // MVP content pipeline supports post/story/reel only; other formats in the
-  // strategy are intentionally dropped here. Lift this allowlist when the
-  // content processor and asset providers gain the new formats.
+  const contentStrategy = plan["content_strategy"];
+  if (
+    !contentStrategy ||
+    typeof contentStrategy !== "object" ||
+    Array.isArray(contentStrategy)
+  ) {
+    return [...CONTENT_FORMATS];
+  }
+  const weeks = (contentStrategy as Record<string, unknown>)["weeks"];
+  if (!Array.isArray(weeks) || weeks.length === 0) {
+    return [...CONTENT_FORMATS];
+  }
+  const weekPlan = weeks.find(
+    (w) =>
+      typeof w === "object" &&
+      w !== null &&
+      String((w as Record<string, unknown>)["week_number"]) ===
+        String(weekNumber),
+  );
+  if (!weekPlan || typeof weekPlan !== "object") {
+    return [...CONTENT_FORMATS];
+  }
+  const formats = (weekPlan as Record<string, unknown>)["formats"];
+  if (!Array.isArray(formats)) return [...CONTENT_FORMATS];
   return formats.filter(
-    (f): f is ContentFormat =>
-      typeof f === "string" && ["post", "story", "reel"].includes(f),
+    (f): f is ContentFormat => typeof f === "string" && (CONTENT_FORMATS as readonly string[]).includes(f),
   );
 }
 

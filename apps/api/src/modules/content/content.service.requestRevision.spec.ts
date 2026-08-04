@@ -211,6 +211,8 @@ function makePackRepo(): MockedPackRepo {
     getItemById: jest.fn().mockResolvedValue(ITEM_ROW),
     listItemVersions: jest.fn().mockResolvedValue([ITEM_VERSION_ROW]),
     listAssetsForVersion: jest.fn().mockResolvedValue([]),
+    derivePackStatusFromItems: jest.fn().mockResolvedValue(undefined),
+    hasPackForWeek: jest.fn().mockResolvedValue(false),
   };
 }
 

@@ -190,6 +190,23 @@ export class ContentService {
       });
     }
 
+    const strategyDecision =
+      await this.strategyRepository.getDecisionById(
+        dto.strategy_decision_id,
+      );
+    if (
+      !strategyDecision
+      || strategyDecision.strategyVersionId !== currentVersion.id
+      || strategyDecision.ownerUserId !== ownerUserId
+      || strategyDecision.action !== "approve"
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_STRATEGY_NOT_APPROVED",
+        message:
+          "The supplied strategy_decision_id does not match the approved Strategy version for this owner.",
+      });
+    }
+
     // Week 1 starts on the Strategy brief's start date. The generation cutoff
     // for week 1 is the end of the current Strategy week (start of week 2),
     // so the next draft is available before the next week begins (arch doc
@@ -224,6 +241,20 @@ export class ContentService {
 
     this.logger.log(
       `[ContentCycle ${cycle.id}] Created from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
+    );
+
+    // Issue #110 requires week 1 to be queued immediately when the cycle starts.
+    // generateWeek's idempotent claim ensures a duplicate cycle-creation request
+    // never enqueues two jobs.
+    await this.generateWeek(
+      cycle.id,
+      1,
+      {
+        content_cycle_id: cycle.id,
+        week_number: 1,
+        idempotency_key: `cycle-creation:${cycle.id}:week:1`,
+      },
+      ownerUserId,
     );
 
     return {
@@ -289,6 +320,16 @@ export class ContentService {
       throw new ConflictException({
         code: "CONTENT_WEEK_ALREADY_CLAIMED",
         message: `Week ${weekNumber} was already claimed by the system safe default.`,
+      });
+    }
+
+    // Once a pack has been claimed for this week, the context is frozen —
+    // generation and approval must observe the same context bytes.
+    const packExists = await this.packRepository.hasPackForWeek(cycleId, weekNumber);
+    if (packExists) {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} context is frozen; a content pack has already been generated.`,
       });
     }
 
@@ -410,8 +451,22 @@ export class ContentService {
 
     const correlationId = randomUUID();
     if (!created) {
-      // Idempotent replay: the week is already claimed; return the existing
-      // pack without enqueuing a duplicate job (arch doc 932-933).
+      // Idempotent replay. If the pack is still queued (no worker picked it up
+      // because a previous queue.add failed after the claim), re-enqueue to
+      // close the DB→Redis orphan window.
+      if (pack.status === "queued" && (!Array.isArray(pack.itemIds) || pack.itemIds.length === 0)) {
+        await this.contentQueue.add(
+          "generate-content",
+          {
+            contentCycleId: cycleId,
+            weekNumber,
+            contentPackId: pack.id,
+            idempotencyKey: dto.idempotency_key,
+            correlationId: `pack:${pack.id}`,
+          },
+          { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        );
+      }
       return {
         content_pack: toContentPack(pack),
         status: "queued",
@@ -882,6 +937,8 @@ export class ContentService {
       });
     }
 
+    await this.packRepository.derivePackStatusFromItems(packId);
+
     this.logger.log(
       `[ContentItem ${item.id}] Owner decision ${decision.decision} on version ${decision.contentItemVersion} (${decision.id}) persisted${publicationCandidate ? `; candidate ${publicationCandidate.candidate_id} created` : ""}.`,
     );
@@ -1256,6 +1313,8 @@ export class ContentService {
       recorded.map((decision) => [decision.contentItemId, decision]),
     );
     const errorByItemId = new Map(errors.map((error) => [error.itemId, error]));
+
+    await this.packRepository.derivePackStatusFromItems(packId);
 
     return decisions.map((request) => {
       const ineligible = ineligibleByItemId.get(request.content_item_id);
@@ -1665,7 +1724,7 @@ function toCairoIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function addDaysIso(isoDate: string, days: number): string {
+export function addDaysIso(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const utcMidnight = Date.UTC(year, month - 1, day + days);
   return toCairoIsoDate(new Date(utcMidnight));
@@ -1692,7 +1751,7 @@ function weekCutoffFor(nextGenerationAt: Date, weekNumber: number): Date {
  * Cairo is UTC+2 (or UTC+3 during DST), so midnight is 21:00/22:00 UTC of the
  * previous day; scanning from 20:00 UTC covers both offsets.
  */
-function startOfCairoDay(isoDate: string): Date {
+export function startOfCairoDay(isoDate: string): Date {
   const [year, month, day] = isoDate.split("-").map(Number);
   let candidate = Date.UTC(year, month - 1, day - 1, 20);
   while (toCairoIsoDate(new Date(candidate)) !== isoDate) {

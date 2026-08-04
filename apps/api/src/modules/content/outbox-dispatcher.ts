@@ -28,10 +28,9 @@ export class OutboxDispatcher extends WorkerHost {
 
     this.logger.log(`Processing outbox event: ${eventId}`);
 
-    const pendingEvents = await this.candidateRepo.listOutboxPending(1);
-    const event = pendingEvents.find((e) => e.eventId === eventId);
+    const event = await this.candidateRepo.getOutboxEventById(eventId);
 
-    if (!event) {
+    if (!event || event.state !== "pending") {
       this.logger.warn(`Event ${eventId} not found or not pending`);
       return;
     }
@@ -40,9 +39,8 @@ export class OutboxDispatcher extends WorkerHost {
 
     if (!webhookUrl) {
       this.logger.log(
-        `No AUTOMATION_WEBHOOK_URL configured, marking event ${eventId} as dispatched (emit boundary only)`,
+        `No AUTOMATION_WEBHOOK_URL configured for event ${eventId}; leaving pending`,
       );
-      await this.candidateRepo.markOutboxDispatched(eventId);
       return;
     }
 

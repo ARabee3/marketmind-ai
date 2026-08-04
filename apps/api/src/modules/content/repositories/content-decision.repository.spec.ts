@@ -68,7 +68,8 @@ describe("ContentDecisionRepository", () => {
       });
 
       const tx = {
-        contentDecision: { create: decisionCreate, findUnique: decisionFindUnique },
+        contentDecision: { create: decisionCreate, findUnique: decisionFindUnique, findFirst: jest.fn().mockResolvedValue(null) },
+              findFirst: jest.fn().mockResolvedValue(null),
         contentItem: { findUnique: itemFindUnique, updateMany: itemUpdateMany },
         contentItemVersion: { findUnique: versionFindUnique },
         ...overrides,
@@ -124,6 +125,7 @@ describe("ContentDecisionRepository", () => {
             ...makeTx().tx,
             contentDecision: {
               create: decisionCreate,
+              findFirst: jest.fn().mockResolvedValue(null),
               findUnique: jest.fn().mockResolvedValue(DECISION_ROW),
             },
           }),
@@ -174,6 +176,7 @@ describe("ContentDecisionRepository", () => {
           callback({
             contentDecision: {
               create: decisionCreate,
+              findFirst: jest.fn().mockResolvedValue(null),
               findUnique: jest.fn().mockResolvedValue(null),
             },
             contentItem: {
@@ -258,6 +261,7 @@ describe("ContentDecisionRepository", () => {
       const tx = {
         contentDecision: {
           create: decisionCreate,
+              findFirst: jest.fn().mockResolvedValue(null),
           findMany: decisionFindMany,
         },
         contentItem: { findMany: itemFindMany, updateMany: itemUpdateMany },
@@ -339,6 +343,7 @@ describe("ContentDecisionRepository", () => {
           callback({
             contentDecision: {
               create: decisionCreate,
+              findFirst: jest.fn().mockResolvedValue(null),
               findMany: jest.fn().mockResolvedValue([]),
             },
             contentItem: {
@@ -421,6 +426,7 @@ describe("ContentDecisionRepository", () => {
           callback({
             contentDecision: {
               create: decisionCreate,
+              findFirst: jest.fn().mockResolvedValue(null),
               findMany: jest
                 .fn()
                 .mockResolvedValueOnce([]) // decided-by-version: none
