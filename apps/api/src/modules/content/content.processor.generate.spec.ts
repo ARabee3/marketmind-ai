@@ -18,6 +18,7 @@ jest.mock("@marketmind/contracts", () => ({
 
 import {
   computeContentItemVersionChecksum,
+  deterministicGeneratedAssetId,
   validateContentPolicyFixture,
 } from "@marketmind/contracts";
 
@@ -79,6 +80,7 @@ const WEEK_CONTEXT = {
   confirmedByUserId: "owner-1",
   confirmedAt: new Date("2025-12-20"),
   systemDefaultedAt: null,
+  frozenAt: null,
   createdAt: new Date("2025-12-20"),
 };
 
@@ -228,6 +230,18 @@ const AI_RESPONSE_6_ITEMS = {
     makeItemVersion("4"),
     makeItemVersion("5"),
     makeItemVersion("6"),
+  ],
+};
+
+const AI_RESPONSE_WITH_GENERATED_ASSET = {
+  ...AI_RESPONSE_3_ITEMS,
+  item_versions: [
+    makeItemVersion("1", {
+      asset_required: true,
+      format: "static_image_post",
+    }),
+    makeItemVersion("2"),
+    makeItemVersion("3"),
   ],
 };
 
@@ -393,6 +407,140 @@ describe("ContentProcessor", () => {
         messageKey: "content.ready",
         messageText: "Content pack draft ready for review.",
       });
+    });
+
+    it("keeps a planned generated asset in the policy fixture until the asset worker runs", async () => {
+      const assetVersionId = String(
+        AI_RESPONSE_WITH_GENERATED_ASSET.item_versions[0].id,
+      );
+      const assetId = deterministicGeneratedAssetId(assetVersionId);
+      client.generate.mockResolvedValue(AI_RESPONSE_WITH_GENERATED_ASSET as never);
+      packRepo.listReusableAssets = jest.fn().mockResolvedValue([]);
+      packRepo.getAssetById = jest.fn().mockResolvedValue({
+        id: assetId,
+        contentItemVersionId: assetVersionId,
+        status: "generating",
+      });
+
+      await processor.process(makeJob());
+
+      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
+        .calls.map((call) => call[0])
+        .reverse()
+        .find((fixture) => fixture.item_version.asset_required);
+      expect(assetFixture.assets).toEqual([
+        expect.objectContaining({
+          id: assetId,
+          content_item_version_id: assetVersionId,
+          kind: "generated_static",
+          status: "generating",
+        }),
+      ]);
+      expect(packRepo.persistGeneratedItems).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assetJobs: [
+            expect.objectContaining({
+              assetId,
+              contentItemVersionId: assetVersionId,
+            }),
+          ],
+        }),
+      );
+    });
+
+    it("exposes only explicitly approved reusable assets to policy validation", async () => {
+      const assetId = "asset-approved";
+      const response = {
+        ...AI_RESPONSE_3_ITEMS,
+        item_versions: [
+          makeItemVersion("1", {
+            asset_required: true,
+            format: "static_image_post",
+            asset_ids: [assetId],
+          }),
+          makeItemVersion("2"),
+          makeItemVersion("3"),
+        ],
+      };
+      client.generate.mockResolvedValue(response as never);
+      weekContextRepo.getWeekById.mockResolvedValue({
+        ...WEEK_CONTEXT,
+        approvedAssetIds: [assetId],
+      });
+      packRepo.listReusableAssets = jest.fn().mockResolvedValue([
+        {
+          id: assetId,
+          contentItemVersionId: "prior-version",
+          kind: "owner_supplied",
+          status: "ready",
+          mimeType: "image/jpeg",
+          storageKey: "asset/key",
+          checksum: "a".repeat(64),
+          width: 1080,
+          height: 1080,
+          altText: "وصف الصورة",
+          providerName: null,
+          providerModel: null,
+          providerRequestId: null,
+          failureCode: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ]);
+      packRepo.getAssetById = jest.fn().mockResolvedValue(null);
+
+      await processor.process(makeJob());
+
+      expect(packRepo.listReusableAssets).toHaveBeenCalledWith(
+        [assetId],
+        "business-1",
+        "owner-1",
+      );
+      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
+        .calls.map((call) => call[0])
+        .reverse()
+        .find((fixture) => fixture.item_version.asset_required);
+      expect(assetFixture.assets).toEqual([
+        expect.objectContaining({
+          id: assetId,
+          content_item_version_id: "1",
+          kind: "owner_supplied",
+          status: "ready",
+        }),
+      ]);
+    });
+
+    it("does not put an unapproved reusable asset in the policy fixture", async () => {
+      const assetId = "asset-not-approved";
+      const response = {
+        ...AI_RESPONSE_3_ITEMS,
+        item_versions: [
+          makeItemVersion("1", {
+            asset_required: true,
+            format: "static_image_post",
+            asset_ids: [assetId],
+          }),
+          makeItemVersion("2"),
+          makeItemVersion("3"),
+        ],
+      };
+      client.generate.mockResolvedValue(response as never);
+      packRepo.listReusableAssets = jest.fn().mockResolvedValue([
+        { id: assetId, status: "ready" },
+      ]);
+      packRepo.getAssetById = jest.fn().mockResolvedValue(null);
+
+      await processor.process(makeJob());
+
+      expect(packRepo.listReusableAssets).toHaveBeenCalledWith(
+        [],
+        "business-1",
+        "owner-1",
+      );
+      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
+        .calls.map((call) => call[0])
+        .reverse()
+        .find((fixture) => fixture.item_version.asset_required);
+      expect(assetFixture.assets).toEqual([]);
     });
   });
 

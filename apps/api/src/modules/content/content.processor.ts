@@ -2,10 +2,11 @@ import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { Queue } from "bullmq";
 import { Injectable, Logger, Inject, Optional } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, type ContentAsset as PrismaContentAsset } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
 import {
+  ContentAsset,
   ContentItemVersion,
   ContentPolicyFixture,
   deterministicGeneratedAssetId,
@@ -23,13 +24,13 @@ import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
 import {
   AssetStorage,
-  buildAssetStorageKey,
   CONTENT_ASSET_STORAGE,
 } from "./assets/asset-storage.port";
 import {
   toContentWeekContext,
   toContentPack,
   toContentItemVersion,
+  toContentAsset,
   normalizeStrategyDecision,
 } from "./content.service";
 import {
@@ -231,6 +232,12 @@ export class ContentProcessor extends WorkerHost {
       };
 
       for (const itemVersion of normalizedItemVersions) {
+        const fixtureAssets = await this.buildPolicyAssets(
+          itemVersion,
+          pack,
+          cycle.ownerUserId,
+          toContentWeekContext(weekContext).approved_asset_ids,
+        );
         const fixture: ContentPolicyFixture = {
           strategy_id: pack.strategyId,
           strategy_version: pack.strategyVersion,
@@ -250,7 +257,7 @@ export class ContentProcessor extends WorkerHost {
           week_context: toContentWeekContext(weekContext),
           pack: fixturePack,
           item_version: itemVersion,
-          assets: [],
+          assets: fixtureAssets,
         };
 
         const result = validateContentPolicyFixture(fixture);
@@ -489,6 +496,12 @@ export class ContentProcessor extends WorkerHost {
       // and skip CONTENT_ASSET_REQUIRED at the draft gate — assets are generated
       // by the static-asset worker and enforced at approval time.
       {
+        const fixtureAssets = await this.buildPolicyAssets(
+          normalizedNewVersion,
+          pack,
+          cycle.ownerUserId,
+          toContentWeekContext(weekContext).approved_asset_ids,
+        );
         const fixture: ContentPolicyFixture = {
           strategy_id: pack.strategyId,
           strategy_version: pack.strategyVersion,
@@ -508,7 +521,7 @@ export class ContentProcessor extends WorkerHost {
           week_context: toContentWeekContext(weekContext),
           pack: toContentPack(pack),
           item_version: normalizedNewVersion,
-          assets: [],
+          assets: fixtureAssets,
         };
 
         const result = validateContentPolicyFixture(fixture);
@@ -748,6 +761,52 @@ export class ContentProcessor extends WorkerHost {
     }
   }
 
+  private async buildPolicyAssets(
+    item: ContentItemVersion,
+    pack: { readonly businessId: string },
+    ownerUserId: string,
+    approvedAssetIds: readonly string[],
+  ): Promise<ContentAsset[]> {
+    const approved = new Set(approvedAssetIds);
+    const reusableAssetIds = item.asset_ids.filter((assetId) =>
+      approved.has(assetId),
+    );
+    const reusable = this.packRepo.listReusableAssets
+      ? await this.packRepo.listReusableAssets(
+          reusableAssetIds,
+          pack.businessId,
+          ownerUserId,
+        )
+      : [];
+    const reusableById = new Map(reusable.map((asset) => [asset.id, asset]));
+
+    return item.asset_ids.flatMap((assetId) => {
+      const existing = approved.has(assetId)
+        ? reusableById.get(assetId)
+        : undefined;
+      if (existing) {
+        return [
+          toContentAsset({
+            ...existing,
+            contentItemVersionId: item.id,
+          } as PrismaContentAsset),
+        ];
+      }
+
+      if (
+        item.asset_required &&
+        assetId === deterministicGeneratedAssetId(item.id)
+      ) {
+        return [plannedGeneratedAsset(item, assetId)];
+      }
+
+      // Unknown IDs remain absent from the fixture so the deterministic
+      // policy validator fails closed instead of treating an unapproved or
+      // cross-business reference as a planned generated asset.
+      return [];
+    });
+  }
+
   private async queuePlannedAssetJobs(
     itemVersions: readonly ContentItemVersion[],
     correlationId: string,
@@ -789,6 +848,29 @@ export class ContentProcessor extends WorkerHost {
       }
     }
   }
+}
+
+function plannedGeneratedAsset(
+  item: ContentItemVersion,
+  assetId: string,
+): ContentAsset {
+  return {
+    id: assetId,
+    content_item_version_id: item.id,
+    kind: "generated_static",
+    status: "generating",
+    mime_type: null,
+    storage_key: null,
+    checksum: null,
+    width: null,
+    height: null,
+    alt_text: item.alt_text,
+    provider_name: null,
+    provider_model: null,
+    provider_request_id: null,
+    failure_code: null,
+    created_at: item.created_at,
+  };
 }
 
 function assetJobsForVersions(

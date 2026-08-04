@@ -588,6 +588,54 @@ export class ContentPackRepository {
   }
 
   /**
+   * Loads reusable, publication-capable assets for the exact business owner.
+   *
+   * A week context contains only asset IDs, so generation must resolve those
+   * IDs against the authoritative ownership graph before putting them in the
+   * provider-policy fixture. The version-link branch preserves approved asset
+   * reuse without changing the original asset row's owning version.
+   */
+  async listReusableAssets(
+    assetIds: readonly string[],
+    businessId: string,
+    ownerUserId: string,
+  ): Promise<Prisma.ContentAssetGetPayload<Record<string, never>>[]> {
+    const ids = [...new Set(assetIds)];
+    if (ids.length === 0) return [];
+
+    return this.prisma.contentAsset.findMany({
+      where: {
+        id: { in: ids },
+        status: "ready",
+        kind: { in: ["owner_supplied", "generated_static"] },
+        OR: [
+          {
+            contentItemVersion: {
+              contentPack: {
+                businessId,
+                contentCycle: { ownerUserId },
+              },
+            },
+          },
+          {
+            versionLinks: {
+              some: {
+                contentItemVersion: {
+                  contentPack: {
+                    businessId,
+                    contentCycle: { ownerUserId },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  /**
    * Resolves only the ownership context needed by billing at the worker
    * boundary. Asset bytes and provider payloads are deliberately not loaded.
    */
