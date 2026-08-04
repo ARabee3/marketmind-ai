@@ -83,6 +83,14 @@ export class TargetsService {
    * fabricating a credential or a signed authorization URL (anti-pattern:
    * never present a fake provider connection as real). When #120 lands, this
    * method returns the OAuth authorization URL consumed by the browser.
+   *
+   * TODO(#121-prod / credential vault): production stores the per-target Meta
+   * Page token as an ENCRYPTED credentialRef in Postgres, resolved here by
+   * NestJS and threaded to the runner. The demo n8n adapter instead reads the
+   * token from its own env (META_TEST_PAGE_ACCESS_TOKEN) — see the seed
+   * script's `credentialRef: "env:META..."`. That keeps the token off the
+   * browser and out of the dispatch body for this PR; build the encrypted
+   * vault before any shared/staging target is configured.
    */
   async connectMetaTarget(
     _businessId: string,
