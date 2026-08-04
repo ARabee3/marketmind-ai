@@ -1,11 +1,11 @@
 'use client'
 
-import { IntakeForm } from '@/features/discovery/components/intake-form'
+import { DiscoveryEntryGate } from '@/features/discovery/components/discovery-entry-gate'
 
 export default function DiscoveryNewPage() {
   return (
     <div className="py-8">
-      <IntakeForm />
+      <DiscoveryEntryGate />
     </div>
   )
 }

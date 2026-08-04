@@ -60,23 +60,31 @@ _SOLO_PATTERNS = (
     r"\bno team\b",
     r"\bowner only\b",
     r"\balone\b",
+    r"أنا وحدي",
+    r"لوحدي",
 )
 _LOW_PATTERNS = (
     r"part[- ]?time",
     r"\b1-2\b",
     r"\b2-3 hours\b",
     r"\bfew hours\b",
+    r"ساعت(?:ين|ان) أسبوعي(?:اً|ا)",
+    r"بضع ساعات",
 )
 _MEDIUM_PATTERNS = (
     r"\bdedicated\b",
     r"\bin[- ]house\b",
     r"\bmarketer\b",
     r"\bmarketing staff\b",
+    r"مسوق متفرغ",
+    r"فريق تسويق داخلي",
 )
 _HIGH_PATTERNS = (
     r"\bagency\b",
     r"\bteam of\b",
     r"\b\d+\+?\s*(people|staff|employees)\b",
+    r"وكالة تسويق",
+    r"فريق كامل",
 )
 
 

@@ -158,7 +158,11 @@ def assemble_generation_prompt(
     return PromptAssembly(
         system_prompt=STRATEGY_GENERATE_SYSTEM_PROMPT,
         user_prompt=user_prompt,
-        metadata=metadata,
+        metadata={
+            **metadata,
+            "deterministic_budget_scenarios": budget_scenarios,
+            "deterministic_kpi_targets": kpi_targets,
+        },
     )
 
 
@@ -197,5 +201,9 @@ def assemble_revision_prompt(
     return PromptAssembly(
         system_prompt=STRATEGY_REVISE_SYSTEM_PROMPT,
         user_prompt=user_prompt,
-        metadata=metadata,
+        metadata={
+            **metadata,
+            "deterministic_budget_scenarios": budget_scenarios,
+            "deterministic_kpi_targets": kpi_targets,
+        },
     )

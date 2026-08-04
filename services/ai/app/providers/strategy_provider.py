@@ -10,15 +10,15 @@ import copy
 import json
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from anyio import to_thread
 from pydantic import ValidationError
-
 from strategy_contracts import (
     BusinessProfileVersionRef,
     DeterministicChannelScorecard,
+    KpiTarget,
     StrategyPlan,
 )
 
@@ -222,6 +222,13 @@ def _deterministic_scores_from_prompt(
     return [DeterministicChannelScorecard.model_validate(score) for score in raw_scores]
 
 
+def _deterministic_kpi_targets_from_prompt(prompt: PromptAssembly) -> list[KpiTarget]:
+    raw_targets = prompt.metadata.get("deterministic_kpi_targets")
+    if not isinstance(raw_targets, list):
+        return []
+    return [KpiTarget.model_validate(target) for target in raw_targets]
+
+
 def _normalize_deterministic_channel_scores(
     plan_dict: dict[str, Any],
     deterministic_channel_scores: list[DeterministicChannelScorecard],
@@ -239,6 +246,20 @@ def _normalize_deterministic_channel_scores(
     normalized["selected_channels"] = [
         _scorecard_with_rationale(scorecard, rationales)
         for scorecard in _selected_scorecards(normalized, deterministic_channel_scores)
+    ]
+    return normalized
+
+
+def _normalize_deterministic_kpi_targets(
+    plan_dict: dict[str, Any],
+    deterministic_kpi_targets: list[KpiTarget],
+) -> dict[str, Any]:
+    if not deterministic_kpi_targets:
+        return plan_dict
+    normalized = copy.deepcopy(plan_dict)
+    normalized["kpi_targets"] = [
+        target.model_dump(mode="json", exclude_none=True)
+        for target in deterministic_kpi_targets
     ]
     return normalized
 
@@ -365,6 +386,10 @@ class GeminiStrategyProvider(StrategyLLMProvider):
                     parsed,
                     _deterministic_scores_from_prompt(prompt),
                 )
+                normalized = _normalize_deterministic_kpi_targets(
+                    normalized,
+                    _deterministic_kpi_targets_from_prompt(prompt),
+                )
                 return StrategyPlan.model_validate(normalized)
             except ValidationError as exc:
                 raise ProviderError(
@@ -403,7 +428,7 @@ class MockStrategyProvider(StrategyLLMProvider):
 
     async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
         meta = prompt.metadata
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         is_revision = bool(meta.get("revision_notes"))
         previous_version = meta.get("previous_plan_version", 0)
@@ -417,7 +442,7 @@ class MockStrategyProvider(StrategyLLMProvider):
 
         pack_items = meta.get("retrieved_knowledge_pack_items") or []
         citations = []
-        from strategy_contracts import PlanCitation, EvidenceTier
+        from strategy_contracts import EvidenceTier, PlanCitation
 
         for idx, item in enumerate(pack_items):
             citations.append(
@@ -475,6 +500,12 @@ class MockStrategyProvider(StrategyLLMProvider):
             plan_dict["primary_objective"] = primary_objective_value
             plan_dict["plan_language"] = language_mode_value
             plan_dict["budget_mode"] = budget_mode_value
+            budget_scenarios = meta.get("deterministic_budget_scenarios")
+            if isinstance(budget_scenarios, list):
+                plan_dict["budget_scenarios"] = budget_scenarios
+            kpi_targets = meta.get("deterministic_kpi_targets")
+            if isinstance(kpi_targets, list):
+                plan_dict["kpi_targets"] = kpi_targets
             if language_mode_value == "en":
                 _write_english_mock_owner_text(plan_dict)
             if budget_mode_value == "organic_only":
@@ -500,7 +531,7 @@ class MockStrategyProvider(StrategyLLMProvider):
                         val["benchmark_citation_id"] = None
                         val["target_mode"] = "baseline_improvement"
 
-                for k, v in val.items():
+                for v in val.values():
                     recursive_clean(v)
             elif isinstance(val, list):
                 for item in val:
@@ -511,6 +542,10 @@ class MockStrategyProvider(StrategyLLMProvider):
         normalized = _normalize_deterministic_channel_scores(
             plan_dict,
             _deterministic_scores_from_prompt(prompt),
+        )
+        normalized = _normalize_deterministic_kpi_targets(
+            normalized,
+            _deterministic_kpi_targets_from_prompt(prompt),
         )
         return StrategyPlan.model_validate(normalized)
 

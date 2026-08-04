@@ -68,6 +68,7 @@ def make_generate_request(
         update={
             "id": brief.business_profile_version.business_profile_version_id,
             "version": brief.business_profile_version.version,
+            "confirmed_at": brief.business_profile_version.confirmed_at,
         }
     )
     pack = pack.model_copy(
@@ -104,6 +105,7 @@ def make_revise_request(
         update={
             "id": brief.business_profile_version.business_profile_version_id,
             "version": brief.business_profile_version.version,
+            "confirmed_at": brief.business_profile_version.confirmed_at,
         }
     )
     pack = pack.model_copy(

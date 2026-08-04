@@ -26,7 +26,6 @@ from app.strategy.prompt_versions import (
     STRATEGY_REVISE_PROMPT_VERSION,
 )
 
-
 # ---------------------------------------------------------------------------
 # System prompts
 # ---------------------------------------------------------------------------
@@ -253,6 +252,17 @@ def _format_decisions(
     }
 
 
+def _strategy_quality_requirements() -> dict[str, bool]:
+    return {
+        "platform_specific_format_mix": True,
+        "weekly_cadence_names_platforms_and_frequency": True,
+        "competitive_response_without_margin_destroying_discount": True,
+        "loyalty_or_retention_mechanic_before_week_4": True,
+        "delivery_channel_has_activation_or_blocker_when_relevant": True,
+        "website_spend_explained_as_owned_asset_or_landing_page": True,
+    }
+
+
 def build_generate_user_context(
     request: StrategyGenerateRequest,
     channel_scores: list[dict[str, Any]],
@@ -274,6 +284,7 @@ def build_generate_user_context(
         },
         "output_contract": {
             "contract_version": "strategy-v1",
+            "strategy_quality_requirements": _strategy_quality_requirements(),
             "required_sections": [
                 "executive_summary",
                 "situation_diagnosis",
@@ -329,6 +340,7 @@ def build_revise_user_context(
         "owner_revision_notes": request.revision_notes,
         "output_contract": {
             "contract_version": "strategy-v1",
+            "strategy_quality_requirements": _strategy_quality_requirements(),
         },
     }
     return (

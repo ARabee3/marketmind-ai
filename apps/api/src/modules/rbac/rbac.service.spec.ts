@@ -51,6 +51,7 @@ describe("RbacService", () => {
           PERMISSIONS.STRATEGY_START,
           PERMISSIONS.CONTENT_START,
           PERMISSIONS.ADMIN_MANAGE_LIBRARY,
+          PERMISSIONS.PUBLISHING_ADMIN,
         ].sort(),
       );
     });

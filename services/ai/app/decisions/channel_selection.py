@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from strategy_contracts import ChannelRole, DeterministicChannelScorecard, calculate_channel_total
+from strategy_contracts import (
+    ChannelRole,
+    DeterministicChannelScorecard,
+    calculate_channel_total,
+)
 
 from app.decisions.channel_scoring import DimensionResult
 from app.decisions.config import (
+    CHANNEL_SELECTION_GROUPS,
     MEASUREMENT_READINESS_VETO_THRESHOLD,
     SUPPORTING_CHANNEL_MIN_TOTAL_SCORE,
-    TIE_BREAK_ORDER,
 )
-
 
 EXCLUSION_INSUFFICIENT_CAPACITY = "insufficient_team_capacity"
 EXCLUSION_NO_MEASUREMENT = "no_measurement_capability"
+EXCLUSION_DUPLICATE_LOCAL_SEARCH = "duplicate_local_search_ecosystem"
 
 
 def apply_exclusions(
@@ -80,15 +84,29 @@ def select_channels(
     eligible.sort(key=lambda row: (-row[3], row[0]))
 
     selected_channels: set[str] = set()
-    for index, (channel, _, _, total) in enumerate(eligible[:3]):
-        if index == 2 and total < SUPPORTING_CHANNEL_MIN_TOTAL_SCORE:
+    selected_order: list[str] = []
+    selected_groups: set[str] = set()
+    duplicate_channels: set[str] = set()
+    for channel, _, _, total in eligible:
+        group = CHANNEL_SELECTION_GROUPS.get(channel)
+        if group is not None and group in selected_groups:
+            duplicate_channels.add(channel)
+            continue
+        if len(selected_order) == 2 and total < SUPPORTING_CHANNEL_MIN_TOTAL_SCORE:
             break
         selected_channels.add(channel)
+        selected_order.append(channel)
+        if group is not None:
+            selected_groups.add(group)
+        if len(selected_order) == 3:
+            break
 
     for card in scorecards:
+        if card.channel in duplicate_channels and card.excluded_reason is None:
+            card.excluded_reason = EXCLUSION_DUPLICATE_LOCAL_SEARCH
         if card.channel not in selected_channels:
             continue
-        rank = next(i for i, row in enumerate(eligible) if row[0] == card.channel)
+        rank = selected_order.index(card.channel)
         if rank < 2:
             card.role = ChannelRole.primary
         elif rank == 2:

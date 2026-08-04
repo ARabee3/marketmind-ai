@@ -11,12 +11,11 @@ from strategy_contracts import (
     KpiTargetMode,
     SourcedClaim,
     StrategyBrief,
-    StrategyObjective,
     StrategyPlan,
 )
 
 from app.decisions.config import OBJECTIVE_KPI_METRICS
-from app.rag.schemas import HydratedItem, RetrievedKnowledgePack
+from app.rag.schemas import RetrievedKnowledgePack
 
 _NUMERIC_TARGET_PATTERN = re.compile(
     r"\b(\d[\d,]*(?:\.\d+)?)\s*(%|percent|followers|orders|leads|customers)?",
@@ -51,6 +50,30 @@ def _item_evidence_tier(item: Any) -> str:
 
 def _item_tags(item: Any) -> dict[str, list[str]]:
     return item.tags
+
+
+def _owner_facing_text(
+    brief: StrategyBrief,
+    arabic: str,
+    english: str,
+) -> str:
+    if brief.plan_language.value == "ar-EG":
+        return arabic
+    return english
+
+
+def _fallback_target_value(
+    brief: StrategyBrief,
+    *,
+    funnel_stage: str,
+) -> str | None:
+    if funnel_stage != "conversion":
+        return None
+    return _owner_facing_text(
+        brief,
+        "الأسبوع 1-2: تثبيت خط الأساس؛ الأسبوع 4: +10%؛ الأسبوع 8: +20%؛ الأسبوع 12: +30% أو عائد إعلاني 3:1.",
+        "Weeks 1-2: establish baseline; Week 4: +10%; Week 8: +20%; Week 12: +30% or 3:1 ROAS.",
+    )
 
 
 def _verified_benchmark_item(
@@ -99,9 +122,17 @@ def select_kpi_target_mode(
             target_mode=KpiTargetMode.verified_benchmark_range,
             target_value=excerpt[:120] if excerpt else "benchmark range",
             benchmark_citation_id=citation_id,
-            measurement_method=f"Track {metric} weekly",
+            measurement_method=_owner_facing_text(
+                brief,
+                f"تتبّع {metric} أسبوعيًا من خلال بيانات القناة.",
+                f"Track {metric} weekly",
+            ),
             notes=SourcedClaim(
-                text=f"Verified benchmark from retrieved knowledge: {benchmark_item.title}",
+                text=_owner_facing_text(
+                    brief,
+                    "استخدم معيارًا موثّقًا من المعرفة المسترجعة للمقارنة.",
+                    f"Verified benchmark from retrieved knowledge: {benchmark_item.title}",
+                ),
                 source=ClaimSource.retrieved_evidence,
                 citation_ids=[citation_id],
             ),
@@ -117,7 +148,11 @@ def select_kpi_target_mode(
                     target_value=prior.target_value or "Improve from prior baseline",
                     measurement_method=prior.measurement_method,
                     notes=SourcedClaim(
-                        text=f"Improvement target based on prior plan metric '{prior.metric}'.",
+                    text=_owner_facing_text(
+                        brief,
+                        "هدف التحسين مبني على نتيجة الخطة السابقة.",
+                        f"Improvement target based on prior plan metric '{prior.metric}'.",
+                    ),
                         source=ClaimSource.deterministic_result,
                         citation_ids=[],
                     ),
@@ -130,22 +165,42 @@ def select_kpi_target_mode(
             funnel_stage=funnel_stage,
             target_mode=KpiTargetMode.owner_target,
             target_value=owner_value,
-            measurement_method=f"Track {metric} against owner-stated target",
+            measurement_method=_owner_facing_text(
+                brief,
+                f"تتبّع {metric} مقابل هدف المالك المعلن.",
+                f"Track {metric} against owner-stated target",
+            ),
             notes=SourcedClaim(
-                text="Owner stated an explicit numeric target in brief constraints or clarifications.",
+                text=_owner_facing_text(
+                    brief,
+                    "حدّد المالك هدفًا رقميًا صريحًا في القيود أو الإيضاحات.",
+                    "Owner stated an explicit numeric target in brief constraints or clarifications.",
+                ),
                 source=ClaimSource.owner_input,
                 citation_ids=[],
             ),
         )
 
+    fallback_target_value = _fallback_target_value(
+        brief,
+        funnel_stage=funnel_stage,
+    )
     return KpiTarget(
         metric=metric,
         funnel_stage=funnel_stage,
         target_mode=KpiTargetMode.establish_baseline,
-        target_value=None,
-        measurement_method=f"Establish and track baseline for {metric}",
+        target_value=fallback_target_value,
+        measurement_method=_owner_facing_text(
+            brief,
+            f"حدّد خط الأساس لمؤشر {metric} في أول أسبوعين ثم راجع التقدم أسبوعيًا.",
+            f"Establish the {metric} baseline in the first two weeks, then review weekly progress.",
+        ),
         notes=SourcedClaim(
-            text="No verified benchmark or owner target; establish baseline first.",
+            text=_owner_facing_text(
+                brief,
+                "لا يوجد معيار موثّق أو هدف من المالك؛ استخدم هدفًا مرحليًا محافظًا حتى يتوفر خط الأساس.",
+                "No verified benchmark or owner target; use a conservative phased target until the baseline is known.",
+            ),
             source=ClaimSource.deterministic_result,
             citation_ids=[],
         ),

@@ -1,4 +1,8 @@
-import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
@@ -14,6 +18,7 @@ describe("DiscoveryService", () => {
     findSessionForOwner: jest.fn(),
     updateStatusIfCurrent: jest.fn(),
     appendProgressEvent: jest.fn(),
+    hasConfirmedProfile: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryRepository>;
   const conversationRepository = {
     listMessages: jest.fn(),
@@ -189,5 +194,64 @@ describe("DiscoveryService", () => {
     await expect(
       service.getStatus("owner-id", "11111111-1111-4111-8111-111111111111"),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rejects starting discovery when the owner already has a confirmed profile", async () => {
+    repository.hasConfirmedProfile.mockResolvedValue(true);
+
+    const dto: StartDiscoveryDto = {
+      language_mode: LanguageModeDto.Mixed,
+      intake: {
+        business_name: "Koshary Corner",
+        business_type: "quick service restaurant",
+        city: "Cairo",
+      },
+    };
+
+    await expect(
+      service.startPreparedDiscovery("owner-id", dto),
+    ).rejects.toMatchObject({
+      response: { code: "DISCOVERY_PROFILE_ALREADY_CONFIRMED" },
+    });
+    expect(repository.createPreparedSession).not.toHaveBeenCalled();
+  });
+
+  it("starts discovery when no confirmed profile exists", async () => {
+    repository.hasConfirmedProfile.mockResolvedValue(false);
+    repository.createPreparedSession.mockResolvedValue({
+      id: "22222222-2222-4222-8222-222222222222",
+      startedAt: new Date("2026-06-29T10:00:00.000Z"),
+    } as never);
+    repository.appendProgressEvent.mockResolvedValue({
+      type: "progress",
+      session_id: "22222222-2222-4222-8222-222222222222",
+      seq: 1,
+      stage: "queued",
+      status: "started",
+      message_key: "discovery.queued.started",
+      message_text: "Discovery research queued.",
+      retryable: undefined,
+      payload: {},
+      created_at: "2026-06-29T10:00:00.000Z",
+    } as never);
+    queueProducer.enqueueResearch.mockResolvedValue(undefined);
+
+    const dto: StartDiscoveryDto = {
+      language_mode: LanguageModeDto.Mixed,
+      intake: {
+        business_name: "Koshary Corner",
+        business_type: "quick service restaurant",
+        city: "Cairo",
+      },
+    };
+
+    const result = await service.startPreparedDiscovery("owner-id", dto);
+
+    expect(repository.hasConfirmedProfile).toHaveBeenCalledWith("owner-id");
+    expect(repository.createPreparedSession).toHaveBeenCalledWith(
+      "owner-id",
+      dto,
+    );
+    expect(result.session_id).toBe("22222222-2222-4222-8222-222222222222");
   });
 });

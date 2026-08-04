@@ -381,6 +381,7 @@ describe("Marketing knowledge governance DB (issue #69)", () => {
       });
       await prisma.marketingKnowledgeChunk.create({
         data: {
+          chunkId: version.id,
           entryVersionId: version.id,
           chunkOrder: 0,
           text: "chunk body",

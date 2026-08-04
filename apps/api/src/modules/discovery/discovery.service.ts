@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -33,6 +34,14 @@ export class DiscoveryService {
     ownerUserId: string,
     dto: StartDiscoveryDto,
   ): Promise<StartDiscoveryResponse> {
+    if (await this.discoveryRepository.hasConfirmedProfile(ownerUserId)) {
+      throw new ConflictException({
+        code: "DISCOVERY_PROFILE_ALREADY_CONFIRMED",
+        message:
+          "A business profile is already confirmed. Discovery cannot be started again.",
+      });
+    }
+
     const session = await this.discoveryRepository.createPreparedSession(
       ownerUserId,
       dto,

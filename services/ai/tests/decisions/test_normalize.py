@@ -39,6 +39,13 @@ def test_capacity_high_phrases():
     assert normalize_team_capacity("team of 5 people", None) == CapacityTier.high
 
 
+def test_capacity_arabic_phrases():
+    assert normalize_team_capacity("أنا وحدي", None) == CapacityTier.none_solo
+    assert normalize_team_capacity("ساعتين أسبوعياً", None) == CapacityTier.low
+    assert normalize_team_capacity("مسوق متفرغ", None) == CapacityTier.medium
+    assert normalize_team_capacity("وكالة تسويق", None) == CapacityTier.high
+
+
 def test_unparseable_defaults_to_low():
     assert normalize_team_capacity("maybe someone", None) == CapacityTier.low
 

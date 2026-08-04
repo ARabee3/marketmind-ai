@@ -72,10 +72,46 @@ export const configuration = () => ({
       DEFAULT_AI_REQUEST_TIMEOUT_MS,
   },
 
-  content: {
+content: {
     // Root directory for content asset blobs written through the
     // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
     // deployments override via CONTENT_ASSET_ROOT.
     assetRoot: process.env.CONTENT_ASSET_ROOT || "./.content-assets",
+  },
+
+  publishing: {
+    // n8n webhook URL — the endpoint this service POSTs dispatch requests to
+    n8nWebhookUrl: process.env.PUBLISHING_N8N_WEBHOOK_URL || "",
+    // HMAC signing secret used ONLY to sign outbound dispatch payloads and to
+    // verify inbound n8n callbacks. This is the symmetric MAC key and is NEVER
+    // sent as a bearer token on the wire (a shared MAC secret doubling as a
+    // transport credential collapses two distinct security boundaries and
+    // removes any key-rotation seam — see N8nClientService).
+    n8nSigningSecret: process.env.PUBLISHING_N8N_SIGNING_SECRET || "",
+    // Optional key id for the signing secret, included in signed payloads and
+    // inbound callbacks so n8n / this service can rotate keys without a
+    // shared big-bang redeploy. Empty disables kid (single-key mode).
+    n8nSigningKeyId: process.env.PUBLISHING_N8N_SIGNING_KID || "",
+    // SEPARATE bearer credential used to authenticate outbound requests TO
+    // n8n (Authorization: Bearer <n8nAuthToken>). This is distinct from the
+    // HMAC signing secret on purpose (issue #119 blocker: do not reuse the
+    // signing secret as the bearer token). Required at dispatch time; an
+    // empty value makes N8nClientService fail fast with a clear error.
+    n8nAuthToken: process.env.PUBLISHING_N8N_AUTH_TOKEN || "",
+    // Base URL for the callback this service advertises to n8n
+    callbackBaseUrl:
+      process.env.PUBLISHING_CALLBACK_BASE_URL || "http://localhost:3001",
+    // Pinned workflow version sent on every dispatch (audit trail)
+    workflowVersion: process.env.PUBLISHING_WORKFLOW_VERSION || "v1",
+    // Max age for signed callbacks (ms) — reject anything older
+    callbackWindowMs: parseInt(
+      process.env.PUBLISHING_CALLBACK_WINDOW_MS || "300000",
+      10,
+    ),
+    // SEPARATE shared bearer token authenticating INTERNAL publishing routes
+    // (authoritative content-service candidate handoff, future internal asset
+    // route). Distinct from the owner access JWT and the n8n HMAC signing
+    // secret; never put on the browser. Empty → internal routes fail closed.
+    internalServiceToken: process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN || "",
   },
 });

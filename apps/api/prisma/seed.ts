@@ -41,6 +41,8 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   [PERMISSIONS.STRATEGY_START]: "Start a strategy generation flow.",
   [PERMISSIONS.CONTENT_START]: "Start and manage content lifecycle flows.",
   [PERMISSIONS.ADMIN_MANAGE_LIBRARY]: "Manage the admin content library.",
+  [PERMISSIONS.PUBLISHING_ADMIN]:
+    "Admin publishing reconciliation: trigger sweeps, resolve unknown results, read attempts.",
 };
 
 async function main() {

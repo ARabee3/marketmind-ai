@@ -17,7 +17,7 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   DISCOVERY_RESEARCH_CAP_EXCEEDED: "Errors.generic",
   DISCOVERY_AI_SERVICE_UNAVAILABLE: "DiscoveryProgress.errorProviderFailure",
   DISCOVERY_AI_BAD_RESPONSE: "DiscoveryProgress.errorGeneric",
-  DISCOVERY_PROFILE_ALREADY_CONFIRMED: "Errors.generic",
+  DISCOVERY_PROFILE_ALREADY_CONFIRMED: "Errors.discoveryAlreadyConfirmed",
   ACTION_TOKEN_INVALID: "Errors.sessionExpired",
   ACTION_TOKEN_CONSUMED: "Errors.sessionExpired",
   ACTION_TOKEN_EXPIRED: "Errors.sessionExpired",
