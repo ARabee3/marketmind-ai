@@ -16,8 +16,8 @@ import {
 import { AppShellMobileNav } from './app-shell-mobile-nav'
 
 type NavItem = {
-  href: '/discovery' | '/dashboard' | '/strategy'
-  labelKey: 'navDiscovery' | 'navDashboard' | 'navStrategy'
+  href: '/discovery' | '/dashboard' | '/strategy' | '/billing'
+  labelKey: 'navDiscovery' | 'navDashboard' | 'navStrategy' | 'navBilling'
   iconName: AppShellIconName
 }
 
@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/discovery', labelKey: 'navDiscovery', iconName: 'compass' },
   { href: '/dashboard', labelKey: 'navDashboard', iconName: 'layout-dashboard' },
   { href: '/strategy', labelKey: 'navStrategy', iconName: 'strategy' },
+  { href: '/billing', labelKey: 'navBilling', iconName: 'wallet' },
 ]
 
 function isActive(pathname: string, href: string): boolean {
