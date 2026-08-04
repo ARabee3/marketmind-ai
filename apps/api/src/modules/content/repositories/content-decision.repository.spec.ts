@@ -43,7 +43,8 @@ function uniqueViolation() {
 function versionConflictError() {
   const err = new ConflictException({
     code: "CONTENT_VERSION_CONFLICT",
-    message: "The submitted version checksum no longer matches the current item version.",
+    message:
+      "The submitted version checksum no longer matches the current item version.",
   });
   return err;
 }
@@ -68,8 +69,12 @@ describe("ContentDecisionRepository", () => {
       });
 
       const tx = {
-        contentDecision: { create: decisionCreate, findUnique: decisionFindUnique, findFirst: jest.fn().mockResolvedValue(null) },
-              findFirst: jest.fn().mockResolvedValue(null),
+        contentDecision: {
+          create: decisionCreate,
+          findUnique: decisionFindUnique,
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+        findFirst: jest.fn().mockResolvedValue(null),
         contentItem: { findUnique: itemFindUnique, updateMany: itemUpdateMany },
         contentItemVersion: { findUnique: versionFindUnique },
         ...overrides,
@@ -119,7 +124,9 @@ describe("ContentDecisionRepository", () => {
     it("returns the original decision on an idempotent replay", async () => {
       const { repo, decisionCreate } = makeTx();
       // First call returns the existing row for the idempotency key.
-      (repo as unknown as { prisma: { $transaction: jest.Mock } }).prisma.$transaction = jest.fn(
+      (
+        repo as unknown as { prisma: { $transaction: jest.Mock } }
+      ).prisma.$transaction = jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             ...makeTx().tx,
@@ -145,12 +152,12 @@ describe("ContentDecisionRepository", () => {
         versionChecksum: "DIFFERENT",
       });
 
-      await expect(
-        mocks.repo.recordDecision(INPUT),
-      ).rejects.toBeInstanceOf(ConflictException);
-      await expect(
-        mocks.repo.recordDecision(INPUT),
-      ).rejects.toMatchObject({ response: { code: "CONTENT_VERSION_CONFLICT" } });
+      await expect(mocks.repo.recordDecision(INPUT)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      await expect(mocks.repo.recordDecision(INPUT)).rejects.toMatchObject({
+        response: { code: "CONTENT_VERSION_CONFLICT" },
+      });
       expect(mocks.decisionCreate).not.toHaveBeenCalled();
     });
 
@@ -171,7 +178,9 @@ describe("ContentDecisionRepository", () => {
       const { repo, decisionCreate } = makeTx();
       const itemUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
 
-      (repo as unknown as { prisma: { $transaction: jest.Mock } }).prisma.$transaction = jest.fn(
+      (
+        repo as unknown as { prisma: { $transaction: jest.Mock } }
+      ).prisma.$transaction = jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             contentDecision: {
@@ -209,7 +218,10 @@ describe("ContentDecisionRepository", () => {
         NotFoundException,
       );
 
-      itemFindUnique.mockResolvedValue({ id: "item-1", currentVersionId: "ver-1" });
+      itemFindUnique.mockResolvedValue({
+        id: "item-1",
+        currentVersionId: "ver-1",
+      });
       versionFindUnique.mockResolvedValue(null);
 
       await expect(repo.recordDecision(INPUT)).rejects.toBeInstanceOf(
@@ -243,9 +255,7 @@ describe("ContentDecisionRepository", () => {
   });
 
   describe("bulkRecordDecisions", () => {
-    function makeBulkTx(
-      overrides: Partial<Record<string, unknown>> = {},
-    ) {
+    function makeBulkTx(overrides: Partial<Record<string, unknown>> = {}) {
       const decisionCreate = jest.fn().mockResolvedValue(DECISION_ROW);
       const itemUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
       const itemFindMany = jest.fn().mockResolvedValue([
@@ -261,7 +271,7 @@ describe("ContentDecisionRepository", () => {
       const tx = {
         contentDecision: {
           create: decisionCreate,
-              findFirst: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue(null),
           findMany: decisionFindMany,
         },
         contentItem: { findMany: itemFindMany, updateMany: itemUpdateMany },
@@ -331,6 +341,25 @@ describe("ContentDecisionRepository", () => {
       expect(itemUpdateMany).toHaveBeenCalledTimes(2);
     });
 
+    it("does not write the same exact version twice within one bulk request", async () => {
+      const { repo, decisionCreate, itemUpdateMany } = makeBulkTx();
+      const duplicate = [
+        REQUESTS[0],
+        { ...REQUESTS[0], idempotencyKey: "key-duplicate" },
+      ];
+
+      const result = await repo.bulkRecordDecisions(duplicate, "owner-1");
+
+      expect(decisionCreate).toHaveBeenCalledTimes(1);
+      expect(itemUpdateMany).toHaveBeenCalledTimes(1);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          itemId: "item-1",
+          code: "CONTENT_APPROVAL_BLOCKED",
+        }),
+      ]);
+    });
+
     it("returns the ineligible item's error but commits the eligible ones", async () => {
       const { repo, decisionCreate } = makeBulkTx();
       // item-2 is stale: its current version is ver-2 but the request targets ver-2
@@ -354,9 +383,11 @@ describe("ContentDecisionRepository", () => {
               updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
             contentItemVersion: {
-              findMany: jest.fn().mockResolvedValue([
-                { id: "ver-1", version: 3, versionChecksum: "abc123" },
-              ]),
+              findMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "ver-1", version: 3, versionChecksum: "abc123" },
+                ]),
             },
           }),
       );
@@ -408,9 +439,9 @@ describe("ContentDecisionRepository", () => {
 
       // item-1 is already decided (CONTENT_APPROVAL_BLOCKED), item-2 commits.
       expect(result.errors.some((e) => e.itemId === "item-1")).toBe(true);
-      expect(
-        result.errors.find((e) => e.itemId === "item-1")?.code,
-      ).toBe("CONTENT_APPROVAL_BLOCKED");
+      expect(result.errors.find((e) => e.itemId === "item-1")?.code).toBe(
+        "CONTENT_APPROVAL_BLOCKED",
+      );
       expect(result.decisions).toHaveLength(1);
       expect(result.decisions[0].contentItemId).toBe("item-2");
       expect(decisionCreate).toHaveBeenCalledTimes(1);
@@ -453,7 +484,9 @@ describe("ContentDecisionRepository", () => {
       const result = await repo.bulkRecordDecisions(REQUESTS, "owner-1");
 
       // key-1 replays the original decision; only key-2 creates a new row.
-      expect(result.decisions.some((d) => d.idempotencyKey === "key-1")).toBe(true);
+      expect(result.decisions.some((d) => d.idempotencyKey === "key-1")).toBe(
+        true,
+      );
       expect(decisionCreate).toHaveBeenCalledTimes(1);
       expect(decisionCreate).toHaveBeenCalledWith({
         data: expect.objectContaining({ idempotencyKey: "key-2" }),

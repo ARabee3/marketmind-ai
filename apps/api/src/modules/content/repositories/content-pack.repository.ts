@@ -642,8 +642,12 @@ export class ContentPackRepository {
    * decisions. All items approved -> "approved"; some approved ->
    * "partially_approved"; none approved -> "draft".
    */
-  async derivePackStatusFromItems(packId: string): Promise<void> {
-    const items = await this.prisma.contentItem.findMany({
+  async derivePackStatusFromItems(
+    packId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const db = tx ?? this.prisma;
+    const items = await db.contentItem.findMany({
       where: { contentPackId: packId },
       select: { status: true },
     });
@@ -658,7 +662,7 @@ export class ContentPackRepository {
         ? "partially_approved"
         : "draft";
 
-    const pack = await this.prisma.contentPack.findUnique({
+    const pack = await db.contentPack.findUnique({
       where: { id: packId },
       select: { status: true },
     });
@@ -669,7 +673,7 @@ export class ContentPackRepository {
     )
       return;
 
-    await this.prisma.contentPack.updateMany({
+    await db.contentPack.updateMany({
       where: { id: packId, status: pack.status },
       data: { status: targetStatus },
     });

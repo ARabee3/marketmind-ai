@@ -53,8 +53,14 @@ export type ChangeCandidateStateResult = {
   readonly stateVersion: number;
 };
 
-type CaptionVariantJson = { readonly locale?: string; readonly caption?: string };
-type PublishWindowJson = { readonly starts_at?: string; readonly ends_at?: string };
+type CaptionVariantJson = {
+  readonly locale?: string;
+  readonly caption?: string;
+};
+type PublishWindowJson = {
+  readonly starts_at?: string;
+  readonly ends_at?: string;
+};
 
 const CONTENT_CANDIDATE_TAMPERED = "CONTENT_CANDIDATE_TAMPERED";
 
@@ -176,21 +182,33 @@ export class PublicationCandidateRepository {
       });
     }
 
-    const row = await tx.publicationCandidate.create({
-      data: {
-        candidateId: candidate.candidate_id,
-        businessId: candidate.business_id,
-        contractVersion: candidate.contract_version,
-        payload: candidate as unknown as Prisma.InputJsonValue,
-        candidateChecksum: candidate.candidate_checksum,
-        contentCycleId: candidate.content_cycle_id,
-        contentPackId: candidate.content_pack_id,
-        contentItemId: candidate.content_item_id,
-        contentItemVersionId: candidate.content_item_version_id,
-        contentItemVersion: candidate.content_item_version,
-        state: "active",
-      },
-    });
+    let row: Awaited<ReturnType<typeof tx.publicationCandidate.create>>;
+    try {
+      row = await tx.publicationCandidate.create({
+        data: {
+          candidateId: candidate.candidate_id,
+          businessId: candidate.business_id,
+          contractVersion: candidate.contract_version,
+          payload: candidate as unknown as Prisma.InputJsonValue,
+          candidateChecksum: candidate.candidate_checksum,
+          contentCycleId: candidate.content_cycle_id,
+          contentPackId: candidate.content_pack_id,
+          contentItemId: candidate.content_item_id,
+          contentItemVersionId: candidate.content_item_version_id,
+          contentItemVersion: candidate.content_item_version,
+          state: "active",
+        },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException({
+          code: "CONTENT_VERSION_CONFLICT",
+          message:
+            "This exact item version already has a publication candidate.",
+        });
+      }
+      throw error;
+    }
 
     await tx.publicationCandidateStatus.create({
       data: {
@@ -404,7 +422,8 @@ export class PublicationCandidateRepository {
       if (updated.count === 0) {
         throw new ConflictException({
           code: CONTENT_CANDIDATE_TAMPERED,
-          message: "A concurrent change moved the candidate state; not applied.",
+          message:
+            "A concurrent change moved the candidate state; not applied.",
         });
       }
 
@@ -416,10 +435,7 @@ export class PublicationCandidateRepository {
     return this.prisma.publicationCandidateOutbox.findMany({
       where: {
         state: "pending",
-        OR: [
-          { nextAttemptAt: null },
-          { nextAttemptAt: { lte: new Date() } },
-        ],
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }],
       },
       orderBy: { createdAt: "asc" },
       take: limit,
@@ -483,9 +499,10 @@ export class PublicationCandidateRepository {
     return Array.isArray(hashtags) ? (hashtags as unknown as string[]) : [];
   }
 
-  private parsePublishWindow(
-    recommendedPublishWindow: Prisma.InputJsonValue,
-  ): { starts_at: string; ends_at: string } {
+  private parsePublishWindow(recommendedPublishWindow: Prisma.InputJsonValue): {
+    starts_at: string;
+    ends_at: string;
+  } {
     const window =
       typeof recommendedPublishWindow === "object" &&
       recommendedPublishWindow !== null
@@ -496,4 +513,11 @@ export class PublicationCandidateRepository {
       ends_at: window.ends_at ?? "",
     };
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }

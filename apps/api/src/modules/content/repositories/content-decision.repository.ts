@@ -16,6 +16,7 @@ export type RecordContentDecisionInput = {
   revisionNotes: string | null;
   ownerUserId: string;
   idempotencyKey: string;
+  requestFingerprint?: string;
   revisionJob?: {
     jobId: string;
     queueName: string;
@@ -31,6 +32,7 @@ export type BulkContentDecisionRequest = {
   decision: ContentDecisionValue;
   revisionNotes: string | null;
   idempotencyKey: string;
+  requestFingerprint?: string;
 };
 
 export type ContentDecisionRow = {
@@ -45,6 +47,7 @@ export type ContentDecisionRow = {
   decidedAt: Date;
   ownerUserId: string;
   idempotencyKey: string | null;
+  requestFingerprint?: string;
   createdAt: Date;
 };
 
@@ -119,6 +122,15 @@ export class ContentDecisionRepository {
       },
     });
     if (existing) {
+      if (
+        input.requestFingerprint &&
+        existing.requestFingerprint &&
+        existing.requestFingerprint !== input.requestFingerprint
+      ) {
+        throw versionConflict(
+          "The idempotency key was reused with a different decision request.",
+        );
+      }
       return existing as ContentDecisionRow;
     }
 
@@ -181,6 +193,7 @@ export class ContentDecisionRepository {
           decidedAt: new Date(),
           ownerUserId: input.ownerUserId,
           idempotencyKey: input.idempotencyKey,
+          requestFingerprint: input.requestFingerprint ?? "",
         },
       })) as ContentDecisionRow;
     } catch (error) {
@@ -197,7 +210,24 @@ export class ContentDecisionRepository {
           },
         });
         if (replayed) {
+          if (
+            input.requestFingerprint &&
+            replayed.requestFingerprint &&
+            replayed.requestFingerprint !== input.requestFingerprint
+          ) {
+            throw versionConflict(
+              "The idempotency key was reused with a different decision request.",
+            );
+          }
           return replayed as ContentDecisionRow;
+        }
+        const existingVersion = await tx.contentDecision.findUnique({
+          where: { contentItemVersionId: input.versionId },
+        });
+        if (existingVersion) {
+          throw versionConflict(
+            "This item version has already received a terminal decision.",
+          );
         }
       }
       throw error;
@@ -283,10 +313,16 @@ export class ContentDecisionRepository {
     const decidedVersionIds = new Set(
       decided.map((d) => d.contentItemVersionId),
     );
-    const replayByKey = new Map(
+    const replayByKey = new Map<string, ContentDecisionRow>(
       byKey
-        .filter((d): d is ContentDecisionRow => d.idempotencyKey !== null)
-        .map((d) => [d.idempotencyKey as string, d]),
+        .filter((d) => d.idempotencyKey !== null)
+        .map(
+          (d) =>
+            [
+              d.idempotencyKey as string,
+              d as unknown as ContentDecisionRow,
+            ] as const,
+        ),
     );
 
     const decisions: ContentDecisionRow[] = [];
@@ -295,6 +331,19 @@ export class ContentDecisionRepository {
     for (const req of requests) {
       const replay = replayByKey.get(req.idempotencyKey);
       if (replay) {
+        if (
+          req.requestFingerprint &&
+          replay.requestFingerprint &&
+          replay.requestFingerprint !== req.requestFingerprint
+        ) {
+          errors.push({
+            itemId: req.itemId,
+            code: CONTENT_VERSION_CONFLICT,
+            message:
+              "The idempotency key was reused with a different decision request.",
+          });
+          continue;
+        }
         decisions.push(replay);
         continue;
       }
@@ -348,9 +397,11 @@ export class ContentDecisionRepository {
           decidedAt: new Date(),
           ownerUserId,
           idempotencyKey: req.idempotencyKey,
+          requestFingerprint: req.requestFingerprint ?? "",
         },
       })) as ContentDecisionRow;
       decisions.push(decision);
+      decidedVersionIds.add(req.versionId);
 
       const updated = await tx.contentItem.updateMany({
         where: { id: req.itemId, currentVersionId: req.versionId },

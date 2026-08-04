@@ -988,6 +988,13 @@ export class ContentService {
       });
     }
 
+    const requestFingerprint = decisionRequestFingerprint(
+      ownerUserId,
+      packId,
+      item.id,
+      currentVersion,
+      dto,
+    );
     const { decision, publicationCandidate, outboxEventId } =
       await this.prisma.$transaction(async (tx) => {
         const recorded = await this.decisionRepository.recordDecision(
@@ -1000,11 +1007,13 @@ export class ContentService {
             revisionNotes: dto.revision_notes,
             ownerUserId,
             idempotencyKey: dto.idempotency_key,
+            requestFingerprint,
           },
           tx,
         );
 
         if (recorded.decision !== "approved") {
+          await this.packRepository.derivePackStatusFromItems(packId, tx);
           return {
             decision: recorded,
             publicationCandidate: null,
@@ -1021,6 +1030,7 @@ export class ContentService {
             tx,
           );
         if (existingCandidate) {
+          await this.packRepository.derivePackStatusFromItems(packId, tx);
           return {
             decision: recorded,
             publicationCandidate: existingCandidate,
@@ -1037,6 +1047,7 @@ export class ContentService {
           },
           tx,
         );
+        await this.packRepository.derivePackStatusFromItems(packId, tx);
 
         return {
           decision: recorded,
@@ -1050,8 +1061,6 @@ export class ContentService {
         eventId: outboxEventId,
       });
     }
-
-    await this.packRepository.derivePackStatusFromItems(packId);
 
     this.logger.log(
       `[ContentItem ${item.id}] Owner decision ${decision.decision} on version ${decision.contentItemVersion} (${decision.id}) persisted${publicationCandidate ? `; candidate ${publicationCandidate.candidate_id} created` : ""}.`,
@@ -1402,6 +1411,16 @@ export class ContentService {
           decision: request.decision,
           revisionNotes: request.revision_notes,
           idempotencyKey: request.idempotency_key,
+          requestFingerprint: decisionRequestFingerprint(
+            ownerUserId,
+            packId,
+            request.content_item_id,
+            eligible.find(
+              (entry) =>
+                entry.request.content_item_id === request.content_item_id,
+            )!.currentVersion,
+            request,
+          ),
         })),
         ownerUserId,
         tx,
@@ -1438,6 +1457,8 @@ export class ContentService {
         );
         outboxIds.push(created.outboxEventId);
       }
+
+      await this.packRepository.derivePackStatusFromItems(packId, tx);
 
       return { ...bulk, outboxEventIds: outboxIds };
     });
@@ -1476,8 +1497,6 @@ export class ContentService {
       recorded.map((decision) => [decision.contentItemId, decision]),
     );
     const errorByItemId = new Map(errors.map((error) => [error.itemId, error]));
-
-    await this.packRepository.derivePackStatusFromItems(packId);
 
     return decisions.map((request) => {
       const ineligible = ineligibleByItemId.get(request.content_item_id);
@@ -1888,4 +1907,28 @@ function toIsoDate(date: Date): string {
 function toJsonStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function decisionRequestFingerprint(
+  ownerUserId: string,
+  packId: string,
+  itemId: string,
+  version: PrismaContentItemVersion,
+  request: ContentDecisionRequest,
+): string {
+  return createHash("sha256")
+    .update(
+      canonicalPublishingJson({
+        ownerUserId,
+        packId,
+        itemId,
+        contentItemVersionId: version.id,
+        contentItemVersion: version.version,
+        contentItemVersionChecksum: version.versionChecksum,
+        decision: request.decision,
+        revisionNotes: request.revision_notes?.trim() ?? null,
+      }),
+      "utf8",
+    )
+    .digest("hex");
 }
