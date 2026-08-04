@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-export type AppShellIconName = 'compass' | 'layout-dashboard' | 'strategy'
+export type AppShellIconName = 'compass' | 'layout-dashboard' | 'strategy' | 'wallet'
 
 export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
   const common = {
@@ -30,6 +30,16 @@ export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
         <rect width="18" height="18" x="3" y="3" rx="2" />
         <path d="M3 9h18" />
         <path d="M9 21V9" />
+      </svg>
+    )
+  }
+
+  if (name === 'wallet') {
+    return (
+      <svg {...common}>
+        <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z" />
+        <path d="M3 8h15.5A2.5 2.5 0 0 1 21 10.5V13h-4a2 2 0 0 1 0-4h4" />
+        <path d="M17 11h.01" />
       </svg>
     )
   }
