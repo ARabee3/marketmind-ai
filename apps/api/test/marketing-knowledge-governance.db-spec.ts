@@ -335,7 +335,11 @@ describe("Marketing knowledge governance DB (issue #69)", () => {
     });
 
     it("approved, expires_at exactly now (>) → not eligible", async () => {
-      const exp = new Date();
+      // Use the database clock: the test database may run in a VM whose clock
+      // is not byte-for-byte aligned with the Node process clock.
+      const [{ now: exp }] = await prisma.$queryRaw<{ now: Date }[]>`
+        SELECT NOW() AS now
+      `;
       expect(await statusOf("approved", PAST, exp)).toBe(false);
     });
 
