@@ -6,6 +6,7 @@ fails loudly when misconfigured.  They do not call real paid providers.
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -113,6 +114,22 @@ def test_spot_check_prompt_is_refined_for_real_provider() -> None:
     assert "content_item_id" in refined.system_prompt
     assert "strategy_trace.pillar_ids" in refined.system_prompt
     assert "claim_sources" in refined.system_prompt
+
+
+def test_spot_check_one_shot_example_is_valid_contract_json() -> None:
+    from content_contracts import ContentItemVersion
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    refined = build_spot_check_generation_prompt(request, "openai", "gpt-4.1-mini")
+    json_block = refined.system_prompt.split("```json\n", 1)[1].split("\n```", 1)[0]
+
+    payload = json.loads(json_block)
+    item = ContentItemVersion.model_validate(payload["item_versions"][0])
+
+    assert item.content_pack_id == request.content_pack_id
+    assert item.strategy_trace.funnel_stage == "awareness"
+    assert item.caption_variants[0].dialect == "masry"
+    assert item.recommended_publish_window.time_of_day_hint == "evening"
 
 
 def test_spot_check_prompt_preserves_base_user_context() -> None:

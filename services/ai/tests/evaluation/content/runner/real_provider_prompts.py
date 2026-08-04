@@ -10,8 +10,10 @@ production generation prompt untouched.
 
 from __future__ import annotations
 
-from datetime import timedelta
+import json
+from datetime import datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from content_contracts import AiContentGenerateRequest
 
@@ -209,13 +211,14 @@ def build_spot_check_generation_prompt(
 
 
 def _spot_check_one_shot_example(request: AiContentGenerateRequest) -> str:
-    """Return a realistic example using the actual request values."""
+    """Return valid JSON using representative values from the real request."""
     language_mode_value = (
         request.language_mode.value
         if hasattr(request.language_mode, "value")
         else request.language_mode
     )
     expected_locale = "ar" if language_mode_value == "ar-EG" else "en"
+    dialect = "masry" if expected_locale == "ar" else "neutral"
 
     cta_destination = request.week_context.cta_destination
     destination_type = (
@@ -224,14 +227,18 @@ def _spot_check_one_shot_example(request: AiContentGenerateRequest) -> str:
         else cta_destination.type
     )
     destination_value = cta_destination.value or ""
-    cta_text = "CTA text or null"
+    cta_text: str | None = None
     if destination_type != "none" and destination_value:
-        cta_text = f"تواصل معنا على واتساب: {destination_value}"
+        cta_text = (
+            f"Contact us: {destination_value}"
+            if language_mode_value == "en"
+            else f"تواصل معنا: {destination_value}"
+        )
 
     promotion = request.week_context.promotion
     promotion_text = promotion.text if promotion else ""
-    promotion_terms = " ".join(str(t) for t in promotion.terms) if promotion else ""
-    must_include = " ".join(str(v) for v in request.week_context.must_include)
+    promotion_terms = [str(term) for term in promotion.terms] if promotion else []
+    must_include = [str(value) for value in request.week_context.must_include]
 
     business_name = ""
     profile = request.business_profile.profile
@@ -240,89 +247,130 @@ def _spot_check_one_shot_example(request: AiContentGenerateRequest) -> str:
     elif hasattr(profile, "business_name"):
         business_name = getattr(profile, "business_name", "")
 
-    # The example caption embeds the promotion, must_include, and CTA exactly.
-    caption_example = (
-        "استمتع بعرض الأسبوع! "
-        f"{promotion_text} {promotion_terms} "
-        f"{must_include} "
-        f"{cta_text}"
-    ).strip()
+    if language_mode_value == "en":
+        caption_parts = ["Discover this week's approved content idea."]
+        creative_brief = "A clear weekly post with practical, grounded copy."
+        alt_text = "A clear visual for the approved weekly content idea."
+        rationale = "A weekday evening aligns with the intended audience window."
+    else:
+        caption_parts = ["اكتشف فكرة المحتوى المعتمدة لهذا الأسبوع."]
+        creative_brief = "منشور أسبوعي واضح بنص عملي ومبني على المعلومات المؤكدة."
+        alt_text = "تصميم واضح لفكرة المحتوى المعتمدة لهذا الأسبوع."
+        rationale = "موعد مسائي خلال الأسبوع يناسب نافذة الجمهور المستهدف."
     if business_name:
-        caption_example = f"{business_name} — {caption_example}"
+        caption_parts.insert(0, str(business_name))
+    if promotion_text:
+        caption_parts.append(str(promotion_text))
+    caption_parts.extend(promotion_terms)
+    caption_parts.extend(must_include)
+    if cta_text:
+        caption_parts.append(cta_text)
+    caption_example = " ".join(caption_parts)
 
-    brief_example = (
-        "منشور تعريفي بالعرض الأسبوعي يشجع الجمهور على التواصل عبر واتساب."
+    cairo = ZoneInfo("Africa/Cairo")
+    starts_at = datetime.combine(
+        request.week_context.week_start_date,
+        time(hour=18),
+        tzinfo=cairo,
     )
+    ends_at = starts_at + timedelta(hours=2)
+    generated_at = starts_at - timedelta(hours=1)
+    objective_value = str(
+        getattr(
+            request.strategy_plan.primary_objective,
+            "value",
+            request.strategy_plan.primary_objective,
+        )
+    )
+    pillar_ids = derive_strategy_pillar_ids(
+        request.strategy_id,
+        len(request.strategy_plan.content_strategy.pillars),
+    )
+    claim_sources: list[dict[str, Any]] = [
+        {
+            "claim_type": "business_fact",
+            "source_type": "profile",
+            "source_path": "business_profile.profile",
+            "approved": True,
+        }
+    ]
+    if promotion is not None:
+        claim_sources.append(
+            {
+                "claim_type": "promotion",
+                "source_type": "week_context",
+                "source_path": "week_context.promotion",
+                "approved": True,
+            }
+        )
+
+    channel = request.selected_channels[0]
+    content_format = request.allowed_formats[0]
+    example = {
+        "item_versions": [
+            {
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "contract_version": "content-v1",
+                "content_item_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "content_pack_id": str(request.content_pack_id),
+                "version": 1,
+                "channel": channel,
+                "format": content_format,
+                "language_mode": language_mode_value,
+                "strategy_trace": {
+                    "strategy_id": str(request.strategy_id),
+                    "strategy_version": request.strategy_version,
+                    "week_number": request.week_context.week_number,
+                    "pillar_ids": pillar_ids[:1],
+                    "objective": objective_value,
+                    "channel": channel,
+                    "funnel_stage": "awareness",
+                    "content_purpose": "Introduce the approved weekly idea.",
+                },
+                "caption_variants": [
+                    {
+                        "locale": expected_locale,
+                        "dialect": dialect,
+                        "caption": caption_example,
+                        "cta": cta_text,
+                        "hashtags": ["#Example"],
+                    }
+                ],
+                "cta": cta_text,
+                "hashtags": ["#Example"],
+                "creative_brief": creative_brief,
+                "alt_text": alt_text,
+                "short_video_script": None,
+                "recommended_publish_window": {
+                    "starts_at": starts_at.isoformat(),
+                    "ends_at": ends_at.isoformat(),
+                    "timezone": "Africa/Cairo",
+                    "day_preference": "weekday",
+                    "time_of_day_hint": "evening",
+                    "rationale": rationale,
+                },
+                "claim_sources": claim_sources,
+                "warnings": [],
+                "blockers": [],
+                "asset_required": content_format
+                in {"static_image_post", "carousel_brief"},
+                "asset_ids": [],
+                "generation_provenance": {
+                    "generation_run_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                    "provider_name": "provider-name",
+                    "provider_model": "provider-model",
+                    "generated_at": generated_at.isoformat(),
+                },
+                "version_checksum": "0" * 64,
+                "created_at": generated_at.isoformat(),
+            }
+        ]
+    }
 
     return (
         "## Example of a valid spot-check item (use the real request values above, "
-        "not these placeholder UUIDs):\n"
-        "\n"
+        "not the placeholder identities):\n\n"
         "```json\n"
-        "{\n"
-        '  "item_versions": [\n'
-        "    {\n"
-        '      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",\n'
-        '      "contract_version": "content-v1",\n'
-        '      "content_item_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",\n'
-        f'      "content_pack_id": {request.content_pack_id!r},\n'
-        '      "version": 1,\n'
-        f'      "channel": {request.selected_channels[0]!r},\n'
-        f'      "format": {request.allowed_formats[0]!r},\n'
-        f'      "language_mode": {language_mode_value!r},\n'
-        '      "strategy_trace": {\n'
-        f'        "strategy_id": {request.strategy_id!r},\n'
-        f'        "strategy_version": {request.strategy_version!r},\n'
-        f'        "week_number": {request.week_context.week_number},\n'
-        '        "pillar_ids": ["<use one derived pillar id>"],\n'
-        '        "objective": "<use request.strategy_plan.primary_objective>",\n'
-        '        "channel": "<same as item.channel>"\n'
-        "      },\n"
-        '      "caption_variants": [\n'
-        "        {\n"
-        f'          "locale": {expected_locale!r},\n'
-        f'          "caption": {caption_example!r},\n'
-        f'          "cta": {cta_text!r},\n'
-        '          "hashtags": ["#Example"]\n'
-        "        }\n"
-        "      ],\n"
-        f'      "cta": {cta_text!r},\n'
-        '      "hashtags": ["#Example"],\n'
-        f'      "creative_brief": {brief_example!r},\n'
-        '      "alt_text": "<Arabic alt text for the post>",\n'
-        '      "recommended_publish_window": {\n'
-        '        "starts_at": "2026-01-05T10:00:00+02:00",\n'
-        '        "ends_at": "2026-01-05T12:00:00+02:00",\n'
-        '        "timezone": "Africa/Cairo"\n'
-        "      },\n"
-        '      "claim_sources": [\n'
-        "        {\n"
-        '          "claim_type": "business_fact",\n'
-        '          "source_type": "profile",\n'
-        '          "source_path": "business_profile.profile",\n'
-        '          "approved": true\n'
-        "        },\n"
-        "        {\n"
-        '          "claim_type": "promotion",\n'
-        '          "source_type": "week_context",\n'
-        '          "source_path": "week_context.promotion",\n'
-        '          "approved": true\n'
-        "        }\n"
-        "      ],\n"
-        '      "warnings": [],\n'
-        '      "blockers": [],\n'
-        '      "asset_required": false,\n'
-        '      "asset_ids": [],\n'
-        '      "generation_provenance": {\n'
-        '        "generation_run_id": "<valid uuid>",\n'
-        '        "provider_name": "<provider name>",\n'
-        '        "provider_model": "<model name>",\n'
-        '        "generated_at": "2026-01-05T09:00:00+02:00"\n'
-        "      },\n"
-        '      "version_checksum": "<sha256 hex string>",\n'
-        '      "created_at": "2026-01-05T09:00:00+02:00"\n'
-        "    }\n"
-        "  ]\n"
-        "}\n"
+        f"{json.dumps(example, ensure_ascii=False, indent=2)}\n"
         "```"
     )
