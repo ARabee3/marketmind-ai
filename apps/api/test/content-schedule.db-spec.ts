@@ -209,6 +209,16 @@ describe("Content schedule and freeze DB lifecycle", () => {
       if (weekNumber === 12) {
         expect(cycle.status).toBe("active");
       }
+
+      if (weekNumber < 12) {
+        // This fixture does not run the AI worker. Mark the claimed pack as a
+        // completed draft so the next claim exercises the same completed-week
+        // gate that production generation would satisfy.
+        await prisma.contentPack.update({
+          where: { id: pack.id },
+          data: { status: "draft" },
+        });
+      }
     }
 
     await expect(
