@@ -442,21 +442,151 @@ export class PublicationCandidateRepository {
     });
   }
 
-  async markOutboxDispatched(eventId: string): Promise<void> {
-    await this.prisma.publicationCandidateOutbox.updateMany({
-      where: { eventId, state: "pending" },
-      data: { state: "dispatched", dispatchedAt: new Date() },
+  async claimOutboxByEventId(
+    eventId: string,
+    leaseOwner: string,
+    leaseMs = 60_000,
+  ) {
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.publicationCandidateOutbox.updateMany({
+        where: {
+          eventId,
+          state: "processing",
+          leaseExpiresAt: { lt: now },
+        },
+        data: {
+          state: "pending",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          nextAttemptAt: now,
+        },
+      });
+      const claimed = await tx.publicationCandidateOutbox.updateMany({
+        where: {
+          eventId,
+          state: "pending",
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        },
+        data: {
+          state: "processing",
+          leaseOwner,
+          leaseExpiresAt: new Date(now.getTime() + leaseMs),
+        },
+      });
+      if (claimed.count === 0) return null;
+      return tx.publicationCandidateOutbox.findUnique({ where: { eventId } });
     });
   }
 
-  async markOutboxFailed(eventId: string, error: string): Promise<void> {
+  async claimDueOutboxEvents(
+    leaseOwner: string,
+    limit: number,
+    leaseMs = 60_000,
+  ) {
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.publicationCandidateOutbox.updateMany({
+        where: { state: "processing", leaseExpiresAt: { lt: now } },
+        data: {
+          state: "pending",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          nextAttemptAt: now,
+        },
+      });
+      const ids = await tx.$queryRaw<Array<{ id: bigint }>>`
+        SELECT "id"
+        FROM "publication_candidate_outbox"
+        WHERE "state" = 'pending'
+          AND ("next_attempt_at" IS NULL OR "next_attempt_at" <= ${now})
+        ORDER BY "created_at" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${limit}
+      `;
+      const claimedIds: bigint[] = [];
+      for (const row of ids) {
+        const updated = await tx.publicationCandidateOutbox.updateMany({
+          where: { id: row.id, state: "pending" },
+          data: {
+            state: "processing",
+            leaseOwner,
+            leaseExpiresAt: new Date(now.getTime() + leaseMs),
+          },
+        });
+        if (updated.count === 1) claimedIds.push(row.id);
+      }
+      return tx.publicationCandidateOutbox.findMany({
+        where: { id: { in: claimedIds } },
+        orderBy: { createdAt: "asc" },
+      });
+    });
+  }
+
+  async releaseOutboxClaim(
+    eventId: string,
+    leaseOwner: string,
+    error?: string,
+  ): Promise<boolean> {
+    const row = await this.prisma.publicationCandidateOutbox.findFirst({
+      where: { eventId, state: "processing", leaseOwner },
+      select: { attempts: true },
+    });
+    if (!row) return false;
+    const attempts = row.attempts + (error ? 1 : 0);
+    const backoffMs = Math.min(2 ** Math.max(1, attempts) * 1_000, 60_000);
+    const updated = await this.prisma.publicationCandidateOutbox.updateMany({
+      where: { eventId, state: "processing", leaseOwner },
+      data: {
+        state: "pending",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        attempts,
+        lastError: error ?? null,
+        nextAttemptAt: error ? new Date(Date.now() + backoffMs) : null,
+      },
+    });
+    return updated.count === 1;
+  }
+
+  async markOutboxDispatched(
+    eventId: string,
+    leaseOwner?: string,
+  ): Promise<boolean> {
+    if (!leaseOwner) {
+      const updated = await this.prisma.publicationCandidateOutbox.updateMany({
+        where: { eventId, state: "pending" },
+        data: { state: "dispatched", dispatchedAt: new Date() },
+      });
+      return updated.count === 1;
+    }
+    const updated = await this.prisma.publicationCandidateOutbox.updateMany({
+      where: leaseOwner
+        ? { eventId, state: "processing", leaseOwner }
+        : { eventId, state: { in: ["pending", "processing"] } },
+      data: {
+        state: "dispatched",
+        dispatchedAt: new Date(),
+        leaseOwner: null,
+        leaseExpiresAt: null,
+      },
+    });
+    return updated.count === 1;
+  }
+
+  async markOutboxFailed(
+    eventId: string,
+    error: string,
+    leaseOwner?: string,
+  ): Promise<boolean> {
+    if (leaseOwner) return this.releaseOutboxClaim(eventId, leaseOwner, error);
     const attempts = await this.prisma.publicationCandidateOutbox.aggregate({
       where: { eventId },
       _max: { attempts: true },
     });
     const nextAttempts = (attempts._max.attempts ?? 0) + 1;
-    const backoffMs = Math.min(2 ** nextAttempts * 1000, 60_000);
-    await this.prisma.publicationCandidateOutbox.updateMany({
+    const backoffMs = Math.min(2 ** nextAttempts * 1_000, 60_000);
+    const updated = await this.prisma.publicationCandidateOutbox.updateMany({
       where: { eventId },
       data: {
         state: "pending",
@@ -465,6 +595,7 @@ export class PublicationCandidateRepository {
         nextAttemptAt: new Date(Date.now() + backoffMs),
       },
     });
+    return updated.count === 1;
   }
 
   async getOutboxEventById(eventId: string) {

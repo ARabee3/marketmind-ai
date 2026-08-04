@@ -75,6 +75,7 @@ import {
   weekCutoffDate,
   weekStartDate,
 } from "./content-schedule";
+import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 
 export type BulkDecisionItemStatus =
   | "approved"
@@ -125,6 +126,8 @@ export class ContentService {
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @InjectQueue("content-outbox") private readonly outboxQueue: Queue,
     @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
+    @Optional()
+    private readonly billingEntitlements?: BillingEntitlementsService,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -243,6 +246,12 @@ export class ContentService {
         "utf8",
       )
       .digest("hex");
+
+    await this.billingEntitlements?.assertAllowed(
+      ownerUserId,
+      "content_item",
+      3,
+    );
 
     const created = await this.cycleRepository.createCycleWithWeekOne(
       {
@@ -479,6 +488,11 @@ export class ContentService {
     }
     this.assertCycleActive(cycle);
     this.assertWeekNumberInRange(weekNumber);
+    await this.billingEntitlements?.assertAllowed(
+      ownerUserId,
+      "content_item",
+      3,
+    );
 
     const existingPack = await this.packRepository.hasPackForWeek(
       cycleId,
@@ -1057,9 +1071,15 @@ export class ContentService {
       });
 
     if (outboxEventId) {
-      await this.outboxQueue.add("dispatch-outbox", {
-        eventId: outboxEventId,
-      });
+      await this.outboxQueue.add(
+        "dispatch-outbox",
+        { eventId: outboxEventId },
+        {
+          jobId: `dispatch-outbox:${outboxEventId}`,
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2_000 },
+        },
+      );
     }
 
     this.logger.log(
@@ -1141,6 +1161,12 @@ export class ContentService {
           "The submitted version checksum no longer matches the current item version.",
       });
     }
+
+    await this.billingEntitlements?.assertAllowed(
+      ownerUserId,
+      "content_revision",
+      1,
+    );
 
     const correlationId = randomUUID();
     const revisionJobId = `revise-content:${dto.idempotency_key}`;
@@ -1464,7 +1490,15 @@ export class ContentService {
     });
 
     for (const eventId of outboxEventIds) {
-      await this.outboxQueue.add("dispatch-outbox", { eventId });
+      await this.outboxQueue.add(
+        "dispatch-outbox",
+        { eventId },
+        {
+          jobId: `dispatch-outbox:${eventId}`,
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2_000 },
+        },
+      );
     }
 
     // Every recorded revision_requested decision enqueues a revise-content job

@@ -23,10 +23,12 @@ import { ContentJobOutboxRepository } from './content-job-outbox.repository';
 import { ContentJobOutboxDispatcher } from './content-job-outbox.dispatcher';
 import { PrismaModule } from '../../common/persistence/prisma.module';
 import { AssetStorageModule } from './assets/asset-storage.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
     PrismaModule,
+    BillingModule,
     HttpModule,
     AssetStorageModule,
     ScheduleModule.forRoot(),

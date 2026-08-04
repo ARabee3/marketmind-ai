@@ -233,6 +233,7 @@ model BillingCheckoutAttempt {
   amountEgp             Int      @map("amount_egp")
   currency              String   @default("EGP")
   paymentMode           String   @map("payment_mode")
+  sandbox               Boolean  @default(false)
   status                String   @default("pending")
   expiresAt             DateTime @map("expires_at")
   confirmedAt           DateTime? @map("confirmed_at")
@@ -1299,12 +1300,16 @@ model PublicationCandidateOutbox {
   payload       Json
   state         String    @default("pending")
   attempts      Int       @default(0)
+  leaseOwner    String?   @map("lease_owner")
+  leaseExpiresAt DateTime? @map("lease_expires_at")
   lastError     String?   @map("last_error")
   nextAttemptAt DateTime? @map("next_attempt_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   dispatchedAt  DateTime? @map("dispatched_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
   @@index([candidateId])
   @@map("publication_candidate_outbox")
 }
