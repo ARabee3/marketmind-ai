@@ -538,6 +538,54 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("listReusableAssets", () => {
+    it("scopes ready reusable assets to the business owner", async () => {
+      const findMany = jest.fn().mockResolvedValue([{ id: "asset-1" }]);
+      const repo = new ContentPackRepository({
+        contentAsset: { findMany },
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.listReusableAssets(
+          ["asset-1", "asset-1"],
+          "business-1",
+          "owner-1",
+        ),
+      ).resolves.toEqual([{ id: "asset-1" }]);
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ["asset-1"] },
+          status: "ready",
+          kind: { in: ["owner_supplied", "generated_static"] },
+          OR: [
+            {
+              contentItemVersion: {
+                contentPack: {
+                  businessId: "business-1",
+                  contentCycle: { ownerUserId: "owner-1" },
+                },
+              },
+            },
+            {
+              versionLinks: {
+                some: {
+                  contentItemVersion: {
+                    contentPack: {
+                      businessId: "business-1",
+                      contentCycle: { ownerUserId: "owner-1" },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    });
+  });
+
   describe("persistGeneratedItems", () => {
     const PROGRESS: import("./content-pack.repository").ContentProgressInput = {
       stage: "ready",
