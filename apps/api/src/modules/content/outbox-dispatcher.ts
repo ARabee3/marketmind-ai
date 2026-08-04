@@ -35,12 +35,16 @@ export class OutboxDispatcher extends WorkerHost {
     this.logger.log(`Processing outbox event: ${eventId}`);
 
     const leaseOwner = `publication-worker:${String(job.id ?? randomUUID())}`;
-    const event = this.candidateRepo.claimOutboxByEventId
+    const claimedWithLease = Boolean(this.candidateRepo.claimOutboxByEventId);
+    const event = claimedWithLease
       ? await this.candidateRepo.claimOutboxByEventId(eventId, leaseOwner)
       : await this.candidateRepo.getOutboxEventById(eventId);
 
-    if (!event || event.state !== "pending") {
-      this.logger.warn(`Event ${eventId} not found or not pending`);
+    const expectedState = claimedWithLease ? "processing" : "pending";
+    if (!event || event.state !== expectedState) {
+      this.logger.warn(
+        `Event ${eventId} not found or not ${expectedState}`,
+      );
       return;
     }
 
@@ -68,7 +72,7 @@ export class OutboxDispatcher extends WorkerHost {
         }),
       );
 
-      if (this.candidateRepo.claimOutboxByEventId) {
+      if (claimedWithLease) {
         await this.candidateRepo.markOutboxDispatched(eventId, leaseOwner);
       } else {
         await this.candidateRepo.markOutboxDispatched(eventId);
@@ -78,7 +82,7 @@ export class OutboxDispatcher extends WorkerHost {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`Failed to dispatch event ${eventId}: ${errorMessage}`);
-      if (this.candidateRepo.claimOutboxByEventId) {
+      if (claimedWithLease) {
         await this.candidateRepo.markOutboxFailed(
           eventId,
           errorMessage,

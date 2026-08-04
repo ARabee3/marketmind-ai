@@ -115,6 +115,38 @@ describe("OutboxDispatcher", () => {
       expect(candidateRepo.markOutboxFailed).not.toHaveBeenCalled();
     });
 
+    it("dispatches a claimed processing event and completes its lease", async () => {
+      const claimedEvent = { ...mockEvent, state: "processing" };
+      const repository = {
+        claimOutboxByEventId: jest.fn().mockResolvedValue(claimedEvent),
+        markOutboxDispatched: jest.fn().mockResolvedValue(undefined),
+        markOutboxFailed: jest.fn().mockResolvedValue(undefined),
+      };
+      const claimedDispatcher = new OutboxDispatcher(
+        repository as any,
+        httpService,
+        configService,
+      );
+      configService.get.mockReturnValue("https://webhook.example.com");
+      httpService.post.mockReturnValue(of({ status: 200, data: {} }) as any);
+
+      await claimedDispatcher.process({
+        id: "bull-publication-1",
+        data: { eventId: "test-event-id" },
+      } as any);
+
+      expect(repository.claimOutboxByEventId).toHaveBeenCalledWith(
+        "test-event-id",
+        "publication-worker:bull-publication-1",
+      );
+      expect(httpService.post).toHaveBeenCalled();
+      expect(repository.markOutboxDispatched).toHaveBeenCalledWith(
+        "test-event-id",
+        "publication-worker:bull-publication-1",
+      );
+      expect(repository.markOutboxFailed).not.toHaveBeenCalled();
+    });
+
     it("should mark event as failed when webhook call fails", async () => {
       configService.get.mockReturnValue("https://webhook.example.com");
       candidateRepo.getOutboxEventById.mockResolvedValue(mockEvent);
