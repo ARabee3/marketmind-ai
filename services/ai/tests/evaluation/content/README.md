@@ -75,8 +75,11 @@ npm run check:ai:content            # deterministic content suite
 npm run check:ai:content:threshold  # assert the documented threshold bars
 ```
 
-GitHub Actions CI (`deploy` not required) runs the content suite and asserts
-the threshold verdict in the `content-eval` job of `.github/workflows/ai-ci.yml`.
+GitHub Actions CI (`deploy` not required) runs the content suite and blocks on
+the deterministic hard-guardrail threshold in the `content-eval` job of
+`.github/workflows/ai-ci.yml`. The same run reports the human rubric status,
+but pending named-reviewer sign-off is handled as a review gate rather than an
+automated test failure.
 
 ## Running the Phase 6 real-provider spot-check
 
@@ -128,6 +131,10 @@ quality `0.9` (at least 90% of applicable dimensions score 4/5 or better after
 AI/product reviewer sign-off). The verdict never hides unmet cases. It is also exposed programmatically
 via `evaluate_thresholds()` / `run_all_verdict()`, and `run_all()` embeds the
 threshold metrics into the run report.
+
+CI uses `--hard-guardrails-only` so deterministic regressions remain blocking
+without treating incomplete human review as a test failure. The default command
+above still exits non-zero until both bars pass.
 
 See `docs/alignment.md` for the full Phase 0 alignment record, and
 `docs/out-of-scope.md` for what this harness deliberately does not cover.

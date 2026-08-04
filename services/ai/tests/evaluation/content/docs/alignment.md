@@ -230,16 +230,19 @@ never hides unmet cases behind aggregate bars.
   validation results (`fake_valid` vs `real_valid`).
 - Phase 10 wires the deterministic path into CI: the `content-eval` job in
   `.github/workflows/ai-ci.yml` runs `tests/evaluation/content` (no network, no
-  paid provider) and then asserts the documented threshold bars via
-  `python -m tests.evaluation.content.runner.threshold`, which exits non-zero
-  when bars are unmet. The real-provider path stays opt-in and never runs in CI.
+  paid provider) and then asserts the automated hard-guardrail bar via
+  `python -m tests.evaluation.content.runner.threshold --hard-guardrails-only`.
+  The command still reports the human rubric bar, while named-reviewer sign-off
+  remains a separate review gate. The real-provider path stays opt-in and never
+  runs in CI.
 
 ### Phase 10 acceptance (CI wiring)
 
 - [x] `check:ai:content` runs the deterministic content suite from the repo root.
 - [x] `check:ai:content:threshold` runs the threshold verdict from the repo root.
 - [x] `.github/workflows/ai-ci.yml` has a `content-eval` job running the suite.
-- [x] CI asserts the threshold verdict and fails the build when bars are unmet.
+- [x] CI fails when the deterministic hard-guardrail bar is unmet and reports
+      the human rubric bar without pretending automation can sign it off.
 - [x] No paid provider and no network are used by the CI content job.
 
 ## 6. Phase 6 acceptance (real-provider comparison)

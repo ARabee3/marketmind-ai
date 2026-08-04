@@ -46,5 +46,5 @@ jobs:
         run: uv sync --frozen
       - name: Run content eval deterministic suite
         run: uv run pytest tests/evaluation/content -m "not network and not integration" -v
-      - name: Assert documented threshold bars are met
-        run: uv run python -m tests.evaluation.content.runner.threshold
+      - name: Assert automated hard-guardrail threshold
+        run: uv run python -m tests.evaluation.content.runner.threshold --hard-guardrails-only

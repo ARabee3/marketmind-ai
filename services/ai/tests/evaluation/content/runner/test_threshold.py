@@ -15,6 +15,7 @@ from tests.evaluation.content.runner.threshold import (
     format_threshold_summary,
     match_expected_outcome,
     report_threshold_metrics,
+    threshold_exit_code,
 )
 from tests.evaluation.content.validators.content_validator import validate_case
 
@@ -231,6 +232,15 @@ def test_threshold_config_bars_default() -> None:
     config = ThresholdConfig()
     assert config.hard_guardrails_required == 1.0
     assert config.rubric_required == 0.9
+
+
+def test_ci_gate_blocks_on_hard_guardrails_but_not_pending_human_rubric() -> None:
+    verdict = evaluate_thresholds(_real_results())
+
+    assert verdict.hard_guardrails_passed is True
+    assert verdict.rubric_passed is False
+    assert threshold_exit_code(verdict) == 1
+    assert threshold_exit_code(verdict, hard_guardrails_only=True) == 0
 
 
 def test_verdict_to_dict_and_metrics_round_trip() -> None:

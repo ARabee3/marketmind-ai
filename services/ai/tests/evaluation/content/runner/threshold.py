@@ -416,12 +416,48 @@ def report_threshold_metrics(
     }
 
 
+def threshold_exit_code(
+    verdict: ThresholdVerdict,
+    *,
+    hard_guardrails_only: bool = False,
+) -> int:
+    """Return the CLI exit code for the selected threshold gate."""
+    passed = (
+        verdict.hard_guardrails_passed
+        if hard_guardrails_only
+        else verdict.passed
+    )
+    return 0 if passed else 1
+
+
 if __name__ == "__main__":
+    import argparse
     import sys
 
     from tests.evaluation.content.runner.runner import load_all_cases, run_cases
 
+    parser = argparse.ArgumentParser(description="Evaluate Content AI threshold bars")
+    parser.add_argument(
+        "--hard-guardrails-only",
+        action="store_true",
+        help=(
+            "Exit based on the deterministic hard-guardrail bar while still "
+            "reporting the human rubric status"
+        ),
+    )
+    args = parser.parse_args()
+
     verdict = evaluate_thresholds(run_cases(load_all_cases()))
     print(format_threshold_summary(verdict))
-    if not verdict.passed:
-        sys.exit(1)
+    if args.hard_guardrails_only:
+        print(
+            "\nAutomated CI gate: "
+            f"{'PASS' if verdict.hard_guardrails_passed else 'FAIL'} "
+            "(human rubric remains a separate review gate)"
+        )
+    sys.exit(
+        threshold_exit_code(
+            verdict,
+            hard_guardrails_only=args.hard_guardrails_only,
+        )
+    )

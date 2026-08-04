@@ -65,6 +65,11 @@ cd services/ai
 uv run python -m tests.evaluation.content.runner.threshold
 ```
 
+The default command requires both bars. Automated CI uses
+`--hard-guardrails-only`: it still prints the human rubric result, but exits on
+the deterministic hard-guardrail bar because reviewer sign-off cannot be
+completed by automation.
+
 ## Acceptance
 
 - [x] `runner/threshold.py` applies expected-outcome matching per case.
