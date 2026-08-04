@@ -40,6 +40,19 @@ export type AppendPackWithItemsInput = {
   readonly generationRunId: string;
 };
 
+export type GenerationJobIntentInput = {
+  readonly idempotencyKey: string;
+};
+
+export type ContentAssetJobIntent = {
+  readonly assetId: string;
+  readonly contentItemVersionId: string;
+  readonly creativeBrief: string;
+  readonly altText: string;
+  readonly width: number;
+  readonly height: number;
+};
+
 export type PersistGeneratedItemsInput = {
   readonly packId: string;
   readonly cycleId: string;
@@ -53,6 +66,7 @@ export type PersistGeneratedItemsInput = {
   readonly latencyMs: number;
   readonly startedAt: Date;
   readonly finishedAt: Date;
+  readonly assetJobs?: readonly ContentAssetJobIntent[];
 };
 
 export type AppendRevisedItemVersionInput = {
@@ -80,6 +94,7 @@ export type AppendRevisedItemVersionInput = {
   readonly generationProvenance: Prisma.InputJsonValue;
   readonly versionChecksum: string;
   readonly createdAt: Date;
+  readonly assetJob?: ContentAssetJobIntent;
 };
 
 export type CreateAssetInput = {
@@ -266,6 +281,7 @@ export class ContentPackRepository {
     cycleId: string,
     weekNumber: number,
     weekContextId: string,
+    jobIntent?: GenerationJobIntentInput,
   ): Promise<{ pack: ContentPack; created: boolean }> {
     if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 12) {
       throw new BadRequestException("Content week must be between 1 and 12.");
@@ -371,6 +387,23 @@ export class ContentPackRepository {
             itemIds: [],
           },
         });
+
+        if (jobIntent) {
+          await tx.contentJobOutbox.create({
+            data: {
+              jobId: `generate-content:${createdPack.id}`,
+              queueName: "content-generation",
+              jobName: "generate-content",
+              payload: {
+                contentCycleId: cycleId,
+                weekNumber,
+                contentPackId: createdPack.id,
+                idempotencyKey: `pack:${createdPack.id}`,
+                correlationId: `pack:${createdPack.id}`,
+              },
+            },
+          });
+        }
 
         await tx.contentCycle.update({
           where: { id: cycleId },
@@ -591,6 +624,19 @@ export class ContentPackRepository {
     return { changed: result.count === 1 };
   }
 
+  /** Claims a queued pack or a retryable failed pack for another provider attempt. */
+  async claimPackForGeneration(packId: string): Promise<{ changed: boolean }> {
+    const result = await this.prisma.contentPack.updateMany({
+      where: {
+        id: packId,
+        status: { in: ["queued", "failed"] },
+        retryEligible: true,
+      },
+      data: { status: "generating" },
+    });
+    return { changed: result.count === 1 };
+  }
+
   /**
    * Re-derives pack status from every item's current status after owner
    * decisions. All items approved -> "approved"; some approved ->
@@ -709,6 +755,10 @@ export class ContentPackRepository {
         );
       }
 
+      for (const assetJob of input.assetJobs ?? []) {
+        await createAssetJobIntent(tx, assetJob);
+      }
+
       if (input.weekNumber === 12) {
         await tx.contentCycle.updateMany({
           where: {
@@ -765,10 +815,11 @@ export class ContentPackRepository {
     messageText: string,
     payload?: Record<string, unknown>,
   ): Promise<void> {
+    const retryEligible = payload?.retryable === true;
     await this.prisma.$transaction(async (tx) => {
       await tx.contentPack.update({
         where: { id: packId },
-        data: { status: "failed", retryEligible: true },
+        data: { status: "failed", retryEligible },
       });
 
       const seq = await tx.contentProgressEvent.count({
@@ -834,6 +885,9 @@ export class ContentPackRepository {
         },
       });
       await linkVersionAssets(tx, newVersion.id, input.assetIds, input.altText);
+      if (input.assetJob) {
+        await createAssetJobIntent(tx, input.assetJob);
+      }
 
       await tx.contentItem.update({
         where: { id: input.itemId },
@@ -1022,4 +1076,27 @@ async function linkVersionAssets(
       update: {},
     });
   }
+}
+
+async function createAssetJobIntent(
+  tx: Prisma.TransactionClient,
+  job: ContentAssetJobIntent,
+): Promise<void> {
+  await tx.contentJobOutbox.create({
+    data: {
+      jobId: `generate-static-asset:${job.assetId}`,
+      queueName: "content-generation",
+      jobName: "generate-static-asset",
+      payload: {
+        assetId: job.assetId,
+        contentItemVersionId: job.contentItemVersionId,
+        creativeBrief: job.creativeBrief,
+        altText: job.altText,
+        width: job.width,
+        height: job.height,
+        idempotencyKey: `asset:${job.assetId}`,
+        correlationId: `asset:${job.assetId}`,
+      },
+    },
+  });
 }

@@ -341,7 +341,7 @@ describe("ContentProcessor - Revision Flow", () => {
 
       expect(packRepo.markItemStatus).toHaveBeenCalledWith(
         mockItem.id,
-        "revision_failed",
+        "revision_requested",
       );
 
       expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
@@ -362,9 +362,7 @@ describe("ContentProcessor - Revision Flow", () => {
       expect(packRepo.appendRevisedItemVersion).not.toHaveBeenCalled();
 
       // AC-5: the item's currentVersionId must still point to the pre-revision
-      // version row.  The processor gates on the status recorded by
-      // recordDecision, so after a failed revision the item remains at the same
-      // pointer row it had when the decision was written.
+      // version row while the retryable job remains claimable.
       const fetchedItem = await packRepo.getItemById(mockPack.id, mockItem.id);
       expect(fetchedItem?.currentVersionId).toBe(mockBaseVersion.id);
     });

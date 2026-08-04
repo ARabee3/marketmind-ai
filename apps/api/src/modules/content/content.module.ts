@@ -19,6 +19,8 @@ import { OutboxDispatcher } from './outbox-dispatcher';
 import { ContentRateLimitGuard } from './content-rate-limit.guard';
 import { ContentExceptionFilter } from './content-exception.filter';
 import { ContentScheduler } from './content-scheduler.service';
+import { ContentJobOutboxRepository } from './content-job-outbox.repository';
+import { ContentJobOutboxDispatcher } from './content-job-outbox.dispatcher';
 import { PrismaModule } from '../../common/persistence/prisma.module';
 import { AssetStorageModule } from './assets/asset-storage.module';
 
@@ -49,6 +51,8 @@ import { AssetStorageModule } from './assets/asset-storage.module';
     ContentRateLimitGuard,
     ContentExceptionFilter,
     ContentScheduler,
+    ContentJobOutboxRepository,
+    ContentJobOutboxDispatcher,
   ],
   exports: [ContentService],
 })

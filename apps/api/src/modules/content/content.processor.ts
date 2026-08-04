@@ -1,19 +1,21 @@
 import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { Queue } from "bullmq";
-import { Injectable, Logger, Inject } from "@nestjs/common";
+import { Injectable, Logger, Inject, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
 import {
   ContentItemVersion,
   ContentPolicyFixture,
+  deterministicGeneratedAssetId,
   validateContentPolicyFixture,
 } from "@marketmind/contracts";
 import type { StrategyPlan, BusinessProfileData } from "@marketmind/contracts";
 import {
   ContentPackRepository,
   ContentItemVersionDraftInput,
+  type ContentAssetJobIntent,
 } from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
@@ -40,6 +42,7 @@ import {
   normalizeAiContentItemVersion,
   normalizeGeneratedContentItemVersions,
 } from "./content-item-version-normalizer";
+import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
 
 interface ContentGenerateJobData {
   contentCycleId: string;
@@ -83,6 +86,7 @@ export class ContentProcessor extends WorkerHost {
     private readonly contentAiClient: ContentAiClient,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
+    @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
   ) {
     super();
   }
@@ -118,11 +122,9 @@ export class ContentProcessor extends WorkerHost {
       return;
     }
 
-    const claimed = await this.packRepo.markPackStatus(
-      pack.id,
-      "queued",
-      "generating",
-    );
+    const claimed = this.packRepo.claimPackForGeneration
+      ? await this.packRepo.claimPackForGeneration(pack.id)
+      : await this.packRepo.markPackStatus(pack.id, "queued", "generating");
     if (!claimed.changed) {
       this.logger.warn(`Pack ${pack.id} already claimed by another worker`);
       return;
@@ -282,6 +284,7 @@ export class ContentProcessor extends WorkerHost {
         latencyMs: finishedAt.getTime() - startedAt.getTime(),
         startedAt,
         finishedAt,
+        assetJobs: assetJobsForVersions(normalizedItemVersions),
       });
       try {
         await this.queuePlannedAssetJobs(normalizedItemVersions, correlationId);
@@ -301,6 +304,9 @@ export class ContentProcessor extends WorkerHost {
       );
     } catch (error) {
       const retryable = error instanceof ProviderError ? error.retryable : true;
+      const attemptsMade = job.attemptsMade ?? 0;
+      const maxAttempts = Number(job.opts?.attempts ?? 3);
+      const retryEligible = retryable && attemptsMade + 1 < maxAttempts;
 
       await this.packRepo.safeFail(
         pack.id,
@@ -311,7 +317,7 @@ export class ContentProcessor extends WorkerHost {
             error instanceof ProviderError
               ? error.code
               : "CONTENT_GENERATION_FAILED",
-          retryable,
+          retryable: retryEligible,
           correlation_id: correlationId,
         },
       );
@@ -551,6 +557,7 @@ export class ContentProcessor extends WorkerHost {
           normalizedNewVersion.generation_provenance as Prisma.InputJsonValue,
         versionChecksum: normalizedNewVersion.version_checksum,
         createdAt: new Date(normalizedNewVersion.created_at),
+        assetJob: assetJobForVersion(normalizedNewVersion) ?? undefined,
       });
       try {
         await this.queuePlannedAssetJobs([normalizedNewVersion], correlationId);
@@ -581,8 +588,14 @@ export class ContentProcessor extends WorkerHost {
       );
     } catch (error) {
       const retryable = error instanceof ProviderError ? error.retryable : true;
+      const attemptsMade = job.attemptsMade ?? 0;
+      const maxAttempts = Number(job.opts?.attempts ?? 3);
+      const retryEligible = retryable && attemptsMade + 1 < maxAttempts;
 
-      await this.packRepo.markItemStatus(contentItemId, "revision_failed");
+      await this.packRepo.markItemStatus(
+        contentItemId,
+        retryEligible ? "revision_requested" : "revision_failed",
+      );
       await this.packRepo.appendProgressEvent(pack.id, {
         stage: "revision",
         status: "failed",
@@ -593,7 +606,7 @@ export class ContentProcessor extends WorkerHost {
             error instanceof ProviderError
               ? error.code
               : "CONTENT_REVISION_FAILED",
-          retryable,
+          retryable: retryEligible,
           correlation_id: correlationId,
           item_id: contentItemId,
           prior_version_id: baseItemVersionId,
@@ -750,27 +763,57 @@ export class ContentProcessor extends WorkerHost {
         ) {
           continue;
         }
+        const jobId = `generate-static-asset:${assetId}`;
+        const payload = {
+          assetId,
+          contentItemVersionId: item.id,
+          creativeBrief: item.creative_brief,
+          altText: item.alt_text,
+          width: 1080,
+          height: 1080,
+          idempotencyKey: `asset:${assetId}`,
+          correlationId: `asset:${assetId}`,
+        };
         await this.contentQueue.add(
           "generate-static-asset",
-          {
-            assetId,
-            contentItemVersionId: item.id,
-            creativeBrief: item.creative_brief,
-            altText: item.alt_text,
-            width: 1080,
-            height: 1080,
-            idempotencyKey: `asset:${assetId}`,
-            correlationId,
-          },
-          {
-            jobId: `asset:${assetId}`,
-            attempts: 3,
-            backoff: { type: "exponential", delay: 2000 },
-          },
+          this.jobOutbox ? payload : { ...payload, correlationId },
+          this.jobOutbox
+            ? {
+                jobId,
+                attempts: 3,
+                backoff: { type: "exponential", delay: 2000 },
+              }
+            : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
         );
+        await this.jobOutbox?.markDirectDispatched(jobId);
       }
     }
   }
+}
+
+function assetJobsForVersions(
+  itemVersions: readonly ContentItemVersion[],
+): ContentAssetJobIntent[] {
+  return itemVersions.flatMap((item) => {
+    const job = assetJobForVersion(item);
+    return job ? [job] : [];
+  });
+}
+
+function assetJobForVersion(
+  item: ContentItemVersion,
+): ContentAssetJobIntent | null {
+  if (!item.asset_required) return null;
+  const generatedAssetId = deterministicGeneratedAssetId(item.id);
+  if (!item.asset_ids.includes(generatedAssetId)) return null;
+  return {
+    assetId: generatedAssetId,
+    contentItemVersionId: item.id,
+    creativeBrief: item.creative_brief,
+    altText: item.alt_text,
+    width: 1080,
+    height: 1080,
+  };
 }
 
 function toDraftInput(iv: ContentItemVersion): ContentItemVersionDraftInput {

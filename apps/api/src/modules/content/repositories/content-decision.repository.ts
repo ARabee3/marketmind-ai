@@ -1,11 +1,11 @@
-import {
-  ConflictException,
-  NotFoundException,
-} from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 
-export type ContentDecisionValue = "approved" | "rejected" | "revision_requested";
+export type ContentDecisionValue =
+  | "approved"
+  | "rejected"
+  | "revision_requested";
 
 export type RecordContentDecisionInput = {
   itemId: string;
@@ -16,6 +16,12 @@ export type RecordContentDecisionInput = {
   revisionNotes: string | null;
   ownerUserId: string;
   idempotencyKey: string;
+  revisionJob?: {
+    jobId: string;
+    queueName: string;
+    jobName: string;
+    payload: Prisma.InputJsonValue;
+  };
 };
 
 export type BulkContentDecisionRequest = {
@@ -137,31 +143,31 @@ export class ContentDecisionRepository {
         "This item version is no longer the current version. Refresh before deciding.",
       );
     }
-if (
-    version.version !== input.versionNumber
-    || version.versionChecksum !== input.versionChecksum
-  ) {
-    throw versionConflict(
-      "The submitted version checksum no longer matches the current item version.",
-    );
-  }
+    if (
+      version.version !== input.versionNumber ||
+      version.versionChecksum !== input.versionChecksum
+    ) {
+      throw versionConflict(
+        "The submitted version checksum no longer matches the current item version.",
+      );
+    }
 
-  // One terminal decision per exact item version: reject a second decision
-  // with a different idempotency key before inserting (arch doc 559-569).
-  const existingTerminal = await tx.contentDecision.findFirst({
-    where: {
-      contentItemId: input.itemId,
-      contentItemVersionId: input.versionId,
-    },
-    select: { id: true },
-  });
-  if (existingTerminal) {
-    throw versionConflict(
-      "This item version has already received a terminal decision.",
-    );
-  }
+    // One terminal decision per exact item version: reject a second decision
+    // with a different idempotency key before inserting (arch doc 559-569).
+    const existingTerminal = await tx.contentDecision.findFirst({
+      where: {
+        contentItemId: input.itemId,
+        contentItemVersionId: input.versionId,
+      },
+      select: { id: true },
+    });
+    if (existingTerminal) {
+      throw versionConflict(
+        "This item version has already received a terminal decision.",
+      );
+    }
 
-  let decision: ContentDecisionRow;
+    let decision: ContentDecisionRow;
     try {
       decision = (await tx.contentDecision.create({
         data: {
@@ -178,7 +184,10 @@ if (
         },
       })) as ContentDecisionRow;
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
         const replayed = await tx.contentDecision.findUnique({
           where: {
             ownerUserId_idempotencyKey: {
@@ -208,6 +217,10 @@ if (
       throw versionConflict(
         "A concurrent change moved the item away from the submitted version; decision not applied.",
       );
+    }
+
+    if (input.revisionJob) {
+      await tx.contentJobOutbox.create({ data: input.revisionJob });
     }
 
     return decision;
@@ -267,7 +280,9 @@ if (
 
     const itemById = new Map(items.map((i) => [i.id, i]));
     const versionById = new Map(versions.map((v) => [v.id, v]));
-    const decidedVersionIds = new Set(decided.map((d) => d.contentItemVersionId));
+    const decidedVersionIds = new Set(
+      decided.map((d) => d.contentItemVersionId),
+    );
     const replayByKey = new Map(
       byKey
         .filter((d): d is ContentDecisionRow => d.idempotencyKey !== null)
@@ -307,7 +322,8 @@ if (
         errors.push({
           itemId: req.itemId,
           code: CONTENT_VERSION_CONFLICT,
-          message: "The submitted version checksum no longer matches the current item version.",
+          message:
+            "The submitted version checksum no longer matches the current item version.",
         });
         continue;
       }

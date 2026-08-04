@@ -491,6 +491,47 @@ describe("ContentProcessor", () => {
       );
       expect(packRepo.persistGeneratedItems).not.toHaveBeenCalled();
     });
+
+    it("calls the provider again on retryable attempts and persists on the third", async () => {
+      const providerError = new ProviderError(
+        "CONTENT_PROVIDER_FAILURE",
+        "AI service returned 502",
+        true,
+      );
+      (client.generate as jest.Mock)
+        .mockRejectedValueOnce(providerError)
+        .mockRejectedValueOnce(providerError)
+        .mockResolvedValueOnce(AI_RESPONSE_3_ITEMS);
+      const attempt = (attemptsMade: number) =>
+        ({
+          id: "job-1",
+          name: "generate-content",
+          data: JOB_DATA,
+          attemptsMade,
+          opts: { attempts: 3 },
+        }) as never;
+
+      await expect(processor.process(attempt(0))).rejects.toBe(providerError);
+      await expect(processor.process(attempt(1))).rejects.toBe(providerError);
+      await expect(processor.process(attempt(2))).resolves.toBeUndefined();
+
+      expect(client.generate).toHaveBeenCalledTimes(3);
+      expect(packRepo.persistGeneratedItems).toHaveBeenCalledTimes(1);
+      expect(packRepo.safeFail).toHaveBeenNthCalledWith(
+        1,
+        "pack-1",
+        "content.generation_failed",
+        "AI service returned 502",
+        expect.objectContaining({ retryable: true }),
+      );
+      expect(packRepo.safeFail).toHaveBeenNthCalledWith(
+        2,
+        "pack-1",
+        "content.generation_failed",
+        "AI service returned 502",
+        expect.objectContaining({ retryable: true }),
+      );
+    });
   });
 
   // ── Unknown job ────────────────────────────────────────────────────

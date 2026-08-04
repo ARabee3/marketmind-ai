@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -68,6 +69,7 @@ import {
   AssetStorage,
   CONTENT_ASSET_STORAGE,
 } from "./assets/asset-storage.port";
+import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
 import {
   cairoCalendarDate,
   weekCutoffDate,
@@ -122,6 +124,7 @@ export class ContentService {
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @InjectQueue("content-outbox") private readonly outboxQueue: Queue,
+    @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -257,6 +260,9 @@ export class ContentService {
           week_number: 1,
           week_start_date: weekStartDate(week1StartDate, 1),
         },
+        generationJob: this.jobOutbox
+          ? { idempotencyKey: `cycle-creation:${strategy.id}:week:1` }
+          : undefined,
       },
       ownerUserId,
     );
@@ -499,13 +505,46 @@ export class ContentService {
       existingWeek?.id ??
       (await this.safeDefaultWeekContext(cycleId, weekNumber)).id;
 
-    const { pack, created } = await this.packRepository.claimQueuedPack(
-      cycleId,
-      weekNumber,
-      weekContextId,
-    );
+    const { pack, created } = this.jobOutbox
+      ? await this.packRepository.claimQueuedPack(
+          cycleId,
+          weekNumber,
+          weekContextId,
+          { idempotencyKey: dto.idempotency_key },
+        )
+      : await this.packRepository.claimQueuedPack(
+          cycleId,
+          weekNumber,
+          weekContextId,
+        );
 
     const correlationId = randomUUID();
+    const jobId = `generate-content:${pack.id}`;
+    const durableJobPayload = {
+      contentCycleId: cycleId,
+      weekNumber,
+      contentPackId: pack.id,
+      idempotencyKey: `pack:${pack.id}`,
+      correlationId: `pack:${pack.id}`,
+    };
+    await this.jobOutbox?.createIntent({
+      jobId,
+      queueName: "content-generation",
+      jobName: "generate-content",
+      payload: durableJobPayload,
+    });
+    const queuePayload = this.jobOutbox
+      ? durableJobPayload
+      : {
+          contentCycleId: cycleId,
+          weekNumber,
+          contentPackId: pack.id,
+          idempotencyKey: dto.idempotency_key,
+          correlationId,
+        };
+    const queueOptions = this.jobOutbox
+      ? { jobId, attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+      : { attempts: 3, backoff: { type: "exponential", delay: 2000 } };
     if (!created) {
       // Idempotent replay. If the pack is still queued (no worker picked it up
       // because a previous queue.add failed after the claim), re-enqueue to
@@ -516,15 +555,10 @@ export class ContentService {
       ) {
         await this.contentQueue.add(
           "generate-content",
-          {
-            contentCycleId: cycleId,
-            weekNumber,
-            contentPackId: pack.id,
-            idempotencyKey: dto.idempotency_key,
-            correlationId: `pack:${pack.id}`,
-          },
-          { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+          queuePayload,
+          queueOptions,
         );
+        await this.jobOutbox?.markDirectDispatched(jobId);
       }
       return {
         content_pack: toContentPack(pack),
@@ -533,17 +567,8 @@ export class ContentService {
       };
     }
 
-    await this.contentQueue.add(
-      "generate-content",
-      {
-        contentCycleId: cycleId,
-        weekNumber,
-        contentPackId: pack.id,
-        idempotencyKey: dto.idempotency_key,
-        correlationId,
-      },
-      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
-    );
+    await this.contentQueue.add("generate-content", queuePayload, queueOptions);
+    await this.jobOutbox?.markDirectDispatched(jobId);
 
     await this.packRepository.appendProgressEvent(pack.id, {
       stage: "queued",
@@ -1108,6 +1133,17 @@ export class ContentService {
       });
     }
 
+    const correlationId = randomUUID();
+    const revisionJobId = `revise-content:${dto.idempotency_key}`;
+    const durableRevisionPayload = {
+      contentCycleId: pack.contentCycleId,
+      contentPackId: pack.id,
+      contentItemId: item.id,
+      baseItemVersionId: currentVersion.id,
+      revisionNotes: dto.revision_notes ?? "",
+      idempotencyKey: dto.idempotency_key,
+      correlationId: `revision:${revisionJobId}`,
+    };
     const decision = await this.decisionRepository.recordDecision({
       itemId: item.id,
       versionId: dto.content_item_version_id,
@@ -1117,22 +1153,41 @@ export class ContentService {
       revisionNotes: dto.revision_notes,
       ownerUserId,
       idempotencyKey: dto.idempotency_key,
+      ...(this.jobOutbox
+        ? {
+            revisionJob: {
+              jobId: revisionJobId,
+              queueName: "content-generation",
+              jobName: "revise-content",
+              payload: durableRevisionPayload,
+            },
+          }
+        : {}),
     });
 
-    const correlationId = randomUUID();
+    await this.jobOutbox?.createIntent({
+      jobId: revisionJobId,
+      queueName: "content-generation",
+      jobName: "revise-content",
+      payload: durableRevisionPayload,
+    });
     await this.contentQueue.add(
       "revise-content",
-      {
-        contentCycleId: pack.contentCycleId,
-        contentPackId: pack.id,
-        contentItemId: item.id,
-        baseItemVersionId: decision.contentItemVersionId,
-        revisionNotes: dto.revision_notes ?? "",
-        idempotencyKey: dto.idempotency_key,
-        correlationId,
-      },
-      { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+      this.jobOutbox
+        ? durableRevisionPayload
+        : {
+            ...durableRevisionPayload,
+            correlationId,
+          },
+      this.jobOutbox
+        ? {
+            jobId: revisionJobId,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 2000 },
+          }
+        : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
     );
+    await this.jobOutbox?.markDirectDispatched(revisionJobId);
 
     this.logger.log(
       `[ContentItem ${item.id}] [Corr: ${correlationId}] Revision requested. Base version: ${decision.contentItemVersionId}`,

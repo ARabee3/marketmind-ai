@@ -24,6 +24,7 @@ export type CreateContentCycleInput = {
 
 export type CreateCycleWithWeekOneInput = CreateContentCycleInput & {
   readonly initialWeekContext: ContentWeekContextOwnerInput;
+  readonly generationJob?: { readonly idempotencyKey: string };
 };
 
 /**
@@ -165,6 +166,22 @@ export class ContentCycleRepository {
             itemIds: [],
           },
         });
+        if (input.generationJob) {
+          await tx.contentJobOutbox.create({
+            data: {
+              jobId: `generate-content:${pack.id}`,
+              queueName: "content-generation",
+              jobName: "generate-content",
+              payload: {
+                contentCycleId: cycle.id,
+                weekNumber: 1,
+                contentPackId: pack.id,
+                idempotencyKey: `pack:${pack.id}`,
+                correlationId: `pack:${pack.id}`,
+              },
+            },
+          });
+        }
         return {
           cycle,
           weekContext: { ...weekContext, frozenAt },

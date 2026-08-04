@@ -46,6 +46,7 @@ model User {
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
   contentWeekContextsConfirmed ContentWeekContext[]
   publicationCandidateStatuses PublicationCandidateStatus[]
+  billingAccount              BillingAccount?
 }
 
 model RefreshSession {
@@ -136,6 +137,7 @@ model Business {
   contentCycles           ContentCycle[]
   contentPacks            ContentPack[]
   publicationCandidates   PublicationCandidate[]
+  billingAccounts         BillingAccount[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -1090,6 +1092,27 @@ model PublicationCandidateOutbox {
   @@index([state, nextAttemptAt])
   @@index([candidateId])
   @@map("publication_candidate_outbox")
+}
+
+model ContentJobOutbox {
+  id             String    @id @default(uuid()) @db.Uuid
+  jobId          String    @unique @map("job_id")
+  queueName      String    @map("queue_name")
+  jobName        String    @map("job_name")
+  payload        Json
+  state          String    @default("pending")
+  attempts       Int       @default(0)
+  leaseOwner     String?   @map("lease_owner")
+  leaseExpiresAt DateTime? @map("lease_expires_at")
+  nextAttemptAt  DateTime? @map("next_attempt_at")
+  lastError      String?   @map("last_error")
+  dispatchedAt   DateTime? @map("dispatched_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
+  @@map("content_job_outbox")
 }
 
 // ── Publishing Automation ─────────────────────────────────────────────────────

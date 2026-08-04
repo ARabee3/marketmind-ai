@@ -679,6 +679,7 @@ describe("ContentPackRepository", () => {
         "AI call failed",
         {
           errorCode: "CONTENT_PROVIDER_FAILURE",
+          retryable: true,
         },
       );
 
@@ -694,8 +695,32 @@ describe("ContentPackRepository", () => {
           status: "failed",
           messageKey: "content.generation_failed",
           messageText: "AI call failed",
-          payload: { errorCode: "CONTENT_PROVIDER_FAILURE" },
+          payload: {
+            errorCode: "CONTENT_PROVIDER_FAILURE",
+            retryable: true,
+          },
         }),
+      });
+    });
+  });
+
+  describe("claimPackForGeneration", () => {
+    it("reclaims a retryable failed pack for the next provider attempt", async () => {
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const repo = new ContentPackRepository({
+        contentPack: { updateMany },
+      } as unknown as PrismaService);
+
+      await expect(repo.claimPackForGeneration("pack-1")).resolves.toEqual({
+        changed: true,
+      });
+      expect(updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "pack-1",
+          status: { in: ["queued", "failed"] },
+          retryEligible: true,
+        },
+        data: { status: "generating" },
       });
     });
   });
