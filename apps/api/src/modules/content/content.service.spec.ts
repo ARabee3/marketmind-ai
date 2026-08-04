@@ -14,7 +14,10 @@ import type { ContentDecisionRow } from "./repositories/content-decision.reposit
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { AssetStorage, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
+import {
+  AssetStorage,
+  CONTENT_ASSET_STORAGE,
+} from "./assets/asset-storage.port";
 import {
   computePublicationCandidateChecksum,
   isPublicationCandidateChecksumValid,
@@ -72,12 +75,14 @@ const CYCLE_ROW = {
   profileVersionId: "prof-1",
   status: "active",
   currentWeekNumber: 1,
+  week1StartDate: new Date("2026-08-01T00:00:00.000Z"),
   nextGenerationAt: new Date("2026-08-07T21:00:00.000Z"),
   timezone: "Africa/Cairo",
   pauseReason: null,
   completedAt: null,
   ownerUserId: OWNER_ID,
   idempotencyKey: "idem-1",
+  idempotencyFingerprint: "fingerprint-1",
   createdAt: new Date("2026-08-01T00:00:00.000Z"),
   updatedAt: new Date("2026-08-01T00:00:00.000Z"),
 };
@@ -100,6 +105,7 @@ const WEEK_ROW = {
   confirmedByUserId: OWNER_ID,
   confirmedAt: new Date("2026-08-01T00:00:00.000Z"),
   systemDefaultedAt: null,
+  frozenAt: null,
   createdAt: new Date("2026-08-01T00:00:00.000Z"),
 };
 
@@ -121,6 +127,7 @@ const SYSTEM_DEFAULTED_WEEK_ROW = {
   confirmedByUserId: null,
   confirmedAt: null,
   systemDefaultedAt: new Date("2026-08-15T00:00:00.000Z"),
+  frozenAt: new Date("2026-08-15T00:00:00.000Z"),
   createdAt: new Date("2026-08-15T00:00:00.000Z"),
 };
 
@@ -248,9 +255,17 @@ function makeStrategyRepo(
   };
 }
 
-function makeCycleRepo(overrides: Partial<MockedCycleRepo> = {}): MockedCycleRepo {
+function makeCycleRepo(
+  overrides: Partial<MockedCycleRepo> = {},
+): MockedCycleRepo {
   return {
     createCycle: jest.fn().mockResolvedValue(CYCLE_ROW),
+    createCycleWithWeekOne: jest.fn().mockResolvedValue({
+      cycle: CYCLE_ROW,
+      weekContext: WEEK_ROW,
+      pack: PACK_ROW,
+      created: true,
+    }),
     getCycleByIdAndOwner: jest.fn().mockResolvedValue(CYCLE_ROW),
     getCycleById: jest.fn().mockResolvedValue(CYCLE_ROW),
     pauseCycle: jest.fn().mockResolvedValue({
@@ -267,7 +282,9 @@ function makeWeekRepo(overrides: Partial<MockedWeekRepo> = {}): MockedWeekRepo {
   return {
     upsertOwnerContext: jest.fn().mockResolvedValue(WEEK_ROW),
     listWeeks: jest.fn().mockResolvedValue([]),
-    createSafeDefaultContext: jest.fn().mockResolvedValue(SYSTEM_DEFAULTED_WEEK_ROW),
+    createSafeDefaultContext: jest
+      .fn()
+      .mockResolvedValue(SYSTEM_DEFAULTED_WEEK_ROW),
     ...overrides,
   };
 }
@@ -340,7 +357,10 @@ function makeAssetStorage(): jest.Mocked<AssetStorage> {
 
 /** Extracts the `code` from a Nest HttpException response body. */
 function errorCode(error: unknown): string | undefined {
-  if (error instanceof BadRequestException || error instanceof ConflictException) {
+  if (
+    error instanceof BadRequestException ||
+    error instanceof ConflictException
+  ) {
     const response = error.getResponse();
     if (typeof response === "object" && response !== null) {
       return (response as { code?: string }).code;
@@ -383,10 +403,19 @@ describe("ContentService.createCycle", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: packRepo },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -398,9 +427,9 @@ describe("ContentService.createCycle", () => {
   it("throws NotFound when the Strategy does not exist or is not owned by the caller", async () => {
     (strategyRepo.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(null);
 
-    await expect(
-      service.createCycle(DTO, OWNER_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.createCycle(DTO, OWNER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("rejects with CONTENT_STRATEGY_NOT_APPROVED when the Strategy is not approved", async () => {
@@ -408,7 +437,10 @@ describe("ContentService.createCycle", () => {
       makeStrategyRow({ status: "draft" }),
     );
 
-    await rejectsWithCode(service.createCycle(DTO, OWNER_ID), "CONTENT_STRATEGY_NOT_APPROVED");
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_STRATEGY_NOT_APPROVED",
+    );
   });
 
   it("rejects with CONTENT_STRATEGY_NOT_APPROVED when strategy_version is not the current approved version", async () => {
@@ -418,7 +450,10 @@ describe("ContentService.createCycle", () => {
       version: 3,
     });
 
-    await rejectsWithCode(service.createCycle(DTO, OWNER_ID), "CONTENT_STRATEGY_NOT_APPROVED");
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_STRATEGY_NOT_APPROVED",
+    );
   });
 
   it("rejects with CONTENT_STRATEGY_NOT_APPROVED when the current version belongs to another Strategy", async () => {
@@ -428,15 +463,23 @@ describe("ContentService.createCycle", () => {
       version: 2,
     });
 
-    await rejectsWithCode(service.createCycle(DTO, OWNER_ID), "CONTENT_STRATEGY_NOT_APPROVED");
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_STRATEGY_NOT_APPROVED",
+    );
   });
 
   it("rejects with CONTENT_PROFILE_STALE when the approved profile is no longer the active confirmed one", async () => {
-    (strategyRepo.getActiveConfirmedProfileVersion as jest.Mock).mockResolvedValue({
+    (
+      strategyRepo.getActiveConfirmedProfileVersion as jest.Mock
+    ).mockResolvedValue({
       id: "prof-2",
     });
 
-    await rejectsWithCode(service.createCycle(DTO, OWNER_ID), "CONTENT_PROFILE_STALE");
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_PROFILE_STALE",
+    );
   });
 
   it("creates the cycle and initial owner-confirmed week context for week 1", async () => {
@@ -447,7 +490,7 @@ describe("ContentService.createCycle", () => {
     expect(result.initial_week_context.week_start_date).toBe("2026-08-01");
     expect(result.initial_week_context.context_source).toBe("owner_confirmed");
 
-    expect(cycleRepo.createCycle).toHaveBeenCalledWith(
+    expect(cycleRepo.createCycleWithWeekOne).toHaveBeenCalledWith(
       expect.objectContaining({
         businessId: "biz-1",
         strategyId: "strat-1",
@@ -455,6 +498,11 @@ describe("ContentService.createCycle", () => {
         strategyDecisionId: "decision-1",
         profileVersionId: "prof-1",
         idempotencyKey: "idem-1",
+        week1StartDate: new Date("2026-08-01T00:00:00.000Z"),
+        initialWeekContext: expect.objectContaining({
+          week_number: 1,
+          week_start_date: "2026-08-01",
+        }),
       }),
       OWNER_ID,
     );
@@ -462,8 +510,8 @@ describe("ContentService.createCycle", () => {
     // Week 1 cutoff = start of week 2 in Africa/Cairo (end of the current
     // Strategy week). The Cairo date of the persisted cutoff must be
     // 2026-08-08 (strategy start + 7 days).
-    const cutoff = (cycleRepo.createCycle as jest.Mock).mock.calls[0][0]
-      .nextGenerationAt as Date;
+    const cutoff = (cycleRepo.createCycleWithWeekOne as jest.Mock).mock
+      .calls[0][0].nextGenerationAt as Date;
     expect(cutoff).toBeInstanceOf(Date);
     const cairoDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Cairo",
@@ -472,17 +520,6 @@ describe("ContentService.createCycle", () => {
       day: "2-digit",
     }).format(cutoff);
     expect(cairoDate).toBe("2026-08-08");
-
-    // The initial context is persisted with the server-authoritative week
-    // number/start date even if the client sent different values.
-    expect(weekRepo.upsertOwnerContext).toHaveBeenCalledWith(
-      "cycle-1",
-      expect.objectContaining({
-        week_number: 1,
-        week_start_date: "2026-08-01",
-      }),
-      OWNER_ID,
-    );
 
     // Issue #110 requires week 1 to be queued immediately on cycle creation.
     expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
@@ -494,12 +531,17 @@ describe("ContentService.createCycle", () => {
 
   it("returns the same cycle on idempotent replay (repository returns the original row)", async () => {
     const replayCycle = { ...CYCLE_ROW, id: "cycle-original" };
-    (cycleRepo.createCycle as jest.Mock).mockResolvedValue(replayCycle);
+    (cycleRepo.createCycleWithWeekOne as jest.Mock).mockResolvedValue({
+      cycle: replayCycle,
+      weekContext: WEEK_ROW,
+      pack: PACK_ROW,
+      created: false,
+    });
 
     const result = await service.createCycle(DTO, OWNER_ID);
 
     expect(result.content_cycle.id).toBe("cycle-original");
-    expect(cycleRepo.createCycle).toHaveBeenCalledTimes(1);
+    expect(cycleRepo.createCycleWithWeekOne).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -519,10 +561,19 @@ describe("ContentService.upsertWeekContext", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: makePackRepo() },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -539,7 +590,12 @@ describe("ContentService.upsertWeekContext", () => {
     (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
 
     await expect(
-      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        1,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -550,7 +606,12 @@ describe("ContentService.upsertWeekContext", () => {
     });
 
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        1,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_CYCLE_PAUSED",
     );
   });
@@ -562,18 +623,33 @@ describe("ContentService.upsertWeekContext", () => {
     });
 
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        1,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_CYCLE_COMPLETED",
     );
   });
 
   it("rejects with CONTENT_WEEK_OUT_OF_RANGE for weeks outside 1-12", async () => {
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 0, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        0,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_WEEK_OUT_OF_RANGE",
     );
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 13, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        13,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_WEEK_OUT_OF_RANGE",
     );
   });
@@ -586,7 +662,11 @@ describe("ContentService.upsertWeekContext", () => {
     const result = await service.upsertWeekContext(
       "cycle-1",
       1,
-      { ...DTO.initial_week_context, week_number: 4, week_start_date: "2026-01-01" },
+      {
+        ...DTO.initial_week_context,
+        week_number: 4,
+        week_start_date: "2026-01-01",
+      },
       OWNER_ID,
     );
 
@@ -612,7 +692,12 @@ describe("ContentService.upsertWeekContext", () => {
     jest.setSystemTime(new Date("2026-08-08T00:00:00.000Z"));
 
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        1,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_WEEK_ALREADY_CLAIMED",
     );
   });
@@ -623,7 +708,12 @@ describe("ContentService.upsertWeekContext", () => {
     ]);
 
     await rejectsWithCode(
-      service.upsertWeekContext("cycle-1", 1, DTO.initial_week_context, OWNER_ID),
+      service.upsertWeekContext(
+        "cycle-1",
+        1,
+        DTO.initial_week_context,
+        OWNER_ID,
+      ),
       "CONTENT_WEEK_ALREADY_CLAIMED",
     );
   });
@@ -645,10 +735,19 @@ describe("ContentService.safeDefaultWeekContext", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: makePackRepo() },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -660,9 +759,9 @@ describe("ContentService.safeDefaultWeekContext", () => {
   it("throws NotFound when the cycle does not exist", async () => {
     (cycleRepo.getCycleById as jest.Mock).mockResolvedValue(null);
 
-    await expect(
-      service.safeDefaultWeekContext("cycle-1", 3),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.safeDefaultWeekContext("cycle-1", 3)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("rejects with CONTENT_WEEK_OUT_OF_RANGE for weeks outside 1-12", async () => {
@@ -677,6 +776,10 @@ describe("ContentService.safeDefaultWeekContext", () => {
   });
 
   it("persists a promotion-free safe default with cycle-derived dates", async () => {
+    (cycleRepo.getCycleById as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      currentWeekNumber: 2,
+    });
     const result = await service.safeDefaultWeekContext("cycle-1", 3);
 
     // Week 3 starts 2026-08-15 (week 2 start + 7) and its cutoff is the start
@@ -685,7 +788,7 @@ describe("ContentService.safeDefaultWeekContext", () => {
       "cycle-1",
       3,
       expect.objectContaining({
-        weekStartDate: new Date("2026-08-14T21:00:00.000Z"),
+        weekStartDate: new Date("2026-08-15T00:00:00.000Z"),
         cutoffAt: new Date("2026-08-21T21:00:00.000Z"),
       }),
     );
@@ -718,9 +821,15 @@ describe("ContentService.generateWeek", () => {
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: getQueueToken("content-generation"), useValue: queue },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -775,7 +884,12 @@ describe("ContentService.generateWeek", () => {
   it("claims the week, enqueues a generation job, and returns the queued pack", async () => {
     (weekRepo.listWeeks as jest.Mock).mockResolvedValue([WEEK_ROW]);
 
-    const result = await service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID);
+    const result = await service.generateWeek(
+      "cycle-1",
+      1,
+      GENERATE_DTO,
+      OWNER_ID,
+    );
 
     expect(result.status).toBe("queued");
     expect(result.correlation_id).toMatch(
@@ -824,7 +938,12 @@ describe("ContentService.generateWeek", () => {
       created: false,
     });
 
-    const result = await service.generateWeek("cycle-1", 1, GENERATE_DTO, OWNER_ID);
+    const result = await service.generateWeek(
+      "cycle-1",
+      1,
+      GENERATE_DTO,
+      OWNER_ID,
+    );
 
     expect(result.status).toBe("queued");
     expect(result.content_pack.id).toBe("pack-1");
@@ -835,7 +954,20 @@ describe("ContentService.generateWeek", () => {
   it("falls back to the safe default week context when none exists yet", async () => {
     // listWeeks returns [] (makeWeekRepo default) and the repo falls back to
     // creating a system defaulted context.
-    const result = await service.generateWeek("cycle-1", 3, GENERATE_DTO, OWNER_ID);
+    (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      currentWeekNumber: 2,
+    });
+    (cycleRepo.getCycleById as jest.Mock).mockResolvedValue({
+      ...CYCLE_ROW,
+      currentWeekNumber: 2,
+    });
+    const result = await service.generateWeek(
+      "cycle-1",
+      3,
+      GENERATE_DTO,
+      OWNER_ID,
+    );
 
     expect(weekRepo.createSafeDefaultContext).toHaveBeenCalled();
     expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
@@ -883,7 +1015,9 @@ const ITEM_VERSION_ROW = {
   altText: "alt",
   shortVideoScript: null,
   recommendedPublishWindow: { starts_at: "2026-08-08", ends_at: "2026-08-10" },
-  claimSources: [{ claim_type: "price", source_type: "business", approved: true }],
+  claimSources: [
+    { claim_type: "price", source_type: "business", approved: true },
+  ],
   warnings: [],
   blockers: [],
   assetRequired: false,
@@ -911,10 +1045,19 @@ describe("ContentService.reads", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekRepo },
         { provide: ContentPackRepository, useValue: packRepo },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -1017,16 +1160,28 @@ describe("ContentService.reads", () => {
     it("returns versions in version-descending order", async () => {
       (packRepo.listItemVersions as jest.Mock).mockResolvedValue([
         { ...ITEM_VERSION_ROW, version: 2 },
-        { ...ITEM_VERSION_ROW, version: 1, id: "ver-1", versionChecksum: "checksum-1" },
+        {
+          ...ITEM_VERSION_ROW,
+          version: 1,
+          id: "ver-1",
+          versionChecksum: "checksum-1",
+        },
       ]);
 
-      const result = await service.getItemVersions("pack-1", "item-1", OWNER_ID);
+      const result = await service.getItemVersions(
+        "pack-1",
+        "item-1",
+        OWNER_ID,
+      );
 
       expect(result.map((version) => version.version)).toEqual([2, 1]);
       expect(result[0].id).toBe("ver-2");
       expect(result[0].content_item_id).toBe("item-1");
       expect(result[0].version_checksum).toBe("checksum-2");
-      expect(packRepo.listItemVersions).toHaveBeenCalledWith("pack-1", "item-1");
+      expect(packRepo.listItemVersions).toHaveBeenCalledWith(
+        "pack-1",
+        "item-1",
+      );
     });
 
     it("throws NotFound when the pack is not owned by the caller", async () => {
@@ -1119,8 +1274,14 @@ describe("ContentService.decide", () => {
           }),
         },
         { provide: ContentPackRepository, useValue: packRepo },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: decisionRepo },
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
@@ -1219,7 +1380,12 @@ describe("ContentService.decide", () => {
   });
 
   it("approves: records the decision and creates a publication candidate", async () => {
-    const result = await service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID);
+    const result = await service.decide(
+      "pack-1",
+      "item-1",
+      APPROVE_DTO,
+      OWNER_ID,
+    );
 
     expect(decisionRepo.recordDecision).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1267,7 +1433,12 @@ describe("ContentService.decide", () => {
       CANDIDATE,
     );
 
-    const result = await service.decide("pack-1", "item-1", APPROVE_DTO, OWNER_ID);
+    const result = await service.decide(
+      "pack-1",
+      "item-1",
+      APPROVE_DTO,
+      OWNER_ID,
+    );
 
     expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
     expect(result.publication_candidate).toEqual(CANDIDATE);
@@ -1356,7 +1527,11 @@ describe("ContentService.bulkDecision", () => {
       id: `decision-${itemId}`,
       contentItemId: itemId,
       contentItemVersionId:
-        itemId === "item-1" ? "ver-2" : itemId === "item-2" ? "ver-2b" : "ver-2c",
+        itemId === "item-1"
+          ? "ver-2"
+          : itemId === "item-2"
+            ? "ver-2b"
+            : "ver-2c",
       idempotencyKey: `bulk-idem-${itemId.slice(-1)}`,
     }));
 
@@ -1396,8 +1571,14 @@ describe("ContentService.bulkDecision", () => {
           }),
         },
         { provide: ContentPackRepository, useValue: packRepo },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: decisionRepo },
         { provide: PublicationCandidateRepository, useValue: candidateRepo },
         { provide: PrismaService, useValue: makePrismaService() },
@@ -1433,9 +1614,18 @@ describe("ContentService.bulkDecision", () => {
 
     expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
       [
-        expect.objectContaining({ itemId: "item-1", idempotencyKey: "bulk-idem-1" }),
-        expect.objectContaining({ itemId: "item-2", idempotencyKey: "bulk-idem-2" }),
-        expect.objectContaining({ itemId: "item-3", idempotencyKey: "bulk-idem-3" }),
+        expect.objectContaining({
+          itemId: "item-1",
+          idempotencyKey: "bulk-idem-1",
+        }),
+        expect.objectContaining({
+          itemId: "item-2",
+          idempotencyKey: "bulk-idem-2",
+        }),
+        expect.objectContaining({
+          itemId: "item-3",
+          idempotencyKey: "bulk-idem-3",
+        }),
       ],
       OWNER_ID,
       expect.anything(),
@@ -1474,8 +1664,12 @@ describe("ContentService.bulkDecision", () => {
       status: "ineligible",
       error: { code: "CONTENT_VERSION_CONFLICT", message: expect.any(String) },
     });
-    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
-    expect(result.find((entry) => entry.item_id === "item-3")?.status).toBe("approved");
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe(
+      "approved",
+    );
+    expect(result.find((entry) => entry.item_id === "item-3")?.status).toBe(
+      "approved",
+    );
   });
 
   it("reports a repository-rejected item per-item without rolling back the rest", async () => {
@@ -1497,7 +1691,9 @@ describe("ContentService.bulkDecision", () => {
       status: "ineligible",
       error: { code: "CONTENT_APPROVAL_BLOCKED", message: expect.any(String) },
     });
-    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe(
+      "approved",
+    );
   });
 
   it("commits nothing when every request is ineligible", async () => {
@@ -1514,15 +1710,17 @@ describe("ContentService.bulkDecision", () => {
   });
 
   it("reports an approve with a missing required asset as ineligible while approving the rest", async () => {
-    (packRepo.listItemVersions as jest.Mock).mockImplementation((_packId, itemId) => {
-      if (itemId === "item-2") {
-        return Promise.resolve([
-          { ...VERSION_2B_ROW, assetRequired: true, assetIds: ["asset-1"] },
-        ]);
-      }
-      if (itemId === "item-1") return Promise.resolve([ITEM_VERSION_ROW]);
-      return Promise.resolve([VERSION_2C_ROW]);
-    });
+    (packRepo.listItemVersions as jest.Mock).mockImplementation(
+      (_packId, itemId) => {
+        if (itemId === "item-2") {
+          return Promise.resolve([
+            { ...VERSION_2B_ROW, assetRequired: true, assetIds: ["asset-1"] },
+          ]);
+        }
+        if (itemId === "item-1") return Promise.resolve([ITEM_VERSION_ROW]);
+        return Promise.resolve([VERSION_2C_ROW]);
+      },
+    );
     (decisionRepo.bulkRecordDecisions as jest.Mock).mockResolvedValue({
       decisions: bulkDecisionsFor(["item-1", "item-3"]),
       errors: [],
@@ -1543,7 +1741,9 @@ describe("ContentService.bulkDecision", () => {
       status: "ineligible",
       error: { code: "CONTENT_ASSET_REQUIRED", message: expect.any(String) },
     });
-    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe("approved");
+    expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe(
+      "approved",
+    );
   });
 
   it("records a rejected decision without creating a candidate", async () => {
@@ -1587,10 +1787,19 @@ describe("ContentService.pauseCycle", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
         { provide: ContentPackRepository, useValue: makePackRepo() },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -1640,10 +1849,19 @@ describe("ContentService.resumeCycle", () => {
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
         { provide: ContentPackRepository, useValue: makePackRepo() },
-        { provide: getQueueToken("content-generation"), useValue: { add: jest.fn() } },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-generation"),
+          useValue: { add: jest.fn() },
+        },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -1655,9 +1873,9 @@ describe("ContentService.resumeCycle", () => {
   it("throws NotFound when the cycle does not exist or is not owned by the caller", async () => {
     (cycleRepo.getCycleByIdAndOwner as jest.Mock).mockResolvedValue(null);
 
-    await expect(
-      service.resumeCycle("cycle-1", OWNER_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.resumeCycle("cycle-1", OWNER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("resumes the cycle and returns it with a null pause reason", async () => {
@@ -1701,9 +1919,15 @@ describe("ContentService.retryPack", () => {
         { provide: ContentWeekContextRepository, useValue: makeWeekRepo() },
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: getQueueToken("content-generation"), useValue: queue },
-        { provide: getQueueToken("content-outbox"), useValue: { add: jest.fn() } },
+        {
+          provide: getQueueToken("content-outbox"),
+          useValue: { add: jest.fn() },
+        },
         { provide: ContentDecisionRepository, useValue: makeDecisionRepo() },
-        { provide: PublicationCandidateRepository, useValue: makeCandidateRepo() },
+        {
+          provide: PublicationCandidateRepository,
+          useValue: makeCandidateRepo(),
+        },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
       ],
@@ -1715,15 +1939,18 @@ describe("ContentService.retryPack", () => {
   it("throws NotFound when the pack does not exist or is not owned by the caller", async () => {
     (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(null);
 
-    await expect(
-      service.retryPack("pack-1", OWNER_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.retryPack("pack-1", OWNER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it("rejects with CONTENT_PACK_NOT_FAILED when the pack is not in the failed state", async () => {
     (packRepo.getPackByIdAndOwner as jest.Mock).mockResolvedValue(PACK_ROW);
 
-    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_PACK_NOT_FAILED");
+    await rejectsWithCode(
+      service.retryPack("pack-1", OWNER_ID),
+      "CONTENT_PACK_NOT_FAILED",
+    );
   });
 
   it("rejects with CONTENT_RETRY_NOT_ALLOWED when the pack is not retry-eligible", async () => {
@@ -1732,13 +1959,21 @@ describe("ContentService.retryPack", () => {
       retryEligible: false,
     });
 
-    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_RETRY_NOT_ALLOWED");
+    await rejectsWithCode(
+      service.retryPack("pack-1", OWNER_ID),
+      "CONTENT_RETRY_NOT_ALLOWED",
+    );
   });
 
   it("rejects with CONTENT_PACK_RETRY_CONFLICT when the conditional transition does not change a row", async () => {
-    (packRepo.markPackStatus as jest.Mock).mockResolvedValue({ changed: false });
+    (packRepo.markPackStatus as jest.Mock).mockResolvedValue({
+      changed: false,
+    });
 
-    await rejectsWithCode(service.retryPack("pack-1", OWNER_ID), "CONTENT_PACK_RETRY_CONFLICT");
+    await rejectsWithCode(
+      service.retryPack("pack-1", OWNER_ID),
+      "CONTENT_PACK_RETRY_CONFLICT",
+    );
     expect(queue.add).not.toHaveBeenCalled();
   });
 

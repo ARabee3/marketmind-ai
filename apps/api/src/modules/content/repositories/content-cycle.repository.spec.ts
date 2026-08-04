@@ -19,7 +19,9 @@ const CREATE_INPUT: CreateContentCycleInput = {
   strategyVersion: 3,
   strategyDecisionId: "decision-1",
   profileVersionId: "profile-1",
+  week1StartDate: new Date("2026-01-01T00:00:00.000Z"),
   idempotencyKey: "idem-1",
+  requestFingerprint: "fingerprint-1",
 };
 
 const CYCLE_ROW = {
@@ -32,12 +34,14 @@ const CYCLE_ROW = {
   profileVersionId: "profile-1",
   status: "active",
   currentWeekNumber: 1,
+  week1StartDate: new Date("2026-01-01T00:00:00Z"),
   nextGenerationAt: null,
   timezone: "Africa/Cairo",
   pauseReason: null,
   completedAt: null,
   ownerUserId: "owner-1",
   idempotencyKey: "idem-1",
+  idempotencyFingerprint: "fingerprint-1",
   createdAt: new Date("2026-01-01T00:00:00Z"),
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
@@ -46,9 +50,9 @@ describe("ContentCycleRepository", () => {
   describe("createCycle", () => {
     it("creates a cycle with defaults", async () => {
       const create = jest.fn().mockResolvedValue(CYCLE_ROW);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { create } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { create },
+      } as unknown as PrismaService);
 
       const result = await repo.createCycle(CREATE_INPUT, "owner-1");
 
@@ -60,8 +64,10 @@ describe("ContentCycleRepository", () => {
           strategyVersion: 3,
           strategyDecisionId: "decision-1",
           profileVersionId: "profile-1",
+          week1StartDate: new Date("2026-01-01T00:00:00.000Z"),
           ownerUserId: "owner-1",
           idempotencyKey: "idem-1",
+          idempotencyFingerprint: "fingerprint-1",
         },
       });
     });
@@ -69,11 +75,9 @@ describe("ContentCycleRepository", () => {
     it("replays idempotently: unique violation returns the original row", async () => {
       const create = jest.fn().mockRejectedValue(uniqueViolation());
       const findFirst = jest.fn().mockResolvedValue(CYCLE_ROW);
-      const repo = new ContentCycleRepository(
-        {
-          contentCycle: { create, findFirst },
-        } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { create, findFirst },
+      } as unknown as PrismaService);
 
       const result = await repo.createCycle(CREATE_INPUT, "owner-1");
 
@@ -86,24 +90,39 @@ describe("ContentCycleRepository", () => {
     it("re-throws when replay lookup finds nothing", async () => {
       const create = jest.fn().mockRejectedValue(uniqueViolation());
       const findFirst = jest.fn().mockResolvedValue(null);
-      const repo = new ContentCycleRepository(
-        {
-          contentCycle: { create, findFirst },
-        } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { create, findFirst },
+      } as unknown as PrismaService);
 
       await expect(repo.createCycle(CREATE_INPUT, "owner-1")).rejects.toThrow(
         Prisma.PrismaClientKnownRequestError,
       );
+    });
+
+    it("rejects an idempotency key replay with a different request fingerprint", async () => {
+      const create = jest.fn().mockRejectedValue(uniqueViolation());
+      const findFirst = jest.fn().mockResolvedValue(CYCLE_ROW);
+      const repo = new ContentCycleRepository({
+        contentCycle: { create, findFirst },
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.createCycle(
+          { ...CREATE_INPUT, requestFingerprint: "different" },
+          "owner-1",
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: "CONTENT_VERSION_CONFLICT" }),
+      });
     });
   });
 
   describe("getCycleByIdAndOwner", () => {
     it("returns the cycle for the owner", async () => {
       const findUnique = jest.fn().mockResolvedValue(CYCLE_ROW);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findUnique } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findUnique },
+      } as unknown as PrismaService);
 
       const result = await repo.getCycleByIdAndOwner("cycle-1", "owner-1");
 
@@ -112,9 +131,9 @@ describe("ContentCycleRepository", () => {
 
     it("returns null on cross-owner access", async () => {
       const findUnique = jest.fn().mockResolvedValue(CYCLE_ROW);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findUnique } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findUnique },
+      } as unknown as PrismaService);
 
       const result = await repo.getCycleByIdAndOwner("cycle-1", "other-owner");
 
@@ -123,9 +142,9 @@ describe("ContentCycleRepository", () => {
 
     it("returns null when the cycle does not exist", async () => {
       const findUnique = jest.fn().mockResolvedValue(null);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findUnique } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findUnique },
+      } as unknown as PrismaService);
 
       const result = await repo.getCycleByIdAndOwner("missing", "owner-1");
 
@@ -136,9 +155,9 @@ describe("ContentCycleRepository", () => {
   describe("getCycleById", () => {
     it("returns the cycle regardless of owner (worker-only read)", async () => {
       const findUnique = jest.fn().mockResolvedValue(CYCLE_ROW);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findUnique } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findUnique },
+      } as unknown as PrismaService);
 
       const result = await repo.getCycleById("cycle-1");
 
@@ -149,9 +168,9 @@ describe("ContentCycleRepository", () => {
 
     it("returns null when the cycle does not exist", async () => {
       const findUnique = jest.fn().mockResolvedValue(null);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findUnique } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findUnique },
+      } as unknown as PrismaService);
 
       const result = await repo.getCycleById("missing");
 
@@ -226,9 +245,7 @@ describe("ContentCycleRepository", () => {
               findFirst: jest
                 .fn()
                 .mockResolvedValue({ ...CYCLE_ROW, status: "paused" }),
-              updateMany: jest
-                .fn()
-                .mockResolvedValue({ count: 1 }),
+              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
               findUniqueOrThrow: jest.fn().mockResolvedValue({
                 ...CYCLE_ROW,
                 status: "active",
@@ -276,9 +293,7 @@ describe("ContentCycleRepository", () => {
             findUniqueOrThrow: jest
               .fn()
               .mockResolvedValue({ currentWeekNumber: weekNumber }),
-            updateMany: jest
-              .fn()
-              .mockResolvedValue({ count: updateCount }),
+            updateMany: jest.fn().mockResolvedValue({ count: updateCount }),
           },
         }),
       );
@@ -318,9 +333,9 @@ describe("ContentCycleRepository", () => {
   describe("listActiveReadyForNextWeek", () => {
     it("filters active cycles past their next-generation cutoff", async () => {
       const findMany = jest.fn().mockResolvedValue([CYCLE_ROW]);
-      const repo = new ContentCycleRepository(
-        { contentCycle: { findMany } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { findMany },
+      } as unknown as PrismaService);
 
       const result = await repo.listActiveReadyForNextWeek();
 
@@ -338,9 +353,9 @@ describe("ContentCycleRepository", () => {
   describe("markCycleCompleted", () => {
     it("marks an active cycle completed", async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const repo = new ContentCycleRepository(
-        { contentCycle: { updateMany } } as unknown as PrismaService,
-      );
+      const repo = new ContentCycleRepository({
+        contentCycle: { updateMany },
+      } as unknown as PrismaService);
 
       await repo.markCycleCompleted("cycle-1");
 

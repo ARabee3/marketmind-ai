@@ -5,14 +5,13 @@ import { ContentService } from "./content.service";
 describe("ContentScheduler", () => {
   let scheduler: ContentScheduler;
   let cycleRepo: jest.Mocked<
-    Pick<ContentCycleRepository, "listActiveReadyForNextWeek" | "markCycleCompleted">
+    Pick<ContentCycleRepository, "listActiveReadyForNextWeek">
   >;
   let contentService: jest.Mocked<Pick<ContentService, "generateWeek">>;
 
   beforeEach(() => {
     cycleRepo = {
       listActiveReadyForNextWeek: jest.fn(),
-      markCycleCompleted: jest.fn(),
     };
     contentService = {
       generateWeek: jest.fn().mockResolvedValue({
@@ -21,10 +20,7 @@ describe("ContentScheduler", () => {
         correlation_id: "corr-id",
       } as any),
     };
-    scheduler = new ContentScheduler(
-      cycleRepo as any,
-      contentService as any,
-    );
+    scheduler = new ContentScheduler(cycleRepo as any, contentService as any);
   });
 
   it("generates the next week for every active cycle whose cutoff has elapsed", async () => {
@@ -38,12 +34,14 @@ describe("ContentScheduler", () => {
 
     expect(contentService.generateWeek).toHaveBeenCalledTimes(2);
     expect(contentService.generateWeek).toHaveBeenCalledWith(
-      "cycle-1", 3,
+      "cycle-1",
+      3,
       expect.objectContaining({ idempotency_key: "scheduler:cycle-1:week:3" }),
       "owner-1",
     );
     expect(contentService.generateWeek).toHaveBeenCalledWith(
-      "cycle-2", 6,
+      "cycle-2",
+      6,
       expect.objectContaining({ idempotency_key: "scheduler:cycle-2:week:6" }),
       "owner-2",
     );
@@ -75,26 +73,26 @@ describe("ContentScheduler", () => {
 
     expect(contentService.generateWeek).toHaveBeenCalledTimes(2);
     expect(contentService.generateWeek).toHaveBeenCalledWith(
-      "good", 4,
+      "good",
+      4,
       expect.objectContaining({ idempotency_key: "scheduler:good:week:4" }),
       "owner-2",
     );
   });
 
-  it("marks the cycle completed after generating week 12", async () => {
+  it("keeps the cycle active after only queuing week 12", async () => {
     const cycles = [
       { id: "cycle-1", ownerUserId: "owner-1", currentWeekNumber: 11 },
     ];
     cycleRepo.listActiveReadyForNextWeek.mockResolvedValue(cycles as any);
-    cycleRepo.markCycleCompleted.mockResolvedValue(undefined);
-
     await scheduler.progressWeeks();
 
     expect(contentService.generateWeek).toHaveBeenCalledWith(
-      "cycle-1", 12,
+      "cycle-1",
+      12,
       expect.objectContaining({ idempotency_key: "scheduler:cycle-1:week:12" }),
       "owner-1",
     );
-    expect(cycleRepo.markCycleCompleted).toHaveBeenCalledWith("cycle-1");
+    expect(cycleRepo).not.toHaveProperty("markCycleCompleted");
   });
 });

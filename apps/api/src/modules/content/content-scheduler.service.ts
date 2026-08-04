@@ -15,8 +15,7 @@ export class ContentScheduler {
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async progressWeeks(): Promise<void> {
-    const readyCycles =
-      await this.cycleRepository.listActiveReadyForNextWeek();
+    const readyCycles = await this.cycleRepository.listActiveReadyForNextWeek();
 
     for (const cycle of readyCycles) {
       const nextWeek = cycle.currentWeekNumber + 1;
@@ -40,11 +39,6 @@ export class ContentScheduler {
         this.logger.log(
           `Scheduled week ${nextWeek} for cycle ${cycle.id} (correlation_id=${correlationId})`,
         );
-
-        if (nextWeek === 12) {
-          await this.cycleRepository.markCycleCompleted(cycle.id);
-          this.logger.log(`Marked cycle ${cycle.id} completed after week 12`);
-        }
       } catch (error) {
         this.logger.error(
           `Failed to schedule week ${nextWeek} for cycle ${cycle.id}: ${(error as Error).message}`,

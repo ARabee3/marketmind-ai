@@ -12,6 +12,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import {
   CONTENT_CHANNELS,
+  canonicalPublishingJson,
   validateContentPolicyFixture,
   validatePublicationCandidateHandoff,
 } from "@marketmind/contracts";
@@ -63,9 +64,15 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { AssetStorage, CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
-
-const CAIRO_TIMEZONE = "Africa/Cairo" as const;
+import {
+  AssetStorage,
+  CONTENT_ASSET_STORAGE,
+} from "./assets/asset-storage.port";
+import {
+  cairoCalendarDate,
+  weekCutoffDate,
+  weekStartDate,
+} from "./content-schedule";
 
 export type BulkDecisionItemStatus =
   | "approved"
@@ -95,7 +102,9 @@ type DecisionFixtureCache = {
   readonly cycle: Awaited<
     ReturnType<ContentCycleRepository["getCycleByIdAndOwner"]>
   >;
-  readonly weeks: Awaited<ReturnType<ContentWeekContextRepository["listWeeks"]>>;
+  readonly weeks: Awaited<
+    ReturnType<ContentWeekContextRepository["listWeeks"]>
+  >;
 };
 
 @Injectable()
@@ -164,9 +173,9 @@ export class ContentService {
       strategy.currentVersionId,
     );
     if (
-      !currentVersion
-      || currentVersion.strategyId !== strategy.id
-      || currentVersion.version !== dto.strategy_version
+      !currentVersion ||
+      currentVersion.strategyId !== strategy.id ||
+      currentVersion.version !== dto.strategy_version
     ) {
       throw new ConflictException({
         code: "CONTENT_STRATEGY_NOT_APPROVED",
@@ -182,7 +191,11 @@ export class ContentService {
       await this.strategyRepository.getActiveConfirmedProfileVersion(
         strategy.businessId,
       );
-    if (!briefProfileId || !latestProfile || latestProfile.id !== briefProfileId) {
+    if (
+      !briefProfileId ||
+      !latestProfile ||
+      latestProfile.id !== briefProfileId
+    ) {
       throw new ConflictException({
         code: "CONTENT_PROFILE_STALE",
         message:
@@ -190,15 +203,14 @@ export class ContentService {
       });
     }
 
-    const strategyDecision =
-      await this.strategyRepository.getDecisionById(
-        dto.strategy_decision_id,
-      );
+    const strategyDecision = await this.strategyRepository.getDecisionById(
+      dto.strategy_decision_id,
+    );
     if (
-      !strategyDecision
-      || strategyDecision.strategyVersionId !== currentVersion.id
-      || strategyDecision.ownerUserId !== ownerUserId
-      || strategyDecision.action !== "approve"
+      !strategyDecision ||
+      strategyDecision.strategyVersionId !== currentVersion.id ||
+      strategyDecision.ownerUserId !== ownerUserId ||
+      strategyDecision.action !== "approve"
     ) {
       throw new ConflictException({
         code: "CONTENT_STRATEGY_NOT_APPROVED",
@@ -211,55 +223,65 @@ export class ContentService {
     // for week 1 is the end of the current Strategy week (start of week 2),
     // so the next draft is available before the next week begins (arch doc
     // 482-489). The exact clock time is configuration, not an LLM decision.
-    const week1StartIso = toCairoIsoDate(strategy.brief.startDate);
-    const nextGenerationAt = startOfCairoDay(addDaysIso(week1StartIso, 7));
+    const week1StartIso = cairoCalendarDate(strategy.brief.startDate);
+    const week1StartDate = new Date(`${week1StartIso}T00:00:00.000Z`);
+    const nextGenerationAt = weekCutoffDate(week1StartDate, 1);
+    const requestFingerprint = createHash("sha256")
+      .update(
+        canonicalPublishingJson({
+          ownerUserId,
+          businessId: strategy.businessId,
+          strategyId: strategy.id,
+          strategyVersion: currentVersion.version,
+          strategyDecisionId: dto.strategy_decision_id,
+          profileVersionId: briefProfileId,
+          initialWeekContext: dto.initial_week_context,
+        }),
+        "utf8",
+      )
+      .digest("hex");
 
-    const cycle = await this.cycleRepository.createCycle(
+    const created = await this.cycleRepository.createCycleWithWeekOne(
       {
         businessId: strategy.businessId,
         strategyId: strategy.id,
         strategyVersion: currentVersion.version,
         strategyDecisionId: dto.strategy_decision_id,
         profileVersionId: briefProfileId,
+        week1StartDate,
         idempotencyKey: dto.idempotency_key,
+        requestFingerprint,
         nextGenerationAt,
-      },
-      ownerUserId,
-    );
-
-    // The initial week context comes from the owner's confirmed input, but the
-    // server is authoritative for week number and start date.
-    const initialWeekContext = await this.weekContextRepository.upsertOwnerContext(
-      cycle.id,
-      {
-        ...dto.initial_week_context,
-        week_number: 1,
-        week_start_date: week1StartIso,
+        initialWeekContext: {
+          ...dto.initial_week_context,
+          week_number: 1,
+          week_start_date: weekStartDate(week1StartDate, 1),
+        },
       },
       ownerUserId,
     );
 
     this.logger.log(
-      `[ContentCycle ${cycle.id}] Created from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
+      `[ContentCycle ${created.cycle.id}] ${created.created ? "Created" : "Replayed"} from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
     );
 
     // Issue #110 requires week 1 to be queued immediately when the cycle starts.
     // generateWeek's idempotent claim ensures a duplicate cycle-creation request
     // never enqueues two jobs.
     await this.generateWeek(
-      cycle.id,
+      created.cycle.id,
       1,
       {
-        content_cycle_id: cycle.id,
+        content_cycle_id: created.cycle.id,
         week_number: 1,
-        idempotency_key: `cycle-creation:${cycle.id}:week:1`,
+        idempotency_key: `cycle-creation:${created.cycle.id}:week:1`,
       },
       ownerUserId,
     );
 
     return {
-      content_cycle: toContentCycle(cycle),
-      initial_week_context: toContentWeekContext(initialWeekContext),
+      content_cycle: toContentCycle(created.cycle),
+      initial_week_context: toContentWeekContext(created.weekContext),
     };
   }
 
@@ -297,14 +319,11 @@ export class ContentService {
     this.assertCycleActive(cycle);
     this.assertWeekNumberInRange(weekNumber);
 
-    const nextGenerationAt = cycle.nextGenerationAt;
-    if (!nextGenerationAt) {
-      throw new NotFoundException("Content cycle has no generation cutoff");
-    }
+    const week1StartDate = cycle.week1StartDate;
 
     // The week's generation cutoff is the start of the following week. Once it
     // has passed, the scheduler owns the week (arch doc 193-244).
-    const cutoff = weekCutoffFor(nextGenerationAt, weekNumber);
+    const cutoff = weekCutoffDate(week1StartDate, weekNumber);
     if (new Date() >= cutoff) {
       throw new ConflictException({
         code: "CONTENT_WEEK_ALREADY_CLAIMED",
@@ -316,7 +335,10 @@ export class ContentService {
     // owner cannot override it.
     const weeks = await this.weekContextRepository.listWeeks(cycleId);
     const existing = weeks.find((week) => week.weekNumber === weekNumber);
-    if (existing && existing.contextSource === "system_defaulted") {
+    if (
+      existing &&
+      (existing.contextSource === "system_defaulted" || existing.frozenAt)
+    ) {
       throw new ConflictException({
         code: "CONTENT_WEEK_ALREADY_CLAIMED",
         message: `Week ${weekNumber} was already claimed by the system safe default.`,
@@ -325,7 +347,10 @@ export class ContentService {
 
     // Once a pack has been claimed for this week, the context is frozen —
     // generation and approval must observe the same context bytes.
-    const packExists = await this.packRepository.hasPackForWeek(cycleId, weekNumber);
+    const packExists = await this.packRepository.hasPackForWeek(
+      cycleId,
+      weekNumber,
+    );
     if (packExists) {
       throw new ConflictException({
         code: "CONTENT_WEEK_ALREADY_CLAIMED",
@@ -338,7 +363,7 @@ export class ContentService {
       {
         ...dto,
         week_number: weekNumber,
-        week_start_date: weekStartFor(nextGenerationAt, weekNumber),
+        week_start_date: weekStartDate(week1StartDate, weekNumber),
       },
       ownerUserId,
     );
@@ -376,17 +401,31 @@ export class ContentService {
     }
     this.assertWeekNumberInRange(weekNumber);
 
-    const nextGenerationAt = cycle.nextGenerationAt;
-    if (!nextGenerationAt) {
-      throw new NotFoundException("Content cycle has no generation cutoff");
+    const hasPack = await this.packRepository.hasPackForWeek(
+      cycleId,
+      weekNumber,
+    );
+    if (
+      !hasPack &&
+      !(
+        (weekNumber === 1 && cycle.currentWeekNumber === 1) ||
+        weekNumber === cycle.currentWeekNumber + 1
+      )
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} is not eligible for a safe-default claim.`,
+      });
     }
 
     const persisted = await this.weekContextRepository.createSafeDefaultContext(
       cycleId,
       weekNumber,
       {
-        weekStartDate: startOfCairoDay(weekStartFor(nextGenerationAt, weekNumber)),
-        cutoffAt: weekCutoffFor(nextGenerationAt, weekNumber),
+        weekStartDate: new Date(
+          `${weekStartDate(cycle.week1StartDate, weekNumber)}T00:00:00.000Z`,
+        ),
+        cutoffAt: weekCutoffDate(cycle.week1StartDate, weekNumber),
       },
     );
 
@@ -435,6 +474,23 @@ export class ContentService {
     this.assertCycleActive(cycle);
     this.assertWeekNumberInRange(weekNumber);
 
+    const existingPack = await this.packRepository.hasPackForWeek(
+      cycleId,
+      weekNumber,
+    );
+    if (
+      !existingPack &&
+      !(
+        (weekNumber === 1 && cycle.currentWeekNumber === 1) ||
+        weekNumber === cycle.currentWeekNumber + 1
+      )
+    ) {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} is not the exact next eligible Content week.`,
+      });
+    }
+
     // Resolve the week context; an absent one becomes the explicit safe
     // default so the pack row always has a valid week_context_id.
     const weeks = await this.weekContextRepository.listWeeks(cycleId);
@@ -454,7 +510,10 @@ export class ContentService {
       // Idempotent replay. If the pack is still queued (no worker picked it up
       // because a previous queue.add failed after the claim), re-enqueue to
       // close the DB→Redis orphan window.
-      if (pack.status === "queued" && (!Array.isArray(pack.itemIds) || pack.itemIds.length === 0)) {
+      if (
+        pack.status === "queued" &&
+        (!Array.isArray(pack.itemIds) || pack.itemIds.length === 0)
+      ) {
         await this.contentQueue.add(
           "generate-content",
           {
@@ -512,14 +571,24 @@ export class ContentService {
     ownerUserId: string,
     reason: string | null,
   ): Promise<ContentCycle> {
-    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      id,
+      ownerUserId,
+    );
     if (!cycle) throw new NotFoundException("Content cycle not found");
-    const paused = await this.cycleRepository.pauseCycle(id, ownerUserId, reason ?? "");
+    const paused = await this.cycleRepository.pauseCycle(
+      id,
+      ownerUserId,
+      reason ?? "",
+    );
     return toContentCycle(paused);
   }
 
   async resumeCycle(id: string, ownerUserId: string): Promise<ContentCycle> {
-    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      id,
+      ownerUserId,
+    );
     if (!cycle) throw new NotFoundException("Content cycle not found");
     const resumed = await this.cycleRepository.resumeCycle(id, ownerUserId);
     return toContentCycle(resumed);
@@ -528,7 +597,10 @@ export class ContentService {
   // ── GET /api/v1/content-cycles/:id ──────────────────────────────────
 
   async getCycle(id: string, ownerUserId: string): Promise<ContentCycle> {
-    const cycle = await this.cycleRepository.getCycleByIdAndOwner(id, ownerUserId);
+    const cycle = await this.cycleRepository.getCycleByIdAndOwner(
+      id,
+      ownerUserId,
+    );
     if (!cycle) throw new NotFoundException("Content cycle not found");
     return toContentCycle(cycle);
   }
@@ -577,7 +649,10 @@ export class ContentService {
     itemId: string,
     ownerUserId: string,
   ): Promise<ContentItemVersion[]> {
-    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    const pack = await this.packRepository.getPackByIdAndOwner(
+      packId,
+      ownerUserId,
+    );
     if (!pack) throw new NotFoundException("Content pack not found");
 
     const versions = await this.packRepository.listItemVersions(packId, itemId);
@@ -664,8 +739,7 @@ export class ContentService {
       const issue = validation.issues[0];
       throw new BadRequestException({
         code: issue?.code ?? "CONTENT_SCHEMA_FAILURE",
-        message:
-          issue?.message ?? "Publication candidate failed validation.",
+        message: issue?.message ?? "Publication candidate failed validation.",
         issues: validation.issues,
       });
     }
@@ -728,7 +802,8 @@ export class ContentService {
     if (!changed) {
       throw new ConflictException({
         code: "CONTENT_PACK_RETRY_CONFLICT",
-        message: "The content pack is no longer failed; a retry is already in progress.",
+        message:
+          "The content pack is no longer failed; a retry is already in progress.",
       });
     }
 
@@ -795,11 +870,19 @@ export class ContentService {
     // revision_requested routes through requestRevision, which records the
     // decision (item → revision_requested) and enqueues the revise-content job.
     if (dto.decision === "revision_requested") {
-      const { decision } = await this.requestRevision(packId, itemId, dto, ownerUserId);
+      const { decision } = await this.requestRevision(
+        packId,
+        itemId,
+        dto,
+        ownerUserId,
+      );
       return { decision, publication_candidate: null };
     }
 
-    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    const pack = await this.packRepository.getPackByIdAndOwner(
+      packId,
+      ownerUserId,
+    );
     if (!pack) throw new NotFoundException("Content pack not found");
 
     if (pack.status !== "draft" && pack.status !== "partially_approved") {
@@ -881,8 +964,7 @@ export class ContentService {
     }
 
     const { decision, publicationCandidate, outboxEventId } =
-      await this.prisma.$transaction(
-      async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         const recorded = await this.decisionRepository.recordDecision(
           {
             itemId: item.id,
@@ -898,7 +980,11 @@ export class ContentService {
         );
 
         if (recorded.decision !== "approved") {
-          return { decision: recorded, publicationCandidate: null, outboxEventId: null as string | null };
+          return {
+            decision: recorded,
+            publicationCandidate: null,
+            outboxEventId: null as string | null,
+          };
         }
 
         // Decision replay (same idempotency key) returns the original decision
@@ -910,7 +996,11 @@ export class ContentService {
             tx,
           );
         if (existingCandidate) {
-          return { decision: recorded, publicationCandidate: existingCandidate, outboxEventId: null as string | null };
+          return {
+            decision: recorded,
+            publicationCandidate: existingCandidate,
+            outboxEventId: null as string | null,
+          };
         }
 
         const created = await this.candidateRepository.createCandidate(
@@ -928,8 +1018,7 @@ export class ContentService {
           publicationCandidate: created.candidate,
           outboxEventId: created.outboxEventId,
         };
-      },
-    );
+      });
 
     if (outboxEventId) {
       await this.outboxQueue.add("dispatch-outbox", {
@@ -975,7 +1064,10 @@ export class ContentService {
     dto: ContentDecisionRequest,
     ownerUserId: string,
   ): Promise<{ decision: ContentDecision; correlation_id: string }> {
-    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    const pack = await this.packRepository.getPackByIdAndOwner(
+      packId,
+      ownerUserId,
+    );
     if (!pack) throw new NotFoundException("Content pack not found");
 
     if (pack.status !== "draft" && pack.status !== "partially_approved") {
@@ -1075,7 +1167,10 @@ export class ContentService {
     decisions: ContentDecisionRequest[],
     ownerUserId: string,
   ): Promise<BulkDecisionItemResult[]> {
-    const pack = await this.packRepository.getPackByIdAndOwner(packId, ownerUserId);
+    const pack = await this.packRepository.getPackByIdAndOwner(
+      packId,
+      ownerUserId,
+    );
     if (!pack) throw new NotFoundException("Content pack not found");
 
     if (pack.status !== "draft" && pack.status !== "partially_approved") {
@@ -1120,7 +1215,10 @@ export class ContentService {
     };
 
     for (const request of decisions) {
-      const item = await this.packRepository.getItemById(packId, request.content_item_id);
+      const item = await this.packRepository.getItemById(
+        packId,
+        request.content_item_id,
+      );
       if (!item) {
         ineligibleByItemId.set(request.content_item_id, {
           item_id: request.content_item_id,
@@ -1156,9 +1254,13 @@ export class ContentService {
         continue;
       }
 
-      const versions = await this.packRepository.listItemVersions(packId, item.id);
+      const versions = await this.packRepository.listItemVersions(
+        packId,
+        item.id,
+      );
       const currentVersion =
-        versions.find((version) => version.id === item.currentVersionId) ?? null;
+        versions.find((version) => version.id === item.currentVersionId) ??
+        null;
       if (
         !currentVersion ||
         request.content_item_version_checksum !== currentVersion.versionChecksum
@@ -1175,7 +1277,9 @@ export class ContentService {
         continue;
       }
 
-      const assets = await this.packRepository.listAssetsForVersion(currentVersion.id);
+      const assets = await this.packRepository.listAssetsForVersion(
+        currentVersion.id,
+      );
       const fixture = await this.assembleDecisionFixture(
         pack,
         item,
@@ -1213,7 +1317,8 @@ export class ContentService {
           status: "ineligible",
           error: {
             code: "CONTENT_APPROVAL_BLOCKED",
-            message: "Content approval is blocked by the deterministic content policy.",
+            message:
+              "Content approval is blocked by the deterministic content policy.",
           },
         });
         continue;
@@ -1224,60 +1329,63 @@ export class ContentService {
 
     // All-ineligible batch: nothing to write.
     if (eligible.length === 0) {
-      return decisions.map((request) => ineligibleByItemId.get(request.content_item_id)!);
+      return decisions.map(
+        (request) => ineligibleByItemId.get(request.content_item_id)!,
+      );
     }
 
-    const { decisions: recorded, errors, outboxEventIds } =
-      await this.prisma.$transaction(
-      async (tx) => {
-        const bulk = await this.decisionRepository.bulkRecordDecisions(
-          eligible.map(({ request }) => ({
-            itemId: request.content_item_id,
-            versionId: request.content_item_version_id,
-            versionChecksum: request.content_item_version_checksum,
-            decision: request.decision,
-            revisionNotes: request.revision_notes,
-            idempotencyKey: request.idempotency_key,
-          })),
-          ownerUserId,
-          tx,
+    const {
+      decisions: recorded,
+      errors,
+      outboxEventIds,
+    } = await this.prisma.$transaction(async (tx) => {
+      const bulk = await this.decisionRepository.bulkRecordDecisions(
+        eligible.map(({ request }) => ({
+          itemId: request.content_item_id,
+          versionId: request.content_item_version_id,
+          versionChecksum: request.content_item_version_checksum,
+          decision: request.decision,
+          revisionNotes: request.revision_notes,
+          idempotencyKey: request.idempotency_key,
+        })),
+        ownerUserId,
+        tx,
+      );
+
+      const outboxIds: string[] = [];
+
+      for (const decision of bulk.decisions) {
+        if (decision.decision !== "approved") continue;
+
+        const entry = eligible.find(
+          (candidate) =>
+            candidate.request.content_item_id === decision.contentItemId,
         );
+        if (!entry) continue;
 
-        const outboxIds: string[] = [];
-
-        for (const decision of bulk.decisions) {
-          if (decision.decision !== "approved") continue;
-
-          const entry = eligible.find(
-            (candidate) =>
-              candidate.request.content_item_id === decision.contentItemId,
-          );
-          if (!entry) continue;
-
-          // Replay-safe: a repeated approval returns its frozen candidate
-          // instead of creating a duplicate (same rule as `decide`).
-          const existingCandidate =
-            await this.candidateRepository.getCandidateByItemVersionId(
-              decision.contentItemVersionId,
-              tx,
-            );
-          if (existingCandidate) continue;
-
-          const created = await this.candidateRepository.createCandidate(
-            {
-              approval: decision,
-              itemVersion: this.candidateItemVersionInput(entry.currentVersion),
-              assets: readyCandidateAssets(entry.fixture),
-              ownerUserId,
-            },
+        // Replay-safe: a repeated approval returns its frozen candidate
+        // instead of creating a duplicate (same rule as `decide`).
+        const existingCandidate =
+          await this.candidateRepository.getCandidateByItemVersionId(
+            decision.contentItemVersionId,
             tx,
           );
-          outboxIds.push(created.outboxEventId);
-        }
+        if (existingCandidate) continue;
 
-        return { ...bulk, outboxEventIds: outboxIds };
-      },
-    );
+        const created = await this.candidateRepository.createCandidate(
+          {
+            approval: decision,
+            itemVersion: this.candidateItemVersionInput(entry.currentVersion),
+            assets: readyCandidateAssets(entry.fixture),
+            ownerUserId,
+          },
+          tx,
+        );
+        outboxIds.push(created.outboxEventId);
+      }
+
+      return { ...bulk, outboxEventIds: outboxIds };
+    });
 
     for (const eventId of outboxEventIds) {
       await this.outboxQueue.add("dispatch-outbox", { eventId });
@@ -1484,7 +1592,9 @@ function toContentCycle(cycle: ContentCycleRow): ContentCycle {
   };
 }
 
-export function toContentWeekContext(week: PrismaWeekContext): ContentWeekContext {
+export function toContentWeekContext(
+  week: PrismaWeekContext,
+): ContentWeekContext {
   const base = {
     id: week.id,
     contract_version: "content-v1" as const,
@@ -1579,20 +1689,26 @@ export function toContentItemVersion(
     channel: version.channel as ContentItemVersion["channel"],
     format: version.format as ContentItemVersion["format"],
     language_mode: version.languageMode as ContentItemVersion["language_mode"],
-    strategy_trace: version.strategyTrace as unknown as ContentItemVersion["strategy_trace"],
-    caption_variants: version.captionVariants as unknown as ContentItemVersion["caption_variants"],
+    strategy_trace:
+      version.strategyTrace as unknown as ContentItemVersion["strategy_trace"],
+    caption_variants:
+      version.captionVariants as unknown as ContentItemVersion["caption_variants"],
     cta: version.cta,
     hashtags: toJsonStringArray(version.hashtags),
     creative_brief: version.creativeBrief,
     alt_text: version.altText,
-    short_video_script: version.shortVideoScript as unknown as ContentItemVersion["short_video_script"],
-    recommended_publish_window: version.recommendedPublishWindow as unknown as ContentItemVersion["recommended_publish_window"],
-    claim_sources: version.claimSources as unknown as ContentItemVersion["claim_sources"],
+    short_video_script:
+      version.shortVideoScript as unknown as ContentItemVersion["short_video_script"],
+    recommended_publish_window:
+      version.recommendedPublishWindow as unknown as ContentItemVersion["recommended_publish_window"],
+    claim_sources:
+      version.claimSources as unknown as ContentItemVersion["claim_sources"],
     warnings: version.warnings as unknown as ContentItemVersion["warnings"],
     blockers: version.blockers as unknown as ContentItemVersion["blockers"],
     asset_required: version.assetRequired,
     asset_ids: toJsonStringArray(version.assetIds),
-    generation_provenance: version.generationProvenance as ContentItemVersion["generation_provenance"],
+    generation_provenance:
+      version.generationProvenance as ContentItemVersion["generation_provenance"],
     version_checksum: version.versionChecksum,
     created_at: version.createdAt.toISOString(),
   };
@@ -1652,11 +1768,15 @@ function readyCandidateAssets(
   return fixture.item_version.asset_ids
     .map((assetId) => assetsById.get(assetId))
     .filter(
-      (asset): asset is ContentAsset &
-        { kind: "owner_supplied" | "generated_static" } =>
+      (
+        asset,
+      ): asset is ContentAsset & {
+        kind: "owner_supplied" | "generated_static";
+      } =>
         asset !== undefined &&
         asset.status === "ready" &&
-        (asset.kind === "owner_supplied" || asset.kind === "generated_static") &&
+        (asset.kind === "owner_supplied" ||
+          asset.kind === "generated_static") &&
         asset.checksum !== null &&
         asset.storage_key !== null,
     )
@@ -1705,60 +1825,6 @@ export function toPayload(value: unknown): Record<string, unknown> {
 type ContentCycleRow = Awaited<
   ReturnType<ContentCycleRepository["createCycle"]>
 >;
-
-// ── Africa/Cairo date helpers ────────────────────────────────────────
-
-function toCairoIsoDate(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: CAIRO_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-  if (!year || !month || !day) {
-    throw new Error(`Cannot format Cairo date for ${date.toISOString()}`);
-  }
-  return `${year}-${month}-${day}`;
-}
-
-export function addDaysIso(isoDate: string, days: number): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const utcMidnight = Date.UTC(year, month - 1, day + days);
-  return toCairoIsoDate(new Date(utcMidnight));
-}
-
-/**
- * Week 1 starts on the Strategy brief's start date; `nextGenerationAt` is the
- * start of week 2. Week N therefore starts `(N - 2)` weeks after
- * `nextGenerationAt`, and its generation cutoff is the start of the following
- * week (`(N - 1)` weeks after `nextGenerationAt`).
- */
-function weekStartFor(nextGenerationAt: Date, weekNumber: number): string {
-  return addDaysIso(toCairoIsoDate(nextGenerationAt), (weekNumber - 2) * 7);
-}
-
-function weekCutoffFor(nextGenerationAt: Date, weekNumber: number): Date {
-  return startOfCairoDay(
-    addDaysIso(toCairoIsoDate(nextGenerationAt), (weekNumber - 1) * 7),
-  );
-}
-
-/**
- * Returns the UTC instant of Cairo midnight for the given local calendar date.
- * Cairo is UTC+2 (or UTC+3 during DST), so midnight is 21:00/22:00 UTC of the
- * previous day; scanning from 20:00 UTC covers both offsets.
- */
-export function startOfCairoDay(isoDate: string): Date {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  let candidate = Date.UTC(year, month - 1, day - 1, 20);
-  while (toCairoIsoDate(new Date(candidate)) !== isoDate) {
-    candidate += 60 * 60 * 1000;
-  }
-  return new Date(candidate);
-}
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);

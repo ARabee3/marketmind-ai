@@ -95,6 +95,7 @@ describe("ContentPackRepository", () => {
 
       return {
         tx: {
+          $queryRaw: jest.fn().mockResolvedValue([]),
           contentCycle: {
             findUniqueOrThrow: jest.fn().mockResolvedValue({
               businessId: "business-1",
@@ -204,6 +205,7 @@ describe("ContentPackRepository", () => {
       const cycleUpdate = jest.fn().mockResolvedValue({ id: "cycle-1" });
       return {
         tx: {
+          $queryRaw: jest.fn().mockResolvedValue([]),
           contentCycle: {
             findUniqueOrThrow: jest.fn().mockResolvedValue({
               businessId: "business-1",
@@ -212,16 +214,24 @@ describe("ContentPackRepository", () => {
               strategyDecisionId: "decision-1",
               profileVersionId: "profile-1",
               currentWeekNumber: 2,
+              status: "active",
+              week1StartDate: new Date("2025-12-18T00:00:00Z"),
             }),
             update: cycleUpdate,
           },
           contentWeekContext: {
             findUniqueOrThrow: jest.fn().mockResolvedValue({
               weeklyClaimId: "claim-1",
-              weekStartDate: new Date("2026-01-01"),
+              contentCycleId: "cycle-1",
+              weekNumber: 3,
+              frozenAt: null,
             }),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           },
-          contentPack: { create: packCreate },
+          contentPack: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: packCreate,
+          },
         },
         packCreate,
         cycleUpdate,

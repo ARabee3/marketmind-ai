@@ -41,6 +41,7 @@ const WEEK_ROW = {
   confirmedByUserId: "owner-1",
   confirmedAt: new Date("2026-01-15T00:00:00Z"),
   systemDefaultedAt: null,
+  frozenAt: null,
   createdAt: new Date("2026-01-15T00:00:00Z"),
 };
 
@@ -54,13 +55,18 @@ function uniqueViolation() {
 describe("ContentWeekContextRepository", () => {
   describe("upsertOwnerContext", () => {
     it("upserts an owner-confirmed context computing weekly_claim_id and cutoff", async () => {
-      const findFirst = jest.fn().mockResolvedValue({
-        nextGenerationAt: new Date("2026-01-18T00:00:00Z"),
+      const cycleFindUnique = jest.fn().mockResolvedValue({
+        week1StartDate: new Date("2026-01-01T00:00:00Z"),
       });
-      const upsert = jest.fn().mockResolvedValue(WEEK_ROW);
+      const contextFindUnique = jest.fn().mockResolvedValue(null);
+      const create = jest.fn().mockResolvedValue(WEEK_ROW);
       const repo = new ContentWeekContextRepository({
-        contentCycle: { findFirst },
-        contentWeekContext: { upsert },
+        $transaction: jest.fn(async (callback) =>
+          callback({
+            contentCycle: { findUnique: cycleFindUnique },
+            contentWeekContext: { findUnique: contextFindUnique, create },
+          } as never),
+        ),
       } as unknown as PrismaService);
 
       const result = await repo.upsertOwnerContext(
@@ -70,25 +76,27 @@ describe("ContentWeekContextRepository", () => {
       );
 
       expect(result.contextSource).toBe("owner_confirmed");
-      const callArgs = upsert.mock.calls[0][0];
-      expect(callArgs.where).toEqual({
-        contentCycleId_weekNumber: { contentCycleId: "cycle-1", weekNumber: 3 },
-      });
-      expect(callArgs.create.generationCutoffAt).toEqual(
-        new Date("2026-01-18T00:00:00Z"),
+      const callArgs = create.mock.calls[0][0];
+      expect(callArgs.data.weekStartDate).toEqual(
+        new Date("2026-01-15T00:00:00.000Z"),
       );
-      expect(callArgs.create.weeklyClaimId).toBeDefined();
-      expect(callArgs.create.contextSource).toBe("owner_confirmed");
-      expect(callArgs.create.confirmedByUserId).toBe("owner-1");
-      expect(callArgs.update.generationCutoffAt).toEqual(
-        new Date("2026-01-18T00:00:00Z"),
+      expect(callArgs.data.generationCutoffAt).toEqual(
+        new Date("2026-01-21T22:00:00.000Z"),
       );
+      expect(callArgs.data.weeklyClaimId).toBeDefined();
+      expect(callArgs.data.contextSource).toBe("owner_confirmed");
+      expect(callArgs.data.confirmedByUserId).toBe("owner-1");
     });
 
     it("throws 404 when the cycle has no generation cutoff", async () => {
-      const findFirst = jest.fn().mockResolvedValue(null);
+      const findUnique = jest.fn().mockResolvedValue(null);
       const repo = new ContentWeekContextRepository({
-        contentCycle: { findFirst },
+        $transaction: jest.fn(async (callback) =>
+          callback({
+            contentCycle: { findUnique },
+            contentWeekContext: {},
+          } as never),
+        ),
       } as unknown as PrismaService);
 
       await expect(
@@ -99,9 +107,10 @@ describe("ContentWeekContextRepository", () => {
 
   describe("createSafeDefaultContext", () => {
     it("writes promotion_mode='none' and context_source='system_defaulted'", async () => {
-      const findUnique = jest
-        .fn()
-        .mockResolvedValue({ profileVersion: { profile: null } });
+      const findUnique = jest.fn().mockResolvedValue({
+        week1StartDate: new Date("2026-01-01"),
+        profileVersion: { profile: null },
+      });
       const contentAssetFindMany = jest.fn().mockResolvedValue([]);
       const create = jest.fn().mockResolvedValue(WEEK_ROW);
       const repo = new ContentWeekContextRepository({
@@ -110,14 +119,10 @@ describe("ContentWeekContextRepository", () => {
         contentWeekContext: { create },
       } as unknown as PrismaService);
 
-      await repo.createSafeDefaultContext(
-        "cycle-1",
-        4,
-        {
-          weekStartDate: new Date("2026-01-26"),
-          cutoffAt: new Date("2026-01-25T00:00:00Z"),
-        },
-      );
+      await repo.createSafeDefaultContext("cycle-1", 4, {
+        weekStartDate: new Date("2026-01-26"),
+        cutoffAt: new Date("2026-01-25T00:00:00Z"),
+      });
 
       const data = create.mock.calls[0][0].data;
       expect(data.promotionMode).toBe("none");
@@ -129,9 +134,10 @@ describe("ContentWeekContextRepository", () => {
     });
 
     it("carries only prior approved assets into the safe default", async () => {
-      const findUnique = jest
-        .fn()
-        .mockResolvedValue({ profileVersion: { profile: null } });
+      const findUnique = jest.fn().mockResolvedValue({
+        week1StartDate: new Date("2026-01-01"),
+        profileVersion: { profile: null },
+      });
       const contentAssetFindMany = jest
         .fn()
         .mockResolvedValue([{ id: "approved-1" }, { id: "approved-2" }]);
@@ -142,14 +148,10 @@ describe("ContentWeekContextRepository", () => {
         contentWeekContext: { create },
       } as unknown as PrismaService);
 
-      await repo.createSafeDefaultContext(
-        "cycle-1",
-        4,
-        {
-          weekStartDate: new Date("2026-01-26"),
-          cutoffAt: new Date("2026-01-25T00:00:00Z"),
-        },
-      );
+      await repo.createSafeDefaultContext("cycle-1", 4, {
+        weekStartDate: new Date("2026-01-26"),
+        cutoffAt: new Date("2026-01-25T00:00:00Z"),
+      });
 
       expect(contentAssetFindMany).toHaveBeenCalledWith({
         where: {
@@ -168,6 +170,7 @@ describe("ContentWeekContextRepository", () => {
 
     it("derives the CTA from confirmed business data", async () => {
       const findUnique = jest.fn().mockResolvedValue({
+        week1StartDate: new Date("2026-01-01"),
         profileVersion: {
           profile: {
             business_name: "Café Nile",
@@ -182,14 +185,10 @@ describe("ContentWeekContextRepository", () => {
         contentWeekContext: { create },
       } as unknown as PrismaService);
 
-      await repo.createSafeDefaultContext(
-        "cycle-1",
-        4,
-        {
-          weekStartDate: new Date("2026-01-26"),
-          cutoffAt: new Date("2026-01-25T00:00:00Z"),
-        },
-      );
+      await repo.createSafeDefaultContext("cycle-1", 4, {
+        weekStartDate: new Date("2026-01-26"),
+        cutoffAt: new Date("2026-01-25T00:00:00Z"),
+      });
 
       const data = create.mock.calls[0][0].data;
       expect(data.ctaDestination).toEqual({
@@ -243,7 +242,9 @@ describe("ContentWeekContextRepository", () => {
 
   describe("claimWeek", () => {
     it("wins the claim on first insert", async () => {
-      const create = jest.fn().mockResolvedValue({ ...WEEK_ROW, weeklyClaimId: "claim-1" });
+      const create = jest
+        .fn()
+        .mockResolvedValue({ ...WEEK_ROW, weeklyClaimId: "claim-1" });
       const repo = new ContentWeekContextRepository({
         contentWeekContext: { create },
       } as unknown as PrismaService);
@@ -271,9 +272,7 @@ describe("ContentWeekContextRepository", () => {
     });
 
     it("returns the existing week on a concurrent duplicate claim", async () => {
-      const create = jest
-        .fn()
-        .mockRejectedValue(uniqueViolation());
+      const create = jest.fn().mockRejectedValue(uniqueViolation());
       const findUnique = jest.fn().mockResolvedValue({
         ...WEEK_ROW,
         weeklyClaimId: "claim-winner",
@@ -297,7 +296,10 @@ describe("ContentWeekContextRepository", () => {
       expect(result.weeklyClaimId).toBe("claim-winner");
       expect(findUnique).toHaveBeenCalledWith({
         where: {
-          contentCycleId_weekNumber: { contentCycleId: "cycle-1", weekNumber: 5 },
+          contentCycleId_weekNumber: {
+            contentCycleId: "cycle-1",
+            weekNumber: 5,
+          },
         },
       });
     });

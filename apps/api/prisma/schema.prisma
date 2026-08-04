@@ -784,12 +784,14 @@ model ContentCycle {
   profileVersionId   String    @map("profile_version_id") @db.Uuid
   status             String    @default("active")
   currentWeekNumber  Int       @default(1) @map("current_week_number")
+  week1StartDate     DateTime  @map("week_1_start_date") @db.Date
   nextGenerationAt   DateTime? @map("next_generation_at")
   timezone           String    @default("Africa/Cairo")
   pauseReason        String?   @map("pause_reason")
   completedAt        DateTime? @map("completed_at")
   ownerUserId        String    @map("owner_user_id") @db.Uuid
   idempotencyKey     String?   @map("idempotency_key")
+  idempotencyFingerprint String? @map("idempotency_fingerprint")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -825,6 +827,7 @@ model ContentWeekContext {
   confirmedByUserId  String?   @map("confirmed_by_user_id") @db.Uuid
   confirmedAt        DateTime? @map("confirmed_at")
   systemDefaultedAt  DateTime? @map("system_defaulted_at")
+  frozenAt           DateTime? @map("frozen_at")
   createdAt          DateTime  @default(now()) @map("created_at")
 
   contentCycle    ContentCycle  @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)

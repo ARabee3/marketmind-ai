@@ -5,7 +5,7 @@ import {
   canTransitionContentPack,
   ContentPackStatus,
 } from "@marketmind/contracts";
-import { startOfCairoDay, addDaysIso } from "../content.service";
+import { weekCutoffDate } from "../content-schedule";
 
 export type ContentItemVersionDraftInput = {
   readonly id: string;
@@ -196,6 +196,7 @@ export class ContentPackRepository {
               assetIds: draft.assetIds,
               generationProvenance: draft.generationProvenance,
               versionChecksum: draft.versionChecksum,
+              createdAt: draft.createdAt,
             },
           });
 
@@ -258,8 +259,31 @@ export class ContentPackRepository {
     weekNumber: number,
     weekContextId: string,
   ): Promise<{ pack: ContentPack; created: boolean }> {
+    if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 12) {
+      throw new BadRequestException("Content week must be between 1 and 12.");
+    }
     try {
-      const pack = await this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
+        // Serialize claims for one cycle before reading currentWeekNumber. The
+        // unique pack key remains the final idempotency guard, but the row lock
+        // also prevents a manual request from skipping a week under a race.
+        await tx.$queryRaw`
+          SELECT "id"
+          FROM "content_cycles"
+          WHERE "id" = ${cycleId}::uuid
+          FOR UPDATE
+        `;
+
+        const existing = await tx.contentPack.findUnique({
+          where: {
+            contentCycleId_weekNumber: {
+              contentCycleId: cycleId,
+              weekNumber,
+            },
+          },
+        });
+        if (existing) return { pack: existing, created: false };
+
         const cycle = await tx.contentCycle.findUniqueOrThrow({
           where: { id: cycleId },
           select: {
@@ -269,13 +293,59 @@ export class ContentPackRepository {
             strategyDecisionId: true,
             profileVersionId: true,
             currentWeekNumber: true,
+            status: true,
+            week1StartDate: true,
           },
         });
 
+        if (cycle.status !== "active") {
+          throw new BadRequestException(
+            `Content cycle ${cycleId} is not active; cannot claim week ${weekNumber}.`,
+          );
+        }
+        if (
+          !(
+            (weekNumber === 1 && cycle.currentWeekNumber === 1) ||
+            weekNumber === cycle.currentWeekNumber + 1
+          )
+        ) {
+          throw new BadRequestException(
+            `Week ${weekNumber} is not the exact next eligible week for cycle ${cycleId}.`,
+          );
+        }
+
         const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
           where: { id: weekContextId },
-          select: { weeklyClaimId: true, weekStartDate: true },
+          select: {
+            weeklyClaimId: true,
+            contentCycleId: true,
+            weekNumber: true,
+            frozenAt: true,
+          },
         });
+        if (
+          weekContext.contentCycleId !== cycleId ||
+          weekContext.weekNumber !== weekNumber
+        ) {
+          throw new BadRequestException(
+            `Week context ${weekContextId} does not belong to cycle ${cycleId} week ${weekNumber}.`,
+          );
+        }
+
+        const frozen = await tx.contentWeekContext.updateMany({
+          where: {
+            id: weekContextId,
+            contentCycleId: cycleId,
+            weekNumber,
+            frozenAt: null,
+          },
+          data: { frozenAt: new Date() },
+        });
+        if (frozen.count === 0 || weekContext.frozenAt !== null) {
+          throw new BadRequestException(
+            `Week ${weekNumber} context is already frozen or unavailable.`,
+          );
+        }
 
         const createdPack = await tx.contentPack.create({
           data: {
@@ -298,18 +368,12 @@ export class ContentPackRepository {
           where: { id: cycleId },
           data: {
             currentWeekNumber: weekNumber,
-            nextGenerationAt: startOfCairoDay(
-              addDaysIso(
-                weekContext.weekStartDate.toISOString().slice(0, 10),
-                7,
-              ),
-            ),
+            nextGenerationAt: weekCutoffDate(cycle.week1StartDate, weekNumber),
           },
         });
 
-        return createdPack;
+        return { pack: createdPack, created: true };
       });
-      return { pack, created: true };
     } catch (error) {
       if (isUniqueViolation(error)) {
         const existing = await this.prisma.contentPack.findUnique({
@@ -534,6 +598,15 @@ export class ContentPackRepository {
         where: { id: input.packId },
       });
 
+      if (
+        pack.contentCycleId !== input.cycleId ||
+        pack.weekNumber !== input.weekNumber
+      ) {
+        throw new BadRequestException(
+          `Pack ${input.packId} does not match the claimed cycle/week.`,
+        );
+      }
+
       if (pack.status !== "validating") {
         throw new BadRequestException(
           `Cannot persist items: pack ${input.packId} is in status ${pack.status}, expected validating`,
@@ -594,6 +667,17 @@ export class ContentPackRepository {
         throw new BadRequestException(
           `Pack ${input.packId} is no longer in validating status`,
         );
+      }
+
+      if (input.weekNumber === 12) {
+        await tx.contentCycle.updateMany({
+          where: {
+            id: input.cycleId,
+            status: "active",
+            currentWeekNumber: 12,
+          },
+          data: { status: "completed", completedAt: new Date() },
+        });
       }
 
       await tx.contentGenerationRun.create({

@@ -186,10 +186,11 @@ describe("Content item version checksum DB round-trip", () => {
         profileVersionId: ids.profile,
         ownerUserId: ids.user,
         currentWeekNumber: 1,
+        week1StartDate: new Date("2026-08-01T00:00:00.000Z"),
         nextGenerationAt: new Date("2026-08-08T00:00:00.000Z"),
         timezone: "Africa/Cairo",
         idempotencyKey: `${run}-cycle`,
-      },
+      } as never,
     });
     await prisma.contentWeekContext.create({
       data: {
