@@ -1,0 +1,628 @@
+{
+  "name": "publishing-v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publishing-dispatch",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5425102b-f41a-4f25-9fa3-be9efa88a15c",
+      "name": "Webhook - publishing-dispatch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        608
+      ],
+      "webhookId": "a3433291-bb92-4e0a-8ad2-3eccf31b9edc"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const headers = $json.headers || {};\nconst authHeader = headers['authorization'] || headers['Authorization'] || '';\nconst expected = 'Bearer ' + $env.PUBLISHING_N8N_AUTH_TOKEN;\n\nif (authHeader !== expected) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: missing or invalid bearer token' } };\n}\n\nreturn { json: { valid: true, envelope: $json.body } };"
+      },
+      "id": "641e4a08-64a4-4297-8a4f-f044f3bd3953",
+      "name": "Check Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1536,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "dd052898-0416-4fc0-982f-5ecccc1e4cbf",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f04f17a7-c572-4a07-88a4-d3488017ef65",
+      "name": "IF Auth OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {}
+      },
+      "id": "9bb8f5e9-d018-4a44-a669-b7df8a1f84d0",
+      "name": "Respond 401 - Auth",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1104,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const envelope = $json.envelope;\nconst errors = [];\n\nif (!envelope || envelope.contract_version !== 'publishing-dispatch-envelope-v1') {\n  errors.push('bad envelope contract_version');\n}\nif (!envelope || !envelope.body || envelope.body.contract_version !== 'publication-dispatch-v1') {\n  errors.push('bad body contract_version');\n}\nif (!envelope || !envelope.body || !['real', 'manual_export', 'simulation'].includes(envelope.body.mode)) {\n  errors.push('unknown or missing mode');\n}\nconst requiredEnvelopeFields = ['message_id','sent_at','nonce','key_id','signature_algorithm','body_sha256','signature','body'];\nfor (const f of requiredEnvelopeFields) {\n  if (envelope && envelope[f] === undefined) errors.push('missing envelope field: ' + f);\n}\n\nif (errors.length) {\n  return { json: { valid: false, statusCode: 400, error: 'PUBLISHING_CONTRACT_UNSUPPORTED: ' + errors.join('; ') } };\n}\n\nreturn { json: { valid: true, envelope } };"
+      },
+      "id": "c889c4b5-ac6b-4a3c-a6ee-4de51448e5ce",
+      "name": "Validate Envelope Shape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "55f45fa5-80fd-4a22-a392-5025a03d95c6",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2140a8b1-630d-4622-8fd8-e6ad12266c19",
+      "name": "IF Shape OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {}
+      },
+      "id": "51eb9f45-60cc-4139-958a-a10a1c4d7495",
+      "name": "Respond 400 - Shape",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function sortKeysDeep(value) {\n  if (Array.isArray(value)) return value.map(sortKeysDeep);\n  if (value !== null && typeof value === 'object') {\n    const sorted = {};\n    for (const key of Object.keys(value).sort()) {\n      if (value[key] !== undefined) sorted[key] = sortKeysDeep(value[key]);\n    }\n    return sorted;\n  }\n  return value;\n}\nfunction canonicalJson(value) { return JSON.stringify(sortKeysDeep(value)); }\nfunction sha256Hex(value) {\n  return require('crypto').createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');\n}\nfunction sigInput({ contract_version, sent_at, nonce, body_sha256 }) {\n  return ['hmac-sha256', contract_version, sent_at, nonce, body_sha256].join('\\n');\n}\nfunction hmacHex(input, secret) {\n  return require('crypto').createHmac('sha256', secret).update(sigInput(input), 'utf8').digest('hex');\n}\n\nconst envelope = $json.envelope;\nconst secret = $env.PUBLISHING_N8N_SIGNING_SECRET;\nconst expectedKeyId = $env.PUBLISHING_N8N_SIGNING_KID;\n\nconst recomputedBodySha256 = sha256Hex(envelope.body);\nif (recomputedBodySha256 !== envelope.body_sha256) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_CANDIDATE_TAMPERED: body_sha256 mismatch' } };\n}\n\nconst ageMs = Math.abs(Date.now() - Date.parse(envelope.sent_at));\nif (ageMs > 300000) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_TIMESTAMP_INVALID: outside 300s tolerance' } };\n}\n\nif (envelope.key_id !== expectedKeyId) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: unknown key_id' } };\n}\n\nconst expectedSig = hmacHex({\n  contract_version: envelope.contract_version,\n  sent_at: envelope.sent_at,\n  nonce: envelope.nonce,\n  body_sha256: envelope.body_sha256,\n}, secret);\n\nconst expectedBuf = Buffer.from(expectedSig, 'hex');\nconst receivedBuf = Buffer.from(envelope.signature || '', 'hex');\nconst sigValid = expectedBuf.length === receivedBuf.length && require('crypto').timingSafeEqual(expectedBuf, receivedBuf);\n\nif (!sigValid) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: signature mismatch' } };\n}\n\n// Nonce-replay protection (issue #120). n8n staticData persists across\n// executions on this instance; we record each dispatch nonce with a\n// 10-minute TTL and reject an identical replay within that window as\n// PUBLISHING_WEBHOOK_NONCE_REPLAYED. message_id is one-time-per-send.\nconst REPLAY_TTL_MS = 10 * 60 * 1000;\nconst store = $getWorkflowStaticData('global');\nif (!store || typeof store !== 'object') {\n  return { json: { valid: false, statusCode: 500, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: nonce store unavailable' } };\n}\nconst seen = store.__dispatch_nonces__ || {};\nconst now = Date.now();\nfor (const nk of Object.keys(seen)) {\n  if (now - seen[nk] > REPLAY_TTL_MS) delete seen[nk];\n}\nif (Object.prototype.hasOwnProperty.call(seen, envelope.nonce)) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_NONCE_REPLAYED: nonce seen within 10m' } };\n}\nseen[envelope.nonce] = now;\nstore.__dispatch_nonces__ = seen;\n\nreturn { json: { valid: true, envelope } };"
+      },
+      "id": "4eb302c1-bc8e-4624-9312-81d57cc99e9f",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "e0955db9-493a-46c6-b155-fcebfd38079d",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf7c7f9f-c08b-4362-ab8a-664084cccd52",
+      "name": "IF Signature OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {}
+      },
+      "id": "a574b64c-0c8f-4518-b0d0-e4ce9a3d2416",
+      "name": "Respond 401 - Signature",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const https = require(\"https\");\nconst crypto = require(\"crypto\");\n\nconst env = $env || {};\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst candidate = body.candidate;\nconst target = body.target;\nconst assets = body.assets || [];\nconst asset = assets[0] || null;\n\nfunction httpReq(method, urlStr, { headers, multipart, formData, binary, rawResponse } = {}) {\n  return new Promise((resolve, reject) => {\n    let u;\n    try { u = new URL(urlStr); } catch (e) { return reject(new Error(\"bad url\")); }\n    const finalHeaders = { ...(headers || {}) };\n    let payloadBuf = null;\n    if (multipart) {\n      const boundary = \"----mmboundary\" + crypto.randomBytes(16).toString(\"hex\");\n      finalHeaders[\"Content-Type\"] = \"multipart/form-data; boundary=\" + boundary;\n      const parts = [];\n      for (const [k, v] of Object.entries(formData)) {\n        parts.push(\"--\" + boundary + \"\\r\\nContent-Disposition: form-data; name=\\\"\" + k + \"\\\"\\r\\n\\r\\n\" + v + \"\\r\\n\");\n      }\n      parts.push(\"--\" + boundary + \"\\r\\nContent-Disposition: form-data; name=\\\"source\\\"; filename=\\\"asset.png\\\"\\r\\nContent-Type: \" + asset.mime_type + \"\\r\\n\\r\\n\");\n      const head = Buffer.from(parts.join(\"\"), \"utf8\");\n      const tail = Buffer.from(\"\\r\\n--\" + boundary + \"--\\r\\n\", \"utf8\");\n      payloadBuf = Buffer.concat([head, binary, tail]);\n      finalHeaders[\"Content-Length\"] = payloadBuf.length;\n    }\n    const opts = { method, hostname: u.hostname, port: u.port || (u.protocol === \"http:\" ? 80 : 443), path: u.pathname + u.search, headers: finalHeaders };\n    const req = https.request(opts, (res) => {\n      const chunks = [];\n      res.on(\"data\", (c) => chunks.push(c));\n      res.on(\"end\", () => {\n        const buf = Buffer.concat(chunks);\n        resolve({ status: res.statusCode, headers: res.headers, body: buf.toString(\"utf8\"), buf });\n      });\n    });\n    req.on(\"error\", reject);\n    if (payloadBuf) req.end(payloadBuf); else req.end();\n  });\n}\n\nfunction baseResult(outcome, extra) {\n  return {\n    contract_version: \"publication-result-v1\", result_id: crypto.randomUUID(),\n    attempt_id: body.attempt_id, intent_id: body.intent_id, intent_version: body.intent_version,\n    occurred_at: new Date().toISOString(), mode: \"real\", provider: \"meta\",\n    remote_publication_id: null, remote_url: null, export_artifact_id: null,\n    simulation_reference_id: null, simulation_label: null, error_code: null,\n    retryable: false, reconciliation_required: false, ...outcome, ...extra,\n  };\n}\n\nfunction mapGraphError(status, errObj) {\n  const code = errObj && errObj.code;\n  if (status === 401 || code === 190 || code === 102 || code === 463 || code === 467) return baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_TARGET_UNAUTHORIZED\", retryable: false });\n  if (status === 429 || code === 4 || code === 17 || code === 32 || code === 613) return baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_PROVIDER_RATE_LIMITED\", retryable: true });\n  if (status >= 400 && status < 500) return baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_PROVIDER_FAILURE\", retryable: false });\n  return baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_PROVIDER_FAILURE\", retryable: true });\n}\n\n// AMBIGUOUS delivery classifier: a network error mid/after upload means Meta\n// may already have published — never retry, surface unknown + reconciliation.\nfunction isAmbiguousSendError(err) {\n  const m = String(err && err.code || err && err.message || err);\n  return /ETIMEDOUT|ESOCKETTIMEDOUT|ECONNRESET|EPIPE|ECONNABORTED/.test(m);\n}\n\nlet assetBytes;\ntry {\n  if (!asset) throw new Error(\"no asset\");\n  if (asset.retrieval_expires_at && Date.parse(asset.retrieval_expires_at) < Date.now()) {\n    return { json: { envelope, result: baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_ASSET_UNAVAILABLE\", retryable: false }) } };\n  }\n  const r = await httpReq(\"GET\", asset.retrieval_url, { headers: { \"x-publishing-internal-token\": env.PUBLISHING_INTERNAL_SERVICE_TOKEN || \"\" } });\n  if (r.status !== 200 || !r.buf || r.buf.length === 0) {\n    return { json: { envelope, result: baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_ASSET_UNAVAILABLE\", retryable: true }) } };\n  }\n  assetBytes = r.buf;\n} catch (e) {\n  return { json: { envelope, result: baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_ASSET_UNAVAILABLE\", retryable: true }) } };\n}\n\nconst pageId = env.META_TEST_PAGE_ID || (target && target.external_account_id) || \"\";\nconst token = env.META_TEST_PAGE_ACCESS_TOKEN || \"\";\nif (!pageId || !token) {\n  return { json: { envelope, result: baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_TARGET_UNAUTHORIZED\", retryable: false }) } };\n}\n\nconst hashtags = Array.isArray(candidate.hashtags) ? candidate.hashtags.join(\" \") : \"\";\nconst caption = [candidate.caption, hashtags].filter(Boolean).join(\"\\n\");\n\nlet uploaded;\nlet graphError = null;\ntry {\n  uploaded = await httpReq(\"POST\", \"https://graph.facebook.com/v19.0/\" + pageId + \"/photos?access_token=\" + encodeURIComponent(token), {\n    multipart: true, formData: { caption, published: \"true\" }, binary: assetBytes,\n  });\n} catch (e) {\n  if (isAmbiguousSendError(e)) {\n    return { json: { envelope, result: baseResult({ outcome: \"unknown\" }, { error_code: \"PUBLISHING_PROVIDER_OUTCOME_UNKNOWN\", reconciliation_required: true }) } };\n  }\n  return { json: { envelope, result: baseResult({ outcome: \"failed\" }, { error_code: \"PUBLISHING_PROVIDER_FAILURE\", retryable: true }) } };\n}\n\nlet parsed;\ntry { parsed = JSON.parse(uploaded.body); } catch (e) { parsed = null; }\n\nif (!parsed || parsed.error || uploaded.status >= 400) {\n  const mapped = mapGraphError(uploaded.status, parsed && parsed.error);\n  return { json: { envelope, result: mapped } };\n}\n\nconst photoId = parsed.id;\nconst remotePublicationId = parsed.post_id || (pageId + \"_\" + photoId);\n\nlet remoteUrl = null;\ntry {\n  const link = await httpReq(\"GET\", \"https://graph.facebook.com/v19.0/\" + photoId + \"?fields=link&access_token=\" + encodeURIComponent(token));\n  const lj = JSON.parse(link.body);\n  if (lj && typeof lj.link === \"string\") remoteUrl = lj.link;\n} catch (e) { /* permalink best-effort — still published */ }\n\nreturn { json: { envelope, result: baseResult({ outcome: \"published\" }, {\n  remote_publication_id: remotePublicationId, remote_url: remoteUrl,\n}) } };"
+      },
+      "id": "77a59e37-f4ed-461b-b751-e5308049c4df",
+      "name": "Real Meta Adapter (static image)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require(\"crypto\");\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst candidate = body.candidate;\nconst assets = body.assets || [];\n\n// Assemble the export manifest: caption, hashtags, alt_text, and every asset\n// with its signed checksum. n8n emits the archive as a binary item (JSON\n// manifest) so the API records a real export_artifact_id for the owner.\nconst manifest = {\n  contract_version: \"publishing-export-manifest-v1\",\n  intent_id: body.intent_id,\n  candidate_id: candidate.candidate_id,\n  caption: candidate.caption,\n  cta: candidate.cta,\n  hashtags: candidate.hashtags,\n  alt_text: candidate.alt_text,\n  assets: assets.map((a) => ({ asset_id: a.asset_id, mime_type: a.mime_type, checksum: a.checksum })),\n  manifest_checksum: \"\", // stamped below\n  generated_at: new Date().toISOString(),\n};\nconst manifestChecksum = crypto.createHash(\"sha256\").update(JSON.stringify({ ...manifest, manifest_checksum: \"\" }), \"utf8\").digest(\"hex\");\nmanifest.manifest_checksum = manifestChecksum;\n\nconst artifactId = crypto.randomUUID();\nconst result = {\n  contract_version: \"publication-result-v1\",\n  result_id: crypto.randomUUID(),\n  attempt_id: body.attempt_id,\n  intent_id: body.intent_id,\n  intent_version: body.intent_version,\n  occurred_at: new Date().toISOString(),\n  mode: \"manual_export\",\n  outcome: \"exported\",\n  provider: null,\n  remote_publication_id: null,\n  remote_url: null,\n  export_artifact_id: artifactId,\n  simulation_reference_id: null,\n  simulation_label: null,\n  error_code: null,\n  retryable: false,\n  reconciliation_required: false,\n};\n// Emit the manifest as a binary item alongside the result so downstream nodes\n// (or an archive sink) can persist it; the artifact_id binds the two.\nconst manifestJson = Buffer.from(JSON.stringify(manifest, null, 2), \"utf8\");\nreturn [\n  { json: { envelope, result, manifest, artifact_id: artifactId }, binary: { manifest: { data: manifestJson.toString(\"base64\"), mimeType: \"application/json\", fileName: \"manifest.json\" } } },\n];"
+      },
+      "id": "24d5ed9f-06df-48a8-97de-393c28c3935a",
+      "name": "Manual Export Archive (manifest)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require(\"crypto\");\nconst envelope = $json.envelope;\nconst body = envelope.body;\n// SIMULATION performs NO external request and emits a deterministic fake\n// remote identity scoped to the attempt. simulation_label is \"SIMULATION\"\n// end-to-end so the stored result can never be mistaken for a real post.\nconst result = {\n  contract_version: \"publication-result-v1\",\n  result_id: crypto.randomUUID(),\n  attempt_id: body.attempt_id,\n  intent_id: body.intent_id,\n  intent_version: body.intent_version,\n  occurred_at: new Date().toISOString(),\n  mode: \"simulation\",\n  outcome: \"simulated\",\n  provider: null,\n  remote_publication_id: null,\n  remote_url: null,\n  export_artifact_id: null,\n  simulation_reference_id: \"sim-\" + body.attempt_id,\n  simulation_label: \"SIMULATION\",\n  error_code: null,\n  retryable: false,\n  reconciliation_required: false,\n};\nreturn { json: { envelope, result } };"
+      },
+      "id": "24eacf30-6cf7-433f-831b-ad7089ee6349",
+      "name": "Simulation Adapter (zero-network)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const envelope = $json.envelope;\nconst result = $json.result;\n\nconst callbackBody = {\n  contract_version: 'publication-callback-v1',\n  callback_id: require('crypto').randomUUID(),\n  attempt_id: envelope.body.attempt_id,\n  intent_id: envelope.body.intent_id,\n  intent_version: envelope.body.intent_version,\n  request_fingerprint: envelope.body_sha256,\n  workflow_version: envelope.body.workflow_version,\n  result,\n};\n\nreturn { json: { callbackBody, callback_url: envelope.body.callback_url } };"
+      },
+      "id": "217ea462-105c-49ba-9a33-e71d2eea9688",
+      "name": "Build Callback Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function sortKeysDeep(value) {\n  if (Array.isArray(value)) return value.map(sortKeysDeep);\n  if (value !== null && typeof value === 'object') {\n    const sorted = {};\n    for (const key of Object.keys(value).sort()) {\n      if (value[key] !== undefined) sorted[key] = sortKeysDeep(value[key]);\n    }\n    return sorted;\n  }\n  return value;\n}\nfunction canonicalJson(value) { return JSON.stringify(sortKeysDeep(value)); }\nfunction sha256Hex(value) {\n  return require('crypto').createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');\n}\nfunction sigInput({ contract_version, sent_at, nonce, body_sha256 }) {\n  return ['hmac-sha256', contract_version, sent_at, nonce, body_sha256].join('\\n');\n}\nfunction hmacHex(input, secret) {\n  return require('crypto').createHmac('sha256', secret).update(sigInput(input), 'utf8').digest('hex');\n}\n\nconst secret = $env.PUBLISHING_N8N_SIGNING_SECRET;\nconst keyId = $env.PUBLISHING_N8N_SIGNING_KID;\nconst body = $json.callbackBody;\n\nconst bodySha256 = sha256Hex(body);\nconst sentAt = new Date().toISOString();\nconst nonce = require('crypto').randomUUID();\nconst signature = hmacHex({\n  contract_version: 'publishing-callback-envelope-v1',\n  sent_at: sentAt,\n  nonce,\n  body_sha256: bodySha256,\n}, secret);\n\nconst callbackEnvelope = {\n  contract_version: 'publishing-callback-envelope-v1',\n  message_id: require('crypto').randomUUID(),\n  sent_at: sentAt,\n  nonce,\n  key_id: keyId,\n  signature_algorithm: 'hmac-sha256',\n  body_sha256: bodySha256,\n  signature,\n  body,\n};\n\nreturn { json: { callbackEnvelope, callback_url: $json.callback_url } };"
+      },
+      "id": "4bfa4ad2-f6b5-4098-98ce-9b3f0700a3d1",
+      "name": "Sign Callback Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callback_url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.callbackEnvelope}}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "5c70a621-1643-4ade-a06e-067e527972a2",
+      "name": "POST Callback to NestJS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        128
+      ],
+      "settings": {
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true } }}",
+        "options": {}
+      },
+      "id": "8cc93ba4-fe25-47a7-985e-991cdcd78463",
+      "name": "Respond 200 - Dispatched",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "real",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2d77cb3b-8f95-48ae-af21-d82130b91f8b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "real"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "13957aa9-a7fe-439f-b0ed-f30e0c512ac6",
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "manual_export",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "manual_export"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f913f144-0fa7-43f4-b3ea-dc01a1bececa",
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "simulation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "simulation"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        64
+      ],
+      "id": "da78fd57-8e39-4c20-b906-44257b574965",
+      "name": "Route By Mode"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - publishing-dispatch": {
+      "main": [
+        [
+          {
+            "node": "Check Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Auth": {
+      "main": [
+        [
+          {
+            "node": "IF Auth OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Auth OK": {
+      "main": [
+        [
+          {
+            "node": "Validate Envelope Shape",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401 - Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Envelope Shape": {
+      "main": [
+        [
+          {
+            "node": "IF Shape OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Shape OK": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 - Shape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature": {
+      "main": [
+        [
+          {
+            "node": "IF Signature OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Signature OK": {
+      "main": [
+        [
+          {
+            "node": "Route By Mode",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401 - Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Meta Adapter (static image)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Export Archive (manifest)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulation Adapter (zero-network)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Body": {
+      "main": [
+        [
+          {
+            "node": "Sign Callback Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Callback Envelope": {
+      "main": [
+        [
+          {
+            "node": "POST Callback to NestJS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Callback to NestJS": {
+      "main": [
+        [
+          {
+            "node": "Respond 200 - Dispatched",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Mode": {
+      "main": [
+        [
+          {
+            "node": "Real Meta Adapter (static image)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Manual Export Archive (manifest)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulation Adapter (zero-network)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "c4237f92-f390-4ade-b508-361fe3c8e787",
+  "meta": {
+    "instanceId": "afdb997dad83fc0d3dcbb7d03cadee9bc835d15d1ed414cc19686da59ca2d76e"
+  },
+  "nodeGroups": [],
+  "id": "4wO2sifqyuZMAht9",
+  "tags": []
+}
