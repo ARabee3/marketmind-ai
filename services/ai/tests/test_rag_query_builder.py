@@ -1,10 +1,10 @@
-from app.rag.schemas import RetrievalQueryContext
 from app.rag.query_builder import (
     build_subqueries,
     get_industry_filter,
     get_locale_filter,
     get_market_filter,
 )
+from app.rag.schemas import RetrievalQueryContext
 
 
 def test_get_locale_filter():
@@ -41,8 +41,7 @@ def test_build_subqueries():
     
     subqueries = build_subqueries(context)
     
-    # Expected: framework, objective, 2 channels, budget, measurement, market
-    assert len(subqueries) == 7
+    assert len(subqueries) == 8
     
     cats = {sq.category for sq in subqueries}
     assert cats == {
@@ -52,6 +51,7 @@ def test_build_subqueries():
         "channel_instagram",
         "budget_method",
         "measurement_kpi",
+        "content_strategy",
         "market_sector_season",
     }
     
@@ -65,6 +65,11 @@ def test_build_subqueries():
         sq for sq in subqueries if sq.category == "framework_diagnosis"
     )
     assert framework.industry_filter == ["fashion", "general"]
+
+    content_strategy = next(
+        sq for sq in subqueries if sq.category == "content_strategy"
+    )
+    assert content_strategy.kind_filter == "content_strategy_playbook"
 
 
 def test_build_subqueries_organic_only():
@@ -86,7 +91,7 @@ def test_build_subqueries_organic_only():
     # Should not include budget_method when organic_only and no active channels
     cats = {sq.category for sq in subqueries}
     assert "budget_method" not in cats
-    assert len(cats) == 4
+    assert len(cats) == 5
 
 
 def test_build_subqueries_does_not_duplicate_general_industry():

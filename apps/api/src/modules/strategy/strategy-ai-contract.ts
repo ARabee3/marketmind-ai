@@ -59,7 +59,7 @@ export function buildRetrievalQueryContext(
     asset_capability: toStringArray(currentMarketing.available_assets),
     team_capacity: brief?.teamCapacity ?? "",
     budget_mode: brief?.externalBudgetMode ?? "organic_only",
-    industry: null,
+    industry: businessTypeOf(profile, business),
     free_text_notes: brief?.constraints ?? null,
     paid_media_allowed: brief?.paidMediaAllowed ?? true,
   };

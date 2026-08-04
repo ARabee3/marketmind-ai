@@ -137,7 +137,7 @@ export class StrategyProcessor extends WorkerHost {
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
       validatePlanShape(planData);
-      assertLanguageValidationPassed(response.data.validation);
+      assertStrategyValidationPassed(response.data.validation);
 
       this.logger.log(
         `[Corr: ${correlationId}] Generation complete — validating`,
@@ -408,7 +408,7 @@ export class StrategyProcessor extends WorkerHost {
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
       validatePlanShape(planData);
-      assertLanguageValidationPassed(revisionResponse.data.validation);
+      assertStrategyValidationPassed(revisionResponse.data.validation);
 
       this.logger.log(
         `[Corr: ${correlationId}] Revision generation complete — validating`,
@@ -512,7 +512,7 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function assertLanguageValidationPassed(validation: unknown): void {
+function assertStrategyValidationPassed(validation: unknown): void {
   if (
     !validation ||
     typeof validation !== "object" ||
@@ -539,14 +539,19 @@ function assertLanguageValidationPassed(validation: unknown): void {
     );
   }
 
-  if (
-    issues.some(
-      (issue) =>
-        (issue as { code: string }).code === "STRATEGY_LANGUAGE_MISMATCH",
-    )
-  ) {
+  const hasLanguageMismatch = issues.some(
+    (issue) =>
+      (issue as { code: string }).code === "STRATEGY_LANGUAGE_MISMATCH",
+  );
+  if (hasLanguageMismatch) {
     throw new Error(
       "AI generation service returned a plan that failed the language gate",
+    );
+  }
+
+  if (!(validation as { valid: boolean }).valid) {
+    throw new Error(
+      "AI generation service returned a plan that failed Strategy validation",
     );
   }
 }

@@ -282,7 +282,7 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
-    it("does not persist a generated plan that fails the language gate", async () => {
+    it("does not persist a generated plan that fails Strategy validation", async () => {
       const validPlan = {
         id: "plan-1",
         strategy_id: "strat-1",
@@ -324,9 +324,9 @@ describe("StrategyProcessor", () => {
                 valid: false,
                 issues: [
                   {
-                    code: "STRATEGY_LANGUAGE_MISMATCH",
-                    field: "plan.executive_summary.text",
-                    message: "Expected Arabic owner-facing prose.",
+                    code: "STRATEGY_BUDGET_MISMATCH",
+                    field: "plan.budget_mode",
+                    message: "Plan budget mode must match the approved brief.",
                   },
                 ],
               },
@@ -340,7 +340,7 @@ describe("StrategyProcessor", () => {
           name: "generate-strategy",
           data: baseJob,
         } as never),
-      ).rejects.toThrow("failed the language gate");
+      ).rejects.toThrow("failed Strategy validation");
 
       expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
         "strat-1",

@@ -19,6 +19,7 @@ from app.decisions.config import (
     CONSERVATIVE_BUDGET_RATIO,
     GROWTH_BUDGET_RATIO,
     SCENARIO_ONLY_DEFAULT_PERIOD,
+    WEBSITE_OWNED_ASSET_BUDGET_CAP_PERCENT,
 )
 from app.decisions.normalize import NormalizedInputs
 
@@ -88,6 +89,12 @@ def _allocations_for_scenario(
     total_egp: int,
     selected: list[DeterministicChannelScorecard],
 ) -> list[ChannelAllocation]:
+    if len(selected) > 1 and any(card.channel == "website" for card in selected):
+        return _allocations_with_website_cap(
+            total_egp=total_egp,
+            selected=selected,
+        )
+
     weights = [card.total_score for card in selected]
     amounts = distribute_exactly(total_egp, weights)
     percentages = distribute_exactly(100, weights)
@@ -101,9 +108,58 @@ def _allocations_for_scenario(
     ]
 
 
-def _scenario_notes(scenario_type: ScenarioType, total: int) -> SourcedClaim:
+def _allocations_with_website_cap(
+    *,
+    total_egp: int,
+    selected: list[DeterministicChannelScorecard],
+) -> list[ChannelAllocation]:
+    website_cap_amount = round(total_egp * WEBSITE_OWNED_ASSET_BUDGET_CAP_PERCENT / 100)
+    website_cap_percentage = WEBSITE_OWNED_ASSET_BUDGET_CAP_PERCENT
+    paid_channels = [card for card in selected if card.channel != "website"]
+    paid_amounts = distribute_exactly(
+        total_egp - website_cap_amount,
+        [card.total_score for card in paid_channels],
+    )
+    paid_percentages = distribute_exactly(
+        100 - website_cap_percentage,
+        [card.total_score for card in paid_channels],
+    )
+    paid_amount_by_channel = {
+        card.channel: paid_amounts[index] for index, card in enumerate(paid_channels)
+    }
+    paid_percentage_by_channel = {
+        card.channel: paid_percentages[index] for index, card in enumerate(paid_channels)
+    }
+    return [
+        ChannelAllocation(
+            channel=card.channel,
+            amount_egp=float(
+                website_cap_amount
+                if card.channel == "website"
+                else paid_amount_by_channel[card.channel]
+            ),
+            percentage=float(
+                website_cap_percentage
+                if card.channel == "website"
+                else paid_percentage_by_channel[card.channel]
+            ),
+        )
+        for card in selected
+    ]
+
+
+def _scenario_notes(
+    scenario_type: ScenarioType,
+    total: int,
+    plan_language: str,
+) -> SourcedClaim:
+    text = (
+        f"سيناريو {scenario_type.value} محدد آليًا بإجمالي {total} جنيه مصري."
+        if plan_language == "ar-EG"
+        else f"Deterministic {scenario_type.value} scenario at {total} EGP."
+    )
     return SourcedClaim(
-        text=f"Deterministic {scenario_type.value} scenario at {total} EGP.",
+        text=text,
         source=ClaimSource.deterministic_result,
         citation_ids=[],
     )
@@ -146,9 +202,9 @@ def compute_budget_scenarios(
     approved_max = _approved_maximum(brief)
 
     scenario_totals = {
-        ScenarioType.conservative: max(1, int(round(base_total * CONSERVATIVE_BUDGET_RATIO))),
-        ScenarioType.base: max(1, int(round(base_total))),
-        ScenarioType.growth: max(1, int(round(base_total * GROWTH_BUDGET_RATIO))),
+        ScenarioType.conservative: max(1, round(base_total * CONSERVATIVE_BUDGET_RATIO)),
+        ScenarioType.base: max(1, round(base_total)),
+        ScenarioType.growth: max(1, round(base_total * GROWTH_BUDGET_RATIO)),
     }
 
     scenarios: list[BudgetScenario] = []
@@ -164,7 +220,11 @@ def compute_budget_scenarios(
                     selected=selected,
                 ),
                 requires_owner_budget_approval=requires_approval,
-                notes=_scenario_notes(scenario_type, total),
+                notes=_scenario_notes(
+                    scenario_type,
+                    total,
+                    brief.plan_language.value,
+                ),
             )
         )
     return scenarios

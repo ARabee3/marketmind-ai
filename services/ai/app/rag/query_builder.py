@@ -112,6 +112,22 @@ def build_subqueries(context: RetrievalQueryContext) -> list[RetrievalSubquery]:
             paid_media_allowed=paid_media_allowed,
         )
     )
+
+    subqueries.append(
+        RetrievalSubquery(
+            category="content_strategy",
+            text=(
+                "Content pillars, sustainable weekly cadence, channel-compatible "
+                "format mix, and experiment guidance for the approved strategy "
+                "خطة المحتوى والأعمدة والإيقاع الأسبوعي والتجارب."
+            ),
+            kind_filter="content_strategy_playbook",
+            locale_filter=locale_filter,
+            market_filter=market_filter,
+            industry_filter=industry_filter,
+            paid_media_allowed=paid_media_allowed,
+        )
+    )
     
     # 6. Market & Sector Guidance
     subqueries.append(

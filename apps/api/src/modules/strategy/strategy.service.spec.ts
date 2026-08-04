@@ -397,7 +397,10 @@ describe("StrategyService", () => {
       expect(queuedStatusCall).toBeLessThan(queueAddCall);
       expect(httpService.post).toHaveBeenCalledWith(
         expect.any(String),
-        expect.any(Object),
+        expect.objectContaining({
+          business_type: "dessert shop",
+          industry: "dessert shop",
+        }),
         expect.objectContaining({ timeout: 30_000 }),
       );
     });
@@ -710,6 +713,43 @@ describe("StrategyService", () => {
         repository.getActiveConfirmedProfileVersion as jest.Mock
       ).mockResolvedValue({
         id: "prof-1",
+      });
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "approve",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+    });
+
+    it("blocks approval when the latest retrieval run is not the version run", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (
+        repository.getActiveConfirmedProfileVersion as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+      });
+      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+        id: "run-2",
+        status: "completed",
+        items: [
+          {
+            chunkId: "chunk-1",
+            entryId: "entry-1",
+            entryVersion: 1,
+            reviewStatus: "approved",
+            effectiveAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: null,
+          },
+        ],
       });
 
       await expect(

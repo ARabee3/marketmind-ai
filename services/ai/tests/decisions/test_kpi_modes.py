@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from strategy_contracts import ExternalBudgetMode, KpiTargetMode, StrategyObjective
+from strategy_contracts import KpiTargetMode
 
 from app.decisions.kpi_modes import (
     compute_kpi_targets,
     select_kpi_target_mode,
 )
-
 from tests.decisions.fixtures.base import (
     default_brief,
     default_retrieval_pack,
@@ -70,6 +69,21 @@ def test_establish_baseline_fallback():
         retrieval_pack=pack,
     )
     assert target.target_mode == KpiTargetMode.establish_baseline
+
+
+def test_conversion_baseline_fallback_has_phased_numeric_target():
+    brief = default_brief()
+    pack = default_retrieval_pack()
+    target = select_kpi_target_mode(
+        metric="orders",
+        funnel_stage="conversion",
+        brief=brief,
+        retrieval_pack=pack,
+    )
+
+    assert target.target_mode == KpiTargetMode.establish_baseline
+    assert target.target_value is not None
+    assert any(character.isdigit() for character in target.target_value)
 
 
 def test_compute_kpi_targets_for_objective():

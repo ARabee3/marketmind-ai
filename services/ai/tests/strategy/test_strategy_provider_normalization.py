@@ -1,6 +1,9 @@
 from strategy_contracts import ChannelRole, StrategyPlan
 
-from app.providers.strategy_provider import _normalize_deterministic_channel_scores
+from app.providers.strategy_provider import (
+    _normalize_deterministic_channel_scores,
+    _normalize_deterministic_kpi_targets,
+)
 from tests.strategy.fixtures import default_plan
 
 
@@ -54,3 +57,24 @@ def test_normalization_keeps_selected_channels_within_deterministic_limits() -> 
     parsed = StrategyPlan.model_validate(normalized)
     assert sum(channel.role == ChannelRole.primary for channel in parsed.selected_channels) <= 2
     assert sum(channel.role == ChannelRole.supporting for channel in parsed.selected_channels) <= 1
+
+
+def test_normalization_preserves_deterministic_kpi_targets() -> None:
+    plan = default_plan()
+    deterministic_targets = [
+        target.model_copy(update={"target_value": "Week 4: +10%; Week 12: +30%"})
+        for target in plan.kpi_targets
+    ]
+    drifted = plan.model_dump(mode="json")
+    for target in drifted["kpi_targets"]:
+        target["target_value"] = None
+
+    normalized = _normalize_deterministic_kpi_targets(
+        drifted,
+        deterministic_targets,
+    )
+
+    parsed = StrategyPlan.model_validate(normalized)
+    assert [target.target_value for target in parsed.kpi_targets] == [
+        target.target_value for target in deterministic_targets
+    ]

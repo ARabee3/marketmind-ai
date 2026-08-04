@@ -179,7 +179,37 @@ class TestGenerateEndpoint:
 
         assert response.status_code == 422
         assert provider.call_count == 3
-        assert response.json()["detail"]["error_type"] == "STRATEGY_LANGUAGE_MISMATCH"
+        assert response.json()["detail"]["error_type"] == "STRATEGY_PLAN_VALIDATION_FAILED"
+
+    def test_policy_invalid_plan_returns_422_after_bounded_retries(self, monkeypatch):
+        request = make_generate_request()
+        fixture = load_default_plan_fixture()
+        invalid_plan = fixture.model_copy(
+            update={"budget_mode": "organic_only", "budget_scenarios": None}
+        )
+
+        class InvalidPlanProvider:
+            def __init__(self):
+                self.call_count = 0
+
+            async def generate_strategy_plan(self, _prompt):
+                self.call_count += 1
+                return invalid_plan
+
+        provider = InvalidPlanProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 422
+        assert provider.call_count == 3
+        assert response.json()["detail"]["error_type"] == "STRATEGY_PLAN_VALIDATION_FAILED"
 
     def test_invalid_output_is_retried_with_repair_prompt(self, monkeypatch):
         """A provider that fails schema validation once then succeeds is retried

@@ -167,6 +167,28 @@ def _invalid_output_repair_prompt(
     )
 
 
+def _validation_repair_prompt(
+    prompt: PromptAssembly,
+    validation: StrategyValidationResult,
+    attempt: int,
+) -> PromptAssembly:
+    return PromptAssembly(
+        system_prompt=(
+            f"{prompt.system_prompt}\n\n"
+            "MANDATORY PLAN VALIDATION REPAIR: The previous output failed the "
+            "Strategy policy. Regenerate the complete plan so every validation "
+            "issue is resolved. Keep deterministic channel scores, identifiers, "
+            "and provenance metadata unchanged."
+        ),
+        user_prompt=(
+            f"{prompt.user_prompt}\n\n"
+            "Validation issues to resolve: "
+            f"{[issue.model_dump(mode='json') for issue in validation.issues]}"
+        ),
+        metadata={**prompt.metadata, "validation_retry_attempt": attempt},
+    )
+
+
 async def _generate_validated_plan(
     provider: StrategyLLMProvider,
     prompt: PromptAssembly,
@@ -212,34 +234,40 @@ async def _generate_validated_plan(
             continue
 
         validation = validate_plan_against_request(plan=plan, request=request)
-        language_issues = [
-            issue
-            for issue in validation.issues
-            if issue.code == "STRATEGY_LANGUAGE_MISMATCH"
-        ]
-        if not language_issues:
+        if validation.valid:
             return plan, validation
 
         if attempt == _MAX_GENERATION_ATTEMPTS - 1:
             raise HTTPException(
                 status_code=422,
                 detail={
-                    "error_type": "STRATEGY_LANGUAGE_MISMATCH",
+                    "error_type": "STRATEGY_PLAN_VALIDATION_FAILED",
                     "message": (
-                        "The provider did not return owner-facing content in "
-                        "brief.plan_language after bounded retries."
+                        "The provider did not return a Strategy plan that satisfies "
+                        "the contract after bounded retries."
                     ),
                     "issues": [
-                        issue.model_dump(mode="json") for issue in language_issues
+                        issue.model_dump(mode="json") for issue in validation.issues
                     ],
                 },
             )
 
-        current_prompt = _language_correction_prompt(
-            prompt=current_prompt,
-            validation=validation,
-            attempt=attempt + 1,
+        language_only = all(
+            issue.code == "STRATEGY_LANGUAGE_MISMATCH"
+            for issue in validation.issues
         )
+        if language_only:
+            current_prompt = _language_correction_prompt(
+                prompt=current_prompt,
+                validation=validation,
+                attempt=attempt + 1,
+            )
+        else:
+            current_prompt = _validation_repair_prompt(
+                prompt=current_prompt,
+                validation=validation,
+                attempt=attempt + 1,
+            )
 
     raise RuntimeError("Strategy generation attempts exhausted unexpectedly.")
 
