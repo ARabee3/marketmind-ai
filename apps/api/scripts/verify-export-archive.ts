@@ -1,9 +1,14 @@
 /**
- * Verifies a `publishing-export-manifest-v1` archive produced by the n8n
- * Manual Export Archive node (Phase 6): recomputes each asset's SHA-256 from
+ * Verifies a `publishing-export-manifest-v1` archive produced by the Manual
+ * Export Archive service (issue #123): recomputes each asset's SHA-256 from
  * the committed demo file referenced by the asset manifest and confirms it
- * matches the export manifest's checksum, then recomputes the export manifest
+ * matches the export manifest's checksum, then recomputes the manifest
  * checksum itself. Exits non-zero on any drift.
+ *
+ * The manifest must carry the frozen field names (issue #118):
+ * `contract_version`, `artifact_id`, `candidate_id`, `candidate_checksum`,
+ * `target_channel`, `content_format`, `selected_locale`, `label`, `assets`
+ * — plus the archive-only extras `intent_id` and `manifest_checksum`.
  *
  * Usage: `npm run verify:export-archive -- <path-to-export-manifest.json>`
  * (from apps/api). If no path is given, reads a manifest from stdin.
