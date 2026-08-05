@@ -434,6 +434,7 @@ describe("ContentProcessor", () => {
           content_item_version_id: assetVersionId,
           kind: "generated_static",
           status: "generating",
+          review_required: true,
         }),
       ]);
       expect(packRepo.persistGeneratedItems).toHaveBeenCalledWith(
@@ -505,6 +506,7 @@ describe("ContentProcessor", () => {
           content_item_version_id: "1",
           kind: "owner_supplied",
           status: "ready",
+          review_required: false,
         }),
       ]);
     });

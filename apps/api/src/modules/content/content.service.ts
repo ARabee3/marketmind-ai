@@ -1914,6 +1914,7 @@ export function toContentAsset(row: PrismaContentAsset): ContentAsset {
     provider_model: row.providerModel,
     provider_request_id: row.providerRequestId,
     failure_code: row.failureCode as ContentAsset["failure_code"],
+    review_required: row.kind === "generated_static",
     created_at: row.createdAt.toISOString(),
   };
 }

@@ -869,6 +869,7 @@ function plannedGeneratedAsset(
     provider_model: null,
     provider_request_id: null,
     failure_code: null,
+    review_required: true,
     created_at: item.created_at,
   };
 }

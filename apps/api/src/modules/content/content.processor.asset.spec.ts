@@ -105,6 +105,7 @@ describe("ContentProcessor - Static Asset Generation", () => {
         provider_model: "dall-e-3",
         provider_request_id: "req-1",
         failure_code: null,
+        review_required: true,
         created_at: "2024-01-01T00:00:00Z",
       };
 
@@ -161,6 +162,7 @@ describe("ContentProcessor - Static Asset Generation", () => {
         provider_model: "dall-e-3",
         provider_request_id: "req-1",
         failure_code: "CONTENT_PROVIDER_FAILURE" as const,
+        review_required: true,
         created_at: "2024-01-01T00:00:00Z",
       };
 
