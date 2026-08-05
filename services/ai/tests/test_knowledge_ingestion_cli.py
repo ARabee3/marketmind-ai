@@ -81,6 +81,10 @@ def test_cli_fails_when_token_missing(monkeypatch):
 
 def test_cli_uses_token_from_environment(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("KNOWLEDGE_INTERNAL_CLI_TOKEN", "env-token")
+    # Hermetic embedding mode: this test asserts CLI auth, not Gemini. Without
+    # this, the dry-run fails on the unrelated GEMINI_API_KEY prerequisite in
+    # fresh environments (issue #9) and never reaches the auth path.
+    monkeypatch.setenv("EMBEDDING_PROVIDER_MODE", "fake")
     # Point source_dir at an empty temp directory so validation fails quickly
     # with no entries, but auth passes.
     (tmp_path / "knowledge").mkdir()
