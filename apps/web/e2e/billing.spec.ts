@@ -119,9 +119,10 @@ test.describe('Billing owner journey', () => {
     ).toBeVisible()
 
     if (testInfo.project.name === 'mobile-chrome') {
-      await page.getByRole('button', { name: 'فتح التنقل' }).click()
       await expect(
-        page.getByRole('dialog').getByRole('link', { name: 'الفوترة' }),
+        page
+          .getByRole('navigation', { name: 'أساسي للجوال' })
+          .getByRole('link', { name: 'الفوترة' }),
       ).toHaveAttribute('aria-current', 'page')
     } else {
       await expect(page.getByRole('link', { name: 'الفوترة' })).toHaveAttribute(

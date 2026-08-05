@@ -162,10 +162,32 @@ export type CurrentJourneyStrategyContext =
       readonly business: CurrentJourneyStrategyBusinessSnapshot | null;
     };
 
+export type CurrentJourneyContentReadiness = {
+  readonly ready: boolean;
+  readonly reason: "no_cycle" | "cycle_active";
+  readonly cycle: {
+    readonly id: UUID;
+    readonly status: string;
+    readonly current_week: number;
+  } | null;
+  readonly pack: {
+    readonly id: UUID;
+    readonly status: string;
+    readonly week_number: number;
+    readonly failed: boolean;
+    readonly pending_decisions: number;
+  } | null;
+};
+
 export type CurrentJourneyResponse = {
   readonly owner: CurrentJourneyOwner;
   readonly journey: CurrentJourney;
   readonly future_phase: CurrentJourneyStrategyContext;
   readonly primary_action: CurrentJourneyPrimaryAction;
+  /**
+   * Optional for backwards-compatible consumers while the content service is
+   * rolled out. The journey API always includes this field once available.
+   */
+  readonly content?: CurrentJourneyContentReadiness;
   readonly generated_at: IsoDateTime;
 };
