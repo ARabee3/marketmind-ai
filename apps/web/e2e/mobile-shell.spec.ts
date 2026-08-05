@@ -23,7 +23,7 @@ for (const locale of locales) {
       await expect(menu.getByRole('link', { name: /Create account|إنشاء حساب/i })).toBeVisible()
     })
 
-    test('shows logout action in the mobile navigation drawer when authenticated', async ({ page }) => {
+    test('shows logout action in the mobile header when authenticated', async ({ page }) => {
       await mockAuthRefresh(page)
       await mockAuthMe(page)
       await page.addInitScript((userId) => {
@@ -34,17 +34,12 @@ for (const locale of locales) {
       }, mockUser.id)
       await page.goto(`/${locale}/dashboard`)
 
-      await page
-        .getByRole('button', { name: /Open navigation|فتح التنقل/i })
-        .click()
       await expect(
-        page.getByRole('dialog').getByRole('button', {
-          name: /Sign out|تسجيل الخروج/i,
-        }),
+        page.getByRole('button', { name: /Sign out|تسجيل الخروج/i }),
       ).toBeVisible()
     })
 
-    test('logs out from the mobile navigation drawer and redirects to login', async ({ page }) => {
+    test('logs out from the mobile header and redirects to login', async ({ page }) => {
       await mockAuthRefresh(page)
       await mockAuthMe(page)
       await mockAuthLogout(page)
@@ -57,10 +52,6 @@ for (const locale of locales) {
       await page.goto(`/${locale}/dashboard`)
 
       await page
-        .getByRole('button', { name: /Open navigation|فتح التنقل/i })
-        .click()
-      await page
-        .getByRole('dialog')
         .getByRole('button', { name: /Sign out|تسجيل الخروج/i })
         .click()
 
