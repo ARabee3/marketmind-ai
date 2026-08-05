@@ -56,6 +56,7 @@ CONTENT_GENERATE_SYSTEM_PROMPT = "\n".join(
         "- Never use model memory, live web research, competitor research, or a new RAG run as a source.",
         "- If a required fact is missing, expose the missing input or blocker; do not fill it from memory.",
         "- seasonal_context is contextual guidance only: tie a caption to an observance when relevant, but never invent a date, fact, or observance that is not supplied.",
+        "- prior_weeks_context is informational continuity only: use it to stay consistent with already approved content, never invent facts from it, and never reuse an exact prior caption, hook, or CTA verbatim.",
         "",
         "## Grounding data vs. executable instructions",
         "",
@@ -246,6 +247,24 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
 
 def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
     """Return the typed generation context; providers read this directly."""
+    grounding_inputs: dict[str, Any] = {
+        "strategy_week": _format_strategy_week(request),
+        "strategy_profile_reference": request.strategy_plan.profile_version.model_dump(
+            mode="json"
+        ),
+        "business_profile": _format_profile(request),
+        "weekly_context": request.week_context.model_dump(
+            mode="json", exclude_none=True
+        ),
+        "requested_channels": request.selected_channels,
+        "allowed_formats": request.allowed_formats,
+        "voice_examples": request.voice_examples or [],
+        "seasonal_context": observances_for_week(request.week_context.week_start_date),
+    }
+    if request.prior_weeks_context is not None:
+        grounding_inputs["prior_weeks_context"] = request.prior_weeks_context.model_dump(
+            mode="json", exclude_none=True
+        )
     return {
         "turn_instruction": (
             "Generate a draft for this exact Strategy week only. Do not advance the cycle."
@@ -260,20 +279,7 @@ def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
             "week_number": request.week_context.week_number,
             "language_mode": request.language_mode,
         },
-        "grounding_inputs": {
-            "strategy_week": _format_strategy_week(request),
-            "strategy_profile_reference": request.strategy_plan.profile_version.model_dump(
-                mode="json"
-            ),
-            "business_profile": _format_profile(request),
-            "weekly_context": request.week_context.model_dump(
-                mode="json", exclude_none=True
-            ),
-            "requested_channels": request.selected_channels,
-            "allowed_formats": request.allowed_formats,
-            "voice_examples": request.voice_examples or [],
-            "seasonal_context": observances_for_week(request.week_context.week_start_date),
-        },
+        "grounding_inputs": grounding_inputs,
         "output_contract": {
             "contract_version": "content-v1",
             "item_count": {"minimum": 3, "maximum": 5},

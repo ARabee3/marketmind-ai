@@ -140,6 +140,14 @@ export type InternalContentGenerateRequest = {
   readonly allowed_formats: readonly ContentFormat[];
   readonly language_mode: LanguageMode;
   readonly voice_examples?: readonly string[];
+  readonly prior_weeks_context?: PriorApprovedWeekContext;
+};
+
+export type PriorApprovedWeekContext = {
+  readonly week_number: number;
+  readonly themes: readonly string[];
+  readonly used_ctas: readonly string[];
+  readonly used_captions: readonly string[];
 };
 
 export type InternalContentGenerateResponse = {

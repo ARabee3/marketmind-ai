@@ -10,6 +10,7 @@ from content_contracts import (
     AiContentReviseRequest,
     AiStaticAssetGenerateRequest,
     ContentItemVersion,
+    PriorApprovedWeekContext,
 )
 
 from app.content.assembler import (
@@ -199,3 +200,42 @@ def test_generation_context_has_empty_seasonal_context_off_season() -> None:
     assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
 
     assert assembly.context["grounding_inputs"]["seasonal_context"] == []
+
+
+def test_generation_context_injects_prior_weeks_summary_when_supplied() -> None:
+    request = make_valid_request().model_copy(
+        update={
+            "prior_weeks_context": PriorApprovedWeekContext(
+                week_number=1,
+                themes=["Ramadan offer"],
+                used_ctas=["Call now"],
+                used_captions=["Fictional Koshary Ramadan offer."],
+            )
+        }
+    )
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    prior = assembly.context["grounding_inputs"].get("prior_weeks_context")
+    assert prior, "expected prior_weeks_context when a prior approved week is supplied"
+    assert prior["week_number"] == 1
+    assert prior["themes"] == ["Ramadan offer"]
+    assert prior["used_ctas"] == ["Call now"]
+    assert prior["used_captions"] == ["Fictional Koshary Ramadan offer."]
+
+
+def test_generation_context_omits_prior_weeks_when_none_supplied() -> None:
+    request = make_valid_request()
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert "prior_weeks_context" not in assembly.context["grounding_inputs"]
+
+
+def test_generate_system_prompt_forbids_recycling_prior_captions() -> None:
+    request = make_valid_request()
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert "prior_weeks_context" in assembly.system_prompt
+    assert "never" in assembly.system_prompt.lower()

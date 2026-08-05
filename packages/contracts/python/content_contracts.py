@@ -336,6 +336,20 @@ from content_publication_contracts import (  # noqa: E402
 )
 
 
+class PriorApprovedWeekContext(FrozenModel):
+    """Compact, non-sensitive summary of the most recent approved prior week.
+
+    Only the latest approved week is carried (bounded), so generation keeps
+    narrative continuity without leaking full history. ``used_captions`` lets
+    the model avoid recycling exact prior captions.
+    """
+
+    week_number: int = Field(ge=1, le=12)
+    themes: list[str] = Field(default_factory=list)
+    used_ctas: list[str] = Field(default_factory=list)
+    used_captions: list[str] = Field(default_factory=list)
+
+
 class AiContentGenerateRequest(FrozenModel):
     contract_version: Literal["content-v1"]
     content_pack_id: UUID
@@ -350,6 +364,7 @@ class AiContentGenerateRequest(FrozenModel):
     allowed_formats: list[ContentFormat]
     language_mode: LanguageMode
     voice_examples: list[str] | None = None
+    prior_weeks_context: PriorApprovedWeekContext | None = None
 
     @model_validator(mode="after")
     def validate_grounding_snapshot(self) -> "AiContentGenerateRequest":
