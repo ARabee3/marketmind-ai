@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from content_base import ContentChannel, ContentFormat, FrozenModel, UUID
+from content_contracts import ContentDayPreference, ContentTimeOfDayHint
 
 
 class PublicationCandidateAssetV1(FrozenModel):
@@ -31,6 +32,9 @@ class PublicationCandidateWindow(FrozenModel):
     starts_at: datetime
     ends_at: datetime
     timezone: Literal["Africa/Cairo"]
+    day_preference: ContentDayPreference = Field(default="any")
+    time_of_day_hint: ContentTimeOfDayHint = Field(default="any")
+    rationale: str = Field(default="")
 
     @model_validator(mode="after")
     def validate_range(self) -> "PublicationCandidateWindow":

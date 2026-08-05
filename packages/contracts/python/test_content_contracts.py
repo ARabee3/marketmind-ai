@@ -1,6 +1,7 @@
 import copy
 import json
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -13,6 +14,7 @@ from content_contracts import (
 )
 from content_publication_contracts import (
     PublicationCandidateStatusV1,
+    PublicationCandidateWindow,
     compute_publication_candidate_checksum,
 )
 
@@ -231,6 +233,23 @@ class TestContentContracts(unittest.TestCase):
             compute_publication_candidate_checksum(candidate),
             candidate["candidate_checksum"],
             "Python and TypeScript must reproduce the same frozen checksum",
+        )
+
+    def test_candidate_window_carries_generation_preference_fields(self):
+        window = PublicationCandidateWindow(
+            starts_at=datetime.fromisoformat("2026-08-03T18:00:00+03:00"),
+            ends_at=datetime.fromisoformat("2026-08-03T21:00:00+03:00"),
+            timezone="Africa/Cairo",
+            day_preference="weekday",
+            time_of_day_hint="evening",
+            rationale="peak engagement for dinner audiences",
+        )
+        window_json = window.model_dump(mode="json")
+        PublicationCandidateWindow.model_validate(window_json)
+        self.assertEqual(window.day_preference, "weekday")
+        self.assertEqual(window.time_of_day_hint, "evening")
+        self.assertEqual(
+            window.rationale, "peak engagement for dinner audiences"
         )
 
     def test_generation_request_carries_exact_grounding_snapshots(self):
