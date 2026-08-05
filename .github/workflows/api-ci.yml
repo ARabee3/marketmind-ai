@@ -84,6 +84,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @marketmind/api
       - name: Apply database migrations
         run: npm run prisma:deploy
       - name: Run API E2E tests
