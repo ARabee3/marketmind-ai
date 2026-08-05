@@ -30,6 +30,43 @@ def test_redactor_removes_prompts_profiles_and_credentials() -> None:
     assert redacted["nested"]["password"] == "[REDACTED]"
 
 
+def test_redactor_scrubs_phone_and_email_values_by_content() -> None:
+    value = {
+        "cta_destination": {"type": "whatsapp", "value": "+201000000000"},
+        "owner_email": "owner@example.com",
+        "caption": "Call +201012345678 or email sales@shop.example today.",
+    }
+
+    redacted = redact_log_value(value)
+
+    assert redacted["cta_destination"]["value"] == "[REDACTED]"
+    assert redacted["owner_email"] == "[REDACTED]"
+    assert redacted["caption"] == "[REDACTED]"
+
+
+def test_redactor_redacts_phone_and_email_keys_even_without_value_match() -> None:
+    value = {"phone": "+201000000000", "email": "x@example.com"}
+
+    redacted = redact_log_value(value)
+
+    assert redacted["phone"] == "[REDACTED]"
+    assert redacted["email"] == "[REDACTED]"
+
+
+def test_redactor_removes_strategy_week_grounding_from_events() -> None:
+    value = {
+        "strategy_id": "fictional-strategy-id",
+        "strategy_week": {"theme": "ramadan campaign", "pillars": []},
+        "weekly_context": {"must_include": ["offer"]},
+    }
+
+    redacted = redact_log_value(value)
+
+    assert redacted["strategy_id"] == "fictional-strategy-id"
+    assert redacted["strategy_week"] == "[REDACTED]"
+    assert redacted["weekly_context"] == "[REDACTED]"
+
+
 def test_content_event_log_contains_safe_metadata_only(caplog) -> None:
     logger = logging.getLogger("tests.content.observability")
     metadata = {
