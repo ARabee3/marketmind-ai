@@ -19,6 +19,7 @@ from app.content.prompt_versions import (
     CONTENT_REFERENCE_PATTERN_VERSION,
     CONTENT_REVISE_PROMPT_VERSION,
 )
+from app.content.seasonal_calendar import observances_for_week
 from app.content.validators import (
     derive_strategy_pillar_ids,
     derive_target_item_count,
@@ -54,6 +55,7 @@ CONTENT_GENERATE_SYSTEM_PROMPT = "\n".join(
         "- Record a claim source for every material business, owner, promotion, or Strategy claim.",
         "- Never use model memory, live web research, competitor research, or a new RAG run as a source.",
         "- If a required fact is missing, expose the missing input or blocker; do not fill it from memory.",
+        "- seasonal_context is contextual guidance only: tie a caption to an observance when relevant, but never invent a date, fact, or observance that is not supplied.",
         "",
         "## Grounding data vs. executable instructions",
         "",
@@ -270,6 +272,7 @@ def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
             "requested_channels": request.selected_channels,
             "allowed_formats": request.allowed_formats,
             "voice_examples": request.voice_examples or [],
+            "seasonal_context": observances_for_week(request.week_context.week_start_date),
         },
         "output_contract": {
             "contract_version": "content-v1",

@@ -1,10 +1,12 @@
 """Tests for Content prompt assembly and reproducibility metadata."""
 
 import asyncio
+from datetime import date
 
 import pytest
 
 from content_contracts import (
+    AiContentGenerateRequest,
     AiContentReviseRequest,
     AiStaticAssetGenerateRequest,
     ContentItemVersion,
@@ -173,3 +175,27 @@ def test_asset_assembly_rejects_invalid_input(request_update: dict) -> None:
 
     with pytest.raises(ValueError, match="CONTENT_SCHEMA_FAILURE"):
         assemble_asset_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+
+def _request_starting_on(week_start_date: date) -> AiContentGenerateRequest:
+    request = make_valid_request()
+    context = request.week_context.model_copy(update={"week_start_date": week_start_date})
+    return request.model_copy(update={"week_context": context})
+
+
+def test_generation_context_injects_seasonal_context_for_observance_week() -> None:
+    request = _request_starting_on(date(2026, 8, 2))
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    seasonal = assembly.context["grounding_inputs"].get("seasonal_context")
+    assert seasonal, "expected seasonal_context for an observance/seasonal week"
+    assert any("summer" in item["id"] for item in seasonal)
+
+
+def test_generation_context_has_empty_seasonal_context_off_season() -> None:
+    request = _request_starting_on(date(2026, 4, 1))
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert assembly.context["grounding_inputs"]["seasonal_context"] == []
