@@ -51,7 +51,11 @@ import {
   type PublicationResultV1,
   type SignedPublicationCallbackEnvelopeV1,
 } from "@marketmind/contracts";
-import { AppModule } from "../src/app.module";
+// AppModule is intentionally NOT imported here: `import { AppModule }`
+// would evaluate app.module.ts (ConfigModule.forRoot → envSchema) at file
+// load time, BEFORE the env fallbacks below can run — which is exactly the
+// failure CI hit (fresh worker process, no `.env.test`). It is imported
+// lazily inside beforeAll, after the fallbacks are in place.
 import {
   startFakeN8n,
   type FakeN8nHarnessHandle,
@@ -350,7 +354,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     process.env.PUBLISHING_CALLBACK_BASE_URL = APP_ORIGIN;
     process.env.PORT = String(APP_PORT);
 
-    // 5) Boot the real app module (worker included).
+    // 5) Boot the real app module (worker included). Lazy import: the env
+    // fallbacks at module scope must be in place before app.module.ts is
+    // evaluated, or envSchema throws at import time.
+    const { AppModule } = await import("../src/app.module");
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
