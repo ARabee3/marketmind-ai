@@ -16,6 +16,9 @@ prisma/*.db-journal
 # Coverage
 coverage/
 
+# Test-run export artifacts (e2e + demo rehearse write archives here)
+.publishing-exports-test/
+
 # OS
 .DS_Store
 Thumbs.db
