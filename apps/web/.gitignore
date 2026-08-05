@@ -44,3 +44,6 @@ next-env.d.ts
 # Playwright test artifacts
 **/playwright-report/
 **/test-results/
+
+# demo:rehearse generated state (contains owner JWTs + refresh token)
+.rehearsal-state.json
