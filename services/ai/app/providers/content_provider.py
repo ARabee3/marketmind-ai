@@ -384,7 +384,7 @@ class MockContentProvider(ContentLLMProvider):
     async def generate_content_pack(
         self, prompt: PromptAssembly
     ) -> list[ContentItemVersion]:
-        context = _prompt_context(prompt)
+        context = prompt.context
         identity = context["generation_identity"]
         grounding = context["grounding_inputs"]
         strategy_week = grounding["strategy_week"]
@@ -411,7 +411,7 @@ class MockContentProvider(ContentLLMProvider):
     async def revise_content_item(
         self, prompt: PromptAssembly
     ) -> ContentItemVersion:
-        context = _prompt_context(prompt)
+        context = prompt.context
         previous = ContentItemVersion.model_validate(
             context["previous_item_version_read_only"]
         )
@@ -636,21 +636,6 @@ class MockContentProvider(ContentLLMProvider):
         return item.model_copy(
             update={"version_checksum": compute_content_item_checksum(item)}
         )
-
-
-def _prompt_context(prompt: PromptAssembly) -> dict[str, Any]:
-    try:
-        payload = prompt.user_prompt.split("\n\n", 1)[1]
-        parsed, _ = json.JSONDecoder().raw_decode(payload)
-        if not isinstance(parsed, dict):
-            raise ValueError("Content prompt context must be an object")
-        return parsed
-    except (IndexError, json.JSONDecodeError, ValueError) as exc:
-        raise ProviderError(
-            "CONTENT_SCHEMA_FAILURE",
-            "Content prompt did not contain a valid structured context.",
-            retryable=False,
-        ) from exc
 
 
 def _cta_text(week_context: dict[str, Any], language_mode: str) -> str | None:

@@ -24,8 +24,11 @@ from app.content.prompts import (
     CONTENT_ASSET_SYSTEM_PROMPT,
     CONTENT_GENERATE_SYSTEM_PROMPT,
     CONTENT_REVISE_SYSTEM_PROMPT,
+    build_asset_context,
     build_asset_user_context,
+    build_generate_context,
     build_generate_user_context,
+    build_revise_context,
     build_revise_user_context,
 )
 from app.content.validators import validate_content_generation_request
@@ -33,11 +36,16 @@ from app.content.validators import validate_content_generation_request
 
 @dataclass(frozen=True)
 class PromptAssembly:
-    """A complete provider prompt plus non-sensitive reproducibility metadata."""
+    """A complete provider prompt plus non-sensitive reproducibility metadata.
+
+    ``context`` is the typed dict that produced ``user_prompt``. Providers
+    consume it directly instead of re-parsing JSON out of the prompt text.
+    """
 
     system_prompt: str
     user_prompt: str
     metadata: dict[str, Any]
+    context: dict[str, Any]
 
 
 def _sha256(value: str) -> str:
@@ -153,6 +161,7 @@ def assemble_generation_prompt(
         system_prompt=CONTENT_GENERATE_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         metadata=_generation_metadata(request, user_prompt, provider_name, model),
+        context=build_generate_context(request),
     )
 
 
@@ -215,6 +224,9 @@ def assemble_revision_prompt(
             model,
             generation_request,
         ),
+        context=build_revise_context(
+            request, previous_item_version, generation_request
+        ),
     )
 
 
@@ -246,4 +258,5 @@ def assemble_asset_prompt(
         system_prompt=CONTENT_ASSET_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         metadata=_asset_metadata(request, user_prompt, provider_name, model),
+        context=build_asset_context(request),
     )

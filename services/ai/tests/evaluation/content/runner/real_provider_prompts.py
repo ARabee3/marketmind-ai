@@ -207,6 +207,7 @@ def build_spot_check_generation_prompt(
         system_prompt=refined_system_prompt,
         user_prompt=base.user_prompt,
         metadata=base.metadata,
+        context=base.context,
     )
 
 

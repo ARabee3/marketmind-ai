@@ -56,6 +56,7 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
             "repair_attempt": attempt,
             "repair_error_code": error.code,
         },
+        context=prompt.context,
     )
 
 

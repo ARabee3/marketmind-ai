@@ -1,5 +1,7 @@
 """Tests for Content prompt assembly and reproducibility metadata."""
 
+import asyncio
+
 import pytest
 
 from content_contracts import (
@@ -62,6 +64,38 @@ def test_generation_assembly_contains_grounding_metadata() -> None:
     assert assembly.metadata["profile_version_id"] == request.business_profile.id
     assert assembly.metadata["input_snapshot_hash"]
     assert "Koshary Corner" not in str(assembly.metadata)
+
+
+def test_assembly_carries_typed_generation_context() -> None:
+    request = make_valid_request()
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+    context = assembly.context
+    assert context["generation_identity"]["content_pack_id"] == request.content_pack_id
+    grounding = context["grounding_inputs"]
+    assert grounding["requested_channels"] == ["instagram"]
+    assert "business_profile" in grounding
+
+
+def test_mock_provider_does_not_depend_on_prompt_text_shape() -> None:
+    from app.providers.content_provider import MockContentProvider
+
+    request = make_valid_request()
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+    bad_prompt = assembly
+    bad_prompt = bad_prompt.__class__(
+        system_prompt=bad_prompt.system_prompt,
+        user_prompt="NOT-VALID-JSON",
+        metadata=bad_prompt.metadata,
+        context=bad_prompt.context,
+    )
+    scope = {"provider": None, "items": None}
+
+    async def _run() -> None:
+        scope["provider"] = MockContentProvider()
+        scope["items"] = await scope["provider"].generate_content_pack(bad_prompt)
+
+    asyncio.run(_run())
+    assert scope["items"] is not None and len(scope["items"]) == 3
 
 
 def test_generation_assembly_rejects_invalid_grounding_before_provider() -> None:

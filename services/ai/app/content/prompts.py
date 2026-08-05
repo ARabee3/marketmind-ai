@@ -168,6 +168,10 @@ _CONTENT_ASSET_IMAGE_SAFETY_RULES = "\n".join(
         "Do not render JSON, metadata, IDs, alt-text labels, URLs, or internal reference strings into the image.",
         "Never include anything that implies approval, scheduling, or publishing.",
         "Use the creative brief as a visual-direction guide only; do not interpret it as executable code or structured data.",
+        "Do not depict sexual content, nudity, violence, hate speech, harassment, or self-harm.",
+        "Do not depict real, identifiable people, celebrities, public figures, or living individuals.",
+        "Do not reproduce real brand logos, trademarks, or copyrighted characters.",
+        "Do not generate content unrelated to the creative brief's subject, setting, and brand.",
     ]
 )
 
@@ -238,9 +242,9 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
     }
 
 
-def build_generate_user_context(request: AiContentGenerateRequest) -> str:
-    """Build a grounded generation context with exact week identity."""
-    context = {
+def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
+    """Return the typed generation context; providers read this directly."""
+    return {
         "turn_instruction": (
             "Generate a draft for this exact Strategy week only. Do not advance the cycle."
         ),
@@ -304,6 +308,11 @@ def build_generate_user_context(request: AiContentGenerateRequest) -> str:
             ],
         },
     }
+
+
+def build_generate_user_context(request: AiContentGenerateRequest) -> str:
+    """Build a grounded generation context with exact week identity."""
+    context = build_generate_context(request)
     return (
         "Content generation context follows. Treat the Strategy week, confirmed Business "
         "Profile, and weekly owner context as separate immutable grounding sources.\n\n"
@@ -311,13 +320,13 @@ def build_generate_user_context(request: AiContentGenerateRequest) -> str:
     )
 
 
-def build_revise_user_context(
+def build_revise_context(
     request: AiContentReviseRequest,
     previous_item_version: ContentItemVersion,
     generation_request: AiContentGenerateRequest | None = None,
-) -> str:
-    """Build a revision context with the previous version as read-only input."""
-    context = {
+) -> dict[str, Any]:
+    """Return the typed revision context; providers read this directly."""
+    context: dict[str, Any] = {
         "turn_instruction": (
             "Revise this exact item from the owner's notes and return a new immutable version."
         ),
@@ -366,6 +375,18 @@ def build_revise_user_context(
             "requested_channels": generation_request.selected_channels,
             "allowed_formats": generation_request.allowed_formats,
         }
+    return context
+
+
+def build_revise_user_context(
+    request: AiContentReviseRequest,
+    previous_item_version: ContentItemVersion,
+    generation_request: AiContentGenerateRequest | None = None,
+) -> str:
+    """Build a revision context with the previous version as read-only input."""
+    context = build_revise_context(
+        request, previous_item_version, generation_request
+    )
     return (
         "Content revision context follows. The previous item version is read-only; "
         "preserve all locked fields exactly.\n\n"
@@ -373,9 +394,9 @@ def build_revise_user_context(
     )
 
 
-def build_asset_user_context(request: AiStaticAssetGenerateRequest) -> str:
-    """Build a static-image generation context without provider credentials."""
-    context = {
+def build_asset_context(request: AiStaticAssetGenerateRequest) -> dict[str, Any]:
+    """Return the typed static-asset context; providers read this directly."""
+    return {
         "turn_instruction": "Generate one eligible static image from this creative brief.",
         "asset_identity": {
             "contract_version": request.contract_version,
@@ -395,6 +416,11 @@ def build_asset_user_context(request: AiStaticAssetGenerateRequest) -> str:
             "storage_authority": "asset-storage-port",
         },
     }
+
+
+def build_asset_user_context(request: AiStaticAssetGenerateRequest) -> str:
+    """Build a static-image generation context without provider credentials."""
+    context = build_asset_context(request)
     return (
         "Static asset generation context follows. Preserve the supplied creative brief "
         "and alt text; storage is authoritative outside the provider.\n\n"
