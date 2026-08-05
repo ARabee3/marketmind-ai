@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     ai_temperature: float | None = Field(default=None, ge=0, le=2)
     ai_top_p: float | None = Field(default=None, ge=0, le=1)
 
+    # In-memory per-client fixed-window rate limit on AI HTTP endpoints.
+    # 0 disables limiting (local mock development default).
+    ai_rate_limit_per_minute: int = Field(default=0, ge=0)
+
     # Static-image provider configuration. The image provider is deliberately
     # separate from text generation so unavailable media remains explicit.
     image_provider_mode: ImageProviderMode = "mock"
