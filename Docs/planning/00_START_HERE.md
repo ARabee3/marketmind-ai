@@ -42,9 +42,11 @@ The MVP should feel like a real product, even if some external integrations use 
 
 ## What is not included now
 
-These are intentionally deferred:
+These are intentionally deferred from the current graduation-demo acceptance:
 
-- Subscriptions and payments.
+- Subscriptions and payments. This is the next planned commercial-readiness
+  slice; use `sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md` before
+  implementation.
 - Agency dashboards.
 - Multiple businesses per account.
 - Role-based access control.
@@ -72,6 +74,8 @@ Recommended order:
 12. Use `sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md` as the approved implementation plan for the Content Agent and the publishing-automation handoff.
 13. Use `sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` as the approved
     deterministic publishing plan and Automation-team issue split.
+14. Use `sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md` as the proposed
+    pricing, Egypt-friendly gateway, billing-lifecycle, and implementation plan.
 
 ## Important team rule
 

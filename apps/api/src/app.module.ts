@@ -19,6 +19,7 @@ import { AppController } from "./app.controller";
 import { StrategyModule } from './modules/strategy/strategy.module';
 import { ContentModule } from './modules/content/content.module';
 import { PublishingModule } from './modules/publishing/publishing.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { PublishingModule } from './modules/publishing/publishing.module';
     StrategyModule,
     ContentModule,
     PublishingModule,
+    BillingModule,
   ],
   controllers: [AppController],
 })

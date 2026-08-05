@@ -84,6 +84,30 @@ export function envSchema(
     }
   }
 
+  const billingProvider = config.BILLING_PROVIDER as string | undefined;
+  if (billingProvider && !["fake", "paymob", "geidea"].includes(billingProvider)) {
+    errors.push("BILLING_PROVIDER must be one of: fake, paymob, geidea");
+  }
+
+  if (billingProvider === "paymob") {
+    if (!config.PAYMOB_API_KEY) {
+      errors.push("PAYMOB_API_KEY is required when BILLING_PROVIDER=paymob");
+    }
+    if (!config.PAYMOB_PUBLIC_KEY) {
+      errors.push("PAYMOB_PUBLIC_KEY is required when BILLING_PROVIDER=paymob");
+    }
+    if (!config.PAYMOB_INTEGRATION_IDS) {
+      errors.push(
+        "PAYMOB_INTEGRATION_IDS is required when BILLING_PROVIDER=paymob",
+      );
+    }
+    if (!config.PAYMOB_HMAC_SECRET) {
+      errors.push(
+        "PAYMOB_HMAC_SECRET is required when BILLING_PROVIDER=paymob",
+      );
+    }
+  }
+
   boundedNumber(config, "DISCOVERY_FACEBOOK_MAX_PAGES", 1, 1, errors);
   boundedNumber(config, "DISCOVERY_FACEBOOK_MAX_POSTS", 1, 5, errors);
   boundedNumber(config, "DISCOVERY_FACEBOOK_TIMEOUT_MS", 1, 60_000, errors);

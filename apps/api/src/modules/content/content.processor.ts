@@ -44,6 +44,8 @@ import {
   normalizeGeneratedContentItemVersions,
 } from "./content-item-version-normalizer";
 import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
+import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
+import { BillingDomainException } from "../billing/billing.service";
 
 interface ContentGenerateJobData {
   contentCycleId: string;
@@ -88,6 +90,7 @@ export class ContentProcessor extends WorkerHost {
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
+    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     super();
   }
@@ -170,6 +173,12 @@ export class ContentProcessor extends WorkerHost {
           false,
         );
       }
+
+      await this.billingEntitlements?.assertAllowed(
+        cycle.ownerUserId,
+        "content_item",
+        3,
+      );
 
       const selectedChannels = adaptSelectedChannelsOrThrow(
         strategyVersion.planData,
@@ -306,11 +315,24 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
+      await this.billingEntitlements?.record(
+        cycle.ownerUserId,
+        "content_item",
+        normalizedItemVersions.length,
+        `content-pack:${pack.id}`,
+        pack.businessId,
+      );
+
       this.logger.log(
         `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
       );
     } catch (error) {
-      const retryable = error instanceof ProviderError ? error.retryable : true;
+      const retryable =
+        error instanceof BillingDomainException
+          ? false
+          : error instanceof ProviderError
+            ? error.retryable
+            : true;
       const attemptsMade = job.attemptsMade ?? 0;
       const maxAttempts = Number(job.opts?.attempts ?? 3);
       const retryEligible = retryable && attemptsMade + 1 < maxAttempts;
@@ -321,7 +343,9 @@ export class ContentProcessor extends WorkerHost {
         error instanceof Error ? error.message : "Unknown error",
         {
           error_code:
-            error instanceof ProviderError
+            error instanceof BillingDomainException
+              ? error.code
+              : error instanceof ProviderError
               ? error.code
               : "CONTENT_GENERATION_FAILED",
           retryable: retryEligible,
@@ -434,6 +458,12 @@ export class ContentProcessor extends WorkerHost {
           false,
         );
       }
+
+      await this.billingEntitlements?.assertAllowed(
+        cycle.ownerUserId,
+        "content_revision",
+        1,
+      );
 
       const selectedChannels = adaptSelectedChannelsOrThrow(
         strategyVersion.planData,
@@ -582,6 +612,14 @@ export class ContentProcessor extends WorkerHost {
         );
       }
 
+      await this.billingEntitlements?.record(
+        cycle.ownerUserId,
+        "content_revision",
+        1,
+        `content-revision:${contentItemId}:${baseItemVersionId}`,
+        pack.businessId,
+      );
+
       await this.packRepo.appendProgressEvent(pack.id, {
         stage: "revision",
         status: "complete",
@@ -600,7 +638,12 @@ export class ContentProcessor extends WorkerHost {
         `Item ${contentItemId} revised to version ${newVersionNumber} (prior: ${baseItemVersionId})`,
       );
     } catch (error) {
-      const retryable = error instanceof ProviderError ? error.retryable : true;
+      const retryable =
+        error instanceof BillingDomainException
+          ? false
+          : error instanceof ProviderError
+            ? error.retryable
+            : true;
       const attemptsMade = job.attemptsMade ?? 0;
       const maxAttempts = Number(job.opts?.attempts ?? 3);
       const retryEligible = retryable && attemptsMade + 1 < maxAttempts;
@@ -616,7 +659,9 @@ export class ContentProcessor extends WorkerHost {
         messageText: error instanceof Error ? error.message : "Unknown error",
         payload: {
           error_code:
-            error instanceof ProviderError
+            error instanceof BillingDomainException
+              ? error.code
+              : error instanceof ProviderError
               ? error.code
               : "CONTENT_REVISION_FAILED",
           retryable: retryEligible,
@@ -667,6 +712,15 @@ export class ContentProcessor extends WorkerHost {
         );
       }
       if (existing.status === "ready") return;
+
+      const billingContext = await this.packRepo.getAssetBillingContext?.(assetId);
+      if (billingContext) {
+        await this.billingEntitlements?.assertAllowed(
+          billingContext.ownerUserId,
+          "static_image",
+          1,
+        );
+      }
 
       const request = {
         contract_version: "content-v1" as const,
@@ -723,6 +777,16 @@ export class ContentProcessor extends WorkerHost {
           providerRequestId: asset.provider_request_id,
         });
 
+        if (billingContext) {
+          await this.billingEntitlements?.record(
+            billingContext.ownerUserId,
+            "static_image",
+            1,
+            `static-image:${assetId}`,
+            billingContext.businessId,
+          );
+        }
+
         this.logger.log(
           `[Corr: ${correlationId}] Static asset ${asset.id} stored with checksum ${asset.checksum}`,
         );
@@ -738,10 +802,17 @@ export class ContentProcessor extends WorkerHost {
         );
       }
     } catch (error) {
-      const retryable = error instanceof ProviderError ? error.retryable : true;
+      const retryable =
+        error instanceof BillingDomainException
+          ? false
+          : error instanceof ProviderError
+            ? error.retryable
+            : true;
 
       const failureCode =
-        error instanceof ProviderError
+        error instanceof BillingDomainException
+          ? error.code
+          : error instanceof ProviderError
           ? error.code
           : "CONTENT_ASSET_GENERATION_FAILED";
 

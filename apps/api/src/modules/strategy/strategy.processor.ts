@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
@@ -14,6 +14,7 @@ import {
   toRagRetrievalPack,
 } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
+import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 
 interface GenerateJobData {
   strategyId: string;
@@ -39,6 +40,7 @@ export class StrategyProcessor extends WorkerHost {
     private readonly strategyRepository: StrategyRepository,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     super();
     this.aiUrl =
@@ -85,8 +87,13 @@ export class StrategyProcessor extends WorkerHost {
         },
       });
 
-      const { businessProfile, brief, retrievalRun } =
+      const { strategy, businessProfile, brief, retrievalRun } =
         await this.loadGenerationInputs(strategyId, retrievalRunId);
+      await this.billingEntitlements?.assertAllowed(
+        strategy.ownerUserId,
+        "strategy_cycle",
+        1,
+      );
       const contractBrief = buildContractBrief(brief, businessProfile);
       const businessProfilePayload =
         buildBusinessProfilePayload(businessProfile);
@@ -161,6 +168,13 @@ export class StrategyProcessor extends WorkerHost {
         planData,
         promptConfig,
       );
+      await this.billingEntitlements?.record(
+        strategy.ownerUserId,
+        "strategy_cycle",
+        1,
+        `strategy-cycle:${strategyId}:${retrievalRunId}`,
+        strategy.businessId,
+      );
 
       this.logger.log(
         `[Corr: ${correlationId}] Saved StrategyVersion ${version.id} (→ draft)`,
@@ -222,7 +236,7 @@ export class StrategyProcessor extends WorkerHost {
       throw new Error("Retrieval run missing during generation");
     }
 
-    return { businessProfile, brief, retrievalRun };
+    return { strategy, businessProfile, brief, retrievalRun };
   }
 
   private async handleRevise(job: Job<ReviseJobData>) {
@@ -230,6 +244,15 @@ export class StrategyProcessor extends WorkerHost {
     this.logger.log(
       `[Corr: ${correlationId}] Revising strategy ${strategyId} (prior: ${priorVersionId})`,
     );
+
+    const ownerStrategy = await this.strategyRepository.readStrategy(strategyId);
+    if (ownerStrategy) {
+      await this.billingEntitlements?.assertAllowed(
+        ownerStrategy.ownerUserId,
+        "strategy_revision",
+        1,
+      );
+    }
 
     // ready → retrieving (FSM-validated). The service claimed draft → ready
     // before enqueuing, so the strategy is expected to be "ready" here.
@@ -432,6 +455,15 @@ export class StrategyProcessor extends WorkerHost {
         planData,
         promptConfig,
       );
+      if (strategy) {
+        await this.billingEntitlements?.record(
+          strategy.ownerUserId,
+          "strategy_revision",
+          1,
+          `strategy-revision:${strategyId}:${priorVersionId}:${retrievalRunId}`,
+          strategy.businessId,
+        );
+      }
 
       this.logger.log(
         `[Corr: ${correlationId}] Saved revised StrategyVersion ${version.id} (→ draft)`,

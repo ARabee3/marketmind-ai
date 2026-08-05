@@ -586,6 +586,61 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("getAssetBillingContext", () => {
+    const directContext = {
+      businessId: "business-direct",
+      contentCycle: { ownerUserId: "owner-direct" },
+    };
+    const linkedContext = {
+      businessId: "business-linked",
+      contentCycle: { ownerUserId: "owner-linked" },
+    };
+
+    it("resolves ownership from the asset's direct item version", async () => {
+      const findUnique = jest.fn().mockResolvedValue({
+        contentItemVersion: { contentPack: directContext },
+        versionLinks: [],
+      });
+      const repo = new ContentPackRepository({
+        contentAsset: { findUnique },
+      } as unknown as PrismaService);
+
+      await expect(repo.getAssetBillingContext("asset-1")).resolves.toEqual({
+        ownerUserId: "owner-direct",
+        businessId: "business-direct",
+      });
+      expect(findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "asset-1" } }),
+      );
+    });
+
+    it("falls back to the reusable asset's version link", async () => {
+      const repo = new ContentPackRepository({
+        contentAsset: {
+          findUnique: jest.fn().mockResolvedValue({
+            contentItemVersion: null,
+            versionLinks: [
+              { contentItemVersion: { contentPack: linkedContext } },
+            ],
+          }),
+        },
+      } as unknown as PrismaService);
+
+      await expect(repo.getAssetBillingContext("asset-2")).resolves.toEqual({
+        ownerUserId: "owner-linked",
+        businessId: "business-linked",
+      });
+    });
+
+    it("returns null when the asset has no owning version", async () => {
+      const repo = new ContentPackRepository({
+        contentAsset: { findUnique: jest.fn().mockResolvedValue(null) },
+      } as unknown as PrismaService);
+
+      await expect(repo.getAssetBillingContext("missing")).resolves.toBeNull();
+    });
+  });
+
   describe("persistGeneratedItems", () => {
     const PROGRESS: import("./content-pack.repository").ContentProgressInput = {
       stage: "ready",

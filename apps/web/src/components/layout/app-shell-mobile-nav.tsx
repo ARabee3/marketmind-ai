@@ -14,8 +14,8 @@ import {
 } from './app-shell-icons'
 
 export type AppShellMobileNavItem = {
-  readonly href: '/discovery' | '/dashboard' | '/strategy'
-  readonly labelKey: 'navDiscovery' | 'navDashboard' | 'navStrategy'
+  readonly href: '/discovery' | '/dashboard' | '/strategy' | '/billing'
+  readonly labelKey: 'navDiscovery' | 'navDashboard' | 'navStrategy' | 'navBilling'
   readonly iconName: AppShellIconName
 }
 
