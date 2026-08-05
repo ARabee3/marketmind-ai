@@ -84,6 +84,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci
+      - name: Build shared contracts
+        run: npm run build -w @marketmind/contracts
       - name: Generate Prisma client
         run: npm run prisma:generate -w @marketmind/api
       - name: Apply database migrations
