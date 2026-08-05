@@ -100,6 +100,11 @@ export class N8nClientService {
           timeout: 15_000,
         }),
       );
+      if (response.status !== 202 || response.data?.accepted !== true) {
+        throw new Error(
+          "PUBLISHING_WEBHOOK_REJECTED: n8n did not acknowledge the dispatch",
+        );
+      }
       return response.data;
     });
   }

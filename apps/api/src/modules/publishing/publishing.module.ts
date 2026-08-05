@@ -25,8 +25,13 @@ import { DispatchEnvelopeBuilder } from "./dispatch/dispatch-envelope.builder";
 import {
   AssetIntegrityValidator,
   ASSET_BYTE_RETRIEVER,
-  NullAssetByteRetriever,
 } from "./dispatch/asset-integrity-validator";
+
+// Assets (#121)
+import { AssetsController } from "./assets/assets.controller";
+import { PublishingAssetStore } from "./assets/publishing-asset.store";
+import { LocalFilesystemAssetByteRetriever } from "./assets/asset-byte-retriever";
+import { ManualExportArchiveService } from "./exports/manual-export-archive.service";
 
 // Callbacks
 import { CallbacksController } from "./callbacks/callbacks.controller";
@@ -55,6 +60,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     IntentsController,
     CallbacksController,
     AdminController,
+    AssetsController,
   ],
   providers: [
     CandidatesService,
@@ -66,13 +72,20 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     ReconciliationService,
     BusinessOwnershipGuard,
     InternalAuthGuard,
-    // Asset integrity boundary (issue #119 G4 / §9.2). The default
-    // NullAssetByteRetriever throws PUBLISHING_ASSET_UNAVAILABLE so real
-    // dispatch is blocked (never faked) until #121 supplies byte retrieval.
-    // Binding the interface token lets #121 swap in a real retriever without
-    // touching the dispatch processor.
+    PublishingAssetStore,
+    ManualExportArchiveService,
+    // Asset integrity boundary (issue #119 G4 / §9.2). #121 supplies the real
+    // byte retrieval via the committed local-filesystem store so dispatch
+    // proves retrieved media bytes against the approved SHA-256 digests before
+    // any provider call. The NullAssetByteRetriever remains available for
+    // tests and environments without a configured asset store.
     AssetIntegrityValidator,
-    { provide: ASSET_BYTE_RETRIEVER, useClass: NullAssetByteRetriever },
+    {
+      provide: ASSET_BYTE_RETRIEVER,
+      useFactory: (store: PublishingAssetStore) =>
+        new LocalFilesystemAssetByteRetriever(store),
+      inject: [PublishingAssetStore],
+    },
   ],
   exports: [CandidatesService, TargetsService, IntentsService],
 })

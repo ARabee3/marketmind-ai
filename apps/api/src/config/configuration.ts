@@ -4,6 +4,7 @@
  * Values come from environment variables (validated by env.schema.ts).
  * This factory is registered with ConfigModule.forRoot({ load: [configuration] }).
  */
+import * as path from "path";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../common/config/external-provider.config";
 
 export const configuration = () => ({
@@ -109,10 +110,23 @@ content: {
       10,
     ),
     // SEPARATE shared bearer token authenticating INTERNAL publishing routes
-    // (authoritative content-service candidate handoff, future internal asset
+    // (authoritative content-service candidate handoff, and the internal asset
     // route). Distinct from the owner access JWT and the n8n HMAC signing
     // secret; never put on the browser. Empty → internal routes fail closed.
     internalServiceToken: process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN || "",
+    // Local filesystem directory holding the committed demo asset manifest +
+    // media bytes served by the internal asset route (#121). Defaults to the
+    // test-assets dir relative to the process cwd so `nest start` and ts-node
+    // resolve it without extra config. Object storage is a future concern.
+    assetStoreDir:
+      process.env.PUBLISHING_ASSET_STORE_DIR ||
+      path.resolve(process.cwd(), "test-assets/publishing"),
+    // Local immutable store for generated manual-export archives. The API
+    // exposes files through an ownership-checked download endpoint, so this
+    // filesystem path is never returned to clients.
+    exportStoreDir:
+      process.env.PUBLISHING_EXPORT_STORE_DIR ||
+      path.resolve(process.cwd(), ".publishing-exports"),
   },
 
   billing: {

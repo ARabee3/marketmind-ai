@@ -1,0 +1,582 @@
+{
+  "name": "publishing-v1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publishing-dispatch",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5425102b-f41a-4f25-9fa3-be9efa88a15c",
+      "name": "Webhook - publishing-dispatch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1760, 608],
+      "webhookId": "a3433291-bb92-4e0a-8ad2-3eccf31b9edc"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const headers = $json.headers || {};\nconst authHeader = headers[\"authorization\"] || headers[\"Authorization\"] || \"\";\nconst token = $env.PUBLISHING_N8N_AUTH_TOKEN || \"\";\n\nif (!token || authHeader !== \"Bearer \" + token) {\n  return { json: { valid: false, statusCode: 401, error: \"PUBLISHING_WEBHOOK_UNAUTHORIZED: missing or invalid bearer token\" } };\n}\n\nreturn { json: { valid: true, envelope: $json.body } };"
+      },
+      "id": "641e4a08-64a4-4297-8a4f-f044f3bd3953",
+      "name": "Check Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1536, 608]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "dd052898-0416-4fc0-982f-5ecccc1e4cbf",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f04f17a7-c572-4a07-88a4-d3488017ef65",
+      "name": "IF Auth OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-1328, 608]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {
+          "responseCode": "={{$json.statusCode}}"
+        }
+      },
+      "id": "9bb8f5e9-d018-4a44-a669-b7df8a1f84d0",
+      "name": "Respond 401 - Auth",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-1104, 752]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require(\"crypto\");\nconst envelope = $json.envelope;\nconst errors = [];\n\nfunction isObject(value) {\n  return value !== null && typeof value === \"object\" && !Array.isArray(value);\n}\nfunction isText(value) {\n  return typeof value === \"string\" && value.trim().length > 0;\n}\nfunction isUuid(value) {\n  return typeof value === \"string\" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);\n}\nfunction isSha(value) {\n  return typeof value === \"string\" && /^[a-f0-9]{64}$/.test(value);\n}\nfunction isIso(value) {\n  return typeof value === \"string\" && value.length > 0 && Number.isFinite(Date.parse(value));\n}\nfunction isSafeUrl(value) {\n  return typeof value === \"string\" && (\n    /^https:\\/\\/[^/?#]+(?:[/?#]|$)/i.test(value) ||\n    /^http:\\/\\/(?:localhost|127\\.0\\.0\\.1)(?::\\d+)?(?:[/?#]|$)/i.test(value)\n  );\n}\nfunction canonicalize(value) {\n  if (Array.isArray(value)) return value.map(canonicalize);\n  if (isObject(value)) {\n    const sorted = {};\n    for (const key of Object.keys(value).sort()) {\n      if (value[key] !== undefined) sorted[key] = canonicalize(value[key]);\n    }\n    return sorted;\n  }\n  return value;\n}\nfunction sha256(value) {\n  return crypto.createHash(\"sha256\").update(JSON.stringify(canonicalize(value)), \"utf8\").digest(\"hex\");\n}\nfunction requireValue(condition, message) {\n  if (!condition) errors.push(message);\n}\n\nrequireValue(isObject(envelope), \"envelope must be an object\");\nif (isObject(envelope)) {\n  requireValue(envelope.contract_version === \"publishing-dispatch-envelope-v1\", \"bad envelope contract_version\");\n  requireValue(isUuid(envelope.message_id), \"invalid message_id\");\n  requireValue(isIso(envelope.sent_at), \"invalid sent_at\");\n  requireValue(isText(envelope.nonce) && envelope.nonce.length >= 16, \"invalid nonce\");\n  requireValue(typeof envelope.key_id === \"string\", \"invalid key_id\");\n  requireValue(envelope.signature_algorithm === \"hmac-sha256\", \"invalid signature_algorithm\");\n  requireValue(isSha(envelope.body_sha256), \"invalid body_sha256\");\n  requireValue(isSha(envelope.signature), \"invalid signature\");\n}\n\nconst body = isObject(envelope) ? envelope.body : null;\nrequireValue(isObject(body), \"body must be an object\");\nif (isObject(body)) {\n  requireValue(body.contract_version === \"publication-dispatch-v1\", \"bad body contract_version\");\n  for (const field of [\"attempt_id\", \"intent_id\", \"business_id\", \"correlation_id\"]) {\n    requireValue(isUuid(body[field]), \"invalid body field: \" + field);\n  }\n  requireValue(Number.isInteger(body.intent_version) && body.intent_version > 0, \"invalid intent_version\");\n  requireValue(isText(body.idempotency_key), \"missing idempotency_key\");\n  requireValue(isText(body.workflow_version), \"missing workflow_version\");\n  requireValue(isSafeUrl(body.callback_url), \"unsafe callback_url\");\n\n  const candidate = body.candidate;\n  const status = body.candidate_status;\n  requireValue(isObject(candidate), \"candidate must be an object\");\n  requireValue(isObject(status), \"candidate_status must be an object\");\n\n  if (isObject(candidate)) {\n    requireValue(candidate.contract_version === \"publication-candidate-v1\", \"bad candidate contract_version\");\n    requireValue(isUuid(candidate.candidate_id), \"invalid candidate_id\");\n    requireValue(isUuid(candidate.business_id) && candidate.business_id === body.business_id, \"candidate business mismatch\");\n    requireValue([\"facebook\", \"instagram\"].includes(candidate.target_channel), \"unsupported candidate channel\");\n    requireValue([\"static_image_post\", \"short_video_script\", \"carousel_brief\", \"text_post\"].includes(candidate.content_format), \"unsupported candidate format\");\n    requireValue([\"ar\", \"en\"].includes(candidate.selected_locale), \"invalid candidate locale\");\n    requireValue(isText(candidate.caption), \"missing candidate caption\");\n    requireValue(Array.isArray(candidate.hashtags) && candidate.hashtags.every((tag) => typeof tag === \"string\"), \"invalid candidate hashtags\");\n    requireValue(typeof candidate.alt_text === \"string\", \"invalid candidate alt_text\");\n    requireValue(isObject(candidate.recommended_publish_window) &&\n      isIso(candidate.recommended_publish_window.starts_at) &&\n      isIso(candidate.recommended_publish_window.ends_at) &&\n      candidate.recommended_publish_window.timezone === \"Africa/Cairo\", \"invalid recommended publish window\");\n    requireValue(isSha(candidate.candidate_checksum), \"invalid candidate checksum\");\n    if (isSha(candidate.candidate_checksum)) {\n      const candidatePayload = { ...candidate };\n      delete candidatePayload.candidate_checksum;\n      requireValue(sha256(candidatePayload) === candidate.candidate_checksum, \"candidate checksum mismatch\");\n    }\n  }\n\n  if (isObject(status) && isObject(candidate)) {\n    requireValue(status.contract_version === \"publication-candidate-status-v1\", \"bad candidate status contract_version\");\n    requireValue(status.candidate_state === \"active\", \"candidate is not active\");\n    requireValue(Number.isInteger(status.state_version) && status.state_version > 0, \"invalid candidate state_version\");\n    requireValue(status.candidate_id === candidate.candidate_id, \"candidate status identity mismatch\");\n    requireValue(status.business_id === body.business_id, \"candidate status business mismatch\");\n    requireValue(status.candidate_checksum === candidate.candidate_checksum, \"candidate status checksum mismatch\");\n  }\n\n  const candidateAssets = isObject(candidate) && Array.isArray(candidate.assets) ? candidate.assets : [];\n  const dispatchAssets = Array.isArray(body.assets) ? body.assets : [];\n  requireValue(candidateAssets.length > 0, \"candidate has no assets\");\n  requireValue(dispatchAssets.length === candidateAssets.length && dispatchAssets.length > 0, \"dispatch asset count mismatch\");\n  const expectedAssets = new Map();\n  for (const asset of candidateAssets) {\n    if (isObject(asset) && isUuid(asset.asset_id) && isSha(asset.checksum) && isText(asset.mime_type)) {\n      expectedAssets.set(asset.asset_id, asset);\n    } else {\n      errors.push(\"invalid candidate asset\");\n    }\n  }\n  const seenAssets = new Set();\n  for (const asset of dispatchAssets) {\n    if (!isObject(asset)) {\n      errors.push(\"invalid dispatch asset\");\n      continue;\n    }\n    const expected = expectedAssets.get(asset.asset_id);\n    requireValue(Boolean(expected) && !seenAssets.has(asset.asset_id), \"unknown or duplicate dispatch asset\");\n    requireValue(Boolean(expected) && asset.checksum === expected.checksum && asset.mime_type === expected.mime_type, \"dispatch asset checksum or MIME mismatch\");\n    requireValue(isSafeUrl(asset.retrieval_url) && isIso(asset.retrieval_expires_at), \"invalid asset retrieval boundary\");\n    seenAssets.add(asset.asset_id);\n  }\n\n  if (body.mode === \"real\") {\n    const target = body.target;\n    const approval = body.approval;\n    requireValue(body.operation === \"meta.publish_static_image\", \"real mode operation mismatch\");\n    requireValue(isIso(body.scheduled_utc), \"real mode schedule missing\");\n    requireValue(isObject(target), \"real mode target missing\");\n    requireValue(isObject(approval), \"real mode approval missing\");\n    requireValue(isObject(candidate) && candidate.content_format === \"static_image_post\", \"real mode requires static_image_post\");\n\n    if (isObject(target) && isObject(candidate)) {\n      requireValue(target.contract_version === \"publishing-target-v1\", \"bad target contract_version\");\n      requireValue(isUuid(target.target_id) && Number.isInteger(target.version) && target.version > 0, \"invalid target identity\");\n      requireValue(target.business_id === body.business_id, \"target business mismatch\");\n      requireValue(target.provider === \"meta\" && target.channel === candidate.target_channel, \"target provider or channel mismatch\");\n      requireValue(target.connection_state === \"connected\", \"target is not connected\");\n      requireValue(isText(target.external_account_id) && isText(target.credential_ref), \"target credentials missing\");\n      requireValue(Array.isArray(target.capabilities) && target.capabilities.includes(\"static_image\"), \"target lacks static_image capability\");\n    }\n\n    if (isObject(approval) && isObject(candidate) && isObject(target)) {\n      requireValue(approval.contract_version === \"publication-approval-v1\", \"bad approval contract_version\");\n      requireValue(isUuid(approval.decision_id) && isUuid(approval.decided_by_user_id), \"invalid approval identity\");\n      requireValue(approval.mode === \"real\" && approval.intent_id === body.intent_id && approval.intent_version === body.intent_version, \"approval intent mismatch\");\n      requireValue(approval.candidate_id === candidate.candidate_id && approval.candidate_checksum === candidate.candidate_checksum, \"approval candidate mismatch\");\n      requireValue(approval.target_id === target.target_id, \"approval target mismatch\");\n      requireValue(approval.time_zone === \"Africa/Cairo\" && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/.test(approval.scheduled_local || \"\"), \"invalid approval local schedule\");\n      requireValue(approval.scheduled_utc === body.scheduled_utc && isIso(approval.decided_at), \"approval schedule mismatch\");\n      requireValue(isSha(approval.approval_fingerprint), \"invalid approval fingerprint\");\n      if (isSha(approval.approval_fingerprint)) {\n        const approvalPayload = { ...approval };\n        delete approvalPayload.approval_fingerprint;\n        requireValue(sha256(approvalPayload) === approval.approval_fingerprint, \"approval fingerprint mismatch\");\n      }\n    }\n  } else if (body.mode === \"manual_export\") {\n    requireValue(body.operation === \"manual_export.build\", \"manual export operation mismatch\");\n    requireValue(body.target === null && body.approval === null && body.scheduled_utc === null, \"manual export cannot carry real bindings\");\n  } else if (body.mode === \"simulation\") {\n    requireValue(body.operation === \"simulation.run\", \"simulation operation mismatch\");\n    requireValue(body.target === null && body.approval === null && body.scheduled_utc === null, \"simulation cannot carry real bindings\");\n  } else {\n    errors.push(\"unknown or missing mode\");\n  }\n}\n\nif (errors.length > 0) {\n  return { json: { valid: false, statusCode: 400, error: \"PUBLISHING_CONTRACT_UNSUPPORTED: \" + errors.join(\"; \") } };\n}\nreturn { json: { valid: true, envelope } };"
+      },
+      "id": "c889c4b5-ac6b-4a3c-a6ee-4de51448e5ce",
+      "name": "Validate Envelope Shape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1104, 464]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "55f45fa5-80fd-4a22-a392-5025a03d95c6",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2140a8b1-630d-4622-8fd8-e6ad12266c19",
+      "name": "IF Shape OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-880, 464]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {
+          "responseCode": "={{$json.statusCode}}"
+        }
+      },
+      "id": "51eb9f45-60cc-4139-958a-a10a1c4d7495",
+      "name": "Respond 400 - Shape",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-656, 640]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function sortKeysDeep(value) {\n  if (Array.isArray(value)) return value.map(sortKeysDeep);\n  if (value !== null && typeof value === 'object') {\n    const sorted = {};\n    for (const key of Object.keys(value).sort()) {\n      if (value[key] !== undefined) sorted[key] = sortKeysDeep(value[key]);\n    }\n    return sorted;\n  }\n  return value;\n}\nfunction canonicalJson(value) { return JSON.stringify(sortKeysDeep(value)); }\nfunction sha256Hex(value) {\n  return require('crypto').createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');\n}\nfunction sigInput({ contract_version, sent_at, nonce, body_sha256 }) {\n  return ['hmac-sha256', contract_version, sent_at, nonce, body_sha256].join('\\n');\n}\nfunction hmacHex(input, secret) {\n  return require('crypto').createHmac('sha256', secret).update(sigInput(input), 'utf8').digest('hex');\n}\n\nconst envelope = $json.envelope;\nconst secret = $env.PUBLISHING_N8N_SIGNING_SECRET;\nconst expectedKeyId = $env.PUBLISHING_N8N_SIGNING_KID || '';\n\nif (!secret) {\n  return { json: { valid: false, statusCode: 500, error: \"PUBLISHING_WEBHOOK_UNAUTHORIZED: signing secret unavailable\" } };\n}\n\nconst recomputedBodySha256 = sha256Hex(envelope.body);\nif (recomputedBodySha256 !== envelope.body_sha256) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_CANDIDATE_TAMPERED: body_sha256 mismatch' } };\n}\n\nconst sentAtMs = Date.parse(envelope.sent_at);\nconst ageMs = Math.abs(Date.now() - sentAtMs);\nif (!Number.isFinite(sentAtMs) || ageMs > 300000) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_TIMESTAMP_INVALID: outside 300s tolerance' } };\n}\n\nif (envelope.key_id !== expectedKeyId) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: unknown key_id' } };\n}\n\nconst expectedSig = hmacHex({\n  contract_version: envelope.contract_version,\n  sent_at: envelope.sent_at,\n  nonce: envelope.nonce,\n  body_sha256: envelope.body_sha256,\n}, secret);\n\nconst expectedBuf = Buffer.from(expectedSig, 'hex');\nconst receivedBuf = Buffer.from(envelope.signature || '', 'hex');\nconst sigValid = expectedBuf.length === receivedBuf.length && require('crypto').timingSafeEqual(expectedBuf, receivedBuf);\n\nif (!sigValid) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: signature mismatch' } };\n}\n\n// Nonce-replay protection (issue #120). n8n staticData persists across\n// executions on this instance; we record each dispatch nonce with a\n// 10-minute TTL and reject an identical replay within that window as\n// PUBLISHING_WEBHOOK_NONCE_REPLAYED. message_id is one-time-per-send.\nconst REPLAY_TTL_MS = 10 * 60 * 1000;\nconst store = $getWorkflowStaticData('global');\nif (!store || typeof store !== 'object') {\n  return { json: { valid: false, statusCode: 500, error: 'PUBLISHING_WEBHOOK_UNAUTHORIZED: nonce store unavailable' } };\n}\nconst seen = store.__dispatch_nonces__ || {};\nconst now = Date.now();\nfor (const nk of Object.keys(seen)) {\n  if (now - seen[nk] > REPLAY_TTL_MS) delete seen[nk];\n}\nif (Object.prototype.hasOwnProperty.call(seen, envelope.nonce)) {\n  return { json: { valid: false, statusCode: 401, error: 'PUBLISHING_WEBHOOK_NONCE_REPLAYED: nonce seen within 10m' } };\n}\nseen[envelope.nonce] = now;\nstore.__dispatch_nonces__ = seen;\n\nreturn { json: { valid: true, envelope } };"
+      },
+      "id": "4eb302c1-bc8e-4624-9312-81d57cc99e9f",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-656, 288]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "e0955db9-493a-46c6-b155-fcebfd38079d",
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf7c7f9f-c08b-4362-ab8a-664084cccd52",
+      "name": "IF Signature OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-448, 288]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {
+          "responseCode": "={{$json.statusCode}}"
+        }
+      },
+      "id": "a574b64c-0c8f-4518-b0d0-e4ce9a3d2416",
+      "name": "Respond 401 - Signature",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-224, 448]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const https = require(\"https\");\nconst http = require(\"http\");\nconst crypto = require(\"crypto\");\n\nconst env = $env || {};\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst candidate = body.candidate;\nconst target = body.target;\nconst assets = body.assets || [];\nconst asset = assets[0] || null;\n\nfunction httpReq(method, url, { headers = {}, multipart = false, formData = {}, binary = null } = {}) {\n  return new Promise((resolve, reject) => {\n    const finalHeaders = { ...headers };\n    let payload = null;\n\n    if (multipart) {\n      const boundary = \"----mmboundary\" + crypto.randomBytes(16).toString(\"hex\");\n      finalHeaders[\"Content-Type\"] = \"multipart/form-data; boundary=\" + boundary;\n      const chunks = [];\n      for (const [key, value] of Object.entries(formData)) {\n        chunks.push(Buffer.from(\n          \"--\" + boundary + \"\\r\\n\" +\n          \"Content-Disposition: form-data; name=\\\"\" + key + \"\\\"\\r\\n\\r\\n\" +\n          String(value) + \"\\r\\n\",\n          \"utf8\",\n        ));\n      }\n      chunks.push(Buffer.from(\n        \"--\" + boundary + \"\\r\\n\" +\n        \"Content-Disposition: form-data; name=\\\"source\\\"; filename=\\\"asset\\\"\\r\\n\" +\n        \"Content-Type: \" + asset.mime_type + \"\\r\\n\\r\\n\",\n        \"utf8\",\n      ));\n      chunks.push(binary);\n      chunks.push(Buffer.from(\"\\r\\n--\" + boundary + \"--\\r\\n\", \"utf8\"));\n      payload = Buffer.concat(chunks);\n      finalHeaders[\"Content-Length\"] = String(payload.length);\n    }\n\n    const lib = url.startsWith(\"https:\") ? https : http;\n    const req = lib.request(url, { method, headers: finalHeaders }, (res) => {\n      const chunks = [];\n      res.on(\"data\", (chunk) => chunks.push(Buffer.from(chunk)));\n      res.on(\"end\", () => {\n        const buffer = Buffer.concat(chunks);\n        resolve({\n          status: Number(res.statusCode || 0),\n          headers: res.headers || {},\n          body: buffer.toString(\"utf8\"),\n          buf: buffer,\n        });\n      });\n    });\n    req.on(\"error\", reject);\n    req.setTimeout(15000, () => {\n      const timeout = new Error(\"request timed out\");\n      timeout.code = \"ETIMEDOUT\";\n      req.destroy(timeout);\n    });\n    if (payload) req.end(payload);\n    else req.end();\n  });\n}\n\nfunction baseResult(outcome, extra = {}) {\n  return {\n    contract_version: \"publication-result-v1\",\n    result_id: crypto.randomUUID(),\n    attempt_id: body.attempt_id,\n    intent_id: body.intent_id,\n    intent_version: body.intent_version,\n    occurred_at: new Date().toISOString(),\n    mode: \"real\",\n    outcome,\n    provider: \"meta\",\n    remote_publication_id: null,\n    remote_url: null,\n    export_artifact_id: null,\n    simulation_reference_id: null,\n    simulation_label: null,\n    error_code: null,\n    retryable: false,\n    reconciliation_required: false,\n    ...extra,\n  };\n}\n\nfunction failed(errorCode, retryable) {\n  return baseResult(\"failed\", { error_code: errorCode, retryable });\n}\nfunction unknown() {\n  return baseResult(\"unknown\", {\n    error_code: \"PUBLISHING_PROVIDER_OUTCOME_UNKNOWN\",\n    retryable: false,\n    reconciliation_required: true,\n  });\n}\nfunction graphFailure(status, error) {\n  const code = error && error.code;\n  if (status === 401 || code === 190 || code === 102 || code === 463 || code === 467) {\n    return failed(\"PUBLISHING_TARGET_UNAUTHORIZED\", false);\n  }\n  if (status === 429 || code === 4 || code === 17 || code === 32 || code === 613) {\n    return failed(\"PUBLISHING_PROVIDER_RATE_LIMITED\", true);\n  }\n  return failed(\"PUBLISHING_PROVIDER_FAILURE\", status >= 500);\n}\nfunction confirmedId(value) {\n  if (typeof value === \"string\" && value.trim().length > 0) return value;\n  if (typeof value === \"number\" && Number.isFinite(value)) return String(value);\n  return null;\n}\n\nif (!asset) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\nconst expiry = Date.parse(asset.retrieval_expires_at);\nif (!Number.isFinite(expiry) || expiry < Date.now()) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\nconst internalToken = env.PUBLISHING_INTERNAL_SERVICE_TOKEN || \"\";\nif (!internalToken) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\n\nlet assetBytes;\ntry {\n  const response = await httpReq(\"GET\", asset.retrieval_url, {\n    headers: { \"x-publishing-internal-token\": internalToken },\n  });\n  if (response.status !== 200 || !response.buf || response.buf.length === 0) {\n    return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", true) } };\n  }\n  const checksum = crypto.createHash(\"sha256\").update(response.buf).digest(\"hex\");\n  if (checksum !== asset.checksum) {\n    return { json: { envelope, result: failed(\"PUBLISHING_ASSET_TAMPERED\", false) } };\n  }\n  assetBytes = response.buf;\n} catch {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", true) } };\n}\n\nconst pageId = target && target.external_account_id;\nconst configuredPageId = env.META_TEST_PAGE_ID || \"\";\nconst token = env.META_TEST_PAGE_ACCESS_TOKEN || \"\";\nif (!pageId || !token || (configuredPageId && configuredPageId !== pageId)) {\n  return { json: { envelope, result: failed(\"PUBLISHING_TARGET_UNAUTHORIZED\", false) } };\n}\n\nconst hashtags = Array.isArray(candidate.hashtags) ? candidate.hashtags.join(\" \") : \"\";\nconst caption = [candidate.caption, hashtags].filter(Boolean).join(\"\\n\");\n\nlet uploaded;\ntry {\n  uploaded = await httpReq(\n    \"POST\",\n    \"https://graph.facebook.com/v19.0/\" + encodeURIComponent(pageId) + \"/photos\",\n    {\n      headers: { Authorization: \"Bearer \" + token },\n      multipart: true,\n      formData: { caption, published: \"true\" },\n      binary: assetBytes,\n    },\n  );\n} catch {\n  // The request may have reached Meta. Never blind-retry an unconfirmed send.\n  return { json: { envelope, result: unknown() } };\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(uploaded.body);\n} catch {\n  // A response after the POST without a parseable provider result is ambiguous.\n  return { json: { envelope, result: unknown() } };\n}\n\nif (parsed && typeof parsed === \"object\" && parsed.error) {\n  return { json: { envelope, result: graphFailure(uploaded.status, parsed.error) } };\n}\nif (uploaded.status < 200 || uploaded.status >= 300) {\n  return { json: { envelope, result: unknown() } };\n}\n\nconst remotePublicationId = confirmedId(parsed && (parsed.post_id || parsed.id));\nif (!remotePublicationId) {\n  return { json: { envelope, result: unknown() } };\n}\n\nlet remoteUrl = null;\ntry {\n  const link = await httpReq(\n    \"GET\",\n    \"https://graph.facebook.com/v19.0/\" + encodeURIComponent(remotePublicationId) + \"?fields=link\",\n    { headers: { Authorization: \"Bearer \" + token } },\n  );\n  if (link.status >= 200 && link.status < 300) {\n    const parsedLink = JSON.parse(link.body);\n    if (parsedLink && typeof parsedLink.link === \"string\") remoteUrl = parsedLink.link;\n  }\n} catch {\n  // Permalink lookup is best-effort after a confirmed provider identity.\n}\n\nreturn {\n  json: {\n    envelope,\n    result: baseResult(\"published\", {\n      remote_publication_id: remotePublicationId,\n      remote_url: remoteUrl,\n    }),\n  },\n};"
+      },
+      "id": "77a59e37-f4ed-461b-b751-e5308049c4df",
+      "name": "Real Meta Adapter (static image)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, -96]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require(\"crypto\");\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst candidate = body.candidate;\nconst assets = body.assets || [];\n\n// Assemble the export manifest: caption, hashtags, alt_text, and every asset\n// with its signed checksum. n8n emits the archive as a binary item (JSON\n// manifest) so the API records a real export_artifact_id for the owner.\nconst manifest = {\n  contract_version: \"publishing-export-manifest-v1\",\n  intent_id: body.intent_id,\n  candidate_id: candidate.candidate_id,\n  caption: candidate.caption,\n  cta: candidate.cta,\n  hashtags: candidate.hashtags,\n  alt_text: candidate.alt_text,\n  assets: assets.map((a) => ({ asset_id: a.asset_id, mime_type: a.mime_type, checksum: a.checksum })),\n  manifest_checksum: \"\", // stamped below\n  generated_at: new Date().toISOString(),\n};\nconst manifestChecksum = crypto.createHash(\"sha256\").update(JSON.stringify({ ...manifest, manifest_checksum: \"\" }), \"utf8\").digest(\"hex\");\nmanifest.manifest_checksum = manifestChecksum;\n\nconst artifactId = crypto.randomUUID();\nconst result = {\n  contract_version: \"publication-result-v1\",\n  result_id: crypto.randomUUID(),\n  attempt_id: body.attempt_id,\n  intent_id: body.intent_id,\n  intent_version: body.intent_version,\n  occurred_at: new Date().toISOString(),\n  mode: \"manual_export\",\n  outcome: \"exported\",\n  provider: null,\n  remote_publication_id: null,\n  remote_url: null,\n  export_artifact_id: artifactId,\n  simulation_reference_id: null,\n  simulation_label: null,\n  error_code: null,\n  retryable: false,\n  reconciliation_required: false,\n};\n// Emit the manifest as a binary item alongside the result so downstream nodes\n// (or an archive sink) can persist it; the artifact_id binds the two.\nconst manifestJson = Buffer.from(JSON.stringify(manifest, null, 2), \"utf8\");\nreturn [\n  { json: { envelope, result, manifest, artifact_id: artifactId }, binary: { manifest: { data: manifestJson.toString(\"base64\"), mimeType: \"application/json\", fileName: \"manifest.json\" } } },\n];"
+      },
+      "id": "24d5ed9f-06df-48a8-97de-393c28c3935a",
+      "name": "Manual Export Archive (manifest)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [16, 112]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require(\"crypto\");\nconst envelope = $json.envelope;\nconst body = envelope.body;\n// SIMULATION performs NO external request and emits a deterministic fake\n// remote identity scoped to the attempt. simulation_label is \"SIMULATION\"\n// end-to-end so the stored result can never be mistaken for a real post.\nconst result = {\n  contract_version: \"publication-result-v1\",\n  result_id: crypto.randomUUID(),\n  attempt_id: body.attempt_id,\n  intent_id: body.intent_id,\n  intent_version: body.intent_version,\n  occurred_at: new Date().toISOString(),\n  mode: \"simulation\",\n  outcome: \"simulated\",\n  provider: null,\n  remote_publication_id: null,\n  remote_url: null,\n  export_artifact_id: null,\n  simulation_reference_id: \"sim-\" + body.attempt_id,\n  simulation_label: \"SIMULATION\",\n  error_code: null,\n  retryable: false,\n  reconciliation_required: false,\n};\nreturn { json: { envelope, result } };"
+      },
+      "id": "24eacf30-6cf7-433f-831b-ad7089ee6349",
+      "name": "Simulation Adapter (zero-network)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [16, 336]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const envelope = $json.envelope;\nconst result = $json.result;\n\nconst callbackBody = {\n  contract_version: 'publication-callback-v1',\n  callback_id: require('crypto').randomUUID(),\n  attempt_id: envelope.body.attempt_id,\n  intent_id: envelope.body.intent_id,\n  intent_version: envelope.body.intent_version,\n  request_fingerprint: envelope.body_sha256,\n  workflow_version: envelope.body.workflow_version,\n  result,\n};\n\nreturn { json: { callbackBody, callback_url: envelope.body.callback_url } };"
+      },
+      "id": "217ea462-105c-49ba-9a33-e71d2eea9688",
+      "name": "Build Callback Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 128]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function sortKeysDeep(value) {\n  if (Array.isArray(value)) return value.map(sortKeysDeep);\n  if (value !== null && typeof value === 'object') {\n    const sorted = {};\n    for (const key of Object.keys(value).sort()) {\n      if (value[key] !== undefined) sorted[key] = sortKeysDeep(value[key]);\n    }\n    return sorted;\n  }\n  return value;\n}\nfunction canonicalJson(value) { return JSON.stringify(sortKeysDeep(value)); }\nfunction sha256Hex(value) {\n  return require('crypto').createHash('sha256').update(canonicalJson(value), 'utf8').digest('hex');\n}\nfunction sigInput({ contract_version, sent_at, nonce, body_sha256 }) {\n  return ['hmac-sha256', contract_version, sent_at, nonce, body_sha256].join('\\n');\n}\nfunction hmacHex(input, secret) {\n  return require('crypto').createHmac('sha256', secret).update(sigInput(input), 'utf8').digest('hex');\n}\n\nconst secret = $env.PUBLISHING_N8N_SIGNING_SECRET;\nconst keyId = $env.PUBLISHING_N8N_SIGNING_KID || '';\nconst body = $json.callbackBody;\n\nconst bodySha256 = sha256Hex(body);\nconst sentAt = new Date().toISOString();\nconst nonce = require('crypto').randomUUID();\nconst signature = hmacHex({\n  contract_version: 'publishing-callback-envelope-v1',\n  sent_at: sentAt,\n  nonce,\n  body_sha256: bodySha256,\n}, secret);\n\nconst callbackEnvelope = {\n  contract_version: 'publishing-callback-envelope-v1',\n  message_id: require('crypto').randomUUID(),\n  sent_at: sentAt,\n  nonce,\n  key_id: keyId,\n  signature_algorithm: 'hmac-sha256',\n  body_sha256: bodySha256,\n  signature,\n  body,\n};\n\nreturn { json: { callbackEnvelope, callback_url: $json.callback_url } };"
+      },
+      "id": "4bfa4ad2-f6b5-4098-98ce-9b3f0700a3d1",
+      "name": "Sign Callback Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [448, 128]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callback_url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.callbackEnvelope}}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "5c70a621-1643-4ade-a06e-067e527972a2",
+      "name": "POST Callback to NestJS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [672, 128],
+      "settings": {
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"accepted\": true, \"executionId\": $execution.id } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "8cc93ba4-fe25-47a7-985e-991cdcd78463",
+      "name": "Respond 202 - Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-224, 64]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "real",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2d77cb3b-8f95-48ae-af21-d82130b91f8b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "real"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "13957aa9-a7fe-439f-b0ed-f30e0c512ac6",
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "manual_export",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "manual_export"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f913f144-0fa7-43f4-b3ea-dc01a1bececa",
+                    "leftValue": "={{$json.envelope.body.mode}}",
+                    "rightValue": "simulation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "simulation"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-224, 64],
+      "id": "da78fd57-8e39-4c20-b906-44257b574965",
+      "name": "Route By Mode"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - publishing-dispatch": {
+      "main": [
+        [
+          {
+            "node": "Check Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Auth": {
+      "main": [
+        [
+          {
+            "node": "IF Auth OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Auth OK": {
+      "main": [
+        [
+          {
+            "node": "Validate Envelope Shape",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401 - Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Envelope Shape": {
+      "main": [
+        [
+          {
+            "node": "IF Shape OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Shape OK": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 - Shape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature": {
+      "main": [
+        [
+          {
+            "node": "IF Signature OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Signature OK": {
+      "main": [
+        [
+          {
+            "node": "Respond 202 - Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401 - Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Meta Adapter (static image)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Export Archive (manifest)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulation Adapter (zero-network)": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Body": {
+      "main": [
+        [
+          {
+            "node": "Sign Callback Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Callback Envelope": {
+      "main": [
+        [
+          {
+            "node": "POST Callback to NestJS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202 - Accepted": {
+      "main": [
+        [
+          {
+            "node": "Route By Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route By Mode": {
+      "main": [
+        [
+          {
+            "node": "Real Meta Adapter (static image)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Manual Export Archive (manifest)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulation Adapter (zero-network)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "c4237f92-f390-4ade-b508-361fe3c8e787",
+  "meta": {
+    "instanceId": "afdb997dad83fc0d3dcbb7d03cadee9bc835d15d1ed414cc19686da59ca2d76e"
+  },
+  "nodeGroups": [],
+  "id": "4wO2sifqyuZMAht9",
+  "tags": []
+}
