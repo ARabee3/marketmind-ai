@@ -59,10 +59,13 @@ function providerItem(
       pillar_ids: [],
       objective: "awareness",
       channel: "instagram" as const,
+      funnel_stage: "awareness" as const,
+      content_purpose: "Round-trip fixture",
     },
     caption_variants: [
       {
         locale: "ar" as const,
+        dialect: "masry" as const,
         caption: "خصم اليوم من متجر الاختبار.",
         cta: null,
         hashtags: ["#اختبار", "#القاهرة"],
@@ -77,6 +80,9 @@ function providerItem(
       starts_at: "2026-08-01T07:05:06.123456+03:00",
       ends_at: "2026-08-01T09:05:06.123456+03:00",
       timezone: "Africa/Cairo" as const,
+      day_preference: "any" as const,
+      time_of_day_hint: "any" as const,
+      rationale: "Round-trip fixture",
     },
     claim_sources: [],
     warnings: [],
