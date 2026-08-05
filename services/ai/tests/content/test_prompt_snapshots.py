@@ -72,6 +72,35 @@ def test_generate_prompt_preserves_fictional_profile_and_redacts_credentials() -
     assert "[REDACTED]" in prompt
 
 
+def test_generate_prompt_scrubs_owner_pii_and_preserves_business_destination() -> None:
+    request = make_valid_request()
+    profile = request.business_profile.model_copy(
+        update={
+            "profile": {
+                "business_name": "Koshary Corner",
+                "phone": "+201001011111",
+                "contact_email": "owner@example.com",
+                "whatsapp_handle": "01010101111",
+            }
+        }
+    )
+    request = request.model_copy(update={"business_profile": profile})
+    context = request.week_context.model_copy(
+        update={
+            "must_include": [request.week_context.must_include[0] + " اتصل على 01012345678"],
+        }
+    )
+    request = request.model_copy(update={"week_context": context})
+
+    prompt = build_generate_user_context(request)
+
+    assert "+201001011111" not in prompt
+    assert "owner@example.com" not in prompt
+    assert "01010101111" not in prompt
+    assert "01012345678" not in prompt
+    assert request.week_context.cta_destination.model_dump()["value"] in prompt
+
+
 def test_revision_prompt_locks_identity_and_keeps_owner_notes() -> None:
     request = AiContentReviseRequest(
         contract_version="content-v1",

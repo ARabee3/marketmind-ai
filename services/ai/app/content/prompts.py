@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -33,7 +34,59 @@ _SENSITIVE_KEY_PARTS = (
     "password",
     "secret",
     "token",
+    "phone",
+    "email",
+    "whatsapp",
+    "contact",
+    "account",
+    "card",
+    "iban",
 )
+
+_APPROVED_DESTINATION_KEYS = ("cta_destination",)
+
+_PHONE_PATTERN = re.compile(r"\+20[\d\s().-]{8,}\d|\b01[0125][0-9]{8}\b")
+_EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_")
+    return any(part in normalized for part in _SENSITIVE_KEY_PARTS)
+
+
+def _scrub_pii(value: str) -> str:
+    if not (_PHONE_PATTERN.search(value) or _EMAIL_PATTERN.search(value)):
+        return value
+    return _EMAIL_PATTERN.sub("[REDACTED]", _PHONE_PATTERN.sub("[REDACTED]", value))
+
+
+def _redact_sensitive(value: Any, key: str = "") -> Any:
+    """Remove credential/PII-like values while preserving business grounding fields."""
+    if key and _is_sensitive_key(key):
+        return "[REDACTED]"
+    if isinstance(value, Mapping):
+        return {
+            str(child_key): _redact_sensitive(child_value, str(child_key))
+            for child_key, child_value in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_sensitive(item) for item in value]
+    if isinstance(value, str):
+        return _scrub_pii(value)
+    return value
+
+
+def _redact_grounding(value: Any) -> Any:
+    """Redact PII from grounding, keeping approved business destination intact."""
+    if not isinstance(value, Mapping):
+        return _redact_sensitive(value)
+    result: dict[str, Any] = {}
+    for child_key, child_value in value.items():
+        if child_key in _APPROVED_DESTINATION_KEYS:
+            result[child_key] = child_value
+        else:
+            result[child_key] = _redact_sensitive(child_value, str(child_key))
+    return result
 
 
 CONTENT_GENERATE_SYSTEM_PROMPT = "\n".join(
@@ -179,25 +232,6 @@ _CONTENT_ASSET_IMAGE_SAFETY_RULES = "\n".join(
 )
 
 
-def _is_sensitive_key(key: str) -> bool:
-    normalized = key.lower().replace("-", "_")
-    return any(part in normalized for part in _SENSITIVE_KEY_PARTS)
-
-
-def _redact_sensitive(value: Any, key: str = "") -> Any:
-    """Remove credential-like values while preserving business grounding fields."""
-    if key and _is_sensitive_key(key):
-        return "[REDACTED]"
-    if isinstance(value, Mapping):
-        return {
-            str(child_key): _redact_sensitive(child_value, str(child_key))
-            for child_key, child_value in value.items()
-        }
-    if isinstance(value, list):
-        return [_redact_sensitive(item) for item in value]
-    return value
-
-
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
 
@@ -253,8 +287,8 @@ def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
             mode="json"
         ),
         "business_profile": _format_profile(request),
-        "weekly_context": request.week_context.model_dump(
-            mode="json", exclude_none=True
+        "weekly_context": _redact_grounding(
+            request.week_context.model_dump(mode="json", exclude_none=True)
         ),
         "requested_channels": request.selected_channels,
         "allowed_formats": request.allowed_formats,
@@ -262,8 +296,8 @@ def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
         "seasonal_context": observances_for_week(request.week_context.week_start_date),
     }
     if request.prior_weeks_context is not None:
-        grounding_inputs["prior_weeks_context"] = request.prior_weeks_context.model_dump(
-            mode="json", exclude_none=True
+        grounding_inputs["prior_weeks_context"] = _redact_grounding(
+            request.prior_weeks_context.model_dump(mode="json", exclude_none=True)
         )
     return {
         "turn_instruction": (
@@ -377,9 +411,11 @@ def build_revise_context(
                 mode="json"
             ),
             "business_profile": _format_profile(generation_request),
-            "weekly_context": generation_request.week_context.model_dump(
-                mode="json",
-                exclude_none=True,
+            "weekly_context": _redact_grounding(
+                generation_request.week_context.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                )
             ),
             "requested_channels": generation_request.selected_channels,
             "allowed_formats": generation_request.allowed_formats,
