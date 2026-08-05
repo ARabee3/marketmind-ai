@@ -1504,7 +1504,7 @@
     "retry": "Try again",
     "loading": "Loading billing…",
     "notAvailable": "Not available",
-    "error": "Something went wrong while loading billing.",
+    "error": "We could not complete that billing action. Try again.",
     "finalPriceNote": "Final payable amount is shown in EGP. Advertising spend is separate.",
     "trialNote": "The trial needs no card and never converts automatically.",
     "liveGate": "Live payment activation requires merchant approval and signed provider webhooks."

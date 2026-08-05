@@ -269,7 +269,9 @@ function BillingReadyView({
             <CardHeader className="gap-3 border-b border-border/80 pb-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="grid gap-1">
-                  <CardTitle className="text-xl font-bold text-navy">{t('growthLabel')}</CardTitle>
+                  <CardTitle className="text-xl font-bold text-navy">
+                    <h2>{t('growthLabel')}</h2>
+                  </CardTitle>
                   <CardDescription>{t('finalPriceNote')}</CardDescription>
                 </div>
                 <div className="rounded-full bg-soft-teal px-3 py-1 text-xs font-semibold text-primary">
@@ -292,7 +294,7 @@ function BillingReadyView({
             <CardContent className="grid gap-6 pt-5">
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <div className="grid gap-2">
-                  <p className="text-4xl font-bold tracking-tight text-navy md:text-5xl">
+                  <p className="text-4xl font-bold tracking-tight text-navy tabular-nums md:text-5xl">
                     {selectedPrice ? formatCurrency(selectedPrice.amount_egp) : t('notAvailable')}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -332,7 +334,7 @@ function BillingReadyView({
             <CardHeader>
               <CardDescription className="text-primary-foreground/70">{t('statusLabel')}</CardDescription>
               <CardTitle className="text-2xl text-primary-foreground">
-                {t(STATUS_KEYS[subscription.state])}
+                <h2>{t(STATUS_KEYS[subscription.state])}</h2>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm">
@@ -470,13 +472,15 @@ function UsagePanel({ metrics }: { readonly metrics: readonly BillingUsageMetric
   return (
     <Card>
       <CardHeader className="border-b border-border/80 pb-4">
-        <CardTitle className="text-xl font-bold text-navy">{t('usageTitle')}</CardTitle>
+        <CardTitle className="text-xl font-bold text-navy">
+          <h2>{t('usageTitle')}</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 lg:grid-cols-3">
         {metrics.map((metric) => (
           <div key={metric.metric} className="grid gap-2 border-s border-border ps-3">
             <p className="text-sm font-semibold text-navy">{metricLabel(t, METRIC_KEYS[metric.metric])}</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground tabular-nums">
               {t('usedOf', { used: metric.used, limit: metric.limit })}
             </p>
             <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
@@ -485,7 +489,7 @@ function UsagePanel({ metrics }: { readonly metrics: readonly BillingUsageMetric
                 style={{ width: `${Math.min(100, metric.limit === 0 ? 0 : (metric.used / metric.limit) * 100)}%` }}
               />
             </div>
-            <p className="text-xs text-muted-foreground">{t('remaining', { remaining: metric.remaining })}</p>
+            <p className="text-xs text-muted-foreground tabular-nums">{t('remaining', { remaining: metric.remaining })}</p>
           </div>
         ))}
       </CardContent>
@@ -519,7 +523,9 @@ function TransactionsPanel({
   return (
     <Card>
       <CardHeader className="border-b border-border/80 pb-4">
-        <CardTitle className="text-xl font-bold text-navy">{t('transactionsTitle')}</CardTitle>
+        <CardTitle className="text-xl font-bold text-navy">
+          <h2>{t('transactionsTitle')}</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent className="pt-2">
         {transactions.length === 0 ? (
@@ -533,7 +539,7 @@ function TransactionsPanel({
                   <span className="text-xs text-muted-foreground">{formatDate(transaction.occurred_at)}</span>
                 </div>
                 <div className="text-end">
-                  <p className="font-semibold text-navy">{formatCurrency(transaction.amount_egp)}</p>
+                  <p className="font-semibold text-navy tabular-nums">{formatCurrency(transaction.amount_egp)}</p>
                   <p className="text-xs text-muted-foreground">{transactionStatusLabel(t, transaction.status)}</p>
                 </div>
               </li>
@@ -567,6 +573,7 @@ function BillingLoading() {
   const t = useTranslations('Billing')
   return (
     <section className="grid gap-4" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{t('loading')}</span>
       <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">{t('eyebrow')}</p>
       <div className="h-10 w-3/4 animate-pulse motion-reduce:animate-none rounded-lg bg-muted" />
       <div className="h-5 w-full max-w-2xl animate-pulse motion-reduce:animate-none rounded bg-muted" />
