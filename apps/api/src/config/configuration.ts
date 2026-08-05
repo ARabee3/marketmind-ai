@@ -72,6 +72,13 @@ export const configuration = () => ({
       DEFAULT_AI_REQUEST_TIMEOUT_MS,
   },
 
+content: {
+    // Root directory for content asset blobs written through the
+    // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
+    // deployments override via CONTENT_ASSET_ROOT.
+    assetRoot: process.env.CONTENT_ASSET_ROOT || "./.content-assets",
+  },
+
   publishing: {
     // n8n webhook URL — the endpoint this service POSTs dispatch requests to
     n8nWebhookUrl: process.env.PUBLISHING_N8N_WEBHOOK_URL || "",

@@ -17,6 +17,7 @@ import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
 import { StrategyModule } from './modules/strategy/strategy.module';
+import { ContentModule } from './modules/content/content.module';
 import { PublishingModule } from './modules/publishing/publishing.module';
 
 @Module({
@@ -63,6 +64,7 @@ import { PublishingModule } from './modules/publishing/publishing.module';
     JourneyModule,
     MarketingKnowledgeModule,
     StrategyModule,
+    ContentModule,
     PublishingModule,
   ],
   controllers: [AppController],

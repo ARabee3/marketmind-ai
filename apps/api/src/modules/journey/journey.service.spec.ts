@@ -1,6 +1,7 @@
 import type { CurrentJourneyResponse } from "@marketmind/contracts";
 import { JourneyService } from "./journey.service";
 import type {
+  JourneyContentRecord,
   JourneyCurrentRecord,
   JourneyRepositoryPort,
 } from "./journey.repository";
@@ -9,6 +10,7 @@ import { emptyDiscoveryProfileState } from "../discovery/market-profile";
 describe("JourneyService", () => {
   const repository: jest.Mocked<JourneyRepositoryPort> = {
     findCurrentForOwner: jest.fn(),
+    findContentForOwner: jest.fn(),
   };
 
   let service: JourneyService;
@@ -16,6 +18,10 @@ describe("JourneyService", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     service = new JourneyService(repository);
+    repository.findContentForOwner.mockResolvedValue({
+      cycle: null,
+      pack: null,
+    });
   });
 
   it("returns a start discovery action when the owner has no journey", async () => {
@@ -253,6 +259,85 @@ describe("JourneyService", () => {
     expect(response.primary_action.type).toBe("view_discovery");
     expect(response.future_phase.availability).toBe("unavailable");
   });
+
+  it("reports content readiness as no_cycle when the owner has no content cycle", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: null,
+      strategy: null,
+    });
+    repository.findContentForOwner.mockResolvedValue({
+      cycle: null,
+      pack: null,
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.content).toEqual({
+      ready: false,
+      reason: "no_cycle",
+      cycle: null,
+      pack: null,
+    });
+  });
+
+  it("reports pending_decisions for an active cycle with a draft pack", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "confirmed",
+        confirmedProfile: confirmedProfileRecord(),
+      }),
+      strategy: null,
+    });
+    repository.findContentForOwner.mockResolvedValue({
+      cycle: contentCycleRecord(),
+      pack: {
+        id: "77777777-7777-4777-8777-777777777777",
+        status: "draft",
+        weekNumber: 1,
+        pendingDecisions: 2,
+      },
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.content.ready).toBe(true);
+    expect(response.content.reason).toBe("cycle_active");
+    if (response.content.pack) {
+      expect(response.content.pack.pending_decisions).toBe(2);
+    }
+  });
+
+  it("reports a failed pack with failed: true", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "confirmed",
+        confirmedProfile: confirmedProfileRecord(),
+      }),
+      strategy: null,
+    });
+    repository.findContentForOwner.mockResolvedValue({
+      cycle: contentCycleRecord(),
+      pack: {
+        id: "77777777-7777-4777-8777-777777777777",
+        status: "failed",
+        weekNumber: 1,
+        pendingDecisions: 0,
+      },
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.content.ready).toBe(true);
+    if (response.content.pack) {
+      expect(response.content.pack.failed).toBe(true);
+    }
+  });
 });
 
 function ownerRecord(): JourneyCurrentRecord["owner"] {
@@ -317,6 +402,14 @@ function confirmedProfileRecord(): NonNullable<
 }
 
 function assertResponse(_response: CurrentJourneyResponse): void {}
+
+function contentCycleRecord(): NonNullable<JourneyContentRecord["cycle"]> {
+  return {
+    id: "88888888-8888-4888-8888-888888888888",
+    status: "active",
+    currentWeekNumber: 1,
+  };
+}
 
 function strategyBusinessRecord(): NonNullable<
   NonNullable<JourneyCurrentRecord["strategy"]>["business"]

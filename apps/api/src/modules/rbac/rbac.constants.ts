@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   DISCOVERY_CONTINUE: "discovery:continue",
   DISCOVERY_CONFIRM_PROFILE: "discovery:confirm_profile",
   STRATEGY_START: "strategy:start",
+  CONTENT_START: "content:start",
   ADMIN_MANAGE_LIBRARY: "admin:manage_library",
   PUBLISHING_ADMIN: "admin:publishing",
 } as const;
@@ -40,6 +41,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
   PERMISSIONS.DISCOVERY_CONTINUE,
   PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
   PERMISSIONS.STRATEGY_START,
+  PERMISSIONS.CONTENT_START,
 ];
 
 /**

@@ -3,6 +3,10 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 import { emptyDiscoveryProfileState } from "../discovery/market-profile";
 import { JourneyRepository } from "./journey.repository";
 
+function contentCycleDelegate(cycle: unknown) {
+  return { findFirst: jest.fn().mockResolvedValue(cycle) };
+}
+
 describe("JourneyRepository", () => {
   it("scopes the current discovery session lookup to the owner", async () => {
     const prisma = {
@@ -42,6 +46,7 @@ describe("JourneyRepository", () => {
       strategy: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      contentCycle: contentCycleDelegate(null),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -76,6 +81,7 @@ describe("JourneyRepository", () => {
       strategy: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      contentCycle: contentCycleDelegate(null),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -121,6 +127,7 @@ describe("JourneyRepository", () => {
       strategy: {
         findFirst: jest.fn().mockResolvedValue(activeStrategy),
       },
+      contentCycle: contentCycleDelegate(null),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -165,6 +172,7 @@ describe("JourneyRepository", () => {
       strategy: {
         findFirst: jest.fn().mockResolvedValue(activeStrategy),
       },
+      contentCycle: contentCycleDelegate(null),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -192,6 +200,7 @@ describe("JourneyRepository", () => {
       strategy: {
         findFirst: jest.fn(),
       },
+      contentCycle: contentCycleDelegate(null),
     };
     const repository = new JourneyRepository(prisma as unknown as PrismaService);
 
@@ -199,5 +208,77 @@ describe("JourneyRepository", () => {
       NotFoundException,
     );
     expect(prisma.discoverySession.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("reports no content cycle when the owner has none", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate(null),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response).toEqual({ cycle: null, pack: null });
+    expect(prisma.contentCycle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { ownerUserId: "owner-id" },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+  });
+
+  it("counts pending decisions from non-final items in the latest pack", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate({
+        id: "cycle-1",
+        status: "active",
+        currentWeekNumber: 2,
+        packs: [
+          {
+            id: "pack-1",
+            status: "draft",
+            weekNumber: 2,
+            items: [
+              { status: "draft" },
+              { status: "draft" },
+              { status: "approved" },
+              { status: "rejected" },
+            ],
+          },
+        ],
+      }),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response.cycle).toEqual({
+      id: "cycle-1",
+      status: "active",
+      currentWeekNumber: 2,
+    });
+    expect(response.pack).toEqual({
+      id: "pack-1",
+      status: "draft",
+      weekNumber: 2,
+      pendingDecisions: 2,
+    });
+  });
+
+  it("reports a null pack when the active cycle has no packs yet", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate({
+        id: "cycle-1",
+        status: "active",
+        currentWeekNumber: 1,
+        packs: [],
+      }),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response.cycle?.id).toBe("cycle-1");
+    expect(response.pack).toBeNull();
   });
 });

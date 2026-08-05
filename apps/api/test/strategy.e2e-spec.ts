@@ -172,7 +172,7 @@ describe("Strategy public contract (e2e)", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         businessProfileVersionId: PROFILE_VERSION_ID,
-        primaryObjective: "Build brand awareness",
+        primaryObjective: "awareness",
         startDate: "2026-08-01",
         planLanguage: "ar-EG",
         paidMediaAllowed: true,

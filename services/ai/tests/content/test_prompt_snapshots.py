@@ -97,6 +97,7 @@ def test_revision_prompt_locks_identity_and_keeps_owner_notes() -> None:
 def test_asset_prompt_contains_storage_authority_and_provenance() -> None:
     request = AiStaticAssetGenerateRequest(
         contract_version="content-v1",
+        asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         content_item_version_id="99999999-9999-4999-8999-999999999999",
         creative_brief="صورة توضح طبق كشري طازج على طاولة بسيطة.",
         alt_text="طبق كشري طازج",

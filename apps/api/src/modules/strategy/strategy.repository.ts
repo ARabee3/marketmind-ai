@@ -232,6 +232,17 @@ export class StrategyRepository {
     });
   }
 
+  /**
+   * Reads a single owner decision row. Used by the content service when
+   * assembling the policy fixture for an owner approval gate, so the fixture
+   * carries the exact strategy decision the owner made on this version.
+   */
+  async getDecisionById(id: string): Promise<StrategyDecision | null> {
+    return this.prisma.strategyDecision.findUnique({
+      where: { id },
+    });
+  }
+
   async getLatestVersion(strategyId: string): Promise<StrategyVersion | null> {
     return this.prisma.strategyVersion.findFirst({
       where: { strategyId },
