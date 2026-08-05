@@ -59,6 +59,31 @@ import {
 
 jest.setTimeout(240_000);
 
+// CI has no `apps/api/.env.test` (gitignored), so the app's env schema
+// (env.schema.ts) and the harness would see empty required vars at boot.
+// Pin deterministic test values at module scope — the same pattern every
+// other e2e spec uses — so the suite is self-sufficient on any runner.
+// Locally, the `dotenv` load in beforeAll overrides these from `.env.test`.
+process.env.JWT_ACCESS_SECRET ??= "publishing-e2e-access-secret";
+process.env.JWT_REFRESH_SECRET ??= "publishing-e2e-refresh-secret";
+process.env.JWT_ACCESS_EXPIRES_IN ??= "15m";
+process.env.JWT_REFRESH_EXPIRES_IN ??= "7d";
+process.env.WEB_ORIGIN ??= "http://localhost:3000";
+process.env.COOKIE_SECURE ??= "false";
+process.env.COOKIE_SAME_SITE ??= "lax";
+process.env.GOOGLE_CLIENT_ID ??= "publishing-e2e-google-client-id";
+process.env.GOOGLE_CLIENT_SECRET ??= "publishing-e2e-google-client-secret";
+process.env.GOOGLE_CALLBACK_URL ??=
+  "http://localhost:3001/api/v1/auth/google/callback";
+// Shared signing material: the API and the fake-n8n harness must agree on
+// these exactly, or every signed dispatch/callback would be rejected.
+process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN ??= "publishing-e2e-internal-token";
+process.env.PUBLISHING_N8N_SIGNING_SECRET ??= "publishing-e2e-signing-secret";
+process.env.PUBLISHING_N8N_SIGNING_KID ??= "publishing-e2e-signing-kid";
+process.env.PUBLISHING_N8N_AUTH_TOKEN ??= "publishing-e2e-n8n-auth-token";
+process.env.META_TEST_PAGE_ID ??= "page_ci_test_123";
+process.env.META_TEST_PAGE_ACCESS_TOKEN ??= "EAA-test-token-publishing-e2e";
+
 const API_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 const ENV_TEST_PATH = path.join(API_DIR, ".env.test");
