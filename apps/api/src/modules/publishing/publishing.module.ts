@@ -31,6 +31,7 @@ import {
 import { AssetsController } from "./assets/assets.controller";
 import { PublishingAssetStore } from "./assets/publishing-asset.store";
 import { LocalFilesystemAssetByteRetriever } from "./assets/asset-byte-retriever";
+import { ManualExportArchiveService } from "./exports/manual-export-archive.service";
 
 // Callbacks
 import { CallbacksController } from "./callbacks/callbacks.controller";
@@ -72,6 +73,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     BusinessOwnershipGuard,
     InternalAuthGuard,
     PublishingAssetStore,
+    ManualExportArchiveService,
     // Asset integrity boundary (issue #119 G4 / §9.2). #121 supplies the real
     // byte retrieval via the committed local-filesystem store so dispatch
     // proves retrieved media bytes against the approved SHA-256 digests before

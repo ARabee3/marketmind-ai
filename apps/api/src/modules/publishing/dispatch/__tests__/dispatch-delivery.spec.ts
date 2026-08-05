@@ -23,7 +23,7 @@ import { DispatchEnvelopeBuilder } from "../dispatch-envelope.builder";
 import { PrismaService } from "../../../../common/persistence/prisma.service";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
-import { throwError } from "rxjs";
+import { of, throwError } from "rxjs";
 import type { PublicationDispatchBodyV1 } from "@marketmind/contracts";
 
 const N8N_URL = "http://localhost:5678/webhook/publish";
@@ -243,5 +243,40 @@ describe("DispatchProcessor — real safeHttp → ambiguous delivery (P1 #119)",
         data: expect.objectContaining({ outcome: "FAILED", retryable: false }),
       }),
     );
+  });
+});
+
+describe("N8nClientService — explicit webhook acknowledgement", () => {
+  it("accepts only the workflow's 202 acknowledgement", async () => {
+    const http = {
+      post: jest.fn(
+        () =>
+          of({
+            status: 202,
+            data: { accepted: true, executionId: "execution-1" },
+          }) as never,
+      ),
+    } as unknown as HttpService;
+    const client = new N8nClientService(http, n8nConfig());
+
+    await expect(client.dispatch(buildRealBody())).resolves.toEqual({
+      accepted: true,
+      executionId: "execution-1",
+    });
+  });
+
+  it("rejects a default 200 response that did not acknowledge dispatch", async () => {
+    const http = {
+      post: jest.fn(
+        () => of({ status: 200, data: { accepted: false } }) as never,
+      ),
+    } as unknown as HttpService;
+    const client = new N8nClientService(http, n8nConfig());
+    jest.spyOn(client["logger"], "error").mockImplementation(() => {});
+
+    await expect(client.dispatch(buildRealBody())).rejects.toMatchObject({
+      name: "SafeHttpError",
+      ambiguousDelivery: false,
+    });
   });
 });

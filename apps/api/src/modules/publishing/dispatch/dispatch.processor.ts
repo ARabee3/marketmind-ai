@@ -159,16 +159,19 @@ export class DispatchProcessor extends WorkerHost {
       const n8nResult = await this.n8n.dispatch(body!);
 
       await this.prisma.$transaction(async (tx) => {
-        await tx.publishingAttempt.update({
-          where: { id: attemptId },
+        // A fast n8n callback can finish while the 202 response is travelling
+        // back. Predicate both writes so this acknowledgement can never
+        // regress SUCCEEDED/FAILED/UNKNOWN state back to DISPATCHING.
+        await tx.publishingAttempt.updateMany({
+          where: { id: attemptId, status: "DISPATCHING" },
           data: {
             status: "DISPATCHING", // = dispatched to n8n (not yet published)
             n8nExecutionRef: n8nResult.executionId ?? null,
             dispatchedAt: new Date(),
           },
         });
-        await tx.publishingIntent.update({
-          where: { id: intentId },
+        await tx.publishingIntent.updateMany({
+          where: { id: intentId, version, status: "SCHEDULED" },
           data: { status: "DISPATCHING" },
         });
       });

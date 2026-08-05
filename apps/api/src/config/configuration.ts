@@ -121,6 +121,12 @@ content: {
     assetStoreDir:
       process.env.PUBLISHING_ASSET_STORE_DIR ||
       path.resolve(process.cwd(), "test-assets/publishing"),
+    // Local immutable store for generated manual-export archives. The API
+    // exposes files through an ownership-checked download endpoint, so this
+    // filesystem path is never returned to clients.
+    exportStoreDir:
+      process.env.PUBLISHING_EXPORT_STORE_DIR ||
+      path.resolve(process.cwd(), ".publishing-exports"),
   },
 
   billing: {

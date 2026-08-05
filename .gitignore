@@ -36,5 +36,8 @@ __pycache__/
 # Orchestration / review session artifacts
 .omo/
 
+# Generated publishing export archives
+.publishing-exports/
+
 # Local/private implementation notes (personal scratchpad, not for commit)
 Issues/

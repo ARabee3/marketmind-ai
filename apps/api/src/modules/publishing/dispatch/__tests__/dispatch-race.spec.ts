@@ -184,6 +184,40 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(assetIntegrity.validateForDispatch).toHaveBeenCalled();
   });
 
+  it("does not regress a fast callback when recording the n8n acknowledgement", async () => {
+    const attemptAcknowledgement = jest.fn().mockResolvedValue({ count: 0 });
+    const intentAcknowledgement = jest.fn().mockResolvedValue({ count: 0 });
+    (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+    (prisma.$transaction as jest.Mock)
+      .mockResolvedValueOnce({
+        replayed: false,
+        attemptId: "attempt-1",
+        status: "QUEUED",
+        body,
+      })
+      .mockImplementationOnce(async (cb: (tx: any) => unknown) =>
+        cb({
+          publishingAttempt: { updateMany: attemptAcknowledgement },
+          publishingIntent: { updateMany: intentAcknowledgement },
+        }),
+      );
+
+    await processor.process(job);
+
+    expect(attemptAcknowledgement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "attempt-1", status: "DISPATCHING" },
+        data: expect.objectContaining({ status: "DISPATCHING" }),
+      }),
+    );
+    expect(intentAcknowledgement).toHaveBeenCalledWith({
+      where: { id: "i-1", version: 1, status: "SCHEDULED" },
+      data: { status: "DISPATCHING" },
+    });
+  });
+
   it("does NOT call n8n when the atomic claim loses (count === 0)", async () => {
     (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
       count: 0,

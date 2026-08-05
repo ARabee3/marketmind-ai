@@ -7,8 +7,11 @@ import {
   Put,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { IntentsService } from "./intents.service";
 import {
   ApproveIntentDto,
@@ -116,11 +119,9 @@ export class IntentsController {
     return this.intentsService.retryIntent(intentId, user.businessId, dto);
   }
 
-  /** Manual export dispatch (§8 draft → dispatching, then pending the #121
-   *  archive boundary). The owner's explicit Export action authorizes it; no
-   *  real-publication approval is required. The intent stays DISPATCHING and
-   *  no EXPORTED result is recorded until #121 produces a checksum-addressed
-   *  archive — never a synthesized artifact. */
+  /** Manual export dispatch (§8): creates the checksum-addressed archive and
+   *  records EXPORTED synchronously. The owner's explicit Export action
+   *  authorizes it; no real-publication approval is required. */
   @Post(":intentId/dispatch-export")
   dispatchExport(
     @Param("intentId") intentId: string,
@@ -169,5 +170,25 @@ export class IntentsController {
   ) {
     const user = req["user"] as { businessId: string };
     return this.intentsService.getExportMetadata(intentId, user.businessId);
+  }
+
+  @Get(":intentId/export/download")
+  async downloadExport(
+    @Param("intentId") intentId: string,
+    @Req() req: Record<string, unknown>,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = req["user"] as { businessId: string };
+    const archive = await this.intentsService.getExportArchive(
+      intentId,
+      user.businessId,
+    );
+    response.setHeader("Content-Type", archive.mimeType);
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${archive.fileName}"`,
+    );
+    response.setHeader("X-Publishing-Export-Checksum", archive.checksum);
+    return new StreamableFile(archive.bytes);
   }
 }
