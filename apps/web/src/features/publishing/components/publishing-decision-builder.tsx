@@ -208,7 +208,7 @@ export function PublishingDecisionBuilder({
                 : "neutral"
             }
           >
-            {intentStateLabel(intent.state, t)}
+            {intentStateLabel(intent.state, intent.mode, t)}
           </PublishingBadge>
         ) : null}
       </header>
@@ -886,10 +886,17 @@ function modeLabel(
 
 function intentStateLabel(
   state: PublicationIntentV1["state"],
+  mode: PublishingMode,
   t: ReturnType<typeof useTranslations<"Publishing">>,
 ): string {
   if (state === "scheduled") return t("runway.scheduled");
-  if (state === "succeeded") return t("runway.published");
+  // A succeeded outcome is mode-specific: exports and simulations were never
+  // published, so they must not be labeled "Published".
+  if (state === "succeeded") {
+    if (mode === "manual_export") return t("runway.exported");
+    if (mode === "simulation") return t("runway.simulation");
+    return t("runway.published");
+  }
   if (state === "failed") return t("runway.failed");
   if (state === "action_required") return t("runway.unknown");
   if (state === "cancelled") return t("runway.cancelled");
