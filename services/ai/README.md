@@ -44,6 +44,11 @@ Copy `.env.example` to `.env` and configure the providers you need:
 
 - `IMAGE_PROVIDER_MODE=mock`: deterministic local/test image bytes (default).
 - `IMAGE_PROVIDER_MODE=openai`: requires `OPENAI_API_KEY` and uses `IMAGE_MODEL`.
+- `IMAGE_PROVIDER_MODE=gemini`: requires `GEMINI_API_KEY` and `IMAGE_MODEL`
+  (e.g. `gemini-2.5-flash-image`). Supports fixed 1024x1024 only.
+- `IMAGE_PROVIDER_MODE=openrouter`: requires `OPEN_ROUTER_API_KEY`; set
+  `IMAGE_MODEL` to a paid Gemini image slug (e.g. `google/gemini-3.1-flash-image`,
+  "Nano Banana 2"). Supports fixed 1024x1024 only.
 - `IMAGE_PROVIDER_MODE=unavailable`: explicit prompt-only state for provider-disabled environments.
 - `IMAGE_REQUEST_TIMEOUT_MS`: image-provider timeout in milliseconds.
 - `CONTENT_ASSET_STORAGE_DIR`: required with the OpenAI image provider; points
