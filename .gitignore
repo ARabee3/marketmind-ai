@@ -35,3 +35,6 @@ __pycache__/
 
 # Orchestration / review session artifacts
 .omo/
+
+# Local/private implementation notes (personal scratchpad, not for commit)
+Issues/
