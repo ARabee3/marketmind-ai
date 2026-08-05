@@ -8,6 +8,7 @@ import type {
   CurrentJourneyPrimaryAction,
   CurrentJourneyProfileSummary,
   CurrentJourneyResponse,
+  CurrentJourneyContentReadiness,
   CurrentJourneyStrategyBusinessSnapshot,
   CurrentJourneyStrategyContext,
   DiscoverySessionStatus,
@@ -45,30 +46,7 @@ type AvailableStrategyStatus = Extract<
  * Content readiness surfaced by the journey. Read directly from the content
  * tables via the repository; the API never fabricates progress.
  */
-export type JourneyContentReadiness = {
-  readonly ready: boolean;
-  readonly reason: "no_cycle" | "cycle_active";
-  readonly cycle:
-    | {
-        readonly id: UUID;
-        readonly status: string;
-        readonly current_week: number;
-      }
-    | null;
-  readonly pack:
-    | {
-        readonly id: UUID;
-        readonly status: string;
-        readonly week_number: number;
-        readonly failed: boolean;
-        readonly pending_decisions: number;
-      }
-    | null;
-};
-
-export type JourneyCurrentResponse = CurrentJourneyResponse & {
-  readonly content: JourneyContentReadiness;
-};
+export type JourneyCurrentResponse = CurrentJourneyResponse;
 
 @Injectable()
 export class JourneyService {
@@ -96,7 +74,9 @@ export class JourneyService {
   }
 }
 
-function currentOwner(owner: JourneyCurrentRecord["owner"]): CurrentJourneyOwner {
+function currentOwner(
+  owner: JourneyCurrentRecord["owner"],
+): CurrentJourneyOwner {
   return {
     user_id: owner.id,
     full_name: owner.fullName,
@@ -156,7 +136,9 @@ function confirmedJourney(session: JourneySessionRecord): CurrentJourney {
   };
 }
 
-function discoverySummary<TStatus extends Exclude<DiscoverySessionStatus, "not_started">>(
+function discoverySummary<
+  TStatus extends Exclude<DiscoverySessionStatus, "not_started">,
+>(
   session: JourneySessionRecord,
   status: TStatus,
 ): CurrentJourneyDiscoverySummary<TStatus> {
@@ -289,7 +271,11 @@ function strategyContext(
   journey: CurrentJourney,
   strategy: JourneyStrategySummary | null,
 ): CurrentJourneyStrategyContext {
-  if (strategy && strategy.status !== "needs_brief" && strategy.status !== "failed") {
+  if (
+    strategy &&
+    strategy.status !== "needs_brief" &&
+    strategy.status !== "failed"
+  ) {
     return {
       phase: "strategy",
       availability: "available",
@@ -367,7 +353,9 @@ function strategyBusinessSnapshot(
   return null;
 }
 
-function contentReadiness(content: JourneyContentRecord): JourneyContentReadiness {
+function contentReadiness(
+  content: JourneyContentRecord,
+): CurrentJourneyContentReadiness {
   if (!content.cycle) {
     return {
       ready: false,

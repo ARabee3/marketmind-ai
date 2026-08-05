@@ -20,9 +20,11 @@
     "navDiscovery": "Discovery",
     "navDashboard": "Dashboard",
     "navStrategy": "Strategy",
+    "navPublishing": "Publishing",
     "navBilling": "Billing",
     "primaryNavLabel": "Primary",
     "mobileNavLabel": "Mobile primary",
+    "skipToMain": "Skip to main content",
     "workspaceLabel": "Workspace",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -1273,48 +1275,31 @@
           "no": "01",
           "label": "Receive business data",
           "desc": "You enter your business name, category, and location — the starting point for research.",
-          "chips": [
-            "Name",
-            "Category",
-            "Location"
-          ]
+          "chips": ["Name", "Category", "Location"]
         },
         {
           "no": "02",
           "label": "Plan and run research",
           "desc": "We turn your intake into search queries and run them against real sources.",
-          "chips": [
-            "Search sources",
-            "Local directories",
-            "Fallbacks"
-          ]
+          "chips": ["Search sources", "Local directories", "Fallbacks"]
         },
         {
           "no": "03",
           "label": "Filter evidence",
           "desc": "We remove unrelated results and keep relevant findings with their sources.",
-          "chips": [
-            "Filtering",
-            "Source mapping"
-          ]
+          "chips": ["Filtering", "Source mapping"]
         },
         {
           "no": "04",
           "label": "First research-backed question",
           "desc": "We ask a question that completes the picture, based on what was found.",
-          "chips": [
-            "Smart question",
-            "Research context"
-          ]
+          "chips": ["Smart question", "Research context"]
         },
         {
           "no": "05",
           "label": "Confirmed profile",
           "desc": "Every fact you confirm is saved as a trusted business profile fact.",
-          "chips": [
-            "Owner confirmation",
-            "Evidence saved"
-          ]
+          "chips": ["Owner confirmation", "Evidence saved"]
         }
       ]
     },
@@ -1437,6 +1422,216 @@
       "review": "Needs review",
       "discard": "Discarded",
       "inference": "Research suggestion"
+    }
+  },
+  "Publishing": {
+    "metadata": {
+      "title": "Publishing workspace"
+    },
+    "header": {
+      "badge": "Owner control",
+      "title": "Publishing workspace",
+      "subtitle": "Turn one approved content item into one clear, safe outcome.",
+      "weekContext": "Week {week} of 12",
+      "timezone": "All schedules use Africa/Cairo",
+      "history": "Intent history"
+    },
+    "readiness": {
+      "title": "Approval readiness",
+      "ready": "Ready for the next owner decision",
+      "needsAttention": "Complete the checks below before the next owner decision",
+      "candidate": "Approved candidate is selected",
+      "candidateMissing": "Choose an approved candidate",
+      "content": "Content cycle is active",
+      "contentMissing": "Approved Content is not ready yet",
+      "target": "A compatible Meta target is connected",
+      "targetMissing": "Real publishing needs a connected target",
+      "approval": "Exact decision details are visible",
+      "noTarget": "Export and simulation are still available",
+      "connectUnavailable": "Account connection is not available in this environment",
+      "lastChecked": "Last checked {time}",
+      "readyLabel": "Ready",
+      "checkLabel": "Check required"
+    },
+    "runway": {
+      "label": "12-week publication runway",
+      "week": "Week {week}",
+      "current": "Current",
+      "next": "Next",
+      "candidateCount": "{count} approved",
+      "empty": "No approved item",
+      "needsDecision": "Needs decision",
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "exported": "Exported",
+      "simulation": "Simulation",
+      "failed": "Failed",
+      "unknown": "Unknown",
+      "cancelled": "Cancelled"
+    },
+    "queue": {
+      "label": "Approved candidates",
+      "weekLabel": "Week {week}",
+      "selected": "Selected",
+      "active": "Ready",
+      "waiting": "Waiting",
+      "scheduled": "Already scheduled",
+      "revoked": "Withdrawn",
+      "replaced": "Replaced",
+      "emptyTitle": "No approved candidates for this week",
+      "emptyBody": "Approved Content items will appear here when the Content cycle is ready.",
+      "choose": "Review candidate"
+    },
+    "preview": {
+      "eyebrow": "Immutable candidate",
+      "title": "Exact content version",
+      "body": "Publishing cannot edit this item. A change must create a new Content version.",
+      "channel": "Channel",
+      "format": "Format",
+      "locale": "Locale",
+      "sourceWeek": "Strategy week",
+      "contentVersion": "Content version",
+      "caption": "Caption",
+      "cta": "Call to action",
+      "hashtags": "Hashtags",
+      "altText": "Alt text",
+      "asset": "Approved asset",
+      "assetUnavailable": "The asset could not be loaded. The candidate remains read-only.",
+      "checksum": "Candidate checksum",
+      "copyChecksum": "Copy checksum",
+      "copied": "Checksum copied",
+      "window": "Recommended Cairo window",
+      "noCta": "No CTA supplied"
+    },
+    "mode": {
+      "label": "What should happen?",
+      "real": "Real publishing",
+      "realDescription": "Post this exact item to a connected Meta account at the approved time.",
+      "export": "Manual export",
+      "exportDescription": "Build a downloadable archive. Nothing will be posted.",
+      "simulation": "Simulation",
+      "simulationDescription": "Validate the workflow without contacting a social platform.",
+      "permanentLabel": "SIMULATION stays visible on the result",
+      "realLabel": "Real",
+      "exportLabel": "Manual export",
+      "simulationLabel": "SIMULATION",
+      "realUnavailable": "Real publishing is unavailable until an authorized target is connected.",
+      "changeMode": "To change mode, cancel this intent and start a new one."
+    },
+    "target": {
+      "label": "Connected account",
+      "choose": "Choose a target",
+      "connected": "Connected",
+      "expired": "Authorization expired",
+      "revoked": "Connection revoked",
+      "error": "Connection needs attention",
+      "lastVerified": "Verified {date}",
+      "capability": "Static image supported",
+      "noConnected": "No connected Meta target is available.",
+      "connect": "Connect an account",
+      "connectUnavailable": "Connection setup is not available yet. Export or simulate this item instead.",
+      "verify": "Verify connection",
+      "providerMeta": "Meta"
+    },
+    "schedule": {
+      "label": "Cairo schedule",
+      "dateLabel": "Date and time",
+      "helper": "The API confirms the exact local time before approval.",
+      "local": "Local time",
+      "zone": "IANA zone",
+      "utc": "Normalized UTC",
+      "notConfirmed": "Not confirmed yet",
+      "schedule": "Save target and time",
+      "reschedule": "Replace schedule",
+      "invalid": "Choose a future Cairo date and time.",
+      "scheduleChanged": "Previous approval no longer applies. Review the new decision.",
+      "schedulePending": "Checking the exact schedule…",
+      "cairo": "Africa/Cairo"
+    },
+    "decision": {
+      "label": "Owner decision",
+      "next": "Next safe action",
+      "createReal": "Set up real publishing",
+      "createExport": "Create export",
+      "runSimulation": "Run simulation",
+      "working": "Saving the decision…",
+      "reviewApproval": "Review exact approval",
+      "approve": "Approve and schedule",
+      "cancel": "Cancel intent",
+      "retry": "Retry proven failure",
+      "refresh": "Refresh status",
+      "noAction": "No action is available yet",
+      "realConsequence": "Approval will authorize external publication at the exact time shown.",
+      "exportConsequence": "This creates files only. It does not publish or change a social account.",
+      "simulationConsequence": "No social account will change. The result will be labeled SIMULATION.",
+      "scheduledConsequence": "This item is scheduled for the connected account shown above.",
+      "unknownConsequence": "Do not repost or retry. MarketMind is checking whether the provider received the request.",
+      "dispatching": "Working through the publishing boundary…",
+      "cancelled": "This intent is read-only. Start a new decision if the candidate is still active.",
+      "stale": "The state changed elsewhere. Review the latest version before acting."
+    },
+    "dialog": {
+      "title": "Approve this exact publication?",
+      "body": "This records your approval for one immutable intent and one schedule.",
+      "warning": "Approval can authorize an external post. It does not edit Content or change the confirmed business profile.",
+      "candidate": "Candidate",
+      "target": "Target",
+      "mode": "Mode",
+      "real": "Real publishing",
+      "manualExport": "Manual export",
+      "simulation": "Simulation",
+      "local": "Cairo local",
+      "utc": "UTC",
+      "cancel": "Keep reviewing",
+      "confirm": "Confirm decision"
+    },
+    "cancelDialog": {
+      "title": "Cancel this publishing intent?",
+      "body": "This stops the current decision. Nothing new will be published, exported, or simulated from this intent.",
+      "warning": "If this item is scheduled, its delayed job will be cancelled. You can start a new decision from the active candidate.",
+      "keep": "Keep intent",
+      "confirm": "Cancel intent"
+    },
+    "outcome": {
+      "title": "Latest outcome",
+      "published": "Published to {target}",
+      "exported": "Exported — not published",
+      "simulated": "SIMULATION — nothing was published",
+      "failed": "Publication failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown — do not retry",
+      "remoteLink": "Open published result",
+      "download": "Download archive",
+      "downloadError": "The archive could not be downloaded. Refresh and try again.",
+      "manifest": "Archive manifest",
+      "artifact": "Artifact",
+      "checksum": "Checksum",
+      "generated": "Generated",
+      "pendingExport": "Export is being assembled. It is not ready to download yet.",
+      "notAvailable": "No result has been confirmed yet."
+    },
+    "history": {
+      "title": "Decision and result history",
+      "approval": "Approval",
+      "attempt": "Attempt {number}",
+      "created": "Intent created",
+      "scheduled": "Schedule confirmed",
+      "unknown": "Provider outcome needs review",
+      "empty": "No activity recorded for this intent yet.",
+      "version": "Intent version {version}",
+      "at": "{date}"
+    },
+    "empty": {
+      "title": "Publishing starts with approved Content",
+      "body": "When the Content cycle produces an approved candidate, you can choose a mode and make one clear owner decision here.",
+      "goContent": "Review Content",
+      "tryAgain": "Try again"
+    },
+    "error": {
+      "title": "Publishing could not load",
+      "body": "We could not load the latest candidates and decisions. Nothing was published by this screen.",
+      "retry": "Try again",
+      "unknown": "Something changed while you were reviewing. Refresh the latest state before trying again."
     }
   },
   "Billing": {
