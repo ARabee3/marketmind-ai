@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
-ImageProviderMode = Literal["mock", "openai", "unavailable"]
+ImageProviderMode = Literal["mock", "openai", "gemini", "openrouter", "unavailable"]
 AssetStorageProvider = Literal["filesystem", "r2", "unavailable"]
 
 
@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     open_router_api_key: str = ""
     open_router_model: str = ""
+    ai_temperature: float | None = Field(default=None, ge=0, le=2)
+    ai_top_p: float | None = Field(default=None, ge=0, le=1)
 
     # Static-image provider configuration. The image provider is deliberately
     # separate from text generation so unavailable media remains explicit.

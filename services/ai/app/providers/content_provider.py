@@ -118,10 +118,20 @@ def _is_retryable_provider_exception(error: Exception) -> bool:
 class OpenAIContentProvider(ContentLLMProvider):
     name = "openai"
 
-    def __init__(self, api_key: str, model: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout_seconds: float,
+        *,
+        temperature: float | None = None,
+        top_p: float | None = None,
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
+        self.top_p = top_p
 
     async def generate_content_pack(
         self, prompt: PromptAssembly
@@ -161,6 +171,11 @@ class OpenAIContentProvider(ContentLLMProvider):
                 timeout=self.timeout_seconds,
                 max_retries=0,
             )
+            sampling: dict[str, float] = {}
+            if self.temperature is not None:
+                sampling["temperature"] = self.temperature
+            if self.top_p is not None:
+                sampling["top_p"] = self.top_p
             response = client.responses.parse(
                 model=self.model,
                 store=False,
@@ -169,6 +184,7 @@ class OpenAIContentProvider(ContentLLMProvider):
                     {"role": "user", "content": prompt.user_prompt},
                 ],
                 text_format=ContentPackProviderOutput,
+                **sampling,
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -201,10 +217,20 @@ class OpenAIContentProvider(ContentLLMProvider):
 class GeminiContentProvider(ContentLLMProvider):
     name = "gemini_dev"
 
-    def __init__(self, api_key: str, model: str, timeout_ms: int) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout_ms: int,
+        *,
+        temperature: float | None = None,
+        top_p: float | None = None,
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_ms = timeout_ms
+        self.temperature = temperature
+        self.top_p = top_p
 
     async def generate_content_pack(
         self, prompt: PromptAssembly
@@ -246,6 +272,11 @@ class GeminiContentProvider(ContentLLMProvider):
             schema = _strip_additional_properties(
                 copy.deepcopy(ContentPackProviderOutput.model_json_schema())
             )
+            sampling: dict[str, float] = {}
+            if self.temperature is not None:
+                sampling["temperature"] = self.temperature
+            if self.top_p is not None:
+                sampling["top_p"] = self.top_p
             client = genai.Client(api_key=self.api_key)
             response = client.models.generate_content(
                 model=self.model,
@@ -255,6 +286,7 @@ class GeminiContentProvider(ContentLLMProvider):
                     response_mime_type="application/json",
                     response_schema=schema,
                     http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    **sampling,
                 ),
             )
             output = _parse_json_provider_output(response.text or "{}")
@@ -283,10 +315,20 @@ class OpenRouterContentProvider(ContentLLMProvider):
 
     name = "openrouter"
 
-    def __init__(self, api_key: str, model: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout_seconds: float,
+        *,
+        temperature: float | None = None,
+        top_p: float | None = None,
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
+        self.top_p = top_p
 
     async def generate_content_pack(
         self, prompt: PromptAssembly
@@ -327,6 +369,11 @@ class OpenRouterContentProvider(ContentLLMProvider):
                 timeout=self.timeout_seconds,
                 max_retries=0,
             )
+            sampling: dict[str, float] = {}
+            if self.temperature is not None:
+                sampling["temperature"] = self.temperature
+            if self.top_p is not None:
+                sampling["top_p"] = self.top_p
             response = client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -341,6 +388,7 @@ class OpenRouterContentProvider(ContentLLMProvider):
                         "schema": ContentPackProviderOutput.model_json_schema(),
                     },
                 },
+                **sampling,
             )
             if not response.choices:
                 raise ProviderError(
@@ -792,18 +840,24 @@ def create_content_provider(settings: Settings) -> ContentLLMProvider:
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             timeout_seconds=settings.ai_request_timeout_ms / 1000,
+            temperature=settings.ai_temperature,
+            top_p=settings.ai_top_p,
         )
     if settings.ai_provider_mode == "gemini_dev":
         return GeminiContentProvider(
             api_key=settings.gemini_api_key,
             model=settings.gemini_model,
             timeout_ms=settings.ai_request_timeout_ms,
+            temperature=settings.ai_temperature,
+            top_p=settings.ai_top_p,
         )
     if settings.ai_provider_mode == "openrouter":
         return OpenRouterContentProvider(
             api_key=settings.open_router_api_key,
             model=settings.open_router_model,
             timeout_seconds=settings.ai_request_timeout_ms / 1000,
+            temperature=settings.ai_temperature,
+            top_p=settings.ai_top_p,
         )
     if settings.ai_provider_mode == "mock":
         return MockContentProvider()

@@ -134,6 +134,76 @@ async def test_openai_content_adapter_disables_sdk_retries_and_storage(
 
 
 @pytest.mark.asyncio
+async def test_openai_content_adapter_threads_sampling_settings(monkeypatch) -> None:
+    import openai
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "openai", "fictional-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    captured: dict = {}
+
+    class FakeResponses:
+        def parse(self, **arguments):
+            captured["request"] = arguments
+            return SimpleNamespace(
+                output_parsed={
+                    "item_versions": [
+                        item.model_dump(mode="json") for item in valid_items
+                    ]
+                }
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIContentProvider(
+        "fictional-key", "fictional-model", 10, temperature=0.4, top_p=0.9
+    )
+
+    await provider.generate_content_pack(prompt)
+
+    assert captured["request"]["temperature"] == 0.4
+    assert captured["request"]["top_p"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_openai_content_adapter_omits_sampling_when_unset(monkeypatch) -> None:
+    import openai
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "openai", "fictional-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    captured: dict = {}
+
+    class FakeResponses:
+        def parse(self, **arguments):
+            captured["request"] = arguments
+            return SimpleNamespace(
+                output_parsed={
+                    "item_versions": [
+                        item.model_dump(mode="json") for item in valid_items
+                    ]
+                }
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIContentProvider("fictional-key", "fictional-model", 10)
+
+    await provider.generate_content_pack(prompt)
+
+    assert "temperature" not in captured["request"]
+    assert "top_p" not in captured["request"]
+
+
+@pytest.mark.asyncio
 async def test_generation_repairs_schema_failure_once() -> None:
     request = make_valid_request()
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
