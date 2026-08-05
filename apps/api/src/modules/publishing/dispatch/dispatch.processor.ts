@@ -23,12 +23,15 @@ export interface DispatchJobData {
  * Dispatch processor — consumes 'dispatch' jobs from the 'publishing-dispatch' queue.
  *
  * Full revalidation checklist (§9.2) runs inside a DB transaction:
- *   1. intent version + status (SCHEDULED);
- *   2. approval row matches the approved intent version;
- *   3. candidate ACTIVE and checksum matches the approval snapshot;
- *   4. target CONNECTED and not expired;
- *   5. no successful/in-flight attempt already exists for this version;
- *   6. (asset integrity) retrieved media bytes match the approved digests
+ *   1. intent version + status (SCHEDULED or DISPATCHING, see P1 atomic claim);
+ *   2. ATOMIC INTENT CLAIM (P1 #123): `UPDATE … WHERE id, version, status IN
+ *      ('SCHEDULED','DISPATCHING')` — zero rows affected aborts the job before
+ *      any n8n call (reschedule bumped the version, or cancel moved the state);
+ *   3. approval row matches the approved intent version;
+ *   4. candidate ACTIVE and checksum matches the approval snapshot;
+ *   5. target CONNECTED and not expired;
+ *   6. no successful/in-flight attempt already exists for this version;
+ *   7. (asset integrity) retrieved media bytes match the approved digests
  *      via the frozen validateRetrievedPublicationAssetsV1 contract validator.
  *
  * Idempotency model (issue #119 / contract publication-attempt-v1):
@@ -171,7 +174,15 @@ export class DispatchProcessor extends WorkerHost {
           },
         });
         await tx.publishingIntent.updateMany({
-          where: { id: intentId, version, status: "SCHEDULED" },
+          // The intent was already claimed to DISPATCHING inside the
+          // revalidation tx; this predicate is the anti-regression guard — a
+          // fast n8n callback that already moved the intent to a terminal
+          // state matches 0 rows and is left untouched.
+          where: {
+            id: intentId,
+            version,
+            status: { in: ["SCHEDULED", "DISPATCHING"] },
+          },
           data: { status: "DISPATCHING" },
         });
       });
@@ -190,6 +201,16 @@ export class DispatchProcessor extends WorkerHost {
       // idempotency key — never an automatic re-dispatch.
       const ambiguous = this.isAmbiguousDelivery(err);
       const sanitized = this.sanitizeError(err);
+      // P1 (#123): stamp a stable, grep-able sentinel on AMBIGUOUS (post-send)
+      // deliveries only so admin tooling can reconcile stuck dispatches
+      // deterministically without parsing redacted network messages. Prepended
+      // AFTER `sanitizeError` has redacted secrets and applied the 512-char
+      // cap, so the sentinel itself can never be truncated away or contaminated
+      // by raw error text. Deterministic pre-send failures keep the plain
+      // sanitized message.
+      const storedError = ambiguous
+        ? `STUCK_DISPATCH_TIMEOUT: ${sanitized}`
+        : sanitized;
       this.logger.error(
         `Dispatch ${ambiguous ? "timed out ambiguously" : "failed deterministically"} for attempt=${attemptId}: ${(err as Error).message}`,
       );
@@ -199,7 +220,7 @@ export class DispatchProcessor extends WorkerHost {
           where: { id: attemptId },
           data: {
             status: ambiguous ? "UNKNOWN" : "FAILED",
-            sanitizedError: sanitized,
+            sanitizedError: storedError,
             finishedAt: now,
           },
         });
@@ -222,7 +243,7 @@ export class DispatchProcessor extends WorkerHost {
               // therefore marks UNKNOWN as non-retryable.
               retryable: false,
               rawPayloadHash: null,
-              sanitizedError: sanitized,
+              sanitizedError: storedError,
               occurredAt: now,
             },
           });
@@ -289,10 +310,45 @@ export class DispatchProcessor extends WorkerHost {
             `${PublishingErrorCode.STATE_CONFLICT}: intent version mismatch (expected ${version}, current ${intent.version})`,
           );
         }
-        // §9.2 Check 2: status must be SCHEDULED
-        if (intent.status !== "SCHEDULED") {
+        // §9.2 Check 2: status must be claimable. DISPATCHING is accepted for
+        // BullMQ retry safety: if a prior run of this job crashed AFTER the
+        // atomic claim below (intent DISPATCHING) but BEFORE the attempt row
+        // committed, the retry must be able to reclaim and complete the
+        // dispatch instead of dead-lettering. The version predicate + the
+        // atomic claim below still gate staleness; a cancelled intent or a
+        // newer version can never be claimed.
+        if (
+          intent.status !== "SCHEDULED" &&
+          intent.status !== "DISPATCHING"
+        ) {
           throw new Error(
             `${PublishingErrorCode.STATE_CONFLICT}: intent status is "${intent.status}", expected SCHEDULED`,
+          );
+        }
+
+        // ── P1 (#123) ATOMIC INTENT CLAIM ─────────────────────────────────
+        // Optimistically claim the intent for THIS dispatch. The version
+        // predicate makes the claim stale-job-safe: a reschedule bumps
+        // `version`, a cancel moves the status out of the claimable set, so a
+        // stale delayed job's claim updates 0 rows and the job aborts here —
+        // BEFORE any n8n call. `IN ('SCHEDULED','DISPATCHING')` allows a
+        // BullMQ retry of a job whose prior run claimed the intent but crashed
+        // before the attempt row committed to reclaim it. Any later check in
+        // this tx that fails rolls the DISPATCHING flip back with the
+        // transaction.
+        const intentClaim = await tx.publishingIntent.updateMany({
+          where: {
+            id: intentId,
+            version,
+            status: { in: ["SCHEDULED", "DISPATCHING"] },
+          },
+          data: { status: "DISPATCHING" },
+        });
+        if (intentClaim.count !== 1) {
+          // A newer version (reschedule) or a state change (cancel) won the
+          // race. Abort this job immediately — do NOT call n8n.
+          throw new Error(
+            `${PublishingErrorCode.STATE_CONFLICT}: intent ${intentId} no longer claimable at v${version} (status ${intent.status})`,
           );
         }
 

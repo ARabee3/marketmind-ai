@@ -213,7 +213,14 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
       }),
     );
     expect(intentAcknowledgement).toHaveBeenCalledWith({
-      where: { id: "i-1", version: 1, status: "SCHEDULED" },
+      // P1 (#123): the intent is pre-claimed to DISPATCHING by the revalidation
+      // tx, so the ack guard accepts both claimable states and never regresses
+      // a terminal state reached by a fast callback.
+      where: {
+        id: "i-1",
+        version: 1,
+        status: { in: ["SCHEDULED", "DISPATCHING"] },
+      },
       data: { status: "DISPATCHING" },
     });
   });
@@ -362,6 +369,9 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
           scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
           timezone: "Africa/Cairo",
         }),
+        // P1 (#123): the atomic intent claim must win (count === 1) so the
+        // revalidation continues to the attempt create + fingerprint stamp.
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       publishingApproval: {
         findFirst: jest.fn().mockResolvedValue({
