@@ -1,0 +1,1 @@
+"""Per-case pass/fail report engine; never aggregate-only (Phase 4)."""

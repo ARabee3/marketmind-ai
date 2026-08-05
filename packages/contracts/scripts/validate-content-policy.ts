@@ -5,6 +5,8 @@ import {
   computePublicationCandidateChecksum,
   isPublicationCandidateChecksumValid,
   validateInternalContentGenerateRequest,
+  validatePlatformConstraints,
+  validateRecommendedWindow,
   validatePublicationCandidateV1,
   validateContentPolicyFixture,
   validateContentSchema,
@@ -397,6 +399,41 @@ assert.deepEqual(
   missing,
   [],
   `content policy must assert all stable codes; missing: ${missing.join(", ")}`,
+);
+
+const validItem = await load("content-item-version-generated-asset.example.json");
+assert.deepEqual(
+  validatePlatformConstraints(validItem),
+  [],
+  "platform constraints: generated-asset item must have no warnings",
+);
+
+const overCaptionItem = structuredClone(validItem);
+overCaptionItem.caption_variants[0].caption = "x".repeat(3000);
+const warnings = validatePlatformConstraints(overCaptionItem);
+assert(
+  warnings.some((warning) => warning.field === "caption"),
+  "platform constraints: caption over Instagram limit must warn",
+);
+
+const validWindow = validateRecommendedWindow(
+  validItem.recommended_publish_window,
+);
+assert.deepEqual(
+  validWindow.issues,
+  [],
+  "recommended window: valid window must have no issues",
+);
+const nightWindow = validateRecommendedWindow({
+  ...validItem.recommended_publish_window,
+  starts_at: "2026-08-04T12:00:00+03:00",
+  time_of_day_hint: "night",
+});
+assert(
+  nightWindow.issues.some(
+    (issue) => issue.code === "CONTENT_PLATFORM_CONSTRAINT",
+  ),
+  "recommended window: night-hint in daytime must warn",
 );
 
 console.log("Content cross-object policy fixtures are valid.");

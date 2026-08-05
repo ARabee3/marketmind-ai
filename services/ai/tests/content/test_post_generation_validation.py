@@ -44,6 +44,7 @@ def _asset_for(item, *, status: str = "ready", kind: str = "owner_supplied") -> 
         provider_model=None,
         provider_request_id=None,
         failure_code=None,
+        review_required=kind == "generated_static",
         created_at=item.created_at,
     )
 

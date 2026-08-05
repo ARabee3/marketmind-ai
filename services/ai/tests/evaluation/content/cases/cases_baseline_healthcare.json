@@ -1,0 +1,996 @@
+{
+  "version": "content-eval-baseline-v1",
+  "schema_version": "content-eval-v1",
+  "cases": [
+    {
+      "case_id": "healthcare-ar-week1-baseline",
+      "schema_version": "content-eval-v1",
+      "sector": "healthcare",
+      "language_mode": "ar",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "health-awareness",
+            "name": "General wellness tips"
+          },
+          {
+            "pillar_id": "health-trust",
+            "name": "Clinic credentials"
+          },
+          {
+            "pillar_id": "health-appointment",
+            "name": "Appointment prompts"
+          }
+        ],
+        "tone": "calm, trustworthy, and cautious",
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+        "week_number": 1,
+        "prior_content_pack_id": null,
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [
+            "نصائح عامة خيالية للعافية"
+          ],
+          "must_avoid": [
+            "تشخيص أو ادعاءات طبية"
+          ],
+          "approved_asset_ids": [],
+          "cta_destination_type": "phone",
+          "cta_destination_value": "+201000000005"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Al-Salam Family Clinic — Fictional",
+        "owner_name": "Dr. Karim Fictional",
+        "handles": [
+          "@fictionalalsalamclinic"
+        ],
+        "addresses": [
+          "88 Fictional Health Street, Demo District, Mansoura"
+        ],
+        "prices": [
+          "EGP 200 fictional consultation fee"
+        ],
+        "offer_terms": [
+          "Complimentary fictional blood-pressure check"
+        ],
+        "owner_text": "يقول المالك: شارك فقط نصائح عامة خيالية للعافية ولا تقم أبدًا بالتشخيص."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "regulated_claim": "pass",
+          "funnel_mix": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic healthcare baseline, regulated-claim safe."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Healthcare Week 1 Arabic baseline: general wellness tips only, no medical claims.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "2f15eb09-a464-55f5-8776-b01225719630",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "6b260b88-a210-5048-9992-b9f7c17078e0",
+          "strategy_id": "2f15eb09-a464-55f5-8776-b01225719630",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "db186bd9-45b1-5832-8a24-29c2c68e4976",
+        "current_profile_version_id": "db186bd9-45b1-5832-8a24-29c2c68e4976",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+            "week_number": 1,
+            "weekly_claim_id": "0096c7d5-2e8c-5559-b42f-055e503d9846"
+          }
+        ],
+        "week_context": {
+          "id": "6c2f8dac-db4a-5c76-be03-a317bfda2d54",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "week_number": 1,
+          "week_start_date": "2026-08-03",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [
+            "نصائح عامة خيالية للعافية"
+          ],
+          "must_avoid": [
+            "تشخيص أو ادعاءات طبية"
+          ],
+          "approved_asset_ids": [
+            "397477f7-0d31-58ce-82fd-365cfc6d0467"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000005"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "0096c7d5-2e8c-5559-b42f-055e503d9846"
+        },
+        "pack": {
+          "id": "33d2f19d-31e1-5a69-b5e9-c44e723ea912",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "weekly_claim_id": "0096c7d5-2e8c-5559-b42f-055e503d9846",
+          "week_number": 1,
+          "business_id": "0dfebf35-bef0-54a5-a26a-fd25a8efe156",
+          "strategy_id": "2f15eb09-a464-55f5-8776-b01225719630",
+          "strategy_version": 1,
+          "strategy_decision_id": "6b260b88-a210-5048-9992-b9f7c17078e0",
+          "profile_version_id": "db186bd9-45b1-5832-8a24-29c2c68e4976",
+          "week_context_id": "6c2f8dac-db4a-5c76-be03-a317bfda2d54",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "31f6e25e-befa-55fd-846f-1729b7fc572d",
+            "3e0da7f1-25e9-537f-a9fb-c58d3a411112",
+            "6d54ddd5-ff93-59df-a8f6-5f62572e32ec"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "35a6a986-a189-57c5-a7de-e75b8967266a",
+          "contract_version": "content-v1",
+          "content_item_id": "31f6e25e-befa-55fd-846f-1729b7fc572d",
+          "content_pack_id": "33d2f19d-31e1-5a69-b5e9-c44e723ea912",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "ar-EG",
+          "strategy_trace": {
+            "strategy_id": "2f15eb09-a464-55f5-8776-b01225719630",
+            "strategy_version": 1,
+            "week_number": 1,
+            "pillar_ids": [
+              "health-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: General wellness tips. نصائح عامة خيالية للعافية تواصل معنا عبر phone: +201000000005",
+              "cta": "تواصل معنا عبر phone: +201000000005",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            }
+          ],
+          "cta": "تواصل معنا عبر phone: +201000000005",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for healthcare-ar-week1-baseline.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: General wellness tips. نصائح عامة خيالية للعافية تواصل معنا عبر phone: +201",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "397477f7-0d31-58ce-82fd-365cfc6d0467"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "75d313be-6c43-59ad-aef3-532c28793aa0",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "397477f7-0d31-58ce-82fd-365cfc6d0467",
+            "content_item_version_id": "35a6a986-a189-57c5-a7de-e75b8967266a",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/0dfebf35-bef0-54a5-a26a-fd25a8efe156/week-1/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: General wellness tips. نصائح عامة خيالية للعافية تواصل معنا عبر phone: +201",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "healthcare-mixed-week11-consecutive",
+      "schema_version": "content-eval-v1",
+      "sector": "healthcare",
+      "language_mode": "mixed",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "health-awareness",
+            "name": "General wellness tips"
+          },
+          {
+            "pillar_id": "health-trust",
+            "name": "Clinic credentials"
+          },
+          {
+            "pillar_id": "health-appointment",
+            "name": "Appointment prompts"
+          }
+        ],
+        "tone": "calm, trustworthy, and cautious",
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+        "week_number": 11,
+        "prior_content_pack_id": "pack-healthcare-week10-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [
+            "fictional wellness reminder"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "whatsapp",
+          "cta_destination_value": "+201000000005"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Al-Salam Family Clinic — Fictional",
+        "owner_name": "Dr. Karim Fictional",
+        "handles": [
+          "@fictionalalsalamclinic"
+        ],
+        "addresses": [
+          "88 Fictional Health Street, Demo District, Mansoura"
+        ],
+        "prices": [
+          "EGP 200 fictional consultation fee"
+        ],
+        "offer_terms": [
+          "Complimentary fictional blood-pressure check"
+        ],
+        "owner_text": "Owner says: share only fictional general wellness tips, never make medical claims or diagnose."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "consecutive_week": "pass",
+          "funnel_mix": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 11 consecutive, mixed language."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Healthcare Week 11 mixed-language consecutive-week generation: Week 10 active, Week 11 draft prepared before the final week.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "23769ab7-c9cb-50a8-a437-675e0a6531f6",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "d62931fd-8c39-534f-9f2f-80907d0a1124",
+          "strategy_id": "23769ab7-c9cb-50a8-a437-675e0a6531f6",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "27ec190a-e178-5f97-a4df-2144c7da8fd7",
+        "current_profile_version_id": "27ec190a-e178-5f97-a4df-2144c7da8fd7",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+            "week_number": 11,
+            "weekly_claim_id": "50fd7a86-bfa8-58f9-86b8-2eac2cddb025"
+          }
+        ],
+        "week_context": {
+          "id": "166e6e4b-4a9f-5628-b4e1-783faac46955",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "week_number": 11,
+          "week_start_date": "2026-10-12",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [
+            "fictional wellness reminder"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "adcd45b8-a24a-51c5-88e7-004cac5d2cbd"
+          ],
+          "cta_destination": {
+            "type": "whatsapp",
+            "value": "+201000000005"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "50fd7a86-bfa8-58f9-86b8-2eac2cddb025"
+        },
+        "pack": {
+          "id": "6c1f6af7-5322-5255-acb2-1e05cf72e9f4",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "weekly_claim_id": "50fd7a86-bfa8-58f9-86b8-2eac2cddb025",
+          "week_number": 11,
+          "business_id": "da32eb76-175d-5e2c-8bd5-4c0bfe7d0482",
+          "strategy_id": "23769ab7-c9cb-50a8-a437-675e0a6531f6",
+          "strategy_version": 1,
+          "strategy_decision_id": "d62931fd-8c39-534f-9f2f-80907d0a1124",
+          "profile_version_id": "27ec190a-e178-5f97-a4df-2144c7da8fd7",
+          "week_context_id": "166e6e4b-4a9f-5628-b4e1-783faac46955",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "48b9a392-3a08-50bd-a727-eda78dd3c59f",
+            "ad19100c-fb81-50b0-b6c2-fd2227078e4b",
+            "7b6f245d-c968-52cd-9a05-5dce63b55057"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "2819f7ab-0c8c-5762-9778-126e807cb2f0",
+          "contract_version": "content-v1",
+          "content_item_id": "48b9a392-3a08-50bd-a727-eda78dd3c59f",
+          "content_pack_id": "6c1f6af7-5322-5255-acb2-1e05cf72e9f4",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "mixed",
+          "strategy_trace": {
+            "strategy_id": "23769ab7-c9cb-50a8-a437-675e0a6531f6",
+            "strategy_version": 1,
+            "week_number": 11,
+            "pillar_ids": [
+              "health-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Clinic credentials. fictional wellness reminder Contact via whatsapp: +201000000005",
+              "cta": "Contact via whatsapp: +201000000005",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            },
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Clinic credentials. fictional wellness reminder Contact via whatsapp: +201000000005",
+              "cta": "Contact via whatsapp: +201000000005",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via whatsapp: +201000000005",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for healthcare-mixed-week11-consecutive.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Clinic credentials. fictional wellness reminder Contact via whatsapp: +2010",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "adcd45b8-a24a-51c5-88e7-004cac5d2cbd"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "a79b3cec-2ec6-5ad4-bdd5-8e751fb491fe",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "adcd45b8-a24a-51c5-88e7-004cac5d2cbd",
+            "content_item_version_id": "2819f7ab-0c8c-5762-9778-126e807cb2f0",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/da32eb76-175d-5e2c-8bd5-4c0bfe7d0482/week-11/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Clinic credentials. fictional wellness reminder Contact via whatsapp: +2010",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "healthcare-en-week12-completion",
+      "schema_version": "content-eval-v1",
+      "sector": "healthcare",
+      "language_mode": "en",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "health-awareness",
+            "name": "General wellness tips"
+          },
+          {
+            "pillar_id": "health-trust",
+            "name": "Clinic credentials"
+          },
+          {
+            "pillar_id": "health-appointment",
+            "name": "Appointment prompts"
+          }
+        ],
+        "tone": "calm, trustworthy, and cautious",
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "share only fictional wellness tips"
+        ],
+        "funnel_stages": [
+          "awareness"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+        "week_number": 12,
+        "prior_content_pack_id": "pack-healthcare-week11-0000-0000-0000-000000000001",
+        "next_week_context": null,
+        "next_week_context_absent": true
+      },
+      "protected_fictional_fields": {
+        "business_name": "Al-Salam Family Clinic — Fictional",
+        "owner_name": "Dr. Karim Fictional",
+        "handles": [
+          "@fictionalalsalamclinic"
+        ],
+        "addresses": [
+          "88 Fictional Health Street, Demo District, Mansoura"
+        ],
+        "prices": [
+          "EGP 200 fictional consultation fee"
+        ],
+        "offer_terms": [
+          "Complimentary fictional blood-pressure check"
+        ],
+        "owner_text": "Owner says: share only fictional general wellness tips, never make medical claims or diagnose."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "week_12_completion": "pass",
+          "funnel_mix": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Healthcare Week 12 clean completion, English."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Healthcare Week 12 English clean completion: the 12-week cycle finishes and no further generation is attempted.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "4add8508-7b5d-5ef6-9f04-800d86d77831",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "3cd466f8-2cfe-53fc-9982-72a18e49bebf",
+          "strategy_id": "4add8508-7b5d-5ef6-9f04-800d86d77831",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "8f290c83-18af-596d-82c1-bf58c4e29969",
+        "current_profile_version_id": "8f290c83-18af-596d-82c1-bf58c4e29969",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+            "week_number": 12,
+            "weekly_claim_id": "21aa2dfb-cdbe-5441-b575-60c831843614"
+          }
+        ],
+        "week_context": {
+          "id": "3db77bbd-b772-590e-b820-ec44e3147028",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "week_number": 12,
+          "week_start_date": "2026-10-19",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "7fbd7be7-6cd9-5bae-bd0c-0af525d2a5d1"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000005"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "21aa2dfb-cdbe-5441-b575-60c831843614"
+        },
+        "pack": {
+          "id": "d4c2ef2e-0bf2-5ed1-807e-c000a7d2e9e8",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-healthcare-0000-0000-0000-000000000001",
+          "weekly_claim_id": "21aa2dfb-cdbe-5441-b575-60c831843614",
+          "week_number": 12,
+          "business_id": "d47910ab-af74-53c7-94d9-9028372c10e6",
+          "strategy_id": "4add8508-7b5d-5ef6-9f04-800d86d77831",
+          "strategy_version": 1,
+          "strategy_decision_id": "3cd466f8-2cfe-53fc-9982-72a18e49bebf",
+          "profile_version_id": "8f290c83-18af-596d-82c1-bf58c4e29969",
+          "week_context_id": "3db77bbd-b772-590e-b820-ec44e3147028",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "6a225131-c1e8-5240-ac9b-c1ef7831511b",
+            "e9c319ce-e57d-5e17-8b3a-b03cea490cec",
+            "d114ab78-ea70-53c3-8edb-03d86a8185d3"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "b6de8f0b-0ca3-50c5-9010-5faf48ba18f8",
+          "contract_version": "content-v1",
+          "content_item_id": "6a225131-c1e8-5240-ac9b-c1ef7831511b",
+          "content_pack_id": "d4c2ef2e-0bf2-5ed1-807e-c000a7d2e9e8",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "en",
+          "strategy_trace": {
+            "strategy_id": "4add8508-7b5d-5ef6-9f04-800d86d77831",
+            "strategy_version": 1,
+            "week_number": 12,
+            "pillar_ids": [
+              "health-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Appointment prompts. Contact via phone: +201000000005",
+              "cta": "Contact via phone: +201000000005",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via phone: +201000000005",
+          "hashtags": [
+            "#MarketMind",
+            "#SmallBusiness"
+          ],
+          "creative_brief": "Creative brief for healthcare-en-week12-completion.",
+          "alt_text": "Explore this week's focus: Appointment prompts. Contact via phone: +201000000005",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "7fbd7be7-6cd9-5bae-bd0c-0af525d2a5d1"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "662cc419-de2f-5401-99d8-55aea94ea630",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "7fbd7be7-6cd9-5bae-bd0c-0af525d2a5d1",
+            "content_item_version_id": "b6de8f0b-0ca3-50c5-9010-5faf48ba18f8",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/d47910ab-af74-53c7-94d9-9028372c10e6/week-12/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "Explore this week's focus: Appointment prompts. Contact via phone: +201000000005",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    }
+  ],
+  "created_at": "2026-08-03",
+  "updated_at": null
+}

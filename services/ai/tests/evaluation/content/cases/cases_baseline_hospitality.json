@@ -1,0 +1,1029 @@
+{
+  "version": "content-eval-baseline-v1",
+  "schema_version": "content-eval-v1",
+  "cases": [
+    {
+      "case_id": "hospitality-en-week1-baseline",
+      "schema_version": "content-eval-v1",
+      "sector": "hospitality",
+      "language_mode": "en",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "hosp-awareness",
+            "name": "Atmosphere & story"
+          },
+          {
+            "pillar_id": "hosp-engagement",
+            "name": "Community polls"
+          },
+          {
+            "pillar_id": "hosp-promotion",
+            "name": "Limited weekly offers"
+          }
+        ],
+        "tone": "warm, local, and welcoming",
+        "formats": [
+          "static_image_post",
+          "carousel_brief",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+        "week_number": 1,
+        "prior_content_pack_id": null,
+        "next_week_context": {
+          "promotion_mode": "owner_approved",
+          "promotion_text": "10% off fictional breakfast combo",
+          "promotion_terms": [
+            "valid this week"
+          ],
+          "valid_from": "2026-08-03T10:00:00+03:00",
+          "valid_until": "2026-08-10T10:00:00+03:00",
+          "must_include": [
+            "mention the fictional rooftop"
+          ],
+          "must_avoid": [
+            "live music unless confirmed"
+          ],
+          "approved_asset_ids": [
+            "asset-hosp-001"
+          ],
+          "cta_destination_type": "whatsapp",
+          "cta_destination_value": "+201000000001"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Nile Breeze Café — Fictional",
+        "owner_name": "Omar Fictional",
+        "handles": [
+          "@fictionalnilebreeze"
+        ],
+        "addresses": [
+          "12 Fictional Nile Corniche, Demo District, Cairo"
+        ],
+        "prices": [
+          "EGP 45 for a fictional latte"
+        ],
+        "offer_terms": [
+          "Free fictional pastry with any drink"
+        ],
+        "owner_text": "Owner says: always mention the fictional rooftop view and never promise live entertainment unless confirmed."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "asset_ready": "pass",
+          "funnel_mix": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Clean English baseline."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Hospitality Week 1 English baseline: owner-confirmed context, 3 items, approved channels.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "1e2f1a27-e2fc-5730-87dc-9078f70ade53",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "792229b2-c582-5a0d-8cb5-146a5ac1a0f1",
+          "strategy_id": "1e2f1a27-e2fc-5730-87dc-9078f70ade53",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "4cb9b83f-c0be-505e-b33e-8482648983a9",
+        "current_profile_version_id": "4cb9b83f-c0be-505e-b33e-8482648983a9",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+            "week_number": 1,
+            "weekly_claim_id": "4d950b38-8136-5e39-a978-e877f00f7356"
+          }
+        ],
+        "week_context": {
+          "id": "46b077db-8aa9-5173-aa5d-cb1e3e8160ae",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "week_number": 1,
+          "week_start_date": "2026-08-03",
+          "promotion_mode": "owner_approved",
+          "promotion": {
+            "text": "10% off fictional breakfast combo",
+            "terms": [
+              "valid this week"
+            ],
+            "valid_from": "2026-08-03T10:00:00+03:00",
+            "valid_until": "2026-08-10T10:00:00+03:00"
+          },
+          "must_include": [
+            "mention the fictional rooftop"
+          ],
+          "must_avoid": [
+            "live music unless confirmed"
+          ],
+          "approved_asset_ids": [
+            "asset-hosp-001"
+          ],
+          "cta_destination": {
+            "type": "whatsapp",
+            "value": "+201000000001"
+          },
+          "context_source": "owner_confirmed",
+          "confirmed_by_user_id": "a20a486d-2ec8-5040-8e02-0272e9135e03",
+          "confirmed_at": "2026-08-03T10:00:00+03:00",
+          "system_defaulted_at": null,
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "4d950b38-8136-5e39-a978-e877f00f7356"
+        },
+        "pack": {
+          "id": "7ec15724-d390-5281-bf5f-efa52844543d",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "weekly_claim_id": "4d950b38-8136-5e39-a978-e877f00f7356",
+          "week_number": 1,
+          "business_id": "8149517d-86c9-5355-9536-f0efdcf7099f",
+          "strategy_id": "1e2f1a27-e2fc-5730-87dc-9078f70ade53",
+          "strategy_version": 1,
+          "strategy_decision_id": "792229b2-c582-5a0d-8cb5-146a5ac1a0f1",
+          "profile_version_id": "4cb9b83f-c0be-505e-b33e-8482648983a9",
+          "week_context_id": "46b077db-8aa9-5173-aa5d-cb1e3e8160ae",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "32ca97ab-3b7d-540b-9b13-a183d4c72bcf",
+            "92cd98a5-f499-5651-bad1-adcb6f3c71c0",
+            "d2552cab-8bda-5e84-a1c3-df8c5144649d"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "d9ddd132-f3ed-54cb-a259-b1eaff3f21f9",
+          "contract_version": "content-v1",
+          "content_item_id": "32ca97ab-3b7d-540b-9b13-a183d4c72bcf",
+          "content_pack_id": "7ec15724-d390-5281-bf5f-efa52844543d",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "en",
+          "strategy_trace": {
+            "strategy_id": "1e2f1a27-e2fc-5730-87dc-9078f70ade53",
+            "strategy_version": 1,
+            "week_number": 1,
+            "pillar_ids": [
+              "hosp-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Atmosphere & story. 10% off fictional breakfast combo Terms: valid this week mention the fictional rooftop Contact via whatsapp: +201000000001",
+              "cta": "Contact via whatsapp: +201000000001",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via whatsapp: +201000000001",
+          "hashtags": [
+            "#MarketMind",
+            "#SmallBusiness"
+          ],
+          "creative_brief": "Creative brief for hospitality-en-week1-baseline.",
+          "alt_text": "Explore this week's focus: Atmosphere & story. 10% off fictional breakfast combo Terms: valid this w",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "asset-hosp-001"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "5265c146-7e70-5b20-8a4b-aecd79a6b7f7",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "asset-hosp-001",
+            "content_item_version_id": "d9ddd132-f3ed-54cb-a259-b1eaff3f21f9",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/8149517d-86c9-5355-9536-f0efdcf7099f/week-1/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "Explore this week's focus: Atmosphere & story. 10% off fictional breakfast combo Terms: valid this w",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "hospitality-ar-week2-consecutive",
+      "schema_version": "content-eval-v1",
+      "sector": "hospitality",
+      "language_mode": "ar",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "hosp-awareness",
+            "name": "Atmosphere & story"
+          },
+          {
+            "pillar_id": "hosp-engagement",
+            "name": "Community polls"
+          },
+          {
+            "pillar_id": "hosp-promotion",
+            "name": "Limited weekly offers"
+          }
+        ],
+        "tone": "warm, local, and welcoming",
+        "formats": [
+          "static_image_post",
+          "carousel_brief",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+        "week_number": 2,
+        "prior_content_pack_id": "pack-hosp-week1-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [
+            "اذكر المنظر الخيالي من السطح"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "phone",
+          "cta_destination_value": "+201000000001"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Nile Breeze Café — Fictional",
+        "owner_name": "Omar Fictional",
+        "handles": [
+          "@fictionalnilebreeze"
+        ],
+        "addresses": [
+          "12 Fictional Nile Corniche, Demo District, Cairo"
+        ],
+        "prices": [
+          "EGP 45 for a fictional latte"
+        ],
+        "offer_terms": [
+          "Free fictional pastry with any drink"
+        ],
+        "owner_text": "يقول المالك: اذكر المنظر الخيالي من السطح ولا تعد بالترفيه المباشر إلا بعد التأكد."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "consecutive_week": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Arabic consecutive-week rollover."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Hospitality Week 2 Arabic consecutive-week generation: Week 1 pack exists, Week 2 draft prepared with no-promotion default.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "08b216f9-341e-5c98-bc50-620da41cbec8",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "4a645d5d-be21-5333-8279-f8406969d7a5",
+          "strategy_id": "08b216f9-341e-5c98-bc50-620da41cbec8",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "9a41efa0-31c0-5832-b901-4d15659b5e01",
+        "current_profile_version_id": "9a41efa0-31c0-5832-b901-4d15659b5e01",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+            "week_number": 2,
+            "weekly_claim_id": "51d1294a-3771-5952-b8e5-ad061546f8a7"
+          }
+        ],
+        "week_context": {
+          "id": "9f4e07be-c6b3-55ab-97d0-3b156ef6c369",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "week_number": 2,
+          "week_start_date": "2026-08-10",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [
+            "اذكر المنظر الخيالي من السطح"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "72f2d43f-8857-53ab-b825-56c97e7004dd"
+          ],
+          "cta_destination": {
+            "type": "phone",
+            "value": "+201000000001"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "51d1294a-3771-5952-b8e5-ad061546f8a7"
+        },
+        "pack": {
+          "id": "9334bc45-129f-5fa4-85ee-b389dd371ab4",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "weekly_claim_id": "51d1294a-3771-5952-b8e5-ad061546f8a7",
+          "week_number": 2,
+          "business_id": "2b14e5e9-6f32-50fb-b722-1e235c5c5e3e",
+          "strategy_id": "08b216f9-341e-5c98-bc50-620da41cbec8",
+          "strategy_version": 1,
+          "strategy_decision_id": "4a645d5d-be21-5333-8279-f8406969d7a5",
+          "profile_version_id": "9a41efa0-31c0-5832-b901-4d15659b5e01",
+          "week_context_id": "9f4e07be-c6b3-55ab-97d0-3b156ef6c369",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "250c488b-7267-54c9-862e-3153ece850ea",
+            "9cd3792c-a030-58bb-b128-595f3022a7cf",
+            "ebba79d0-e023-56b0-b7d8-097aa4617bd5"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "34101f5d-f527-537c-8986-352dca763bd2",
+          "contract_version": "content-v1",
+          "content_item_id": "250c488b-7267-54c9-862e-3153ece850ea",
+          "content_pack_id": "9334bc45-129f-5fa4-85ee-b389dd371ab4",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "ar-EG",
+          "strategy_trace": {
+            "strategy_id": "08b216f9-341e-5c98-bc50-620da41cbec8",
+            "strategy_version": 1,
+            "week_number": 2,
+            "pillar_ids": [
+              "hosp-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Community polls. اذكر المنظر الخيالي من السطح تواصل معنا عبر phone: +201000000001",
+              "cta": "تواصل معنا عبر phone: +201000000001",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            }
+          ],
+          "cta": "تواصل معنا عبر phone: +201000000001",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for hospitality-ar-week2-consecutive.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Community polls. اذكر المنظر الخيالي من السطح تواصل معنا عبر phone: +201000",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "72f2d43f-8857-53ab-b825-56c97e7004dd"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "cd2b9f37-ee61-545a-b04b-5b54faa7c2c0",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "72f2d43f-8857-53ab-b825-56c97e7004dd",
+            "content_item_version_id": "34101f5d-f527-537c-8986-352dca763bd2",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/2b14e5e9-6f32-50fb-b722-1e235c5c5e3e/week-2/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Community polls. اذكر المنظر الخيالي من السطح تواصل معنا عبر phone: +201000",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    },
+    {
+      "case_id": "hospitality-mixed-week12-completion",
+      "schema_version": "content-eval-v1",
+      "sector": "hospitality",
+      "language_mode": "mixed",
+      "strategy_snapshot": {
+        "approved_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "pillars": [
+          {
+            "pillar_id": "hosp-awareness",
+            "name": "Atmosphere & story"
+          },
+          {
+            "pillar_id": "hosp-engagement",
+            "name": "Community polls"
+          },
+          {
+            "pillar_id": "hosp-promotion",
+            "name": "Limited weekly offers"
+          }
+        ],
+        "tone": "warm, local, and welcoming",
+        "formats": [
+          "static_image_post",
+          "carousel_brief",
+          "short_video_script"
+        ],
+        "content_count": 3,
+        "fact_sources": [
+          "owner_business_profile",
+          "owner_week_context"
+        ],
+        "owner_inputs": [
+          "feature the fictional Nile view"
+        ],
+        "funnel_stages": [
+          "awareness",
+          "consideration",
+          "conversion"
+        ]
+      },
+      "cycle_state": {
+        "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+        "week_number": 12,
+        "prior_content_pack_id": "pack-hosp-week11-0000-0000-0000-000000000001",
+        "next_week_context": {
+          "promotion_mode": "none",
+          "promotion_text": null,
+          "promotion_terms": [],
+          "valid_from": null,
+          "valid_until": null,
+          "must_include": [
+            "thank the fictional community"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [],
+          "cta_destination_type": "whatsapp",
+          "cta_destination_value": "+201000000001"
+        },
+        "next_week_context_absent": false
+      },
+      "protected_fictional_fields": {
+        "business_name": "Nile Breeze Café — Fictional",
+        "owner_name": "Omar Fictional",
+        "handles": [
+          "@fictionalnilebreeze"
+        ],
+        "addresses": [
+          "12 Fictional Nile Corniche, Demo District, Cairo"
+        ],
+        "prices": [
+          "EGP 45 for a fictional latte"
+        ],
+        "offer_terms": [
+          "Free fictional pastry with any drink"
+        ],
+        "owner_text": "Owner says: always mention the fictional rooftop view and never promise live entertainment unless confirmed."
+      },
+      "expected_hard_outcome": {
+        "expected_result": "pass",
+        "per_guardrail": {
+          "strategy_approval": "pass",
+          "channel_match": "pass",
+          "item_count": "pass",
+          "week_12_completion": "pass"
+        },
+        "expected_error_codes": []
+      },
+      "failure_category": "no_failure",
+      "human_rubric": {
+        "language": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "tone": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "usefulness": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "pillar_alignment": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "cta": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        },
+        "dialect": {
+          "score": 4,
+          "reviewer_handle": "@mostafamerzk",
+          "reviewed_at": "2026-08-03",
+          "notes": "Week 12 clean completion, mixed language."
+        }
+      },
+      "reviewers": {
+        "owner_mokhtar": {
+          "role": "Owner",
+          "handle": "@MOKHXXXXXX",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "eval_mostafa": {
+          "role": "Eval reviewer",
+          "handle": "@MostafaAhmed22",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "ai_product_merzk": {
+          "role": "AI/product reviewer",
+          "handle": "@mostafamerzk",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        },
+        "safety_rabee": {
+          "role": "Safety reviewer",
+          "handle": "@ARabee3",
+          "signed_off": false,
+          "signed_at": null,
+          "notes": ""
+        }
+      },
+      "description": "Hospitality Week 12 clean completion: the last week of the 12-week Strategy generates successfully and the cycle is ready to complete.",
+      "fixture_ref": null,
+      "policy_fixture": {
+        "strategy_status": "approved",
+        "strategy_id": "b28909dd-fe74-50b3-be5c-84389f48c509",
+        "strategy_version": 1,
+        "strategy_decision": {
+          "id": "ab66897c-6189-50ec-b422-0782c3b1027e",
+          "strategy_id": "b28909dd-fe74-50b3-be5c-84389f48c509",
+          "strategy_version": 1,
+          "decision": "approved"
+        },
+        "cycle_status": "active",
+        "profile_version_id": "097a96c5-3e21-56e7-85c2-05cf981e49f5",
+        "current_profile_version_id": "097a96c5-3e21-56e7-85c2-05cf981e49f5",
+        "selected_channels": [
+          "facebook",
+          "instagram"
+        ],
+        "existing_weekly_claims": [
+          {
+            "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+            "week_number": 12,
+            "weekly_claim_id": "794c85b2-8c44-5a7e-b68a-a0b07d5fbc7e"
+          }
+        ],
+        "week_context": {
+          "id": "2fc46ec9-270f-527f-a95c-2fe6fd29a4eb",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "week_number": 12,
+          "week_start_date": "2026-10-19",
+          "promotion_mode": "none",
+          "promotion": null,
+          "must_include": [
+            "thank the fictional community"
+          ],
+          "must_avoid": [],
+          "approved_asset_ids": [
+            "67c79d58-c0ec-508c-97e8-737a95fec9d5"
+          ],
+          "cta_destination": {
+            "type": "whatsapp",
+            "value": "+201000000001"
+          },
+          "context_source": "system_defaulted",
+          "confirmed_by_user_id": null,
+          "confirmed_at": null,
+          "system_defaulted_at": "2026-08-03T10:00:00+03:00",
+          "generation_cutoff_at": "2026-08-03T10:00:00+03:00",
+          "weekly_claim_id": "794c85b2-8c44-5a7e-b68a-a0b07d5fbc7e"
+        },
+        "pack": {
+          "id": "32ef7f12-2cce-54fe-9002-bd09ded1596f",
+          "contract_version": "content-v1",
+          "content_cycle_id": "cc-hosp-0000-0000-0000-000000000001",
+          "weekly_claim_id": "794c85b2-8c44-5a7e-b68a-a0b07d5fbc7e",
+          "week_number": 12,
+          "business_id": "045fd315-c969-5647-a3a3-435e03e64dca",
+          "strategy_id": "b28909dd-fe74-50b3-be5c-84389f48c509",
+          "strategy_version": 1,
+          "strategy_decision_id": "ab66897c-6189-50ec-b422-0782c3b1027e",
+          "profile_version_id": "097a96c5-3e21-56e7-85c2-05cf981e49f5",
+          "week_context_id": "2fc46ec9-270f-527f-a95c-2fe6fd29a4eb",
+          "status": "draft",
+          "retry_eligible": false,
+          "item_ids": [
+            "38bbce23-cfb8-5c7f-af02-9801c1b153df",
+            "66ce984f-f052-536d-afc8-b2c1cbbbffc4",
+            "03665827-8746-5626-8684-17da07bc0439"
+          ],
+          "created_at": "2026-08-03T10:00:00+03:00",
+          "updated_at": "2026-08-03T10:00:00+03:00"
+        },
+        "item_version": {
+          "id": "eb1d8c9a-8426-50c4-bf4d-decbdc09818a",
+          "contract_version": "content-v1",
+          "content_item_id": "38bbce23-cfb8-5c7f-af02-9801c1b153df",
+          "content_pack_id": "32ef7f12-2cce-54fe-9002-bd09ded1596f",
+          "version": 1,
+          "channel": "facebook",
+          "format": "static_image_post",
+          "language_mode": "mixed",
+          "strategy_trace": {
+            "strategy_id": "b28909dd-fe74-50b3-be5c-84389f48c509",
+            "strategy_version": 1,
+            "week_number": 12,
+            "pillar_ids": [
+              "hosp-awareness"
+            ],
+            "objective": "awareness",
+            "channel": "facebook"
+          },
+          "caption_variants": [
+            {
+              "locale": "ar",
+              "caption": "اكتشف موضوع هذا الأسبوع: Limited weekly offers. thank the fictional community Contact via whatsapp: +201000000001",
+              "cta": "Contact via whatsapp: +201000000001",
+              "hashtags": [
+                "#MarketMind",
+                "#مشروعك"
+              ]
+            },
+            {
+              "locale": "en",
+              "caption": "Explore this week's focus: Limited weekly offers. thank the fictional community Contact via whatsapp: +201000000001",
+              "cta": "Contact via whatsapp: +201000000001",
+              "hashtags": [
+                "#MarketMind",
+                "#SmallBusiness"
+              ]
+            }
+          ],
+          "cta": "Contact via whatsapp: +201000000001",
+          "hashtags": [
+            "#MarketMind",
+            "#مشروعك"
+          ],
+          "creative_brief": "Creative brief for hospitality-mixed-week12-completion.",
+          "alt_text": "اكتشف موضوع هذا الأسبوع: Limited weekly offers. thank the fictional community Contact via whatsapp: ",
+          "short_video_script": null,
+          "recommended_publish_window": {
+            "starts_at": "2026-08-03T10:00:00+03:00",
+            "ends_at": "2026-08-03T12:00:00+03:00",
+            "timezone": "Africa/Cairo"
+          },
+          "claim_sources": [
+            {
+              "claim_type": "business_fact",
+              "source_type": "profile",
+              "source_path": "business_profile",
+              "approved": true
+            },
+            {
+              "claim_type": "business_fact",
+              "source_type": "strategy",
+              "source_path": "strategy_plan",
+              "approved": true
+            }
+          ],
+          "warnings": [],
+          "blockers": [],
+          "asset_required": true,
+          "asset_ids": [
+            "67c79d58-c0ec-508c-97e8-737a95fec9d5"
+          ],
+          "generation_provenance": {
+            "generation_run_id": "5c77d863-affe-523b-acba-14e8604bf8f4",
+            "provider_name": "mock",
+            "provider_model": "mock-content-model",
+            "generated_at": "2026-08-03T10:00:00+03:00"
+          },
+          "version_checksum": "checksum-baseline",
+          "created_at": "2026-08-03T10:00:00+03:00"
+        },
+        "assets": [
+          {
+            "id": "67c79d58-c0ec-508c-97e8-737a95fec9d5",
+            "content_item_version_id": "eb1d8c9a-8426-50c4-bf4d-decbdc09818a",
+            "kind": "owner_supplied",
+            "status": "ready",
+            "mime_type": "image/jpeg",
+            "storage_key": "content/045fd315-c969-5647-a3a3-435e03e64dca/week-12/owner.jpg",
+            "checksum": "101954615d862e6921a9fb7e2f5866170d3d375d6e8eb4a7443ea1e30cd2a0e4",
+            "width": 1080,
+            "height": 1080,
+            "alt_text": "اكتشف موضوع هذا الأسبوع: Limited weekly offers. thank the fictional community Contact via whatsapp: ",
+            "provider_name": null,
+            "provider_model": null,
+            "provider_request_id": null,
+            "failure_code": null,
+            "created_at": "2026-08-03T10:00:00+03:00"
+          }
+        ],
+        "decision": null,
+        "protected_text_mutated": null
+      },
+      "provider_mode": null,
+      "created_at": "2026-08-03",
+      "updated_at": null
+    }
+  ],
+  "created_at": "2026-08-03",
+  "updated_at": null
+}

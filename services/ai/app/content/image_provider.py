@@ -320,6 +320,7 @@ async def generate_static_asset(
             provider_model=provider.model,
             provider_request_id=None,
             failure_code="CONTENT_PROVIDER_FAILURE",
+            review_required=True,
             created_at=created_at,
         )
     try:
@@ -380,6 +381,7 @@ async def generate_static_asset(
             provider_model=provider.model,
             provider_request_id=generated.provider_request_id,
             failure_code=None,
+            review_required=True,
             created_at=created_at,
         )
     except StaticImageProviderUnavailable as error:
@@ -398,6 +400,7 @@ async def generate_static_asset(
             provider_model=provider.model,
             provider_request_id=None,
             failure_code=error.code,
+            review_required=True,
             created_at=created_at,
         )
     except ProviderError as error:
@@ -416,6 +419,7 @@ async def generate_static_asset(
             provider_model=provider.model,
             provider_request_id=None,
             failure_code=error.code,
+            review_required=True,
             created_at=created_at,
         )
     except Exception:
@@ -434,6 +438,7 @@ async def generate_static_asset(
             provider_model=provider.model,
             provider_request_id=None,
             failure_code="CONTENT_PROVIDER_FAILURE",
+            review_required=True,
             created_at=created_at,
         )
 
@@ -466,6 +471,7 @@ def build_owner_supplied_asset(
         provider_model=None,
         provider_request_id=None,
         failure_code=None,
+        review_required=False,
         created_at=datetime.now(timezone.utc),
     )
 
@@ -492,6 +498,7 @@ def build_blocked_asset(request: AiStaticAssetGenerateRequest, code: str) -> Con
         provider_model=None,
         provider_request_id=None,
         failure_code=code,
+        review_required=True,
         created_at=datetime.now(timezone.utc),
     )
 

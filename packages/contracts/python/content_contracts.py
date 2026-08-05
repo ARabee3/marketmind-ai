@@ -27,6 +27,7 @@ ContentErrorCode = Literal[
     "CONTENT_PROVIDER_FAILURE",
     "CONTENT_CANDIDATE_TAMPERED",
     "CONTENT_CANDIDATE_REVOKED",
+    "CONTENT_PLATFORM_CONSTRAINT",
 ]
 
 
@@ -45,6 +46,15 @@ class ContentValidationResult(FrozenModel):
 LanguageMode = Literal["ar-EG", "en", "mixed"]
 ContentAssetKind = Literal["owner_supplied", "generated_static", "prompt_only"]
 ContentAssetStatus = Literal["generating", "ready", "missing", "failed", "blocked"]
+ContentDialect = Literal["fusha", "masry", "khaliji", "neutral"]
+ContentFunnelStage = Literal[
+    "awareness",
+    "consideration",
+    "conversion",
+    "retention",
+]
+ContentDayPreference = Literal["weekday", "weekend", "any"]
+ContentTimeOfDayHint = Literal["morning", "afternoon", "evening", "night", "any"]
 
 
 class ContentCycle(FrozenModel):
@@ -162,6 +172,7 @@ class ContentClaimSource(FrozenModel):
         "regulated",
         "competitor_comparison",
         "branded_sponsored",
+        "health_claim",
     ]
     source_type: Literal["profile", "week_context", "strategy"]
     source_path: str
@@ -175,10 +186,13 @@ class ContentStrategyTrace(FrozenModel):
     pillar_ids: list[UUID]
     objective: str
     channel: ContentChannel
+    funnel_stage: ContentFunnelStage = Field(default="awareness")
+    content_purpose: str = Field(default="")
 
 
 class ContentCaptionVariant(FrozenModel):
     locale: Literal["ar", "en"]
+    dialect: ContentDialect = Field(default="neutral")
     caption: str = Field(min_length=1)
     cta: str | None
     hashtags: list[str]
@@ -188,6 +202,9 @@ class ContentRecommendedWindow(FrozenModel):
     starts_at: datetime
     ends_at: datetime
     timezone: Literal["Africa/Cairo"]
+    day_preference: ContentDayPreference = Field(default="any")
+    time_of_day_hint: ContentTimeOfDayHint = Field(default="any")
+    rationale: str = Field(default="")
 
 
 class ContentGenerationProvenance(FrozenModel):
@@ -225,6 +242,7 @@ class ContentAsset(FrozenModel):
     provider_model: str | None
     provider_request_id: str | None
     failure_code: str | None
+    review_required: bool = Field(default=False)
     created_at: datetime
 
 
@@ -331,6 +349,7 @@ class AiContentGenerateRequest(FrozenModel):
     selected_channels: list[ContentChannel]
     allowed_formats: list[ContentFormat]
     language_mode: LanguageMode
+    voice_examples: list[str] | None = None
 
     @model_validator(mode="after")
     def validate_grounding_snapshot(self) -> "AiContentGenerateRequest":
@@ -443,6 +462,7 @@ BLOCKED_CLAIM_CODES = {
     "regulated": "CONTENT_POLICY_VIOLATION",
     "branded_sponsored": "CONTENT_POLICY_VIOLATION",
     "competitor_comparison": "CONTENT_UNSUPPORTED_CLAIM",
+    "health_claim": "CONTENT_POLICY_VIOLATION",
 }
 
 

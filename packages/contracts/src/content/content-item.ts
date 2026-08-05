@@ -2,9 +2,13 @@ import type {
   CairoTimezone,
   ContentChannel,
   ContentContractVersion,
+  ContentDayPreference,
+  ContentDialect,
   ContentErrorCode,
   ContentFormat,
+  ContentFunnelStage,
   ContentLocale,
+  ContentTimeOfDayHint,
   IsoDateTime,
   LanguageMode,
   UUID,
@@ -41,11 +45,13 @@ export type ContentAsset = {
   readonly provider_model: string | null;
   readonly provider_request_id: string | null;
   readonly failure_code: ContentErrorCode | null;
+  readonly review_required: boolean;
   readonly created_at: IsoDateTime;
 };
 
 export type ContentCaptionVariant = {
   readonly locale: ContentLocale;
+  readonly dialect: ContentDialect;
   readonly caption: string;
   readonly cta: string | null;
   readonly hashtags: readonly string[];
@@ -55,6 +61,9 @@ export type ContentRecommendedWindow = {
   readonly starts_at: IsoDateTime;
   readonly ends_at: IsoDateTime;
   readonly timezone: CairoTimezone;
+  readonly day_preference: ContentDayPreference;
+  readonly time_of_day_hint: ContentTimeOfDayHint;
+  readonly rationale: string;
 };
 
 export type ContentClaimSource = {
@@ -68,7 +77,8 @@ export type ContentClaimSource = {
     | "guarantee"
     | "regulated"
     | "competitor_comparison"
-    | "branded_sponsored";
+    | "branded_sponsored"
+    | "health_claim";
   readonly source_type: "profile" | "week_context" | "strategy";
   readonly source_path: string;
   readonly approved: boolean;
@@ -108,6 +118,8 @@ export type ContentItemVersion = {
     readonly pillar_ids: readonly UUID[];
     readonly objective: string;
     readonly channel: ContentChannel;
+    readonly funnel_stage: ContentFunnelStage;
+    readonly content_purpose: string;
   };
   readonly caption_variants: readonly ContentCaptionVariant[];
   readonly cta: string | null;

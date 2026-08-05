@@ -205,6 +205,33 @@ async def test_generation_stamps_server_owned_identity_provenance_and_checksum()
 
 
 @pytest.mark.asyncio
+async def test_generation_surfaces_platform_constraint_as_advisory_warning() -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+    first = raw_items[0]
+    variant = first.caption_variants[0]
+    overlong_variant = variant.model_copy(
+        update={"caption": variant.caption + (" ا" * 1200)}
+    )
+    raw_items[0] = first.model_copy(
+        update={"caption_variants": [overlong_variant]}
+    )
+    provider = SequenceProvider([raw_items])
+
+    items = await generate_content_pack_with_repair(
+        provider,
+        prompt,
+        request=request,
+        sleep=no_sleep,
+    )
+
+    assert "CONTENT_PLATFORM_CONSTRAINT" in items[0].warnings
+    assert items[0].blockers == []
+    assert items[0].version_checksum == compute_content_item_checksum(items[0])
+
+
+@pytest.mark.asyncio
 async def test_transient_provider_failure_retries_with_backoff() -> None:
     request = make_valid_request()
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")

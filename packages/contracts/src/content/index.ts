@@ -6,3 +6,4 @@ export * from "./content-item-checksum";
 export * from "./content-policy";
 export * from "./content-interfaces";
 export * from "./publication-candidate";
+export * from "./platform-constraints";

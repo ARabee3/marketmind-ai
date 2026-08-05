@@ -243,6 +243,27 @@ cutoff, the system creates a safe context with:
 The system never carries an expiring offer, date-sensitive statement, or
 unconfirmed operational fact into the next week automatically.
 
+### 4.3.1 Where owner media, offers, and live events go
+
+All owner-supplied "what's new this week" input enters through the weekly
+context (§4.3), never the Strategy or Discovery facts:
+
+| Owner input (example: perfume shop) | Weekly-context field | Notes |
+| --- | --- | --- |
+| Product / brand photos | `approved_asset_ids` | Uploaded via Content API, resolved to `owner_supplied` assets (§5.4) |
+| New offer / discount | `promotion` + `promotion_mode: "owner_approved"` | Terms, valid dates, text |
+| Live event (in-store demo) | `must_include` | Optional CTA + photo via the same fields |
+| What not to say / show | `must_avoid` | e.g. "no 'free shipping'" |
+| Where the post must send the reader | `cta_destination` | phone / whatsapp / website / address |
+
+- A weekly context with no promotion stays `promotion_mode: "none"`; the model
+  never invents an offer or carries an expired one forward (§4.3 safety).
+- A product catalog (name/price/category per product) is **post-MVP**. Until it
+  exists, products travel as photos + `must_include` + optional `promotion`.
+- Not built in this sprint: the asset upload endpoints (#110) and the
+  "what's happening this week?" form (#111). Until those land, the weekly
+  context is API/persisted-data only.
+
 ### 4.4 Approved assets and brand restrictions
 
 Generation may receive:
