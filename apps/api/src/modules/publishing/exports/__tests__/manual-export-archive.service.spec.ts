@@ -122,6 +122,10 @@ describe("ManualExportArchiveService", () => {
       intent_id: "77777777-7777-4777-8777-777777777777",
       candidate_id: candidate.candidate_id,
       candidate_checksum: candidate.candidate_checksum,
+      target_channel: candidate.target_channel,
+      content_format: candidate.content_format,
+      selected_locale: candidate.selected_locale,
+      label: "EXPORTED_NOT_PUBLISHED",
       assets: [
         {
           asset_id: assetId,
@@ -136,5 +140,8 @@ describe("ManualExportArchiveService", () => {
       .update(JSON.stringify({ ...manifest, manifest_checksum: "" }))
       .digest("hex");
     expect(manifest.manifest_checksum).toBe(manifestChecksum);
+    // The frozen manifest is also returned by createArchive for persistence,
+    // so GET /export can surface it without re-parsing the tar.gz.
+    expect(created.manifest).toEqual(manifest);
   });
 });

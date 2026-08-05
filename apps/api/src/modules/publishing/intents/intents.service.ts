@@ -19,7 +19,14 @@ import {
   isInPast,
 } from "../common/time/cairo-time.util";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
-import { ManualExportArchiveService } from "../exports/manual-export-archive.service";
+import {
+  toPublicationAttemptV1,
+  toPublicationResultV1,
+} from "../common/serializers";
+import {
+  artifactIdFromDestinationRef,
+  ManualExportArchiveService,
+} from "../exports/manual-export-archive.service";
 import {
   ApproveIntentDto,
   CancelIntentDto,
@@ -757,6 +764,7 @@ export class IntentsService {
             exportType: "manual_archive_targz",
             destinationRef: archive.destinationRef,
             checksum: archive.checksum,
+            manifest: archive.manifest as object,
             exportedAt: now,
           },
         });
@@ -866,11 +874,23 @@ export class IntentsService {
       where: { id: intentId, businessId },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    return this.prisma.publishingAttempt.findMany({
+    const rows = await this.prisma.publishingAttempt.findMany({
       where: { intentId },
       include: { result: true },
       orderBy: { attemptSequence: "asc" },
     });
+    // The frozen PublicationAttemptListResponseV1 envelope ({attempts,
+    // results}) is the wire contract the web client binds against.
+    return {
+      attempts: rows.map((row) => toPublicationAttemptV1(row)),
+      results: rows
+        .filter((row) => row.result)
+        .map((row) =>
+          toPublicationResultV1(row.result!, {
+            intentVersion: row.intentVersion,
+          }),
+        ),
+    };
   }
 
   // ── Export metadata ─────────────────────────────────────────────────
@@ -880,8 +900,26 @@ export class IntentsService {
       where: { id: intentId, businessId },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    return this.prisma.publishingExportMetadata.findMany({
+    const rows = await this.prisma.publishingExportMetadata.findMany({
       where: { intentId },
+      orderBy: { exportedAt: "desc" },
+    });
+    // Map to the frozen PublicationExportResponseV1 surface the web binds
+    // against: a downloadable artifact with identity, checksum, and the frozen
+    // manifest. `status: "ready"` is explicit so a consumer can never mistake
+    // a completed local archive for a pending one.
+    return rows.map((row) => {
+      const artifactId = artifactIdFromDestinationRef(row.destinationRef);
+      return {
+        id: row.id,
+        artifactId,
+        checksum: row.checksum,
+        exportType: row.exportType,
+        status: "ready",
+        downloadUrl: `/api/v1/publication-intents/${intentId}/export/download`,
+        manifest: row.manifest as Record<string, unknown> | null,
+        exportedAt: row.exportedAt,
+      };
     });
   }
 

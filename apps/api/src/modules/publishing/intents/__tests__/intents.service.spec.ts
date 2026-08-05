@@ -116,6 +116,11 @@ describe("IntentsService.dispatchExport", () => {
           "publishing-export:33333333-3333-4333-8333-333333333333",
         fileName: "33333333-3333-4333-8333-333333333333.tar.gz",
         mimeType: "application/gzip",
+        manifest: {
+          contract_version: "publishing-export-manifest-v1",
+          artifact_id: "33333333-3333-4333-8333-333333333333",
+          label: "EXPORTED_NOT_PUBLISHED",
+        },
       }),
     } as any;
     const service = new IntentsService(prisma, {} as any, archive);
@@ -137,6 +142,11 @@ describe("IntentsService.dispatchExport", () => {
       data: expect.objectContaining({
         exportType: "manual_archive_targz",
         checksum: "b".repeat(64),
+        manifest: {
+          contract_version: "publishing-export-manifest-v1",
+          artifact_id: "33333333-3333-4333-8333-333333333333",
+          label: "EXPORTED_NOT_PUBLISHED",
+        },
       }),
     });
     expect(tx.publishingResult.create).toHaveBeenCalledWith({

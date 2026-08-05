@@ -12,9 +12,17 @@ import * as zlib from "zlib";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { PublishingAssetStore } from "../assets/publishing-asset.store";
 
-const EXPORT_DESTINATION_PREFIX = "publishing-export:";
+export const EXPORT_DESTINATION_PREFIX = "publishing-export:";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function artifactIdFromDestinationRef(
+  destinationRef: string,
+): string | null {
+  if (!destinationRef.startsWith(EXPORT_DESTINATION_PREFIX)) return null;
+  const artifactId = destinationRef.slice(EXPORT_DESTINATION_PREFIX.length);
+  return UUID_PATTERN.test(artifactId) ? artifactId : null;
+}
 
 interface ArchiveEntry {
   readonly name: string;
@@ -34,9 +42,16 @@ export interface CreatedManualExportArchive {
   readonly destinationRef: string;
   readonly fileName: string;
   readonly mimeType: "application/gzip";
+  /**
+   * The frozen `publication-export-manifest-v1` payload written into the
+   * archive. The API persists it so `GET /export` can surface identity,
+   * label, and checksums without re-parsing the tar.gz.
+   */
+  readonly manifest: Readonly<Record<string, unknown>>;
 }
 
-export interface ReadManualExportArchive extends CreatedManualExportArchive {
+export interface ReadManualExportArchive
+  extends Omit<CreatedManualExportArchive, "manifest"> {
   readonly bytes: Buffer;
 }
 
@@ -107,6 +122,11 @@ export class ManualExportArchiveService {
     }
 
     const generatedAtIso = generatedAt.toISOString();
+    // Frozen `publication-export-manifest-v1` field names (issue #118) so the
+    // manifest inside the archive is structurally identical to what the API
+    // returns and the web renders. `manifest_checksum`, `intent_id`,
+    // `business_id`, `recommended_publish_window`, and per-asset `mime_type`
+    // are archive-only extras the frozen contract tolerates at runtime.
     const manifestBase = {
       contract_version: "publishing-export-manifest-v1",
       artifact_id: artifactId,
@@ -117,9 +137,10 @@ export class ManualExportArchiveService {
       content_item_version_id: candidate.content_item_version_id,
       content_item_version: candidate.content_item_version,
       candidate_checksum: candidate.candidate_checksum,
-      channel: candidate.target_channel,
-      format: candidate.content_format,
-      locale: candidate.selected_locale,
+      target_channel: candidate.target_channel,
+      content_format: candidate.content_format,
+      selected_locale: candidate.selected_locale,
+      label: "EXPORTED_NOT_PUBLISHED",
       recommended_publish_window: candidate.recommended_publish_window,
       generated_at: generatedAtIso,
       assets: manifestAssets,
@@ -214,6 +235,7 @@ export class ManualExportArchiveService {
       destinationRef: `${EXPORT_DESTINATION_PREFIX}${artifactId}`,
       fileName,
       mimeType: "application/gzip",
+      manifest,
     };
   }
 
