@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from app.content.validators import (
 
 
 MAX_CONTENT_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 _SCHEMA_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",
     "AI_PROVIDER_INVALID_OUTPUT",
@@ -252,6 +254,12 @@ async def generate_content_pack_with_repair(
             return items
         except ProviderError as error:
             last_error = error
+            logger.warning(
+                "content repair_or_retry attempt=%d code=%s message=%s",
+                attempt,
+                error.code,
+                error,
+            )
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
@@ -332,6 +340,12 @@ async def revise_content_item_with_repair(
             return item
         except ProviderError as error:
             last_error = error
+            logger.warning(
+                "content revision repair_or_retry attempt=%d code=%s message=%s",
+                attempt,
+                error.code,
+                error,
+            )
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
