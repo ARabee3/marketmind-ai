@@ -9,6 +9,7 @@ import {
   PublicationCandidateController,
 } from './content.controller';
 import { ContentService } from './content.service';
+import { ContentAiClient } from './content.client';
 import { ContentPackRepository } from './repositories/content-pack.repository';
 import { ContentCycleRepository } from './repositories/content-cycle.repository';
 import { ContentWeekContextRepository } from './repositories/content-week-context.repository';
@@ -24,6 +25,7 @@ import { ContentJobOutboxDispatcher } from './content-job-outbox.dispatcher';
 import { PrismaModule } from '../../common/persistence/prisma.module';
 import { AssetStorageModule } from './assets/asset-storage.module';
 import { BillingModule } from '../billing/billing.module';
+import { StrategyModule } from '../strategy/strategy.module';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { BillingModule } from '../billing/billing.module';
     BillingModule,
     HttpModule,
     AssetStorageModule,
+    StrategyModule,
     ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: 'content-generation' }),
     BullModule.registerQueue({ name: 'content-outbox' }),
@@ -43,6 +46,7 @@ import { BillingModule } from '../billing/billing.module';
   ],
   providers: [
     ContentService,
+    ContentAiClient,
     ContentPackRepository,
     ContentCycleRepository,
     ContentWeekContextRepository,

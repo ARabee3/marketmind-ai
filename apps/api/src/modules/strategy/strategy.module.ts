@@ -18,6 +18,6 @@ import { BillingModule } from '../billing/billing.module';
   ],
   controllers: [StrategyController],
   providers: [StrategyService, StrategyRepository, StrategyProcessor, StrategyRateLimitGuard],
-  exports: [StrategyService],
+  exports: [StrategyService, StrategyRepository],
 })
 export class StrategyModule {}
