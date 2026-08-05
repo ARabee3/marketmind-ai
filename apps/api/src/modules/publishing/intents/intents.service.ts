@@ -18,6 +18,7 @@ import {
   utcToCairoLocalIso,
   isInPast,
 } from "../common/time/cairo-time.util";
+import { publishingPriorityFor } from "../common/time/publishing-priority.util";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { ManualExportArchiveService } from "../exports/manual-export-archive.service";
 import {
@@ -445,7 +446,7 @@ export class IntentsService {
               version: intent.version,
               idempotencyKey: this.dispatchKeyFor(dto.idempotencyKey),
             },
-            { jobId: jobKey, delay },
+            { jobId: jobKey, delay, priority: publishingPriorityFor(intent.scheduledUtcAt) },
           );
           this.logger.log(
             `Enqueued dispatch job ${jobKey} with delay=${delay}ms`,
@@ -589,7 +590,7 @@ export class IntentsService {
               version: updated.version,
               idempotencyKey: this.dispatchKeyFor(dto.idempotencyKey),
             },
-            { jobId: jobKey, delay },
+            { jobId: jobKey, delay, priority: publishingPriorityFor(updated.scheduledUtcAt) },
           );
           this.logger.log(`Re-enqueued dispatch job ${jobKey} after retry`);
         }

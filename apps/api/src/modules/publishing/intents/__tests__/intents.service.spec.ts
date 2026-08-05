@@ -48,6 +48,7 @@ describe("IntentsService.retryIntent", () => {
         jobId: expect.stringMatching(
           new RegExp(`^publishing-retry-${intent.id}-v3-[a-f0-9]{64}$`),
         ),
+        priority: 0,
       },
     );
     expect(queue.add.mock.calls[0][2].jobId).not.toBe(

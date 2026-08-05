@@ -3,6 +3,7 @@ import { Cron } from "@nestjs/schedule";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { PrismaService } from "../../../common/persistence/prisma.service";
+import { publishingPriorityFor } from "../common/time/publishing-priority.util";
 
 /** Attempts stuck in QUEUED or DISPATCHING past this threshold are flagged UNKNOWN. */
 const STUCK_ATTEMPT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
@@ -68,7 +69,7 @@ export class ReconciliationService {
               // to the same attempt / recorded no-op (dispatch processor).
               idempotencyKey: `recovery:${intent.id}:${intent.version}`,
             },
-            { jobId: jobKey, delay: 0 },
+            { jobId: jobKey, delay: 0, priority: publishingPriorityFor(intent.scheduledUtcAt) },
           );
         }
       }
@@ -193,7 +194,7 @@ export class ReconciliationService {
         version: intent.version,
         idempotencyKey: `recovery:${intentId}:${intent.version}`,
       },
-      { jobId: jobKey, delay },
+      { jobId: jobKey, delay, priority: publishingPriorityFor(intent.scheduledUtcAt) },
     );
 
     this.logger.log(`Manual resync: enqueued ${jobKey} delay=${delay}ms`);
