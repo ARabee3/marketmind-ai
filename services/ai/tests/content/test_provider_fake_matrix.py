@@ -27,7 +27,7 @@ from app.providers.content_provider import (
     OpenRouterContentProvider,
     create_content_provider,
 )
-from tests.content.fixture_helpers import load_example, make_valid_request
+from tests.content.fixture_helpers import load_example, make_request_with_channel, make_valid_request
 
 
 def _text_request():
@@ -39,13 +39,24 @@ def _generate(request):
     return asyncio.run(MockContentProvider().generate_content_pack(prompt))
 
 
-@pytest.mark.parametrize("content_format", ["text_post", "short_video_script"])
-def test_provider_fake_covers_non_media_and_script_formats(content_format: str) -> None:
-    request = make_valid_request().model_copy(update={"allowed_formats": [content_format]})
+@pytest.mark.parametrize(
+    ("channel", "content_format"),
+    [
+        ("instagram", "text_post"),
+        ("instagram", "short_video_script"),
+        ("tiktok", "short_video_script"),
+        ("google_business_profile", "text_post"),
+    ],
+)
+def test_provider_fake_covers_channels_and_formats(
+    channel: str, content_format: str
+) -> None:
+    request = make_request_with_channel(channel, [content_format])
     items = _generate(request)
 
     assert len(items) == 3
     assert all(item.format == content_format for item in items)
+    assert all(item.channel == channel for item in items)
     if content_format == "short_video_script":
         assert all(item.short_video_script is not None for item in items)
     result = validate_generated_content_pack(request, items)

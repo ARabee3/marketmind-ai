@@ -601,6 +601,11 @@ class MockContentProvider(ContentLLMProvider):
             )
             for variant in caption_variants
         ]
+        if channel == "google_business_profile":
+            caption_variants = [
+                variant.model_copy(update={"hashtags": []})
+                for variant in caption_variants
+            ]
         caption = caption_variants[0].caption
         asset_required = content_format in {"static_image_post", "carousel_brief"}
         asset_ids = week_context.get("approved_asset_ids", []) if asset_required else []
