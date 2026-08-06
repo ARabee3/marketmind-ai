@@ -1997,7 +1997,9 @@
       },
       "channel": {
         "instagram": "Instagram",
-        "facebook": "Facebook"
+        "facebook": "Facebook",
+        "tiktok": "TikTok",
+        "google_business_profile": "Google Business Profile"
       },
       "format": {
         "static_image_post": "Static Image",

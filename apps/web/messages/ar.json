@@ -1995,8 +1995,10 @@
         "revision_failed": "فشل التعديل"
       },
       "channel": {
-        "instagram": "إنستجرام",
-        "facebook": "فيسبوك"
+        "instagram": "إنستغرام",
+        "facebook": "فيسبوك",
+        "tiktok": "تيك توك",
+        "google_business_profile": "الملف التجاري على جوجل"
       },
       "format": {
         "static_image_post": "بوست صورة",
