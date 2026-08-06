@@ -25,7 +25,8 @@ export function RevisionRequestDialog({
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  // Focus the dialog on open, close on Escape, and restore focus on close.
+  // Focus the dialog on open, close on Escape, trap Tab inside the dialog,
+  // and restore focus to the trigger on close.
   useEffect(() => {
     if (!isOpen) return
     const previouslyFocused =
@@ -39,6 +40,31 @@ export function RevisionRequestDialog({
       if (event.key === 'Escape') {
         event.stopPropagation()
         onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const container = dialogRef.current
+      if (!container) return
+
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+        ),
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const activeElement = document.activeElement
+
+      if (event.shiftKey) {
+        if (activeElement === first || !container.contains(activeElement)) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (activeElement === last || !container.contains(activeElement)) {
+        event.preventDefault()
+        first.focus()
       }
     }
     document.addEventListener('keydown', onKeyDown)
