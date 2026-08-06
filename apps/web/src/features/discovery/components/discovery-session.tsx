@@ -174,6 +174,7 @@ export function DiscoverySession({
               acknowledge_incomplete: acknowledgeIncomplete ? true : undefined,
             })
           }}
+          onUpdateFacts={(facts) => session.updateFacts(facts)}
         />
       </div>
     )

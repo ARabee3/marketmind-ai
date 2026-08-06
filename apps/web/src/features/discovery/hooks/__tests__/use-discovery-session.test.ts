@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import type { DiscoveryStatusResponse } from '@marketmind/contracts'
+import type { BusinessProfileDraft, DiscoveryStatusResponse } from '@marketmind/contracts'
 import { useDiscoverySession } from '../use-discovery-session'
 import {
   getDiscoveryStatus,
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
+  updateDiscoveryDraftFacts,
 } from '@/lib/api/discovery'
 
 vi.mock('@/lib/api/discovery', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/lib/api/discovery', () => ({
   respondToDiscovery: vi.fn(),
   summarizeDiscovery: vi.fn(),
   confirmDiscoveryProfile: vi.fn(),
+  updateDiscoveryDraftFacts: vi.fn(),
 }))
 
 function makeStatus(overrides: Partial<DiscoveryStatusResponse> = {}): DiscoveryStatusResponse {
@@ -64,6 +66,31 @@ function makeStatus(overrides: Partial<DiscoveryStatusResponse> = {}): Discovery
     },
     progress_events: [],
     strategy_locked: true,
+    ...overrides,
+  }
+}
+
+function makeDraft(overrides: Partial<BusinessProfileDraft> = {}): BusinessProfileDraft {
+  return {
+    id: 'draft-1',
+    session_id: 'test-session',
+    version: 1,
+    status: 'ready_for_confirmation',
+    completeness: 'complete',
+    completion_reason: 'sufficient',
+    readiness: makeStatus().profile_state.readiness,
+    confirmed_facts: makeStatus().profile_state.known_facts,
+    market_context: {
+      competitor_landscape: [],
+      local_demand_signals: [],
+      digital_presence_signals: [],
+      other_signals: [],
+    },
+    research_observations: [],
+    uncertainties: [],
+    owner_goals: [],
+    strategy_relevant_notes: [],
+    raw_ai_output: {},
     ...overrides,
   }
 }
@@ -506,5 +533,70 @@ describe('useDiscoverySession', () => {
     expect(result.current.status?.profile_draft?.completion_reason).toBe('turn_limit')
     expect(result.current.status?.profile_state.readiness.owner_turn_count).toBe(15)
     expect(result.current.status?.profile_state.readiness.ready).toBe(false)
+  })
+
+  it('updateFacts posts then refreshes status on success', async () => {
+    const draft = makeDraft()
+    const edited = makeDraft({
+      confirmed_facts: {
+        ...makeStatus().profile_state.known_facts,
+        identity: {
+          business_name: 'New Name',
+          business_type: 'Cafe',
+          city: 'Cairo',
+        },
+      },
+    })
+
+    vi.mocked(getDiscoveryStatus)
+      .mockResolvedValueOnce(makeStatus({ status: 'summary_ready', profile_draft: draft }))
+      .mockResolvedValueOnce(makeStatus({ status: 'summary_ready', profile_draft: edited }))
+
+    vi.mocked(updateDiscoveryDraftFacts).mockResolvedValueOnce({
+      session_id: 'test-session',
+      profile_draft: edited,
+      strategy_locked: true,
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('review'))
+
+    const facts = makeStatus().profile_state.known_facts
+    await act(async () => {
+      await result.current.updateFacts(facts)
+    })
+
+    expect(vi.mocked(updateDiscoveryDraftFacts)).toHaveBeenCalledWith('test', {
+      profile_draft_id: 'draft-1',
+      confirmed_facts: facts,
+    })
+    expect(getDiscoveryStatus).toHaveBeenCalledTimes(2) // initial + refresh
+    expect(result.current.pending).toBe(false)
+  })
+
+  it('updateFacts sets error without throwing on failure', async () => {
+    const draft = makeDraft()
+    vi.mocked(getDiscoveryStatus).mockResolvedValue(
+      makeStatus({ status: 'summary_ready', profile_draft: draft }),
+    )
+    vi.mocked(updateDiscoveryDraftFacts).mockRejectedValueOnce({
+      status: 400,
+      code: 'INVALID_DISCOVERY_STATE',
+      message: 'invalid state',
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('review'))
+
+    const facts = makeStatus().profile_state.known_facts
+    await act(async () => {
+      await result.current.updateFacts(facts)
+    })
+
+    expect(result.current.error).toBe('invalid state')
+    expect(result.current.errorTranslationKey).toBe('Errors.generic')
+    expect(result.current.pending).toBe(false)
   })
 })

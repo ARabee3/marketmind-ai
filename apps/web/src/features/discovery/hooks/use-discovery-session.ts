@@ -18,12 +18,14 @@ import type {
   DiscoveryStatusResponse,
   DiscoverySummarizeRequest,
   ConfirmProfileRequest,
+  MarketAwareBusinessFacts,
 } from '@marketmind/contracts'
 import {
   getDiscoveryStatus,
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
+  updateDiscoveryDraftFacts,
   type ApiError,
 } from '@/lib/api/discovery'
 import { getApiErrorTranslationKey } from '@/features/discovery/lib/api-error-localization'
@@ -261,6 +263,41 @@ export function useDiscoverySession({ sessionId }: Options) {
     [sessionId, loadStatus, setPending],
   )
 
+  const updateFacts = useCallback(
+    async (facts: MarketAwareBusinessFacts) => {
+      if (pendingRef.current) return
+      const draftId = state.status?.profile_draft?.id
+      if (!draftId) return
+
+      setPending(true)
+      setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
+
+      try {
+        await updateDiscoveryDraftFacts(sessionId, {
+          profile_draft_id: draftId,
+          confirmed_facts: facts,
+        })
+      } catch (err) {
+        await loadStatus()
+        if (!mountedRef.current) return
+        const apiErr = err as ApiError
+        setState((prev) => ({
+          ...prev,
+          pending: false,
+          error: apiErr.message || 'update facts failed',
+          errorTranslationKey: getApiErrorTranslationKey(apiErr),
+        }))
+        pendingRef.current = false
+        return
+      }
+
+      await loadStatus()
+      if (!mountedRef.current) return
+      setPending(false)
+    },
+    [sessionId, loadStatus, setPending, state.status],
+  )
+
   const retryLoad = useCallback(() => {
     setState((prev) => ({ ...prev, phase: 'loading', error: null, errorTranslationKey: null }))
     loadStatus()
@@ -271,6 +308,7 @@ export function useDiscoverySession({ sessionId }: Options) {
     respond,
     summarize,
     confirm,
+    updateFacts,
     retryLoad,
     refresh: loadStatus,
   }

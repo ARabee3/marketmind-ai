@@ -18,9 +18,13 @@ import {
 } from 'lucide-react'
 import { useTranslations, useFormatter } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type {
   BusinessProfileDraft,
+  DiscoveryProfileDomain,
   DiscoveryStatusResponse,
+  MarketAwareBusinessFacts,
   SourceRef,
   SourceType,
   MarketEvidence,
@@ -39,9 +43,40 @@ const FACT_DOMAINS = [
   'market_context',
 ] as const
 
+type EditableDomain = Exclude<DiscoveryProfileDomain, 'market_context'>
+
 type FieldSpec =
-  | { kind: 'value'; label: string; value?: string }
-  | { kind: 'list'; label: string; list?: string[] }
+  | { kind: 'value'; label: string; value?: string; fieldKey?: string }
+  | { kind: 'list'; label: string; list?: string[]; fieldKey?: string }
+
+function cloneFacts(facts: MarketAwareBusinessFacts): MarketAwareBusinessFacts {
+  return JSON.parse(JSON.stringify(facts)) as MarketAwareBusinessFacts
+}
+
+function readFactsField(
+  facts: MarketAwareBusinessFacts,
+  domain: EditableDomain,
+  fieldKey: string,
+): string | string[] {
+  const value = (facts[domain] as unknown as Record<string, string | string[] | undefined>)[fieldKey]
+  if (value === undefined) return ''
+  return Array.isArray(value) ? value : value
+}
+
+function writeFactsField(
+  facts: MarketAwareBusinessFacts,
+  domain: EditableDomain,
+  fieldKey: string,
+  value: string | string[],
+): MarketAwareBusinessFacts {
+  return {
+    ...facts,
+    [domain]: {
+      ...(facts[domain] as object),
+      [fieldKey]: value,
+    },
+  } as MarketAwareBusinessFacts
+}
 
 function isFieldPopulated(field: FieldSpec): boolean {
   return field.kind === 'value' ? Boolean(field.value) : Boolean(field.list && field.list.length > 0)
@@ -85,6 +120,115 @@ function FieldRow(field: FieldSpec) {
   )
 }
 
+function EditableField({
+  id,
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="min-w-0">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="mt-1.5"
+      />
+    </div>
+  )
+}
+
+function TagEditor({
+  id,
+  label,
+  items,
+  onAdd,
+  onRemove,
+  disabled,
+}: {
+  id: string
+  label: string
+  items: string[]
+  onAdd: (value: string) => void
+  onRemove: (value: string) => void
+  disabled?: boolean
+}) {
+  const t = useTranslations('DiscoveryReview')
+  const [draftValue, setDraftValue] = useState('')
+
+  const add = () => {
+    const trimmed = draftValue.trim()
+    if (!trimmed) return
+    if (items.some((item) => item.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return
+    onAdd(trimmed)
+    setDraftValue('')
+  }
+
+  return (
+    <div className="min-w-0">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {items.length === 0 && (
+          <span className="text-sm italic text-muted-foreground">{t('notProvided')}</span>
+        )}
+        {items.map((item, idx) => (
+          <span
+            key={`${item}-${idx}`}
+            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-sm text-navy"
+          >
+            <bdi>{item}</bdi>
+            <button
+              type="button"
+              aria-label={t('removeItem', { value: item })}
+              onClick={() => onRemove(item)}
+              disabled={disabled}
+              className="grid size-4 place-items-center rounded text-muted-foreground outline-none transition-colors hover:text-danger focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <Input
+          id={id}
+          type="text"
+          value={draftValue}
+          onChange={(e) => setDraftValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
+          disabled={disabled}
+          className="min-w-0 flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 text-primary"
+          onClick={add}
+          disabled={disabled}
+        >
+          {t('addItem')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function EmptyStateRow({ children }: { children: ReactNode }) {
   return (
     <p className="rounded-lg border border-dashed border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
@@ -107,12 +251,14 @@ function ProfileSectionCard({
   icon: Icon,
   incomplete = false,
   empty = false,
+  actions,
   children,
 }: {
   title: string
   icon: LucideIcon
   incomplete?: boolean
   empty?: boolean
+  actions?: ReactNode
   children?: ReactNode
 }) {
   const t = useTranslations('DiscoveryReview')
@@ -123,6 +269,7 @@ function ProfileSectionCard({
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <h2 className="text-balance text-lg font-bold text-navy">{title}</h2>
+        {actions}
         {incomplete && (
           <span className="ms-auto">
             <IncompleteBadge />
@@ -142,21 +289,111 @@ function FactSection({
   fields,
   grid = false,
   incomplete = false,
+  domain,
+  editing = false,
+  editFacts,
+  canEdit = false,
+  pending = false,
+  disabled = false,
+  onEdit,
+  onSave,
+  onCancel,
+  onChangeField,
 }: {
   title: string
   icon: LucideIcon
   fields: FieldSpec[]
   grid?: boolean
   incomplete?: boolean
+  domain?: EditableDomain
+  editing?: boolean
+  editFacts?: MarketAwareBusinessFacts | null
+  canEdit?: boolean
+  pending?: boolean
+  disabled?: boolean
+  onEdit?: () => void
+  onSave?: () => void
+  onCancel?: () => void
+  onChangeField?: (fieldKey: string, value: string | string[]) => void
 }) {
+  const t = useTranslations('DiscoveryReview')
   const populated = fields.some(isFieldPopulated)
+  const controlsDisabled = pending || disabled
+
   return (
-    <ProfileSectionCard title={title} icon={icon} incomplete={incomplete} empty={!populated}>
-      <dl className={cn('grid gap-x-4 gap-y-5', grid && 'grid-cols-1 sm:grid-cols-2')}>
-        {fields.map((field) => (
-          <FieldRow key={field.label} {...field} />
-        ))}
-      </dl>
+    <ProfileSectionCard
+      title={title}
+      icon={icon}
+      incomplete={incomplete}
+      empty={!populated && !editing}
+      actions={
+        !editing && canEdit && onEdit ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-primary"
+            onClick={onEdit}
+            disabled={controlsDisabled}
+          >
+            {t('editSection', { section: title })}
+          </Button>
+        ) : undefined
+      }
+    >
+      {editing && domain && editFacts && onChangeField ? (
+        <div className="space-y-4">
+          {fields.map((field) => {
+            if (!field.fieldKey) return null
+            const fieldKey = field.fieldKey
+            const current = readFactsField(editFacts, domain, fieldKey)
+            const fieldId = `edit-${domain}-${fieldKey}`
+            if (field.kind === 'value') {
+              return (
+                <EditableField
+                  key={fieldKey}
+                  id={fieldId}
+                  label={field.label}
+                  value={typeof current === 'string' ? current : ''}
+                  onChange={(value) => onChangeField(fieldKey, value)}
+                  disabled={controlsDisabled}
+                />
+              )
+            }
+            const list = Array.isArray(current) ? current : []
+            return (
+              <TagEditor
+                key={fieldKey}
+                id={fieldId}
+                label={field.label}
+                items={list}
+                onAdd={(value) => onChangeField(fieldKey, [...list, value])}
+                onRemove={(value) =>
+                  onChangeField(
+                    fieldKey,
+                    list.filter((item) => item !== value),
+                  )
+                }
+                disabled={controlsDisabled}
+              />
+            )
+          })}
+          <div className="flex items-center gap-2 border-t border-border pt-4">
+            <Button type="button" variant="default" size="sm" onClick={onSave} disabled={controlsDisabled}>
+              {pending ? t('savingEdits') : t('saveEdits')}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={controlsDisabled}>
+              {t('cancelEdits')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <dl className={cn('grid gap-x-4 gap-y-5', grid && 'grid-cols-1 sm:grid-cols-2')}>
+          {fields.map((field) => (
+            <FieldRow key={field.label} {...field} />
+          ))}
+        </dl>
+      )}
     </ProfileSectionCard>
   )
 }
@@ -590,18 +827,48 @@ export function DraftReview({
   pending,
   onConfirm,
   disabled,
+  onUpdateFacts,
 }: {
   status: DiscoveryStatusResponse
   draft: BusinessProfileDraft
   pending: boolean
   onConfirm: (acknowledgeIncomplete: boolean) => void
   disabled?: boolean
+  onUpdateFacts?: (facts: MarketAwareBusinessFacts) => void | Promise<void>
 }) {
   const t = useTranslations('DiscoveryReview')
   const [acknowledged, setAcknowledged] = useState(false)
+  const [editingDomain, setEditingDomain] = useState<EditableDomain | null>(null)
+  const [editFacts, setEditFacts] = useState<MarketAwareBusinessFacts | null>(null)
 
   const isComplete = draft.completeness === 'complete'
   const readiness = draft.readiness
+
+  const canEdit = Boolean(onUpdateFacts)
+
+  const openEdit = (domain: EditableDomain) => {
+    setEditFacts(cloneFacts(draft.confirmed_facts))
+    setEditingDomain(domain)
+  }
+
+  const cancelEdit = () => {
+    setEditFacts(null)
+    setEditingDomain(null)
+  }
+
+  const saveEdit = async () => {
+    if (!editFacts || !editingDomain) return
+    await onUpdateFacts?.(editFacts)
+    setEditFacts(null)
+    setEditingDomain(null)
+  }
+
+  const changeField = (domain: EditableDomain, fieldKey: string, value: string | string[]) => {
+    setEditFacts((prev) => (prev ? writeFactsField(prev, domain, fieldKey, value) : prev))
+  }
+
+  const canEditDomain = (domain: EditableDomain) =>
+    canEdit && (editingDomain === null || editingDomain === domain)
 
   const domainLabels: Record<string, string> = {
     identity: t('domainIdentity'),
@@ -644,40 +911,40 @@ export function DraftReview({
   const sourceMap = new Map(sourceRefs.map((s) => [s.id, s]))
 
   const identityFields: FieldSpec[] = [
-    { kind: 'value', label: t('businessName'), value: facts.identity.business_name },
-    { kind: 'value', label: t('businessType'), value: facts.identity.business_type },
-    { kind: 'value', label: t('city'), value: facts.identity.city },
-    { kind: 'value', label: t('area'), value: facts.identity.area },
+    { kind: 'value', label: t('businessName'), value: facts.identity.business_name, fieldKey: 'business_name' },
+    { kind: 'value', label: t('businessType'), value: facts.identity.business_type, fieldKey: 'business_type' },
+    { kind: 'value', label: t('city'), value: facts.identity.city, fieldKey: 'city' },
+    { kind: 'value', label: t('area'), value: facts.identity.area, fieldKey: 'area' },
   ]
   const offerFields: FieldSpec[] = [
-    { kind: 'list', label: t('coreOfferings'), list: facts.offer.core_offerings },
-    { kind: 'list', label: t('bestSellers'), list: facts.offer.best_sellers },
-    { kind: 'value', label: t('priceRange'), value: facts.offer.price_range },
-    { kind: 'list', label: t('purchaseOccasions'), list: facts.offer.purchase_occasions },
+    { kind: 'list', label: t('coreOfferings'), list: facts.offer.core_offerings, fieldKey: 'core_offerings' },
+    { kind: 'list', label: t('bestSellers'), list: facts.offer.best_sellers, fieldKey: 'best_sellers' },
+    { kind: 'value', label: t('priceRange'), value: facts.offer.price_range, fieldKey: 'price_range' },
+    { kind: 'list', label: t('purchaseOccasions'), list: facts.offer.purchase_occasions, fieldKey: 'purchase_occasions' },
   ]
   const customersFields: FieldSpec[] = [
-    { kind: 'list', label: t('primarySegments'), list: facts.customers.primary_segments },
-    { kind: 'list', label: t('visitOrOrderOccasions'), list: facts.customers.visit_or_order_occasions },
-    { kind: 'list', label: t('peakPeriods'), list: facts.customers.peak_periods },
-    { kind: 'list', label: t('customerNeeds'), list: facts.customers.customer_needs },
+    { kind: 'list', label: t('primarySegments'), list: facts.customers.primary_segments, fieldKey: 'primary_segments' },
+    { kind: 'list', label: t('visitOrOrderOccasions'), list: facts.customers.visit_or_order_occasions, fieldKey: 'visit_or_order_occasions' },
+    { kind: 'list', label: t('peakPeriods'), list: facts.customers.peak_periods, fieldKey: 'peak_periods' },
+    { kind: 'list', label: t('customerNeeds'), list: facts.customers.customer_needs, fieldKey: 'customer_needs' },
   ]
   const differentiationFields: FieldSpec[] = [
-    { kind: 'list', label: t('ownerClaimedStrengths'), list: facts.differentiation.owner_claimed_strengths },
-    { kind: 'list', label: t('customerChoiceReasons'), list: facts.differentiation.customer_choice_reasons },
-    { kind: 'list', label: t('proofPoints'), list: facts.differentiation.proof_points },
+    { kind: 'list', label: t('ownerClaimedStrengths'), list: facts.differentiation.owner_claimed_strengths, fieldKey: 'owner_claimed_strengths' },
+    { kind: 'list', label: t('customerChoiceReasons'), list: facts.differentiation.customer_choice_reasons, fieldKey: 'customer_choice_reasons' },
+    { kind: 'list', label: t('proofPoints'), list: facts.differentiation.proof_points, fieldKey: 'proof_points' },
   ]
   const marketingFields: FieldSpec[] = [
-    { kind: 'list', label: t('activeChannels'), list: facts.current_marketing.active_channels },
-    { kind: 'list', label: t('currentActivities'), list: facts.current_marketing.current_activities },
-    { kind: 'list', label: t('deliveryPlatforms'), list: facts.current_marketing.delivery_platforms },
-    { kind: 'list', label: t('availableAssets'), list: facts.current_marketing.available_assets },
+    { kind: 'list', label: t('activeChannels'), list: facts.current_marketing.active_channels, fieldKey: 'active_channels' },
+    { kind: 'list', label: t('currentActivities'), list: facts.current_marketing.current_activities, fieldKey: 'current_activities' },
+    { kind: 'list', label: t('deliveryPlatforms'), list: facts.current_marketing.delivery_platforms, fieldKey: 'delivery_platforms' },
+    { kind: 'list', label: t('availableAssets'), list: facts.current_marketing.available_assets, fieldKey: 'available_assets' },
   ]
   const goalsFields: FieldSpec[] = [
-    { kind: 'list', label: t('growthGoals'), list: facts.goals_and_constraints.growth_goals },
-    { kind: 'value', label: t('timeframe'), value: facts.goals_and_constraints.timeframe },
-    { kind: 'value', label: t('marketingBudgetRange'), value: facts.goals_and_constraints.marketing_budget_range },
-    { kind: 'value', label: t('teamCapacity'), value: facts.goals_and_constraints.team_capacity },
-    { kind: 'list', label: t('operationalConstraints'), list: facts.goals_and_constraints.operational_constraints },
+    { kind: 'list', label: t('growthGoals'), list: facts.goals_and_constraints.growth_goals, fieldKey: 'growth_goals' },
+    { kind: 'value', label: t('timeframe'), value: facts.goals_and_constraints.timeframe, fieldKey: 'timeframe' },
+    { kind: 'value', label: t('marketingBudgetRange'), value: facts.goals_and_constraints.marketing_budget_range, fieldKey: 'marketing_budget_range' },
+    { kind: 'value', label: t('teamCapacity'), value: facts.goals_and_constraints.team_capacity, fieldKey: 'team_capacity' },
+    { kind: 'list', label: t('operationalConstraints'), list: facts.goals_and_constraints.operational_constraints, fieldKey: 'operational_constraints' },
   ]
 
   const evidenceGroups = [
@@ -707,31 +974,96 @@ export function DraftReview({
         fields={identityFields}
         grid
         incomplete={blockedSet.has('identity')}
+        domain="identity"
+        editing={editingDomain === 'identity'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('identity')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('identity')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('identity', fieldKey, value)}
       />
-      <FactSection title={t('domainOffer')} icon={Package} fields={offerFields} incomplete={blockedSet.has('offer')} />
+      <FactSection
+        title={t('domainOffer')}
+        icon={Package}
+        fields={offerFields}
+        incomplete={blockedSet.has('offer')}
+        domain="offer"
+        editing={editingDomain === 'offer'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('offer')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('offer')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('offer', fieldKey, value)}
+      />
       <FactSection
         title={t('domainCustomers')}
         icon={Users}
         fields={customersFields}
         incomplete={blockedSet.has('customers')}
+        domain="customers"
+        editing={editingDomain === 'customers'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('customers')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('customers')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('customers', fieldKey, value)}
       />
       <FactSection
         title={t('domainDifferentiation')}
         icon={Layers}
         fields={differentiationFields}
         incomplete={blockedSet.has('differentiation')}
+        domain="differentiation"
+        editing={editingDomain === 'differentiation'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('differentiation')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('differentiation')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('differentiation', fieldKey, value)}
       />
       <FactSection
         title={t('domainCurrentMarketing')}
         icon={Megaphone}
         fields={marketingFields}
         incomplete={blockedSet.has('current_marketing')}
+        domain="current_marketing"
+        editing={editingDomain === 'current_marketing'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('current_marketing')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('current_marketing')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('current_marketing', fieldKey, value)}
       />
       <FactSection
         title={t('domainGoals')}
         icon={Target}
         fields={goalsFields}
         incomplete={blockedSet.has('goals_and_constraints')}
+        domain="goals_and_constraints"
+        editing={editingDomain === 'goals_and_constraints'}
+        editFacts={editFacts}
+        canEdit={canEditDomain('goals_and_constraints')}
+        pending={pending}
+        disabled={disabled}
+        onEdit={() => openEdit('goals_and_constraints')}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+        onChangeField={(fieldKey, value) => changeField('goals_and_constraints', fieldKey, value)}
       />
 
       <ProfileSectionCard
