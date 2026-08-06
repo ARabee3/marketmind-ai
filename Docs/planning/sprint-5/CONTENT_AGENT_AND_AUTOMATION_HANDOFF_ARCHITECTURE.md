@@ -914,6 +914,12 @@ If a breaking change is genuinely necessary:
 | Mokhtar | [#109 — evaluation](https://github.com/ARabee3/marketmind-ai/issues/109) | [#108 — generation and revision](https://github.com/ARabee3/marketmind-ai/issues/108) |
 | Kordy | [#112 — integration](https://github.com/ARabee3/marketmind-ai/issues/112) | [#110 — API lifecycle](https://github.com/ARabee3/marketmind-ai/issues/110) |
 
+The integration issue (#112) owns the `GET /content-packs/:id/workspace`
+aggregate read model that powers the #155 pack-review page (pack, week
+context, items, versions, assets, decisions, server-computed eligibility,
+and publication candidate). Until it lands, the Web review workspace shows
+the clearly-labeled contract-aligned fixture proof.
+
 ### Dependency order
 
 ```text
