@@ -141,9 +141,11 @@ describe('content-review API adapter', () => {
   })
 
   it('fetches authenticated asset blob', async () => {
-    const blob = new Blob(['fake image bytes'], { type: 'image/png' })
     vi.mocked(apiRequest).mockResolvedValueOnce(
-      new Response(blob, { status: 200 }),
+      new Response('fake image bytes', {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      }),
     )
 
     const result = await fetchAuthenticatedAssetBlob('asset-1')
