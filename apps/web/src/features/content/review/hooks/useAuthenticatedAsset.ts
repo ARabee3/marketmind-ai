@@ -8,11 +8,14 @@ export type AuthenticatedAssetResult =
   | { status: 'error'; objectUrl: null; error: Error }
 
 export function useAuthenticatedAsset(assetId?: string | null): AuthenticatedAssetResult {
-  const [state, setState] = useState<AuthenticatedAssetResult>(() =>
-    assetId
-      ? { status: 'loading', objectUrl: null, error: null }
-      : { status: 'idle', objectUrl: null, error: null },
-  )
+  const [asset, setAsset] = useState<{
+    assetId: string
+    objectUrl: string
+  } | null>(null)
+  const [failure, setFailure] = useState<{
+    assetId: string
+    error: Error
+  } | null>(null)
 
   useEffect(() => {
     if (!assetId) {
@@ -26,13 +29,13 @@ export function useAuthenticatedAsset(assetId?: string | null): AuthenticatedAss
       .then((blob) => {
         if (!active) return
         createdUrl = URL.createObjectURL(blob)
-        setState({ status: 'success', objectUrl: createdUrl, error: null })
+        setAsset({ assetId, objectUrl: createdUrl })
+        setFailure(null)
       })
       .catch((err) => {
         if (!active) return
-        setState({
-          status: 'error',
-          objectUrl: null,
+        setFailure({
+          assetId,
           error: err instanceof Error ? err : new Error('Failed to load asset'),
         })
       })
@@ -48,6 +51,13 @@ export function useAuthenticatedAsset(assetId?: string | null): AuthenticatedAss
   if (!assetId) {
     return { status: 'idle', objectUrl: null, error: null }
   }
-
-  return state
+  if (failure && failure.assetId === assetId) {
+    return { status: 'error', objectUrl: null, error: failure.error }
+  }
+  // The requested asset has changed: report loading with no URL instead of
+  // showing the previous item's image while the new fetch is in flight.
+  if (!asset || asset.assetId !== assetId) {
+    return { status: 'loading', objectUrl: null, error: null }
+  }
+  return { status: 'success', objectUrl: asset.objectUrl, error: null }
 }

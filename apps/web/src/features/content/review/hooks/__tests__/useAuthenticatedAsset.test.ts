@@ -66,7 +66,7 @@ describe('useAuthenticatedAsset', () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:created-url')
   })
 
-  it('revokes the replaced URL when the asset id changes', async () => {
+  it('clears the previous URL and shows loading while a new asset loads', async () => {
     vi.mocked(fetchAuthenticatedAssetBlob).mockResolvedValue(
       new Blob(['bytes'], { type: 'image/png' }),
     )
@@ -75,10 +75,26 @@ describe('useAuthenticatedAsset', () => {
       { initialProps: { assetId: 'asset-1' } },
     )
     await waitFor(() => expect(result.current.status).toBe('success'))
+
+    // Hold the second fetch open so the interim state is observable.
+    let resolveSecond!: (blob: Blob) => void
+    vi.mocked(fetchAuthenticatedAssetBlob).mockImplementationOnce(
+      () =>
+        new Promise<Blob>((resolve) => {
+          resolveSecond = resolve
+        }),
+    )
     createObjectUrl.mockReturnValueOnce('blob:second-url')
     rerender({ assetId: 'asset-2' })
-    await waitFor(() => expect(result.current.objectUrl).toBe('blob:second-url'))
+
+    // The previous item's image must not linger during the switch.
+    expect(result.current.status).toBe('loading')
+    expect(result.current.objectUrl).toBeNull()
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:created-url')
+
+    resolveSecond(new Blob(['bytes2'], { type: 'image/png' }))
+    await waitFor(() => expect(result.current.objectUrl).toBe('blob:second-url'))
+    expect(createObjectUrl).toHaveBeenCalledTimes(2)
     unmount()
   })
 })
