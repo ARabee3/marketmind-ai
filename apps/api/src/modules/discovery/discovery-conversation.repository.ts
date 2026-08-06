@@ -380,44 +380,55 @@ export class DiscoveryConversationRepository {
         throw invalidDiscoveryState();
       }
 
-      const businessId =
-        session.businessId ??
-        (
-          await tx.business.create({
-            data: {
-              ownerUserId,
-              displayName: intake.business_name,
-              businessType: intake.business_type,
-              city: intake.city,
-              area: intake.area,
-              addressText: intake.address_text,
-              primaryLocale: session.languageMode,
-              status: "active",
-            },
-          })
-        ).id;
-
-      const latestVersion = await tx.businessProfileVersion.aggregate({
-        where: { businessId },
-        _max: { version: true },
-      });
-      const nextVersion = (latestVersion._max.version ?? 0) + 1;
       const confirmedDraft = profileDraftFromPersistence(draft);
       const confirmedFacts =
         corrections?.confirmed_facts ?? confirmedDraft.confirmed_facts;
       const readiness = corrections?.readiness ?? confirmedDraft.readiness;
       const completeness =
         corrections?.completeness ?? confirmedDraft.completeness;
+      const identity = confirmedIdentity(confirmedFacts, intake);
+      let businessId = session.businessId;
+      if (businessId) {
+        await tx.business.update({
+          where: { id: businessId },
+          data: {
+            displayName: identity.business_name,
+            businessType: identity.business_type,
+            city: identity.city,
+            area: identity.area,
+          },
+        });
+      } else {
+        const created = await tx.business.create({
+          data: {
+            ownerUserId,
+            displayName: identity.business_name,
+            businessType: identity.business_type,
+            city: identity.city,
+            area: identity.area,
+            addressText: intake.address_text,
+            primaryLocale: session.languageMode,
+            status: "active",
+          },
+        });
+        businessId = created.id;
+      }
+
+      const latestVersion = await tx.businessProfileVersion.aggregate({
+        where: { businessId },
+        _max: { version: true },
+      });
+      const nextVersion = (latestVersion._max.version ?? 0) + 1;
       const savedVersion = await tx.businessProfileVersion.create({
         data: {
           businessId,
           draftId: draft.id,
           version: nextVersion,
           profile: jsonForPrisma({
-            business_name: intake.business_name,
-            business_type: intake.business_type,
-            city: intake.city,
-            ...(intake.area === undefined ? {} : { area: intake.area }),
+            business_name: identity.business_name,
+            business_type: identity.business_type,
+            city: identity.city,
+            ...(identity.area ? { area: identity.area } : {}),
             ...(intake.address_text === undefined
               ? {}
               : { address_text: intake.address_text }),
@@ -529,6 +540,43 @@ function jsonForPrisma(value: object): Prisma.InputJsonObject {
 
 function jsonForPrismaArray(value: readonly unknown[]): Prisma.InputJsonArray {
   return [...value] as Prisma.InputJsonArray;
+}
+
+/**
+ * Identity used for the confirmed `Business` entity and the version profile's
+ * top-level identity fields. Prefers the confirmed facts the owner reviewed
+ * (including any edits applied at confirm time) and only falls back to the
+ * original intake when a value is empty, so every downstream surface reads the
+ * last-confirmed data.
+ */
+function confirmedIdentity(
+  confirmedFacts: MarketAwareBusinessFacts,
+  intake: PreparedDiscoveryIntakeDto,
+): {
+  business_name: string;
+  business_type: string;
+  city: string;
+  area: string | undefined;
+} {
+  const identity = confirmedFacts.identity;
+  return {
+    business_name:
+      pick(identity.business_name, intake.business_name) ?? intake.business_name,
+    business_type:
+      pick(identity.business_type, intake.business_type) ??
+      intake.business_type,
+    city: pick(identity.city, intake.city) ?? intake.city,
+    area: pick(identity.area, intake.area),
+  };
+}
+
+function pick(
+  value: string | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
 }
 
 function invalidDiscoveryState(): ConflictException {

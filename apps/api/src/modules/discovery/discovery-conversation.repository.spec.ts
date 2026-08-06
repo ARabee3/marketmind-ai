@@ -266,6 +266,7 @@ describe("DiscoveryConversationRepository", () => {
       },
       business: {
         create: jest.fn(),
+        update: jest.fn(),
       },
     };
     const prisma = transactionPrisma(tx);
@@ -357,6 +358,7 @@ describe("DiscoveryConversationRepository", () => {
       },
       business: {
         create: jest.fn(),
+        update: jest.fn(),
       },
     };
     const repository = new DiscoveryConversationRepository(
@@ -379,6 +381,10 @@ describe("DiscoveryConversationRepository", () => {
     expect(tx.businessProfileVersion.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         profile: expect.objectContaining({
+          business_name: "Koshary Corner (corrected)",
+          business_type: "restaurant",
+          city: "Cairo",
+          area: "Zamalek",
           confirmed_facts: expect.objectContaining({
             identity: expect.objectContaining({
               business_name: "Koshary Corner (corrected)",
@@ -393,6 +399,15 @@ describe("DiscoveryConversationRepository", () => {
         }),
       }),
     });
+    expect(tx.business.update).toHaveBeenCalledWith({
+      where: { id: "business-id" },
+      data: {
+        displayName: "Koshary Corner (corrected)",
+        businessType: "restaurant",
+        city: "Cairo",
+        area: "Zamalek",
+      },
+    });
     expect(tx.businessProfileDraft.update).toHaveBeenCalledWith({
       where: { id: "draft-id" },
       data: expect.objectContaining({
@@ -401,6 +416,105 @@ describe("DiscoveryConversationRepository", () => {
           identity: expect.objectContaining({
             business_name: "Koshary Corner (corrected)",
           }),
+        }),
+      }),
+    });
+  });
+
+  it("creates the business from the confirmed identity when the session has none", async () => {
+    const confirmedAt = new Date("2026-06-29T10:10:00.000Z");
+    const correctedFacts = {
+      ...emptyMarketAwareBusinessFacts(),
+      identity: {
+        business_name: "Koshary Corner (corrected)",
+        business_type: "restaurant",
+        city: "Cairo",
+        area: "Zamalek",
+      },
+    };
+    const correctedReadiness = {
+      ready: true,
+      llm_recommended: true,
+      profile_readiness: 0.95,
+      domain_scores: emptyDiscoveryDomainScores(),
+      blocking_domains: [],
+      owner_turn_count: 4,
+      max_owner_turns: 8,
+      completion_reason: "sufficient" as const,
+    };
+    const tx = {
+      discoverySession: {
+        findFirst: jest.fn().mockResolvedValue({
+          status: "summary_ready",
+          profileDraftId: "draft-id",
+          confirmedProfileVersionId: null,
+          businessId: null,
+          languageMode: "mixed",
+          businessProfileDrafts: [
+            {
+              id: "draft-id",
+              completeness: "complete",
+              completionReason: "sufficient",
+              confirmedFacts: emptyMarketAwareBusinessFacts(),
+              researchObservations: [],
+              uncertainties: [],
+              ownerGoals: [],
+              strategyRelevantNotes: [],
+            },
+          ],
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn(),
+      },
+      businessProfileVersion: {
+        aggregate: jest.fn().mockResolvedValue({ _max: { version: 0 } }),
+        create: jest.fn().mockResolvedValue({
+          id: "version-id",
+          confirmedAt,
+        }),
+      },
+      businessProfileDraft: {
+        update: jest.fn(),
+      },
+      business: {
+        create: jest.fn().mockResolvedValue({ id: "created-business-id" }),
+      },
+    };
+    const repository = new DiscoveryConversationRepository(
+      transactionPrisma(tx) as never,
+    );
+
+    await repository.confirmProfile(
+      "owner-id",
+      "session-id",
+      "draft-id",
+      intake(),
+      false,
+      {
+        confirmed_facts: correctedFacts,
+        readiness: correctedReadiness,
+        completeness: "complete",
+      },
+    );
+
+    expect(tx.business.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ownerUserId: "owner-id",
+        displayName: "Koshary Corner (corrected)",
+        businessType: "restaurant",
+        city: "Cairo",
+        area: "Zamalek",
+        primaryLocale: "mixed",
+        status: "active",
+      }),
+    });
+    expect(tx.businessProfileVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        businessId: "created-business-id",
+        profile: expect.objectContaining({
+          business_name: "Koshary Corner (corrected)",
+          city: "Cairo",
+          area: "Zamalek",
         }),
       }),
     });
