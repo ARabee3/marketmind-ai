@@ -492,6 +492,157 @@ describe('DraftReview', () => {
     expect(screen.getByRole('link', { name: 'Example Cafe' })).toBeDefined()
   })
 
+  it('renders a retrieved-on date when the source has fetched_at', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-fetched',
+        source_type: 'search_result',
+        url: 'https://example.com/cafe',
+        title: 'Fetched Cafe',
+        fetched_at: '2026-01-01T00:00:00Z',
+        confidence: 0.8,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-fetched',
+            source_ref_id: 'source-fetched',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('evidenceRetrievedOn')).toBeDefined()
+  })
+
+  it('omits the retrieved-on date when the source has no fetched_at', () => {
+    const status = makeStatus()
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-4',
+            source_ref_id: 'source-1',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('evidenceRetrievedOn')).toBeNull()
+  })
+
+  it('falls back to the hostname when a source has a valid URL but no title', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-hosts',
+        source_type: 'metadata',
+        url: 'https://example.com/cafe',
+        title: undefined,
+        confidence: 0.8,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-hosts',
+            source_ref_id: 'source-hosts',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'example.com' })).toBeDefined()
+  })
+
+  it('falls back to the source-type label when a source has no title and no valid URL', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-type',
+        source_type: 'metadata',
+        url: 'ftp://invalid.url',
+        title: undefined,
+        confidence: 0.5,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-type',
+            source_ref_id: 'source-type',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.5,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('citationSource_metadata')).toBeDefined()
+  })
+
   it('groups uncertainties by severity and shows a count per group', () => {
     const draft = makeDraft({
       uncertainties: [
