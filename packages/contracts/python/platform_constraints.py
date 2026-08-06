@@ -72,6 +72,38 @@ PLATFORM_CONSTRAINTS: list[PlatformConstraint] = [
         max_alt_text_length=None,
         note="Carousel; each card has its own cover alt text.",
     ),
+    PlatformConstraint(
+        channel="tiktok",
+        format="short_video_script",
+        max_caption_length=2200,
+        max_hashtags=5,
+        max_alt_text_length=None,
+        note="TikTok video caption; 2200 is the Content Posting API/scheduler ceiling.",
+    ),
+    PlatformConstraint(
+        channel="tiktok",
+        format="static_image_post",
+        max_caption_length=2200,
+        max_hashtags=5,
+        max_alt_text_length=100,
+        note="TikTok photo post; 90-char title + 4000-char description via API.",
+    ),
+    PlatformConstraint(
+        channel="google_business_profile",
+        format="text_post",
+        max_caption_length=1500,
+        max_hashtags=0,
+        max_alt_text_length=None,
+        note="GBP update post; hashtags are not a discovery mechanism.",
+    ),
+    PlatformConstraint(
+        channel="google_business_profile",
+        format="static_image_post",
+        max_caption_length=1500,
+        max_hashtags=0,
+        max_alt_text_length=100,
+        note="GBP photo post; 1500-char body, recommended 720x540 (4:3) image.",
+    ),
 ]
 
 

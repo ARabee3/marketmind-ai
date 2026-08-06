@@ -6,7 +6,12 @@ from pydantic import BaseModel, ConfigDict
 
 UUID = str
 
-ContentChannel = Literal["facebook", "instagram"]
+ContentChannel = Literal[
+    "facebook",
+    "instagram",
+    "tiktok",
+    "google_business_profile",
+]
 ContentFormat = Literal[
     "static_image_post",
     "short_video_script",

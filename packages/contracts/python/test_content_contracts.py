@@ -28,6 +28,8 @@ VALID_FIXTURES = [
     "content-pack-week-1-ar.example.json",
     "content-pack-week-1-en.example.json",
     "content-pack-week-1-mixed.example.json",
+    "content-pack-week-1-tiktok.example.json",
+    "content-pack-week-1-gbp.example.json",
     "content-pack-week-2-rollover.example.json",
     "content-item-version-owner-asset.example.json",
     "content-item-version-generated-asset.example.json",
@@ -278,6 +280,30 @@ class TestContentContracts(unittest.TestCase):
         stale["strategy_version"] = plan["version"] + 1
         with self.assertRaises(ValidationError):
             AiContentGenerateRequest.model_validate(stale)
+
+    def test_generation_request_accepts_tiktok_and_gbp_channels(self):
+        plan = self.load_fixture("strategy-plan.example.json")
+        journey = self.load_fixture("cafe-full-journey.example.json")
+        profile = journey["confirmed_business_profile"]
+        base = {
+            "contract_version": "content-v1",
+            "content_pack_id": "77777777-7777-4777-8777-777777777777",
+            "business_id": profile["business_id"],
+            "strategy_id": plan["strategy_id"],
+            "strategy_version": plan["version"],
+            "strategy_decision_id": "55555555-5555-4555-8555-555555555555",
+            "strategy_plan": plan,
+            "business_profile": profile,
+            "week_context": self.load_fixture(
+                "content-week-context-safe-default.example.json"
+            ),
+            "allowed_formats": ["short_video_script"],
+            "language_mode": plan["plan_language"],
+        }
+        for channel in ("tiktok", "google_business_profile"):
+            request = dict(base)
+            request["selected_channels"] = [channel]
+            AiContentGenerateRequest.model_validate(request)
 
     def test_schema_invalid_fixtures_are_rejected(self):
         for filename in (
