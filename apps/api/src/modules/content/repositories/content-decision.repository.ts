@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 
@@ -84,9 +84,10 @@ function versionConflict(message: string): ConflictException {
  * version is terminal for Content v1: changing publishable copy requires a
  * new version and a new decision.
  */
+@Injectable()
 export class ContentDecisionRepository {
-  constructor(private readonly prisma: PrismaService) {}
 
+  constructor(private readonly prisma: PrismaService) {}
   /**
    * Records a single decision idempotently on `@@unique([owner_user_id, idempotency_key])`.
    * Repeated requests with the same idempotency key return the original decision.
