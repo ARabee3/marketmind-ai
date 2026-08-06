@@ -295,6 +295,57 @@ def test_protected_text_mutation_is_blocked_when_reported() -> None:
     assert "CONTENT_POLICY_VIOLATION" in {issue.code for issue in result.issues}
 
 
+def _with_address(request, address: str):
+    profile_data = dict(request.business_profile.profile)
+    profile_data["address"] = address
+    profile = request.business_profile.model_copy(update={"profile": profile_data})
+    return request.model_copy(update={"business_profile": profile})
+
+
+def test_short_city_token_of_protected_address_is_not_a_rewrite() -> None:
+    request, items = _generated_text_items()
+    request = _with_address(request, "شارع النيل ملوي المنيا")
+    item = items[0]
+    variant = item.caption_variants[0]
+    staged = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} ننصح بزيارة مدينة ملوي."}
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(staged)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert result.valid
+    assert "item.protected_text" not in {issue.field for issue in result.issues}
+
+
+def test_protected_address_reproduced_mostly_is_still_blocked() -> None:
+    request, items = _generated_text_items()
+    request = _with_address(request, "شارع النيل ملوي المنيا")
+    item = items[0]
+    variant = item.caption_variants[0]
+    staged = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} نلتقي في شارع النيل بمدينة ملوي."}
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(staged)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert "item.protected_text" in {issue.field for issue in result.issues}
+
+
 def test_required_static_asset_needs_ready_checksum_addressed_media() -> None:
     request = make_valid_request()
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")

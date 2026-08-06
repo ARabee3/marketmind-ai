@@ -1289,15 +1289,18 @@ def _validate_item_against_generation_request(
             "Protected owner and business text was mutated by generation.",
         )
     # Protected values may be omitted when irrelevant; if emitted, they must be
-    # present byte-for-byte rather than silently translated or rewritten.
+    # present byte-for-byte rather than silently translated or rewritten. A lone
+    # token (e.g. a city name inside an address) is not a rewrite: only flag when
+    # most of the protected value is reproduced without matching it exactly.
     for protected_text in profile_texts:
         if protected_text in item_text:
             continue
-        if any(
-            token in item_text
+        matched_chars = sum(
+            len(token)
             for token in protected_text.split()
-            if len(token) >= 4
-        ):
+            if len(token) >= 4 and token in item_text
+        )
+        if matched_chars >= 0.5 * len(protected_text.strip()):
             _add_output_issue(
                 issues,
                 "CONTENT_POLICY_VIOLATION",
