@@ -245,6 +245,17 @@ describe("content-strategy.adapter", () => {
       expect(channels).toEqual(["instagram"]);
     });
 
+    it("keeps tiktok and google_business_profile as supported channels", () => {
+      const channels = extractSupportedContentChannels({
+        selected_channels: [
+          { channel: "google_maps" },
+          { channel: "google_business_profile" },
+          { channel: "tiktok" },
+        ],
+      });
+      expect(channels).toEqual(["google_business_profile", "tiktok"]);
+    });
+
     it("fails closed when no supported channel remains", () => {
       expectSchemaFailure(() =>
         adaptSelectedChannelsOrThrow({ selected_channels: [{ channel: "google_maps" }] }),
