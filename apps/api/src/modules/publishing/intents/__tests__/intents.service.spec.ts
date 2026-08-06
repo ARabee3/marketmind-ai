@@ -164,3 +164,47 @@ describe("IntentsService.dispatchExport", () => {
     expect(response.attempt.result).toBe(result);
   });
 });
+
+describe("IntentsService.getExportMetadata", () => {
+  it("returns the singular frozen export response", async () => {
+    const exportedAt = new Date("2026-08-05T10:00:00.000Z");
+    const artifactId = "33333333-3333-4333-8333-333333333333";
+    const prisma = {
+      publishingIntent: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "11111111-1111-4111-8111-111111111111",
+          businessId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        }),
+      },
+      publishingExportMetadata: {
+        findFirst: jest.fn().mockResolvedValue({
+          destinationRef: `publishing-export:${artifactId}`,
+          manifest: {
+            contract_version: "publishing-export-manifest-v1",
+            artifact_id: artifactId,
+          },
+          exportedAt,
+        }),
+      },
+    } as any;
+    const service = new IntentsService(prisma, {} as any, {} as any);
+
+    await expect(
+      service.getExportMetadata(
+        "11111111-1111-4111-8111-111111111111",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      ),
+    ).resolves.toEqual({
+      artifact_id: artifactId,
+      manifest: {
+        contract_version: "publishing-export-manifest-v1",
+        artifact_id: artifactId,
+      },
+      download_url:
+        "/api/v1/publication-intents/11111111-1111-4111-8111-111111111111/export/download",
+      download_expires_at: new Date(
+        exportedAt.getTime() + 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
+  });
+});

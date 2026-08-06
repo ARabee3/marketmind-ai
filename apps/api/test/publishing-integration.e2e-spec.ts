@@ -780,21 +780,18 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         token: ownerToken,
       });
       expect(meta.status).toBe(200);
-      expect(meta.body).toBeInstanceOf(Array);
-      expect(meta.body[0]).toMatchObject({
-        id: expect.any(String),
-        checksum: expect.stringMatching(/^[0-9a-f]{64}$/),
-        exportType: "manual_archive_targz",
-        status: "ready",
-        downloadUrl: expect.stringMatching(
+      expect(meta.body).toMatchObject({
+        artifact_id: expect.any(String),
+        download_url: expect.stringMatching(
           new RegExp(`/publication-intents/${intentId}/export/download$`),
         ),
+        download_expires_at: expect.stringMatching(/Z$/),
       });
       // The frozen manifest is surfaced by GET /export, not fabricated by the
       // client: identity, label, and checksums come from the stored archive.
-      expect(meta.body[0].manifest).toMatchObject({
+      expect(meta.body.manifest).toMatchObject({
         contract_version: "publishing-export-manifest-v1",
-        artifact_id: meta.body[0].artifactId,
+        artifact_id: meta.body.artifact_id,
         candidate_id: candidate.candidate_id,
         candidate_checksum: candidate.candidate_checksum,
         label: "EXPORTED_NOT_PUBLISHED",
@@ -802,7 +799,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         content_format: candidate.content_format,
         selected_locale: candidate.selected_locale,
       });
-      expect(meta.body[0].manifest.assets[0].checksum).toBe(
+      expect(meta.body.manifest.assets[0].checksum).toBe(
         DEMO_ASSET_CHECKSUM,
       );
 
@@ -813,7 +810,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       );
       expect(downloadResponse.status).toBe(200);
       expect(downloadResponse.headers.get("x-publishing-export-checksum")).toBe(
-        meta.body[0].checksum,
+        intent.exportMeta[0].checksum,
       );
       const archiveBytes = Buffer.from(await downloadResponse.arrayBuffer());
 
@@ -821,7 +818,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // verify-export-archive script against the produced manifest and assert
       // exit 0 + OK — not just the in-memory API shape.
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mm-export-verify-"));
-      const archivePath = path.join(tmpDir, `${meta.body[0].id}.tar.gz`);
+      const archivePath = path.join(
+        tmpDir,
+        `${meta.body.artifact_id}.tar.gz`,
+      );
       fs.writeFileSync(archivePath, archiveBytes);
       execSync(`tar -xzf ${archivePath} -C ${tmpDir} manifest.json`, {
         cwd: API_DIR,

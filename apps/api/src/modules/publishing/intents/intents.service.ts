@@ -10,7 +10,11 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as crypto from "crypto";
 import { Prisma } from "@prisma/client";
-import type { PublicationCandidateV1 } from "@marketmind/contracts";
+import type {
+  PublicationCandidateV1,
+  PublicationExportManifestV1,
+  PublicationExportResponseV1,
+} from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { toTargetProjection } from "../targets/targets.service";
 import {
@@ -73,6 +77,8 @@ const CANCELLABLE_STATUSES: PublishingIntentStatus[] = [
  * provider failure) until the intent reaches FAILED; only then can the owner
  * retry. */
 const RETRYABLE_STATUSES: PublishingIntentStatus[] = ["FAILED"];
+
+const EXPORT_DOWNLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class IntentsService {
@@ -906,32 +912,36 @@ export class IntentsService {
 
   // ── Export metadata ─────────────────────────────────────────────────
 
-  async getExportMetadata(intentId: string, businessId: string) {
+  async getExportMetadata(
+    intentId: string,
+    businessId: string,
+  ): Promise<PublicationExportResponseV1 | null> {
     const intent = await this.prisma.publishingIntent.findFirst({
       where: { id: intentId, businessId },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    const rows = await this.prisma.publishingExportMetadata.findMany({
+    const row = await this.prisma.publishingExportMetadata.findFirst({
       where: { intentId },
       orderBy: { exportedAt: "desc" },
     });
-    // Map to the frozen PublicationExportResponseV1 surface the web binds
-    // against: a downloadable artifact with identity, checksum, and the frozen
-    // manifest. `status: "ready"` is explicit so a consumer can never mistake
-    // a completed local archive for a pending one.
-    return rows.map((row) => {
-      const artifactId = artifactIdFromDestinationRef(row.destinationRef);
-      return {
-        id: row.id,
-        artifactId,
-        checksum: row.checksum,
-        exportType: row.exportType,
-        status: "ready",
-        downloadUrl: `/api/v1/publication-intents/${intentId}/export/download`,
-        manifest: row.manifest as Record<string, unknown> | null,
-        exportedAt: row.exportedAt,
-      };
-    });
+    if (!row) return null;
+
+    const artifactId = artifactIdFromDestinationRef(row.destinationRef);
+    const manifest = row.manifest as unknown as PublicationExportManifestV1 | null;
+    if (!artifactId || !manifest || manifest.artifact_id !== artifactId) {
+      throw new UnprocessableEntityException(
+        `${PublishingErrorCode.STATE_CONFLICT}: export metadata is incomplete`,
+      );
+    }
+
+    return {
+      artifact_id: artifactId,
+      manifest,
+      download_url: `/api/v1/publication-intents/${intentId}/export/download`,
+      download_expires_at: new Date(
+        row.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS,
+      ).toISOString(),
+    };
   }
 
   async getExportArchive(intentId: string, businessId: string) {
@@ -945,6 +955,12 @@ export class IntentsService {
       orderBy: { exportedAt: "desc" },
     });
     if (!metadata) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    if (
+      Date.now() >=
+      metadata.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS
+    ) {
+      throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    }
 
     return this.manualExportArchive.readArchive(
       metadata.destinationRef,
