@@ -333,7 +333,7 @@ describe('ContentReviewWorkspace', () => {
         }),
       )
     })
-    const payload = vi.mocked(api.submitBulkDecisions).mock.calls[0][1] as {
+    const payload = vi.mocked(api.submitBulkDecisions).mock.calls[0][1] as unknown as {
       decisions: Array<{ content_item_id: string }>
     }
     expect(payload.decisions.map((d) => d.content_item_id)).not.toContain(
