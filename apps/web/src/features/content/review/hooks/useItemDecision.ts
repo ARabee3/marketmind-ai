@@ -6,12 +6,26 @@ import type {
   SingleDecisionRequest,
 } from '../types/review.types'
 
-export function useItemDecision(packId: string, onItemUpdated?: () => void) {
+export function useItemDecision(
+  packId: string,
+  onItemUpdated?: () => void | Promise<void>,
+) {
   const [decisionState, setDecisionState] = useState<DecisionRequestState>({
     status: 'idle',
   })
 
   const { renewKey } = useIdempotencyKey()
+
+  // Refresh authoritative state without letting a refetch failure turn a
+  // successful (or conflicted) decision into a generic error.
+  const refreshAfterDecision = useCallback(async () => {
+    if (!onItemUpdated) return
+    try {
+      await onItemUpdated()
+    } catch {
+      // Refetch is best-effort here; the decision outcome is authoritative.
+    }
+  }, [onItemUpdated])
 
   const submitDecision = useCallback(
     async (
@@ -22,7 +36,10 @@ export function useItemDecision(packId: string, onItemUpdated?: () => void) {
       notes?: string | null,
     ) => {
       // Duplicate submission protection guard
-      if (decisionState.status === 'submitting') {
+      if (
+        decisionState.status === 'submitting' ||
+        decisionState.status === 'refreshing'
+      ) {
         return
       }
 
@@ -44,18 +61,17 @@ export function useItemDecision(packId: string, onItemUpdated?: () => void) {
 
       try {
         await submitItemDecision(packId, itemId, request)
-        setDecisionState({ status: 'success' })
-        if (onItemUpdated) {
-          onItemUpdated()
-        }
       } catch (err: unknown) {
         const error = err as Error & { code?: string; latestVersionId?: string }
         if (error.code === 'CONTENT_VERSION_CONFLICT' && error.latestVersionId) {
           // Refetch authoritative state before the owner decides again; the
-          // rail announces the change and returns focus to the updated heading.
-          if (onItemUpdated) {
-            onItemUpdated()
-          }
+          // rail announces the change and returns focus to the updated heading
+          // only after the fresh data has landed.
+          setDecisionState({
+            status: 'refreshing',
+            decision,
+          })
+          await refreshAfterDecision()
           setDecisionState({
             status: 'conflict',
             latestVersionId: error.latestVersionId,
@@ -67,9 +83,17 @@ export function useItemDecision(packId: string, onItemUpdated?: () => void) {
             message: error.message,
           })
         }
+        return
       }
+
+      // The decision was accepted. Await the authoritative refetch so the rail
+      // never re-enables on stale data (e.g. before the created candidate is
+      // visible); a refetch failure keeps the success state instead of
+      // misleading the owner into thinking the decision itself failed.
+      await refreshAfterDecision()
+      setDecisionState({ status: 'success' })
     },
-    [decisionState.status, packId, renewKey, onItemUpdated],
+    [decisionState.status, packId, renewKey, refreshAfterDecision],
   )
 
   const resetDecisionState = useCallback(() => {

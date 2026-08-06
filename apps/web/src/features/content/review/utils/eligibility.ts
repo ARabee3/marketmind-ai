@@ -58,3 +58,17 @@ export function checkItemEligibility(
     reasons,
   }
 }
+
+/**
+ * An item is only actionable when it is eligible for approval AND no
+ * immutable publication candidate already freezes it. Once a candidate
+ * exists, further owner decisions (single or bulk) are not permitted.
+ */
+export function isItemActionable(
+  workspaceItem: ContentPackWorkspaceItem,
+): boolean {
+  return (
+    workspaceItem.publication_candidate === null &&
+    checkItemEligibility(workspaceItem).eligible
+  )
+}

@@ -2124,7 +2124,12 @@
       "conflict": {
         "title": "Stale version conflict",
         "body": "This item was updated to version {latestVersion}. We refreshed the latest version for your review.",
-        "dismiss": "Dismiss"
+        "dismiss": "Dismiss",
+        "fetching": "Loading the latest version…"
+      },
+      "immutable": {
+        "title": "Decision locked",
+        "body": "This version is already frozen in an immutable publication candidate. No further owner decisions are allowed."
       },
       "errorDismiss": "Try again"
     },
@@ -2152,6 +2157,7 @@
       "partialResult": "Bulk approval completed: {successCount} of {totalCount} items created publication candidates.",
       "noneEligible": "No eligible items currently selected for bulk approval.",
       "blockedLabel": "Blocked",
+      "approvedLabel": "Approved",
       "dismiss": "Dismiss",
       "unknownError": "Unknown error",
       "errorBody": "Bulk approval failed."

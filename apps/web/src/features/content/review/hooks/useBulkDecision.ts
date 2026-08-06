@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { submitBulkDecisions } from '@/lib/api/content-review'
 import { useIdempotencyKey } from './useIdempotencyKey'
-import { checkItemEligibility } from '../utils/eligibility'
+import { isItemActionable } from '../utils/eligibility'
 import type {
   BulkDecisionRequest,
   BulkDecisionResponse,
@@ -39,7 +39,7 @@ export function useBulkDecision(
 
   const selectAllEligible = useCallback(() => {
     const eligibleIds = items
-      .filter((item) => checkItemEligibility(item).eligible)
+      .filter((item) => isItemActionable(item))
       .map((item) => item.item.id)
     setSelectedItemIds(eligibleIds)
   }, [items])
@@ -53,12 +53,12 @@ export function useBulkDecision(
       return
     }
 
-    // Filter selected items and build the decisions payload with eligible
+    // Filter selected items and build the decisions payload with actionable
     // items only; each decision carries its own idempotency key so retries
     // stay independent per item (backend ContentDecisionDto contract).
     const payloadItems = items
       .filter((item) => selectedItemIds.includes(item.item.id))
-      .filter((item) => checkItemEligibility(item).eligible)
+      .filter((item) => isItemActionable(item))
       .map((item) => ({
         content_item_id: item.item.id,
         content_item_version_id: item.current_version.id,

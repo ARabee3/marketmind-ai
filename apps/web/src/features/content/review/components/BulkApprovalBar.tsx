@@ -4,7 +4,7 @@ import { useFormatter, useTranslations } from 'next-intl'
 import { CheckSquare, Square, ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 import type { ContentPackWorkspaceItem } from '../types/review.types'
 import { useBulkDecision } from '../hooks/useBulkDecision'
-import { checkItemEligibility } from '../utils/eligibility'
+import { isItemActionable } from '../utils/eligibility'
 
 type BulkApprovalBarProps = {
   packId: string
@@ -32,7 +32,7 @@ export function BulkApprovalBar({
   } = useBulkDecision(packId, items, onBulkComplete)
 
   const isSubmitting = bulkState.status === 'submitting'
-  const eligibleCount = items.filter((i) => checkItemEligibility(i).eligible).length
+  const eligibleCount = items.filter((item) => isItemActionable(item)).length
 
   const localizeError = (code: string): string =>
     tErr(code as Parameters<typeof tErr>[0]) || code
@@ -74,19 +74,20 @@ export function BulkApprovalBar({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {items.map((item, idx) => {
           const isSelected = selectedItemIds.includes(item.item.id)
-          const eligibility = checkItemEligibility(item)
+          const isActionable = isItemActionable(item)
+          const isImmutable = item.publication_candidate !== null
 
           return (
             <button
               key={item.item.id}
               type="button"
               onClick={() => toggleSelectItem(item.item.id)}
-              disabled={!eligibility.eligible}
+              disabled={!isActionable}
               aria-pressed={isSelected}
               className={`flex items-center justify-between p-2.5 rounded-lg border text-xs text-start transition-all ${
                 isSelected
                   ? 'border-[var(--color-primary)] bg-teal-50/70 font-semibold text-[var(--color-navy)]'
-                  : eligibility.eligible
+                  : isActionable
                     ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     : 'border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed'
               }`}
@@ -103,11 +104,15 @@ export function BulkApprovalBar({
                 </span>
               </div>
 
-              {!eligibility.eligible && (
+              {isImmutable ? (
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                  {t('approvedLabel')}
+                </span>
+              ) : !isActionable ? (
                 <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                   {t('blockedLabel')}
                 </span>
-              )}
+              ) : null}
             </button>
           )
         })}

@@ -68,4 +68,5 @@ export type DecisionRequestState =
   | { status: 'submitting'; decision: 'approve' | 'reject' | 'revise' }
   | { status: 'success' }
   | { status: 'error'; code: ContentErrorCode | string; message?: string }
+  | { status: 'refreshing'; decision: 'approve' | 'reject' | 'revise' }
   | { status: 'conflict'; latestVersionId: UUID; latestVersion?: ContentItemVersion }

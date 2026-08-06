@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Info,
+  Lock,
 } from 'lucide-react'
 import type { ContentPackWorkspaceItem } from '../types/review.types'
 import { checkItemEligibility } from '../utils/eligibility'
@@ -42,9 +43,16 @@ export function DecisionRail({
   const { current_version } = item
   const eligibility = checkItemEligibility(item)
   const isSubmitting = decisionState.status === 'submitting'
+  const isRefreshing = decisionState.status === 'refreshing'
+  const isBusy = isSubmitting || isRefreshing
   const isConflict = decisionState.status === 'conflict'
+  // An immutable publication candidate freezes this item: no further owner
+  // decisions are permitted.
+  const isImmutable = item.publication_candidate !== null
 
   // Announce the stale-version change and return focus to the updated heading.
+  // The hook only enters the conflict state after the authoritative refetch
+  // has landed, so the heading is guaranteed to show fresh data.
   useEffect(() => {
     if (!isConflict) return
     const heading = document.getElementById(`item-heading-${item.item.id}`)
@@ -159,8 +167,8 @@ export function DecisionRail({
           )}
         </div>
 
-        {/* Conflict Error State Banner */}
-        {decisionState.status === 'conflict' && (
+        {/* Conflict / Refreshing Error State Banner */}
+        {(isRefreshing || isConflict) && (
           <div
             role="status"
             aria-live="polite"
@@ -168,20 +176,26 @@ export function DecisionRail({
           >
             <div className="flex items-center gap-2 font-bold text-amber-900">
               <RefreshCw className="h-4 w-4 text-amber-700 animate-spin" />
-              <span>{t('conflict.title')}</span>
+              <span>
+                {isRefreshing ? t('conflict.fetching') : t('conflict.title')}
+              </span>
             </div>
-            <p>
-              {t('conflict.body', {
-                latestVersion: decisionState.latestVersionId,
-              })}
-            </p>
-            <button
-              type="button"
-              onClick={resetDecisionState}
-              className="text-xs font-bold text-amber-900 underline"
-            >
-              {t('conflict.dismiss')}
-            </button>
+            {isConflict && (
+              <>
+                <p>
+                  {t('conflict.body', {
+                    latestVersion: decisionState.latestVersionId,
+                  })}
+                </p>
+                <button
+                  type="button"
+                  onClick={resetDecisionState}
+                  className="text-xs font-bold text-amber-900 underline"
+                >
+                  {t('conflict.dismiss')}
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -205,50 +219,61 @@ export function DecisionRail({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="space-y-2 pt-2 border-t border-slate-200">
-          <button
-            type="button"
-            onClick={handleApprove}
-            disabled={!eligibility.eligible || isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting && decisionState.decision === 'approve' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
-            )}
-            <span>
-              {t('actions.approveVersion', { version: current_version.version })}
-            </span>
-          </button>
+        {/* Action Buttons — replaced by an immutable notice once a
+            publication candidate freezes this item */}
+        {isImmutable ? (
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-950 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-emerald-900">
+              <Lock className="h-4 w-4 shrink-0" />
+              <span>{t('immutable.title')}</span>
+            </div>
+            <p className="leading-relaxed">{t('immutable.body')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={!eligibility.eligible || isBusy}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting && decisionState.decision === 'approve' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+              <span>
+                {t('actions.approveVersion', { version: current_version.version })}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsRevisionOpen(true)}
-            disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-            <span>{t('actions.requestRevision')}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsRevisionOpen(true)}
+              disabled={isBusy}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              <span>{t('actions.requestRevision')}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={handleReject}
-            disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
-          >
-            {isSubmitting && decisionState.decision === 'reject' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <XCircle className="h-4 w-4" />
-            )}
-            <span>
-              {t('actions.rejectVersion', { version: current_version.version })}
-            </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={isBusy}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              {isSubmitting && decisionState.decision === 'reject' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              <span>
+                {t('actions.rejectVersion', { version: current_version.version })}
+              </span>
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Revision Dialog */}
