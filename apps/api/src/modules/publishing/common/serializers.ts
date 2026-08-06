@@ -1,7 +1,23 @@
+import * as crypto from "node:crypto";
 import type {
   PublicationAttemptV1,
   PublicationResultV1,
 } from "@marketmind/contracts";
+
+export function computeLocalActionRequestFingerprint(input: {
+  intentId: string;
+  intentVersion: number;
+  idempotencyKey: string;
+  workflowVersion: string;
+}): string {
+  const canonical = JSON.stringify({
+    idempotencyKey: input.idempotencyKey,
+    intentId: input.intentId,
+    intentVersion: input.intentVersion,
+    workflowVersion: input.workflowVersion,
+  });
+  return crypto.createHash("sha256").update(canonical).digest("hex");
+}
 
 /** Maps a stored `publishing_attempts` row to the frozen
  *  `PublicationAttemptV1` shape the contract validator binds against. The DB
@@ -20,6 +36,16 @@ export function toPublicationAttemptV1(attempt: {
   finishedAt: Date | null;
   createdAt: Date;
 }): PublicationAttemptV1 {
+  const requestFingerprint =
+    attempt.providerRequestFingerprint ??
+    (attempt.workflowVersion?.startsWith("local-")
+      ? computeLocalActionRequestFingerprint({
+          intentId: attempt.intentId,
+          intentVersion: attempt.intentVersion,
+          idempotencyKey: attempt.idempotencyKey,
+          workflowVersion: attempt.workflowVersion,
+        })
+      : "");
   return {
     contract_version: "publication-attempt-v1",
     attempt_id: attempt.id,
@@ -28,7 +54,7 @@ export function toPublicationAttemptV1(attempt: {
     attempt_number: attempt.attemptSequence,
     idempotency_key: attempt.idempotencyKey,
     workflow_version: attempt.workflowVersion ?? "",
-    request_fingerprint: attempt.providerRequestFingerprint ?? "",
+    request_fingerprint: requestFingerprint,
     state: toFrozenAttemptState(attempt.status),
     started_at: attempt.startedAt ? attempt.startedAt.toISOString() : null,
     finished_at: attempt.finishedAt ? attempt.finishedAt.toISOString() : null,

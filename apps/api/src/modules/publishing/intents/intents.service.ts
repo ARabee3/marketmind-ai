@@ -20,6 +20,7 @@ import {
 } from "../common/time/cairo-time.util";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import {
+  computeLocalActionRequestFingerprint,
   toPublicationAttemptV1,
   toPublicationResultV1,
 } from "../common/serializers";
@@ -733,6 +734,14 @@ export class IntentsService {
 
       const now = new Date();
       const artifactId = randomUUID();
+      const workflowVersion =
+        mode === "MANUAL_EXPORT" ? "local-export-v1" : "local-v1";
+      const requestFingerprint = computeLocalActionRequestFingerprint({
+        intentId,
+        intentVersion: intent.version,
+        idempotencyKey: dto.idempotencyKey,
+        workflowVersion,
+      });
 
       // A manual export is complete only after the exact approved media and
       // copy have been written to a checksum-addressed downloadable archive.
@@ -751,7 +760,8 @@ export class IntentsService {
             attemptSequence: nextSeq,
             status: "SUCCEEDED",
             idempotencyKey: dto.idempotencyKey,
-            workflowVersion: "local-export-v1",
+            providerRequestFingerprint: requestFingerprint,
+            workflowVersion,
             dispatchedAt: now,
             startedAt: now,
             finishedAt: now,
@@ -811,7 +821,8 @@ export class IntentsService {
           attemptSequence: nextSeq,
           status: "SUCCEEDED",
           idempotencyKey: dto.idempotencyKey,
-          workflowVersion: "local-v1",
+          providerRequestFingerprint: requestFingerprint,
+          workflowVersion,
           dispatchedAt: now,
           startedAt: now,
           finishedAt: now,

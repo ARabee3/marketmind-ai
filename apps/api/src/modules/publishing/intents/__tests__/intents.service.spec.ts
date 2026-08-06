@@ -149,6 +149,11 @@ describe("IntentsService.dispatchExport", () => {
         },
       }),
     });
+    expect(tx.publishingAttempt.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        providerRequestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    });
     expect(tx.publishingResult.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         outcome: "EXPORTED",
