@@ -1301,31 +1301,48 @@
           "no": "01",
           "label": "Receive business data",
           "desc": "You enter your business name, category, and location — the starting point for research.",
-          "chips": ["Name", "Category", "Location"]
+          "chips": [
+            "Name",
+            "Category",
+            "Location"
+          ]
         },
         {
           "no": "02",
           "label": "Plan and run research",
           "desc": "We turn your intake into search queries and run them against real sources.",
-          "chips": ["Search sources", "Local directories", "Fallbacks"]
+          "chips": [
+            "Search sources",
+            "Local directories",
+            "Fallbacks"
+          ]
         },
         {
           "no": "03",
           "label": "Filter evidence",
           "desc": "We remove unrelated results and keep relevant findings with their sources.",
-          "chips": ["Filtering", "Source mapping"]
+          "chips": [
+            "Filtering",
+            "Source mapping"
+          ]
         },
         {
           "no": "04",
           "label": "First research-backed question",
           "desc": "We ask a question that completes the picture, based on what was found.",
-          "chips": ["Smart question", "Research context"]
+          "chips": [
+            "Smart question",
+            "Research context"
+          ]
         },
         {
           "no": "05",
           "label": "Confirmed profile",
           "desc": "Every fact you confirm is saved as a trusted business profile fact.",
-          "chips": ["Owner confirmation", "Evidence saved"]
+          "chips": [
+            "Owner confirmation",
+            "Evidence saved"
+          ]
         }
       ]
     },
@@ -1946,6 +1963,236 @@
       "provenanceMismatch": "Strategy provenance mismatch detected.",
       "staleRoute": "Route cycle differs from current journey cycle.",
       "invalidServerWeek": "Server returned an invalid week number outside 1-12."
+    }
+  },
+  "ContentReview": {
+    "header": {
+      "eyebrow": "Week {week} Content Pack",
+      "title": "Editorial Proof & Review",
+      "subtitle": "Prepared for {startsAt} – {endsAt} · Africa/Cairo",
+      "status": "Status: {status}",
+      "strategyVersion": "Strategy v{version}",
+      "itemCount": "{count} items",
+      "backToCycle": "Back to 12-week cycle",
+      "loading": "Loading content review workspace…",
+      "loadError": "Could not load content pack workspace.",
+      "retry": "Try again",
+      "profileVersion": "Profile {id}",
+      "loadErrorBody": "The pack workspace data service could not be reached. Please try again.",
+      "fixtureNotice": "Viewing contract-aligned workspace proof (the pack workspace API is not implemented yet). All decision actions here are simulated and will not persist."
+    },
+    "agenda": {
+      "title": "Editorial Agenda",
+      "subtitle": "3–5 items ordered by day & channel",
+      "selectorLabel": "Select content item",
+      "itemCountLabel": "{current} current · {blocked} blocked · {approved} approved",
+      "status": {
+        "draft": "Draft",
+        "revision_requested": "Revision requested",
+        "revising": "Revising",
+        "approved": "Approved (Candidate)",
+        "rejected": "Rejected",
+        "revision_failed": "Revision failed"
+      },
+      "channel": {
+        "instagram": "Instagram",
+        "facebook": "Facebook"
+      },
+      "format": {
+        "static_image_post": "Static Image",
+        "short_video_script": "Short Video Script",
+        "carousel_brief": "Carousel Brief",
+        "text_post": "Text Post"
+      },
+      "ineligible": "Ineligible for approval"
+    },
+    "proof": {
+      "title": "Selected Content Proof",
+      "recommendedWindow": "Recommended publish window",
+      "cairoTime": "{startsAt} – {endsAt} (Cairo time)",
+      "dialect": "Dialect: {dialect}",
+      "languageMode": "Language: {mode}",
+      "versionLabel": "Version {version} · checksum {checksum}",
+      "captionArabic": "Arabic Caption",
+      "captionEnglish": "English Caption",
+      "cta": "Call to action",
+      "hashtags": "Hashtags",
+      "creativeBrief": "Creative Brief",
+      "altText": "Alt text",
+      "videoScript": {
+        "title": "Short Video Script",
+        "hook": "Hook",
+        "scenes": "Scenes",
+        "closingCta": "Closing CTA",
+        "scene": "Scene {order}",
+        "voiceover": "Voiceover",
+        "onScreenText": "On-screen text"
+      }
+    },
+    "asset": {
+      "title": "Visual Asset",
+      "kind": {
+        "owner_supplied": "Owner supplied asset",
+        "generated_static": "AI generated static image",
+        "prompt_only": "Prompt & script only"
+      },
+      "status": {
+        "generating": "Generating visual asset…",
+        "ready": "Asset ready",
+        "missing": "Asset missing",
+        "failed": "Asset generation failed",
+        "blocked": "Asset blocked by policy"
+      },
+      "provider": "Provider: {name} ({model})",
+      "dimensions": "Dimensions: {width} × {height}px",
+      "altText": "Alt text: {text}",
+      "loadError": "Could not load protected asset image bytes.",
+      "promptOnlyHint": "Script & visual direction provided in creative brief.",
+      "imgFallbackAlt": "Content asset preview",
+      "loadingBytes": "Loading asset preview…",
+      "generatingBody": "The AI image provider is generating the visual asset.",
+      "failureCodeBody": "Error code: {code}",
+      "failedBody": "Asset generation encountered a provider failure.",
+      "blockedBody": "Asset blocked due to content policy or claim restrictions.",
+      "missingBody": "Required visual asset has not been generated or uploaded yet."
+    },
+    "provenance": {
+      "title": "Provenance Margin",
+      "subtitle": "Strategy → Week Context → Profile Facts → Model Copy",
+      "strategyTrace": "Strategy direction",
+      "pillar": "Pillar",
+      "objective": "Objective: {objective}",
+      "funnelStage": "Funnel stage",
+      "weekContext": "Week context",
+      "focusOffer": "Focus offer: {offer}",
+      "profileFact": "Profile fact (Read-only)",
+      "modelCopy": "Model generated draft",
+      "assumptions": "Model assumptions",
+      "warnings": "Warnings",
+      "blockers": "Approval blockers",
+      "sourceTypes": {
+        "fact": "Confirmed Fact",
+        "context": "Owner Context",
+        "strategy": "Approved Strategy",
+        "model": "Model Output",
+        "assumption": "Assumption",
+        "warning": "Warning",
+        "blocker": "Blocker"
+      },
+      "objectiveLabel": "Objective:",
+      "focusFallback": "Standard weekly focus",
+      "mustAvoidList": "Must avoid: {list}",
+      "factApproved": "Approved fact",
+      "factUnapproved": "Unapproved offer",
+      "noClaims": "No specific business claims referenced in this item.",
+      "providerLabel": "Provider:",
+      "generatedLabel": "Generated:"
+    },
+    "history": {
+      "title": "Version History",
+      "version": "Version {version}",
+      "current": "Current",
+      "checksum": "Checksum: {checksum}",
+      "decidedBy": "Decided by {user} at {date}",
+      "notes": "Notes: {notes}",
+      "revisionNotesLabel": "Revision notes:",
+      "decisions": {
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "revision_requested": "Revision requested"
+      }
+    },
+    "decision": {
+      "title": "Exact Owner Decision",
+      "subtitle": "Sticky exact-version decision rail",
+      "versionChecksum": "Exact version {version} · {checksum}",
+      "consequence": "Approving this item creates an immutable publication candidate. It does NOT publish or schedule content automatically.",
+      "eligibility": {
+        "title": "Eligibility checklist",
+        "channelApproved": "Channel & format approved in strategy",
+        "claimsSupported": "Claims supported by profile or context",
+        "assetReady": "Required visual asset is ready",
+        "blockersPresent": "Blocked by {count} issues"
+      },
+      "actions": {
+        "requestRevision": "Request revision",
+        "rejectVersion": "Reject exact v{version}",
+        "approveVersion": "Approve exact v{version}",
+        "submitting": "Submitting decision…",
+        "success": "Decision saved as publication candidate."
+      },
+      "conflict": {
+        "title": "Stale version conflict",
+        "body": "This item was updated to version {latestVersion}. We refreshed the latest version for your review.",
+        "dismiss": "Dismiss"
+      },
+      "errorDismiss": "Try again"
+    },
+    "revisionDialog": {
+      "title": "Request Item Revision",
+      "subtitle": "Provide clear notes on what should change in the next version.",
+      "notesLabel": "Revision notes (required)",
+      "notesPlaceholder": "Describe the required changes, e.g., 'Add phone number and end date explicitly in caption'…",
+      "notesRequiredError": "Revision notes are required before requesting a revision.",
+      "currentVersionPreview": "Current version being revised: v{version}",
+      "submit": "Submit revision request",
+      "submitting": "Submitting revision request…",
+      "cancel": "Cancel",
+      "failureNotice": "Revision request failed. Your current version is preserved."
+    },
+    "bulk": {
+      "title": "Bulk Approval",
+      "subtitle": "Select eligible items for explicit bulk approval",
+      "selectedCount": "{count} eligible items selected",
+      "approveSelected": "Approve selected ({count})",
+      "submitting": "Submitting bulk approval…",
+      "selectAllEligible": "Select all eligible",
+      "deselectAll": "Deselect all",
+      "ineligibleReason": "Item {itemId} ineligible: {reason}",
+      "partialResult": "Bulk approval completed: {successCount} of {totalCount} items created publication candidates.",
+      "noneEligible": "No eligible items currently selected for bulk approval.",
+      "blockedLabel": "Blocked",
+      "dismiss": "Dismiss",
+      "unknownError": "Unknown error",
+      "errorBody": "Bulk approval failed."
+    },
+    "handoff": {
+      "title": "Publication Handoff",
+      "statusActive": "Publication candidate active · Not scheduled",
+      "statusNone": "No publication candidates active yet for this item",
+      "description": "Approved items become immutable candidates ready for owner publishing workflow.",
+      "openPublishing": "Open Publishing Workspace",
+      "candidateId": "Candidate: {id}",
+      "checksum": "Checksum: {checksum}"
+    },
+    "errors": {
+      "CONTENT_STRATEGY_NOT_APPROVED": "The strategy for this content is not approved.",
+      "CONTENT_PROFILE_STALE": "The business profile has changed since generation.",
+      "CONTENT_CYCLE_PAUSED": "The content cycle is currently paused.",
+      "CONTENT_CYCLE_COMPLETED": "This 12-week content cycle is already completed.",
+      "CONTENT_WEEK_OUT_OF_RANGE": "The specified week is out of range.",
+      "CONTENT_WEEK_ALREADY_CLAIMED": "This week's content has already been generated.",
+      "CONTENT_CHANNEL_MISMATCH": "The content channel does not match the strategy.",
+      "CONTENT_UNSUPPORTED_CLAIM": "The item contains an unsupported business claim.",
+      "CONTENT_OFFER_UNAPPROVED": "The promotional offer referenced is not approved.",
+      "CONTENT_POLICY_VIOLATION": "The item violates platform or content policy.",
+      "CONTENT_ASSET_REQUIRED": "A required visual asset is missing or failed.",
+      "CONTENT_SCHEMA_FAILURE": "The content schema validation failed.",
+      "CONTENT_VERSION_CONFLICT": "This version has changed or been updated by another user.",
+      "CONTENT_APPROVAL_BLOCKED": "Approval is blocked due to unresolved issues.",
+      "CONTENT_PROVIDER_FAILURE": "The AI provider failed to process the request.",
+      "CONTENT_CANDIDATE_TAMPERED": "The candidate checksum or payload failed verification.",
+      "CONTENT_CANDIDATE_REVOKED": "This candidate has been revoked.",
+      "CONTENT_PLATFORM_CONSTRAINT": "The content violates platform constraints."
+    },
+    "tooltips": {
+      "funnelStage": "How close the customer is to buying (e.g., Awareness vs. Sales).",
+      "pillar": "The main topic this post focuses on from your overall plan.",
+      "modelCopy": "Text written by the AI based on your business facts.",
+      "cta": "The action you want the customer to take, like 'Send a Message' or 'Visit Website'.",
+      "altText": "A hidden description of the image to help visually impaired users and improve search visibility.",
+      "checksum": "A unique technical code ensuring this exact text and image cannot be altered without your knowledge.",
+      "candidate": "Approving this prepares it for publishing, but it will NOT go live on your page until you set a date in the Publishing section."
     }
   }
 }
