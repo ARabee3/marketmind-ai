@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkItemEligibility } from '../eligibility'
+import { checkItemEligibility, isItemActionable } from '../eligibility'
 import type { ContentPackWorkspaceItem } from '../../types/review.types'
 import { mockPackWorkspace } from '../../fixtures/pack.fixtures'
 
@@ -54,6 +54,27 @@ describe('checkItemEligibility', () => {
     const before = JSON.stringify(mockPackWorkspace)
     checkItemEligibility(itemAt(3))
     checkItemEligibility(itemAt(0))
+    expect(JSON.stringify(mockPackWorkspace)).toBe(before)
+  })
+})
+
+describe('isItemActionable', () => {
+  it('is true for an eligible item without a publication candidate', () => {
+    expect(isItemActionable(itemAt(0))).toBe(true)
+  })
+
+  it('is false once an immutable publication candidate freezes the item', () => {
+    expect(isItemActionable(itemAt(2))).toBe(false)
+  })
+
+  it('is false when eligibility blocks approval', () => {
+    expect(isItemActionable(itemAt(3))).toBe(false)
+  })
+
+  it('never mutates the workspace item payload', () => {
+    const before = JSON.stringify(mockPackWorkspace)
+    isItemActionable(itemAt(0))
+    isItemActionable(itemAt(2))
     expect(JSON.stringify(mockPackWorkspace)).toBe(before)
   })
 })

@@ -8,24 +8,54 @@ import type {
 import { mockAccessToken, mockAuthMe, mockAuthRefresh } from './fixtures/auth'
 
 const packId = mockPackWorkspace.pack.id
+const latestConflictVersionId = '55555555-5555-4555-8555-555555555599'
+
+// Simulates another team member having advanced item 0 to version 3 while the
+// owner was still looking at version 2.
+function upgradeItemToVersionThree(
+  workspace: ContentPackWorkspace,
+): ContentPackWorkspace {
+  const clone = structuredClone(workspace)
+  const item = clone.items[0]
+  item.current_version = {
+    ...item.current_version,
+    id: latestConflictVersionId,
+    version: 3,
+    version_checksum:
+      'c3d4e5f60718293a4b5c6d7e8f901234567890abcdef1234567890a1b2c3d4e5',
+  }
+  return clone
+}
 
 type ContentReviewMockState = {
   workspace: ContentPackWorkspace
   conflictOnce: boolean
   decisionCalls: number
   bulkCalls: number
+  workspaceGets: number
   lastDecisionBody: Record<string, unknown> | null
   lastBulkBody: Record<string, unknown> | null
+  holdDecisionResponse: boolean
+  releaseDecisionResponse: (() => void) | null
+  holdWorkspaceGetAt: number | null
+  releaseWorkspaceGet: (() => void) | null
+  upgradeVersionOnSecondGet: boolean
 }
 
 function makeState(): ContentReviewMockState {
   return {
-    workspace: mockPackWorkspace,
+    workspace: structuredClone(mockPackWorkspace),
     conflictOnce: false,
     decisionCalls: 0,
     bulkCalls: 0,
+    workspaceGets: 0,
     lastDecisionBody: null,
     lastBulkBody: null,
+    holdDecisionResponse: false,
+    releaseDecisionResponse: null,
+    holdWorkspaceGetAt: null,
+    releaseWorkspaceGet: null,
+    upgradeVersionOnSecondGet: false,
   }
 }
 
@@ -48,6 +78,15 @@ async function mockContentReviewApi(page: Page, state: ContentReviewMockState) {
       await route.fallback()
       return
     }
+    state.workspaceGets += 1
+    if (state.upgradeVersionOnSecondGet && state.workspaceGets === 2) {
+      state.workspace = upgradeItemToVersionThree(state.workspace)
+    }
+    if (state.workspaceGets === state.holdWorkspaceGetAt) {
+      await new Promise<void>((resolve) => {
+        state.releaseWorkspaceGet = resolve
+      })
+    }
     await json(route, state.workspace)
   })
 
@@ -60,6 +99,12 @@ async function mockContentReviewApi(page: Page, state: ContentReviewMockState) {
       }
       state.decisionCalls += 1
       state.lastDecisionBody = await route.request().postDataJSON()
+
+      if (state.holdDecisionResponse) {
+        await new Promise<void>((resolve) => {
+          state.releaseDecisionResponse = resolve
+        })
+      }
 
       if (state.conflictOnce && state.decisionCalls === 1) {
         await json(
@@ -216,6 +261,19 @@ test.describe('Content review workspace', () => {
     ).toBeVisible()
   })
 
+  test('links back to the owning cycle week route', async ({ page }) => {
+    await authenticate(page)
+    await mockContentReviewApi(page, makeState())
+
+    await page.goto(`/en/content/packs/${packId}`)
+
+    const backLink = page.getByRole('link', { name: 'Back to 12-week cycle' })
+    await expect(backLink).toHaveAttribute(
+      'href',
+      `/en/content/${mockPackWorkspace.pack.content_cycle_id}/weeks/${mockPackWorkspace.pack.week_number}`,
+    )
+  })
+
   test('requires revision notes and submits the exact-version revision decision', async ({
     page,
   }) => {
@@ -296,6 +354,43 @@ test.describe('Content review workspace', () => {
       'href',
       /\/en\/publishing\?candidate=/,
     )
+
+    // The immutable candidate freezes the rail: no further decisions.
+    await expect(page.getByText('Decision locked')).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Approve exact v2' }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: 'Request revision' }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: 'Reject exact v2' }),
+    ).toHaveCount(0)
+  })
+
+  test('prevents duplicate decisions while a submission is in flight', async ({
+    page,
+  }) => {
+    const state = makeState()
+    state.holdDecisionResponse = true
+    await authenticate(page)
+    await mockContentReviewApi(page, state)
+
+    await page.goto(`/en/content/packs/${packId}`)
+
+    const approveBtn = page.getByRole('button', { name: 'Approve exact v2' })
+    await approveBtn.click()
+    await expect(approveBtn).toBeDisabled()
+
+    // A second (forced) click while the request is pending must not submit.
+    await approveBtn.click({ force: true })
+    await expect.poll(() => state.decisionCalls).toBe(1)
+
+    state.releaseDecisionResponse?.()
+    await expect(
+      page.getByText('Publication candidate active · Not scheduled'),
+    ).toBeVisible()
+    await expect(page.getByText('Decision locked')).toBeVisible()
   })
 
   test('recovers from a stale-version conflict by refetching authoritative state', async ({
@@ -303,6 +398,8 @@ test.describe('Content review workspace', () => {
   }) => {
     const state = makeState()
     state.conflictOnce = true
+    state.upgradeVersionOnSecondGet = true
+    state.holdWorkspaceGetAt = 2
     await authenticate(page)
     await mockContentReviewApi(page, state)
 
@@ -310,10 +407,26 @@ test.describe('Content review workspace', () => {
 
     await page.getByRole('button', { name: 'Approve exact v2' }).click()
 
+    // While the authoritative refetch is in flight the rail announces the
+    // refresh and must not accept a second decision on the stale version.
+    await expect(page.getByText('Loading the latest version…')).toBeVisible()
     await expect(
-      page.getByText('Stale version conflict'),
-    ).toBeVisible()
+      page.getByRole('button', { name: 'Approve exact v2' }),
+    ).toBeDisabled()
     await expect.poll(() => state.decisionCalls).toBe(1)
+
+    // Release the refetch: fresh data lands, then the conflict is announced.
+    state.releaseWorkspaceGet?.()
+    await expect(page.getByText('Stale version conflict')).toBeVisible()
+    await expect(page.getByText(/Exact version 3/)).toBeVisible()
+    await expect.poll(() => state.workspaceGets).toBeGreaterThanOrEqual(2)
+
+    // Focus returns to the refreshed item heading once authoritative data is
+    // displayed, so the owner's next action targets the new version.
+    const heading = page.locator(
+      `#item-heading-${mockPackWorkspace.items[0].item.id}`,
+    )
+    await expect(heading).toBeFocused()
   })
 
   test('bulk approval submits only explicitly selected eligible versions and reports results', async ({
@@ -331,8 +444,16 @@ test.describe('Content review workspace', () => {
     await expect(blockedItem).toBeDisabled()
     await expect(blockedItem.getByText('Blocked')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Select all eligible (3)' }).click()
-    await page.getByRole('button', { name: 'Approve selected (3)' }).click()
+    // Item 3 is frozen by an immutable publication candidate: it must be
+    // excluded from bulk selection and labeled Approved, not Blocked.
+    const frozenItem = page.getByRole('button', {
+      name: /Fri · INSTAGRAM/i,
+    })
+    await expect(frozenItem).toBeDisabled()
+    await expect(frozenItem.getByText('Approved')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Select all eligible (2)' }).click()
+    await page.getByRole('button', { name: 'Approve selected (2)' }).click()
 
     await expect.poll(() => state.bulkCalls).toBe(1)
     const body = state.lastBulkBody as {
@@ -345,9 +466,12 @@ test.describe('Content review workspace', () => {
         idempotency_key: string
       }>
     }
-    expect(body.decisions).toHaveLength(3)
+    expect(body.decisions).toHaveLength(2)
     expect(body.decisions.map((d) => d.content_item_id)).not.toContain(
       mockPackWorkspace.items[3].item.id,
+    )
+    expect(body.decisions.map((d) => d.content_item_id)).not.toContain(
+      mockPackWorkspace.items[2].item.id,
     )
     for (const decision of body.decisions) {
       expect(decision.decision).toBe('approved')
@@ -356,7 +480,7 @@ test.describe('Content review workspace', () => {
     }
 
     await expect(
-      page.getByText('Bulk approval completed: 3 of 3 items created publication candidates.'),
+      page.getByText('Bulk approval completed: 2 of 2 items created publication candidates.'),
     ).toBeVisible()
   })
 

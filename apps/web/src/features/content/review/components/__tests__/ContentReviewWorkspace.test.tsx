@@ -246,6 +246,102 @@ describe('ContentReviewWorkspace', () => {
     ).toBeDefined()
   })
 
+  it('locks the decision rail for an item with an immutable publication candidate', async () => {
+    render(<ContentReviewWorkspace packId={mockPackWorkspace.pack.id} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 1 }).textContent,
+      ).toContain('ContentReview.header.title')
+    })
+
+    // Select Item 3 (approved, active candidate)
+    const selectAgendaItem3 = screen.getAllByRole('button', { name: /3\. Fri/i })[0]
+    fireEvent.click(selectAgendaItem3)
+
+    // No approve / revise / reject controls may be offered for a frozen item.
+    expect(
+      screen.queryByRole('button', {
+        name: /ContentReview\.decision\.actions\.approveVersion/i,
+      }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /ContentReview\.decision\.actions\.requestRevision/i,
+      }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /ContentReview\.decision\.actions\.rejectVersion/i,
+      }),
+    ).toBeNull()
+
+    // Instead the rail explains the lock.
+    expect(
+      screen.getByText('ContentReview.decision.immutable.title'),
+    ).toBeDefined()
+    expect(
+      screen.getByText('ContentReview.decision.immutable.body'),
+    ).toBeDefined()
+  })
+
+  it('excludes candidate-frozen items from bulk selection and marks them approved', async () => {
+    render(<ContentReviewWorkspace packId={mockPackWorkspace.pack.id} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('ContentReview.bulk.title')).toBeDefined()
+    })
+
+    // Item 3 is frozen by a candidate: it must be disabled and labeled Approved
+    // rather than selectable.
+    const frozenItem = screen
+      .getAllByRole('button', { name: /3\. Fri/i })
+      .find((b) => b.textContent?.includes('ContentReview.bulk.approvedLabel')) as
+      | HTMLButtonElement
+      | undefined
+    expect(frozenItem).toBeDefined()
+    expect(frozenItem?.disabled).toBe(true)
+    expect(screen.getByText('ContentReview.bulk.approvedLabel')).toBeDefined()
+
+    fireEvent.click(
+      screen.getByText(/ContentReview\.bulk\.selectAllEligible/i),
+    )
+
+    const bulkApproveBtn = screen.getByText(
+      /ContentReview\.bulk\.approveSelected/i,
+    )
+    const selectedLabel = screen.getByText(
+      /ContentReview\.bulk\.selectedCount/i,
+    )
+    expect(selectedLabel.textContent).toContain('2')
+    expect((bulkApproveBtn.closest('button') as HTMLButtonElement).disabled).toBe(false)
+
+    vi.mocked(api.submitBulkDecisions).mockResolvedValueOnce([
+      { item_id: mockPackWorkspace.items[0].item.id, status: 'approved' },
+      { item_id: mockPackWorkspace.items[1].item.id, status: 'approved' },
+    ])
+
+    await act(async () => {
+      fireEvent.click(bulkApproveBtn)
+    })
+
+    await waitFor(() => {
+      expect(api.submitBulkDecisions).toHaveBeenCalledWith(
+        mockPackWorkspace.pack.id,
+        expect.objectContaining({
+          decisions: expect.any(Array),
+        }),
+      )
+    })
+    const payload = vi.mocked(api.submitBulkDecisions).mock.calls[0][1] as {
+      decisions: Array<{ content_item_id: string }>
+    }
+    expect(payload.decisions.map((d) => d.content_item_id)).not.toContain(
+      mockPackWorkspace.items[2].item.id,
+    )
+    expect(payload.decisions).toHaveLength(2)
+  })
+
   it('refetches authoritative state and announces the change on a stale-version conflict', async () => {
     render(<ContentReviewWorkspace packId={mockPackWorkspace.pack.id} />)
 
