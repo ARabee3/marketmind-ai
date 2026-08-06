@@ -11,6 +11,7 @@ import {
   Megaphone,
   NotebookPen,
   Package,
+  Pencil,
   Store,
   Target,
   Users,
@@ -336,6 +337,7 @@ function FactSection({
             onClick={onEdit}
             disabled={controlsDisabled}
           >
+            <Pencil aria-hidden="true" />
             {t('editSection', { section: title })}
           </Button>
         ) : undefined
