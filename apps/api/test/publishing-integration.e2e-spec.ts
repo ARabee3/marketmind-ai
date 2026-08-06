@@ -100,6 +100,50 @@ const CANDIDATE_EVENT_PATH = path.join(
   "packages/contracts/examples/publication-candidate-created-event.example.json",
 );
 
+const LOCAL_TEST_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+function requireSafeTestUrl(name: "DATABASE_URL" | "REDIS_URL"): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(
+      `Publishing integration E2E requires ${name}. Set it in the environment or apps/api/.env.test; refusing to fall back to apps/api/.env.`,
+    );
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Publishing integration E2E received an invalid ${name}.`);
+  }
+
+  const expectedProtocols =
+    name === "DATABASE_URL"
+      ? new Set(["postgres:", "postgresql:"])
+      : new Set(["redis:", "rediss:"]);
+  if (!expectedProtocols.has(parsed.protocol)) {
+    throw new Error(
+      `Publishing integration E2E requires ${name} to use a test database/Redis URL.`,
+    );
+  }
+  if (!LOCAL_TEST_HOSTS.has(parsed.hostname)) {
+    throw new Error(
+      `Publishing integration E2E only permits ${name} on localhost; refusing to touch a remote resource.`,
+    );
+  }
+
+  if (name === "DATABASE_URL") {
+    const databaseName = decodeURIComponent(parsed.pathname.slice(1));
+    if (!/(?:^|[-_])(test|ci|e2e)$/i.test(databaseName)) {
+      throw new Error(
+        `Publishing integration E2E requires a database name ending in _test, _ci, or _e2e; refusing to reset ${databaseName || "an unnamed database"}.`,
+      );
+    }
+  }
+
+  return value;
+}
+
 // Committed demo asset (single source of truth: apps/api/test-assets/publishing/manifest.json).
 const DEMO_ASSET_ID = "11111111-1111-4111-8111-111111111111";
 const DEMO_ASSET_CHECKSUM =
@@ -316,7 +360,12 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   let signingKeyId: string;
 
   beforeAll(async () => {
-    dotenv.config({ path: ENV_TEST_PATH, override: true });
+    // Explicit CI/terminal values win. Only missing values are read from the
+    // optional local file, so a checked-in or stale .env.test cannot replace a
+    // runner's isolated database unexpectedly.
+    dotenv.config({ path: ENV_TEST_PATH, override: false });
+    const databaseUrl = requireSafeTestUrl("DATABASE_URL");
+    const redisUrl = requireSafeTestUrl("REDIS_URL");
     internalToken = process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN!;
     signingSecret = process.env.PUBLISHING_N8N_SIGNING_SECRET!;
     signingKeyId = process.env.PUBLISHING_N8N_SIGNING_KID!;
@@ -328,15 +377,15 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       cwd: API_DIR,
       env: {
         ...process.env,
-        DATABASE_URL: process.env.DATABASE_URL!,
-        DIRECT_URL: process.env.DIRECT_URL!,
+        DATABASE_URL: databaseUrl,
       },
       stdio: "pipe",
     });
 
-    // 2) Flush Redis (BullMQ queues + outboxes).
-    redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
-    await redis.flushall();
+    // 2) Flush only the configured Redis database (BullMQ queues + outboxes).
+    // FLUSHALL could destroy unrelated databases on a shared Redis instance.
+    redis = new Redis(redisUrl);
+    await redis.flushdb();
 
     // 3) Start the fake-n8n harness with the SAME signing secret the API uses.
     harness = await startFakeN8n({
