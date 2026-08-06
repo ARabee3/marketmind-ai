@@ -45,7 +45,9 @@ _SENSITIVE_KEY_PARTS = (
 
 _APPROVED_DESTINATION_KEYS = ("cta_destination",)
 
-_PHONE_PATTERN = re.compile(r"\+20[\d\s().-]{8,}\d|\b01[0125][0-9]{8}\b")
+_PHONE_PATTERN = re.compile(
+    r"\+20[\d\s().-]{8,}\d|\b01[0125][0-9]{8}\b|\b0[2-9][\d\s().-]{7,}\d"
+)
 _EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
