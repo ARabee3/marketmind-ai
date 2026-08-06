@@ -250,6 +250,12 @@ class R2AssetStorage(AssetStoragePort):
 
     def __init__(self, config: R2StorageConfig) -> None:
         self._config = config
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            self._client = _r2_client(self._config)
+        return self._client
 
     async def store(
         self,
@@ -280,7 +286,7 @@ class R2AssetStorage(AssetStoragePort):
 
         storage_key = f"content/generated/{asset_id}.{extension}"
         checksum = hashlib.sha256(data).hexdigest()
-        client = _r2_client(self._config)
+        client = self._get_client()
         try:
             client.put_object(
                 Bucket=self._config.bucket,
@@ -310,7 +316,7 @@ class R2AssetStorage(AssetStoragePort):
         )
 
     async def retrieve(self, storage_key: str) -> bytes:
-        return await to_thread.run_sync(self._retrieve_sync, _r2_client(self._config), storage_key)
+        return await to_thread.run_sync(self._retrieve_sync, self._get_client(), storage_key)
 
     def _retrieve_sync(self, client, storage_key: str) -> bytes:
         _validate_storage_key(storage_key)
@@ -319,7 +325,7 @@ class R2AssetStorage(AssetStoragePort):
 
     async def presign_read_url(self, storage_key: str, expires_seconds: int = 3600) -> str:
         _validate_storage_key(storage_key)
-        client = _r2_client(self._config)
+        client = self._get_client()
         return await to_thread.run_sync(
             partial(
                 client.generate_presigned_url,

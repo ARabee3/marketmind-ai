@@ -188,6 +188,31 @@ def test_create_asset_storage_r2_priority() -> None:
     assert isinstance(storage, R2AssetStorage)
 
 
+def test_r2_client_built_once_per_storage_instance(fake_s3) -> None:
+    with patch("boto3.client", return_value=fake_s3) as client_factory:
+        storage = R2AssetStorage(_config())
+        import asyncio
+
+        async def exercise() -> None:
+            await storage.store(
+                _png_bytes(),
+                mime_type="image/png",
+                width=1024,
+                height=1024,
+                asset_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            )
+            await storage.retrieve(
+                "content/generated/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png"
+            )
+            await storage.presign_read_url(
+                "content/generated/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png"
+            )
+
+        asyncio.run(exercise())
+
+    assert client_factory.call_count == 1
+
+
 def test_create_asset_storage_fallbacks_unchanged(tmp_path) -> None:
     from app.content.storage import (
         DeterministicAssetStorage,
