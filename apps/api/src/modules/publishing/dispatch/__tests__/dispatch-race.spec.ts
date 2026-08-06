@@ -9,7 +9,10 @@
  *    no-op (no claim, no n8n) even after the intent moved to a terminal state.
  */
 
-import { DispatchProcessor } from "../dispatch.processor";
+import {
+  DispatchClaimLostError,
+  DispatchProcessor,
+} from "../dispatch.processor";
 import { N8nClientService } from "../n8n-client.service";
 import { AssetIntegrityValidator } from "../asset-integrity-validator";
 import { DispatchEnvelopeBuilder } from "../dispatch-envelope.builder";
@@ -235,6 +238,19 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(n8n.dispatch).not.toHaveBeenCalled();
   });
 
+  it("does not mark the intent FAILED when another worker already owns the claim", async () => {
+    jest
+      .spyOn(processor as never, "runRevalidationAndCreateAttempt" as never)
+      .mockRejectedValue(
+        new DispatchClaimLostError("intent i-1 is already DISPATCHING") as never,
+      );
+
+    await processor.process(job);
+
+    expect(prisma.publishingIntent!.updateMany).not.toHaveBeenCalled();
+    expect(n8n.dispatch).not.toHaveBeenCalled();
+  });
+
   it("records a no-op for a replayed (intent, idempotency_key) attempt — no claim, no n8n", async () => {
     (prisma.$transaction as jest.Mock).mockResolvedValue({
       replayed: true,
@@ -448,6 +464,14 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
         providerRequestFingerprint: "f".repeat(64),
         workflowVersion: body.workflow_version,
       },
+    });
+    expect(tx.publishingIntent.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: body.intent_id,
+        version: body.intent_version,
+        status: "SCHEDULED",
+      },
+      data: { status: "DISPATCHING" },
     });
   });
 });

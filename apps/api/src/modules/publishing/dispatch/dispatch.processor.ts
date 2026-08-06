@@ -19,14 +19,21 @@ export interface DispatchJobData {
   idempotencyKey: string;
 }
 
+export class DispatchClaimLostError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DispatchClaimLostError";
+  }
+}
+
 /**
  * Dispatch processor — consumes 'dispatch' jobs from the 'publishing-dispatch' queue.
  *
  * Full revalidation checklist (§9.2) runs inside a DB transaction:
- *   1. intent version + status (SCHEDULED or DISPATCHING, see P1 atomic claim);
- *   2. ATOMIC INTENT CLAIM (P1 #123): `UPDATE … WHERE id, version, status IN
- *      ('SCHEDULED','DISPATCHING')` — zero rows affected aborts the job before
- *      any n8n call (reschedule bumped the version, or cancel moved the state);
+ *   1. intent version + status (SCHEDULED, see P1 atomic claim);
+ *   2. ATOMIC INTENT CLAIM (P1 #123): `UPDATE … WHERE id, version, status =
+ *      'SCHEDULED'` — zero rows affected aborts the job before any n8n call
+ *      (another worker won, reschedule bumped the version, or cancel moved the state);
  *   3. approval row matches the approved intent version;
  *   4. candidate ACTIVE and checksum matches the approval snapshot;
  *   5. target CONNECTED and not expired;
@@ -89,6 +96,12 @@ export class DispatchProcessor extends WorkerHost {
         idempotencyKey,
       );
     } catch (err) {
+      if (err instanceof DispatchClaimLostError) {
+        this.logger.log(
+          `Dispatch claim was lost for intent=${intentId} v=${version} — recorded no-op`,
+        );
+        return;
+      }
       this.logger.warn(
         `Dispatch revalidation failed for intent=${intentId} v=${version}: ${(err as Error).message}`,
       );
@@ -310,17 +323,16 @@ export class DispatchProcessor extends WorkerHost {
             `${PublishingErrorCode.STATE_CONFLICT}: intent version mismatch (expected ${version}, current ${intent.version})`,
           );
         }
-        // §9.2 Check 2: status must be claimable. DISPATCHING is accepted for
-        // BullMQ retry safety: if a prior run of this job crashed AFTER the
-        // atomic claim below (intent DISPATCHING) but BEFORE the attempt row
-        // committed, the retry must be able to reclaim and complete the
-        // dispatch instead of dead-lettering. The version predicate + the
-        // atomic claim below still gate staleness; a cancelled intent or a
-        // newer version can never be claimed.
-        if (
-          intent.status !== "SCHEDULED" &&
-          intent.status !== "DISPATCHING"
-        ) {
+        // §9.2 Check 2: only SCHEDULED intents may be claimed. A DISPATCHING
+        // intent is already owned by another worker (or is being recovered by
+        // a replay of its queued attempt), so this delivery must not mark it
+        // FAILED while the owner is still in flight.
+        if (intent.status !== "SCHEDULED") {
+          if (intent.status === "DISPATCHING") {
+            throw new DispatchClaimLostError(
+              `intent ${intentId} is already DISPATCHING at v${version}`,
+            );
+          }
           throw new Error(
             `${PublishingErrorCode.STATE_CONFLICT}: intent status is "${intent.status}", expected SCHEDULED`,
           );
@@ -331,24 +343,24 @@ export class DispatchProcessor extends WorkerHost {
         // predicate makes the claim stale-job-safe: a reschedule bumps
         // `version`, a cancel moves the status out of the claimable set, so a
         // stale delayed job's claim updates 0 rows and the job aborts here —
-        // BEFORE any n8n call. `IN ('SCHEDULED','DISPATCHING')` allows a
-        // BullMQ retry of a job whose prior run claimed the intent but crashed
-        // before the attempt row committed to reclaim it. Any later check in
-        // this tx that fails rolls the DISPATCHING flip back with the
-        // transaction.
+        // BEFORE any n8n call. A retry that reaches this point after another worker claimed the
+        // intent loses the compare-and-swap and is a no-op. The claim and
+        // attempt creation share this transaction, so there is no committed
+        // state in which an intent is DISPATCHING without its attempt row.
         const intentClaim = await tx.publishingIntent.updateMany({
           where: {
             id: intentId,
             version,
-            status: { in: ["SCHEDULED", "DISPATCHING"] },
+            status: "SCHEDULED",
           },
           data: { status: "DISPATCHING" },
         });
         if (intentClaim.count !== 1) {
-          // A newer version (reschedule) or a state change (cancel) won the
-          // race. Abort this job immediately — do NOT call n8n.
-          throw new Error(
-            `${PublishingErrorCode.STATE_CONFLICT}: intent ${intentId} no longer claimable at v${version} (status ${intent.status})`,
+          // Another worker won the claim, or a newer state/version won the
+          // race. Abort this job immediately — do NOT fail the intent or call
+          // n8n.
+          throw new DispatchClaimLostError(
+            `intent ${intentId} no longer claimable at v${version} (status ${intent.status})`,
           );
         }
 
