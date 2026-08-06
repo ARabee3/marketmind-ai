@@ -158,17 +158,20 @@ async function mockContentReviewApi(page: Page, state: ContentReviewMockState) {
       state.lastBulkBody = await route.request().postDataJSON()
 
       const body = state.lastBulkBody as {
-        items: Array<{ item_id: string }>
-        idempotency_key: string
+        decisions: Array<{
+          content_item_id: string
+          content_item_version_id: string
+          content_item_version_checksum: string
+          decision: string
+          revision_notes: string | null
+          idempotency_key: string
+        }>
       }
-      const results: BulkDecisionResponse['results'] = body.items.map((item) => ({
-        item_id: item.item_id,
-        version_id: 'v2',
-        success: true,
-        decision_id: `bulk-dec-${item.item_id.slice(0, 4)}`,
-        publication_candidate_id: `cand-bulk-${item.item_id.slice(0, 4)}`,
+      const results: BulkDecisionResponse = body.decisions.map((d) => ({
+        item_id: d.content_item_id,
+        status: 'approved',
       }))
-      await json(route, { results })
+      await json(route, results)
     },
   )
 
@@ -333,14 +336,24 @@ test.describe('Content review workspace', () => {
 
     await expect.poll(() => state.bulkCalls).toBe(1)
     const body = state.lastBulkBody as {
-      items: Array<{ item_id: string }>
-      idempotency_key: string
+      decisions: Array<{
+        content_item_id: string
+        content_item_version_id: string
+        content_item_version_checksum: string
+        decision: string
+        revision_notes: string | null
+        idempotency_key: string
+      }>
     }
-    expect(body.items).toHaveLength(3)
-    expect(body.items.map((i) => i.item_id)).not.toContain(
+    expect(body.decisions).toHaveLength(3)
+    expect(body.decisions.map((d) => d.content_item_id)).not.toContain(
       mockPackWorkspace.items[3].item.id,
     )
-    expect(body.idempotency_key).toBeTruthy()
+    for (const decision of body.decisions) {
+      expect(decision.decision).toBe('approved')
+      expect(decision.revision_notes).toBeNull()
+      expect(decision.idempotency_key).toBeTruthy()
+    }
 
     await expect(
       page.getByText('Bulk approval completed: 3 of 3 items created publication candidates.'),

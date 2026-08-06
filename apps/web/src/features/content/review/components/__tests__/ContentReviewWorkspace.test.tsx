@@ -180,20 +180,16 @@ describe('ContentReviewWorkspace', () => {
     )
     expect((bulkApproveBtn.closest('button') as HTMLButtonElement).disabled).toBe(false)
 
-    vi.mocked(api.submitBulkDecisions).mockResolvedValueOnce({
-      results: [
-        {
-          item_id: mockPackWorkspace.items[0].item.id,
-          version_id: 'v1',
-          success: true,
-        },
-        {
-          item_id: mockPackWorkspace.items[1].item.id,
-          version_id: 'v1',
-          success: true,
-        },
-      ],
-    })
+    vi.mocked(api.submitBulkDecisions).mockResolvedValueOnce([
+      {
+        item_id: mockPackWorkspace.items[0].item.id,
+        status: 'approved',
+      },
+      {
+        item_id: mockPackWorkspace.items[1].item.id,
+        status: 'approved',
+      },
+    ])
 
     await act(async () => {
       fireEvent.click(bulkApproveBtn)
@@ -203,7 +199,7 @@ describe('ContentReviewWorkspace', () => {
       expect(api.submitBulkDecisions).toHaveBeenCalledWith(
         mockPackWorkspace.pack.id,
         expect.objectContaining({
-          items: expect.any(Array),
+          decisions: expect.any(Array),
         }),
       )
     })

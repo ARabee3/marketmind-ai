@@ -40,29 +40,28 @@ export type SingleDecisionRequest = {
 }
 
 export type BulkDecisionRequestItem = {
-  item_id: UUID
-  version_id: UUID
-  checksum: string
+  content_item_id: UUID
+  content_item_version_id: UUID
+  content_item_version_checksum: string
+  decision: 'approved' | 'rejected' | 'revision_requested'
+  revision_notes: string | null
+  idempotency_key: string
 }
 
 export type BulkDecisionRequest = {
-  items: readonly BulkDecisionRequestItem[]
-  idempotency_key: string
+  decisions: readonly BulkDecisionRequestItem[]
 }
 
 export type BulkDecisionResultItem = {
   item_id: UUID
-  version_id: UUID
-  success: boolean
-  decision_id?: UUID
-  publication_candidate_id?: UUID
-  error_code?: ContentErrorCode
-  message?: string
+  status: 'approved' | 'rejected' | 'revision_requested' | 'ineligible'
+  error?: {
+    code: ContentErrorCode | string
+    message: string
+  }
 }
 
-export type BulkDecisionResponse = {
-  results: readonly BulkDecisionResultItem[]
-}
+export type BulkDecisionResponse = readonly BulkDecisionResultItem[]
 
 export type DecisionRequestState =
   | { status: 'idle' }

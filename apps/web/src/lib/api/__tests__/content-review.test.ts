@@ -104,37 +104,63 @@ describe('content-review API adapter', () => {
   })
 
   it('submits bulk decisions', async () => {
-    const mockBulkRes = {
-      results: [
-        { item_id: 'item-1', version_id: 'v-1', success: true },
-        {
-          item_id: 'item-2',
-          version_id: 'v-1',
-          success: false,
-          error_code: 'CONTENT_ASSET_REQUIRED',
+    const mockBulkRes = [
+      { item_id: 'item-1', status: 'approved' },
+      {
+        item_id: 'item-2',
+        status: 'ineligible',
+        error: {
+          code: 'CONTENT_ASSET_REQUIRED',
+          message: 'Required assets are not ready.',
         },
-      ],
-    }
+      },
+    ]
     vi.mocked(apiRequest).mockResolvedValueOnce(
       new Response(JSON.stringify(mockBulkRes), { status: 200 }),
     )
 
     const result = await submitBulkDecisions('pack-1', {
-      items: [
-        { item_id: 'item-1', version_id: 'v-1', checksum: 'a'.repeat(64) },
-        { item_id: 'item-2', version_id: 'v-1', checksum: 'b'.repeat(64) },
+      decisions: [
+        {
+          content_item_id: 'item-1',
+          content_item_version_id: 'v-1',
+          content_item_version_checksum: 'a'.repeat(64),
+          decision: 'approved',
+          revision_notes: null,
+          idempotency_key: 'bulk-key-1',
+        },
+        {
+          content_item_id: 'item-2',
+          content_item_version_id: 'v-1',
+          content_item_version_checksum: 'b'.repeat(64),
+          decision: 'approved',
+          revision_notes: null,
+          idempotency_key: 'bulk-key-2',
+        },
       ],
-      idempotency_key: 'bulk-key-1',
     })
 
     expect(apiRequest).toHaveBeenCalledWith('/content-packs/pack-1/decisions/bulk', {
       method: 'POST',
       body: {
-        items: [
-          { item_id: 'item-1', version_id: 'v-1', checksum: 'a'.repeat(64) },
-          { item_id: 'item-2', version_id: 'v-1', checksum: 'b'.repeat(64) },
+        decisions: [
+          {
+            content_item_id: 'item-1',
+            content_item_version_id: 'v-1',
+            content_item_version_checksum: 'a'.repeat(64),
+            decision: 'approved',
+            revision_notes: null,
+            idempotency_key: 'bulk-key-1',
+          },
+          {
+            content_item_id: 'item-2',
+            content_item_version_id: 'v-1',
+            content_item_version_checksum: 'b'.repeat(64),
+            decision: 'approved',
+            revision_notes: null,
+            idempotency_key: 'bulk-key-2',
+          },
         ],
-        idempotency_key: 'bulk-key-1',
       },
     })
     expect(result).toEqual(mockBulkRes)

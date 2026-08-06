@@ -53,21 +53,24 @@ export function useBulkDecision(
       return
     }
 
-    // Filter selected items and build payload with eligible items only
+    // Filter selected items and build the decisions payload with eligible
+    // items only; each decision carries its own idempotency key so retries
+    // stay independent per item (backend ContentDecisionDto contract).
     const payloadItems = items
       .filter((item) => selectedItemIds.includes(item.item.id))
       .filter((item) => checkItemEligibility(item).eligible)
       .map((item) => ({
-        item_id: item.item.id,
-        version_id: item.current_version.id,
-        checksum: item.current_version.version_checksum,
+        content_item_id: item.item.id,
+        content_item_version_id: item.current_version.id,
+        content_item_version_checksum: item.current_version.version_checksum,
+        decision: 'approved' as const,
+        revision_notes: null,
+        idempotency_key: renewKey(),
       }))
 
     if (payloadItems.length === 0) {
       return
     }
-
-    const idempotencyKey = renewKey()
 
     setState({
       status: 'submitting',
@@ -77,8 +80,7 @@ export function useBulkDecision(
     })
 
     const request: BulkDecisionRequest = {
-      items: payloadItems,
-      idempotency_key: idempotencyKey,
+      decisions: payloadItems,
     }
 
     try {

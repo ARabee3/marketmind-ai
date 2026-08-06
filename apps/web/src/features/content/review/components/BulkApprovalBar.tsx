@@ -123,8 +123,10 @@ export function BulkApprovalBar({
           <div className="flex items-center justify-between">
             <span className="font-bold">
               {t('partialResult', {
-                successCount: bulkState.result.results.filter((r) => r.success).length,
-                totalCount: bulkState.result.results.length,
+                successCount: bulkState.result.filter(
+                  (r) => r.status === 'approved',
+                ).length,
+                totalCount: bulkState.result.length,
               })}
             </span>
             <button
@@ -136,16 +138,16 @@ export function BulkApprovalBar({
             </button>
           </div>
 
-          {bulkState.result.results.some((r) => !r.success) && (
+          {bulkState.result.some((r) => r.status !== 'approved') && (
             <ul className="space-y-1 border-t border-teal-200 pt-2 text-[11px]">
-              {bulkState.result.results
-                .filter((r) => !r.success)
+              {bulkState.result
+                .filter((r) => r.status === 'ineligible')
                 .map((r) => (
                   <li key={r.item_id} className="text-red-900 font-medium">
                     {t('ineligibleReason', {
                       itemId: r.item_id.slice(0, 8),
-                      reason: r.error_code
-                        ? localizeError(r.error_code)
+                      reason: r.error?.code
+                        ? localizeError(r.error.code)
                         : t('unknownError'),
                     })}
                   </li>
