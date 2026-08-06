@@ -150,7 +150,8 @@ describe('content-review API adapter', () => {
 
     const result = await fetchAuthenticatedAssetBlob('asset-1')
     expect(apiRequest).toHaveBeenCalledWith('/content-assets/asset-1')
-    expect(result).toBeInstanceOf(Blob)
+    expect(result.type).toBe('image/png')
+    expect(await result.text()).toBe('fake image bytes')
   })
 
   it('fetches publication candidate', async () => {
