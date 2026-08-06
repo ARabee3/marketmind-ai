@@ -54,8 +54,10 @@ export function usePackWorkspace(packId: string) {
       if (!stillCurrent()) return
       const status = (err as Error & { status?: number }).status
       if (status === 404) {
-        // The aggregate pack-workspace read model is not integrated yet; show
-        // the clearly-labeled contract-aligned fixture proof while it is missing.
+        // The aggregate pack-workspace read model (`GET /content-packs/:id/workspace`)
+        // is owned by issue #112 (Content integration). Until it lands, show the
+        // clearly-labeled contract-aligned fixture proof; when it ships, remove
+        // this fallback and the fixture banner.
         setState({
           status: 'success',
           workspace: mockPackWorkspace,
