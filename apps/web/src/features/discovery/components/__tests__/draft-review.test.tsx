@@ -446,4 +446,152 @@ describe('DraftReview', () => {
     // The snippet should be preserved
     expect(screen.getByText('A nice cafe in Cairo')).toBeDefined()
   })
+
+  it('renders a section-level empty state for fully empty sections', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    // customers is fully empty in the default draft
+    const customersSection = screen.getByText('domainCustomers').closest('section')
+    expect(customersSection?.textContent).toContain('emptySection')
+  })
+
+  it('renders a source link only when a valid URL is present', () => {
+    const status = makeStatus()
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-4',
+            source_ref_id: 'source-1',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Example Cafe' })).toBeDefined()
+  })
+
+  it('groups uncertainties by severity and shows a count per group', () => {
+    const draft = makeDraft({
+      uncertainties: [
+        { field_key: 'f1', domain: 'offer', description: 'High one', severity: 'high', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f2', domain: 'offer', description: 'Medium one', severity: 'medium', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f3', domain: 'offer', description: 'Medium two', severity: 'medium', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f4', domain: 'offer', description: 'Low one', severity: 'low', category: 'missing_information', source: 'owner_unknown', resolved: false },
+      ],
+    })
+
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('High one')).toBeDefined()
+    expect(screen.getByText('Medium one')).toBeDefined()
+    expect(screen.getByText('Medium two')).toBeDefined()
+    expect(screen.getByText('Low one')).toBeDefined()
+    expect(screen.getAllByText('severity_high').length).toBe(1)
+    expect(screen.getAllByText('severity_medium').length).toBe(1)
+    expect(screen.getAllByText('severity_low').length).toBe(1)
+    // one count label per group (high, medium, low)
+    expect(screen.getAllByText('uncertaintyGroupCount').length).toBe(3)
+  })
+
+  it('shows a positive empty state when there are no uncertainties', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ uncertainties: [] })}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('uncertaintyNone')).toBeDefined()
+  })
+
+  it('disables confirm and shows the pending label while submitting', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    const confirmButton = screen.getByRole('button', { name: 'confirmingLabel' })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('does not fire onConfirm while the confirm button is disabled', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+
+    const confirmButton = screen.getByRole('button', { name: 'confirmProfile' })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(confirmButton)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('does not render a request-changes action when the prop is absent', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'requestChanges' })).toBeNull()
+  })
+
+  it('renders without layout-breaking errors under rtl direction', () => {
+    const { container } = render(
+      <div dir="rtl">
+        <DraftReview
+          status={makeStatus()}
+          draft={makeDraft()}
+          pending={false}
+          onConfirm={vi.fn()}
+        />
+      </div>,
+    )
+
+    expect(container.querySelector('[dir="rtl"]')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'confirmProfile' })).toBeDefined()
+  })
 })
