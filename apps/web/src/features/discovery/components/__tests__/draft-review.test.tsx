@@ -730,6 +730,21 @@ describe('DraftReview', () => {
     expect(screen.queryByRole('button', { name: 'requestChanges' })).toBeNull()
   })
 
+  it('renders a readiness segment per profile domain', () => {
+    const { container } = render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    const meter = container.querySelector('ul[aria-label="completenessSummary"]')
+    expect(meter).not.toBeNull()
+    expect(meter?.querySelectorAll('li')).toHaveLength(7)
+  })
+
   it('renders without layout-breaking errors under rtl direction', () => {
     const { container } = render(
       <div dir="rtl">

@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from 'react'
 import {
+  CircleAlert,
+  CircleCheck,
   CircleQuestionMark,
   ChevronDown,
   Globe,
@@ -117,7 +119,9 @@ function ProfileSectionCard({
   return (
     <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated md:p-6">
       <header className="flex flex-wrap items-center gap-2.5 border-b border-border pb-4">
-        <Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
         <h2 className="text-balance text-lg font-bold text-navy">{title}</h2>
         {incomplete && (
           <span className="ms-auto">
@@ -213,7 +217,7 @@ function EvidenceSourceCard({
             href={source.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex break-all font-semibold text-action underline underline-offset-4 hover:text-primary"
+            className="inline-flex break-all font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
           >
             {label}
           </a>
@@ -383,7 +387,10 @@ function UncertaintiesSection({
   return (
     <ProfileSectionCard title={t('uncertaintiesTitle')} icon={CircleQuestionMark}>
       {unresolved.length === 0 && resolved.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('uncertaintyNone')}</p>
+        <div className="flex items-center gap-2.5 rounded-lg border border-primary/15 bg-primary/5 p-4 text-sm text-primary">
+          <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
+          <p className="font-medium">{t('uncertaintyNone')}</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {high.length > 0 && (
@@ -454,6 +461,38 @@ function ConfirmActionBar({
   )
 }
 
+function DomainReadinessMeter({
+  domains,
+  blockingDomains,
+  domainLabels,
+}: {
+  domains: readonly string[]
+  blockingDomains: readonly string[]
+  domainLabels: Record<string, string>
+}) {
+  const t = useTranslations('DiscoveryReview')
+  const blocked = new Set(blockingDomains)
+  const completedCount = domains.length - blocked.size
+  return (
+    <ul
+      aria-label={t('completenessSummary', { completed: String(completedCount), total: String(domains.length) })}
+      className="flex items-center gap-1"
+    >
+      {domains.map((domain) => (
+        <li
+          key={domain}
+          title={domainLabels[domain] ?? domain}
+          aria-label={domainLabels[domain] ?? domain}
+          className={cn(
+            'h-1.5 flex-1 rounded-full transition-colors',
+            blocked.has(domain) ? 'bg-border' : 'bg-primary',
+          )}
+        />
+      ))}
+    </ul>
+  )
+}
+
 function DraftReviewHeader({
   isComplete,
   completionReason,
@@ -472,28 +511,69 @@ function DraftReviewHeader({
   const t = useTranslations('DiscoveryReview')
   const fmt = useFormatter()
   return (
-    <header className="space-y-2">
-      <h1 className="text-balance text-2xl font-bold text-navy">{t('title')}</h1>
-      <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-      <p className="text-sm text-muted-foreground">
-        {t('completenessLabel')}:{' '}
-        <span className={cn('font-medium', isComplete ? 'text-primary' : 'text-warning')}>
-          {isComplete ? t('complete') : t('incomplete')}
-        </span>
-        {' · '}
-        {t('completionReasonLabel')}: {completionReason}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {t('completenessSummary', { completed: fmt.number(completedDomains), total: fmt.number(FACT_DOMAINS.length) })}
-        {' · '}
-        {t('readinessLabel')}: {fmt.number(readiness.profile_readiness, { style: 'percent' })}
-        {' · '}
-        {t('turnCountLabel')}: {fmt.number(readiness.owner_turn_count)} / {fmt.number(readiness.max_owner_turns)}
-      </p>
+    <header className="space-y-4">
+      <div className="space-y-1.5">
+        <h1 className="text-balance text-2xl font-bold text-navy">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <span aria-hidden="true" className="mt-3 block h-1 w-14 rounded-full bg-primary" />
+      </div>
+
+      <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <p className="text-sm text-muted-foreground">
+            {t('completenessLabel')}:{' '}
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 font-semibold',
+                isComplete ? 'text-primary' : 'text-warning',
+              )}
+            >
+              {isComplete ? (
+                <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+              )}
+              {isComplete ? t('complete') : t('incomplete')}
+            </span>
+            <span className="mx-2 text-border" aria-hidden="true">
+              ·
+            </span>
+            {t('completionReasonLabel')}: {completionReason}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {t('readinessLabel')}:{' '}
+            <span className="font-semibold text-navy">
+              {fmt.number(readiness.profile_readiness, { style: 'percent' })}
+            </span>
+            <span className="mx-2 text-border" aria-hidden="true">
+              ·
+            </span>
+            {t('turnCountLabel')}:{' '}
+            <span className="font-semibold text-navy tabular-nums">
+              {fmt.number(readiness.owner_turn_count)} / {fmt.number(readiness.max_owner_turns)}
+            </span>
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <DomainReadinessMeter
+            domains={FACT_DOMAINS}
+            blockingDomains={blockingDomains}
+            domainLabels={domainLabels}
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t('completenessSummary', {
+              completed: fmt.number(completedDomains),
+              total: fmt.number(FACT_DOMAINS.length),
+            })}
+          </p>
+        </div>
+      </div>
+
       {blockingDomains.length > 0 && (
         <div className="rounded-md border border-warning/20 bg-warning/10 p-4 text-warning" role="status">
           <p className="text-sm font-medium">{t('blockingDomainsLabel')}</p>
-          <ul className="list-inside list-disc text-sm">
+          <ul className="mt-1 list-inside list-disc text-sm">
             {blockingDomains.map((domain) => (
               <li key={domain}>{domainLabels[domain] ?? domain}</li>
             ))}
