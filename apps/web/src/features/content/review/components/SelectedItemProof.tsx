@@ -24,19 +24,26 @@ export function SelectedItemProof({ item }: SelectedItemProofProps) {
   const startDate = new Date(current_version.recommended_publish_window.starts_at)
   const endDate = new Date(current_version.recommended_publish_window.ends_at)
 
+  // The recommended publish window is expressed in Cairo time; format it in
+  // that zone regardless of the viewer's browser timezone.
+  const cairoTimeZone = 'Africa/Cairo' as const
+
   const startTimeStr = format.dateTime(startDate, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: cairoTimeZone,
   })
   const endTimeStr = format.dateTime(endDate, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: cairoTimeZone,
   })
 
   const dayStr = format.dateTime(startDate, {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
+    timeZone: cairoTimeZone,
   })
 
   const channelLabel =

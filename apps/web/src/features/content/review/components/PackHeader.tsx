@@ -14,22 +14,21 @@ export function PackHeader({ pack, weekContext }: PackHeaderProps) {
   const t = useTranslations('ContentReview.header')
   const format = useFormatter()
 
-  const cycleUrl = {
-    pathname: `/content/cycle/${pack.content_cycle_id}`,
-    query: { week: String(pack.week_number) },
-  }
+  const cycleUrl = `/content/${pack.content_cycle_id}/weeks/${pack.week_number}`
 
-  // A week runs from its start date through six following days.
+  // A week runs from its start date through six following days, in Cairo time.
   const startDate = new Date(`${weekContext.week_start_date}T00:00:00.000Z`)
   const endDate = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000)
   const startDateStr = format.dateTime(startDate, {
     day: 'numeric',
     month: 'short',
+    timeZone: 'Africa/Cairo',
   })
   const endDateStr = format.dateTime(endDate, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Africa/Cairo',
   })
 
   return (

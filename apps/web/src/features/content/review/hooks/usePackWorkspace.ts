@@ -37,12 +37,7 @@ export function usePackWorkspace(packId: string) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const packIdRef = useRef(packId)
 
-  useEffect(() => {
-    packIdRef.current = packId
-  }, [packId])
-
-  const loadWorkspace = useCallback(async () => {
-    const requestedPackId = packIdRef.current
+  const loadWorkspace = useCallback(async (requestedPackId: string) => {
     const stillCurrent = () => packIdRef.current === requestedPackId
 
     try {
@@ -82,8 +77,23 @@ export function usePackWorkspace(packId: string) {
   }, [])
 
   useEffect(() => {
-    void loadWorkspace()
-  }, [loadWorkspace])
+    // Track the latest requested pack so in-flight responses from a previous
+    // pack are discarded instead of rendering under the new URL.
+    packIdRef.current = packId
+    setState({
+      status: 'loading',
+      workspace: null,
+      error: null,
+      isFixture: false,
+    })
+    setSelectedItemId(null)
+    void loadWorkspace(packId)
+  }, [packId, loadWorkspace])
+
+  const refetch = useCallback(
+    () => loadWorkspace(packIdRef.current),
+    [loadWorkspace],
+  )
 
   const selectedItem: ContentPackWorkspaceItem | null =
     state.workspace?.items.find((i) => i.item.id === selectedItemId) ??
@@ -95,6 +105,6 @@ export function usePackWorkspace(packId: string) {
     selectedItemId,
     selectedItem,
     setSelectedItemId,
-    refetch: loadWorkspace,
+    refetch,
   }
 }
