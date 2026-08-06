@@ -11,6 +11,7 @@ vi.mock('next-intl', () => ({
       if (opts?.style === 'percent') return `${Math.round(value * 100)}%`
       return String(value)
     },
+    dateTime: (value: Date) => String(value),
   }),
 }))
 
@@ -181,7 +182,7 @@ describe('DraftReview', () => {
       />,
     )
 
-    expect(screen.getByText('incomplete')).toBeDefined()
+    expect(screen.getAllByText('incomplete').length).toBeGreaterThan(0)
     expect(screen.getByText((content) => content.includes('reason_owner_finished_early'))).toBeDefined()
   })
 
@@ -375,9 +376,9 @@ describe('DraftReview', () => {
       />,
     )
 
-    // Scope to the market evidence card; there are other notProvided spans in facts
-    const marketEvidenceCard = screen.getByText('marketEvidenceTitle').closest('[data-slot="card"]')
-    expect(marketEvidenceCard?.textContent).toContain('notProvided')
+    // Scope to the market evidence section; other sections have their own empty states
+    const marketEvidenceSection = screen.getByText('marketEvidenceTitle').closest('section')
+    expect(marketEvidenceSection?.textContent).toContain('emptySection')
   })
 
   it('renders only valid http/https links', () => {

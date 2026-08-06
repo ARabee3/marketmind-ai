@@ -1,8 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import {
+  CircleQuestionMark,
+  ChevronDown,
+  Globe,
+  Layers,
+  Megaphone,
+  NotebookPen,
+  Package,
+  Store,
+  Target,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslations, useFormatter } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type {
   BusinessProfileDraft,
@@ -11,18 +23,37 @@ import type {
   SourceType,
   MarketEvidence,
   ResearchObservation,
+  Uncertainty,
 } from '@marketmind/contracts'
 import { cn } from '@/lib/utils'
 
-function NotProvided() {
-  const t = useTranslations('DiscoveryReview')
-  return <span className="text-muted-foreground italic text-sm">{t('notProvided')}</span>
+const FACT_DOMAINS = [
+  'identity',
+  'offer',
+  'customers',
+  'differentiation',
+  'current_marketing',
+  'goals_and_constraints',
+  'market_context',
+] as const
+
+type FieldSpec =
+  | { kind: 'value'; label: string; value?: string }
+  | { kind: 'list'; label: string; list?: string[] }
+
+function isFieldPopulated(field: FieldSpec): boolean {
+  return field.kind === 'value' ? Boolean(field.value) : Boolean(field.list && field.list.length > 0)
 }
 
-function FactList({ items }: { items: string[] }) {
+function NotProvided() {
+  const t = useTranslations('DiscoveryReview')
+  return <span className="text-sm italic text-muted-foreground">{t('notProvided')}</span>
+}
+
+function FactList({ items }: { items?: string[] }) {
   if (!items || items.length === 0) return <NotProvided />
   return (
-    <ul className="list-disc list-inside text-sm space-y-0.5">
+    <ul className="list-inside list-disc space-y-0.5 text-sm">
       {items.map((item, idx) => (
         <li key={idx} className="break-words">
           <bdi>{item}</bdi>
@@ -41,6 +72,91 @@ function FactValue({ value }: { value?: string }) {
   )
 }
 
+function FieldRow(field: FieldSpec) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{field.label}</dt>
+      <dd className="mt-1">
+        {field.kind === 'value' ? <FactValue value={field.value} /> : <FactList items={field.list} />}
+      </dd>
+    </div>
+  )
+}
+
+function EmptyStateRow({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg border border-dashed border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
+function IncompleteBadge() {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <span className="inline-flex items-center rounded-md bg-warning/10 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-warning uppercase">
+      {t('incomplete')}
+    </span>
+  )
+}
+
+function ProfileSectionCard({
+  title,
+  icon: Icon,
+  incomplete = false,
+  empty = false,
+  children,
+}: {
+  title: string
+  icon: LucideIcon
+  incomplete?: boolean
+  empty?: boolean
+  children?: ReactNode
+}) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated md:p-6">
+      <header className="flex flex-wrap items-center gap-2.5 border-b border-border pb-4">
+        <Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+        <h2 className="text-balance text-lg font-bold text-navy">{title}</h2>
+        {incomplete && (
+          <span className="ms-auto">
+            <IncompleteBadge />
+          </span>
+        )}
+      </header>
+      <div className="mt-4">
+        {empty ? <EmptyStateRow>{t('emptySection')}</EmptyStateRow> : children}
+      </div>
+    </section>
+  )
+}
+
+function FactSection({
+  title,
+  icon,
+  fields,
+  grid = false,
+  incomplete = false,
+}: {
+  title: string
+  icon: LucideIcon
+  fields: FieldSpec[]
+  grid?: boolean
+  incomplete?: boolean
+}) {
+  const populated = fields.some(isFieldPopulated)
+  return (
+    <ProfileSectionCard title={title} icon={icon} incomplete={incomplete} empty={!populated}>
+      <dl className={cn('grid gap-x-4 gap-y-5', grid && 'grid-cols-1 sm:grid-cols-2')}>
+        {fields.map((field) => (
+          <FieldRow key={field.label} {...field} />
+        ))}
+      </dl>
+    </ProfileSectionCard>
+  )
+}
+
 function isValidHttpUrl(url: string | undefined): url is string {
   if (!url) return false
   try {
@@ -51,105 +167,340 @@ function isValidHttpUrl(url: string | undefined): url is string {
   }
 }
 
-function EvidenceSection({
-  title,
-  items,
-  sourceRefs,
+function getHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
+type EvidenceItem = { id: string; statement: string; source_ref_id?: string }
+
+function toEvidenceItem(ev: MarketEvidence): EvidenceItem {
+  return { id: ev.observation_id, statement: ev.statement, source_ref_id: ev.source_ref_id }
+}
+
+function toObservationItem(obs: ResearchObservation): EvidenceItem {
+  return { id: obs.id, statement: obs.statement, source_ref_id: obs.source_ref_id }
+}
+
+function EvidenceSourceCard({
+  statement,
+  source,
   sourceTypeLabel,
 }: {
-  title: string
-  items: MarketEvidence[]
-  sourceRefs: SourceRef[]
+  statement: string
+  source: SourceRef | undefined
   sourceTypeLabel: (sourceType: SourceType) => string
 }) {
-  if (!items || items.length === 0) return null
-
-  const sourceMap = new Map(sourceRefs.map((s) => [s.id, s]))
+  const t = useTranslations('DiscoveryReview')
+  const fmt = useFormatter()
+  const hasValidUrl = Boolean(source && isValidHttpUrl(source.url))
+  const label =
+    source?.title ??
+    (hasValidUrl && source?.url ? getHostname(source.url) : null) ??
+    (source ? sourceTypeLabel(source.source_type) : '')
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-navy">{title}</h4>
-      <div className="space-y-2">
-        {items.map((ev) => {
-          const source = ev.source_ref_id ? sourceMap.get(ev.source_ref_id) : undefined
-          return (
-            <div key={ev.observation_id} className="p-3 rounded-md bg-muted/50 border border-border min-w-0">
-              <p className="text-sm break-words">
-                <bdi>{ev.statement}</bdi>
-              </p>
-              {source && (
-                <div className="mt-1 text-xs text-muted-foreground break-words">
-                  {isValidHttpUrl(source.url) ? (
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-primary break-words"
-                    >
-                      {source.title || source.url}
-                    </a>
-                  ) : (
-                    <span>{source.title || sourceTypeLabel(source.source_type)}</span>
-                  )}
-                  {source.snippet && <span className="block mt-0.5 italic break-words">{source.snippet}</span>}
-                </div>
-              )}
-            </div>
-          )
-        })}
+    <div className="min-w-0 rounded-lg border border-border bg-background p-3">
+      <p className="text-sm break-words">
+        <bdi>{statement}</bdi>
+      </p>
+      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+        {source && hasValidUrl && source.url ? (
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex break-all font-semibold text-action underline underline-offset-4 hover:text-primary"
+          >
+            {label}
+          </a>
+        ) : (
+          label && <span className="break-words">{label}</span>
+        )}
+        {source?.snippet && (
+          <p className="border-s-2 border-border ps-2 italic break-words">
+            <bdi>{source.snippet}</bdi>
+          </p>
+        )}
+        {source?.fetched_at && (
+          <p>{t('evidenceRetrievedOn', { date: fmt.dateTime(new Date(source.fetched_at), { dateStyle: 'medium' }) })}</p>
+        )}
       </div>
     </div>
   )
 }
 
-function ObservationSection({
+function EvidenceGroup({
   title,
-  observations,
-  sourceRefs,
+  items,
+  sourceMap,
   sourceTypeLabel,
 }: {
   title: string
-  observations: ResearchObservation[]
-  sourceRefs: SourceRef[]
+  items: EvidenceItem[]
+  sourceMap: Map<string, SourceRef>
   sourceTypeLabel: (sourceType: SourceType) => string
 }) {
-  if (!observations || observations.length === 0) return null
+  if (items.length === 0) return null
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold text-navy">{title}</h3>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((ev) => (
+          <EvidenceSourceCard
+            key={ev.id}
+            statement={ev.statement}
+            source={ev.source_ref_id ? sourceMap.get(ev.source_ref_id) : undefined}
+            sourceTypeLabel={sourceTypeLabel}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
 
-  const sourceMap = new Map(sourceRefs.map((s) => [s.id, s]))
+function SeverityBadge({ severity }: { severity: Uncertainty['severity'] }) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <span
+      className={cn(
+        'rounded px-1.5 py-0.5 text-xs font-bold uppercase',
+        severity === 'high'
+          ? 'bg-destructive/10 text-destructive'
+          : severity === 'medium'
+            ? 'bg-warning/10 text-warning'
+            : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {t(`severity_${severity}`)}
+    </span>
+  )
+}
+
+function UncertaintyGroup({
+  severity,
+  items,
+  domainLabels,
+  open = false,
+}: {
+  severity: Uncertainty['severity']
+  items: Uncertainty[]
+  domainLabels: Record<string, string>
+  open?: boolean
+}) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <details className="group rounded-lg border border-border bg-background" open={open}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+        <SeverityBadge severity={severity} />
+        <span className="text-xs font-medium text-muted-foreground">
+          {t('uncertaintyGroupCount', { count: items.length })}
+        </span>
+        <ChevronDown
+          className="ms-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <ul className="space-y-3 border-t border-border p-3">
+        {items.map((u) => (
+          <li key={u.field_key} className="text-sm">
+            <p className="text-xs text-muted-foreground">
+              {domainLabels[u.domain] ?? u.domain}
+              <span className="mx-1" aria-hidden="true">
+                ·
+              </span>
+              {t('sourceLabel')}: {t(`source_${u.source}`)}
+            </p>
+            <p className="mt-1 break-words">
+              <bdi>{u.description}</bdi>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function ResolvedGroup({
+  items,
+  domainLabels,
+}: {
+  items: Uncertainty[]
+  domainLabels: Record<string, string>
+}) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <details className="group rounded-lg border border-border bg-background">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-bold text-primary uppercase">
+          {t('resolved')}
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {t('uncertaintyGroupCount', { count: items.length })}
+        </span>
+        <ChevronDown
+          className="ms-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <ul className="space-y-3 border-t border-border p-3">
+        {items.map((u) => (
+          <li key={u.field_key} className="text-sm">
+            <p className="text-xs text-muted-foreground">
+              {domainLabels[u.domain] ?? u.domain}
+              <span className="mx-1" aria-hidden="true">
+                ·
+              </span>
+              {t('sourceLabel')}: {t(`source_${u.source}`)}
+            </p>
+            <p className="mt-1 break-words">
+              <bdi>{u.description}</bdi>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function UncertaintiesSection({
+  uncertainties,
+  domainLabels,
+}: {
+  uncertainties: Uncertainty[]
+  domainLabels: Record<string, string>
+}) {
+  const t = useTranslations('DiscoveryReview')
+  const unresolved = uncertainties.filter((u) => !u.resolved)
+  const resolved = uncertainties.filter((u) => u.resolved)
+  const high = unresolved.filter((u) => u.severity === 'high')
+  const medium = unresolved.filter((u) => u.severity === 'medium')
+  const low = unresolved.filter((u) => u.severity === 'low')
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-navy">{title}</h4>
-      <div className="space-y-2">
-        {observations.map((obs) => {
-          const source = obs.source_ref_id ? sourceMap.get(obs.source_ref_id) : undefined
-          return (
-            <div key={obs.id} className="p-3 rounded-md bg-muted/50 border border-border min-w-0">
-              <p className="text-sm break-words">
-                <bdi>{obs.statement}</bdi>
-              </p>
-              {source && (
-                <div className="mt-1 text-xs text-muted-foreground break-words">
-                  {isValidHttpUrl(source.url) ? (
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-primary break-words"
-                    >
-                      {source.title || source.url}
-                    </a>
-                  ) : (
-                    <span>{source.title || sourceTypeLabel(source.source_type)}</span>
-                  )}
-                  {source.snippet && <span className="block mt-0.5 italic break-words">{source.snippet}</span>}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+    <ProfileSectionCard title={t('uncertaintiesTitle')} icon={CircleQuestionMark}>
+      {unresolved.length === 0 && resolved.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('uncertaintyNone')}</p>
+      ) : (
+        <div className="space-y-2">
+          {high.length > 0 && (
+            <UncertaintyGroup severity="high" items={high} domainLabels={domainLabels} open />
+          )}
+          {medium.length > 0 && (
+            <UncertaintyGroup severity="medium" items={medium} domainLabels={domainLabels} />
+          )}
+          {low.length > 0 && (
+            <UncertaintyGroup severity="low" items={low} domainLabels={domainLabels} />
+          )}
+          {resolved.length > 0 && <ResolvedGroup items={resolved} domainLabels={domainLabels} />}
+        </div>
+      )}
+    </ProfileSectionCard>
+  )
+}
+
+function IncompleteProfileNotice({
+  acknowledged,
+  onToggle,
+  disabled,
+}: {
+  acknowledged: boolean
+  onToggle: (checked: boolean) => void
+  disabled?: boolean
+}) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <div className="rounded-lg border border-warning/20 bg-warning/10 p-4" role="note">
+      <h3 className="text-sm font-semibold text-warning">{t('incompleteTitle')}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{t('incompleteBody')}</p>
+      <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          checked={acknowledged}
+          onChange={(e) => onToggle(e.target.checked)}
+          disabled={disabled}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <span className="break-words font-normal">{t('acknowledgeIncomplete')}</span>
+      </label>
     </div>
+  )
+}
+
+function ConfirmActionBar({
+  pending,
+  disabled,
+  canConfirm,
+  onConfirm,
+}: {
+  pending: boolean
+  disabled?: boolean
+  canConfirm: boolean
+  onConfirm: () => void
+}) {
+  const t = useTranslations('DiscoveryReview')
+  return (
+    <Button
+      onClick={onConfirm}
+      disabled={disabled || pending || !canConfirm}
+      className="w-full"
+      size="lg"
+    >
+      {pending ? t('confirmingLabel') : t('confirmProfile')}
+    </Button>
+  )
+}
+
+function DraftReviewHeader({
+  isComplete,
+  completionReason,
+  readiness,
+  completedDomains,
+  blockingDomains,
+  domainLabels,
+}: {
+  isComplete: boolean
+  completionReason: string
+  readiness: BusinessProfileDraft['readiness']
+  completedDomains: number
+  blockingDomains: readonly string[]
+  domainLabels: Record<string, string>
+}) {
+  const t = useTranslations('DiscoveryReview')
+  const fmt = useFormatter()
+  return (
+    <header className="space-y-2">
+      <h1 className="text-balance text-2xl font-bold text-navy">{t('title')}</h1>
+      <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="text-sm text-muted-foreground">
+        {t('completenessLabel')}:{' '}
+        <span className={cn('font-medium', isComplete ? 'text-primary' : 'text-warning')}>
+          {isComplete ? t('complete') : t('incomplete')}
+        </span>
+        {' · '}
+        {t('completionReasonLabel')}: {completionReason}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {t('completenessSummary', { completed: fmt.number(completedDomains), total: fmt.number(FACT_DOMAINS.length) })}
+        {' · '}
+        {t('readinessLabel')}: {fmt.number(readiness.profile_readiness, { style: 'percent' })}
+        {' · '}
+        {t('turnCountLabel')}: {fmt.number(readiness.owner_turn_count)} / {fmt.number(readiness.max_owner_turns)}
+      </p>
+      {blockingDomains.length > 0 && (
+        <div className="rounded-md border border-warning/20 bg-warning/10 p-4 text-warning" role="status">
+          <p className="text-sm font-medium">{t('blockingDomainsLabel')}</p>
+          <ul className="list-inside list-disc text-sm">
+            {blockingDomains.map((domain) => (
+              <li key={domain}>{domainLabels[domain] ?? domain}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </header>
   )
 }
 
@@ -167,7 +518,6 @@ export function DraftReview({
   disabled?: boolean
 }) {
   const t = useTranslations('DiscoveryReview')
-  const fmt = useFormatter()
   const [acknowledged, setAcknowledged] = useState(false)
 
   const isComplete = draft.completeness === 'complete'
@@ -187,10 +537,9 @@ export function DraftReview({
   const facts = draft.confirmed_facts
   const sourceRefs = status.intelligence.source_refs
 
-  const unresolved = draft.uncertainties.filter((u) => !u.resolved)
-  const resolved = draft.uncertainties.filter((u) => u.resolved)
-
   const canConfirm = isComplete || acknowledged
+  const blockedSet = new Set(readiness.blocking_domains)
+  const completedDomains = Math.max(0, FACT_DOMAINS.length - readiness.blocking_domains.length)
 
   // Deduplicate research_observations against market_context evidence
   const marketEvidenceIds = new Set<string>()
@@ -212,198 +561,132 @@ export function DraftReview({
     draft.market_context.other_signals.length > 0 ||
     visibleObservations.length > 0
 
+  const sourceMap = new Map(sourceRefs.map((s) => [s.id, s]))
+
+  const identityFields: FieldSpec[] = [
+    { kind: 'value', label: t('businessName'), value: facts.identity.business_name },
+    { kind: 'value', label: t('businessType'), value: facts.identity.business_type },
+    { kind: 'value', label: t('city'), value: facts.identity.city },
+    { kind: 'value', label: t('area'), value: facts.identity.area },
+  ]
+  const offerFields: FieldSpec[] = [
+    { kind: 'list', label: t('coreOfferings'), list: facts.offer.core_offerings },
+    { kind: 'list', label: t('bestSellers'), list: facts.offer.best_sellers },
+    { kind: 'value', label: t('priceRange'), value: facts.offer.price_range },
+    { kind: 'list', label: t('purchaseOccasions'), list: facts.offer.purchase_occasions },
+  ]
+  const customersFields: FieldSpec[] = [
+    { kind: 'list', label: t('primarySegments'), list: facts.customers.primary_segments },
+    { kind: 'list', label: t('visitOrOrderOccasions'), list: facts.customers.visit_or_order_occasions },
+    { kind: 'list', label: t('peakPeriods'), list: facts.customers.peak_periods },
+    { kind: 'list', label: t('customerNeeds'), list: facts.customers.customer_needs },
+  ]
+  const differentiationFields: FieldSpec[] = [
+    { kind: 'list', label: t('ownerClaimedStrengths'), list: facts.differentiation.owner_claimed_strengths },
+    { kind: 'list', label: t('customerChoiceReasons'), list: facts.differentiation.customer_choice_reasons },
+    { kind: 'list', label: t('proofPoints'), list: facts.differentiation.proof_points },
+  ]
+  const marketingFields: FieldSpec[] = [
+    { kind: 'list', label: t('activeChannels'), list: facts.current_marketing.active_channels },
+    { kind: 'list', label: t('currentActivities'), list: facts.current_marketing.current_activities },
+    { kind: 'list', label: t('deliveryPlatforms'), list: facts.current_marketing.delivery_platforms },
+    { kind: 'list', label: t('availableAssets'), list: facts.current_marketing.available_assets },
+  ]
+  const goalsFields: FieldSpec[] = [
+    { kind: 'list', label: t('growthGoals'), list: facts.goals_and_constraints.growth_goals },
+    { kind: 'value', label: t('timeframe'), value: facts.goals_and_constraints.timeframe },
+    { kind: 'value', label: t('marketingBudgetRange'), value: facts.goals_and_constraints.marketing_budget_range },
+    { kind: 'value', label: t('teamCapacity'), value: facts.goals_and_constraints.team_capacity },
+    { kind: 'list', label: t('operationalConstraints'), list: facts.goals_and_constraints.operational_constraints },
+  ]
+
+  const evidenceGroups = [
+    { title: t('competitorLandscape'), items: draft.market_context.competitor_landscape.map(toEvidenceItem) },
+    { title: t('localDemandSignals'), items: draft.market_context.local_demand_signals.map(toEvidenceItem) },
+    { title: t('digitalPresenceSignals'), items: draft.market_context.digital_presence_signals.map(toEvidenceItem) },
+    { title: t('otherSignals'), items: draft.market_context.other_signals.map(toEvidenceItem) },
+    { title: t('observationsTitle'), items: visibleObservations.map(toObservationItem) },
+  ]
+
+  const showOwnerNotes = draft.owner_goals.length > 0 || draft.strategy_relevant_notes.length > 0
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-navy">{t('title')}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('completenessLabel')}:{' '}
-            <span className={cn('font-medium', isComplete ? 'text-primary' : 'text-warning')}>
-              {isComplete ? t('complete') : t('incomplete')}
-            </span>
-            {' · '}
-            {t('completionReasonLabel')}: {t(`reason_${draft.completion_reason}`)}
-          </p>
+      <DraftReviewHeader
+        isComplete={isComplete}
+        completionReason={t(`reason_${draft.completion_reason}`)}
+        readiness={readiness}
+        completedDomains={completedDomains}
+        blockingDomains={readiness.blocking_domains}
+        domainLabels={domainLabels}
+      />
+
+      <FactSection
+        title={t('domainIdentity')}
+        icon={Store}
+        fields={identityFields}
+        grid
+        incomplete={blockedSet.has('identity')}
+      />
+      <FactSection title={t('domainOffer')} icon={Package} fields={offerFields} incomplete={blockedSet.has('offer')} />
+      <FactSection
+        title={t('domainCustomers')}
+        icon={Users}
+        fields={customersFields}
+        incomplete={blockedSet.has('customers')}
+      />
+      <FactSection
+        title={t('domainDifferentiation')}
+        icon={Layers}
+        fields={differentiationFields}
+        incomplete={blockedSet.has('differentiation')}
+      />
+      <FactSection
+        title={t('domainCurrentMarketing')}
+        icon={Megaphone}
+        fields={marketingFields}
+        incomplete={blockedSet.has('current_marketing')}
+      />
+      <FactSection
+        title={t('domainGoals')}
+        icon={Target}
+        fields={goalsFields}
+        incomplete={blockedSet.has('goals_and_constraints')}
+      />
+
+      <ProfileSectionCard
+        title={t('marketEvidenceTitle')}
+        icon={Globe}
+        incomplete={blockedSet.has('market_context')}
+        empty={!hasAnyEvidence}
+      >
+        <div className="space-y-5">
+          {evidenceGroups.map((group) => (
+            <EvidenceGroup
+              key={group.title}
+              title={group.title}
+              items={group.items}
+              sourceMap={sourceMap}
+              sourceTypeLabel={sourceTypeLabel}
+            />
+          ))}
         </div>
-        <div className="text-end">
-          <p className="text-sm text-muted-foreground">
-            {t('readinessLabel')}: {fmt.number(readiness.profile_readiness, { style: 'percent' })}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {t('turnCountLabel')}: {fmt.number(readiness.owner_turn_count)} / {fmt.number(readiness.max_owner_turns)}
-          </p>
-        </div>
-      </div>
+      </ProfileSectionCard>
 
-      {/* Blocking domains */}
-      {readiness.blocking_domains.length > 0 && (
-        <div
-          className="p-4 rounded-md bg-warning/10 text-warning border border-warning/20"
-          role="status"
-        >
-          <p className="text-sm font-medium">{t('blockingDomainsLabel')}</p>
-          <ul className="text-sm list-disc list-inside">
-            {readiness.blocking_domains.map((domain) => (
-              <li key={domain}>{domainLabels[domain] ?? domain}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <UncertaintiesSection uncertainties={draft.uncertainties} domainLabels={domainLabels} />
 
-      {/* Facts */}
-      <Card className="border-border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base text-navy">{t('confirmedFactsTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Identity */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainIdentity')}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <span className="text-xs text-muted-foreground">{t('businessName')}</span>
-                <FactValue value={facts.identity.business_name} />
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">{t('businessType')}</span>
-                <FactValue value={facts.identity.business_type} />
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">{t('city')}</span>
-                <FactValue value={facts.identity.city} />
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">{t('area')}</span>
-                <FactValue value={facts.identity.area} />
-              </div>
-            </div>
-          </div>
-
-          {/* Offer */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainOffer')}</h4>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('coreOfferings')}</span>
-              <FactList items={facts.offer.core_offerings} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('bestSellers')}</span>
-              <FactList items={facts.offer.best_sellers} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('priceRange')}</span>
-              <FactValue value={facts.offer.price_range} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('purchaseOccasions')}</span>
-              <FactList items={facts.offer.purchase_occasions} />
-            </div>
-          </div>
-
-          {/* Customers */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainCustomers')}</h4>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('primarySegments')}</span>
-              <FactList items={facts.customers.primary_segments} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('visitOrOrderOccasions')}</span>
-              <FactList items={facts.customers.visit_or_order_occasions} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('peakPeriods')}</span>
-              <FactList items={facts.customers.peak_periods} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('customerNeeds')}</span>
-              <FactList items={facts.customers.customer_needs} />
-            </div>
-          </div>
-
-          {/* Differentiation */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainDifferentiation')}</h4>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('ownerClaimedStrengths')}</span>
-              <FactList items={facts.differentiation.owner_claimed_strengths} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('customerChoiceReasons')}</span>
-              <FactList items={facts.differentiation.customer_choice_reasons} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('proofPoints')}</span>
-              <FactList items={facts.differentiation.proof_points} />
-            </div>
-          </div>
-
-          {/* Current Marketing */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainCurrentMarketing')}</h4>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('activeChannels')}</span>
-              <FactList items={facts.current_marketing.active_channels} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('currentActivities')}</span>
-              <FactList items={facts.current_marketing.current_activities} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('deliveryPlatforms')}</span>
-              <FactList items={facts.current_marketing.delivery_platforms} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('availableAssets')}</span>
-              <FactList items={facts.current_marketing.available_assets} />
-            </div>
-          </div>
-
-          {/* Goals */}
-          <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-navy">{t('domainGoals')}</h4>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('growthGoals')}</span>
-              <FactList items={facts.goals_and_constraints.growth_goals} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('timeframe')}</span>
-              <FactValue value={facts.goals_and_constraints.timeframe} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('marketingBudgetRange')}</span>
-              <FactValue value={facts.goals_and_constraints.marketing_budget_range} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('teamCapacity')}</span>
-              <FactValue value={facts.goals_and_constraints.team_capacity} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">{t('operationalConstraints')}</span>
-              <FactList items={facts.goals_and_constraints.operational_constraints} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Owner goals & notes */}
-      {(draft.owner_goals.length > 0 || draft.strategy_relevant_notes.length > 0) && (
-        <Card className="border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base text-navy">{t('ownerGoalsAndNotes')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {showOwnerNotes && (
+        <ProfileSectionCard title={t('ownerGoalsAndNotes')} icon={NotebookPen}>
+          <div className="space-y-4">
             {draft.owner_goals.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-navy mb-1">{t('ownerGoals')}</h4>
+                <h3 className="mb-1 text-sm font-semibold text-navy">{t('ownerGoals')}</h3>
                 <FactList items={draft.owner_goals} />
               </div>
             )}
             {draft.strategy_relevant_notes.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-navy mb-1">{t('strategyNotes')}</h4>
+                <h3 className="mb-1 text-sm font-semibold text-navy">{t('strategyNotes')}</h3>
                 <div className="space-y-1">
                   {draft.strategy_relevant_notes.map((note, idx) => (
                     <p key={idx} className="text-sm text-muted-foreground break-words">
@@ -413,152 +696,24 @@ export function DraftReview({
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </ProfileSectionCard>
       )}
 
-      {/* Market context evidence */}
-      <Card className="border-border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base text-navy">{t('marketEvidenceTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {hasAnyEvidence ? (
-            <>
-              <EvidenceSection
-                title={t('competitorLandscape')}
-                items={draft.market_context.competitor_landscape}
-                sourceRefs={sourceRefs}
-                sourceTypeLabel={sourceTypeLabel}
-              />
-              <EvidenceSection
-                title={t('localDemandSignals')}
-                items={draft.market_context.local_demand_signals}
-                sourceRefs={sourceRefs}
-                sourceTypeLabel={sourceTypeLabel}
-              />
-              <EvidenceSection
-                title={t('digitalPresenceSignals')}
-                items={draft.market_context.digital_presence_signals}
-                sourceRefs={sourceRefs}
-                sourceTypeLabel={sourceTypeLabel}
-              />
-              <EvidenceSection
-                title={t('otherSignals')}
-                items={draft.market_context.other_signals}
-                sourceRefs={sourceRefs}
-                sourceTypeLabel={sourceTypeLabel}
-              />
-              <ObservationSection
-                title={t('observationsTitle')}
-                observations={visibleObservations}
-                sourceRefs={sourceRefs}
-                sourceTypeLabel={sourceTypeLabel}
-              />
-            </>
-          ) : (
-            <NotProvided />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Uncertainties */}
-      <Card className="border-border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base text-navy">{t('uncertaintiesTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {unresolved.length === 0 && resolved.length === 0 && <NotProvided />}
-          {unresolved.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-warning">{t('unresolvedUncertainties')}</h4>
-              <div className="space-y-2">
-                {unresolved.map((u) => (
-                  <div
-                    key={u.field_key}
-                    className="p-3 rounded-md bg-warning/5 border border-warning/20"
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={cn(
-                          'text-xs font-bold uppercase px-1.5 py-0.5 rounded',
-                          u.severity === 'high'
-                            ? 'bg-destructive/10 text-destructive'
-                            : u.severity === 'medium'
-                              ? 'bg-warning/10 text-warning'
-                              : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {t(`severity_${u.severity}`)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {domainLabels[u.domain] ?? u.domain}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        · {t('sourceLabel')}: {t(`source_${u.source}`)}
-                      </span>
-                    </div>
-                    <p className="text-sm mt-1 break-words">
-                      <bdi>{u.description}</bdi>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {resolved.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-primary">{t('resolvedUncertainties')}</h4>
-              <div className="space-y-2">
-                {resolved.map((u) => (
-                  <div
-                    key={u.field_key}
-                    className="p-3 rounded-md bg-muted/50 border border-border"
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                        {t('resolved')}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {domainLabels[u.domain] ?? u.domain}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        · {t('sourceLabel')}: {t(`source_${u.source}`)}
-                      </span>
-                    </div>
-                    <p className="text-sm mt-1 break-words">
-                      <bdi>{u.description}</bdi>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Confirmation controls */}
-      <div className="space-y-4 pt-4 border-t border-border">
+      <div className="space-y-4 border-t border-border pt-4">
         {!isComplete && (
-          <label className="flex items-start gap-3 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-              disabled={pending || disabled}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <span className="font-normal break-words">{t('acknowledgeIncomplete')}</span>
-          </label>
+          <IncompleteProfileNotice
+            acknowledged={acknowledged}
+            onToggle={setAcknowledged}
+            disabled={disabled || pending}
+          />
         )}
-        <Button
-          onClick={() => onConfirm(!isComplete && acknowledged)}
-          disabled={disabled || pending || !canConfirm}
-          className="w-full"
-          size="lg"
-        >
-          {pending ? t('confirmingLabel') : t('confirmProfile')}
-        </Button>
+        <ConfirmActionBar
+          pending={pending}
+          disabled={disabled}
+          canConfirm={canConfirm}
+          onConfirm={() => onConfirm(!isComplete && acknowledged)}
+        />
       </div>
     </div>
   )
