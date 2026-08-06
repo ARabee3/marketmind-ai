@@ -11,12 +11,14 @@ export type AppShellMobileNavItem = {
     | "/discovery"
     | "/dashboard"
     | "/strategy"
+    | "/content"
     | "/publishing"
     | "/billing";
   readonly labelKey:
     | "navDiscovery"
     | "navDashboard"
     | "navStrategy"
+    | "navContent"
     | "navPublishing"
     | "navBilling";
   readonly iconName: AppShellIconName;
@@ -54,32 +56,34 @@ export function AppShellMobileNav({ brandName, navItems, topActions }: Props) {
         aria-label={t("mobileNavLabel")}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgba(16,42,67,0.08)] backdrop-blur lg:hidden"
       >
-        <ul className="mx-auto grid max-w-[1200px] grid-cols-5 gap-1 px-2 pt-2 pb-1">
-          {navItems.map((item) => {
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+        <div className="mx-auto max-w-[1200px] overflow-x-auto">
+          <ul className="flex min-w-full items-center justify-between gap-1 px-2 pt-2 pb-1">
+            {navItems.map((item) => {
+              const active =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-action",
-                    active
-                      ? "bg-soft-teal text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-primary",
-                  )}
-                >
-                  <AppShellNavIcon name={item.iconName} />
-                  <span className="max-w-full truncate">
-                    {t(item.labelKey)}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+              return (
+                <li key={item.href} className="min-w-[4.25rem] shrink-0 flex-1">
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-center text-[11px] leading-tight font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-action",
+                      active
+                        ? "bg-soft-teal text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-primary",
+                    )}
+                  >
+                    <AppShellNavIcon name={item.iconName} />
+                    <span className="max-w-full break-words">
+                      {t(item.labelKey)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </nav>
     </>
   );

@@ -14,6 +14,7 @@ const WORKSPACE_SEGMENTS = new Set([
   "dashboard",
   "discovery",
   "strategy",
+  "content",
   "publishing",
 ]);
 const REFRESH_COOKIE = "refreshToken";

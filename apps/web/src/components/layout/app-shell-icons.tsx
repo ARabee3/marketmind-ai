@@ -4,6 +4,7 @@ export type AppShellIconName =
   | "compass"
   | "layout-dashboard"
   | "strategy"
+  | "content"
   | "publishing"
   | "wallet";
 
@@ -45,6 +46,17 @@ export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
         <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z" />
         <path d="M3 8h15.5A2.5 2.5 0 0 1 21 10.5V13h-4a2 2 0 0 1 0-4h4" />
         <path d="M17 11h.01" />
+      </svg>
+    );
+  }
+
+  if (name === "content") {
+    return (
+      <svg {...common}>
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
       </svg>
     );
   }
