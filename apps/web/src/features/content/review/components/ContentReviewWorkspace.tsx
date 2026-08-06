@@ -76,7 +76,7 @@ export function ContentReviewWorkspace({ packId }: ContentReviewWorkspaceProps) 
       <PackHeader pack={workspace.pack} weekContext={workspace.week_context} />
 
       {/* Container Layout (max-w 1200px centered per design system) */}
-      <main className="mx-auto max-w-[1200px] px-4 sm:px-6">
+      <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Ordered Item Agenda */}
         <ItemAgenda
           items={workspace.items}
@@ -129,7 +129,7 @@ export function ContentReviewWorkspace({ packId }: ContentReviewWorkspaceProps) 
             </div>
           </div>
         ) : null}
-      </main>
+      </section>
     </div>
   )
 }
