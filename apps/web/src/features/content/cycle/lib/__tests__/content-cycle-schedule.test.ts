@@ -10,6 +10,7 @@ describe("content-cycle-schedule", () => {
   it("cairoDateFromStrategyStart formats ISO string into YYYY-MM-DD", () => {
     expect(cairoDateFromStrategyStart("2026-08-10T12:00:00.000Z")).toBe("2026-08-10");
     expect(cairoDateFromStrategyStart("2026-08-15")).toBe("2026-08-15");
+    expect(() => cairoDateFromStrategyStart("not-a-date")).toThrow("Invalid Strategy start date");
   });
 
   it("getWeekStartDate calculates exact 7-day offsets without cumulative drift", () => {
@@ -29,5 +30,11 @@ describe("content-cycle-schedule", () => {
     const isoStr = cairoLocalToIsoString(localStr);
     const convertedBack = isoToCairoLocalString(isoStr);
     expect(convertedBack).toBe(localStr);
+  });
+
+  it("rejects a Cairo local time skipped by a daylight-saving transition", () => {
+    expect(() => cairoLocalToIsoString("2026-04-24T00:30")).toThrow(
+      "Local time does not exist in Africa/Cairo",
+    );
   });
 });

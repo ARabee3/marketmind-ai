@@ -13,15 +13,13 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
     (w) => w.week_number === selectedWeek,
   );
 
-  const theme = weekItem?.theme ?? `Week ${selectedWeek} Theme`;
+  const theme = weekItem?.theme ?? t("themeUnavailable");
   const channels = approved.plan.selected_channels ?? [];
   const pillars = approved.plan.content_strategy?.pillars ?? [];
-  const toneText = approved.plan.tone?.text ?? "Professional";
-  const cadence = approved.plan.content_strategy?.weekly_cadence ?? "Weekly";
-  const capacity = approved.brief.team_capacity ?? "Not specified";
-  const constraints = approved.brief.constraints
-    ? [approved.brief.constraints]
-    : [];
+  const toneText = approved.plan.tone?.text ?? t("notAvailable");
+  const cadence = approved.plan.content_strategy?.weekly_cadence ?? t("notAvailable");
+  const capacity = approved.brief.team_capacity ?? t("notAvailable");
+  const constraints = approved.brief.constraints ?? [];
 
   return (
     <section aria-label={t("label")} className="rounded-xl border border-border bg-surface p-5 space-y-4 shadow-sm">
@@ -48,20 +46,24 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {t("channels")}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {channels.map((ch) => (
-              <span
-                key={ch.channel}
-                className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-navy"
-              >
-                <bdi>
-                  {ch.role === "primary"
-                    ? t("primaryChannel", { channel: ch.channel })
-                    : t("supportingChannel", { channel: ch.channel })}
-                </bdi>
-              </span>
-            ))}
-          </div>
+          {channels.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {channels.map((ch) => (
+                <span
+                  key={ch.channel}
+                  className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-navy"
+                >
+                  <bdi>
+                    {ch.role === "primary"
+                      ? t("primaryChannel", { channel: ch.channel })
+                      : t("supportingChannel", { channel: ch.channel })}
+                  </bdi>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t("notAvailable")}</p>
+          )}
         </div>
 
         {/* Pillars & Tone */}
@@ -70,13 +72,17 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {t("pillars")}
             </p>
-            <ul className="list-disc list-inside text-xs text-navy space-y-0.5">
-              {pillars.map((pillar, idx) => (
-                <li key={idx}>
-                  <bdi>{typeof pillar === "string" ? pillar : pillar.text}</bdi>
-                </li>
-              ))}
-            </ul>
+            {pillars.length > 0 ? (
+              <ul className="list-disc list-inside text-xs text-navy space-y-0.5">
+                {pillars.map((pillar, idx) => (
+                  <li key={idx}>
+                    <bdi>{typeof pillar === "string" ? pillar : pillar.text}</bdi>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("notAvailable")}</p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -125,7 +131,7 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
 
         {/* Technical Provenance Disclosure */}
         <details className="pt-2 border-t border-border/60 text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-semibold text-navy hover:underline">
+          <summary className="cursor-pointer rounded font-semibold text-navy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action">
             {t("provenance")}
           </summary>
           <div className="mt-2 space-y-1 bg-background p-2.5 rounded-lg font-mono text-[11px] break-all">

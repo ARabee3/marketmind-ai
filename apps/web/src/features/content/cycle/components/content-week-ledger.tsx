@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,18 @@ type Props = {
 
 export function ContentWeekLedger({ slots }: Props) {
   const t = useTranslations("ContentCycle.ledger");
+  const selectedLinkRef = useRef<HTMLAnchorElement>(null);
+  const selectedWeek = slots.find((slot) => slot.isSelected)?.weekNumber ?? null;
+
+  useEffect(() => {
+    if (typeof selectedLinkRef.current?.scrollIntoView === "function") {
+      selectedLinkRef.current.scrollIntoView({
+        behavior: "auto",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [selectedWeek]);
 
   return (
     <section aria-label={t("label")} className="space-y-2">
@@ -29,9 +42,10 @@ export function ContentWeekLedger({ slots }: Props) {
               <li key={slot.weekNumber} className="shrink-0">
                 <Link
                   href={slot.href}
+                  ref={isSelected ? selectedLinkRef : undefined}
                   aria-current={isSelected ? "page" : undefined}
                   className={cn(
-                    "flex w-36 flex-col justify-between rounded-xl border p-3 text-start text-xs transition-all focus-visible:ring-2 focus-visible:ring-action",
+                    "flex w-36 flex-col justify-between rounded-xl border p-3 text-start text-xs transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-action",
                     isSelected
                       ? "border-primary bg-surface shadow-md ring-1 ring-primary"
                       : "border-border bg-surface/80 hover:border-primary/50 hover:bg-surface",

@@ -7,7 +7,6 @@ const MOCK_STRATEGY_VERSION_ID = "33333333-3333-4333-a333-333333333333";
 const MOCK_DECISION_ID = "44444444-4444-4444-a444-444444444444";
 const MOCK_BUSINESS_ID = "11111111-1111-4111-a111-111111111111";
 const MOCK_PROFILE_VERSION_ID = "55555555-5555-4555-a555-555555555555";
-const MOCK_PACK_ID = "77777777-7777-4777-a777-777777777777";
 
 const mockJourneyNoCycle = {
   owner: {
@@ -270,17 +269,23 @@ test.describe("Content Cycle E2E", () => {
     await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions`, (route) =>
       route.fulfill({ status: 200, body: JSON.stringify(mockStrategyVersions) }),
     );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions/1`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi.latestPlan) }),
+    );
 
     let createCycleCalls = 0;
+    let createCyclePayload: unknown;
     await page.route("**/api/v1/content-cycles", (route) => {
       createCycleCalls++;
+      createCyclePayload = route.request().postDataJSON() as Record<string, unknown>;
       route.fulfill({
         status: 201,
         body: JSON.stringify({
           content_cycle: mockActiveCycle,
-          queued_pack: {
-            id: MOCK_PACK_ID,
-            status: "queued",
+          initial_week_context: {
+            week_number: 1,
+            promotion_mode: "none",
+            cta_destination: { type: "none", value: null },
           },
         }),
       });
@@ -290,10 +295,15 @@ test.describe("Content Cycle E2E", () => {
 
     // Form selection: select No promotion radio
     await page.getByRole("radio", { name: /no promotion/i }).check();
+    await page.getByRole("combobox", { name: /cta type/i }).selectOption("none");
     await page.getByRole("button", { name: "Start 12-Week Content Cycle" }).click();
 
     await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`));
     expect(createCycleCalls).toBe(1);
+    const createdContext = (createCyclePayload as {
+      initial_week_context?: { cta_destination?: { type?: string } };
+    } | undefined)?.initial_week_context;
+    expect(createdContext?.cta_destination?.type).toBe("none");
   });
 
   test("canonical week route renders 12-week ledger and rejects week 13", async ({ page }) => {
@@ -315,6 +325,9 @@ test.describe("Content Cycle E2E", () => {
     await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions`, (route) =>
       route.fulfill({ status: 200, body: JSON.stringify(mockStrategyVersions) }),
     );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions/1`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi.latestPlan) }),
+    );
 
     await page.goto(`/en/content/${MOCK_CYCLE_ID}/weeks/1`);
 
@@ -324,6 +337,28 @@ test.describe("Content Cycle E2E", () => {
 
     const weekLinks = ledger.getByRole("link");
     await expect(weekLinks).toHaveCount(12);
+
+    const viewport = page.viewportSize();
+    if (viewport && viewport.width <= 640) {
+      const mobileNav = page.getByRole("navigation", { name: "Mobile primary" });
+      const dimensions = await mobileNav.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }));
+      expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+    }
+
+    await page.goto(`/en/content/${MOCK_CYCLE_ID}/weeks/3`);
+    const weekThree = page.getByRole("navigation", { name: "12-Week Editorial Ledger" }).getByRole("link", { name: /W3/ });
+    await expect(weekThree).toBeVisible();
+    const weekThreeVisibility = await weekThree.evaluate((element) => {
+      const container = element.closest("nav")?.getBoundingClientRect();
+      const item = element.getBoundingClientRect();
+      return container
+        ? item.left >= container.left && item.right <= container.right
+        : false;
+    });
+    expect(weekThreeVisibility).toBe(true);
 
     // Rejects week 13 with 404 page
     await page.goto(`/en/content/${MOCK_CYCLE_ID}/weeks/13`);
@@ -348,6 +383,9 @@ test.describe("Content Cycle E2E", () => {
     );
     await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions`, (route) =>
       route.fulfill({ status: 200, body: JSON.stringify(mockStrategyVersions) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions/1`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi.latestPlan) }),
     );
 
     await page.goto(`/ar/content/${MOCK_CYCLE_ID}/weeks/1`);

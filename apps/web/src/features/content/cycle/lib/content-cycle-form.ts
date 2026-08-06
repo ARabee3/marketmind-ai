@@ -77,9 +77,21 @@ export function validateWeekContextDraft(
     }
     if (!draft.validFromLocal) {
       errors.validFromLocal = "validFromRequired";
+    } else {
+      try {
+        cairoLocalToIsoString(draft.validFromLocal);
+      } catch {
+        errors.validFromLocal = "validFromInvalid";
+      }
     }
     if (!draft.validUntilLocal) {
       errors.validUntilLocal = "validUntilRequired";
+    } else {
+      try {
+        cairoLocalToIsoString(draft.validUntilLocal);
+      } catch {
+        errors.validUntilLocal = "validUntilInvalid";
+      }
     }
     if (
       draft.validFromLocal &&

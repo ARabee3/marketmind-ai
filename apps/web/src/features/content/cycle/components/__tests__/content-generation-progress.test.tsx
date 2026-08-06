@@ -20,6 +20,9 @@ vi.mock("next-intl", () => ({
     return key;
   },
   useLocale: () => "en",
+  useFormatter: () => ({
+    dateTime: (value: Date) => value.toISOString(),
+  }),
 }));
 
 vi.mock("@/i18n/navigation", () => ({

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { getCurrentJourney } from "@/lib/api/journey";
 import { getStrategy, getStrategyVersions } from "@/lib/api/strategy";
 import { createContentCycle } from "@/lib/api/content-cycle";
@@ -22,6 +22,7 @@ import {
   validateWeekContextDraft,
 } from "../lib/content-cycle-form";
 import { cairoDateFromStrategyStart } from "../lib/content-cycle-schedule";
+import { contentErrorKey } from "../lib/content-cycle-errors";
 import { CycleThesisHeader } from "./cycle-thesis-header";
 import { ApprovedStrategyHandoff } from "./approved-strategy-handoff";
 import { WeekContextForm } from "./week-context-form";
@@ -30,6 +31,7 @@ import { ContentReadiness } from "./content-readiness";
 export function ContentCycleEntry() {
   const t = useTranslations("ContentCycle.entry");
   const tActions = useTranslations("ContentCycle.actions");
+  const tErrors = useTranslations("ContentCycle.errors");
   const router = useRouter();
 
   const [state, setState] = useState<ContentEntryState>({ phase: "loading" });
@@ -101,9 +103,9 @@ export function ContentCycleEntry() {
         }
 
         setState({ phase: "ready_to_start", approved: resolution.approved });
-      } catch {
+      } catch (err: unknown) {
         if (!isSubscribed) return;
-        setState({ phase: "load_error", errorKey: "unknown" });
+        setState({ phase: "load_error", errorKey: contentErrorKey(err as { status?: number; code?: string; message?: string }) });
       }
     }
 
@@ -119,34 +121,30 @@ export function ContentCycleEntry() {
 
     const validation = validateWeekContextDraft(week1Draft);
     if (!validation.isValid) {
-      setStartError(tActions("startCycle"));
+      setStartError(t("contextRequired"));
       return;
     }
 
     setIsStarting(true);
     setStartError(null);
 
-    const approved = state.approved;
-    const startDate = cairoDateFromStrategyStart(approved.brief.start_date);
-
-    const initialWeekContext = serializeWeekContext(week1Draft, {
-      weekNumber: 1,
-      weekStartDate: startDate,
-    });
-
-    const scope = `content-cycle:create:${approved.strategyId}:${approved.strategyVersion}:${approved.strategyDecisionId}`;
-    const payloadRaw = JSON.stringify({
-      business_id: approved.businessId,
-      strategy_id: approved.strategyId,
-      strategy_version: approved.strategyVersion,
-      strategy_decision_id: approved.strategyDecisionId,
-      initial_week_context: initialWeekContext,
-    });
-
-    const fingerprint = await computeFingerprint(payloadRaw);
-    const idempotencyKey = getOrCreateIdempotencyKey(scope, fingerprint);
-
     try {
+      const approved = state.approved;
+      const startDate = cairoDateFromStrategyStart(approved.brief.start_date);
+      const initialWeekContext = serializeWeekContext(week1Draft, {
+        weekNumber: 1,
+        weekStartDate: startDate,
+      });
+      const scope = `content-cycle:create:${approved.strategyId}:${approved.strategyVersion}:${approved.strategyDecisionId}`;
+      const payloadRaw = JSON.stringify({
+        business_id: approved.businessId,
+        strategy_id: approved.strategyId,
+        strategy_version: approved.strategyVersion,
+        strategy_decision_id: approved.strategyDecisionId,
+        initial_week_context: initialWeekContext,
+      });
+      const fingerprint = await computeFingerprint(payloadRaw);
+      const idempotencyKey = getOrCreateIdempotencyKey(scope, fingerprint);
       const response = await createContentCycle({
         business_id: approved.businessId,
         strategy_id: approved.strategyId,
@@ -158,8 +156,9 @@ export function ContentCycleEntry() {
 
       clearIdempotencyKey(scope);
       router.replace(`/content/${response.content_cycle.id}/weeks/1`);
-    } catch {
-      setStartError(tActions("startCycle"));
+    } catch (err: unknown) {
+      setStartError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
+    } finally {
       setIsStarting(false);
     }
   };
@@ -175,7 +174,7 @@ export function ContentCycleEntry() {
   if (state.phase === "load_error") {
     return (
       <div className="rounded-xl border border-danger/30 bg-danger/10 p-6 text-center text-danger space-y-3">
-        <p className="font-bold">{t("loadError")}</p>
+        <p className="font-bold">{tErrors(state.errorKey)}</p>
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -191,6 +190,7 @@ export function ContentCycleEntry() {
     const blockerKey = state.reason;
     let title = t("loadError");
     let body = t("loadError");
+    let actionLabel = t("noProfileStartAction");
 
     if (blockerKey === "no_profile") {
       title = t("noProfileTitle");
@@ -198,18 +198,27 @@ export function ContentCycleEntry() {
     } else if (blockerKey === "no_strategy") {
       title = t("noStrategyTitle");
       body = t("noStrategyBody");
+      actionLabel = t("noStrategyStartAction");
     } else if (blockerKey === "strategy_not_approved") {
       title = t("approvalRequiredTitle");
       body = t("approvalRequiredBody");
+      actionLabel = t("approvalRequiredAction");
     } else if (blockerKey === "missing_approval_receipt") {
       title = t("approvalRequiredTitle");
       body = t("approvalRequiredBody");
+      actionLabel = t("approvalRequiredAction");
     } else if (blockerKey === "stale_profile") {
       title = t("staleProfileTitle");
       body = t("staleProfileBody");
+      actionLabel = t("staleProfileAction");
     } else if (blockerKey === "malformed_plan") {
       title = t("malformedPlanTitle");
       body = t("malformedPlanBody");
+      actionLabel = t("noStrategyStartAction");
+    } else if (blockerKey === "provenance_mismatch") {
+      title = t("staleProfileTitle");
+      body = t("staleProfileBody");
+      actionLabel = t("staleProfileAction");
     }
 
     return (
@@ -220,12 +229,12 @@ export function ContentCycleEntry() {
 
           {state.destination && (
             <div className="pt-2">
-              <a
-                href={state.destination}
+              <Link
+                href={state.destination as never}
                 className="inline-flex items-center justify-center rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90"
               >
-                {t("noProfileStartAction")}
-              </a>
+                {actionLabel}
+              </Link>
             </div>
           )}
         </div>
@@ -234,16 +243,14 @@ export function ContentCycleEntry() {
   }
 
   const approved = state.approved;
-  const isFormValid =
-    week1Draft.promotionMode === null ||
-    validateWeekContextDraft(week1Draft).isValid;
+  const isFormValid = validateWeekContextDraft(week1Draft).isValid;
 
   return (
     <div className="space-y-6">
       <CycleThesisHeader selectedWeek={1} approved={approved} />
 
       {startError && (
-        <div className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
+        <div role="alert" aria-live="polite" className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
           {startError}
         </div>
       )}
@@ -255,6 +262,8 @@ export function ContentCycleEntry() {
           <WeekContextForm
             initialContext={null}
             isSubmitting={isStarting}
+            onDraftChange={setWeek1Draft}
+            showSave={false}
             onSave={async (draft) => {
               setWeek1Draft(draft);
             }}
@@ -266,7 +275,7 @@ export function ContentCycleEntry() {
             approved={approved}
             selectedWeek={1}
             contextCutoffIso={null}
-            hasContext={week1Draft.promotionMode !== null}
+            hasContext={isFormValid}
             primaryAction={isFormValid ? "start_cycle" : "none"}
             isMutating={isStarting}
             onStartCycle={handleStartCycle}

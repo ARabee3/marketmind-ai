@@ -1,5 +1,6 @@
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import type { ContentCycleStatus } from "@marketmind/contracts";
 import type { ApprovedContentStrategy, ContentPrimaryAction } from "../lib/content-cycle-state";
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
   readonly contextCutoffIso?: string | null;
   readonly hasContext: boolean;
   readonly isCycleActive?: boolean;
+  readonly cycleStatus?: ContentCycleStatus;
   readonly primaryAction: ContentPrimaryAction;
   readonly isMutating?: boolean;
   readonly onStartCycle?: () => Promise<void>;
@@ -24,6 +26,7 @@ export function ContentReadiness({
   contextCutoffIso = null,
   hasContext,
   isCycleActive = true,
+  cycleStatus,
   primaryAction,
   isMutating = false,
   onStartCycle,
@@ -36,15 +39,17 @@ export function ContentReadiness({
   const tReadiness = useTranslations("ContentCycle.readiness");
   const tActions = useTranslations("ContentCycle.actions");
   const tContext = useTranslations("ContentCycle.context");
+  const format = useFormatter();
+  const resolvedCycleStatus = cycleStatus ?? (isCycleActive ? "active" : "completed");
 
   const isStrategyOk = Boolean(approved);
   const isProfileOk = Boolean(approved);
   const isRoadmapOk = approved?.plan.content_strategy?.weeks?.length === 12;
 
-  let cutoffText = tContext("relativeCutoff", { week: selectedWeek });
+  let cutoffText = tContext("relativeCutoff", { week: selectedWeek + 1 });
   if (contextCutoffIso) {
     cutoffText = tContext("cutoff", {
-      time: new Date(contextCutoffIso).toLocaleString("en-US", {
+      time: format.dateTime(new Date(contextCutoffIso), {
         timeZone: "Africa/Cairo",
         dateStyle: "medium",
         timeStyle: "short",
@@ -55,7 +60,7 @@ export function ContentReadiness({
   return (
     <aside
       aria-label={tReadiness("label")}
-      className="sticky top-20 rounded-xl border border-border bg-surface p-5 space-y-5 shadow-sm"
+      className="lg:sticky lg:top-20 rounded-xl border border-border bg-surface p-5 space-y-5 shadow-sm"
     >
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -131,7 +136,7 @@ export function ContentReadiness({
             disabled={isMutating}
             className="w-full rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
           >
-            {tActions("saveContext")}
+            {tActions("editContext")}
           </button>
         )}
 
@@ -207,9 +212,11 @@ export function ContentReadiness({
           </Link>
         )}
 
-        {primaryAction === "none" && !isCycleActive && (
+        {primaryAction === "none" && resolvedCycleStatus !== "active" && (
           <div className="rounded-lg border border-border bg-background p-3 text-center text-xs font-semibold text-muted-foreground">
-            {tReadiness("cycleCompleted")}
+            {resolvedCycleStatus === "paused"
+              ? tReadiness("cyclePaused")
+              : tReadiness("cycleCompleted")}
           </div>
         )}
       </div>

@@ -40,6 +40,25 @@ describe("useContentPackProgress", () => {
     expect(result.current.isPolling).toBe(false);
   });
 
+  it("notifies the owner once when a terminal pack is refetched with a new object", async () => {
+    const firstDraft = { ...mockDraftPack };
+    const secondDraft = { ...mockDraftPack, updated_at: "2026-08-06T10:03:00.000Z" };
+    vi.mocked(apiAdapter.getContentPack)
+      .mockResolvedValueOnce(firstDraft)
+      .mockResolvedValueOnce(secondDraft);
+    vi.mocked(apiAdapter.getContentPackProgress).mockResolvedValue(mockPackProgressEvents);
+
+    const onTerminal = vi.fn();
+    const { result } = renderHook(() =>
+      useContentPackProgress({ packId: MOCK_PACK_ID, initialPack: firstDraft, onTerminal }),
+    );
+
+    await waitFor(() => expect(onTerminal).toHaveBeenCalledTimes(1));
+    act(() => result.current.refresh());
+    await waitFor(() => expect(apiAdapter.getContentPack).toHaveBeenCalledTimes(2));
+    expect(onTerminal).toHaveBeenCalledTimes(1);
+  });
+
   it("polls recursively while pack status is active (queued)", async () => {
     vi.useFakeTimers();
 

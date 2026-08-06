@@ -21,6 +21,7 @@ export function useContentPackProgress({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const onTerminalRef = useRef(onTerminal);
+  const terminalNotifiedRef = useRef<string | null>(null);
   const scheduleNextRef = useRef<((id: string) => void) | null>(null);
 
   useEffect(() => {
@@ -57,7 +58,11 @@ export function useContentPackProgress({
 
         if (isTerminal) {
           setIsPolling(false);
-          onTerminalRef.current?.(updatedPack);
+          const terminalKey = `${id}:${updatedPack.status}`;
+          if (terminalNotifiedRef.current !== terminalKey) {
+            terminalNotifiedRef.current = terminalKey;
+            onTerminalRef.current?.(updatedPack);
+          }
           return true;
         }
 
@@ -99,6 +104,13 @@ export function useContentPackProgress({
   }, [scheduleNext]);
 
   useEffect(() => {
+    terminalNotifiedRef.current = null;
+  }, [packId]);
+
+  const initialPackId = initialPack?.id ?? null;
+  const initialPackStatus = initialPackId === packId ? initialPack?.status ?? "queued" : "queued";
+
+  useEffect(() => {
     if (!packId) {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -112,7 +124,7 @@ export function useContentPackProgress({
     }
 
     const activeStatuses = ["queued", "generating", "validating"];
-    const initialStatus = initialPack?.id === packId ? initialPack.status : "queued";
+    const initialStatus = initialPackStatus;
 
     if (!activeStatuses.includes(initialStatus)) {
       const controller = new AbortController();
@@ -144,7 +156,7 @@ export function useContentPackProgress({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       stopPolling();
     };
-  }, [packId, initialPack, scheduleNext, fetchOnce, stopPolling]);
+  }, [packId, initialPackId, initialPackStatus, scheduleNext, fetchOnce, stopPolling]);
 
   const refresh = useCallback(() => {
     if (!packId) return;
@@ -152,8 +164,15 @@ export function useContentPackProgress({
     fetchOnce(packId, controller.signal);
   }, [packId, fetchOnce]);
 
+  const effectivePack =
+    packId && pack?.id === packId
+      ? pack
+      : packId && initialPack?.id === packId
+        ? initialPack
+        : null;
+
   return {
-    pack: packId ? pack : null,
+    pack: effectivePack,
     events: packId ? events : [],
     isPolling,
     errorKey,

@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import type { ApprovedContentStrategy } from "../lib/content-cycle-state";
 
@@ -9,6 +9,7 @@ type Props = {
 
 export function CycleThesisHeader({ selectedWeek = 1, approved }: Props) {
   const t = useTranslations("ContentCycle.header");
+  const format = useFormatter();
 
   return (
     <header className="rounded-xl border border-border bg-surface p-5 shadow-sm">
@@ -34,7 +35,10 @@ export function CycleThesisHeader({ selectedWeek = 1, approved }: Props) {
             </p>
             <p className="text-muted-foreground">
               {t("approvedAt", {
-                date: new Date(approved.decisionAt).toLocaleDateString(),
+                date: format.dateTime(new Date(approved.decisionAt), {
+                  dateStyle: "medium",
+                  timeZone: "Africa/Cairo",
+                }),
               })}
             </p>
           </div>

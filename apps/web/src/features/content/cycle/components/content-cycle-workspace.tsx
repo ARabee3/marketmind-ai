@@ -8,7 +8,7 @@ import type {
   ContentWeekContext,
 } from "@marketmind/contracts";
 import { getCurrentJourney } from "@/lib/api/journey";
-import { getStrategy, getStrategyVersions } from "@/lib/api/strategy";
+import { getStrategy, getStrategyVersion, getStrategyVersions } from "@/lib/api/strategy";
 import {
   getContentCycle,
   listContentWeeks,
@@ -32,6 +32,7 @@ import {
   type WeekContextDraft,
   serializeWeekContext,
 } from "../lib/content-cycle-form";
+import { contentErrorKey } from "../lib/content-cycle-errors";
 import { getWeekStartDate, cairoDateFromStrategyStart } from "../lib/content-cycle-schedule";
 import { useContentPackProgress } from "../hooks/use-content-pack-progress";
 import { CycleThesisHeader } from "./cycle-thesis-header";
@@ -58,6 +59,12 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   const [latestKnownPack, setLatestKnownPack] = useState<ContentPack | null>(null);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -77,12 +84,19 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       }
 
       // Fetch strategy details
-      const [stratApi, versions] = await Promise.all([
+      const [stratApi, versions, lockedPlan] = await Promise.all([
         getStrategy(cycle.strategy_id),
         getStrategyVersions(cycle.strategy_id),
+        getStrategyVersion(cycle.strategy_id, cycle.strategy_version),
       ]);
 
-      const resolution = resolveApprovedContentStrategy(journeyRes, stratApi, versions);
+      const resolution = resolveApprovedContentStrategy(journeyRes, stratApi, versions, {
+        businessId: cycle.business_id,
+        strategyVersion: cycle.strategy_version,
+        strategyDecisionId: cycle.strategy_decision_id,
+        profileVersionId: cycle.profile_version_id,
+        plan: lockedPlan,
+      });
       if ("blocker" in resolution) {
         setWorkspaceState({
           phase: "provenance_blocked",
@@ -116,8 +130,8 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
           latestPackProgress: [],
         },
       });
-    } catch {
-      setWorkspaceState({ phase: "load_error", errorKey: "unknown" });
+    } catch (err: unknown) {
+      setWorkspaceState({ phase: "load_error", errorKey: contentErrorKey(err as { status?: number; code?: string; message?: string }) });
     }
   }, [cycleId, weekNumber]);
 
@@ -138,8 +152,9 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   } = useContentPackProgress({
     packId: latestKnownPack?.id ?? null,
     initialPack: latestKnownPack,
-    onTerminal: () => {
+    onTerminal: (pack) => {
       // Refresh workspace data when pack reaches terminal state
+      setLatestKnownPack(pack);
       void loadData();
     },
   });
@@ -149,19 +164,17 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   const handleSaveContext = async (draft: WeekContextDraft) => {
     if (workspaceState.phase !== "ready" || isMutating) return;
 
-    const snapshot = workspaceState.snapshot;
-    const week1StartDate = cairoDateFromStrategyStart(snapshot.approved.brief.start_date);
-    const startDateForWeek = getWeekStartDate(week1StartDate, weekNumber);
-
-    const payload = serializeWeekContext(draft, {
-      weekNumber,
-      weekStartDate: startDateForWeek,
-    });
-
     setIsMutating(true);
     setActionError(null);
 
     try {
+      const snapshot = workspaceState.snapshot;
+      const week1StartDate = cairoDateFromStrategyStart(snapshot.approved.brief.start_date);
+      const startDateForWeek = getWeekStartDate(week1StartDate, weekNumber);
+      const payload = serializeWeekContext(draft, {
+        weekNumber,
+        weekStartDate: startDateForWeek,
+      });
       const updatedContext = await updateContentWeekContext(cycleId, weekNumber, payload);
       setContexts((prev) => {
         const filtered = prev.filter((c) => c.week_number !== weekNumber);
@@ -169,12 +182,12 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       });
       setActionError(null);
     } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      if (code === "CONTENT_WEEK_ALREADY_CLAIMED") {
-        setActionError(tErrors("weekAlreadyClaimed"));
+      const errorKey = contentErrorKey(err as { status?: number; code?: string; message?: string });
+      if (errorKey === "weekAlreadyClaimed") {
+        setActionError(tErrors(errorKey));
         await loadData();
       } else {
-        setActionError(tErrors("badRequest"));
+        setActionError(tErrors(errorKey));
       }
     } finally {
       setIsMutating(false);
@@ -206,8 +219,8 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       clearIdempotencyKey(scope);
       setLatestKnownPack(res.content_pack);
       setActionError(null);
-    } catch {
-      setActionError(tErrors("providerFailure"));
+    } catch (err: unknown) {
+      setActionError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
     } finally {
       setIsMutating(false);
     }
@@ -222,8 +235,8 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     try {
       const res = await retryContentPack(effectivePack.id);
       setLatestKnownPack(res.content_pack);
-    } catch {
-      setActionError(tErrors("retryConflict"));
+    } catch (err: unknown) {
+      setActionError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
     } finally {
       setIsMutating(false);
     }
@@ -255,9 +268,15 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   }
 
   if (workspaceState.phase === "load_error" || workspaceState.phase === "provenance_blocked") {
+    const loadMessage =
+      workspaceState.phase === "load_error"
+        ? tErrors(workspaceState.errorKey)
+        : workspaceState.reason === "provenance_mismatch"
+          ? tErrors("provenanceMismatch")
+          : t("loadError");
     return (
       <div className="rounded-xl border border-danger/30 bg-danger/10 p-6 text-center text-danger space-y-3">
-        <p className="font-bold">{t("loadError")}</p>
+        <p className="font-bold">{loadMessage}</p>
         <button
           type="button"
           onClick={loadData}
@@ -271,6 +290,25 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
 
   const { cycle, approved } = workspaceState.snapshot;
   const currentWeekContext = contexts.find((c) => c.week_number === weekNumber) ?? null;
+  const hasSelectedPack = Boolean(
+    effectivePack && effectivePack.week_number === weekNumber,
+  );
+  const cutoffPassed = Boolean(
+    currentWeekContext?.generation_cutoff_at &&
+      Date.parse(currentWeekContext.generation_cutoff_at) <= now,
+  );
+  const isPastWeek = weekNumber < cycle.current_week_number;
+  const isIneligibleFutureWeek = weekNumber > cycle.current_week_number + 1;
+  const isContextReadonly =
+    cycle.status !== "active" ||
+    isPastWeek ||
+    isIneligibleFutureWeek ||
+    cutoffPassed ||
+    hasSelectedPack;
+  const isContextFrozen =
+    currentWeekContext?.context_source === "system_defaulted" ||
+    cutoffPassed ||
+    hasSelectedPack;
   const isFormValid = Boolean(currentWeekContext);
 
   const slots = buildWeekSlots(
@@ -284,7 +322,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   const primaryAction = resolveContentPrimaryAction({
     cycle,
     selectedWeek: weekNumber,
-    hasUnsavedContext: !currentWeekContext,
+    hasUnsavedContext: !currentWeekContext && !isContextReadonly,
     latestPack: effectivePack,
     isMutating,
   });
@@ -296,7 +334,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       <ContentWeekLedger slots={slots} />
 
       {actionError && (
-        <div className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
+        <div role="alert" aria-live="polite" className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
           {actionError}
         </div>
       )}
@@ -307,7 +345,8 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
 
           <WeekContextForm
             initialContext={currentWeekContext}
-            isFrozen={currentWeekContext?.context_source === "system_defaulted"}
+            isReadonly={isContextReadonly}
+            isFrozen={isContextFrozen}
             isSubmitting={isMutating}
             onSave={handleSaveContext}
           />
@@ -319,6 +358,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
               isPolling={isPolling}
               errorKey={progressErrorKey}
               isRetrying={isMutating}
+              showActions={false}
               onRetry={handleRetryPack}
               onRefresh={refreshProgress}
             />
@@ -331,13 +371,14 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
             selectedWeek={weekNumber}
             contextCutoffIso={currentWeekContext?.generation_cutoff_at}
             hasContext={isFormValid}
-            isCycleActive={cycle.status === "active"}
+            cycleStatus={cycle.status}
             primaryAction={primaryAction}
             isMutating={isMutating}
             onSaveContext={() => {
               // Scroll or focus form
               const formEl = document.querySelector("form");
-              formEl?.scrollIntoView({ behavior: "smooth" });
+              formEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+              formEl?.querySelector<HTMLElement>("input, select, textarea, button")?.focus({ preventScroll: true });
             }}
             onGenerateWeek={handleGenerateWeek}
             onRetry={handleRetryPack}

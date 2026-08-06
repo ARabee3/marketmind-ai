@@ -133,6 +133,45 @@ describe("content-cycle-state", () => {
         expect(result.blocker).toBe("malformed_plan");
       }
     });
+
+    it("resolves the exact locked version and decision for an existing cycle", () => {
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        mockApprovedStrategyApi,
+        mockStrategyVersions,
+        {
+          businessId: mockActiveCycle.business_id,
+          strategyVersion: mockActiveCycle.strategy_version,
+          strategyDecisionId: mockActiveCycle.strategy_decision_id,
+          profileVersionId: mockActiveCycle.profile_version_id,
+          plan: mockApprovedStrategyApi.latestPlan,
+        },
+      );
+
+      expect("approved" in result).toBe(true);
+      if ("approved" in result) {
+        expect(result.approved.strategyVersionId).toBe(mockStrategyVersions[0]?.version_id);
+        expect(result.approved.strategyDecisionId).toBe(mockActiveCycle.strategy_decision_id);
+      }
+    });
+
+    it("blocks an existing cycle when its locked decision receipt differs", () => {
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        mockApprovedStrategyApi,
+        mockStrategyVersions,
+        {
+          businessId: mockActiveCycle.business_id,
+          strategyVersion: mockActiveCycle.strategy_version,
+          strategyDecisionId: "different-decision",
+          profileVersionId: mockActiveCycle.profile_version_id,
+          plan: mockApprovedStrategyApi.latestPlan,
+        },
+      );
+
+      expect("blocker" in result).toBe(true);
+      if ("blocker" in result) expect(result.blocker).toBe("provenance_mismatch");
+    });
   });
 
   describe("buildWeekSlots", () => {

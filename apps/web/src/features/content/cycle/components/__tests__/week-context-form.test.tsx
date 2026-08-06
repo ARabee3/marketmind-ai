@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WeekContextForm } from "../week-context-form";
 import { mockOwnerConfirmedContextWeek1, mockSystemDefaultedContextWeek1 } from "../../lib/content-cycle-fixtures";
 
@@ -40,5 +40,19 @@ describe("WeekContextForm", () => {
 
     expect(screen.getByText("Safe default used")).toBeDefined();
     expect(screen.queryByText("Save weekly context")).toBeNull();
+  });
+
+  it("keeps field changes local until the owner submits the form", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<WeekContextForm onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: /No promotion/ }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("ctaType"), { target: { value: "none" } });
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.submit(screen.getByRole("button", { name: /Save weekly context/ }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
   });
 });

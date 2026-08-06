@@ -23,6 +23,9 @@ vi.mock("next-intl", () => ({
     return key;
   },
   useLocale: () => "en",
+  useFormatter: () => ({
+    dateTime: (value: Date) => value.toISOString(),
+  }),
 }));
 
 const mockReplace = vi.fn();

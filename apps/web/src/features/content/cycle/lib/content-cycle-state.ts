@@ -84,6 +84,14 @@ export type ContentPrimaryAction =
   | "refresh_status"
   | "none";
 
+export type ApprovedContentStrategyResolutionOptions = {
+  readonly businessId?: string;
+  readonly strategyVersion?: number;
+  readonly strategyDecisionId?: string;
+  readonly profileVersionId?: string;
+  readonly plan?: StrategyPlan | null;
+};
+
 /**
  * Validates journey, Strategy resource, and Strategy versions summary against rules in section 9.1.
  */
@@ -91,6 +99,7 @@ export function resolveApprovedContentStrategy(
   journey: CurrentJourneyResponse,
   strategyApi: StrategyApiResponse,
   versions: readonly StrategyVersionSummary[],
+  options: ApprovedContentStrategyResolutionOptions = {},
 ): { approved: ApprovedContentStrategy } | { blocker: ContentEntryBlocker; destination: string | null } {
   const profile = journey.journey.profile;
   if (!profile || !profile.business_profile_version_id) {
@@ -98,7 +107,12 @@ export function resolveApprovedContentStrategy(
   }
 
   const strategyId = strategyApi.id;
-  if (!strategyId || strategyApi.businessId !== profile.business_id) {
+  if (
+    !strategyId ||
+    strategyApi.businessId !== profile.business_id ||
+    (options.businessId && options.businessId !== profile.business_id) ||
+    (options.businessId && options.businessId !== strategyApi.businessId)
+  ) {
     return { blocker: "no_strategy", destination: "/strategy/new" };
   }
 
@@ -108,29 +122,43 @@ export function resolveApprovedContentStrategy(
 
   const currentVersionId = strategyApi.currentVersionId;
   const brief = strategyApi.brief;
-  const plan = strategyApi.latestPlan;
+  const plan = options.plan ?? strategyApi.latestPlan;
 
-  if (!currentVersionId || !brief || !plan) {
+  if ((!currentVersionId && options.strategyVersion === undefined) || !brief || !plan) {
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
-  const matchingSummary = versions.find(
-    (v) => v.version_id === currentVersionId && v.status === "approved",
+  const expectedVersion = options.strategyVersion ?? plan.version;
+  const matchingSummary = versions.find((v) =>
+    v.status === "approved" &&
+    (options.strategyVersion !== undefined
+      ? v.version === expectedVersion
+      : v.version_id === currentVersionId),
   );
 
-  if (!matchingSummary || !matchingSummary.decision || matchingSummary.decision.decision !== "approved") {
+  if (
+    !matchingSummary ||
+    !matchingSummary.decision ||
+    matchingSummary.decision.decision !== "approved" ||
+    matchingSummary.strategy_id !== strategyId
+  ) {
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
   if (
+    matchingSummary.version !== expectedVersion ||
+    plan.version !== expectedVersion ||
+    plan.strategy_id !== strategyId ||
     matchingSummary.version !== plan.version ||
-    matchingSummary.decision.strategy_version !== plan.version
+    matchingSummary.decision.strategy_version !== expectedVersion ||
+    (options.strategyDecisionId && matchingSummary.decision.id !== options.strategyDecisionId)
   ) {
     return { blocker: "provenance_mismatch", destination: `/strategy/${strategyId}` };
   }
 
-  const profileVersionId = profile.business_profile_version_id;
+  const profileVersionId = options.profileVersionId ?? profile.business_profile_version_id;
   if (
+    profile.business_profile_version_id !== profileVersionId ||
     matchingSummary.profile_version.business_profile_version_id !== profileVersionId ||
     plan.profile_version.business_profile_version_id !== profileVersionId ||
     brief.businessProfileVersionId !== profileVersionId
@@ -152,8 +180,8 @@ export function resolveApprovedContentStrategy(
   const approved: ApprovedContentStrategy = {
     strategyId,
     businessId: strategyApi.businessId,
-    strategyVersionId: currentVersionId,
-    strategyVersion: plan.version,
+    strategyVersionId: matchingSummary.version_id,
+    strategyVersion: expectedVersion,
     strategyDecisionId: matchingSummary.decision.id,
     decisionAt: matchingSummary.decision.decided_at,
     profileVersionId,
