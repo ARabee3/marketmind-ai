@@ -34,7 +34,8 @@
     "closeNavigation": "Close navigation",
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
-    "error": "Error"
+    "error": "Error",
+    "navContent": "Content"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
