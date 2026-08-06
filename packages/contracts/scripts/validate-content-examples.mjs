@@ -9,6 +9,8 @@ const validExamples = [
   "content-pack-week-1-ar.example.json",
   "content-pack-week-1-en.example.json",
   "content-pack-week-1-mixed.example.json",
+  "content-pack-week-1-tiktok.example.json",
+  "content-pack-week-1-gbp.example.json",
   "content-pack-week-2-rollover.example.json",
   "content-item-version-owner-asset.example.json",
   "content-item-version-generated-asset.example.json",

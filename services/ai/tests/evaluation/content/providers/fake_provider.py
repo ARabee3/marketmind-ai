@@ -715,6 +715,7 @@ def build_generation_prompt(
             "model": model,
             "eval_context": context,
         },
+        context=context,
     )
 
 
@@ -746,4 +747,5 @@ def build_revision_prompt(
             "revision_notes": revision_notes,
             "eval_context": context,
         },
+        context=context,
     )

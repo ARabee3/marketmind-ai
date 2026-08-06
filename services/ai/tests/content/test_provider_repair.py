@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -134,6 +135,76 @@ async def test_openai_content_adapter_disables_sdk_retries_and_storage(
 
 
 @pytest.mark.asyncio
+async def test_openai_content_adapter_threads_sampling_settings(monkeypatch) -> None:
+    import openai
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "openai", "fictional-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    captured: dict = {}
+
+    class FakeResponses:
+        def parse(self, **arguments):
+            captured["request"] = arguments
+            return SimpleNamespace(
+                output_parsed={
+                    "item_versions": [
+                        item.model_dump(mode="json") for item in valid_items
+                    ]
+                }
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIContentProvider(
+        "fictional-key", "fictional-model", 10, temperature=0.4, top_p=0.9
+    )
+
+    await provider.generate_content_pack(prompt)
+
+    assert captured["request"]["temperature"] == 0.4
+    assert captured["request"]["top_p"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_openai_content_adapter_omits_sampling_when_unset(monkeypatch) -> None:
+    import openai
+
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
+    prompt = assemble_generation_prompt(request, "openai", "fictional-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    captured: dict = {}
+
+    class FakeResponses:
+        def parse(self, **arguments):
+            captured["request"] = arguments
+            return SimpleNamespace(
+                output_parsed={
+                    "item_versions": [
+                        item.model_dump(mode="json") for item in valid_items
+                    ]
+                }
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    provider = OpenAIContentProvider("fictional-key", "fictional-model", 10)
+
+    await provider.generate_content_pack(prompt)
+
+    assert "temperature" not in captured["request"]
+    assert "top_p" not in captured["request"]
+
+
+@pytest.mark.asyncio
 async def test_generation_repairs_schema_failure_once() -> None:
     request = make_valid_request()
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
@@ -164,6 +235,44 @@ async def test_generation_schema_failure_becomes_stable_safe_failure() -> None:
     assert error.value.code == "CONTENT_SCHEMA_FAILURE"
     assert not error.value.retryable
     assert provider.pack_calls == 3
+
+
+@pytest.mark.asyncio
+async def test_repair_loop_logs_warn_per_attempt(caplog) -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    provider = SequenceProvider([[], [], valid_items])
+
+    with caplog.at_level(logging.WARNING, logger="app.content.service"):
+        await generate_content_pack_with_repair(provider, prompt, sleep=no_sleep)
+
+    warn_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warn_records) >= 2
+    assert any("attempt=1" in r.getMessage() for r in warn_records)
+    assert any("attempt=2" in r.getMessage() for r in warn_records)
+    assert all("CONTENT_SCHEMA_FAILURE" in r.getMessage() for r in warn_records)
+
+
+@pytest.mark.asyncio
+async def test_repair_loop_never_exceeds_max_attempts() -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    provider = SequenceProvider(
+        [
+            ProviderError("CONTENT_SCHEMA_FAILURE", "bad", False),
+            ProviderError("CONTENT_PROVIDER_FAILURE", "down", retryable=True),
+            ProviderError("CONTENT_POLICY_VIOLATION", "unsafe", False),
+        ]
+    )
+
+    with pytest.raises(ProviderError) as error:
+        await generate_content_pack_with_repair(
+            provider, prompt, sleep=no_sleep, max_attempts=3
+        )
+
+    assert provider.pack_calls == 3
+    assert error.value.code == "CONTENT_POLICY_VIOLATION"
 
 
 @pytest.mark.asyncio

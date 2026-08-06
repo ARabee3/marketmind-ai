@@ -1,6 +1,7 @@
 import copy
 import json
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -13,6 +14,7 @@ from content_contracts import (
 )
 from content_publication_contracts import (
     PublicationCandidateStatusV1,
+    PublicationCandidateWindow,
     compute_publication_candidate_checksum,
 )
 
@@ -26,6 +28,8 @@ VALID_FIXTURES = [
     "content-pack-week-1-ar.example.json",
     "content-pack-week-1-en.example.json",
     "content-pack-week-1-mixed.example.json",
+    "content-pack-week-1-tiktok.example.json",
+    "content-pack-week-1-gbp.example.json",
     "content-pack-week-2-rollover.example.json",
     "content-item-version-owner-asset.example.json",
     "content-item-version-generated-asset.example.json",
@@ -233,6 +237,23 @@ class TestContentContracts(unittest.TestCase):
             "Python and TypeScript must reproduce the same frozen checksum",
         )
 
+    def test_candidate_window_carries_generation_preference_fields(self):
+        window = PublicationCandidateWindow(
+            starts_at=datetime.fromisoformat("2026-08-03T18:00:00+03:00"),
+            ends_at=datetime.fromisoformat("2026-08-03T21:00:00+03:00"),
+            timezone="Africa/Cairo",
+            day_preference="weekday",
+            time_of_day_hint="evening",
+            rationale="peak engagement for dinner audiences",
+        )
+        window_json = window.model_dump(mode="json")
+        PublicationCandidateWindow.model_validate(window_json)
+        self.assertEqual(window.day_preference, "weekday")
+        self.assertEqual(window.time_of_day_hint, "evening")
+        self.assertEqual(
+            window.rationale, "peak engagement for dinner audiences"
+        )
+
     def test_generation_request_carries_exact_grounding_snapshots(self):
         plan = self.load_fixture("strategy-plan.example.json")
         journey = self.load_fixture("cafe-full-journey.example.json")
@@ -259,6 +280,30 @@ class TestContentContracts(unittest.TestCase):
         stale["strategy_version"] = plan["version"] + 1
         with self.assertRaises(ValidationError):
             AiContentGenerateRequest.model_validate(stale)
+
+    def test_generation_request_accepts_tiktok_and_gbp_channels(self):
+        plan = self.load_fixture("strategy-plan.example.json")
+        journey = self.load_fixture("cafe-full-journey.example.json")
+        profile = journey["confirmed_business_profile"]
+        base = {
+            "contract_version": "content-v1",
+            "content_pack_id": "77777777-7777-4777-8777-777777777777",
+            "business_id": profile["business_id"],
+            "strategy_id": plan["strategy_id"],
+            "strategy_version": plan["version"],
+            "strategy_decision_id": "55555555-5555-4555-8555-555555555555",
+            "strategy_plan": plan,
+            "business_profile": profile,
+            "week_context": self.load_fixture(
+                "content-week-context-safe-default.example.json"
+            ),
+            "allowed_formats": ["short_video_script"],
+            "language_mode": plan["plan_language"],
+        }
+        for channel in ("tiktok", "google_business_profile"):
+            request = dict(base)
+            request["selected_channels"] = [channel]
+            AiContentGenerateRequest.model_validate(request)
 
     def test_schema_invalid_fixtures_are_rejected(self):
         for filename in (

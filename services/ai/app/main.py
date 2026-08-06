@@ -14,7 +14,9 @@ from app.api.internal_v1.discovery import router as discovery_router
 from app.api.internal_v1.content import router as content_router
 from app.api.internal_v1.search import router as search_router
 from app.api.internal_v1.strategy import router as strategy_router
+from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.ratelimit import RateLimitMiddleware
 from app.qdrant import (
     create_payload_indexes,
     create_qdrant_client,
@@ -68,13 +70,16 @@ async def lifespan(app: FastAPI):
     yield
 
 
-def create_app() -> FastAPI:
+def create_app(rate_limit_per_minute: int | None = None) -> FastAPI:
     configure_logging()
+    if rate_limit_per_minute is None:
+        rate_limit_per_minute = get_settings().ai_rate_limit_per_minute
     app = FastAPI(
         title="MarketMind AI Service",
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.add_middleware(RateLimitMiddleware, limit_per_minute=rate_limit_per_minute)
     app.include_router(health_router)
     app.include_router(discovery_router)
     app.include_router(content_router)

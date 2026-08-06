@@ -48,7 +48,12 @@ const STRATEGY_LABEL_TO_CONTENT_FORMAT: Readonly<Record<string, ContentFormat>> 
 };
 
 const SUPPORTED_CONTENT_CHANNELS: ReadonlySet<ContentChannel> = new Set(
-  ["facebook", "instagram"] as readonly ContentChannel[],
+  [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "google_business_profile",
+  ] as readonly ContentChannel[],
 );
 
 function toPayload(value: unknown): Record<string, unknown> {

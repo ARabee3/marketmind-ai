@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import type {
   CairoTimezone,
   ContentChannel,
+  ContentDayPreference,
   ContentErrorCode,
   ContentFormat,
   ContentLocale,
+  ContentTimeOfDayHint,
   ContentValidationIssue,
   ContentValidationResult,
   IsoDateTime,
@@ -59,6 +61,9 @@ export type PublicationCandidateV1 = {
     readonly starts_at: IsoDateTime;
     readonly ends_at: IsoDateTime;
     readonly timezone: CairoTimezone;
+    readonly day_preference?: ContentDayPreference;
+    readonly time_of_day_hint?: ContentTimeOfDayHint;
+    readonly rationale?: string;
   };
   readonly approval: {
     readonly decision_id: UUID;

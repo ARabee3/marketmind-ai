@@ -1,11 +1,16 @@
 """Tests for Content prompt assembly and reproducibility metadata."""
 
+import asyncio
+from datetime import date
+
 import pytest
 
 from content_contracts import (
+    AiContentGenerateRequest,
     AiContentReviseRequest,
     AiStaticAssetGenerateRequest,
     ContentItemVersion,
+    PriorApprovedWeekContext,
 )
 
 from app.content.assembler import (
@@ -62,6 +67,38 @@ def test_generation_assembly_contains_grounding_metadata() -> None:
     assert assembly.metadata["profile_version_id"] == request.business_profile.id
     assert assembly.metadata["input_snapshot_hash"]
     assert "Koshary Corner" not in str(assembly.metadata)
+
+
+def test_assembly_carries_typed_generation_context() -> None:
+    request = make_valid_request()
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+    context = assembly.context
+    assert context["generation_identity"]["content_pack_id"] == request.content_pack_id
+    grounding = context["grounding_inputs"]
+    assert grounding["requested_channels"] == ["instagram"]
+    assert "business_profile" in grounding
+
+
+def test_mock_provider_does_not_depend_on_prompt_text_shape() -> None:
+    from app.providers.content_provider import MockContentProvider
+
+    request = make_valid_request()
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+    bad_prompt = assembly
+    bad_prompt = bad_prompt.__class__(
+        system_prompt=bad_prompt.system_prompt,
+        user_prompt="NOT-VALID-JSON",
+        metadata=bad_prompt.metadata,
+        context=bad_prompt.context,
+    )
+    scope = {"provider": None, "items": None}
+
+    async def _run() -> None:
+        scope["provider"] = MockContentProvider()
+        scope["items"] = await scope["provider"].generate_content_pack(bad_prompt)
+
+    asyncio.run(_run())
+    assert scope["items"] is not None and len(scope["items"]) == 3
 
 
 def test_generation_assembly_rejects_invalid_grounding_before_provider() -> None:
@@ -139,3 +176,66 @@ def test_asset_assembly_rejects_invalid_input(request_update: dict) -> None:
 
     with pytest.raises(ValueError, match="CONTENT_SCHEMA_FAILURE"):
         assemble_asset_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+
+def _request_starting_on(week_start_date: date) -> AiContentGenerateRequest:
+    request = make_valid_request()
+    context = request.week_context.model_copy(update={"week_start_date": week_start_date})
+    return request.model_copy(update={"week_context": context})
+
+
+def test_generation_context_injects_seasonal_context_for_observance_week() -> None:
+    request = _request_starting_on(date(2026, 8, 2))
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    seasonal = assembly.context["grounding_inputs"].get("seasonal_context")
+    assert seasonal, "expected seasonal_context for an observance/seasonal week"
+    assert any("summer" in item["id"] for item in seasonal)
+
+
+def test_generation_context_has_empty_seasonal_context_off_season() -> None:
+    request = _request_starting_on(date(2026, 4, 1))
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert assembly.context["grounding_inputs"]["seasonal_context"] == []
+
+
+def test_generation_context_injects_prior_weeks_summary_when_supplied() -> None:
+    request = make_valid_request().model_copy(
+        update={
+            "prior_weeks_context": PriorApprovedWeekContext(
+                week_number=1,
+                themes=["Ramadan offer"],
+                used_ctas=["Call now"],
+                used_captions=["Fictional Koshary Ramadan offer."],
+            )
+        }
+    )
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    prior = assembly.context["grounding_inputs"].get("prior_weeks_context")
+    assert prior, "expected prior_weeks_context when a prior approved week is supplied"
+    assert prior["week_number"] == 1
+    assert prior["themes"] == ["Ramadan offer"]
+    assert prior["used_ctas"] == ["Call now"]
+    assert prior["used_captions"] == ["Fictional Koshary Ramadan offer."]
+
+
+def test_generation_context_omits_prior_weeks_when_none_supplied() -> None:
+    request = make_valid_request()
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert "prior_weeks_context" not in assembly.context["grounding_inputs"]
+
+
+def test_generate_system_prompt_forbids_recycling_prior_captions() -> None:
+    request = make_valid_request()
+
+    assembly = assemble_generation_prompt(request, PROVIDER_NAME, MODEL_NAME)
+
+    assert "prior_weeks_context" in assembly.system_prompt
+    assert "never" in assembly.system_prompt.lower()

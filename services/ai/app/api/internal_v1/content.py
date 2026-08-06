@@ -21,6 +21,7 @@ from content_contracts import (
     ContentItemVersion,
 )
 
+from app.content.circuit_breaker import CircuitBreaker
 from app.content.assembler import (
     assemble_asset_prompt,
     assemble_generation_prompt,
@@ -35,7 +36,7 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
-from app.content.storage import create_asset_storage
+from app.content.storage import R2StorageConfig, create_asset_storage
 from app.content.validators import (
     validate_content_generation_request,
     validate_generated_content_pack,
@@ -49,6 +50,8 @@ from app.providers.content_provider import create_content_provider
 
 router = APIRouter(prefix="/internal/v1/ai/content", tags=["internal-ai-content"])
 logger = logging.getLogger(__name__)
+
+_content_breaker = CircuitBreaker()
 
 _VALUE_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",
@@ -190,6 +193,7 @@ async def generate_content(
             provider,
             prompt,
             request=request,
+            breaker=_content_breaker,
         )
     except ProviderError as error:
         _raise_provider_error(error)
@@ -249,6 +253,7 @@ async def revise_content(
             prompt,
             base_item_version=envelope.previous_item_version,
             generation_request=envelope.generation_request,
+            breaker=_content_breaker,
         )
     except ProviderError as error:
         _raise_provider_error(error)
@@ -301,6 +306,11 @@ async def generate_static_content_asset(
             create_asset_storage(
                 root=settings.content_asset_storage_dir,
                 allow_test_memory=settings.image_provider_mode in {"mock", "unavailable"},
+                r2=(
+                    R2StorageConfig.from_settings(settings)
+                    if settings.asset_storage_provider == "r2"
+                    else None
+                ),
             ),
         )
     except ValueError as error:

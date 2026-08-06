@@ -10,6 +10,7 @@ import zlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
 from anyio import to_thread
 
@@ -23,6 +24,7 @@ from app.content.prompts import build_asset_image_prompt
 from app.content.storage import AssetStoragePort
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
+from app.providers.openrouter_provider import OPENROUTER_BASE_URL
 
 
 _SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -198,6 +200,13 @@ class OpenAIStaticImageProvider(StaticImageProvider):
         except ProviderError:
             raise
         except Exception as exc:
+            block_reason = _openai_block_reason(exc)
+            if block_reason:
+                raise ProviderError(
+                    "CONTENT_SAFETY_BLOCKED",
+                    f"OpenAI blocked image generation: {block_reason}.",
+                    retryable=False,
+                ) from exc
             raise ProviderError(
                 "CONTENT_PROVIDER_FAILURE",
                 "OpenAI static-image provider call failed.",
@@ -207,6 +216,303 @@ class OpenAIStaticImageProvider(StaticImageProvider):
 
 def _is_gpt_image_model(model: str) -> bool:
     return model.startswith("gpt-image-") or model == "chatgpt-image-latest"
+
+
+_GEMINI_SUPPORTED_SIZES: dict[tuple[int, int], str] = {
+    (1024, 1024): "1:1",
+}
+
+
+def _gemini_safety_block_reason(response: Any) -> str | None:
+    """Return a short safety reason if Gemini blocked the request or image, else None."""
+    safety = getattr(response, "positive_prompt_safety_attributes", None)
+    if safety and getattr(safety, "categories", None):
+        return "prompt-block:" + ",".join(safety.categories)
+    for image in (getattr(response, "generated_images", None) or []):
+        reason = getattr(image, "rai_filtered_reason", None)
+        if reason:
+            return "output-block:" + reason
+    return None
+
+
+def _openai_block_reason(error: Any) -> str | None:
+    """Return a short reason if OpenAI refused on content policy/safety, else None."""
+    if getattr(error, "status_code", None) != 400:
+        return None
+    message = getattr(error, "message", None) or str(error)
+    lowered = message.lower()
+    if any(
+        token in lowered
+        for token in ("content policy", "safety system", "policy violation", "not allowed", "refus")
+    ):
+        return message
+    return None
+
+
+def _openrouter_block_reason(text: str) -> str | None:
+    """Return a reason when OpenRouter policy/safety language appears, else None."""
+    if text and _looks_like_block(text):
+        return text
+    return None
+
+
+def _validate_gemini_image_size(width: int, height: int) -> None:
+    if (width, height) not in _GEMINI_SUPPORTED_SIZES:
+        raise ProviderError(
+            "CONTENT_SCHEMA_FAILURE",
+            "The requested dimensions are unsupported by the configured image model.",
+            retryable=False,
+        )
+
+
+def _openrouter_error_detail(response: Any) -> str:
+    try:
+        body = response.json()
+    except Exception:
+        return f"HTTP {getattr(response, 'status_code', 'unknown')}"
+    error = body.get("error") if isinstance(body, dict) else None
+    if isinstance(error, dict) and isinstance(error.get("message"), str):
+        return error["message"]
+    return f"HTTP {getattr(response, 'status_code', 'unknown')}"
+
+
+def _openrouter_image_data_url(body: Any) -> str | None:
+    """Return the first base64 data-URL from an OpenRouter image response."""
+    choices = body.get("choices") if isinstance(body, dict) else None
+    if not choices:
+        return None
+    message = choices[0].get("message") or {}
+    for image in message.get("images") or []:
+        url = (image.get("image_url") or {}).get("url") if isinstance(image, dict) else None
+        if isinstance(url, str) and url.startswith("data:"):
+            return url
+    return None
+
+
+def _openrouter_message_text(body: Any) -> str:
+    choices = body.get("choices") if isinstance(body, dict) else None
+    if not choices:
+        return ""
+    content = (choices[0].get("message") or {}).get("content") or ""
+    return content if isinstance(content, str) else ""
+
+
+def _looks_like_block(text: str) -> bool:
+    lowered = text.lower()
+    return any(
+        token in lowered
+        for token in (
+            "cannot",
+            "can't",
+            "unable",
+            "refuse",
+            "not allowed",
+            "against",
+            "policy",
+            "sorry",
+        )
+    )
+
+
+def _parse_image_data_url(url: str) -> tuple[bytes, str]:
+    header, _, encoded = url.partition(",")
+    if not header.startswith("data:"):
+        raise ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            "OpenRouter returned an invalid image data URL.",
+            retryable=False,
+        )
+    mime_type = header[5:].split(";")[0]
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except ValueError as exc:
+        raise ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            "OpenRouter returned invalid base64 image bytes.",
+            retryable=False,
+        ) from exc
+    if not data:
+        raise ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            "OpenRouter returned empty image bytes.",
+            retryable=False,
+        )
+    return data, mime_type
+
+
+class GeminiStaticImageProvider(StaticImageProvider):
+    """Gemini (Nano Banana) image adapter; bytes pass through AssetStoragePort."""
+
+    name = "gemini-image"
+
+    def __init__(self, api_key: str, model: str, timeout_seconds: float) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+
+    @classmethod
+    def _validate_size(cls, provider: "GeminiStaticImageProvider", width: int, height: int) -> None:
+        _validate_gemini_image_size(width, height)
+
+    async def generate_static(
+        self,
+        request: AiStaticAssetGenerateRequest,
+        prompt: PromptAssembly,
+    ) -> GeneratedImage:
+        if not self.api_key:
+            raise ProviderConfigError(
+                "GEMINI_API_KEY is required for image_provider_mode=gemini."
+            )
+        self._validate_size(self, request.width, request.height)
+
+        def call_gemini() -> GeneratedImage:
+            try:
+                from google import genai
+                from google.genai import types
+            except ImportError as exc:
+                raise ProviderConfigError("The google-genai package is not installed.") from exc
+
+            client = genai.Client(api_key=self.api_key)
+            provider_prompt = build_asset_image_prompt(
+                creative_brief=request.creative_brief,
+                alt_text=request.alt_text,
+                width=request.width,
+                height=request.height,
+            )
+            response = client.models.generate_images(
+                model=self.model,
+                prompt=provider_prompt,
+                config=types.GenerateImagesConfig(
+                    number_of_images=1,
+                    aspect_ratio=_GEMINI_SUPPORTED_SIZES[(request.width, request.height)],
+                ),
+            )
+            block_reason = _gemini_safety_block_reason(response)
+            if block_reason:
+                raise ProviderError(
+                    "CONTENT_SAFETY_BLOCKED",
+                    f"Gemini blocked image generation: {block_reason}.",
+                    retryable=False,
+                )
+            if not response.generated_images:
+                raise ProviderError(
+                    "CONTENT_PROVIDER_FAILURE",
+                    "Gemini returned no image result.",
+                    retryable=True,
+                )
+            image = response.generated_images[0].image
+            return GeneratedImage(
+                data=image.image_bytes,
+                mime_type="image/png",
+                width=request.width,
+                height=request.height,
+                provider_request_id=getattr(response, "request_id", "gemini-image-unknown"),
+            )
+
+        try:
+            return await to_thread.run_sync(call_gemini)
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError(
+                "CONTENT_PROVIDER_FAILURE",
+                "Gemini static-image provider call failed.",
+                retryable=_is_retryable_provider_exception(exc),
+            ) from exc
+
+
+class OpenRouterStaticImageProvider(StaticImageProvider):
+    """Gemini Nano Banana via OpenRouter; bytes pass through AssetStoragePort."""
+
+    name = "openrouter-image"
+
+    def __init__(self, api_key: str, model: str, timeout_seconds: float) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+
+    async def generate_static(
+        self,
+        request: AiStaticAssetGenerateRequest,
+        prompt: PromptAssembly,
+    ) -> GeneratedImage:
+        if not self.api_key:
+            raise ProviderConfigError(
+                "OPEN_ROUTER_API_KEY is required for image_provider_mode=openrouter."
+            )
+        _validate_gemini_image_size(request.width, request.height)
+
+        def call_openrouter() -> GeneratedImage:
+            import httpx
+
+            provider_prompt = build_asset_image_prompt(
+                creative_brief=request.creative_brief,
+                alt_text=request.alt_text,
+                width=request.width,
+                height=request.height,
+            )
+            payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": provider_prompt}],
+                "modalities": ["image", "text"],
+                "image_config": {
+                    "aspect_ratio": _GEMINI_SUPPORTED_SIZES[(request.width, request.height)]
+                },
+            }
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.post(
+                    f"{OPENROUTER_BASE_URL}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json=payload,
+                )
+            if response.status_code >= 400:
+                detail = _openrouter_error_detail(response)
+                block_reason = _openrouter_block_reason(detail)
+                if block_reason:
+                    raise ProviderError(
+                        "CONTENT_SAFETY_BLOCKED",
+                        f"OpenRouter blocked image generation: {block_reason}.",
+                        retryable=False,
+                    )
+                raise ProviderError(
+                    "CONTENT_PROVIDER_FAILURE",
+                    f"OpenRouter image provider call failed: {detail}.",
+                    retryable=response.status_code in _RETRYABLE_STATUS_CODES,
+                )
+            body = response.json()
+            url = _openrouter_image_data_url(body)
+            if url is None:
+                content = _openrouter_message_text(body)
+                if content and _looks_like_block(content):
+                    raise ProviderError(
+                        "CONTENT_SAFETY_BLOCKED",
+                        "OpenRouter image model refused to generate the asset.",
+                        retryable=False,
+                    )
+                raise ProviderError(
+                    "CONTENT_PROVIDER_FAILURE",
+                    "OpenRouter returned no image result.",
+                    retryable=False,
+                )
+            data, mime_type = _parse_image_data_url(url)
+            return GeneratedImage(
+                data=data,
+                mime_type=mime_type,
+                width=request.width,
+                height=request.height,
+                provider_request_id=body.get("id") or "openrouter-image-unknown",
+            )
+
+        try:
+            return await to_thread.run_sync(call_openrouter)
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError(
+                "CONTENT_PROVIDER_FAILURE",
+                "OpenRouter static-image provider call failed.",
+                retryable=_is_retryable_provider_exception(exc),
+            ) from exc
 
 
 def _validate_openai_image_size(model: str, width: int, height: int) -> None:
@@ -507,6 +813,18 @@ def create_static_image_provider(settings: Settings) -> StaticImageProvider:
     if settings.image_provider_mode == "openai":
         return OpenAIStaticImageProvider(
             api_key=settings.openai_api_key,
+            model=settings.image_model,
+            timeout_seconds=settings.image_request_timeout_ms / 1000,
+        )
+    if settings.image_provider_mode == "gemini":
+        return GeminiStaticImageProvider(
+            api_key=settings.gemini_api_key,
+            model=settings.image_model,
+            timeout_seconds=settings.image_request_timeout_ms / 1000,
+        )
+    if settings.image_provider_mode == "openrouter":
+        return OpenRouterStaticImageProvider(
+            api_key=settings.open_router_api_key,
             model=settings.image_model,
             timeout_seconds=settings.image_request_timeout_ms / 1000,
         )

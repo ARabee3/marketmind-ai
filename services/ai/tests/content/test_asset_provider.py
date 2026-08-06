@@ -13,9 +13,14 @@ from content_contracts import AiStaticAssetGenerateRequest
 from app.content.assembler import assemble_asset_prompt
 from app.content.image_provider import (
     FailingStaticImageProvider,
+    GeminiStaticImageProvider,
     MockStaticImageProvider,
     OpenAIStaticImageProvider,
+    OpenRouterStaticImageProvider,
     UnavailableStaticImageProvider,
+    _gemini_safety_block_reason,
+    _openai_block_reason,
+    _openrouter_block_reason,
     _solid_png,
     build_blocked_asset,
     build_owner_supplied_asset,
@@ -319,6 +324,10 @@ async def test_image_generate_arguments_contain_safety_rules(monkeypatch) -> Non
     assert "Do not invent business facts" in prompt_arg
     assert "Do not render JSON, metadata, IDs" in prompt_arg
     assert "Never include anything that implies approval" in prompt_arg
+    assert "Do not depict sexual content, nudity, violence" in prompt_arg
+    assert "Do not depict real, identifiable people" in prompt_arg
+    assert "Do not reproduce real brand logos" in prompt_arg
+    assert "Do not generate content unrelated to the creative brief" in prompt_arg
     assert prompt_arg.count("content_item_version_id") == 0
     assert prompt_arg.count("idempotency_key") == 0
     assert prompt_arg.count("storage_authority") == 0
@@ -371,3 +380,239 @@ def test_image_provider_factory_has_separate_configuration_mode() -> None:
         create_static_image_provider(Settings(image_provider_mode="unavailable")).name
         == "unavailable-image"
     )
+
+
+def test_gemini_image_provider_is_selected_by_config() -> None:
+    provider = create_static_image_provider(
+        Settings(image_provider_mode="gemini", gemini_api_key="k", image_model="gemini-2.5-flash-image")
+    )
+    assert isinstance(provider, GeminiStaticImageProvider)
+    assert provider.name == "gemini-image"
+
+
+def test_gemini_supported_size_is_accepted() -> None:
+    provider = GeminiStaticImageProvider(api_key="", model="gemini-2.5-flash-image", timeout_seconds=10)
+    GeminiStaticImageProvider._validate_size(provider, 1024, 1024)
+
+
+def test_gemini_unsupported_size_is_schema_failure() -> None:
+    provider = GeminiStaticImageProvider(api_key="k", model="gemini-2.5-flash-image", timeout_seconds=10)
+    with pytest.raises(ProviderError) as exc:
+        GeminiStaticImageProvider._validate_size(provider, 1200, 800)
+    assert exc.value.code == "CONTENT_SCHEMA_FAILURE"
+    assert exc.value.retryable is False
+
+
+def test_gemini_safety_block_reason_reports_prompt_block_categories() -> None:
+    response = SimpleNamespace(
+        generated_images=[],
+        positive_prompt_safety_attributes=SimpleNamespace(
+            categories=["Hate speech", "Sexually explicit"]
+        ),
+    )
+    reason = _gemini_safety_block_reason(response)
+    assert reason == "prompt-block:Hate speech,Sexually explicit"
+
+
+def test_gemini_safety_block_reason_reports_output_rai_filter() -> None:
+    response = SimpleNamespace(
+        generated_images=[SimpleNamespace(rai_filtered_reason="NSFW")],
+        positive_prompt_safety_attributes=None,
+    )
+    reason = _gemini_safety_block_reason(response)
+    assert reason == "output-block:NSFW"
+
+
+def test_gemini_safety_block_reason_is_none_when_not_blocked() -> None:
+    response = SimpleNamespace(
+        generated_images=[SimpleNamespace(rai_filtered_reason=None)],
+        positive_prompt_safety_attributes=None,
+    )
+    assert _gemini_safety_block_reason(response) is None
+
+
+def test_openai_block_reason_detects_content_policy_violation() -> None:
+    error = SimpleNamespace(
+        status_code=400,
+        code="content_policy_violation",
+        message="Your request was rejected as a result of our safety system.",
+    )
+    reason = _openai_block_reason(error)
+    assert reason is not None
+    assert "safety system" in reason
+
+
+def test_openai_block_reason_is_none_for_plain_failure() -> None:
+    error = SimpleNamespace(status_code=500, code=None, message="upstream error")
+    assert _openai_block_reason(error) is None
+
+
+def test_openrouter_block_reason_detects_policy_refusal() -> None:
+    assert _openrouter_block_reason("The model refused this request due to content policy.") is not None
+    assert _openrouter_block_reason("Here is the generated image.") is None
+
+
+@pytest.mark.asyncio
+async def test_openai_adapter_maps_content_policy_error_to_safety_block(monkeypatch) -> None:
+    import openai
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+
+    class BlockedImages:
+        def generate(self, **arguments):
+            import httpx
+            from openai import BadRequestError
+
+            error = BadRequestError(
+                "Your request was rejected as a result of our safety system.",
+                response=httpx.Response(
+                    400,
+                    request=httpx.Request("POST", "https://api.openai.com/v1/images/generations"),
+                ),
+                body=None,
+            )
+            error.code = "content_policy_violation"
+            raise error
+
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: SimpleNamespace(images=BlockedImages()))
+    provider = OpenAIStaticImageProvider("fictional-key", "gpt-image-1", 10)
+
+    with pytest.raises(ProviderError) as error:
+        await provider.generate_static(request, prompt)
+
+    assert error.value.code == "CONTENT_SAFETY_BLOCKED"
+    assert error.value.retryable is False
+
+
+@pytest.mark.asyncio
+async def test_openrouter_adapter_maps_policy_detail_to_safety_block(monkeypatch) -> None:
+    import httpx
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+
+    class BlockedResponse:
+        status_code = 400
+
+        def json(self):
+            return {"error": {"message": "The model refused this request due to content policy."}}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, *args, **kwargs):
+            return BlockedResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    provider = OpenRouterStaticImageProvider("fictional-key", "google/gemini-3.1-flash-image", 10)
+
+    with pytest.raises(ProviderError) as error:
+        await provider.generate_static(request, prompt)
+
+    assert error.value.code == "CONTENT_SAFETY_BLOCKED"
+    assert error.value.retryable is False
+
+
+@pytest.mark.asyncio
+async def test_openrouter_image_adapter_parses_data_url_and_sends_modalities(monkeypatch) -> None:
+    import httpx
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+    png = _solid_png(1024, 1024, b"\x10\x20\x30")
+    captured: dict = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            captured["client"] = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def post(self, *args, **kwargs):
+            captured["payload"] = kwargs["json"]
+            captured["headers"] = kwargs["headers"]
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {
+                    "id": "req-fictional",
+                    "choices": [
+                        {
+                            "message": {
+                                "images": [
+                                    {
+                                        "image_url": {
+                                            "url": "data:image/png;base64,"
+                                            + base64.b64encode(png).decode("ascii")
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                },
+            )
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    provider = OpenRouterStaticImageProvider(
+        "fictional-key",
+        "google/gemini-3.1-flash-image",
+        10,
+    )
+
+    generated = await provider.generate_static(request, prompt)
+
+    assert generated.data == png
+    assert generated.mime_type == "image/png"
+    assert captured["payload"]["modalities"] == ["image", "text"]
+    assert captured["payload"]["image_config"] == {"aspect_ratio": "1:1"}
+    assert captured["payload"]["model"] == "google/gemini-3.1-flash-image"
+    assert captured["headers"]["Authorization"] == "Bearer fictional-key"
+
+
+@pytest.mark.asyncio
+async def test_openrouter_image_adapter_requires_api_key() -> None:
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    provider = OpenRouterStaticImageProvider("", "google/gemini-3.1-flash-image", 10)
+
+    with pytest.raises(Exception) as error:
+        await provider.generate_static(request, _prompt(request))
+
+    assert "OPEN_ROUTER_API_KEY" in str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_openrouter_image_adapter_rejects_unsupported_size(monkeypatch) -> None:
+    import httpx
+
+    request = _request()
+    provider = OpenRouterStaticImageProvider("fictional-key", "google/gemini-3.1-flash-image", 10)
+
+    with pytest.raises(ProviderError) as error:
+        await provider.generate_static(request, _prompt(request))
+
+    assert error.value.code == "CONTENT_SCHEMA_FAILURE"
+    assert not error.value.retryable
+
+
+def test_openrouter_image_provider_is_selected_by_config() -> None:
+    provider = create_static_image_provider(
+        Settings(
+            image_provider_mode="openrouter",
+            open_router_api_key="k",
+            image_model="google/gemini-3.1-flash-image",
+        )
+    )
+    assert isinstance(provider, OpenRouterStaticImageProvider)
+    assert provider.name == "openrouter-image"

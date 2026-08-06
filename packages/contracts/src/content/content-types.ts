@@ -7,7 +7,12 @@ import type {
 
 export type { IsoDate, IsoDateTime, LanguageMode, UUID };
 
-export const CONTENT_CHANNELS = ["facebook", "instagram"] as const;
+export const CONTENT_CHANNELS = [
+  "facebook",
+  "instagram",
+  "tiktok",
+  "google_business_profile",
+] as const;
 export type ContentChannel = (typeof CONTENT_CHANNELS)[number];
 
 export const CONTENT_FORMATS = [

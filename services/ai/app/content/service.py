@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from content_contracts import AiContentGenerateRequest, ContentItemVersion
 from platform_constraints import validate_platform_constraints
 
 from app.content.assembler import PromptAssembly
+from app.content.circuit_breaker import CircuitBreaker
 from app.providers.base import ProviderError
 from app.providers.content_provider import ContentLLMProvider
 from app.content.validators import (
@@ -22,6 +24,7 @@ from app.content.validators import (
 
 
 MAX_CONTENT_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 _SCHEMA_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",
     "AI_PROVIDER_INVALID_OUTPUT",
@@ -56,6 +59,7 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
             "repair_attempt": attempt,
             "repair_error_code": error.code,
         },
+        context=prompt.context,
     )
 
 
@@ -73,6 +77,15 @@ def _validate_pack_shape(items: object) -> None:
             "CONTENT_SCHEMA_FAILURE",
             "Content generation must return between 3 and 5 item versions.",
             retryable=False,
+        )
+
+
+def _ensure_provider_allowed(breaker: CircuitBreaker | None) -> None:
+    if breaker is not None and not breaker.allow():
+        raise ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            "Content provider circuit breaker is open; refusing provider call.",
+            retryable=True,
         )
 def _provider_model(provider: ContentLLMProvider, prompt: PromptAssembly) -> str:
     return str(getattr(provider, "model", prompt.metadata.get("model", "unknown")))
@@ -225,8 +238,10 @@ async def generate_content_pack_with_repair(
     max_attempts: int = MAX_CONTENT_ATTEMPTS,
     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
     retry_delay_seconds: float = 2.0,
+    breaker: CircuitBreaker | None = None,
 ) -> list[ContentItemVersion]:
     """Generate a complete pack with bounded schema repair and safe retry."""
+    _ensure_provider_allowed(breaker)
     current_prompt = prompt
     last_error: ProviderError | None = None
     for attempt in range(1, max_attempts + 1):
@@ -248,9 +263,19 @@ async def generate_content_pack_with_repair(
                         f"{issue.field}: {issue.message}",
                         retryable=False,
                     )
+            if breaker is not None:
+                breaker.record_success()
             return items
         except ProviderError as error:
+            if breaker is not None and error.retryable:
+                breaker.record_failure()
             last_error = error
+            logger.warning(
+                "content repair_or_retry attempt=%d code=%s message=%s",
+                attempt,
+                error.code,
+                error,
+            )
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
@@ -296,8 +321,10 @@ async def revise_content_item_with_repair(
     max_attempts: int = MAX_CONTENT_ATTEMPTS,
     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
     retry_delay_seconds: float = 2.0,
+    breaker: CircuitBreaker | None = None,
 ) -> ContentItemVersion:
     """Revise one item with the same bounded provider safety policy."""
+    _ensure_provider_allowed(breaker)
     current_prompt = prompt
     last_error: ProviderError | None = None
     for attempt in range(1, max_attempts + 1):
@@ -328,9 +355,19 @@ async def revise_content_item_with_repair(
                         f"{issue.field}: {issue.message}",
                         retryable=False,
                     )
+            if breaker is not None:
+                breaker.record_success()
             return item
         except ProviderError as error:
+            if breaker is not None and error.retryable:
+                breaker.record_failure()
             last_error = error
+            logger.warning(
+                "content revision repair_or_retry attempt=%d code=%s message=%s",
+                attempt,
+                error.code,
+                error,
+            )
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
