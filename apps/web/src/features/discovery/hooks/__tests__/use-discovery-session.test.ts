@@ -7,7 +7,6 @@ import {
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
-  updateDiscoveryDraftFacts,
 } from '@/lib/api/discovery'
 
 vi.mock('@/lib/api/discovery', () => ({
@@ -15,7 +14,6 @@ vi.mock('@/lib/api/discovery', () => ({
   respondToDiscovery: vi.fn(),
   summarizeDiscovery: vi.fn(),
   confirmDiscoveryProfile: vi.fn(),
-  updateDiscoveryDraftFacts: vi.fn(),
 }))
 
 function makeStatus(overrides: Partial<DiscoveryStatusResponse> = {}): DiscoveryStatusResponse {
@@ -370,11 +368,28 @@ describe('useDiscoverySession', () => {
 
     await waitFor(() => expect(result.current.phase).toBe('review'))
 
+    const editedFacts = {
+      ...makeStatus().profile_state.known_facts,
+      identity: {
+        business_name: 'New Name',
+        business_type: 'Cafe',
+        city: 'Cairo',
+      },
+    }
     await act(async () => {
-      await result.current.confirm({ profile_draft_id: 'draft-1', owner_confirmation: true })
+      await result.current.confirm({
+        profile_draft_id: 'draft-1',
+        owner_confirmation: true,
+        confirmed_facts: editedFacts,
+      })
     })
 
     await waitFor(() => expect(result.current.phase).toBe('confirmed'))
+    expect(vi.mocked(confirmDiscoveryProfile)).toHaveBeenCalledWith('test', {
+      profile_draft_id: 'draft-1',
+      owner_confirmation: true,
+      confirmed_facts: editedFacts,
+    })
   })
 
   it('transitions directly to review when respond returns summary_ready', async () => {
@@ -535,68 +550,30 @@ describe('useDiscoverySession', () => {
     expect(result.current.status?.profile_state.readiness.ready).toBe(false)
   })
 
-  it('updateFacts posts then refreshes status on success', async () => {
-    const draft = makeDraft()
-    const edited = makeDraft({
-      confirmed_facts: {
-        ...makeStatus().profile_state.known_facts,
-        identity: {
-          business_name: 'New Name',
-          business_type: 'Cafe',
-          city: 'Cairo',
-        },
-      },
-    })
-
-    vi.mocked(getDiscoveryStatus)
-      .mockResolvedValueOnce(makeStatus({ status: 'summary_ready', profile_draft: draft }))
-      .mockResolvedValueOnce(makeStatus({ status: 'summary_ready', profile_draft: edited }))
-
-    vi.mocked(updateDiscoveryDraftFacts).mockResolvedValueOnce({
-      session_id: 'test-session',
-      profile_draft: edited,
-      strategy_locked: true,
-    })
-
-    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
-
-    await waitFor(() => expect(result.current.phase).toBe('review'))
-
-    const facts = makeStatus().profile_state.known_facts
-    await act(async () => {
-      await result.current.updateFacts(facts)
-    })
-
-    expect(vi.mocked(updateDiscoveryDraftFacts)).toHaveBeenCalledWith('test', {
-      profile_draft_id: 'draft-1',
-      confirmed_facts: facts,
-    })
-    expect(getDiscoveryStatus).toHaveBeenCalledTimes(2) // initial + refresh
-    expect(result.current.pending).toBe(false)
-  })
-
-  it('updateFacts sets error without throwing on failure', async () => {
+  it('confirm sets error without throwing on failure', async () => {
     const draft = makeDraft()
     vi.mocked(getDiscoveryStatus).mockResolvedValue(
       makeStatus({ status: 'summary_ready', profile_draft: draft }),
     )
-    vi.mocked(updateDiscoveryDraftFacts).mockRejectedValueOnce({
-      status: 400,
-      code: 'INVALID_DISCOVERY_STATE',
-      message: 'invalid state',
+    vi.mocked(confirmDiscoveryProfile).mockRejectedValueOnce({
+      status: 409,
+      code: 'DISCOVERY_PROFILE_ALREADY_CONFIRMED',
+      message: 'already confirmed',
     })
 
     const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
 
     await waitFor(() => expect(result.current.phase).toBe('review'))
 
-    const facts = makeStatus().profile_state.known_facts
     await act(async () => {
-      await result.current.updateFacts(facts)
+      await result.current.confirm({
+        profile_draft_id: 'draft-1',
+        owner_confirmation: true,
+      })
     })
 
-    expect(result.current.error).toBe('invalid state')
-    expect(result.current.errorTranslationKey).toBe('Errors.generic')
+    expect(result.current.error).toBe('already confirmed')
+    expect(result.current.errorTranslationKey).toBe('Errors.discoveryAlreadyConfirmed')
     expect(result.current.pending).toBe(false)
   })
 })

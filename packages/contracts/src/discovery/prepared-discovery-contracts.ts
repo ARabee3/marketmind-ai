@@ -317,6 +317,8 @@ export interface ConfirmProfileRequest {
   profile_draft_id: UUID;
   owner_confirmation: true;
   acknowledge_incomplete?: true;
+  /** Owner corrections to the AI-captured facts, applied atomically at confirmation. */
+  confirmed_facts?: MarketAwareBusinessFacts;
 }
 
 export interface ConfirmProfileResponse {

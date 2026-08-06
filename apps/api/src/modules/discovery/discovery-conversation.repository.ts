@@ -12,7 +12,9 @@ import {
   ConfirmProfileResponse,
   DiscoveryMessage,
   DiscoveryProfileState,
+  DiscoveryReadiness,
   DiscoverySessionStatus,
+  MarketAwareBusinessFacts,
 } from "./discovery-state";
 import {
   messageFromPersistence,
@@ -29,6 +31,12 @@ type MessageInput = {
   readonly language: DiscoveryMessage["language"];
   readonly source: DiscoveryMessage["source"];
   readonly metadata?: Record<string, unknown>;
+};
+
+type ConfirmationCorrections = {
+  readonly confirmed_facts: MarketAwareBusinessFacts;
+  readonly readiness: DiscoveryReadiness;
+  readonly completeness: BusinessProfileDraft["completeness"];
 };
 
 @Injectable()
@@ -299,6 +307,7 @@ export class DiscoveryConversationRepository {
     profileDraftId: string,
     intake: PreparedDiscoveryIntakeDto,
     acknowledgeIncomplete = false,
+    corrections?: ConfirmationCorrections,
   ): Promise<ConfirmProfileResponse> {
     const version = await this.prisma.$transaction(async (tx) => {
       const session = await tx.discoverySession.findFirst({
@@ -394,6 +403,11 @@ export class DiscoveryConversationRepository {
       });
       const nextVersion = (latestVersion._max.version ?? 0) + 1;
       const confirmedDraft = profileDraftFromPersistence(draft);
+      const confirmedFacts =
+        corrections?.confirmed_facts ?? confirmedDraft.confirmed_facts;
+      const readiness = corrections?.readiness ?? confirmedDraft.readiness;
+      const completeness =
+        corrections?.completeness ?? confirmedDraft.completeness;
       const savedVersion = await tx.businessProfileVersion.create({
         data: {
           businessId,
@@ -408,10 +422,10 @@ export class DiscoveryConversationRepository {
               ? {}
               : { address_text: intake.address_text }),
             primary_locale: session.languageMode,
-            confirmed_facts: confirmedDraft.confirmed_facts,
-            completeness: confirmedDraft.completeness,
+            confirmed_facts: confirmedFacts,
+            completeness,
             completion_reason: confirmedDraft.completion_reason,
-            readiness: confirmedDraft.readiness,
+            readiness,
             market_context: confirmedDraft.market_context,
             research_observations: confirmedDraft.research_observations,
             uncertainties: confirmedDraft.uncertainties,
@@ -424,7 +438,16 @@ export class DiscoveryConversationRepository {
 
       await tx.businessProfileDraft.update({
         where: { id: draft.id },
-        data: { businessId, status: "confirmed" },
+        data: {
+          businessId,
+          status: "confirmed",
+          ...(corrections
+            ? {
+                confirmedFacts: jsonForPrisma(confirmedFacts),
+                readiness: jsonForPrisma(readiness),
+              }
+            : {}),
+        },
       });
       await tx.discoverySession.update({
         where: { id: sessionId },

@@ -250,7 +250,7 @@ describe('DraftReview', () => {
     expect((confirmButton as HTMLButtonElement).disabled).toBe(false)
 
     fireEvent.click(confirmButton)
-    expect(onConfirm).toHaveBeenCalledWith(true)
+    expect(onConfirm).toHaveBeenCalledWith(true, undefined)
   })
 
   it('does not show acknowledgement for complete draft', () => {
@@ -267,7 +267,7 @@ describe('DraftReview', () => {
     expect(screen.queryByRole('checkbox')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
-    expect(onConfirm).toHaveBeenCalledWith(false)
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
   })
 
   it('shows not provided for empty fields', () => {
@@ -765,20 +765,9 @@ describe('DraftReview', () => {
     expect(screen.getByRole('button', { name: 'confirmProfile' })).toBeDefined()
   })
 
-  it('renders an edit button per editable section only when onUpdateFacts is provided', () => {
-    const { rerender } = render(
+  it('renders an edit button per editable fact section', () => {
+    render(
       <DraftReview status={makeStatus()} draft={makeDraft()} pending={false} onConfirm={vi.fn()} />,
-    )
-    expect(screen.queryAllByRole('button', { name: 'editSection' })).toHaveLength(0)
-
-    rerender(
-      <DraftReview
-        status={makeStatus()}
-        draft={makeDraft()}
-        pending={false}
-        onConfirm={vi.fn()}
-        onUpdateFacts={vi.fn()}
-      />,
     )
     expect(screen.getAllByRole('button', { name: 'editSection' })).toHaveLength(6)
   })
@@ -790,7 +779,6 @@ describe('DraftReview', () => {
         draft={makeDraft()}
         pending={false}
         onConfirm={vi.fn()}
-        onUpdateFacts={vi.fn()}
       />,
     )
     const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
@@ -804,15 +792,14 @@ describe('DraftReview', () => {
     expect(within(identitySection).getByRole('button', { name: 'cancelEdits' })).toBeDefined()
   })
 
-  it('saves edited value fields and leaves other sections unchanged', () => {
-    const onUpdateFacts = vi.fn()
+  it('saves edited value fields locally and confirms them with the edited facts', () => {
+    const onConfirm = vi.fn()
     render(
       <DraftReview
         status={makeStatus()}
-        draft={makeDraft()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
         pending={false}
-        onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
+        onConfirm={onConfirm}
       />,
     )
     const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
@@ -824,31 +811,34 @@ describe('DraftReview', () => {
       fireEvent.click(within(identitySection).getByRole('button', { name: 'saveEdits' }))
     })
 
-    expect(onUpdateFacts).toHaveBeenCalledTimes(1)
-    const payload = onUpdateFacts.mock.calls[0][0] as MarketAwareBusinessFacts
-    expect(payload.identity.business_name).toBe('New Name')
-    expect(payload.identity.business_type).toBe('Cafe')
-    expect(payload.identity.city).toBe('Cairo')
-    expect(payload.offer).toEqual(makeDraft().confirmed_facts.offer)
-    expect(payload.customers).toEqual(makeDraft().confirmed_facts.customers)
+    expect(within(identitySection).getByText('New Name')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(onConfirm.mock.calls[0][0]).toBe(false)
+    const confirmedFacts = onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts
+    expect(confirmedFacts.identity.business_name).toBe('New Name')
+    expect(confirmedFacts.identity.business_type).toBe('Cafe')
+    expect(confirmedFacts.identity.city).toBe('Cairo')
+    expect(confirmedFacts.offer).toEqual(makeDraft().confirmed_facts.offer)
+    expect(confirmedFacts.customers).toEqual(makeDraft().confirmed_facts.customers)
   })
 
   it('adds chips via button and Enter with trimming and deduping', () => {
-    const onUpdateFacts = vi.fn()
+    const onConfirm = vi.fn()
     render(
       <DraftReview
         status={makeStatus()}
-        draft={makeDraft()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
         pending={false}
-        onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
+        onConfirm={onConfirm}
       />,
     )
     const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
     fireEvent.click(within(offerSection).getByRole('button', { name: 'editSection' }))
 
     const input = within(offerSection).getByLabelText('coreOfferings') as HTMLInputElement
-    const fieldWrapper = input.closest('div.min-w-0')!
+    const fieldWrapper = input.closest('div.min-w-0') as HTMLElement
     fireEvent.change(input, { target: { value: '  Espresso  ' } })
     fireEvent.click(within(fieldWrapper).getByRole('button', { name: 'addItem' }))
 
@@ -860,21 +850,21 @@ describe('DraftReview', () => {
     act(() => {
       fireEvent.click(within(offerSection).getByRole('button', { name: 'saveEdits' }))
     })
-    expect((onUpdateFacts.mock.calls[0][0] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect((onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([
       'Coffee',
       'Espresso',
     ])
   })
 
   it('removes a chip via its remove control', () => {
-    const onUpdateFacts = vi.fn()
+    const onConfirm = vi.fn()
     render(
       <DraftReview
         status={makeStatus()}
-        draft={makeDraft()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
         pending={false}
-        onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
+        onConfirm={onConfirm}
       />,
     )
     const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
@@ -886,18 +876,18 @@ describe('DraftReview', () => {
     act(() => {
       fireEvent.click(within(offerSection).getByRole('button', { name: 'saveEdits' }))
     })
-    expect((onUpdateFacts.mock.calls[0][0] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([])
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect((onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([])
   })
 
-  it('cancelling discards edits without calling onUpdateFacts', () => {
-    const onUpdateFacts = vi.fn()
+  it('cancelling discards edits and confirms without edited facts', () => {
+    const onConfirm = vi.fn()
     render(
       <DraftReview
         status={makeStatus()}
-        draft={makeDraft()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
         pending={false}
-        onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
+        onConfirm={onConfirm}
       />,
     )
     const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
@@ -907,9 +897,26 @@ describe('DraftReview', () => {
     })
     fireEvent.click(within(identitySection).getByRole('button', { name: 'cancelEdits' }))
 
-    expect(onUpdateFacts).not.toHaveBeenCalled()
     expect(within(identitySection).queryByLabelText('businessName')).toBeNull()
     expect(within(identitySection).getByText('Test Cafe')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
+  })
+
+  it('confirms without edited facts when nothing was changed', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
   })
 
   it('disables edit buttons while pending', () => {
@@ -919,7 +926,6 @@ describe('DraftReview', () => {
         draft={makeDraft()}
         pending
         onConfirm={vi.fn()}
-        onUpdateFacts={vi.fn()}
       />,
     )
     const editButtons = screen.getAllByRole('button', { name: 'editSection' })
@@ -928,14 +934,12 @@ describe('DraftReview', () => {
   })
 
   it('disables edit controls while pending', () => {
-    const onUpdateFacts = vi.fn()
     const { rerender } = render(
       <DraftReview
         status={makeStatus()}
         draft={makeDraft()}
         pending={false}
         onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
       />,
     )
     const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
@@ -947,16 +951,15 @@ describe('DraftReview', () => {
         draft={makeDraft()}
         pending
         onConfirm={vi.fn()}
-        onUpdateFacts={onUpdateFacts}
       />,
     )
 
     const pendingOfferSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
-    expect((within(pendingOfferSection).getByRole('button', { name: 'savingEdits' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(pendingOfferSection).getByRole('button', { name: 'saveEdits' }) as HTMLButtonElement).disabled).toBe(true)
     expect((within(pendingOfferSection).getByRole('button', { name: 'cancelEdits' }) as HTMLButtonElement).disabled).toBe(true)
     const pendingInput = within(pendingOfferSection).getByLabelText('coreOfferings') as HTMLInputElement
     expect(pendingInput.disabled).toBe(true)
-    const pendingWrapper = pendingInput.closest('div.min-w-0')!
+    const pendingWrapper = pendingInput.closest('div.min-w-0') as HTMLElement
     expect((within(pendingWrapper).getByRole('button', { name: 'addItem' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -967,7 +970,6 @@ describe('DraftReview', () => {
         draft={makeDraft()}
         pending={false}
         onConfirm={vi.fn()}
-        onUpdateFacts={vi.fn()}
       />,
     )
     const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!

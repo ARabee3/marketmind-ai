@@ -120,10 +120,6 @@ export function getApiErrorTranslationKey(err: ApiError): TranslationKey {
     return "DiscoveryProgress.errorRedisFailure";
   }
 
-  if (err.code === "INVALID_DISCOVERY_STATE") {
-    return "Errors.generic";
-  }
-
   if (isKnownErrorCode(err.code)) {
     return API_ERROR_CODE_TO_TRANSLATION[err.code];
   }

@@ -380,7 +380,7 @@ function FactSection({
           })}
           <div className="flex items-center gap-2 border-t border-border pt-4">
             <Button type="button" variant="default" size="sm" onClick={onSave} disabled={controlsDisabled}>
-              {pending ? t('savingEdits') : t('saveEdits')}
+              {t('saveEdits')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={controlsDisabled}>
               {t('cancelEdits')}
@@ -827,48 +827,50 @@ export function DraftReview({
   pending,
   onConfirm,
   disabled,
-  onUpdateFacts,
 }: {
   status: DiscoveryStatusResponse
   draft: BusinessProfileDraft
   pending: boolean
-  onConfirm: (acknowledgeIncomplete: boolean) => void
+  onConfirm: (acknowledgeIncomplete: boolean, confirmedFacts?: MarketAwareBusinessFacts) => void
   disabled?: boolean
-  onUpdateFacts?: (facts: MarketAwareBusinessFacts) => void | Promise<void>
 }) {
   const t = useTranslations('DiscoveryReview')
   const [acknowledged, setAcknowledged] = useState(false)
   const [editingDomain, setEditingDomain] = useState<EditableDomain | null>(null)
-  const [editFacts, setEditFacts] = useState<MarketAwareBusinessFacts | null>(null)
+  const [editedFacts, setEditedFacts] = useState<MarketAwareBusinessFacts | null>(null)
+  const [editBaseline, setEditBaseline] = useState<MarketAwareBusinessFacts | null>(null)
 
   const isComplete = draft.completeness === 'complete'
   const readiness = draft.readiness
 
-  const canEdit = Boolean(onUpdateFacts)
+  const facts = editedFacts ?? draft.confirmed_facts
+
+  const hasEdits =
+    editedFacts !== null &&
+    JSON.stringify(editedFacts) !== JSON.stringify(draft.confirmed_facts)
 
   const openEdit = (domain: EditableDomain) => {
-    setEditFacts(cloneFacts(draft.confirmed_facts))
+    setEditBaseline(cloneFacts(facts))
     setEditingDomain(domain)
   }
 
   const cancelEdit = () => {
-    setEditFacts(null)
+    if (editBaseline) setEditedFacts(editBaseline)
+    setEditBaseline(null)
     setEditingDomain(null)
   }
 
-  const saveEdit = async () => {
-    if (!editFacts || !editingDomain) return
-    await onUpdateFacts?.(editFacts)
-    setEditFacts(null)
+  const saveEdit = () => {
+    setEditBaseline(null)
     setEditingDomain(null)
   }
 
   const changeField = (domain: EditableDomain, fieldKey: string, value: string | string[]) => {
-    setEditFacts((prev) => (prev ? writeFactsField(prev, domain, fieldKey, value) : prev))
+    setEditedFacts((prev) => writeFactsField(prev ?? draft.confirmed_facts, domain, fieldKey, value))
   }
 
   const canEditDomain = (domain: EditableDomain) =>
-    canEdit && (editingDomain === null || editingDomain === domain)
+    editingDomain === null || editingDomain === domain
 
   const domainLabels: Record<string, string> = {
     identity: t('domainIdentity'),
@@ -881,7 +883,6 @@ export function DraftReview({
   }
   const sourceTypeLabel = (sourceType: SourceType) => t(`citationSource_${sourceType}`)
 
-  const facts = draft.confirmed_facts
   const sourceRefs = status.intelligence.source_refs
 
   const canConfirm = isComplete || acknowledged
@@ -976,7 +977,7 @@ export function DraftReview({
         incomplete={blockedSet.has('identity')}
         domain="identity"
         editing={editingDomain === 'identity'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('identity')}
         pending={pending}
         disabled={disabled}
@@ -992,7 +993,7 @@ export function DraftReview({
         incomplete={blockedSet.has('offer')}
         domain="offer"
         editing={editingDomain === 'offer'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('offer')}
         pending={pending}
         disabled={disabled}
@@ -1008,7 +1009,7 @@ export function DraftReview({
         incomplete={blockedSet.has('customers')}
         domain="customers"
         editing={editingDomain === 'customers'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('customers')}
         pending={pending}
         disabled={disabled}
@@ -1024,7 +1025,7 @@ export function DraftReview({
         incomplete={blockedSet.has('differentiation')}
         domain="differentiation"
         editing={editingDomain === 'differentiation'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('differentiation')}
         pending={pending}
         disabled={disabled}
@@ -1040,7 +1041,7 @@ export function DraftReview({
         incomplete={blockedSet.has('current_marketing')}
         domain="current_marketing"
         editing={editingDomain === 'current_marketing'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('current_marketing')}
         pending={pending}
         disabled={disabled}
@@ -1056,7 +1057,7 @@ export function DraftReview({
         incomplete={blockedSet.has('goals_and_constraints')}
         domain="goals_and_constraints"
         editing={editingDomain === 'goals_and_constraints'}
-        editFacts={editFacts}
+        editFacts={facts}
         canEdit={canEditDomain('goals_and_constraints')}
         pending={pending}
         disabled={disabled}
@@ -1124,7 +1125,7 @@ export function DraftReview({
           pending={pending}
           disabled={disabled}
           canConfirm={canConfirm}
-          onConfirm={() => onConfirm(!isComplete && acknowledged)}
+          onConfirm={() => onConfirm(!isComplete && acknowledged, hasEdits ? editedFacts ?? undefined : undefined)}
         />
       </div>
     </div>

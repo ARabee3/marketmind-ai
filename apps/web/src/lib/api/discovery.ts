@@ -22,22 +22,6 @@ import type {
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
 
-/**
- * POST /api/v1/discovery/:sessionId/draft-facts — owner correction of the
- * confirmed facts on a `summary_ready` session. Mirrors the contract shape
- * being introduced in packages/contracts; defined here until that lands.
- */
-export interface UpdateDraftFactsRequest {
-  profile_draft_id: string
-  confirmed_facts: MarketAwareBusinessFacts
-}
-
-export interface UpdateDraftFactsResponse {
-  session_id: string
-  profile_draft: BusinessProfileDraft
-  strategy_locked: true
-}
-
 export interface ApiError {
   status: number
   code: ErrorCode | string
@@ -116,6 +100,7 @@ export function confirmDiscoveryProfile(
     body: JSON.stringify(payload),
   })
 }
+<<<<<<< HEAD
 
 /** POST /api/v1/discovery/:sessionId/transcribe */
 export function transcribeDiscoveryVoiceNote(
@@ -145,5 +130,4 @@ export function updateDiscoveryDraftFacts(
     method: 'POST',
     body: JSON.stringify(payload),
   })
-}
 }

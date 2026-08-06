@@ -167,14 +167,14 @@ export function DiscoverySession({
           draft={status.profile_draft}
           pending={pending}
           disabled={pending}
-          onConfirm={(acknowledgeIncomplete) => {
+          onConfirm={(acknowledgeIncomplete, confirmedFacts) => {
             session.confirm({
               profile_draft_id: status.profile_draft!.id,
               owner_confirmation: true,
               acknowledge_incomplete: acknowledgeIncomplete ? true : undefined,
+              confirmed_facts: confirmedFacts ?? undefined,
             })
           }}
-          onUpdateFacts={(facts) => session.updateFacts(facts)}
         />
       </div>
     )

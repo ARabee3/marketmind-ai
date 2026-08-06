@@ -433,7 +433,7 @@ function isCompletionReason(
   );
 }
 
-function isMarketAwareBusinessFacts(
+export function isMarketAwareBusinessFacts(
   value: unknown,
 ): value is MarketAwareBusinessFacts {
   if (!isRecord(value)) {
