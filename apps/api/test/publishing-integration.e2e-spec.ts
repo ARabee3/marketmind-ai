@@ -132,6 +132,16 @@ function requireSafeTestUrl(name: "DATABASE_URL" | "REDIS_URL"): string {
     );
   }
 
+  if (
+    name === "REDIS_URL" &&
+    !parsed.pathname.replace(/^\//, "") &&
+    process.env.CI !== "true"
+  ) {
+    throw new Error(
+      "Publishing integration E2E requires a dedicated local Redis database (for example redis://localhost:6379/15).",
+    );
+  }
+
   if (name === "DATABASE_URL") {
     const databaseName = decodeURIComponent(parsed.pathname.slice(1));
     if (!/(?:^|[-_])(test|ci|e2e)$/i.test(databaseName)) {
