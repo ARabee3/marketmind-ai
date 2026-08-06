@@ -34,6 +34,9 @@ const envTest = path.join(apiDir, ".env.test");
 const envActive = path.join(apiDir, ".env");
 const envBackup = path.join(apiDir, ".env.rehearse-backup");
 const stateFile = path.join(webDir, ".rehearsal-state.json");
+const hadStateFile = fs.existsSync(stateFile);
+const previousState = hadStateFile ? fs.readFileSync(stateFile) : null;
+let stateFileWritten = false;
 
 const require = createRequire(import.meta.url);
 
@@ -161,6 +164,7 @@ try {
     { expiresIn },
   );
 
+  stateFileWritten = true;
   fs.writeFileSync(
     stateFile,
     JSON.stringify(
@@ -198,6 +202,13 @@ try {
       ? e.exitCode
       : 1;
 } finally {
+  if (stateFileWritten) {
+    if (hadStateFile) {
+      fs.writeFileSync(stateFile, previousState);
+    } else {
+      fs.rmSync(stateFile, { force: true });
+    }
+  }
   restore();
-  console.log("  (apps/api/.env restored)");
+  console.log("  (apps/api/.env and rehearsal state restored)");
 }
