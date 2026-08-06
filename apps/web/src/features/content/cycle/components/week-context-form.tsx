@@ -19,6 +19,12 @@ type Props = {
   readonly onSave: (draft: WeekContextDraft) => Promise<void>;
 };
 
+type EditableRowKeys = {
+  readonly promotionTerms: readonly string[];
+  readonly mustInclude: readonly string[];
+  readonly mustAvoid: readonly string[];
+};
+
 export function WeekContextForm({
   initialContext = null,
   isReadonly = false,
@@ -33,10 +39,33 @@ export function WeekContextForm({
   const formatError = (key: string) =>
     t(`errors.${key}` as unknown as Parameters<typeof t>[0]);
 
-  const [draft, setDraft] = useState<WeekContextDraft>(() =>
-    initialContext
-      ? draftFromWeekContext(initialContext)
-      : createEmptyWeekContextDraft(),
+  const initialDraft = initialContext
+    ? draftFromWeekContext(initialContext)
+    : createEmptyWeekContextDraft();
+
+  const [rowSequence, setRowSequence] = useState(0);
+
+  const createRowId = (kind: string) => {
+    const rowId = `${formId}-${kind}-${rowSequence}`;
+    setRowSequence((previous) => previous + 1);
+    return rowId;
+  };
+
+  const createRowKeys = (source: WeekContextDraft): EditableRowKeys => ({
+    promotionTerms: source.promotionTerms.map(
+      (_, index) => `${formId}-promotion-term-initial-${index}`,
+    ),
+    mustInclude: source.mustInclude.map(
+      (_, index) => `${formId}-must-include-initial-${index}`,
+    ),
+    mustAvoid: source.mustAvoid.map(
+      (_, index) => `${formId}-must-avoid-initial-${index}`,
+    ),
+  });
+
+  const [draft, setDraft] = useState<WeekContextDraft>(() => initialDraft);
+  const [rowKeys, setRowKeys] = useState<EditableRowKeys>(() =>
+    createRowKeys(initialDraft),
   );
 
   const [errors, setErrors] = useState<WeekContextFormErrors>({});
@@ -46,13 +75,16 @@ export function WeekContextForm({
   }, [draft, onDraftChange]);
 
   const [prevInitialContext, setPrevInitialContext] = useState(initialContext);
+  let visibleRowKeys = rowKeys;
   if (initialContext !== prevInitialContext) {
+    const nextDraft = initialContext
+      ? draftFromWeekContext(initialContext)
+      : createEmptyWeekContextDraft();
+    const nextRowKeys = createRowKeys(nextDraft);
     setPrevInitialContext(initialContext);
-    setDraft(
-      initialContext
-        ? draftFromWeekContext(initialContext)
-        : createEmptyWeekContextDraft(),
-    );
+    setDraft(nextDraft);
+    setRowKeys(nextRowKeys);
+    visibleRowKeys = nextRowKeys;
   }
 
   const disabled = isReadonly || isFrozen || isSubmitting;
@@ -80,14 +112,23 @@ export function WeekContextForm({
   };
 
   const handleAddTerm = () => {
+    const rowKey = createRowId("promotion-term");
     setDraft((prev) => ({
       ...prev,
       promotionTerms: [...prev.promotionTerms, ""],
+    }));
+    setRowKeys((prev) => ({
+      ...prev,
+      promotionTerms: [...prev.promotionTerms, rowKey],
     }));
   };
 
   const handleRemoveTerm = (index: number) => {
     setDraft((prev) => ({
+      ...prev,
+      promotionTerms: prev.promotionTerms.filter((_, i) => i !== index),
+    }));
+    setRowKeys((prev) => ({
       ...prev,
       promotionTerms: prev.promotionTerms.filter((_, i) => i !== index),
     }));
@@ -102,14 +143,23 @@ export function WeekContextForm({
   };
 
   const handleAddMustInclude = () => {
+    const rowKey = createRowId("must-include");
     setDraft((prev) => ({
       ...prev,
       mustInclude: [...prev.mustInclude, ""],
+    }));
+    setRowKeys((prev) => ({
+      ...prev,
+      mustInclude: [...prev.mustInclude, rowKey],
     }));
   };
 
   const handleRemoveMustInclude = (index: number) => {
     setDraft((prev) => ({
+      ...prev,
+      mustInclude: prev.mustInclude.filter((_, i) => i !== index),
+    }));
+    setRowKeys((prev) => ({
       ...prev,
       mustInclude: prev.mustInclude.filter((_, i) => i !== index),
     }));
@@ -124,14 +174,23 @@ export function WeekContextForm({
   };
 
   const handleAddMustAvoid = () => {
+    const rowKey = createRowId("must-avoid");
     setDraft((prev) => ({
       ...prev,
       mustAvoid: [...prev.mustAvoid, ""],
+    }));
+    setRowKeys((prev) => ({
+      ...prev,
+      mustAvoid: [...prev.mustAvoid, rowKey],
     }));
   };
 
   const handleRemoveMustAvoid = (index: number) => {
     setDraft((prev) => ({
+      ...prev,
+      mustAvoid: prev.mustAvoid.filter((_, i) => i !== index),
+    }));
+    setRowKeys((prev) => ({
       ...prev,
       mustAvoid: prev.mustAvoid.filter((_, i) => i !== index),
     }));
@@ -284,11 +343,13 @@ export function WeekContextForm({
                 )}
               </div>
 
-              {draft.promotionTerms.map((term, idx) => (
-                <div key={idx} className="flex items-center gap-2">
+              {draft.promotionTerms.map((term, idx) => {
+                const rowKey = visibleRowKeys.promotionTerms[idx]!;
+                return (
+                <div key={rowKey} className="flex items-center gap-2">
                   <input
-                    id={`${formId}-term-${idx}`}
-                    name={`promotionTerm-${idx}`}
+                    id={`${rowKey}-input`}
+                    name={rowKey}
                     type="text"
                     autoComplete="off"
                     aria-label={t("termInputLabel", { index: idx + 1 })}
@@ -308,7 +369,8 @@ export function WeekContextForm({
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Valid From & Until */}
@@ -379,11 +441,13 @@ export function WeekContextForm({
               </button>
             )}
           </div>
-          {draft.mustInclude.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-2">
+          {draft.mustInclude.map((item, idx) => {
+            const rowKey = visibleRowKeys.mustInclude[idx]!;
+            return (
+            <div key={rowKey} className="flex items-center gap-2">
               <input
-                id={`${formId}-must-include-${idx}`}
-                name={`mustInclude-${idx}`}
+                id={`${rowKey}-input`}
+                name={rowKey}
                 type="text"
                 autoComplete="off"
                 aria-label={t("instructionInputLabel", { kind: t("mustInclude"), index: idx + 1 })}
@@ -403,7 +467,8 @@ export function WeekContextForm({
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Must Avoid */}
@@ -420,11 +485,13 @@ export function WeekContextForm({
               </button>
             )}
           </div>
-          {draft.mustAvoid.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-2">
+          {draft.mustAvoid.map((item, idx) => {
+            const rowKey = visibleRowKeys.mustAvoid[idx]!;
+            return (
+            <div key={rowKey} className="flex items-center gap-2">
               <input
-                id={`${formId}-must-avoid-${idx}`}
-                name={`mustAvoid-${idx}`}
+                id={`${rowKey}-input`}
+                name={rowKey}
                 type="text"
                 autoComplete="off"
                 aria-label={t("instructionInputLabel", { kind: t("mustAvoid"), index: idx + 1 })}
@@ -444,7 +511,8 @@ export function WeekContextForm({
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

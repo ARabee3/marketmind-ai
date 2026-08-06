@@ -10,8 +10,16 @@ type Props = {
 
 export function ContentWeekLedger({ slots }: Props) {
   const t = useTranslations("ContentCycle.ledger");
+  const tProgress = useTranslations("ContentCycle.progress");
   const selectedLinkRef = useRef<HTMLAnchorElement>(null);
   const selectedWeek = slots.find((slot) => slot.isSelected)?.weekNumber ?? null;
+
+  const formatPackStatus = (status: string) => {
+    const statusKey = status === "partially_approved" ? "partiallyApproved" : status;
+    return tProgress(
+      `statuses.${statusKey}` as unknown as Parameters<typeof tProgress>[0],
+    );
+  };
 
   useEffect(() => {
     if (typeof selectedLinkRef.current?.scrollIntoView === "function") {
@@ -92,8 +100,8 @@ export function ContentWeekLedger({ slots }: Props) {
                     {/* Pack Status */}
                     <div className="text-[10px] text-muted-foreground">
                       {slot.pack.kind === "known" && (
-                        <span className="capitalize font-medium text-navy">
-                          {slot.pack.status}
+                        <span className="font-medium text-navy">
+                          {formatPackStatus(slot.pack.status)}
                         </span>
                       )}
                       {slot.pack.kind === "history_unavailable" && (

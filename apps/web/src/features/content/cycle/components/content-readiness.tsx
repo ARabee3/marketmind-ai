@@ -18,6 +18,8 @@ type Props = {
   readonly onRetry?: () => Promise<void>;
   readonly onRefresh?: () => void;
   readonly packIdForReview?: string | null;
+  /** The pack-review route is supplied by companion issue #155. */
+  readonly reviewRouteAvailable?: boolean;
 };
 
 export function ContentReadiness({
@@ -35,6 +37,7 @@ export function ContentReadiness({
   onRetry,
   onRefresh,
   packIdForReview = null,
+  reviewRouteAvailable = false,
 }: Props) {
   const tReadiness = useTranslations("ContentCycle.readiness");
   const tActions = useTranslations("ContentCycle.actions");
@@ -166,7 +169,9 @@ export function ContentReadiness({
           </button>
         )}
 
-        {primaryAction === "review_pack" && packIdForReview && (
+        {primaryAction === "review_pack" &&
+          reviewRouteAvailable &&
+          packIdForReview && (
           <Link
             href={`/content/packs/${packIdForReview}`}
             className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action"

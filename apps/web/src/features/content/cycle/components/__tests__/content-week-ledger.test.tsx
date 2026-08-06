@@ -12,6 +12,8 @@ vi.mock("next-intl", () => ({
     if (key === "contextOpen") return "Context open";
     if (key === "packHistoryUnavailable") return "History unavailable";
     if (key === "notEligibleYet") return "Planned";
+    if (key === "statuses.queued") return "Waiting to start";
+    if (key === "statuses.partiallyApproved") return "Review still needed";
     if (key === "current") return "Current";
     if (key === "next") return "Next";
     return key;
@@ -44,6 +46,6 @@ describe("ContentWeekLedger", () => {
 
     expect(screen.getByText((content) => content.includes("Confirmed by owner"))).toBeDefined();
     expect(screen.getByText("Current")).toBeDefined();
-    expect(screen.getByText("queued")).toBeDefined();
+    expect(screen.getByText("Waiting to start")).toBeDefined();
   });
 });

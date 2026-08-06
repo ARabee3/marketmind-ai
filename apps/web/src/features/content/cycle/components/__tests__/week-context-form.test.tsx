@@ -8,6 +8,9 @@ vi.mock("next-intl", () => ({
     if (key === "retainedAssets") return `Retained photos: ${opts?.count}`;
     if (key === "noPromotion") return "No promotion";
     if (key === "approvedPromotion") return "Owner-approved promotion";
+    if (key === "addTerm") return "Add term";
+    if (key === "removeTerm") return "Remove term";
+    if (key === "termInputLabel") return `Promotion term ${opts?.index}`;
     if (key === "save") return "Save weekly context";
     if (key === "safeDefaultTitle") return "Safe default used";
     return key;
@@ -54,5 +57,34 @@ describe("WeekContextForm", () => {
 
     fireEvent.submit(screen.getByRole("button", { name: /Save weekly context/ }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
+  it("preserves remaining promotion rows when a middle row is removed", () => {
+    render(<WeekContextForm onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: /Owner-approved promotion/ }));
+    const addTerm = screen.getByRole("button", { name: /Add term/ });
+    fireEvent.click(addTerm);
+    fireEvent.click(addTerm);
+    fireEvent.click(addTerm);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Promotion term 1" }), {
+      target: { value: "First" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Promotion term 2" }), {
+      target: { value: "Middle" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Promotion term 3" }), {
+      target: { value: "Last" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Remove term 2/ }));
+
+    expect(
+      (screen.getByRole("textbox", { name: "Promotion term 1" }) as HTMLInputElement).value,
+    ).toBe("First");
+    expect(
+      (screen.getByRole("textbox", { name: "Promotion term 2" }) as HTMLInputElement).value,
+    ).toBe("Last");
   });
 });

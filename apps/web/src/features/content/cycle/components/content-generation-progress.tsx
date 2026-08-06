@@ -11,6 +11,8 @@ type Props = {
   readonly onRetry?: () => Promise<void>;
   readonly onRefresh?: () => void;
   readonly showActions?: boolean;
+  /** The pack-review route is supplied by companion issue #155. */
+  readonly reviewRouteAvailable?: boolean;
 };
 
 export function ContentGenerationProgress({
@@ -22,6 +24,7 @@ export function ContentGenerationProgress({
   onRetry,
   onRefresh,
   showActions = true,
+  reviewRouteAvailable = false,
 }: Props) {
   const t = useTranslations("ContentCycle.progress");
   const tActions = useTranslations("ContentCycle.actions");
@@ -130,7 +133,7 @@ export function ContentGenerationProgress({
             </p>
           </div>
 
-          {showActions && (
+          {showActions && reviewRouteAvailable && (
             <Link
               href={`/content/packs/${pack.id}`}
               className="inline-flex items-center justify-center rounded-lg bg-action px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action shrink-0"

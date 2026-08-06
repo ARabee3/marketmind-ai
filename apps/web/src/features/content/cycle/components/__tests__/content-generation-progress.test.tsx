@@ -53,11 +53,23 @@ describe("ContentGenerationProgress", () => {
       <ContentGenerationProgress
         pack={mockDraftPack}
         events={mockPackProgressEvents}
+        reviewRouteAvailable
       />,
     );
 
     expect(screen.getAllByText("Draft pack ready").length).toBeGreaterThan(0);
     const link = screen.getByRole("link");
     expect(link.getAttribute("href")).toBe(`/content/packs/${MOCK_PACK_ID}`);
+  });
+
+  it("hides the review link until the companion review route is available", () => {
+    render(
+      <ContentGenerationProgress
+        pack={mockDraftPack}
+        events={mockPackProgressEvents}
+      />,
+    );
+
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });
