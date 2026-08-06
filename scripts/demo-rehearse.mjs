@@ -6,7 +6,7 @@
  * Executes the runbook against a freshly reset throwaway DB:
  *   1. apps/api/.env.test → active .env (backed up + restored on exit)
  *   2. prisma migrate reset (applies all migrations cleanly)
- *   3. redis FLUSHALL (no stale BullMQ delayed jobs)
+ *   3. redis FLUSHDB (no stale BullMQ delayed jobs in the configured DB)
  *   4. onboard a truthful demo owner + business (seed:demo-owner)
  *   5. seed the publishing demo in zero-credentials mode
  *      (MANUAL_EXPORT + SIMULATION intents — no META creds, no target, no queue)
@@ -25,8 +25,9 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const apiDir = path.join(root, "apps/api");
 const webDir = path.join(root, "apps/web");
 const envTest = path.join(apiDir, ".env.test");
@@ -45,7 +46,11 @@ function run(cmd, args, opts = {}) {
   });
   if (res.error) throw res.error;
   if (res.status !== 0) {
-    process.exit(res.status ?? 1);
+    const error = new Error(
+      `${cmd} ${args.join(" ")} exited with status ${res.status ?? 1}`,
+    );
+    error.exitCode = res.status ?? 1;
+    throw error;
   }
   return res;
 }
@@ -102,15 +107,19 @@ try {
   console.log("\n[demo:rehearse] 2/7 flushing Redis (no stale BullMQ jobs)");
   const testEnv = readEnv(envTest);
   const redisUrl = testEnv.REDIS_URL ?? "redis://localhost:6379";
+  const redisDb = new URL(redisUrl).pathname.replace(/^\//, "") || "0";
   // Prefer a host redis-cli; fall back to the docker-compose container.
   const flushCmd = hasBin("redis-cli")
-    ? { cmd: "redis-cli", args: ["-u", redisUrl, "FLUSHALL"] }
-    : { cmd: "docker", args: ["exec", "marketmind-redis", "redis-cli", "FLUSHALL"] };
+    ? { cmd: "redis-cli", args: ["-u", redisUrl, "FLUSHDB"] }
+    : {
+        cmd: "docker",
+        args: ["exec", "marketmind-redis", "redis-cli", "-n", redisDb, "FLUSHDB"],
+      };
   const flush = run(flushCmd.cmd, flushCmd.args, { stdio: "pipe" });
   if (!String(flush.stdout).trim().startsWith("OK")) {
-    throw new Error(`redis FLUSHALL failed: ${flush.stdout}`);
+    throw new Error(`redis FLUSHDB failed: ${flush.stdout}`);
   }
-  console.log(`  redis FLUSHALL OK (${redisUrl})`);
+  console.log(`  redis FLUSHDB OK (${redisUrl})`);
 
   console.log("\n[demo:rehearse] 3/7 onboarding the demo owner + business");
   const owner = lastJsonLine(
@@ -184,7 +193,10 @@ try {
   console.log("\n[demo:rehearse] done — report + screenshots in apps/web/test-results/");
 } catch (e) {
   console.error("\n[demo:rehearse] failed:", e);
-  process.exitCode = 1;
+  process.exitCode =
+    e && typeof e === "object" && Number.isInteger(e.exitCode)
+      ? e.exitCode
+      : 1;
 } finally {
   restore();
   console.log("  (apps/api/.env restored)");
