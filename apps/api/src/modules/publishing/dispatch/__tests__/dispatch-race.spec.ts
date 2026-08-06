@@ -266,6 +266,93 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(assetIntegrity.validateForDispatch).not.toHaveBeenCalled();
   });
 
+  it("reclaims a queued attempt after a worker crash before the outbound call", async () => {
+    const queuedAttempt = {
+      id: body.attempt_id,
+      intentVersion: body.intent_version,
+      status: "QUEUED",
+      providerRequestFingerprint: "f".repeat(64),
+    };
+    const recoveryTx = {
+      publishingIntent: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: body.intent_id,
+          version: body.intent_version,
+          status: "DISPATCHING",
+          candidateId: body.candidate.candidate_id,
+          targetId: body.target.target_id,
+          businessId: body.business_id,
+          scheduledUtcAt: new Date(body.scheduled_utc),
+          scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
+          timezone: "Africa/Cairo",
+        }),
+        updateMany: jest.fn(),
+      },
+      publishingAttempt: {
+        findUnique: jest.fn().mockResolvedValue(queuedAttempt),
+        findFirst: jest.fn().mockResolvedValue(queuedAttempt),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      publishingApproval: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: body.candidate.approval.decision_id,
+          candidateChecksum: body.candidate.candidate_checksum,
+          decidedByUserId: body.candidate.approval.decided_by_user_id,
+          decidedAt: new Date(body.candidate.approval.decided_at),
+        }),
+      },
+      publishingCandidate: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          status: "ACTIVE",
+          candidateChecksum: body.candidate.candidate_checksum,
+          payload: body.candidate,
+          sourceStatus: body.candidate_status,
+        }),
+      },
+      publishingTarget: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: body.target.target_id,
+          businessId: body.target.business_id,
+          provider: "META",
+          channel: body.target.channel,
+          externalAccountId: body.target.external_account_id,
+          displayName: body.target.display_name,
+          connectionState: "CONNECTED",
+          credentialRef: body.target.credential_ref,
+          capabilities: body.target.capabilities,
+          lastVerifiedAt: null,
+          expiresAt: null,
+          version: body.target.version,
+        }),
+      },
+    };
+    const recoveryBuilder = {
+      buildDispatchBody: jest.fn().mockReturnValue({
+        body,
+        requestFingerprint: "f".repeat(64),
+      }),
+    } as unknown as DispatchEnvelopeBuilder;
+    const recoveryProcessor = new DispatchProcessor(
+      prisma as any,
+      n8n as any,
+      assetIntegrity as any,
+      recoveryBuilder,
+    );
+    (prisma.$transaction as jest.Mock)
+      .mockImplementationOnce(async (cb: (innerTx: any) => unknown) =>
+        cb(recoveryTx),
+      )
+      .mockResolvedValueOnce({});
+    (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+
+    await recoveryProcessor.process(job);
+
+    expect(recoveryTx.publishingIntent.updateMany).not.toHaveBeenCalled();
+    expect(n8n.dispatch).toHaveBeenCalledWith(body);
+  });
+
   it("P1-6: a stale vN revalidation failure does NOT fail a newer vN+1 intent — markIntentFailed is version-predicated (0 rows)", async () => {
     // Simulate the revalidation tx rejecting because the job's version (1) is
     // stale against the current intent version (2). markIntentFailed must
