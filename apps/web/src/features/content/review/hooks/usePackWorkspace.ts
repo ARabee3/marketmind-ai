@@ -78,16 +78,15 @@ export function usePackWorkspace(packId: string) {
 
   useEffect(() => {
     // Track the latest requested pack so in-flight responses from a previous
-    // pack are discarded instead of rendering under the new URL.
+    // pack are discarded instead of rendering under the new URL. The previous
+    // pack's data is masked via the derived state below rather than being
+    // reset synchronously, so navigating between packs never renders one
+    // pack's content beneath another pack's URL.
     packIdRef.current = packId
-    setState({
-      status: 'loading',
-      workspace: null,
-      error: null,
-      isFixture: false,
-    })
-    setSelectedItemId(null)
-    void loadWorkspace(packId)
+    const timer = setTimeout(() => {
+      void loadWorkspace(packId)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [packId, loadWorkspace])
 
   const refetch = useCallback(
@@ -95,13 +94,21 @@ export function usePackWorkspace(packId: string) {
     [loadWorkspace],
   )
 
+  // While a load for the current packId is in flight, the stored workspace
+  // belongs to a previous pack; surface that as a fresh loading state so the
+  // UI never shows one pack under another pack's URL.
+  const effectiveState: PackWorkspaceState =
+    state.status === 'success' && state.workspace.pack.id !== packId
+      ? { status: 'loading', workspace: null, error: null, isFixture: false }
+      : state
+
   const selectedItem: ContentPackWorkspaceItem | null =
-    state.workspace?.items.find((i) => i.item.id === selectedItemId) ??
-    state.workspace?.items[0] ??
+    effectiveState.workspace?.items.find((i) => i.item.id === selectedItemId) ??
+    effectiveState.workspace?.items[0] ??
     null
 
   return {
-    ...state,
+    ...effectiveState,
     selectedItemId,
     selectedItem,
     setSelectedItemId,
