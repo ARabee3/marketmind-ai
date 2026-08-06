@@ -21,6 +21,7 @@ from content_contracts import (
     ContentItemVersion,
 )
 
+from app.content.circuit_breaker import CircuitBreaker
 from app.content.assembler import (
     assemble_asset_prompt,
     assemble_generation_prompt,
@@ -49,6 +50,8 @@ from app.providers.content_provider import create_content_provider
 
 router = APIRouter(prefix="/internal/v1/ai/content", tags=["internal-ai-content"])
 logger = logging.getLogger(__name__)
+
+_content_breaker = CircuitBreaker()
 
 _VALUE_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",
@@ -190,6 +193,7 @@ async def generate_content(
             provider,
             prompt,
             request=request,
+            breaker=_content_breaker,
         )
     except ProviderError as error:
         _raise_provider_error(error)
@@ -249,6 +253,7 @@ async def revise_content(
             prompt,
             base_item_version=envelope.previous_item_version,
             generation_request=envelope.generation_request,
+            breaker=_content_breaker,
         )
     except ProviderError as error:
         _raise_provider_error(error)
