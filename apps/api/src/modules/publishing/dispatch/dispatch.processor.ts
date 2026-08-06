@@ -19,16 +19,26 @@ export interface DispatchJobData {
   idempotencyKey: string;
 }
 
+export class DispatchClaimLostError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DispatchClaimLostError";
+  }
+}
+
 /**
  * Dispatch processor — consumes 'dispatch' jobs from the 'publishing-dispatch' queue.
  *
  * Full revalidation checklist (§9.2) runs inside a DB transaction:
- *   1. intent version + status (SCHEDULED);
- *   2. approval row matches the approved intent version;
- *   3. candidate ACTIVE and checksum matches the approval snapshot;
- *   4. target CONNECTED and not expired;
- *   5. no successful/in-flight attempt already exists for this version;
- *   6. (asset integrity) retrieved media bytes match the approved digests
+ *   1. intent version + status (SCHEDULED, see P1 atomic claim);
+ *   2. ATOMIC INTENT CLAIM (P1 #123): `UPDATE … WHERE id, version, status =
+ *      'SCHEDULED'` — zero rows affected aborts the job before any n8n call
+ *      (another worker won, reschedule bumped the version, or cancel moved the state);
+ *   3. approval row matches the approved intent version;
+ *   4. candidate ACTIVE and checksum matches the approval snapshot;
+ *   5. target CONNECTED and not expired;
+ *   6. no successful/in-flight attempt already exists for this version;
+ *   7. (asset integrity) retrieved media bytes match the approved digests
  *      via the frozen validateRetrievedPublicationAssetsV1 contract validator.
  *
  * Idempotency model (issue #119 / contract publication-attempt-v1):
@@ -86,6 +96,12 @@ export class DispatchProcessor extends WorkerHost {
         idempotencyKey,
       );
     } catch (err) {
+      if (err instanceof DispatchClaimLostError) {
+        this.logger.log(
+          `Dispatch claim was lost for intent=${intentId} v=${version} — recorded no-op`,
+        );
+        return;
+      }
       this.logger.warn(
         `Dispatch revalidation failed for intent=${intentId} v=${version}: ${(err as Error).message}`,
       );
@@ -171,7 +187,15 @@ export class DispatchProcessor extends WorkerHost {
           },
         });
         await tx.publishingIntent.updateMany({
-          where: { id: intentId, version, status: "SCHEDULED" },
+          // The intent was already claimed to DISPATCHING inside the
+          // revalidation tx; this predicate is the anti-regression guard — a
+          // fast n8n callback that already moved the intent to a terminal
+          // state matches 0 rows and is left untouched.
+          where: {
+            id: intentId,
+            version,
+            status: { in: ["SCHEDULED", "DISPATCHING"] },
+          },
           data: { status: "DISPATCHING" },
         });
       });
@@ -190,6 +214,16 @@ export class DispatchProcessor extends WorkerHost {
       // idempotency key — never an automatic re-dispatch.
       const ambiguous = this.isAmbiguousDelivery(err);
       const sanitized = this.sanitizeError(err);
+      // P1 (#123): stamp a stable, grep-able sentinel on AMBIGUOUS (post-send)
+      // deliveries only so admin tooling can reconcile stuck dispatches
+      // deterministically without parsing redacted network messages. Prepended
+      // AFTER `sanitizeError` has redacted secrets and applied the 512-char
+      // cap, so the sentinel itself can never be truncated away or contaminated
+      // by raw error text. Deterministic pre-send failures keep the plain
+      // sanitized message.
+      const storedError = ambiguous
+        ? `STUCK_DISPATCH_TIMEOUT: ${sanitized}`
+        : sanitized;
       this.logger.error(
         `Dispatch ${ambiguous ? "timed out ambiguously" : "failed deterministically"} for attempt=${attemptId}: ${(err as Error).message}`,
       );
@@ -199,7 +233,7 @@ export class DispatchProcessor extends WorkerHost {
           where: { id: attemptId },
           data: {
             status: ambiguous ? "UNKNOWN" : "FAILED",
-            sanitizedError: sanitized,
+            sanitizedError: storedError,
             finishedAt: now,
           },
         });
@@ -222,7 +256,7 @@ export class DispatchProcessor extends WorkerHost {
               // therefore marks UNKNOWN as non-retryable.
               retryable: false,
               rawPayloadHash: null,
-              sanitizedError: sanitized,
+              sanitizedError: storedError,
               occurredAt: now,
             },
           });
@@ -267,14 +301,20 @@ export class DispatchProcessor extends WorkerHost {
 
         // §9.2 Check 0: idempotent replay resolution. The (intent_id,
         // idempotency_key) unique index makes the existing attempt THE attempt
-        // for this key — a replay of the same delayed job short-circuits to it
-        // as a recorded no-op, even if the intent has since moved to a terminal
-        // state. (Per-key uniqueness means a different dispatch request cannot
-        // reuse the key — it is insert-blocked by the index.)
+        // for this key. A terminal/in-flight replay is a recorded no-op; a
+        // QUEUED attempt whose transaction already committed is recovered
+        // below so a worker crash before the outbound call cannot strand it.
         const existingByKey = await tx.publishingAttempt.findUnique({
           where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
         });
-        if (existingByKey) {
+        const recoveringQueuedAttempt = Boolean(
+          existingByKey &&
+            existingByKey.status === "QUEUED" &&
+            existingByKey.intentVersion === version &&
+            intent.version === version &&
+            intent.status === "DISPATCHING",
+        );
+        if (existingByKey && !recoveringQueuedAttempt) {
           return {
             replayed: true,
             attemptId: existingByKey.id,
@@ -283,17 +323,54 @@ export class DispatchProcessor extends WorkerHost {
           } as const;
         }
 
-        // §9.2 Check 1: version match
-        if (intent.version !== version) {
+        // §9.2 Check 1: version match (a queued replay was already checked
+        // against the same version above).
+        if (!recoveringQueuedAttempt && intent.version !== version) {
           throw new Error(
             `${PublishingErrorCode.STATE_CONFLICT}: intent version mismatch (expected ${version}, current ${intent.version})`,
           );
         }
-        // §9.2 Check 2: status must be SCHEDULED
-        if (intent.status !== "SCHEDULED") {
+        // §9.2 Check 2: only SCHEDULED intents may be claimed. A DISPATCHING
+        // intent is already owned by another worker (or is being recovered by
+        // a replay of its queued attempt), so this delivery must not mark it
+        // FAILED while the owner is still in flight.
+        if (!recoveringQueuedAttempt && intent.status !== "SCHEDULED") {
+          if (intent.status === "DISPATCHING") {
+            throw new DispatchClaimLostError(
+              `intent ${intentId} is already DISPATCHING at v${version}`,
+            );
+          }
           throw new Error(
             `${PublishingErrorCode.STATE_CONFLICT}: intent status is "${intent.status}", expected SCHEDULED`,
           );
+        }
+
+        // ── P1 (#123) ATOMIC INTENT CLAIM ─────────────────────────────────
+        // Optimistically claim the intent for THIS dispatch. The version
+        // predicate makes the claim stale-job-safe: a reschedule bumps
+        // `version`, a cancel moves the status out of the claimable set, so a
+        // stale delayed job's claim updates 0 rows and the job aborts here —
+        // BEFORE any n8n call. A retry that reaches this point after another worker claimed the
+        // intent loses the compare-and-swap and is a no-op. The claim and
+        // attempt creation share this transaction, so there is no committed
+        // state in which an intent is DISPATCHING without its attempt row.
+        if (!recoveringQueuedAttempt) {
+          const intentClaim = await tx.publishingIntent.updateMany({
+            where: {
+              id: intentId,
+              version,
+              status: "SCHEDULED",
+            },
+            data: { status: "DISPATCHING" },
+          });
+          if (intentClaim.count !== 1) {
+            // Another worker won the claim, or a newer state/version won the
+            // race. Abort this job immediately — do NOT fail the intent or call
+            // n8n.
+            throw new DispatchClaimLostError(
+              `intent ${intentId} no longer claimable at v${version} (status ${intent.status})`,
+            );
+          }
         }
 
         // §9.2 Check 3: approval row with matching intent version
@@ -344,6 +421,7 @@ export class DispatchProcessor extends WorkerHost {
         }
 
         // §9.2 Check 6: no existing active/succeeded attempt for this version
+        // other than the queued attempt being recovered.
         const existingAttempt = await tx.publishingAttempt.findFirst({
           where: {
             intentId,
@@ -351,61 +429,76 @@ export class DispatchProcessor extends WorkerHost {
             status: { in: ["QUEUED", "RUNNING", "DISPATCHING", "SUCCEEDED"] },
           },
         });
-        if (existingAttempt) {
+        if (
+          existingAttempt &&
+          (!recoveringQueuedAttempt || existingAttempt.id !== existingByKey?.id)
+        ) {
           throw new Error(
             `${PublishingErrorCode.DUPLICATE_DISPATCH}: attempt already in-flight for version ${version}`,
           );
         }
 
-        // All checks passed — create attempt row (provisional fingerprint; the
-        // canonical body hash needs the created attempt id and is stamped next).
-        const lastAttempt = await tx.publishingAttempt.findFirst({
-          where: { intentId, intentVersion: version },
-          orderBy: { attemptSequence: "desc" },
-        });
-        const nextSeq = lastAttempt ? lastAttempt.attemptSequence + 1 : 1;
-
         let attempt: { id: string; status: string };
-        try {
-          attempt = await tx.publishingAttempt.create({
-            data: {
-              intentId,
-              intentVersion: version,
-              attemptSequence: nextSeq,
-              status: "QUEUED",
-              idempotencyKey,
-              // P1 (#119 review): the request fingerprint is the frozen
-              // SignedPublicationDispatchEnvelopeV1 body hash (body_sha256).
-              // It is stamped after the body is assembled with this attempt id
-              // so attempt.request_fingerprint === envelope.body_sha256.
-              providerRequestFingerprint: null,
-              startedAt: new Date(),
-            },
+        let retrievalStartedAt: Date;
+        if (recoveringQueuedAttempt) {
+          attempt = {
+            id: existingByKey!.id,
+            status: existingByKey!.status,
+          };
+          retrievalStartedAt =
+            existingByKey!.startedAt ?? existingByKey!.createdAt;
+        } else {
+          // All checks passed — create attempt row (provisional fingerprint;
+          // the canonical body hash needs the created attempt id and is stamped
+          // next).
+          const lastAttempt = await tx.publishingAttempt.findFirst({
+            where: { intentId, intentVersion: version },
+            orderBy: { attemptSequence: "desc" },
           });
-        } catch (err) {
-          // P2002 on (intent_id, idempotency_key): a concurrent worker created
-          // the attempt first — resolve to it as a recorded no-op (the unique
-          // index guarantees it is THE attempt for this key). Never fail intent.
-          if ((err as { code?: string })?.code === "P2002") {
-            const winner = await tx.publishingAttempt.findUnique({
-              where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
+          const nextSeq = lastAttempt ? lastAttempt.attemptSequence + 1 : 1;
+          retrievalStartedAt = new Date();
+
+          try {
+            attempt = await tx.publishingAttempt.create({
+              data: {
+                intentId,
+                intentVersion: version,
+                attemptSequence: nextSeq,
+                status: "QUEUED",
+                idempotencyKey,
+                // P1 (#119 review): the request fingerprint is the frozen
+                // SignedPublicationDispatchEnvelopeV1 body hash (body_sha256).
+                // It is stamped after the body is assembled with this attempt id
+                // so attempt.request_fingerprint === envelope.body_sha256.
+                providerRequestFingerprint: null,
+                startedAt: retrievalStartedAt,
+              },
             });
-            if (winner) {
-              this.logger.warn(
-                `Concurrent attempt create race for key=${idempotencyKey} — resolving to existing attempt=${winner.id}`,
+          } catch (err) {
+            // P2002 on (intent_id, idempotency_key): a concurrent worker created
+            // the attempt first — resolve to it as a recorded no-op (the unique
+            // index guarantees it is THE attempt for this key). Never fail intent.
+            if ((err as { code?: string })?.code === "P2002") {
+              const winner = await tx.publishingAttempt.findUnique({
+                where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
+              });
+              if (winner) {
+                this.logger.warn(
+                  `Concurrent attempt create race for key=${idempotencyKey} — resolving to existing attempt=${winner.id}`,
+                );
+                return {
+                  replayed: true,
+                  attemptId: winner.id,
+                  status: winner.status,
+                  body: null,
+                } as const;
+              }
+              throw new ConflictException(
+                `${PublishingErrorCode.IDEMPOTENCY_CONFLICT}: idempotency key ${idempotencyKey} race with no winner`,
               );
-              return {
-                replayed: true,
-                attemptId: winner.id,
-                status: winner.status,
-                body: null,
-              } as const;
             }
-            throw new ConflictException(
-              `${PublishingErrorCode.IDEMPOTENCY_CONFLICT}: idempotency key ${idempotencyKey} race with no winner`,
-            );
+            throw err;
           }
-          throw err;
         }
 
         // Assemble the frozen dispatch body (P1) and stamp the canonical
@@ -441,6 +534,7 @@ export class DispatchProcessor extends WorkerHost {
             scheduledUtcAt: intent.scheduledUtcAt!,
             scheduledLocalAt: intent.scheduledLocalAt,
             timezone: intent.timezone,
+            retrievalStartedAt,
           });
         await tx.publishingAttempt.update({
           where: { id: attempt.id },

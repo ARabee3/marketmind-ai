@@ -50,6 +50,8 @@ export interface DispatchAssemblyInput {
   scheduledUtcAt: Date;
   scheduledLocalAt: Date | null;
   timezone: string | null;
+  /** Stable attempt timestamp used to keep replayed bodies byte-identical. */
+  retrievalStartedAt?: Date;
 }
 
 /** Far-future (1h) retrieval expiry used while the signed-URL asset boundary
@@ -149,7 +151,8 @@ export class DispatchEnvelopeBuilder {
     // with #121). The retrieval_expires_at is bounded so a stale URL is never
     // accepted as live.
     const retrievalExpiresAt = new Date(
-      Date.now() + ASSET_RETRIEVAL_TTL_MS,
+      (input.retrievalStartedAt ?? new Date()).getTime() +
+        ASSET_RETRIEVAL_TTL_MS,
     ).toISOString();
     const assets: PublicationDispatchAssetV1[] = (
       input.candidate.assets ?? []

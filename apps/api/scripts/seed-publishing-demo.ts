@@ -124,12 +124,13 @@ async function main(): Promise<void> {
   const businessId = business.id;
   const ownerId = business.ownerUserId;
 
-  const metaPageId =
-    process.env.META_TEST_PAGE_ID ?? "";
-  if (!metaPageId) {
-    throw new Error(
-      "META_TEST_PAGE_ID is not set in .env — required for the demo target's external_account_id.",
-    );
+  // Zero-credentials mode: when META_TEST_PAGE_ID is empty the demo must stay
+  // fully local — seed a MANUAL_EXPORT + a SIMULATION intent instead of the
+  // real-mode leg (no target row, no approval, no BullMQ job, no provider).
+  const metaPageId = process.env.META_TEST_PAGE_ID ?? "";
+  const zeroCredentials = !metaPageId;
+  if (!zeroCredentials) {
+    console.log(`Real-mode demo target will use Meta Page ${metaPageId}`);
   }
 
   const asset = loadDemoAsset();
@@ -137,101 +138,211 @@ async function main(): Promise<void> {
   const scheduledUtc = new Date(now.getTime() + 10_000); // now + 10s
   const scheduledLocal = naiveCairoLocal(scheduledUtc);
 
-  // ── Build + validate the frozen PublicationCandidateV1 payload ────────────
-  const contentItemVersionId = uuid();
-  const contentItemVersionChecksum = sha256(`demo-content:${contentItemVersionId}`);
-  const candidateId = uuid();
-  const eventId = uuid();
-  const occurredAt = now.toISOString();
-  const approvalDecisionId = uuid();
-  const decidedAt = now.toISOString();
+  const buildCandidate = (): {
+    candidate: PublicationCandidateV1;
+    sourceStatus: PublicationCandidateStatusV1;
+    createdEvent: { event_id: string; event_type: string; occurred_at: string; correlation_id: string; payload: PublicationCandidateV1 };
+    eventFingerprint: string;
+    eventId: string;
+    contentItemVersionId: string;
+    occurredAt: string;
+    decidedAt: string;
+    candidateId: string;
+  } => {
+    const contentItemVersionId = uuid();
+    const contentItemVersionChecksum = sha256(`demo-content:${contentItemVersionId}`);
+    const candidateId = uuid();
+    const eventId = uuid();
+    const occurredAt = new Date().toISOString();
+    const approvalDecisionId = uuid();
+    const decidedAt = new Date().toISOString();
 
-  const candidatePayload: PublicationCandidateV1 = {
-    contract_version: "publication-candidate-v1",
-    candidate_id: candidateId,
-    business_id: businessId,
-    strategy_id: DEMO_STRATEGY_ID,
-    strategy_version: 1,
-    content_cycle_id: DEMO_CYCLE_ID,
-    strategy_week_number: 1,
-    content_pack_id: DEMO_PACK_ID,
-    content_item_id: DEMO_ITEM_ID,
-    content_item_version_id: contentItemVersionId,
-    content_item_version: 1,
-    content_item_version_checksum: contentItemVersionChecksum,
-    target_channel: "facebook",
-    content_format: "static_image_post",
-    selected_locale: "ar",
-    caption:
-      "حلويات حلوانى العبد… طعم أصيل يذكّرك بالبيت 🍮\nزوروا فرعنا بقنا ورقم الاستقبال 10071.\n#حلوانى_العبد #حلويات_مصرية #قنا",
-    cta: "زوروا الفرع اليوم",
-    hashtags: ["#حلوانى_العبد", "#حلويات_مصرية", "#قنا"],
-    alt_text: "صورة تسويقية لمنشور حلوانى العبد على فيسبوك",
-    assets: [
-      {
-        asset_id: asset.asset_id,
-        kind: "generated_static",
-        mime_type: asset.mime_type,
-        storage_key: "demo-static-image.png",
-        checksum: asset.checksum,
-      },
-    ],
-    recommended_publish_window: {
-      starts_at: now.toISOString(),
-      ends_at: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
-      timezone: "Africa/Cairo",
-    },
-    approval: {
-      decision_id: approvalDecisionId,
-      decision: "approved",
+    const candidatePayload: PublicationCandidateV1 = {
+      contract_version: "publication-candidate-v1",
+      candidate_id: candidateId,
+      business_id: businessId,
+      strategy_id: DEMO_STRATEGY_ID,
+      strategy_version: 1,
+      content_cycle_id: DEMO_CYCLE_ID,
+      strategy_week_number: 1,
+      content_pack_id: DEMO_PACK_ID,
+      content_item_id: DEMO_ITEM_ID,
       content_item_version_id: contentItemVersionId,
+      content_item_version: 1,
       content_item_version_checksum: contentItemVersionChecksum,
-      decided_by_user_id: ownerId,
-      decided_at: decidedAt,
-    },
-    candidate_checksum: "", // stamped below
-    created_at: occurredAt,
-  };
-  // Compute the frozen candidate checksum over the canonical payload (excludes
-  // candidate_checksum itself) and re-validate against the frozen contract.
-  const candidateChecksum = computePublicationCandidateChecksum(
-    candidatePayload as PublicationCandidateV1,
-  );
-  const candidate: PublicationCandidateV1 = {
-    ...candidatePayload,
-    candidate_checksum: candidateChecksum,
-  };
-  const validation = validatePublicationCandidateV1(candidate);
-  if (!validation.valid) {
-    throw new Error(
-      `Seed candidate failed frozen validation: ${validation.issues
-        .map((i) => `${i.code}@${i.field}: ${i.message}`)
-        .join("; ")}`,
+      target_channel: "facebook",
+      content_format: "static_image_post",
+      selected_locale: "ar",
+      caption:
+        "حلويات حلوانى العبد… طعم أصيل يذكّرك بالبيت 🍮\nزوروا فرعنا بقنا ورقم الاستقبال 10071.\n#حلوانى_العبد #حلويات_مصرية #قنا",
+      cta: "زوروا الفرع اليوم",
+      hashtags: ["#حلوانى_العبد", "#حلويات_مصرية", "#قنا"],
+      alt_text: "صورة تسويقية لمنشور حلوانى العبد على فيسبوك",
+      assets: [
+        {
+          asset_id: asset.asset_id,
+          kind: "generated_static",
+          mime_type: asset.mime_type,
+          storage_key: "demo-static-image.png",
+          checksum: asset.checksum,
+        },
+      ],
+      recommended_publish_window: {
+        starts_at: now.toISOString(),
+        ends_at: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+        timezone: "Africa/Cairo",
+      },
+      approval: {
+        decision_id: approvalDecisionId,
+        decision: "approved",
+        content_item_version_id: contentItemVersionId,
+        content_item_version_checksum: contentItemVersionChecksum,
+        decided_by_user_id: ownerId,
+        decided_at: decidedAt,
+      },
+      candidate_checksum: "", // stamped below
+      created_at: occurredAt,
+    };
+    // Compute the frozen candidate checksum over the canonical payload (excludes
+    // candidate_checksum itself) and re-validate against the frozen contract.
+    const candidateChecksum = computePublicationCandidateChecksum(
+      candidatePayload as PublicationCandidateV1,
     );
+    const candidate: PublicationCandidateV1 = {
+      ...candidatePayload,
+      candidate_checksum: candidateChecksum,
+    };
+    const validation = validatePublicationCandidateV1(candidate);
+    if (!validation.valid) {
+      throw new Error(
+        `Seed candidate failed frozen validation: ${validation.issues
+          .map((i) => `${i.code}@${i.field}: ${i.message}`)
+          .join("; ")}`,
+      );
+    }
+
+    // The active source status snapshot the dispatch envelope builder sends.
+    const sourceStatus: PublicationCandidateStatusV1 = {
+      contract_version: "publication-candidate-status-v1",
+      candidate_id: candidateId,
+      business_id: businessId,
+      candidate_checksum: candidateChecksum,
+      state_version: 1,
+      candidate_state: "active",
+      replacement_candidate_id: null,
+      changed_by_user_id: null,
+      changed_at: occurredAt,
+    };
+
+    // The created event + its fingerprint (the candidate dedup key).
+    const createdEvent = {
+      event_id: eventId,
+      event_type: "content.publication_candidate.created.v1",
+      occurred_at: occurredAt,
+      correlation_id: eventId,
+      payload: candidate,
+    };
+    const eventFingerprint = computePublishingSha256(createdEvent);
+
+    return {
+      candidate,
+      sourceStatus,
+      createdEvent,
+      eventFingerprint,
+      eventId,
+      contentItemVersionId,
+      occurredAt,
+      decidedAt,
+      candidateId,
+    };
+  };
+
+  if (zeroCredentials) {
+    // ── Zero-credentials mode: export + simulation legs, fully local ─────────
+    const ids: Record<string, string> = {};
+    for (const mode of ["MANUAL_EXPORT", "SIMULATION"] as const) {
+      const {
+        candidate,
+        sourceStatus,
+        createdEvent,
+        eventFingerprint,
+        eventId,
+        contentItemVersionId,
+        occurredAt,
+        candidateId,
+      } = buildCandidate();
+
+      // Persist candidate (direct insert — mirrors CandidatesService.ingest)
+      await prisma.publishingCandidate.create({
+        data: {
+          id: candidateId,
+          businessId,
+          externalContentId: contentItemVersionId,
+          candidateChecksum: candidate.candidate_checksum,
+          eventFingerprint,
+          eventId,
+          status: "ACTIVE",
+          sourceStatus: sourceStatus as unknown as Prisma.InputJsonValue,
+          payload: candidate as unknown as Prisma.InputJsonValue,
+          channel: "facebook",
+          format: "static_image_post",
+          locale: "ar",
+          strategyWeekNumber: 1,
+          sourceStateVersion: 1,
+        },
+      });
+      console.log(`✓ Candidate ${candidateId} (${mode})`);
+
+      // DRAFT intent — dispatch-export / dispatch-simulation are synchronous
+      // local actions and need no approval, target, or queue job.
+      const intentId = uuid();
+      await prisma.publishingIntent.create({
+        data: {
+          id: intentId,
+          businessId,
+          candidateId,
+          mode,
+          status: "DRAFT",
+          createdByUserId: ownerId,
+          idempotencyKey: `seed:create:${intentId}`,
+        },
+      });
+      console.log(`✓ Intent ${intentId} DRAFT (${mode})`);
+      ids[mode === "MANUAL_EXPORT" ? "intentExportId" : "intentSimulationId"] =
+        intentId;
+    }
+    console.log("");
+    console.log("Zero-credentials demo seed complete. With the API running,");
+    console.log("approve-free local actions drive both legs to their terminal");
+    console.log("states — nothing touches a provider or a BullMQ queue:");
+    console.log(
+      `  POST /api/v1/publication-intents/<id>/dispatch-export     (owner JWT)`,
+    );
+    console.log(
+      `  POST /api/v1/publication-intents/<id>/dispatch-simulation (owner JWT)`,
+    );
+    console.log("");
+    console.log(
+      JSON.stringify(
+        { businessId, mode: "zero-credentials", ...ids },
+        null,
+        2,
+      ),
+    );
+    return;
   }
 
-  // The active source status snapshot the dispatch envelope builder sends.
-  const sourceStatus: PublicationCandidateStatusV1 = {
-    contract_version: "publication-candidate-status-v1",
-    candidate_id: candidateId,
-    business_id: businessId,
-    candidate_checksum: candidateChecksum,
-    state_version: 1,
-    candidate_state: "active",
-    replacement_candidate_id: null,
-    changed_by_user_id: null,
-    changed_at: occurredAt,
-  };
-
-  // The created event + its fingerprint (the candidate dedup key).
-  const createdEvent = {
-    event_id: eventId,
-    event_type: "content.publication_candidate.created.v1",
-    occurred_at: occurredAt,
-    correlation_id: eventId,
-    payload: candidate,
-  };
-  const eventFingerprint = computePublishingSha256(createdEvent);
+  const {
+    candidate,
+    sourceStatus,
+    createdEvent,
+    eventFingerprint,
+    eventId,
+    contentItemVersionId,
+    occurredAt,
+    decidedAt,
+    candidateId,
+  } = buildCandidate();
 
   // ── Persist candidate (direct insert — mirrors CandidatesService.ingest) ──
   await prisma.publishingCandidate.create({
@@ -239,7 +350,7 @@ async function main(): Promise<void> {
       id: candidateId,
       businessId,
       externalContentId: contentItemVersionId,
-      candidateChecksum,
+      candidateChecksum: candidate.candidate_checksum,
       eventFingerprint,
       eventId,
       status: "ACTIVE",
@@ -252,7 +363,7 @@ async function main(): Promise<void> {
       sourceStateVersion: 1,
     },
   });
-  console.log(`✓ Candidate ${candidateId} (checksum=${candidateChecksum})`);
+  console.log(`✓ Candidate ${candidateId} (checksum=${candidate.candidate_checksum})`);
 
   // ── Upsert the connected Meta Page target (stable id across runs) ──────────
   await prisma.publishingTarget.upsert({
@@ -325,7 +436,7 @@ async function main(): Promise<void> {
     intent_id: intentId,
     intent_version: 2,
     candidate_id: candidateId,
-    candidate_checksum: candidateChecksum,
+    candidate_checksum: candidate.candidate_checksum,
     mode: "real",
     target_id: DEMO_TARGET_ID,
     scheduled_local: scheduledLocal,
@@ -342,7 +453,7 @@ async function main(): Promise<void> {
       id: approvalId,
       intentId,
       intentVersionAtDecision: 2,
-      candidateChecksum,
+      candidateChecksum: candidate.candidate_checksum,
       decision: "APPROVED",
       decidedByUserId: ownerId,
       decidedAt: new Date(decidedAt),

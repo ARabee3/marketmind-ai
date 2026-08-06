@@ -94,6 +94,7 @@ function buildBody(): { body: PublicationDispatchBodyV1; fp: string } {
     scheduledUtcAt,
     scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
     timezone: "Africa/Cairo",
+    retrievalStartedAt: new Date("2026-08-03T17:59:00.000Z"),
   });
   return { body, fp: requestFingerprint };
 }
@@ -126,6 +127,16 @@ describe("DispatchEnvelopeBuilder (frozen contract validators — P1 #119)", () 
     const { body, fp } = buildBody();
     // The callback binds request_fingerprint === envelope.body_sha256.
     expect(fp).toBe(computeDispatchRequestFingerprint(body));
+  });
+
+  it("keeps replayed bodies byte-identical when the attempt start is stable", () => {
+    const first = buildBody();
+    const second = buildBody();
+
+    expect(first.body.assets[0].retrieval_expires_at).toBe(
+      second.body.assets[0].retrieval_expires_at,
+    );
+    expect(first.fp).toBe(second.fp);
   });
 
   it("computes the approval fingerprint via the frozen publication-approval-v1 helper", () => {

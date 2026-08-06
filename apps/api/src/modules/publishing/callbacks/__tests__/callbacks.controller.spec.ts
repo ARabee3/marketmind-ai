@@ -153,6 +153,9 @@ function wirePrisma(attempt: ReturnType<typeof storedAttempt>) {
       create: callbackCreate,
       findUnique: callbackFindUnique,
     } as any,
+    // P1 (#123): the callback tx now takes ordered `FOR UPDATE` row locks via
+    // raw SQL; the mock tx resolves them as empty rows.
+    $queryRaw: jest.fn().mockResolvedValue([{}]),
     $transaction: jest.fn().mockImplementation(async (cb: any) => cb(prisma)),
   } as any;
   return {

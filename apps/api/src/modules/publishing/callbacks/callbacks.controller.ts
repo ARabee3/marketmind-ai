@@ -12,12 +12,12 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import { toPublicationAttemptV1 } from "../common/serializers";
 import {
   computeCallbackFingerprint,
   publicationAttemptStateForOutcome,
   publicationIntentStateForOutcome,
   validatePublicationCallbackContext,
-  type PublicationAttemptV1,
   type PublicationCallbackBodyV1,
   type PublicationResultV1,
   type PublishingValidationIssue,
@@ -53,6 +53,19 @@ import {
  * persisted as the result `raw_payload_hash` so admin reconciliation can
  * reproduce the exact accepted callback.
  */
+/**
+ * Thrown inside the callback transaction when the unique
+ * `external_callback_id` index detects a concurrent duplicate. Postgres has
+ * already aborted the transaction at that point (25P02), so recovery reads
+ * must happen outside it — this signal carries the conflicting id out.
+ */
+class CallbackIdentityDuplicateSignal extends Error {
+  constructor(readonly callbackId: string) {
+    super(`callback identity duplicate: ${callbackId}`);
+    this.name = "CallbackIdentityDuplicateSignal";
+  }
+}
+
 @Controller()
 export class CallbacksController {
   private readonly logger = new Logger(CallbacksController.name);
@@ -114,22 +127,49 @@ export class CallbacksController {
     const payloadTimestamp = sentAt ? new Date(sentAt) : new Date();
 
     // ── Steps 2–6: atomically resolve attempt + validate + persist ──────
-    const intentId = await this.prisma.$transaction(async (tx) => {
-      // ── Resolve attempt + intent ───────────────────────────────────────
-      const attempt = await tx.publishingAttempt.findUnique({
-        where: { id: attemptId },
-        include: { intent: true },
-      });
-      if (!attempt) {
-        this.logger.warn(`Callback references unknown attempt=${attemptId}`);
-        throw new BadRequestException(PublishingErrorCode.CALLBACK_INVALID);
-      }
+    // P1 (#123): Serializable, in combination with the ordered `FOR UPDATE`
+    // locks, makes the callback critical section unambiguous. Postgres
+    // Serializable raises 40001 ("could not serialize access") whenever a
+    // concurrent transaction commits a write to a row we read — most commonly
+    // the worker's own acknowledgement tx (which writes the same attempt row)
+    // finishing while a fast loopback/runner callback is in flight. That is a
+    // transient conflict, not a validation failure: the aborted transaction
+    // rolled back completely, so re-running it against a fresh snapshot is
+    // safe and converges. The retry is bounded; genuine repeated conflicts
+    // surface as 500s for admin investigation.
+    let intentId: string;
+    try {
+      intentId = await this.withSerializationRetry(
+        () =>
+          this.prisma.$transaction(
+            async (tx) => {
+        // ── P1 (#123): pessimistic row locks in deterministic order ──────
+        // (attempts → intents) BEFORE any read or mutation, so a concurrent
+        // duplicate callback for the same attempt cannot interleave its
+        // read between our lookup and our write. Prisma has no `FOR UPDATE`
+        // helper — the lock is a raw SELECT that also validates existence.
+        // Locking attempts before intents everywhere prevents circular waits
+        // (deadlock) between two concurrent callbacks.
+        await tx.$queryRaw`SELECT id FROM publishing_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+
+        // ── Resolve attempt + intent ───────────────────────────────────────
+        const attempt = await tx.publishingAttempt.findUnique({
+          where: { id: attemptId },
+          include: { intent: true },
+        });
+        if (!attempt) {
+          this.logger.warn(`Callback references unknown attempt=${attemptId}`);
+          throw new BadRequestException(PublishingErrorCode.CALLBACK_INVALID);
+        }
+
+        // Lock the owning intent row (ordered after the attempt lock).
+        await tx.$queryRaw`SELECT id FROM publishing_intents WHERE id = ${attempt.intentId}::uuid FOR UPDATE`;
 
       // Build the frozen PublicationAttemptV1 from the stored row so the
       // frozen validator can bind the signed callback to the EXACT accepted
       // attempt (attempt_id, intent_id, intent_version, request_fingerprint =
       // the stored dispatch body_sha256, and workflow_version).
-      const attemptV1 = this.toPublicationAttemptV1(attempt);
+      const attemptV1 = toPublicationAttemptV1(attempt);
 
       // ── Step 3: frozen context validation (signature, body, exact attempt)
       const validation = validatePublicationCallbackContext({
@@ -176,16 +216,12 @@ export class CallbacksController {
         });
       } catch (err) {
         if ((err as { code?: string })?.code === "P2002") {
-          const existing = await tx.publishingCallbackIdentity.findUnique({
-            where: { externalCallbackId: signed.body.callback_id },
-          });
-          if (existing && existing.payloadHash === callbackFingerprint) {
-            this.logger.log(
-              `Identical callback replay for callback_id=${signed.body.callback_id} — returning 200 no-op`,
-            );
-            return ""; // idempotent replay — nothing to write
-          }
-          throw new ConflictException(PublishingErrorCode.CALLBACK_CONFLICT);
+          // The unique index resolved a concurrent duplicate: the OTHER tx has
+          // now committed its identity row (the insert blocks on the index
+          // until that tx resolves). Postgres has aborted THIS transaction
+          // (25P02) — any further query inside it fails, so bail out with a
+          // signal and resolve replay-vs-conflict outside with a fresh read.
+          throw new CallbackIdentityDuplicateSignal(signed.body.callback_id);
         }
         throw err;
       }
@@ -252,7 +288,32 @@ export class CallbacksController {
       }
 
       return attempt.intentId;
-    });
+      },
+      // P1 (#123): Serializable, in combination with the ordered
+      // `FOR UPDATE` locks above, makes the callback critical section
+      // unambiguous — two concurrent callbacks for the same attempt can
+      // never both observe "no result row yet".
+      { isolationLevel: "Serializable" },
+    ),
+      );
+    } catch (err) {
+      if (err instanceof CallbackIdentityDuplicateSignal) {
+        // A concurrent callback with the SAME callback_id committed first.
+        // By the time P2002 surfaced, that transaction has committed — resolve
+        // replay-vs-conflict with a fresh read outside the aborted transaction.
+        const existing = await this.prisma.publishingCallbackIdentity.findUnique(
+          { where: { externalCallbackId: err.callbackId } },
+        );
+        if (existing && existing.payloadHash === callbackFingerprint) {
+          this.logger.log(
+            `Identical callback replay for callback_id=${err.callbackId} — returning 200 no-op`,
+          );
+          return { ok: true };
+        }
+        throw new ConflictException(PublishingErrorCode.CALLBACK_CONFLICT);
+      }
+      throw err;
+    }
 
     if (intentId === "") {
       return { ok: true }; // idempotent replay, no write performed
@@ -266,58 +327,34 @@ export class CallbacksController {
     return { ok: true };
   }
 
-  /** Maps a stored `publishing_attempts` row to the frozen
-   *  `PublicationAttemptV1` shape the contract validator binds against. The DB
-   *  `DISPATCHING`/`RUNNING` statuses both project to the frozen `running`
-   *  state (the runner is in flight, awaiting a callback). */
-  private toPublicationAttemptV1(attempt: {
-    id: string;
-    intentId: string;
-    intentVersion: number;
-    attemptSequence: number;
-    status: string;
-    workflowVersion: string | null;
-    providerRequestFingerprint: string | null;
-    idempotencyKey: string;
-    startedAt: Date | null;
-    finishedAt: Date | null;
-    createdAt: Date;
-  }): PublicationAttemptV1 {
-    return {
-      contract_version: "publication-attempt-v1",
-      attempt_id: attempt.id,
-      intent_id: attempt.intentId,
-      intent_version: attempt.intentVersion,
-      attempt_number: attempt.attemptSequence,
-      idempotency_key: attempt.idempotencyKey,
-      workflow_version: attempt.workflowVersion ?? "",
-      request_fingerprint: attempt.providerRequestFingerprint ?? "",
-      state: this.toFrozenAttemptState(attempt.status),
-      started_at: attempt.startedAt ? attempt.startedAt.toISOString() : null,
-      finished_at: attempt.finishedAt ? attempt.finishedAt.toISOString() : null,
-      created_at: attempt.createdAt.toISOString(),
-    };
-  }
-
-  private toFrozenAttemptState(
-    dbStatus: string,
-  ): PublicationAttemptV1["state"] {
-    switch (dbStatus) {
-      case "QUEUED":
-        return "queued";
-      case "RUNNING":
-      case "DISPATCHING":
-        return "running";
-      case "SUCCEEDED":
-        return "succeeded";
-      case "FAILED":
-        return "failed";
-      case "UNKNOWN":
-        return "unknown";
-      case "CANCELLED":
-        return "cancelled";
-      default:
-        return "queued";
+  /**
+   * Runs the callback critical section, retrying transient Postgres
+   * serialization failures. Under Serializable isolation a conflicting
+   * concurrent commit (e.g. the dispatch worker's acknowledgement tx writing
+   * the same attempt row while a fast callback is in flight) aborts the whole
+   * transaction with 40001 — the transaction rolled back completely, so
+   * re-running it against a fresh snapshot is correct and converges.
+   * Genuine repeated conflicts (or deadlocks) exhaust the bounded budget and
+   * propagate as 500s.
+   */
+  private async withSerializationRetry<T>(
+    run: () => Promise<T>,
+    attemptsLeft = 5,
+  ): Promise<T> {
+    try {
+      return await run();
+    } catch (err) {
+      const isSerializationFailure =
+        (err as { code?: string })?.code === "P2034" ||
+        ((err as { meta?: { code?: string } })?.meta?.code === "40001" &&
+          (err as { code?: string })?.code === "P2010");
+      if (!isSerializationFailure || attemptsLeft <= 1) {
+        throw err;
+      }
+      this.logger.warn(
+        `Callback tx serialization conflict, retrying (${attemptsLeft - 1} left): ${(err as Error).message}`,
+      );
+      return this.withSerializationRetry(run, attemptsLeft - 1);
     }
   }
 

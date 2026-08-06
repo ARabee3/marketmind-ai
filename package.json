@@ -13,6 +13,7 @@
     "check:marketing-knowledge": "node --test Docs/marketing-knowledge/_schema/source-resolution.test.mjs && node Docs/marketing-knowledge/_schema/validate-knowledge.mjs",
     "check:qdrant-field-sync": "node scripts/check-qdrant-field-sync.mjs",
     "check": "npm run check -w @marketmind/contracts && npm run build -w @marketmind/api && npm run test -w @marketmind/api && npm run test:e2e -w @marketmind/api && npm run check:ai && npm run check:qdrant-field-sync && npm run check -w @marketmind/web && npm run check:marketing-knowledge",
+    "demo:rehearse": "node scripts/demo-rehearse.mjs",
     "check:ai": "cd services/ai && uv run pytest -m \"not network and not integration\"",
     "check:ai:content": "cd services/ai && uv run pytest tests/evaluation/content -m \"not network and not integration\"",
     "check:ai:content:threshold": "cd services/ai && uv run python -m tests.evaluation.content.runner.threshold",

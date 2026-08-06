@@ -27,6 +27,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed:publishing-demo": "ts-node scripts/seed-publishing-demo.ts",
+    "seed:demo-owner": "ts-node scripts/seed-demo-owner.ts",
     "verify:export-archive": "ts-node scripts/verify-export-archive.ts"
   },
   "dependencies": {

@@ -190,6 +190,37 @@ describe("publishing API view-model adapter", () => {
       artifactId: "artifact-1",
       downloadUrl: "/download",
     });
+    // The exact wire shape the API returns after #123 (metadata row mapped to
+    // the frozen response surface): status "ready" + persisted frozen manifest.
+    expect(
+      toPublishingExportState({
+        id: "meta-1",
+        artifactId: "artifact-1",
+        checksum: "c".repeat(64),
+        exportType: "manual_archive_targz",
+        status: "ready",
+        downloadUrl: "/publication-intents/intent-1/export/download",
+        exportedAt: "2026-08-05T10:00:00Z",
+        manifest: {
+          contract_version: "publishing-export-manifest-v1",
+          artifact_id: "artifact-1",
+          label: "EXPORTED_NOT_PUBLISHED",
+          generated_at: "2026-08-05T10:00:00Z",
+        },
+      }),
+    ).toEqual({
+      status: "ready",
+      artifactId: "artifact-1",
+      checksum: "c".repeat(64),
+      expiresAt: null,
+      manifest: {
+        contract_version: "publishing-export-manifest-v1",
+        artifact_id: "artifact-1",
+        label: "EXPORTED_NOT_PUBLISHED",
+        generated_at: "2026-08-05T10:00:00Z",
+      },
+      downloadUrl: "/publication-intents/intent-1/export/download",
+    });
   });
 
   it("reads the owner candidate list through the authenticated client", async () => {

@@ -10,7 +10,11 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as crypto from "crypto";
 import { Prisma } from "@prisma/client";
-import type { PublicationCandidateV1 } from "@marketmind/contracts";
+import type {
+  PublicationCandidateV1,
+  PublicationExportManifestV1,
+  PublicationExportResponseV1,
+} from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { toTargetProjection } from "../targets/targets.service";
 import {
@@ -19,7 +23,15 @@ import {
   isInPast,
 } from "../common/time/cairo-time.util";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
-import { ManualExportArchiveService } from "../exports/manual-export-archive.service";
+import {
+  computeLocalActionRequestFingerprint,
+  toPublicationAttemptV1,
+  toPublicationResultV1,
+} from "../common/serializers";
+import {
+  artifactIdFromDestinationRef,
+  ManualExportArchiveService,
+} from "../exports/manual-export-archive.service";
 import {
   ApproveIntentDto,
   CancelIntentDto,
@@ -65,6 +77,8 @@ const CANCELLABLE_STATUSES: PublishingIntentStatus[] = [
  * provider failure) until the intent reaches FAILED; only then can the owner
  * retry. */
 const RETRYABLE_STATUSES: PublishingIntentStatus[] = ["FAILED"];
+
+const EXPORT_DOWNLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class IntentsService {
@@ -726,6 +740,14 @@ export class IntentsService {
 
       const now = new Date();
       const artifactId = randomUUID();
+      const workflowVersion =
+        mode === "MANUAL_EXPORT" ? "local-export-v1" : "local-v1";
+      const requestFingerprint = computeLocalActionRequestFingerprint({
+        intentId,
+        intentVersion: intent.version,
+        idempotencyKey: dto.idempotencyKey,
+        workflowVersion,
+      });
 
       // A manual export is complete only after the exact approved media and
       // copy have been written to a checksum-addressed downloadable archive.
@@ -744,7 +766,8 @@ export class IntentsService {
             attemptSequence: nextSeq,
             status: "SUCCEEDED",
             idempotencyKey: dto.idempotencyKey,
-            workflowVersion: "local-export-v1",
+            providerRequestFingerprint: requestFingerprint,
+            workflowVersion,
             dispatchedAt: now,
             startedAt: now,
             finishedAt: now,
@@ -757,6 +780,7 @@ export class IntentsService {
             exportType: "manual_archive_targz",
             destinationRef: archive.destinationRef,
             checksum: archive.checksum,
+            manifest: archive.manifest as object,
             exportedAt: now,
           },
         });
@@ -803,7 +827,8 @@ export class IntentsService {
           attemptSequence: nextSeq,
           status: "SUCCEEDED",
           idempotencyKey: dto.idempotencyKey,
-          workflowVersion: "local-v1",
+          providerRequestFingerprint: requestFingerprint,
+          workflowVersion,
           dispatchedAt: now,
           startedAt: now,
           finishedAt: now,
@@ -866,23 +891,57 @@ export class IntentsService {
       where: { id: intentId, businessId },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    return this.prisma.publishingAttempt.findMany({
+    const rows = await this.prisma.publishingAttempt.findMany({
       where: { intentId },
       include: { result: true },
       orderBy: { attemptSequence: "asc" },
     });
+    // The frozen PublicationAttemptListResponseV1 envelope ({attempts,
+    // results}) is the wire contract the web client binds against.
+    return {
+      attempts: rows.map((row) => toPublicationAttemptV1(row)),
+      results: rows
+        .filter((row) => row.result)
+        .map((row) =>
+          toPublicationResultV1(row.result!, {
+            intentVersion: row.intentVersion,
+          }),
+        ),
+    };
   }
 
   // ── Export metadata ─────────────────────────────────────────────────
 
-  async getExportMetadata(intentId: string, businessId: string) {
+  async getExportMetadata(
+    intentId: string,
+    businessId: string,
+  ): Promise<PublicationExportResponseV1 | null> {
     const intent = await this.prisma.publishingIntent.findFirst({
       where: { id: intentId, businessId },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    return this.prisma.publishingExportMetadata.findMany({
+    const row = await this.prisma.publishingExportMetadata.findFirst({
       where: { intentId },
+      orderBy: { exportedAt: "desc" },
     });
+    if (!row) return null;
+
+    const artifactId = artifactIdFromDestinationRef(row.destinationRef);
+    const manifest = row.manifest as unknown as PublicationExportManifestV1 | null;
+    if (!artifactId || !manifest || manifest.artifact_id !== artifactId) {
+      throw new UnprocessableEntityException(
+        `${PublishingErrorCode.STATE_CONFLICT}: export metadata is incomplete`,
+      );
+    }
+
+    return {
+      artifact_id: artifactId,
+      manifest,
+      download_url: `/api/v1/publication-intents/${intentId}/export/download`,
+      download_expires_at: new Date(
+        row.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS,
+      ).toISOString(),
+    };
   }
 
   async getExportArchive(intentId: string, businessId: string) {
@@ -896,6 +955,12 @@ export class IntentsService {
       orderBy: { exportedAt: "desc" },
     });
     if (!metadata) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    if (
+      Date.now() >=
+      metadata.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS
+    ) {
+      throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    }
 
     return this.manualExportArchive.readArchive(
       metadata.destinationRef,

@@ -1654,6 +1654,8 @@ model PublishingExportMetadata {
   exportType     String   @map("export_type")
   destinationRef String   @map("destination_ref")
   checksum       String
+  /// Frozen publication-export-manifest-v1 payload stored at archive time.
+  manifest       Json?
   exportedAt     DateTime @map("exported_at")
   createdAt      DateTime @default(now()) @map("created_at")
 

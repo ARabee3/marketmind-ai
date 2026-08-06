@@ -9,7 +9,10 @@
  *    no-op (no claim, no n8n) even after the intent moved to a terminal state.
  */
 
-import { DispatchProcessor } from "../dispatch.processor";
+import {
+  DispatchClaimLostError,
+  DispatchProcessor,
+} from "../dispatch.processor";
 import { N8nClientService } from "../n8n-client.service";
 import { AssetIntegrityValidator } from "../asset-integrity-validator";
 import { DispatchEnvelopeBuilder } from "../dispatch-envelope.builder";
@@ -213,7 +216,14 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
       }),
     );
     expect(intentAcknowledgement).toHaveBeenCalledWith({
-      where: { id: "i-1", version: 1, status: "SCHEDULED" },
+      // P1 (#123): the intent is pre-claimed to DISPATCHING by the revalidation
+      // tx, so the ack guard accepts both claimable states and never regresses
+      // a terminal state reached by a fast callback.
+      where: {
+        id: "i-1",
+        version: 1,
+        status: { in: ["SCHEDULED", "DISPATCHING"] },
+      },
       data: { status: "DISPATCHING" },
     });
   });
@@ -225,6 +235,19 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
 
     await processor.process(job);
 
+    expect(n8n.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("does not mark the intent FAILED when another worker already owns the claim", async () => {
+    jest
+      .spyOn(processor as never, "runRevalidationAndCreateAttempt" as never)
+      .mockRejectedValue(
+        new DispatchClaimLostError("intent i-1 is already DISPATCHING") as never,
+      );
+
+    await processor.process(job);
+
+    expect(prisma.publishingIntent!.updateMany).not.toHaveBeenCalled();
     expect(n8n.dispatch).not.toHaveBeenCalled();
   });
 
@@ -241,6 +264,93 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(n8n.dispatch).not.toHaveBeenCalled();
     expect(prisma.publishingAttempt!.updateMany).not.toHaveBeenCalled();
     expect(assetIntegrity.validateForDispatch).not.toHaveBeenCalled();
+  });
+
+  it("reclaims a queued attempt after a worker crash before the outbound call", async () => {
+    const queuedAttempt = {
+      id: body.attempt_id,
+      intentVersion: body.intent_version,
+      status: "QUEUED",
+      providerRequestFingerprint: "f".repeat(64),
+    };
+    const recoveryTx = {
+      publishingIntent: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: body.intent_id,
+          version: body.intent_version,
+          status: "DISPATCHING",
+          candidateId: body.candidate.candidate_id,
+          targetId: body.target.target_id,
+          businessId: body.business_id,
+          scheduledUtcAt: new Date(body.scheduled_utc),
+          scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
+          timezone: "Africa/Cairo",
+        }),
+        updateMany: jest.fn(),
+      },
+      publishingAttempt: {
+        findUnique: jest.fn().mockResolvedValue(queuedAttempt),
+        findFirst: jest.fn().mockResolvedValue(queuedAttempt),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      publishingApproval: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: body.candidate.approval.decision_id,
+          candidateChecksum: body.candidate.candidate_checksum,
+          decidedByUserId: body.candidate.approval.decided_by_user_id,
+          decidedAt: new Date(body.candidate.approval.decided_at),
+        }),
+      },
+      publishingCandidate: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          status: "ACTIVE",
+          candidateChecksum: body.candidate.candidate_checksum,
+          payload: body.candidate,
+          sourceStatus: body.candidate_status,
+        }),
+      },
+      publishingTarget: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: body.target.target_id,
+          businessId: body.target.business_id,
+          provider: "META",
+          channel: body.target.channel,
+          externalAccountId: body.target.external_account_id,
+          displayName: body.target.display_name,
+          connectionState: "CONNECTED",
+          credentialRef: body.target.credential_ref,
+          capabilities: body.target.capabilities,
+          lastVerifiedAt: null,
+          expiresAt: null,
+          version: body.target.version,
+        }),
+      },
+    };
+    const recoveryBuilder = {
+      buildDispatchBody: jest.fn().mockReturnValue({
+        body,
+        requestFingerprint: "f".repeat(64),
+      }),
+    } as unknown as DispatchEnvelopeBuilder;
+    const recoveryProcessor = new DispatchProcessor(
+      prisma as any,
+      n8n as any,
+      assetIntegrity as any,
+      recoveryBuilder,
+    );
+    (prisma.$transaction as jest.Mock)
+      .mockImplementationOnce(async (cb: (innerTx: any) => unknown) =>
+        cb(recoveryTx),
+      )
+      .mockResolvedValueOnce({});
+    (prisma.publishingAttempt!.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+
+    await recoveryProcessor.process(job);
+
+    expect(recoveryTx.publishingIntent.updateMany).not.toHaveBeenCalled();
+    expect(n8n.dispatch).toHaveBeenCalledWith(body);
   });
 
   it("P1-6: a stale vN revalidation failure does NOT fail a newer vN+1 intent — markIntentFailed is version-predicated (0 rows)", async () => {
@@ -362,6 +472,9 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
           scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
           timezone: "Africa/Cairo",
         }),
+        // P1 (#123): the atomic intent claim must win (count === 1) so the
+        // revalidation continues to the attempt create + fingerprint stamp.
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       publishingApproval: {
         findFirst: jest.fn().mockResolvedValue({
@@ -438,6 +551,14 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
         providerRequestFingerprint: "f".repeat(64),
         workflowVersion: body.workflow_version,
       },
+    });
+    expect(tx.publishingIntent.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: body.intent_id,
+        version: body.intent_version,
+        status: "SCHEDULED",
+      },
+      data: { status: "DISPATCHING" },
     });
   });
 });
