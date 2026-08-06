@@ -439,11 +439,14 @@ export class DispatchProcessor extends WorkerHost {
         }
 
         let attempt: { id: string; status: string };
+        let retrievalStartedAt: Date;
         if (recoveringQueuedAttempt) {
           attempt = {
             id: existingByKey!.id,
             status: existingByKey!.status,
           };
+          retrievalStartedAt =
+            existingByKey!.startedAt ?? existingByKey!.createdAt;
         } else {
           // All checks passed — create attempt row (provisional fingerprint;
           // the canonical body hash needs the created attempt id and is stamped
@@ -453,6 +456,7 @@ export class DispatchProcessor extends WorkerHost {
             orderBy: { attemptSequence: "desc" },
           });
           const nextSeq = lastAttempt ? lastAttempt.attemptSequence + 1 : 1;
+          retrievalStartedAt = new Date();
 
           try {
             attempt = await tx.publishingAttempt.create({
@@ -467,7 +471,7 @@ export class DispatchProcessor extends WorkerHost {
                 // It is stamped after the body is assembled with this attempt id
                 // so attempt.request_fingerprint === envelope.body_sha256.
                 providerRequestFingerprint: null,
-                startedAt: new Date(),
+                startedAt: retrievalStartedAt,
               },
             });
           } catch (err) {
@@ -530,6 +534,7 @@ export class DispatchProcessor extends WorkerHost {
             scheduledUtcAt: intent.scheduledUtcAt!,
             scheduledLocalAt: intent.scheduledLocalAt,
             timezone: intent.timezone,
+            retrievalStartedAt,
           });
         await tx.publishingAttempt.update({
           where: { id: attempt.id },
