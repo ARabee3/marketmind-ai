@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WeekContextForm } from "../week-context-form";
 import { mockOwnerConfirmedContextWeek1, mockSystemDefaultedContextWeek1 } from "../../lib/content-cycle-fixtures";
-
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, opts?: Record<string, unknown>) => {
     if (key === "retainedAssets") return `Retained photos: ${opts?.count}`;
@@ -13,6 +12,9 @@ vi.mock("next-intl", () => ({
     if (key === "termInputLabel") return `Promotion term ${opts?.index}`;
     if (key === "save") return "Save weekly context";
     if (key === "safeDefaultTitle") return "Safe default used";
+    if (key === "conflictRetainedTitle") return "Context was claimed while editing";
+    if (key === "conflictRetainedBody") return "Your unsaved edits are kept below so you can copy them.";
+    if (key === "copyRetained") return "Copy unsaved edits";
     return key;
   },
   useLocale: () => "en",
@@ -86,5 +88,32 @@ describe("WeekContextForm", () => {
     expect(
       (screen.getByRole("textbox", { name: "Promotion term 2" }) as HTMLInputElement).value,
     ).toBe("Last");
+  });
+
+  it("shows retained unsent draft text when a save conflict occurs", () => {
+    render(
+      <WeekContextForm
+        onSave={vi.fn()}
+        retainedConflictDraft={{
+          promotionMode: "owner_approved",
+          promotionText: "Conflict offer text",
+          promotionTerms: ["Term A"],
+          mustInclude: ["Include B"],
+          mustAvoid: ["Avoid C"],
+          validFromLocal: "",
+          validUntilLocal: "",
+          ctaType: "phone",
+          ctaValue: "01234567890",
+          retainedAssetIds: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Context was claimed while editing")).toBeDefined();
+    expect(screen.getByText(/Conflict offer text/)).toBeDefined();
+    expect(screen.getByText(/Term A/)).toBeDefined();
+    expect(screen.getByText(/Include B/)).toBeDefined();
+    expect(screen.getByText(/Avoid C/)).toBeDefined();
+    expect(screen.getByRole("button", { name: /Copy unsaved edits/ })).toBeDefined();
   });
 });
