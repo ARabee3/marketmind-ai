@@ -15,6 +15,7 @@ import {
 } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
+import { StrategyProgressGateway } from "./strategy-progress.gateway";
 
 interface GenerateJobData {
   strategyId: string;
@@ -40,6 +41,7 @@ export class StrategyProcessor extends WorkerHost {
     private readonly strategyRepository: StrategyRepository,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    private readonly progressGateway: StrategyProgressGateway,
     @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     super();
@@ -530,7 +532,11 @@ export class StrategyProcessor extends WorkerHost {
     event: Parameters<StrategyRepository["appendProgressEvent"]>[1],
   ): Promise<void> {
     try {
-      await this.strategyRepository.appendProgressEvent(strategyId, event);
+      const savedEvent = await this.strategyRepository.appendProgressEvent(
+        strategyId,
+        event,
+      );
+      this.progressGateway.emitProgress(strategyId, savedEvent);
     } catch (error: unknown) {
       this.logger.warn(
         `[Strategy ${strategyId}] Failed to persist progress event: ${errorMessage(error)}`,

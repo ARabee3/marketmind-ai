@@ -16,14 +16,14 @@ import { randomUUID } from "crypto";
 import type {
   OwnerDecision,
   StrategyProgressEvent,
-  StrategyProgressStage,
-  StrategyProgressStatus,
   StrategyVersionSummary,
 } from "@marketmind/contracts";
 import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
 import { OwnerDecisionDto } from "./dto/owner-decision.dto";
+import { StrategyProgressGateway } from "./strategy-progress.gateway";
+import { strategyProgressEventsFromPersistence } from "./strategy-progress.mapper";
 import { buildRetrievalQueryContext } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
@@ -45,6 +45,7 @@ export class StrategyService {
     @InjectQueue("strategy-generation") private readonly strategyQueue: Queue,
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
+    private readonly progressGateway: StrategyProgressGateway,
     @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     this.aiUrl =
@@ -406,7 +407,7 @@ export class StrategyService {
     if (!strategy) throw new NotFoundException("Strategy not found");
 
     const events = await this.strategyRepository.listProgressEvents(id);
-    return events.map(toProgressEvent);
+    return strategyProgressEventsFromPersistence(events);
   }
 
   // ── POST /api/v1/strategies/:id/decisions ──────────────────────────
@@ -767,7 +768,11 @@ export class StrategyService {
     event: Parameters<StrategyRepository["appendProgressEvent"]>[1],
   ): Promise<void> {
     try {
-      await this.strategyRepository.appendProgressEvent(strategyId, event);
+      const savedEvent = await this.strategyRepository.appendProgressEvent(
+        strategyId,
+        event,
+      );
+      this.progressGateway.emitProgress(strategyId, savedEvent);
     } catch (error: unknown) {
       // Progress persistence must never break the lifecycle itself; log only.
       this.logger.warn(
@@ -788,6 +793,15 @@ function isRetryable(error: unknown): boolean {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function toPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const payload: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    payload[key] = item;
+  }
+  return payload;
 }
 
 /**
@@ -994,67 +1008,4 @@ function toStringArrayRecord(value: unknown): Record<string, string[]> {
     }
   }
   return result;
-}
-
-function toProgressEvent(
-  event: Awaited<ReturnType<StrategyRepository["listProgressEvents"]>>[number],
-): StrategyProgressEvent {
-  const payload = toPayload(event.payload);
-  return {
-    type: "strategy_progress",
-    strategy_id: event.strategyId,
-    seq: event.seq,
-    stage: toProgressStage(event.stage),
-    status: toProgressStatus(event.status),
-    message_key: event.messageKey,
-    message_text: event.messageText,
-    retryable: payload.retryable === true,
-    payload,
-    created_at: event.createdAt.toISOString(),
-  };
-}
-
-function toPayload(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const payload: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value)) {
-    payload[key] = item;
-  }
-  return payload;
-}
-
-function toProgressStage(value: string): StrategyProgressStage {
-  switch (value) {
-    case "queued":
-      return "queued";
-    case "query_planning":
-      return "query_planning";
-    case "retrieval":
-      return "retrieval";
-    case "generating":
-      return "generating";
-    case "validating":
-      return "validating";
-    case "ready":
-      return "ready";
-    case "failed":
-      return "failed";
-    default:
-      return "failed";
-  }
-}
-
-function toProgressStatus(value: string): StrategyProgressStatus {
-  switch (value) {
-    case "started":
-      return "started";
-    case "progress":
-      return "progress";
-    case "complete":
-      return "complete";
-    case "failed":
-      return "failed";
-    default:
-      return "failed";
-  }
 }

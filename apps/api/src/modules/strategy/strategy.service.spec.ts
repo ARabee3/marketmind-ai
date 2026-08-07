@@ -11,6 +11,7 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { of, throwError } from "rxjs";
+import { StrategyProgressGateway } from "./strategy-progress.gateway";
 
 const OWNER_ID = "user-1";
 const OTHER_OWNER_ID = "user-2";
@@ -109,6 +110,10 @@ describe("StrategyService", () => {
         { provide: StrategyRepository, useValue: repository },
         { provide: getQueueToken("strategy-generation"), useValue: queue },
         { provide: HttpService, useValue: httpService },
+        {
+          provide: StrategyProgressGateway,
+          useValue: { emitProgress: jest.fn() },
+        },
         {
           provide: ConfigService,
           useValue: {
