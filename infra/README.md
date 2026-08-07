@@ -4,13 +4,20 @@ Local development infrastructure for MarketMind AI.
 
 ## Local Services
 
-### PostgreSQL and Redis
+### PostgreSQL, Redis, and n8n
 
-Start the required local services:
+Start the required local services (databases + n8n publishing workflow
+runner):
 
 ```bash
 docker compose -f infra/docker/docker-compose.local.yml up -d
 ```
+
+This starts three containers: `marketmind-postgres`, `marketmind-redis`, and
+`marketmind-n8n`. n8n needs a one-time env file at `infra/docker/.env`
+(copied from `infra/docker/.env.example`) plus a manual workflow import —
+see [`n8n/README.md`](n8n/README.md) for the full setup and the
+host-networking gotcha.
 
 Stop:
 
