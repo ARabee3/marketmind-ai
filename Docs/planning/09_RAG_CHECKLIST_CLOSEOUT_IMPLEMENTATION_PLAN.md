@@ -1,9 +1,10 @@
 # RAG Checklist Closeout Implementation Plan
 
-- Status: implementation in progress
+- Status: technical implementation and live replay complete; human review and
+  manual relevance-labeling remain
 - Issue: [#163](https://github.com/ARabee3/marketmind-ai/issues/163)
 - Linked human/live QA gate: [#128](https://github.com/ARabee3/marketmind-ai/issues/128)
-- Branch: `codex/163-rag-checklist-implementation`
+- Branch: `codex/163-rag-live-evidence`
 - Last updated: 2026-08-07
 
 ## 1. Decision summary
@@ -308,3 +309,28 @@ the existing evidence view.
 > and content guidance. Every item remains filtered, approved, versioned, and
 > cited. If essential knowledge is missing, the system shows a blocker instead
 > of pretending it knows the answer.
+
+## 10. 2026-08-07 closeout status
+
+The MMR implementation was merged into the RAG closeout branch and verified in
+the configured local integration environment. The live replay recorded an
+Arabic retrieval and persisted Strategy draft, plus an independent English
+retrieval, all using Gemini `gemini-embedding-2` at 768 dimensions and the
+`marketing_knowledge_gemini_2_v1` collection. Both live retrieval runs used
+the opt-in `semantic_mmr` mode; default product behavior remains `semantic`.
+
+The exact run references, visible non-critical gaps, and fictional-demo scope
+are in `Docs/marketing-knowledge/LIVE_READINESS.md`. The strategy-provider
+normalization also now restores the deterministic organic-only budget rule when
+a provider returns a paid scenario, rather than changing the owner choice or
+accepting invalid output.
+
+The remaining work is deliberately human-bound:
+
+- complete the named reviewer approvals in `APPROVAL_RECORD.md` / issue #128;
+- add the small manual relevance-label set required to measure precision@5,
+  recall@5, and MRR@5 instead of reporting invented values.
+
+Those items must remain open in any checklist presentation. They do not block
+the completed MMR implementation, live bilingual retrieval, or persisted
+Strategy evidence.

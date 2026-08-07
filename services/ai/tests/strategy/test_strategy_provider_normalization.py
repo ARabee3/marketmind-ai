@@ -1,6 +1,7 @@
 from strategy_contracts import ChannelRole, StrategyPlan
 
 from app.providers.strategy_provider import (
+    _normalize_deterministic_budget_scenarios,
     _normalize_deterministic_channel_scores,
     _normalize_deterministic_kpi_targets,
 )
@@ -77,4 +78,40 @@ def test_normalization_preserves_deterministic_kpi_targets() -> None:
     parsed = StrategyPlan.model_validate(normalized)
     assert [target.target_value for target in parsed.kpi_targets] == [
         target.target_value for target in deterministic_targets
+    ]
+
+
+def test_normalization_removes_paid_scenarios_for_an_organic_only_brief() -> None:
+    plan = default_plan()
+    drifted = plan.model_dump(mode="json")
+    drifted["budget_mode"] = "organic_only"
+
+    normalized = _normalize_deterministic_budget_scenarios(
+        drifted,
+        deterministic_budget_scenarios=[],
+        budget_mode="organic_only",
+    )
+
+    parsed = StrategyPlan.model_validate(normalized)
+    assert parsed.budget_mode.value == "organic_only"
+    assert parsed.budget_scenarios is None
+
+
+def test_normalization_restores_deterministic_paid_scenarios() -> None:
+    plan = default_plan()
+    deterministic_scenarios = [
+        scenario.model_dump(mode="json") for scenario in plan.budget_scenarios or []
+    ]
+    drifted = plan.model_dump(mode="json")
+    drifted["budget_scenarios"] = []
+
+    normalized = _normalize_deterministic_budget_scenarios(
+        drifted,
+        deterministic_budget_scenarios=deterministic_scenarios,
+        budget_mode="monthly_amount",
+    )
+
+    parsed = StrategyPlan.model_validate(normalized)
+    assert [scenario.scenario_type for scenario in parsed.budget_scenarios or []] == [
+        scenario.scenario_type for scenario in plan.budget_scenarios or []
     ]
