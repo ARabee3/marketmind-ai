@@ -61,10 +61,20 @@ for (const locale of locales) {
     test('renders a scrollable primary nav with all six destinations', async ({ page }) => {
       await mockAuthRefresh(page)
       await mockAuthMe(page)
+      await page.addInitScript((userId) => {
+        localStorage.setItem(
+          `marketmind.dashboardOnboarding.v1.${userId}`,
+          'dismissed',
+        )
+      }, mockUser.id)
+      await page.goto(`/${locale}/dashboard`)
 
-      const mobileNav = page.getByRole('navigation', { name: 'Mobile primary' })
+      const mobileNav = page.getByRole('navigation', {
+        name: /Mobile primary|أساسي للجوال/i,
+      })
+      await expect(mobileNav).toBeVisible({ timeout: 15000 })
       const destinations = [
-        /Discovery|الاكتشاف/i,
+        /Discovery|الاستكشاف/i,
         /Dashboard|لوحة/i,
         /Strategy|الاستراتيجية/i,
         /Content|المحتوى/i,
