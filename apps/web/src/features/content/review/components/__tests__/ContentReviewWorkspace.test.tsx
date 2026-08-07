@@ -380,6 +380,44 @@ describe('ContentReviewWorkspace', () => {
     })
   })
 
+  it('recovers from a stale-version conflict even when the error omits latest_version_id', async () => {
+    render(<ContentReviewWorkspace packId={mockPackWorkspace.pack.id} />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 1 }).textContent,
+      ).toContain('ContentReview.header.title')
+    })
+
+    vi.mocked(api.getPackWorkspace).mockClear()
+    vi.mocked(api.submitItemDecision).mockRejectedValueOnce({
+      code: 'CONTENT_VERSION_CONFLICT',
+      message: 'Stale version',
+    })
+
+    const approveBtn = screen.getByRole('button', {
+      name: /ContentReview\.decision\.actions\.approveVersion/i,
+    }) as HTMLButtonElement
+
+    await act(async () => {
+      fireEvent.click(approveBtn)
+    })
+
+    // The workspace is still refetched and the fallback announcement shown,
+    // even though the backend did not return a latest_version_id.
+    await waitFor(() => {
+      expect(api.getPackWorkspace).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByText('ContentReview.decision.conflict.title'),
+      ).toBeDefined()
+    })
+    expect(
+      screen.getByText('ContentReview.decision.conflict.bodyNoVersion'),
+    ).toBeDefined()
+  })
+
   it('does not optimistically mark items approved before the server responds', async () => {
     render(<ContentReviewWorkspace packId={mockPackWorkspace.pack.id} />)
 

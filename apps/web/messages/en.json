@@ -2127,6 +2127,7 @@
       "conflict": {
         "title": "Stale version conflict",
         "body": "This item was updated to version {latestVersion}. We refreshed the latest version for your review.",
+        "bodyNoVersion": "This item was updated. We refreshed the latest version for your review.",
         "dismiss": "Dismiss",
         "fetching": "Loading the latest version…"
       },

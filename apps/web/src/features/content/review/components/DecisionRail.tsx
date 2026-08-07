@@ -183,9 +183,11 @@ export function DecisionRail({
             {isConflict && (
               <>
                 <p>
-                  {t('conflict.body', {
-                    latestVersion: decisionState.latestVersionId,
-                  })}
+                  {decisionState.latestVersionId
+                    ? t('conflict.body', {
+                        latestVersion: decisionState.latestVersionId,
+                      })
+                    : t('conflict.bodyNoVersion')}
                 </p>
                 <button
                   type="button"

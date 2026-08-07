@@ -63,10 +63,12 @@ export function useItemDecision(
         await submitItemDecision(packId, itemId, request)
       } catch (err: unknown) {
         const error = err as Error & { code?: string; latestVersionId?: string }
-        if (error.code === 'CONTENT_VERSION_CONFLICT' && error.latestVersionId) {
+        if (error.code === 'CONTENT_VERSION_CONFLICT') {
           // Refetch authoritative state before the owner decides again; the
           // rail announces the change and returns focus to the updated heading
-          // only after the fresh data has landed.
+          // only after the fresh data has landed. The recovery path relies on
+          // the stable error code alone; latest_version_id is optional because
+          // it improves the announcement but is not required to recover.
           setDecisionState({
             status: 'refreshing',
             decision,
@@ -74,7 +76,7 @@ export function useItemDecision(
           await refreshAfterDecision()
           setDecisionState({
             status: 'conflict',
-            latestVersionId: error.latestVersionId,
+            ...(error.latestVersionId ? { latestVersionId: error.latestVersionId } : {}),
           })
         } else {
           setDecisionState({
