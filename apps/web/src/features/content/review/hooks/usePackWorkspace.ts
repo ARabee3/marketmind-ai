@@ -53,11 +53,12 @@ export function usePackWorkspace(packId: string) {
     } catch (err) {
       if (!stillCurrent()) return
       const status = (err as Error & { status?: number }).status
-      if (status === 404) {
+      if (status === 404 && requestedPackId === mockPackWorkspace.pack.id) {
         // The aggregate pack-workspace read model (`GET /content-packs/:id/workspace`)
         // is owned by issue #112 (Content integration). Until it lands, show the
-        // clearly-labeled contract-aligned fixture proof; when it ships, remove
-        // this fallback and the fixture banner.
+        // clearly-labeled contract-aligned fixture proof only for the demo pack
+        // id; when it ships, remove this fallback and the fixture banner. A 404
+        // for any other pack id is a genuine not-found, surfaced as an error.
         setState({
           status: 'success',
           workspace: mockPackWorkspace,

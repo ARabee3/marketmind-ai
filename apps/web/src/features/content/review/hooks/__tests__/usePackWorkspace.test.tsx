@@ -111,4 +111,37 @@ describe('usePackWorkspace', () => {
     expect(result.current.workspace?.pack.id).toBe('pack-b-id')
     expect(result.current.selectedItem?.item.id).toBe('item-b-1')
   })
+
+  it('falls back to the fixture only when the fixture pack id returns 404', async () => {
+    const err = new Error('not found') as Error & { status?: number }
+    err.status = 404
+    vi.mocked(api.getPackWorkspace).mockRejectedValueOnce(err)
+
+    const { result } = renderHook(() =>
+      usePackWorkspace(mockPackWorkspace.pack.id),
+    )
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('success')
+    })
+    expect(result.current.isFixture).toBe(true)
+    expect(result.current.workspace?.pack.id).toBe(mockPackWorkspace.pack.id)
+    expect(result.current.selectedItem?.item.id).toBe(
+      mockPackWorkspace.items[0].item.id,
+    )
+  })
+
+  it('surfaces a genuine 404 for a non-fixture pack id as an error', async () => {
+    const err = new Error('not found') as Error & { status?: number }
+    err.status = 404
+    vi.mocked(api.getPackWorkspace).mockRejectedValueOnce(err)
+
+    const { result } = renderHook(() => usePackWorkspace('pack-not-found'))
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('error')
+    })
+    expect(result.current.isFixture).toBe(false)
+    expect(result.current.workspace).toBeNull()
+  })
 })
