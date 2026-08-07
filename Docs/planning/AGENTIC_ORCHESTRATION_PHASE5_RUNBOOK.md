@@ -51,6 +51,17 @@ PYTHONPATH=.:../../packages/contracts/python \
   tests/orchestration tests/content tests/strategy -q
 ```
 
+The deterministic full-journey rehearsal is a separate, fast demo check. It
+selects the three reviewed Research tools, pauses at the Strategy and Content
+owner gates, applies both typed persistence receipts, and completes without a
+publication action:
+
+```bash
+PYTHONPATH=.:../../packages/contracts/python \
+  uv run --isolated --python 3.12 pytest \
+  tests/orchestration/test_mock_vertical_slice.py -s -vv
+```
+
 The Phase 0 PostgreSQL restart gate is still required for fresh-process
 durability. The provider capability matrix remains opt-in because it makes
 network requests.

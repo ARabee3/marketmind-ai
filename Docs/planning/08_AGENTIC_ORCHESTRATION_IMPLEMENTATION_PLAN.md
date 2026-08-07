@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: Phase 5 observability/evaluation boundary implemented in isolation; live product graph remains gated
+- Status: Phase 0 restart gate and the mock Research -> Strategy -> Content vertical slice are verified; the live product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -770,6 +770,13 @@ shape as the first request, and lifecycle failures map to stable conflict
 errors. Orchestration error codes are mirrored into the web localization map,
 and the full request/state/resume/event/result fixture set is checked in CI.
 
+The minimal NestJS handoff is reviewable in
+`apps/api/src/modules/orchestration/`. It persists only a run envelope and
+sanitized ordered events, and prepares an exact resume binding for a future
+FastAPI `Command(resume=...)` call. `AI_ORCHESTRATION_ENABLED` defaults to
+`false`; no existing worker, controller, or owner route is switched on by this
+boundary.
+
 ### Phase 2 — tools and Research Agent
 
 Deliverables:
@@ -862,6 +869,12 @@ uses LangGraph's in-memory checkpointer; the Phase 0 PostgreSQL restart gate
 remains the production checkpointer prerequisite. A live credentialed provider
 run is still opt-in and is not required for the mock safety suite.
 
+The complete mock composition is covered by
+`tests/orchestration/test_mock_vertical_slice.py`: the Research Agent selects
+three allow-listed tools, its cited pack is handed to Strategy, the exact
+Strategy approval is bound to Content, and an exact Content approval completes
+the run with zero publication actions.
+
 ### Phase 4 — Content graph segment
 
 Deliverables:
@@ -900,6 +913,11 @@ and auditable. Focused coverage is in
 `services/ai/tests/orchestration/test_phase4_graph.py`; the production
 PostgreSQL restart gate remains the prerequisite before wiring any graph into
 live NestJS persistence or approvals.
+
+The end-to-end mock rehearsal in
+`tests/orchestration/test_mock_vertical_slice.py` also verifies both
+persistence receipts and the terminal approved Content state across the
+Research -> Strategy -> Content handoffs.
 
 ### Phase 5 — observability, evaluation, and rollout
 
