@@ -16,9 +16,11 @@ import {
   mockActiveCycle,
   MOCK_CYCLE_ID,
   MOCK_STRATEGY_ID,
+  MOCK_STRATEGY_VERSION_ID,
 } from "../content-cycle-fixtures";
 import type { CurrentJourneyResponse } from "@marketmind/contracts";
 import type { StrategyApiResponse } from "@/lib/api/strategy";
+import type { StrategyVersionSummary } from "@marketmind/contracts";
 
 describe("content-cycle-state", () => {
   describe("resolveApprovedContentStrategy", () => {
@@ -152,6 +154,38 @@ describe("content-cycle-state", () => {
       if ("approved" in result) {
         expect(result.approved.strategyVersionId).toBe(mockStrategyVersions[0]?.version_id);
         expect(result.approved.strategyDecisionId).toBe(mockActiveCycle.strategy_decision_id);
+      }
+    });
+
+    it("resolves by currentVersionId when a newer draft version exists", () => {
+      const draftProfileVersion =
+        mockStrategyVersions[0]!.profile_version;
+      const draftSummary2: StrategyVersionSummary = {
+        version_id: "draft-version-2",
+        strategy_id: MOCK_STRATEGY_ID,
+        version: 2,
+        status: "in_progress",
+        brief_id: "brief-1",
+        retrieval_run_id: "run-2",
+        profile_version: {
+          business_profile_version_id: draftProfileVersion.business_profile_version_id,
+          version: draftProfileVersion.version,
+          confirmed_at: draftProfileVersion.confirmed_at,
+        },
+        prompt_config: {},
+        created_at: "2026-08-03T10:00:00.000Z",
+      };
+      const versions = [...mockStrategyVersions, draftSummary2];
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        mockApprovedStrategyApi,
+        versions,
+      );
+
+      expect("approved" in result).toBe(true);
+      if ("approved" in result) {
+        expect(result.approved.strategyVersion).toBe(1);
+        expect(result.approved.strategyVersionId).toBe(MOCK_STRATEGY_VERSION_ID);
       }
     });
 
