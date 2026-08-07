@@ -153,6 +153,9 @@ Add tests for all of the following:
 - MMR ordering is deterministic for the same input;
 - `semantic` mode retains the current selection behavior;
 - every existing hard filter still wins over semantic relevance or diversity;
+- for every evaluation or demo case, no required `framework_diagnosis`,
+  `objective_funnel`, or `measurement_kpi` category result returned by
+  `semantic` is absent from `semantic_mmr`;
 - Arabic and English `framework_diagnosis` cases still retrieve approved
   framework knowledge;
 - expired, draft, missing-review, and private Business Profile data cannot
@@ -165,6 +168,15 @@ Add tests for all of the following:
 Use the existing frozen bilingual Strategy retrieval dataset. Add honest manual
 relevance labels only where the current dataset cannot calculate a metric; do
 not manufacture a large dataset or claim a size it does not have.
+
+For every measured case, keep the labeling boundary explicit:
+
+- label every candidate returned in the top five as `relevant` or
+  `not_relevant` for precision@5 and MRR@5;
+- define the complete known-relevant chunk set before calculating recall@5;
+- mark a case `unmeasured` with its reason when its candidate labels or known
+  relevant set are incomplete. Do not substitute a zero, a pass, or an inferred
+  value.
 
 Report the following for both `semantic` and `semantic_mmr`:
 
@@ -179,6 +191,8 @@ Report the following for both `semantic` and `semantic_mmr`:
 The report must state:
 
 - dataset version, case count, languages, sectors, and label owner;
+- measured and unmeasured case counts, with the reason for every unmeasured
+  case;
 - embedding provider, model, dimension, collection, selection mode, and date;
 - thresholds and whether each metric passed;
 - known limitations, including that deterministic fixture embeddings are not a
@@ -186,8 +200,10 @@ The report must state:
 
 The preferred success rule is no regression in required retrieval recall or
 grounding, plus an observable diversity improvement where duplicate candidates
-exist. Do not optimize a single aggregate number while losing a required
-framework result.
+exist. For every evaluation and live demo case, no required
+`framework_diagnosis`, `objective_funnel`, or `measurement_kpi` category result
+returned by `semantic` may be lost in `semantic_mmr`. Do not optimize a single
+aggregate number while losing a required category.
 
 ### Phase 4 — honest readiness and demo evidence
 
@@ -257,6 +273,9 @@ the existing evidence view.
 - [ ] MMR is implemented, tested, selectable, and demonstrably active in the
       configured demo path.
 - [ ] Semantic-only rollback retains the existing retrieval behavior.
+- [ ] No required `framework_diagnosis`, `objective_funnel`, or
+      `measurement_kpi` category result returned by `semantic` is lost in
+      `semantic_mmr` for an evaluation or live demo case.
 - [ ] No hard filter, Strategy blocker, citation, or owner-approval safeguard
       regresses.
 - [ ] A versioned evaluation report contains the five stated metrics and does
