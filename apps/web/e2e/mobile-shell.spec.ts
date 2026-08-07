@@ -57,5 +57,29 @@ for (const locale of locales) {
 
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
     })
+
+    test('renders a scrollable primary nav with all six destinations', async ({ page }) => {
+      await mockAuthRefresh(page)
+      await mockAuthMe(page)
+
+      const mobileNav = page.getByRole('navigation', { name: 'Mobile primary' })
+      const destinations = [
+        /Discovery|الاكتشاف/i,
+        /Dashboard|لوحة/i,
+        /Strategy|الاستراتيجية/i,
+        /Content|المحتوى/i,
+        /Publishing|النشر/i,
+        /Billing|الفوترة/i,
+      ]
+      for (const name of destinations) {
+        await expect(mobileNav.getByRole('link', { name })).toHaveCount(1)
+      }
+
+      const ul = mobileNav.locator('ul')
+      await expect(ul).toHaveCSS('display', 'flex')
+      await expect(ul).toHaveCSS('overflow-x', 'auto')
+      const items = await ul.locator('li').count()
+      expect(items).toBe(6)
+    })
   })
 }

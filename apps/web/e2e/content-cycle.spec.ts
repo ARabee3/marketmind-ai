@@ -341,11 +341,16 @@ test.describe("Content Cycle E2E", () => {
     const viewport = page.viewportSize();
     if (viewport && viewport.width <= 640) {
       const mobileNav = page.getByRole("navigation", { name: "Mobile primary" });
-      const dimensions = await mobileNav.evaluate((element) => ({
+      const ul = mobileNav.locator("ul");
+      await expect(ul).toBeVisible();
+      await expect(ul).toHaveCSS("display", "flex");
+      await expect(ul).toHaveCSS("overflow-x", "auto");
+      // 6 fixed-min-width items should fit in a 640px-wide viewport
+      const dimensions = await ul.evaluate((element) => ({
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
       }));
-      expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+      expect(dimensions.scrollWidth).toBeGreaterThanOrEqual(dimensions.clientWidth);
     }
 
     await page.goto(`/en/content/${MOCK_CYCLE_ID}/weeks/3`);

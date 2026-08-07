@@ -100,6 +100,17 @@ describe("AppShell", () => {
     const mobileNav = screen.getByLabelText("Mobile primary");
     expect(mobileNav.className).toMatch(/fixed/);
     expect(mobileNav.className).toMatch(/bottom-0/);
+    expect(mobileNav.className).not.toMatch(/grid-cols-6/);
+
+    const navList = mobileNav.querySelector("ul");
+    expect(navList?.className).toMatch(/overflow-x-auto/);
+    expect(navList?.className).toMatch(/flex/);
+    expect(navList?.className).not.toMatch(/grid-cols-6/);
+    const items = mobileNav.querySelectorAll("li");
+    expect(items.length).toBe(6);
+    for (const item of Array.from(items)) {
+      expect((item as HTMLElement).className).toMatch(/min-w-\[4\.5rem\] flex-none/);
+    }
 
     expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
     expect(screen.getAllByRole("link", { name: "Discovery" })).toHaveLength(2);
