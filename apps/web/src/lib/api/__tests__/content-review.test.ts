@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   getPackWorkspace,
-  getItemVersionHistory,
   submitItemDecision,
   submitBulkDecisions,
   fetchAuthenticatedAssetBlob,
-  getPublicationCandidate,
 } from '../content-review'
 import { apiRequest } from '../client'
 
@@ -27,19 +25,6 @@ describe('content-review API adapter', () => {
     const result = await getPackWorkspace('pack-1')
     expect(apiRequest).toHaveBeenCalledWith('/content-packs/pack-1/workspace')
     expect(result).toEqual(mockWorkspace)
-  })
-
-  it('fetches item version history', async () => {
-    const mockVersions = [{ id: 'v-1', version: 1 }]
-    vi.mocked(apiRequest).mockResolvedValueOnce(
-      new Response(JSON.stringify(mockVersions), { status: 200 }),
-    )
-
-    const result = await getItemVersionHistory('pack-1', 'item-1')
-    expect(apiRequest).toHaveBeenCalledWith(
-      '/content-packs/pack-1/items/item-1/versions',
-    )
-    expect(result).toEqual(mockVersions)
   })
 
   it('submits exact item decision for approve', async () => {
@@ -178,16 +163,5 @@ describe('content-review API adapter', () => {
     expect(apiRequest).toHaveBeenCalledWith('/content-assets/asset-1')
     expect(result.type).toBe('image/png')
     expect(await result.text()).toBe('fake image bytes')
-  })
-
-  it('fetches publication candidate', async () => {
-    const mockCand = { id: 'cand-1', publication_candidate_id: 'cand-1' }
-    vi.mocked(apiRequest).mockResolvedValueOnce(
-      new Response(JSON.stringify(mockCand), { status: 200 }),
-    )
-
-    const result = await getPublicationCandidate('cand-1')
-    expect(apiRequest).toHaveBeenCalledWith('/publication-candidates/cand-1')
-    expect(result).toEqual(mockCand)
   })
 })

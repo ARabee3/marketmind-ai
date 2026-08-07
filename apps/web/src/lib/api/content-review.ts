@@ -1,7 +1,5 @@
 import type {
   ContentDecisionResponse,
-  ContentItemVersion,
-  PublicationCandidateV1,
 } from '@marketmind/contracts'
 import { apiRequest } from './client'
 import type {
@@ -23,20 +21,6 @@ export async function getPackWorkspace(
     throw err
   }
   return (await response.json()) as ContentPackWorkspace
-}
-
-export async function getItemVersionHistory(
-  packId: string,
-  itemId: string,
-): Promise<ContentItemVersion[]> {
-  const response = await apiRequest(
-    `/content-packs/${packId}/items/${itemId}/versions`,
-  )
-  if (!response.ok) {
-    throw new Error(`Failed to load item versions: ${response.statusText}`)
-  }
-  const data = await response.json()
-  return (Array.isArray(data) ? data : data.versions ?? []) as ContentItemVersion[]
 }
 
 export async function submitItemDecision(
@@ -116,14 +100,4 @@ export async function fetchAuthenticatedAssetBlob(
     throw new Error(`Failed to fetch asset bytes: ${response.status}`)
   }
   return await response.blob()
-}
-
-export async function getPublicationCandidate(
-  candidateId: string,
-): Promise<PublicationCandidateV1> {
-  const response = await apiRequest(`/publication-candidates/${candidateId}`)
-  if (!response.ok) {
-    throw new Error(`Failed to load publication candidate: ${response.status}`)
-  }
-  return (await response.json()) as PublicationCandidateV1
 }

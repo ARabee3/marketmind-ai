@@ -2146,8 +2146,7 @@
       "currentVersionPreview": "Current version being revised: v{version}",
       "submit": "Submit revision request",
       "submitting": "Submitting revision request…",
-      "cancel": "Cancel",
-      "failureNotice": "Revision request failed. Your current version is preserved."
+      "cancel": "Cancel"
     },
     "bulk": {
       "title": "Bulk Approval",

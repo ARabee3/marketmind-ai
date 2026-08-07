@@ -3,17 +3,10 @@ import { generateIdempotencyKey } from '../utils/idempotency'
 
 /**
  * Hook to manage idempotency keys per logical owner decision.
- * Generates a new key on demand or retrieves the current pending key for retries.
+ * Generates a fresh key for each new decision submission.
  */
 export function useIdempotencyKey() {
   const currentKeyRef = useRef<string | null>(null)
-
-  const getKey = useCallback(() => {
-    if (!currentKeyRef.current) {
-      currentKeyRef.current = generateIdempotencyKey()
-    }
-    return currentKeyRef.current
-  }, [])
 
   const renewKey = useCallback(() => {
     const newKey = generateIdempotencyKey()
@@ -21,13 +14,7 @@ export function useIdempotencyKey() {
     return newKey
   }, [])
 
-  const resetKey = useCallback(() => {
-    currentKeyRef.current = null
-  }, [])
-
   return {
-    getKey,
     renewKey,
-    resetKey,
   }
 }
