@@ -37,8 +37,6 @@ export interface UseStrategyProgressResult {
   progress: readonly StrategyProgressEvent[]
   isActive: boolean
   isTerminal: boolean
-  connectionState: StrategyProgressConnectionState
-  restoredFromStatus: boolean
 }
 
 export function isActiveStatus(status: StrategyStatus | null): boolean {
@@ -82,7 +80,6 @@ interface ProgressState {
   status: StrategyStatus | null
   events: StrategyProgressEvent[]
   connectionState: StrategyProgressConnectionState
-  restoredFromStatus: boolean
 }
 
 type Action =
@@ -103,7 +100,6 @@ const initialState: ProgressState = {
   status: null,
   events: [],
   connectionState: 'idle',
-  restoredFromStatus: false,
 }
 
 function mergeEvents(
@@ -131,25 +127,19 @@ function reducer(state: ProgressState, action: Action): ProgressState {
         ...state,
         status: action.status,
         events: mergeEvents(state.events, action.events),
-        restoredFromStatus: true,
       }
     case 'STATUS_FAILED':
-      return {
-        ...state,
-        restoredFromStatus: false,
-      }
+      return state
     case 'PROGRESS_EVENT':
       return {
         ...state,
         status: statusFromProgressEvent(state.status, action.event),
         events: mergeEvents(state.events, [action.event]),
-        restoredFromStatus: false,
       }
     case 'PROGRESS_EVENTS':
       return {
         ...state,
         events: mergeEvents(state.events, action.events),
-        restoredFromStatus: false,
       }
     case 'CONNECTED':
       return { ...state, connectionState: 'connected' }
@@ -319,7 +309,5 @@ export function useStrategyProgress(
     progress: state.events,
     isActive: state.status !== null && isActiveStatus(state.status),
     isTerminal: state.status !== null && isTerminalStatus(state.status),
-    connectionState: state.connectionState,
-    restoredFromStatus: state.restoredFromStatus,
   }
 }

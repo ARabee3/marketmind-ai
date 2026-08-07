@@ -162,7 +162,6 @@ describe('useStrategyProgress', () => {
     expect(
       result.current.progress.find((event) => event.seq === 2)?.status,
     ).toBe('progress')
-    expect(result.current.connectionState).toBe('connected')
   })
 
   it('rehydrates status and events after reconnect', async () => {
