@@ -16,11 +16,18 @@ import {
 import { AppShellMobileNav } from "./app-shell-mobile-nav";
 
 type NavItem = {
-  href: "/discovery" | "/dashboard" | "/strategy" | "/publishing" | "/billing";
+  href:
+    | "/discovery"
+    | "/dashboard"
+    | "/strategy"
+    | "/content"
+    | "/publishing"
+    | "/billing";
   labelKey:
     | "navDiscovery"
     | "navDashboard"
     | "navStrategy"
+    | "navContent"
     | "navPublishing"
     | "navBilling";
   iconName: AppShellIconName;
@@ -34,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
     iconName: "layout-dashboard",
   },
   { href: "/strategy", labelKey: "navStrategy", iconName: "strategy" },
+  { href: "/content", labelKey: "navContent", iconName: "content" },
   { href: "/publishing", labelKey: "navPublishing", iconName: "publishing" },
   { href: "/billing", labelKey: "navBilling", iconName: "wallet" },
 ];
