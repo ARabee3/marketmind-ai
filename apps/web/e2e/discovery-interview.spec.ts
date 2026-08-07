@@ -304,7 +304,7 @@ test.describe('Discovery Interview & Review', () => {
 
     // Review phase (after automatic summary_ready from respond)
     await expect(page.getByText('Review your Discovery results')).toBeVisible()
-    await expect(page.getByText('Complete')).toBeVisible()
+    await expect(page.getByText('Complete', { exact: true })).toBeVisible()
 
     // No summarize request should have been sent — respond triggered auto-summary
     expect(summarizeCalls).toBe(0)
@@ -425,7 +425,7 @@ test.describe('Discovery Interview & Review', () => {
 
     // Review phase (after automatic summary_ready from respond)
     await expect(page.getByText('مراجعة نتائج الاستكشاف')).toBeVisible()
-    await expect(page.getByText('مكتمل')).toBeVisible()
+    await expect(page.getByText('مكتمل', { exact: true })).toBeVisible()
 
     // Confirm
     await page.getByRole('button', { name: 'تأكيد الملف الشخصي' }).click()

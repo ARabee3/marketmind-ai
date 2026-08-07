@@ -16,8 +16,6 @@ import type {
   ConfirmProfileRequest,
   ConfirmProfileResponse,
   DiscoveryTranscriptionResponse,
-  MarketAwareBusinessFacts,
-  BusinessProfileDraft,
   ErrorCode,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
@@ -100,7 +98,6 @@ export function confirmDiscoveryProfile(
     body: JSON.stringify(payload),
   })
 }
-<<<<<<< HEAD
 
 /** POST /api/v1/discovery/:sessionId/transcribe */
 export function transcribeDiscoveryVoiceNote(
@@ -119,15 +116,4 @@ export function transcribeDiscoveryVoiceNote(
       body: formData,
     },
   )
-}
-
-/** POST /api/v1/discovery/:sessionId/draft-facts */
-export function updateDiscoveryDraftFacts(
-  sessionId: string,
-  payload: UpdateDraftFactsRequest,
-): Promise<UpdateDraftFactsResponse> {
-  return request<UpdateDraftFactsResponse>(`/discovery/${sessionId}/draft-facts`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
 }

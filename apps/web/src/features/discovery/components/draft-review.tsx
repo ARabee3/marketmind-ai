@@ -537,7 +537,10 @@ function UncertaintyGroup({
   const t = useTranslations('DiscoveryReview')
   return (
     <details className="group rounded-lg border border-border bg-background" open={open}>
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+      <summary
+        id={`uncertainty-summary-${severity}`}
+        className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden"
+      >
         <SeverityBadge severity={severity} />
         <span className="text-xs font-medium text-muted-foreground">
           {t('uncertaintyGroupCount', { count: items.length })}
@@ -577,7 +580,10 @@ function ResolvedGroup({
   const t = useTranslations('DiscoveryReview')
   return (
     <details className="group rounded-lg border border-border bg-background">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+      <summary
+        id="uncertainty-summary-resolved"
+        className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden"
+      >
         <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-bold text-primary uppercase">
           {t('resolved')}
         </span>
