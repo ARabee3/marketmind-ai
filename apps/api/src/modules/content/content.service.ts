@@ -86,7 +86,11 @@ export type BulkDecisionItemStatus =
 export type BulkDecisionItemResult = {
   readonly item_id: string;
   readonly status: BulkDecisionItemStatus;
-  readonly error?: { readonly code: string; readonly message: string };
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+    readonly latest_version_id?: string;
+  };
 };
 
 type DecisionFixtureCache = {
@@ -974,12 +978,15 @@ export class ContentService {
     // Exact-version gate: only the item's current version can be decided, and
     // the submitted checksum must match the persisted version checksum
     // (arch doc 559-569). The repository re-checks both inside its
-    // transaction; this earlier gate rejects with a clear, stable code.
+    // transaction; this earlier gate rejects with a clear, stable code. The
+    // conflict body carries `latest_version_id` so the frontend can refetch
+    // and show the authoritative current version.
     if (dto.content_item_version_id !== item.currentVersionId) {
       throw new ConflictException({
         code: "CONTENT_VERSION_CONFLICT",
         message:
           "This item version is no longer the current version. Refresh before deciding.",
+        latest_version_id: item.currentVersionId,
       });
     }
 
@@ -994,6 +1001,7 @@ export class ContentService {
         code: "CONTENT_VERSION_CONFLICT",
         message:
           "The submitted version checksum no longer matches the current item version.",
+        latest_version_id: item.currentVersionId,
       });
     }
 
@@ -1175,6 +1183,7 @@ export class ContentService {
         code: "CONTENT_VERSION_CONFLICT",
         message:
           "This item version is no longer the current version. Refresh before requesting a revision.",
+        latest_version_id: item.currentVersionId,
       });
     }
 
@@ -1189,6 +1198,7 @@ export class ContentService {
         code: "CONTENT_VERSION_CONFLICT",
         message:
           "The submitted version checksum no longer matches the current item version.",
+        latest_version_id: item.currentVersionId,
       });
     }
 
@@ -1369,6 +1379,7 @@ export class ContentService {
             code: "CONTENT_VERSION_CONFLICT",
             message:
               "This item version is no longer the current version. Refresh before deciding.",
+            latest_version_id: item.currentVersionId,
           },
         });
         continue;
@@ -1392,6 +1403,7 @@ export class ContentService {
             code: "CONTENT_VERSION_CONFLICT",
             message:
               "The submitted version checksum no longer matches the current item version.",
+            latest_version_id: item.currentVersionId,
           },
         });
         continue;

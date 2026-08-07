@@ -406,6 +406,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
                 ? effectivePack.id
                 : null
             }
+            reviewRouteAvailable
           />
         </div>
       </div>

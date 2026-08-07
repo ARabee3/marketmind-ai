@@ -13,10 +13,13 @@ import { Response } from "express";
  * Maps NestJS HTTP exceptions to the stable error-code contract expected by
  * the frontend auth flows.
  *
- * Shape: { code: string, message: string }
+ * Shape: { code: string, message: string, ...extra }
  *
  * Supports custom error codes embedded in exception responses via
- * `{ code: string, message: string }` objects.
+ * `{ code: string, message: string }` objects. Any additional custom fields on
+ * the exception response object (e.g. `latest_version_id` used by the Content
+ * conflict-recovery flow) are preserved, while NestJS boilerplate fields
+ * (`statusCode`, `error`) are never forwarded to the client.
  */
 @Catch(HttpException)
 export class HttpExceptionFilter {
@@ -37,8 +40,30 @@ export class HttpExceptionFilter {
     response.status(status).json({
       code,
       message: Array.isArray(message) ? message.join("; ") : message,
+      ...extractExtraFields(exceptionResponse),
     });
   }
+}
+
+/**
+ * Returns any custom fields carried by an object-shaped exception response,
+ * excluding the reserved `code`, `message`, `statusCode` and `error` keys so
+ * the stable contract is never shadowed by NestJS internals.
+ */
+function extractExtraFields(
+  exceptionResponse: string | object,
+): Record<string, unknown> {
+  if (typeof exceptionResponse !== "object" || exceptionResponse === null) {
+    return {};
+  }
+
+  const { statusCode, error, ...rest } = exceptionResponse as Record<
+    string,
+    unknown
+  >;
+  void statusCode;
+  void error;
+  return rest;
 }
 
 function extractCode(

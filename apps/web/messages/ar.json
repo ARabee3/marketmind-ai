@@ -1964,5 +1964,243 @@
       "staleRoute": "دورة المسار تختلف عن دورة المسار الحالي.",
       "invalidServerWeek": "أرجع خادم النظام رقم أسبوع غير صالح خارج 1-12."
     }
+  },
+  "ContentReview": {
+    "header": {
+      "eyebrow": "محتوى الأسبوع {week}",
+      "title": "مراجعة واعتماد المحتوى",
+      "subtitle": "الفترة من {startsAt} إلى {endsAt} · بتوقيت القاهرة",
+      "status": "الحالة: {status}",
+      "strategyVersion": "الخطة التسويقية v{version}",
+      "itemCount": "{count} منشورات",
+      "backToCycle": "العودة لجداول الـ ١٢ أسبوعاً",
+      "loading": "جارٍ تحميل محتوى الأسبوع…",
+      "loadError": "تعذر تحميل محتوى هذا الأسبوع.",
+      "retry": "إعادة المحاولة",
+      "profileVersion": "الملف الشخصي {id}",
+      "loadErrorBody": "تعذّر الوصول إلى خدمة بيانات مساحة العمل. حاول مرة أخرى.",
+      "fixtureNotice": "أنت تعرض نموذجًا تجريبيًا متوافقًا مع العقد (واجهة بيانات مساحة العمل غير مفعّلة بعد). جميع إجراءات القرارات هنا محاكاة ولن تُحفظ."
+    },
+    "agenda": {
+      "title": "جدول المنشورات",
+      "subtitle": "منشورات الأسبوع مرتبة حسب أيام وقنوات النشر",
+      "selectorLabel": "اختر المنشور للمراجعة",
+      "itemCountLabel": "{current} الحالي · {blocked} محتاج تعديل · {approved} جاهز للنشر",
+      "status": {
+        "draft": "مسودة",
+        "revision_requested": "تم طلب تعديل",
+        "revising": "جارٍ التعديل",
+        "approved": "معتمد (جاهز للنشر)",
+        "rejected": "مرفوض",
+        "revision_failed": "فشل التعديل"
+      },
+      "channel": {
+        "instagram": "إنستغرام",
+        "facebook": "فيسبوك",
+        "tiktok": "تيك توك",
+        "google_business_profile": "الملف التجاري على جوجل"
+      },
+      "format": {
+        "static_image_post": "بوست صورة",
+        "short_video_script": "سيناريو فيديو قصير (Reel)",
+        "carousel_brief": "بوست كروت متعددة (Carousel)",
+        "text_post": "بوست نصي"
+      },
+      "ineligible": "غير مؤهل للاعتماد"
+    },
+    "proof": {
+      "title": "معاينة المنشور",
+      "recommendedWindow": "أفضل وقت للنشر",
+      "cairoTime": "{startsAt} – {endsAt} (بتوقيت القاهرة)",
+      "dialect": "اللهجة: {dialect}",
+      "languageMode": "اللغة: {mode}",
+      "versionLabel": "النسخة {version} · كود المراجعة {checksum}",
+      "captionArabic": "نص البوست بالعربية",
+      "captionEnglish": "نص البوست بالإنجليزية",
+      "cta": "دعوة للتفاعل (CTA)",
+      "hashtags": "الهاشتاجات",
+      "creativeBrief": "فكرة وتصميم الصورة",
+      "altText": "وصف الصورة لذوي الهمم",
+      "videoScript": {
+        "title": "سيناريو الفيديو القصير",
+        "hook": "الافتتاحية المشوقة (Hook)",
+        "scenes": "مشاهد الفيديو",
+        "closingCta": "الختام والدعوة للإجراء",
+        "scene": "المشهد {order}",
+        "voiceover": "التعليق الصوتي",
+        "onScreenText": "النص على الشاشة"
+      }
+    },
+    "asset": {
+      "title": "الصورة / الميديا",
+      "kind": {
+        "owner_supplied": "صورة مضافة من طرفك",
+        "generated_static": "صورة مصممة بالذكاء الاصطناعي",
+        "prompt_only": "وصف التصميم فقط"
+      },
+      "status": {
+        "generating": "جارٍ تصميم الصورة…",
+        "ready": "الصورة جاهزة",
+        "missing": "لا توجد صورة",
+        "failed": "فشل تصميم الصورة",
+        "blocked": "الصورة مخالفة لتعليمات النشر"
+      },
+      "provider": "المزود: {name} ({model})",
+      "dimensions": "الأبعاد: {width} × {height} بكسل",
+      "altText": "وصف الصورة: {text}",
+      "loadError": "تعذر تحميل صورة المنشور.",
+      "promptOnlyHint": "النص والتوجيه البصري موجودان في الموجز الإبداعي.",
+      "imgFallbackAlt": "معاينة أصل المحتوى",
+      "loadingBytes": "جارٍ تحميل معاينة الأصل…",
+      "generatingBody": "مزوّد الصور بالذكاء الاصطناعي يولّد الأصل البصري.",
+      "failureCodeBody": "رمز الخطأ: {code}",
+      "failedBody": "واجه توليد الأصل فشلًا من المزوّد.",
+      "blockedBody": "الأصل محظور بسبب سياسة المحتوى أو قيود الادعاءات.",
+      "missingBody": "لم يتم توليد أو رفع الأصل البصري المطلوب بعد."
+    },
+    "provenance": {
+      "title": "مصدر وأصل المحتوى",
+      "subtitle": "الخطة ← سياق الأسبوع ← معلومات نشاطك ← مسودة الذكاء الاصطناعي",
+      "strategyTrace": "هدف الخطة التسويقية",
+      "pillar": "المحور",
+      "objective": "الهدف: {objective}",
+      "funnelStage": "مرحلة المسار",
+      "weekContext": "سياق الأسبوع",
+      "focusOffer": "العرض الحالي: {offer}",
+      "profileFact": "معلومة موثقة من نشاطك (قراءة فقط)",
+      "modelCopy": "اقترحها الذكاء الاصطناعي",
+      "assumptions": "افتراضات النظام",
+      "warnings": "تنبيهات",
+      "blockers": "أسباب تمنع الاعتماد",
+      "sourceTypes": {
+        "fact": "حقيقة مؤكدة",
+        "context": "مدخلات من طرفك",
+        "strategy": "خطة معتمدة",
+        "model": "مقترح الذكاء الاصطناعي",
+        "assumption": "افتراض",
+        "warning": "تنبيه",
+        "blocker": "مانع اعتماد"
+      },
+      "objectiveLabel": "الهدف:",
+      "focusFallback": "التركيز الأسبوعي القياسي",
+      "mustAvoidList": "يجب تجنّب: {list}",
+      "factApproved": "حقيقة معتمدة",
+      "factUnapproved": "عرض غير معتمد",
+      "noClaims": "لا توجد ادعاءات تجارية محددة في هذا البند.",
+      "providerLabel": "المزوّد:",
+      "generatedLabel": "تم الإنشاء:"
+    },
+    "history": {
+      "title": "سجل التعديلات والنسخ",
+      "version": "النسخة {version}",
+      "current": "النسخة الحالية",
+      "checksum": "كود النسخة: {checksum}",
+      "decidedBy": "بواسطة {user} بتاريخ {date}",
+      "notes": "الملاحظات: {notes}",
+      "revisionNotesLabel": "ملاحظات المراجعة:",
+      "decisions": {
+        "approved": "تم الاعتماد",
+        "rejected": "مرفوض",
+        "revision_requested": "طلب مراجعة"
+      }
+    },
+    "decision": {
+      "title": "قرارك على هذه النسخة",
+      "subtitle": "اختر الإجراء المناسب للنسخة المعروضة",
+      "versionChecksum": "النسخة الحالية {version} · {checksum}",
+      "consequence": "اعتماد البوست يجهزه للنشر النهائي. لن يتم النشر على صفحتك تلقائياً إلا بعد تأكيدك في قسم النشر.",
+      "eligibility": {
+        "title": "شروط جاهزية البوست",
+        "channelApproved": "المنصة ونوع البوست متوافقان مع الخطة",
+        "claimsSupported": "المعلومات والأسعار مطابقة لبيانات نشاطك",
+        "assetReady": "الصورة أو تصميم البوست جاهز",
+        "blockersPresent": "يتعذر الاعتماد وجود {count} أخطاء محتاجة تعديل"
+      },
+      "actions": {
+        "requestRevision": "طلب تعديل",
+        "rejectVersion": "رفض النسخة v{version}",
+        "approveVersion": "اعتماد النسخة v{version}",
+        "submitting": "جارٍ حفظ قرارك…",
+        "success": "تم اعتماد البوست وتجهيزه للنشر."
+      },
+      "conflict": {
+        "title": "تم تحديث هذا البوست",
+        "body": "قام أحد أعضاء الفريق بتحديث هذا البوست للنسخة {latestVersion}. تم تحديث الشاشة لعرض أحدث نسخة.",
+        "bodyNoVersion": "تم تحديث هذا البوست. تم تحديث الشاشة لعرض أحدث نسخة.",
+        "dismiss": "إغلاق",
+        "fetching": "جارٍ تحميل أحدث نسخة…"
+      },
+      "immutable": {
+        "title": "القرار مؤمّن",
+        "body": "تم تجميد هذه النسخة في كيان نشر ثابت. لا يمكن اتخاذ قرارات أخرى عليها."
+      },
+      "errorDismiss": "حاول مرة أخرى"
+    },
+    "revisionDialog": {
+      "title": "طلب تعديل على البوست",
+      "subtitle": "اكتب التعديلات المطلوبة بوضوح ليقوم الذكاء الاصطناعي بتنفيذها في النسخة القادمة.",
+      "notesLabel": "تفاصيل التعديل (مطلوبة)",
+      "notesPlaceholder": "مثال: يرجى إضافة رقم الواتساب وتوضيح أن العرض ينتهي يوم ١٦ أغسطس…",
+      "notesRequiredError": "يرجى كتابة ملاحظات التعديل قبل الإرسال.",
+      "currentVersionPreview": "النسخة المراد تعديلها: v{version}",
+      "submit": "إرسال طلب التعديل",
+      "submitting": "جارٍ إرسال التعديل…",
+      "cancel": "إلغاء"
+    },
+    "bulk": {
+      "title": "اعتماد مجموعة بوستات",
+      "subtitle": "حدد البوستات الجاهزة لاعتمادها مرة واحدة",
+      "selectedCount": "تم تحديد {count} بوستات جاهزة",
+      "approveSelected": "اعتماد المحدد ({count})",
+      "submitting": "جارٍ الاعتماد الجماعي…",
+      "selectAllEligible": "تحديد الكل الجاهز",
+      "deselectAll": "إلغاء التحديد",
+      "ineligibleReason": "البوست {itemId} غير جاهز: {reason}",
+      "partialResult": "تم اعتماد {successCount} من أصل {totalCount} بوستات وتجهيزها للنشر.",
+      "noneEligible": "لا توجد بوستات مكتملة الشروط ومحددة للاعتماد حالياً.",
+      "blockedLabel": "محظور",
+      "approvedLabel": "معتمد",
+      "dismiss": "إغلاق",
+      "unknownError": "خطأ غير معروف",
+      "errorBody": "فشل الاعتماد الجماعي."
+    },
+    "handoff": {
+      "title": "خطوة النشر",
+      "statusActive": "البوست جاهز للنشر · غير مجدول بعد",
+      "statusNone": "لم يتم اعتماد هذا البوست بعد",
+      "description": "البوستات المعتمدة تنتقل لقسم النشر لتحديد مواعيد النشر الفعلية أو ربط حساباتك.",
+      "openPublishing": "الانتقال لقسم النشر",
+      "candidateId": "المرشّح: {id}",
+      "checksum": "المجموع الاختباري: {checksum}"
+    },
+    "errors": {
+      "CONTENT_STRATEGY_NOT_APPROVED": "الخطة التسويقية لهذا المحتوى لم تعتمد بعد.",
+      "CONTENT_PROFILE_STALE": "تم تحديث بيانات نشاطك التجاري بعد كتابة هذا المحتوى.",
+      "CONTENT_CYCLE_PAUSED": "جدول المحتوى متوقف مؤقتاً.",
+      "CONTENT_CYCLE_COMPLETED": "تم إكمال خطة الـ ١٢ أسبوعاً بالكامل.",
+      "CONTENT_WEEK_OUT_OF_RANGE": "الأسبوع المحدد خارج نطاق الخطة.",
+      "CONTENT_WEEK_ALREADY_CLAIMED": "محتوى هذا الأسبوع تم إنشاؤه من قبل.",
+      "CONTENT_CHANNEL_MISMATCH": "منصة النشر غير متوافقة مع الخطة التسويقية.",
+      "CONTENT_UNSUPPORTED_CLAIM": "البوست يحتوي على معلومات أو أسعار غير مذكورة في بيانات نشاطك.",
+      "CONTENT_OFFER_UNAPPROVED": "العروض المذكورة في البوست غير معتمدة.",
+      "CONTENT_POLICY_VIOLATION": "نص البوست يخالف سياسات وشروط النشر.",
+      "CONTENT_ASSET_REQUIRED": "تصميم البوست أو الصورة المطلوبة غير موجودة.",
+      "CONTENT_SCHEMA_FAILURE": "حدث خطأ في تركيب بيانات البوست.",
+      "CONTENT_VERSION_CONFLICT": "تم تعديل هذا البوست مؤخراً بواسطة شخص آخر.",
+      "CONTENT_APPROVAL_BLOCKED": "لا يمكن الاعتماد قبل حل المشاكل والتنبيهات الموجودة.",
+      "CONTENT_PROVIDER_FAILURE": "تعذر على الذكاء الاصطناعي إكمال الطلب، حاول مرة أخرى.",
+      "CONTENT_CANDIDATE_TAMPERED": "خطأ في التثبت من صحة بيانات النشر.",
+      "CONTENT_CANDIDATE_REVOKED": "تم إلغاء تفعيل هذا البوست للنشر.",
+      "CONTENT_PLATFORM_CONSTRAINT": "البوست يخالف قيود المنصة (مثل عدد الحروف أو الأبعاد)."
+    },
+    "tooltips": {
+      "funnelStage": "توضح مدى قرب العميل من الشراء (مثلاً: نشر الوعي مقابل زيادة المبيعات).",
+      "pillar": "الموضوع الرئيسي الذي يركز عليه هذا المنشور من خطتك العامة.",
+      "modelCopy": "النصوص التي كتبها الذكاء الاصطناعي بناءً على معلومات مشروعك.",
+      "cta": "الإجراء الذي تريد من العميل اتخاذه، مثل 'أرسل رسالة' أو 'زيارة الموقع'.",
+      "altText": "وصف خفي للصورة يساعد ذوي الإعاقة البصرية ويزيد من ظهور المنشور في البحث.",
+      "checksum": "رمز رقمي فريد يضمن عدم تغيير هذا النص أو الصورة بدون علمك.",
+      "candidate": "الموافقة تجهز المحتوى للنشر، لكنه لن يُنشر على صفحتك حتى تحدد الموعد في قسم النشر."
+    }
   }
 }
