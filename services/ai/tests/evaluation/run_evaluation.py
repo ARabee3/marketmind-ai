@@ -53,11 +53,15 @@ def main(
         Path,
         typer.Option(help="Path where the JSON evaluation report will be written."),
     ] = Path("evaluation_report.json"),
+    selection_mode: Annotated[
+        str,
+        typer.Option(help="Retrieval selector to evaluate: semantic or semantic_mmr."),
+    ] = "semantic",
 ) -> None:
-    anyio.run(_run, suite, report_file)
+    anyio.run(_run, suite, report_file, selection_mode)
 
 
-async def _run(suite: str, report_file: Path) -> None:
+async def _run(suite: str, report_file: Path, selection_mode: str = "semantic") -> None:
     dataset = _load_all_cases()
     match suite:
         case "smoke":
@@ -66,6 +70,9 @@ async def _run(suite: str, report_file: Path) -> None:
             cases = dataset.cases
         case _:
             raise typer.BadParameter("suite must be 'smoke' or 'full'")
+
+    if selection_mode not in {"semantic", "semantic_mmr"}:
+        raise typer.BadParameter("selection-mode must be 'semantic' or 'semantic_mmr'")
 
     provider = DeterministicFakeEmbeddingProvider(
         EmbeddingConfig(
@@ -77,7 +84,12 @@ async def _run(suite: str, report_file: Path) -> None:
     )
     client = AsyncQdrantClient(location=":memory:")
     try:
-        runner = RetrievalEvalRunner(client, f"eval_report_{uuid4().hex}", provider)
+        runner = RetrievalEvalRunner(
+            client,
+            f"eval_report_{uuid4().hex}",
+            provider,
+            selection_mode=selection_mode,
+        )
         await runner.ensure_collection()
         fixture_data = _fixture_data()
         await runner.load_fixtures(fixture_data)
@@ -95,6 +107,7 @@ async def _run(suite: str, report_file: Path) -> None:
             grounding_summary=_grounding_summary(comparison_metrics),
             localization_issues=localization_issues,
             approval_signal_source="reviewed_dataset",
+            selection_mode=retrieval_report.selection_mode,
         )
         output_path = write_report_file(report, report_file)
     finally:

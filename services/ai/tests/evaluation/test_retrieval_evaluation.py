@@ -12,6 +12,11 @@ pytestmark = pytest.mark.integration
 
 FRAMEWORK_DIAGNOSIS_CHUNK_ID = "a0000000-0050-4000-8000-000000000050"
 SERVICES_FRAMEWORK_CHUNK_ID = "a0000000-0020-4000-8000-000000000020"
+REQUIRED_SELECTION_CATEGORIES = {
+    "framework_diagnosis",
+    "objective_funnel",
+    "measurement_kpi",
+}
 
 
 def _smoke_cases(dataset: EvalDataset) -> list[EvalCase]:
@@ -97,6 +102,93 @@ async def test_general_framework_diagnosis_is_retrieved_for_arabic_and_english(
         )
         assert FRAMEWORK_DIAGNOSIS_CHUNK_ID in framework_result.returned_chunk_ids
         assert SERVICES_FRAMEWORK_CHUNK_ID not in framework_result.returned_chunk_ids
+
+
+@pytest.mark.eval_smoke
+async def test_semantic_mmr_smoke_preserves_required_category_presence(
+    qdrant_test_client,
+    test_collection_name: str,
+    fake_provider,
+    eval_dataset: EvalDataset,
+    all_fixture_data: list[list[dict]],
+) -> None:
+    semantic_runner = RetrievalEvalRunner(
+        qdrant_test_client,
+        test_collection_name,
+        fake_provider,
+        selection_mode="semantic",
+    )
+    mmr_runner = RetrievalEvalRunner(
+        qdrant_test_client,
+        test_collection_name,
+        fake_provider,
+        selection_mode="semantic_mmr",
+    )
+    await semantic_runner.ensure_collection()
+    await semantic_runner.load_fixtures(all_fixture_data)
+
+    cases = _smoke_cases(eval_dataset)
+    semantic_report = await semantic_runner.run_dataset(cases)
+    mmr_report = await mmr_runner.run_dataset(cases)
+
+    assert semantic_report.selection_mode == "semantic"
+    assert mmr_report.selection_mode == "semantic_mmr"
+    assert mmr_report.hard_filter_violations == 0
+    assert mmr_report.top5_hit_rate >= 0.8
+
+    for semantic_result, mmr_result in zip(
+        semantic_report.retrieval_results,
+        mmr_report.retrieval_results,
+        strict=True,
+    ):
+        semantic_categories = {
+            category
+            for category in semantic_result.selected_categories
+            if category in REQUIRED_SELECTION_CATEGORIES
+        }
+        mmr_categories = {
+            category
+            for category in mmr_result.selected_categories
+            if category in REQUIRED_SELECTION_CATEGORIES
+        }
+        assert semantic_categories.issubset(mmr_categories)
+
+
+@pytest.mark.eval_smoke
+async def test_ranking_metrics_use_the_final_runtime_selection_order(
+    qdrant_test_client,
+    test_collection_name: str,
+    fake_provider,
+    eval_dataset: EvalDataset,
+    all_fixture_data: list[list[dict]],
+) -> None:
+    runner = RetrievalEvalRunner(qdrant_test_client, test_collection_name, fake_provider)
+    await runner.ensure_collection()
+    await runner.load_fixtures(all_fixture_data)
+
+    case = next(
+        item
+        for item in eval_dataset.cases
+        if item.id == "edu-en-acquisition-002"
+    )
+    result = await runner.run_case(case)
+
+    # This is the regional + deduplicated pack order used by the production
+    # retrieval service, rather than the old query-builder iteration order.
+    assert result.ranked_chunk_ids == [
+        "a0000000-0031-4000-8000-000000000031",
+        "a0000000-0034-4000-8000-000000000034",
+        "a0000000-0033-4000-8000-000000000033",
+        "a0000000-0035-4000-8000-000000000035",
+        "a0000000-0050-4000-8000-000000000050",
+    ]
+    assert result.selected_categories == [
+        "objective_funnel",
+        "budget_method",
+        "channel_instagram",
+        "measurement_kpi",
+        "framework_diagnosis",
+    ]
 
 
 @pytest.mark.eval_full

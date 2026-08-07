@@ -1,8 +1,9 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 ReviewOutcome = Literal["approved", "revision_requested", "unavailable"]
+RelevanceLabel = Literal["relevant", "not_relevant"]
 
 
 class RetrievalQueryInput(BaseModel):
@@ -24,6 +25,32 @@ class ExpectedRetrieval(BaseModel):
     forbidden_chunk_ids: list[str]
     required_gap_categories: list[str]
     min_top5_hit_rate: float = 0.8
+    # Optional human labels used only for the honest ranking metrics. Legacy
+    # cases remain valid and are reported as unmeasured until their returned
+    # top-five candidates are labeled.
+    relevance_labels: dict[str, RelevanceLabel] = Field(default_factory=dict)
+    known_relevant_chunk_ids: list[str] = Field(default_factory=list)
+    relevance_labels_complete: bool = False
+
+    @model_validator(mode="after")
+    def validate_complete_relevance_set(self) -> "ExpectedRetrieval":
+        """Prevent a declared-complete set from silently omitting relevance."""
+
+        if not self.relevance_labels_complete:
+            return self
+
+        labeled_relevant = {
+            chunk_id
+            for chunk_id, label in self.relevance_labels.items()
+            if label == "relevant"
+        }
+        known_relevant = set(self.known_relevant_chunk_ids)
+        if labeled_relevant != known_relevant:
+            raise ValueError(
+                "known_relevant_chunk_ids must exactly match relevance_labels "
+                "marked relevant when relevance_labels_complete is true"
+            )
+        return self
 
 
 class HardFilterCase(BaseModel):

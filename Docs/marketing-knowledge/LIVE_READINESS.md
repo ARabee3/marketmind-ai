@@ -1,42 +1,68 @@
 # Marketing Knowledge Live-Readiness
 
-This pack is authored and schema-valid, but it is **not live-retrieval ready**
-until the required human reviews are complete.
+This record separates **technical retrieval readiness** from the remaining
+human-review gate. It must never be used to imply that an outstanding reviewer
+has approved the corpus.
 
-## Current state
+## Verified technical state — 2026-08-07
 
-- Entry count: 32
-- Approved entries: 0
-- Live-retrievable entries: 0
-- Current manifest status: all entries are `draft`
+- Source entries: 32
+- Runtime-eligible entries: 32 — each current entry front matter has
+  `review_status: approved`, a non-empty `reviewer`, and a `reviewed_at` date.
+- Committed ingestion: run `18b2d294-7036-4907-a069-ccfa57820dbd` succeeded
+  against commit `2314437f3bd0f27c825bd4a8045806fb73a0a3dd`; 32 entries and 64
+  chunks were written with 0 failed entries.
+- Live collection: `marketing_knowledge_gemini_2_v1`
+- Embeddings: Gemini `gemini-embedding-2`, 768 dimensions
+- Default selection mode: `semantic_mmr`, `mmr_lambda=0.5`. `semantic` remains
+  the explicit score-ordered rollback mode; deployments must record any
+  environment override rather than silently changing selection behavior.
 
-This is intentional while PR review is pending. The Strategy retrieval pipeline
-must only index entries where:
+The corpus was checked with `npm run check:marketing-knowledge` before the
+live replay.
 
-1. `review_status` is `approved`;
-2. `reviewer` is non-null;
-3. `reviewed_at` is non-null;
-4. `effective_at <= today`;
-5. `expires_at` is null or in the future.
+## Retained live replay evidence
 
-## Required before closing issue #68
+The following runs used a clearly marked fictional local business profile. No
+customer data, credentials, or unpublished business facts were used. The API,
+PostgreSQL persistence, Qdrant collection, Gemini embedding provider, and
+Strategy service were all real local integration components.
 
-- Ahmed (`ARabee3`) reviews the seed corpus.
-- Merzek (`mostafamerzk`) reviews the seed corpus.
-- Gerges (`GergesYoussef-hub`) reviews retrieval-facing metadata and examples.
-- Approved entries are flipped from `draft` to `approved`.
-- The approval record is updated.
-- `npm run check:marketing-knowledge` passes after the approval updates.
+| Evidence | Reference | Result |
+| --- | --- | --- |
+| Arabic framework-diagnosis retrieval | `6cb9c2e8-3516-4123-813b-e6dd1edc9e13` | Completed; 8 items, 1 non-critical `objective_funnel` gap; approved framework, channel, content-strategy, regional, and measurement evidence retained. |
+| Arabic Strategy generation | Strategy `8ca9fec5-5a10-4008-b880-4125e04b5740`, version `db0afc51-8324-4212-9fb7-62277fda1c8c` | Draft version 1 persisted from the Arabic retrieval pack after deterministic scoring and validation. |
+| English framework-diagnosis retrieval | `8efbdaa6-55c0-4f3b-beff-0e04b551ef1f` | Completed; 8 items, 1 non-critical `objective_funnel` gap; approved framework, channel, content-strategy, regional, and measurement evidence retained. |
 
-Do not mark entries approved from automation alone. Human review is the approval
-gate for this corpus.
+Both retrieval runs persisted `selection_mode: semantic_mmr`,
+`embedding_model: gemini-embedding-2`, `embedding_dimensions: 768`, and the
+collection name above. In each run, `framework_diagnosis` included the approved
+*Situation and Bottleneck Diagnosis for SME Strategy* entry. The retained
+`objective_funnel` gap is visible rather than hidden; it was non-critical and
+did not block the Arabic Strategy draft.
 
-## Issue #103 framework-diagnosis gate
+## Human approval result
 
-The source-backed revisions to `situation-diagnosis-5cs-swot` and
-`smart-objectives-funnel-mapping` remain `draft` until Ahmed, Merzek, and Gerges
-complete the approval checklist above. After approval, re-run corpus validation,
-ingest the approved versions into PostgreSQL/Qdrant, and run the Arabic and
-English `framework_diagnosis` retrieval smoke cases. Issue #103 must remain open
-until both live cases retrieve the approved framework and Strategy generation no
-longer emits the blocking `MISSING_FRAMEWORK_DATA` gap.
+For Issue #103, the team reviewed the two framework entries and delegated one
+accountable final sign-off to Ahmed (`ARabee3`). Ahmed completed that approval
+on 2026-08-07. `npm run strategy:readiness` therefore verifies that final
+approval, entry metadata, and the retained live evidence above.
+
+This does not claim that every teammate personally signed an approval box, and
+it does not change the broader #68 entry-review tracking in
+[APPROVAL_RECORD.md](APPROVAL_RECORD.md). The final human/live QA gate remains
+issue [#128](https://github.com/ARabee3/marketmind-ai/issues/128).
+
+## Re-run procedure
+
+For a future demo or release candidate, retain the resulting run IDs and verify
+all of the following before updating this file:
+
+1. `npm run check:marketing-knowledge` passes.
+2. The selected environment records its provider, model, dimensions, collection,
+   and selection mode.
+3. One Arabic and one English `framework_diagnosis` retrieval complete using
+   only approved entries.
+4. A Strategy generation persists an immutable version from its retrieval run.
+5. Any `KnowledgeGap` is recorded truthfully, and no reviewer approval is
+   inferred.

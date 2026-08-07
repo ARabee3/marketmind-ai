@@ -68,23 +68,31 @@ For each entry, reviewers should confirm:
 | `sector-note-hospitality` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-retail` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-services` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
-| `situation-diagnosis-5cs-swot` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
-| `smart-objectives-funnel-mapping` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Issue #103 source-backed revision approved by Merzek; remaining reviews and live proof are pending |
+| `situation-diagnosis-5cs-swot` | Issue #103 team-reviewed; final approval recorded | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Final approval by @ARabee3; broader #68 individual-review tracking remains separate |
+| `smart-objectives-funnel-mapping` | Issue #103 team-reviewed; final approval recorded | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Final approval by @ARabee3; broader #68 individual-review tracking remains separate |
 
 ## Issue #103 completion record
 
 These checks apply specifically to
-`situation-diagnosis-5cs-swot` and `smart-objectives-funnel-mapping`. Do not
-check a reviewer on their behalf, and do not use a fixture-only or in-memory
+`situation-diagnosis-5cs-swot` and `smart-objectives-funnel-mapping`. The team
+reviewed both entries and delegated the accountable final decision to
+`@ARabee3`. This records that final decision; it does not create individual
+approval claims for other team members. Do not use a fixture-only or in-memory
 evaluation as live proof.
 
-### Required human reviews
+For this closeout, Issue #128 is the authoritative final-review record and
+supersedes the older individual-review mechanics in Issue #103.
 
-- [ ] @ARabee3
-- [x] @mostafamerzk — approved 2026-08-02
-- [ ] @abdulazimRabie
-- [ ] @MostafaAhmed22
-- [ ] @GergesYoussef-hub
+### Required final approval
+
+- [x] @ARabee3 — final accountable approval, 2026-08-07, for both Issue #103 framework entries after team review
+
+### Team-review context
+
+Merzek's individual corpus review remains recorded above. The broader #68
+entry-review table remains separate from this Issue #103 final-approval gate;
+no individual approval is inferred here for a teammate who has not personally
+recorded one.
 
 ### Required live proof
 
@@ -101,9 +109,35 @@ evaluation as live proof.
   Strategy `623d054a-3f24-46b4-b2c7-aefa8985ae46`, version 1, retrieval run
   `2da740d8-74ca-4210-a4e5-2b2b1650ed88`, 0 knowledge gaps, 2026-08-02
 
+### 2026-08-07 MMR technical replay
+
+The following is an additional technical replay, not a reviewer approval. It
+used a marked-fictional local business profile and real PostgreSQL, Qdrant,
+Gemini embedding, FastAPI, and Nest Strategy services.
+
+- [x] Corpus validation and committed ingestion — `npm run
+  check:marketing-knowledge`; ingestion run
+  `18b2d294-7036-4907-a069-ccfa57820dbd`, 32 entries / 64 chunks / 0 failures,
+  commit `2314437f3bd0f27c825bd4a8045806fb73a0a3dd`.
+- [x] Arabic live `framework_diagnosis` retrieval — run
+  `6cb9c2e8-3516-4123-813b-e6dd1edc9e13`, 8 items, 1 visible non-critical
+  `objective_funnel` gap, `semantic_mmr`, Gemini `gemini-embedding-2`, 768
+  dimensions.
+- [x] English live `framework_diagnosis` retrieval — run
+  `8efbdaa6-55c0-4f3b-beff-0e04b551ef1f`, 8 items, 1 visible non-critical
+  `objective_funnel` gap, `semantic_mmr`, Gemini `gemini-embedding-2`, 768
+  dimensions.
+- [x] Live Arabic Strategy generation — Strategy
+  `8ca9fec5-5a10-4008-b880-4125e04b5740`, persisted version 1
+  `db0afc51-8324-4212-9fb7-62277fda1c8c`, linked to the Arabic retrieval run.
+
+See [LIVE_READINESS.md](LIVE_READINESS.md) for the current replay summary and
+its limitations.
+
 Run `npm run strategy:readiness` after updating this record. It remains blocked
-until both entry front matters are approved, all five reviewers are checked,
-and every live proof line is checked with a real run reference.
+until the outstanding human reviewer boxes above are actually checked by the
+named people. The live proof is complete, but it cannot substitute for those
+reviews.
 
 ## Approval update rule
 
