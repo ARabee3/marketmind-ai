@@ -359,7 +359,10 @@ const item3Version1: ContentItemVersion = {
   warnings: [],
   blockers: [],
   asset_required: true,
-  asset_ids: ['88888888-8888-4888-8888-888888888883'],
+  asset_ids: [
+    '88888888-8888-4888-8888-888888888883',
+    '88888888-8888-4888-8888-888888888885',
+  ],
   generation_provenance: {
     generation_run_id: '99999999-9999-4999-8999-999999999999',
     provider_name: 'FastAPI AI Engine',
@@ -387,6 +390,25 @@ const item3Asset: ContentAsset = {
   failure_code: null,
   review_required: false,
   created_at: '2026-08-01T10:06:00.000Z',
+}
+
+const item3ReelAsset: ContentAsset = {
+  id: '88888888-8888-4888-8888-888888888885',
+  content_item_version_id: item3Version1.id,
+  kind: 'generated_static',
+  status: 'ready',
+  mime_type: 'video/mp4',
+  storage_key: 'content-assets/2026/08/koshary-crispy-reel.mp4',
+  checksum: 'e7d6c5b4a3f2098877665544332211ffeeddccbbaa9988776655443322110aa1b',
+  width: null,
+  height: null,
+  alt_text: 'فيديو قصير يظهر تحمير البصل المقرمش في الزيت مع صوت القرمشة',
+  provider_name: 'FastAPI AI Engine',
+  provider_model: 'reel-render-v1',
+  provider_request_id: 'req-reel-333',
+  failure_code: null,
+  review_required: true,
+  created_at: '2026-08-02T08:55:00.000Z',
 }
 
 const item3Decision1: ContentDecision = {
@@ -421,7 +443,15 @@ export const mockPublicationCandidate1: PublicationCandidateV1 = {
   cta: item3Version1.caption_variants[0].cta,
   hashtags: item3Version1.caption_variants[0].hashtags,
   alt_text: item3Version1.alt_text,
-  assets: [],
+  assets: [
+    {
+      asset_id: item3ReelAsset.id,
+      kind: 'generated_static',
+      mime_type: item3ReelAsset.mime_type!,
+      storage_key: item3ReelAsset.storage_key!,
+      checksum: item3ReelAsset.checksum!,
+    },
+  ],
   recommended_publish_window: {
     starts_at: '2026-08-14T18:00:00.000Z',
     ends_at: '2026-08-14T21:00:00.000Z',
@@ -573,7 +603,7 @@ export const mockPackWorkspaceItems: readonly ContentPackWorkspaceItem[] = [
     item: item3,
     current_version: item3Version1,
     version_history: [item3Version1],
-    assets: [item3Asset],
+    assets: [item3Asset, item3ReelAsset],
     decisions: [item3Decision1],
     eligibility: {
       eligible_for_approval: true,

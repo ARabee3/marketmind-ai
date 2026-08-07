@@ -27,6 +27,36 @@ function upgradeItemToVersionThree(
   return clone
 }
 
+function mockReadyCandidateAssets(
+  workspace: ContentPackWorkspace,
+  contentItemId: string,
+): Array<{
+  asset_id: string
+  kind: 'owner_supplied' | 'generated_static'
+  mime_type: string
+  storage_key: string
+  checksum: string
+}> {
+  const item = workspace.items.find((i) => i.item.id === contentItemId)
+  const ready = (item?.assets ?? []).find(
+    (asset) =>
+      asset.status === 'ready' &&
+      (asset.kind === 'owner_supplied' || asset.kind === 'generated_static') &&
+      asset.checksum !== null &&
+      asset.storage_key !== null,
+  )
+  if (!ready) return []
+  return [
+    {
+      asset_id: ready.id,
+      kind: ready.kind as 'owner_supplied' | 'generated_static',
+      mime_type: ready.mime_type ?? '',
+      storage_key: ready.storage_key ?? '',
+      checksum: ready.checksum ?? '',
+    },
+  ]
+}
+
 type ContentReviewMockState = {
   workspace: ContentPackWorkspace
   conflictOnce: boolean
@@ -162,7 +192,7 @@ async function mockContentReviewApi(page: Page, state: ContentReviewMockState) {
           cta: null,
           hashtags: [],
           alt_text: 'alt',
-          assets: [],
+          assets: mockReadyCandidateAssets(state.workspace, body.content_item_id),
           recommended_publish_window: {
             starts_at: '2026-08-10T16:00:00.000Z',
             ends_at: '2026-08-10T19:00:00.000Z',
