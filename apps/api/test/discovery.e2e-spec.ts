@@ -13,6 +13,7 @@ import { DiscoveryController } from "../src/modules/discovery/discovery.controll
 import { DiscoveryRateLimitGuard } from "../src/modules/discovery/discovery-rate-limit.guard";
 import { DiscoveryRedisLimiterService } from "../src/modules/discovery/discovery-redis-limiter.service";
 import { DiscoveryService } from "../src/modules/discovery/discovery.service";
+import { DiscoveryVoiceTranscriptionService } from "../src/modules/discovery/discovery-voice-transcription.service";
 import { RedisService } from "../src/modules/redis/redis.service";
 import { RbacModule } from "../src/modules/rbac/rbac.module";
 
@@ -68,6 +69,10 @@ describe("Discovery public contract (e2e)", () => {
         },
         { provide: DiscoveryService, useValue: discoveryService },
         { provide: DiscoveryConversationService, useValue: conversationService },
+        {
+          provide: DiscoveryVoiceTranscriptionService,
+          useValue: { transcribeVoiceNote: jest.fn() },
+        },
       ],
     }).compile();
 
