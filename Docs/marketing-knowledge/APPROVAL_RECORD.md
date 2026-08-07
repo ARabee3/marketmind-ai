@@ -68,8 +68,8 @@ For each entry, reviewers should confirm:
 | `sector-note-hospitality` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-retail` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-services` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
-| `situation-diagnosis-5cs-swot` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
-| `smart-objectives-funnel-mapping` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Issue #103 source-backed revision approved by Merzek; remaining reviews and live proof are pending |
+| `situation-diagnosis-5cs-swot` | Merzek and @ARabee3 approved; other Issue #103 reviews pending | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
+| `smart-objectives-funnel-mapping` | Merzek and @ARabee3 approved; other Issue #103 reviews pending | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Issue #103 source-backed revision approved by Merzek; remaining reviews and live proof are pending |
 
 ## Issue #103 completion record
 
@@ -80,7 +80,7 @@ evaluation as live proof.
 
 ### Required human reviews
 
-- [ ] @ARabee3
+- [x] @ARabee3 — approved 2026-08-07 for both Issue #103 framework entries
 - [x] @mostafamerzk — approved 2026-08-02
 - [ ] @abdulazimRabie
 - [ ] @MostafaAhmed22
