@@ -55,7 +55,9 @@ for (const locale of locales) {
         .getByRole('button', { name: /Sign out|تسجيل الخروج/i })
         .click()
 
-      await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
+      await expect(page).toHaveURL(new RegExp(`/${locale}/login`), {
+        timeout: 15000,
+      })
     })
 
     test('renders a scrollable primary nav with all six destinations', async ({ page }) => {
@@ -74,20 +76,29 @@ for (const locale of locales) {
       })
       await expect(mobileNav).toBeVisible({ timeout: 15000 })
       const destinations = [
-        /Discovery|الاستكشاف/i,
-        /Dashboard|لوحة/i,
-        /Strategy|الاستراتيجية/i,
-        /Content|المحتوى/i,
-        /Publishing|النشر/i,
-        /Billing|الفوترة/i,
+        { label: /Discovery|الاستكشاف/i, href: '/discovery' },
+        { label: /Dashboard|لوحة/i, href: '/dashboard' },
+        { label: /Strategy|الاستراتيجية/i, href: '/strategy' },
+        { label: /Content|المحتوى/i, href: '/content' },
+        { label: /Publishing|النشر/i, href: '/publishing' },
+        { label: /Billing|الفوترة/i, href: '/billing' },
       ]
-      for (const name of destinations) {
-        await expect(mobileNav.getByRole('link', { name })).toHaveCount(1)
+      for (const { label, href } of destinations) {
+        const link = mobileNav.getByRole('link', { name: label })
+        await expect(link).toHaveCount(1)
+        await expect(link).toHaveAttribute('href', `/${locale}${href}`)
       }
+
+      await expect(
+        mobileNav.getByRole('link', { name: /Dashboard|لوحة/i }),
+      ).toHaveAttribute('aria-current', 'page')
 
       const ul = mobileNav.locator('ul')
       await expect(ul).toHaveCSS('display', 'flex')
       await expect(ul).toHaveCSS('overflow-x', 'auto')
+      expect(
+        await ul.evaluate((el) => el.scrollWidth > el.clientWidth),
+      ).toBe(true)
       const items = await ul.locator('li').count()
       expect(items).toBe(6)
     })

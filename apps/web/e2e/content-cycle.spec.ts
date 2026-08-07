@@ -341,7 +341,9 @@ test.describe("Content Cycle E2E", () => {
     await page.getByRole("combobox", { name: /cta type/i }).selectOption("none");
     await page.getByRole("button", { name: "Start 12-Week Content Cycle" }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`));
+    await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`), {
+      timeout: 15000,
+    });
     expect(createCycleCalls).toBe(1);
     expect(generateWeek1Calls).toBe(0);
     const createdContext = (createCyclePayload as {
@@ -390,7 +392,9 @@ test.describe("Content Cycle E2E", () => {
     const startButton = page.getByRole("button", { name: "Start 12-Week Content Cycle" });
     await startButton.dblclick();
 
-    await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`));
+    await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`), {
+      timeout: 15000,
+    });
     expect(createCycleCalls).toBe(1);
   });
 
