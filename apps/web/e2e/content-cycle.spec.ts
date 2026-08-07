@@ -249,6 +249,44 @@ const mockActiveCycle = {
   updated_at: "2026-08-06T10:00:00.000Z",
 };
 
+const MOCK_PACK_ID = "77777777-7777-4777-a777-777777777777";
+
+const mockFailedRetryablePack = {
+  id: MOCK_PACK_ID,
+  contract_version: "content-v1",
+  content_cycle_id: MOCK_CYCLE_ID,
+  weekly_claim_id: "claim-1",
+  week_number: 1,
+  business_id: MOCK_BUSINESS_ID,
+  strategy_id: MOCK_STRATEGY_ID,
+  strategy_version: 1,
+  strategy_decision_id: MOCK_DECISION_ID,
+  profile_version_id: MOCK_PROFILE_VERSION_ID,
+  week_context_id: "context-1",
+  status: "failed",
+  retry_eligible: true,
+  item_ids: [],
+  created_at: "2026-08-06T10:01:00.000Z",
+  updated_at: "2026-08-06T10:02:00.000Z",
+};
+
+const mockJourneyWithFailedPack = {
+  ...mockJourneyWithActiveCycle,
+  content: {
+    ready: true,
+    reason: "pack_failed",
+    cycle: {
+      id: MOCK_CYCLE_ID,
+      status: "active",
+      current_week: 1,
+    },
+    pack: {
+      id: MOCK_PACK_ID,
+      status: "failed",
+    },
+  },
+};
+
 test.describe("Content Cycle E2E", () => {
   test("unauthenticated user accessing /en/content redirects to login flow", async ({ page }) => {
     await mockAuthRefresh(page, null);
@@ -290,6 +328,11 @@ test.describe("Content Cycle E2E", () => {
         }),
       });
     });
+    let generateWeek1Calls = 0;
+    await page.route(`**/api/v1/content-cycles/${MOCK_CYCLE_ID}/weeks/1/generate`, (route) => {
+      generateWeek1Calls++;
+      route.fulfill({ status: 200, body: JSON.stringify({}) });
+    });
 
     await page.goto("/en/content");
 
@@ -300,10 +343,55 @@ test.describe("Content Cycle E2E", () => {
 
     await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`));
     expect(createCycleCalls).toBe(1);
+    expect(generateWeek1Calls).toBe(0);
     const createdContext = (createCyclePayload as {
       initial_week_context?: { cta_destination?: { type?: string } };
     } | undefined)?.initial_week_context;
     expect(createdContext?.cta_destination?.type).toBe("none");
+  });
+
+  test("double-clicking the start button queues only one cycle create", async ({ page }) => {
+    await mockAuthRefresh(page);
+    await mockAuthMe(page);
+
+    await page.route("**/api/v1/journey/current", (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockJourneyNoCycle) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyVersions) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions/1`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi.latestPlan) }),
+    );
+
+    let createCycleCalls = 0;
+    await page.route("**/api/v1/content-cycles", (route) => {
+      createCycleCalls++;
+      route.fulfill({
+        status: 201,
+        body: JSON.stringify({
+          content_cycle: mockActiveCycle,
+          initial_week_context: {
+            week_number: 1,
+            promotion_mode: "none",
+            cta_destination: { type: "none", value: null },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/en/content");
+    await page.getByRole("radio", { name: /no promotion/i }).check();
+    await page.getByRole("combobox", { name: /cta type/i }).selectOption("none");
+
+    const startButton = page.getByRole("button", { name: "Start 12-Week Content Cycle" });
+    await startButton.dblclick();
+
+    await expect(page).toHaveURL(new RegExp(`/en/content/${MOCK_CYCLE_ID}/weeks/1`));
+    expect(createCycleCalls).toBe(1);
   });
 
   test("canonical week route renders 12-week ledger and rejects week 13", async ({ page }) => {
@@ -400,5 +488,52 @@ test.describe("Content Cycle E2E", () => {
     await expect(html).toHaveAttribute("lang", "ar");
 
     await expect(page.getByRole("heading", { name: "الدفتر التحريري لـ 12 أسبوعًا" })).toBeVisible();
+  });
+
+  test("retryable failed pack exposes Retry and posts exactly one retry", async ({ page }) => {
+    await mockAuthRefresh(page);
+    await mockAuthMe(page);
+
+    await page.route("**/api/v1/journey/current", (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockJourneyWithFailedPack) }),
+    );
+    await page.route(`**/api/v1/content-cycles/${MOCK_CYCLE_ID}`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockActiveCycle) }),
+    );
+    await page.route(`**/api/v1/content-cycles/${MOCK_CYCLE_ID}/weeks`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify({ weeks: [] }) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyVersions) }),
+    );
+    await page.route(`**/api/v1/strategies/${MOCK_STRATEGY_ID}/versions/1`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockStrategyApi.latestPlan) }),
+    );
+    await page.route(`**/api/v1/content-packs/${MOCK_PACK_ID}`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify(mockFailedRetryablePack) }),
+    );
+    await page.route(`**/api/v1/content-packs/${MOCK_PACK_ID}/progress`, (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify([]) }),
+    );
+
+    let retryCalls = 0;
+    await page.route(`**/api/v1/content-packs/${MOCK_PACK_ID}/retry`, (route) => {
+      retryCalls++;
+      route.fulfill({
+        status: 200,
+        body: JSON.stringify({ ...mockFailedRetryablePack, status: "queued" }),
+      });
+    });
+
+    await page.goto(`/en/content/${MOCK_CYCLE_ID}/weeks/1`);
+
+    const retryButton = page.getByRole("button", { name: "Retry Generation" });
+    await expect(retryButton).toBeVisible();
+    await retryButton.dblclick();
+
+    await expect(retryCalls).toBe(1);
   });
 });
