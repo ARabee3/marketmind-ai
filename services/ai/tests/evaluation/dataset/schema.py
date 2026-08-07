@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ReviewOutcome = Literal["approved", "revision_requested", "unavailable"]
+RelevanceLabel = Literal["relevant", "not_relevant"]
 
 
 class RetrievalQueryInput(BaseModel):
@@ -24,6 +25,12 @@ class ExpectedRetrieval(BaseModel):
     forbidden_chunk_ids: list[str]
     required_gap_categories: list[str]
     min_top5_hit_rate: float = 0.8
+    # Optional human labels used only for the honest ranking metrics. Legacy
+    # cases remain valid and are reported as unmeasured until their returned
+    # top-five candidates are labeled.
+    relevance_labels: dict[str, RelevanceLabel] = Field(default_factory=dict)
+    known_relevant_chunk_ids: list[str] = Field(default_factory=list)
+    relevance_labels_complete: bool = False
 
 
 class HardFilterCase(BaseModel):

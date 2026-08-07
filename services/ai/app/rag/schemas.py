@@ -42,6 +42,10 @@ class RetrievalCandidate(BaseModel):
     score: float
     payload: dict[str, Any]
     subquery_category: str
+    # Only populated for the opt-in MMR selector. It is excluded from all
+    # public/persisted candidate serializations because vectors are internal
+    # retrieval state, not user-facing evidence.
+    vector: list[float] | None = Field(default=None, exclude=True, repr=False)
 
 
 class RegionalCandidate(BaseModel):

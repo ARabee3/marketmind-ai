@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
+RagSelectionMode = Literal["semantic", "semantic_mmr"]
 ImageProviderMode = Literal["mock", "openai", "gemini", "openrouter", "unavailable"]
 AssetStorageProvider = Literal["filesystem", "r2", "unavailable"]
 
@@ -53,6 +54,12 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(default=3072, ge=1, le=16_000)
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
     embedding_request_timeout_ms: int = Field(default=60_000, ge=1_000, le=300_000)
+
+    # Retrieval selection is deliberately opt-in. `semantic` preserves the
+    # existing score-ordered path; `semantic_mmr` is enabled only after the
+    # offline comparison and category-preservation checks pass.
+    rag_selection_mode: RagSelectionMode = "semantic"
+    rag_mmr_lambda: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Qdrant vector database configuration
     qdrant_host: str = "localhost"

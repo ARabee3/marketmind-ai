@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.embeddings import EmbedRequest, EmbeddingConfig, EmbeddingProvider
@@ -13,8 +14,9 @@ from app.qdrant import (
 )
 from app.qdrant.collection import collection_exists
 from app.rag.filter_builder import build_category_filter
+from app.rag.mmr import select_mmr
 from app.rag.query_builder import build_subqueries
-from app.rag.schemas import RetrievalQueryContext
+from app.rag.schemas import RetrievalCandidate, RetrievalQueryContext
 
 from tests.evaluation.dataset.schema import EvalCase, EvalDataset
 from tests.evaluation.runner.report import (
@@ -23,6 +25,7 @@ from tests.evaluation.runner.report import (
     SubqueryEvalResult,
     build_report,
 )
+from tests.evaluation.runner.metrics import measure_labeled_metrics
 
 
 class RetrievalEvalRunner:
@@ -31,9 +34,13 @@ class RetrievalEvalRunner:
         qdrant_client,
         collection_name: str,
         provider: EmbeddingProvider | None = None,
+        selection_mode: Literal["semantic", "semantic_mmr"] = "semantic",
+        mmr_lambda: float = 0.5,
     ) -> None:
         self.qdrant_client = qdrant_client
         self.collection_name = collection_name
+        self.selection_mode = selection_mode
+        self.mmr_lambda = mmr_lambda
         self.provider = provider or DeterministicFakeEmbeddingProvider(
             EmbeddingConfig(
                 provider="fake",
@@ -81,6 +88,7 @@ class RetrievalEvalRunner:
 
         subquery_results: list[SubqueryEvalResult] = []
         all_returned_chunk_ids: set[str] = set()
+        ranked_chunk_ids: list[str] = []
         expected_found: set[str] = set()
 
         for sq in subqueries:
@@ -93,11 +101,17 @@ class RetrievalEvalRunner:
                 self.collection_name,
                 vector=vector,
                 query_filter=q_filter,
-                limit=5,
+                limit=12 if self.selection_mode == "semantic_mmr" else 5,
+                with_vector=self.selection_mode == "semantic_mmr",
             )
+            if self.selection_mode == "semantic_mmr":
+                results = self._select_mmr_results(results, sq.category, vector)
             sq_elapsed = (time.perf_counter() - sq_start) * 1000
             returned_ids = [r.payload["chunk_id"] for r in results]
             all_returned_chunk_ids.update(returned_ids)
+            for chunk_id in returned_ids:
+                if chunk_id not in ranked_chunk_ids:
+                    ranked_chunk_ids.append(chunk_id)
 
             if expected.expected_chunk_ids:
                 expected_in_subquery = [
@@ -136,6 +150,13 @@ class RetrievalEvalRunner:
             else len(all_returned_chunk_ids) == 0
         )
         forbidden_violation = len(forbidden_found) > 0
+
+        labeled_metrics = measure_labeled_metrics(
+            ranked_chunk_ids,
+            expected.relevance_labels,
+            expected.known_relevant_chunk_ids,
+            expected.relevance_labels_complete,
+        )
 
         retrieval_pass = (
             not forbidden_violation
@@ -189,6 +210,11 @@ class RetrievalEvalRunner:
             failure_category=failure_category,
             approval_signal=approval_signal,
             embedding_cost_usd=round(embedding_cost_usd, 6),
+            ranked_chunk_ids=ranked_chunk_ids,
+            precision_at_5=labeled_metrics.precision_at_5,
+            recall_at_5=labeled_metrics.recall_at_5,
+            mrr_at_5=labeled_metrics.mrr_at_5,
+            metric_unmeasured_reasons=labeled_metrics.unmeasured_reasons,
         )
 
     async def run_dataset(
@@ -205,7 +231,40 @@ class RetrievalEvalRunner:
             results,
             dataset_version=dataset_version,
             embedding_provider=self.provider.name,
+            selection_mode=self.selection_mode,
         )
+
+    def _select_mmr_results(self, results, category: str, query_vector: list[float]):
+        candidates: list[RetrievalCandidate] = []
+        for result in results:
+            raw_vector = getattr(result, "vector", None)
+            if isinstance(raw_vector, dict):
+                raw_vector = next(iter(raw_vector.values()), None)
+            if raw_vector is None:
+                raise ValueError(
+                    f"MMR evaluation result for {category!r} is missing its vector"
+                )
+            candidates.append(
+                RetrievalCandidate(
+                    chunk_id=UUID(str(result.payload["chunk_id"])),
+                    entry_id=UUID(str(result.payload["entry_id"])),
+                    entry_version=result.payload["entry_version"],
+                    score=result.score,
+                    payload=result.payload,
+                    subquery_category=category,
+                    vector=[float(value) for value in raw_vector],
+                )
+            )
+
+        ordered = select_mmr(
+            candidates,
+            query_vector,
+            lambda_mult=self.mmr_lambda,
+        )[:5]
+        result_by_chunk_id = {
+            str(result.payload["chunk_id"]): result for result in results
+        }
+        return [result_by_chunk_id[str(candidate.chunk_id)] for candidate in ordered]
 
     async def _upsert_fixture_points(self, points: list[dict]) -> None:
         texts = [p["text"] for p in points]

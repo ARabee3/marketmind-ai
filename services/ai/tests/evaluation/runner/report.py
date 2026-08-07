@@ -36,6 +36,13 @@ class RetrievalEvalResult(BaseModel):
     approval_signal: str | None = None  # "approved" | "revision_requested" | None
     # Embedding cost in USD for this case's retrieval subqueries (0 for fake provider).
     embedding_cost_usd: float = 0.0
+    # Relevance-labelled metrics. None means the dataset did not provide
+    # enough labels for that metric; it must not be interpreted as zero.
+    ranked_chunk_ids: list[str] = Field(default_factory=list)
+    precision_at_5: float | None = None
+    recall_at_5: float | None = None
+    mrr_at_5: float | None = None
+    metric_unmeasured_reasons: dict[str, str] = Field(default_factory=dict)
 
 
 class FilterEvalResult(BaseModel):
@@ -75,6 +82,7 @@ class EvaluationReport(BaseModel):
     dataset_version: str = "eval-v1"
     run_at: str = ""
     embedding_provider: str = ""
+    selection_mode: str = "semantic"
     top5_hit_rate: float = 0.0
     hard_filter_violations: int = 0
     cases_passed: int = 0
@@ -94,6 +102,15 @@ class EvaluationReport(BaseModel):
     grounding_summary: GroundingSummary = Field(default_factory=GroundingSummary)
     localization_issues: list[str] = Field(default_factory=list)
     approval_signal_source: str = "reviewed_dataset"
+    precision_at_5: float | None = None
+    recall_at_5: float | None = None
+    mrr_at_5: float | None = None
+    precision_measured_case_count: int = 0
+    recall_measured_case_count: int = 0
+    mrr_measured_case_count: int = 0
+    metrics_measured_case_count: int = 0
+    metrics_unmeasured_case_count: int = 0
+    metric_unmeasured_reasons: dict[str, int] = Field(default_factory=dict)
 
 
 def build_report(
@@ -106,6 +123,7 @@ def build_report(
     grounding_summary: GroundingSummary | None = None,
     localization_issues: list[str] | None = None,
     approval_signal_source: str = "reviewed_dataset",
+    selection_mode: str = "semantic",
 ) -> EvaluationReport:
     total = len(retrieval_results)
     passed = sum(1 for r in retrieval_results if r.retrieval_pass)
@@ -152,6 +170,39 @@ def build_report(
     unavailable_count = sum(1 for r in retrieval_results if r.approval_signal is None)
     total_embedding_cost = sum(r.embedding_cost_usd for r in retrieval_results)
 
+    def _average_metric(name: str) -> float | None:
+        values = [
+            value
+            for result in retrieval_results
+            if (value := getattr(result, name)) is not None
+        ]
+        return round(sum(values) / len(values), 4) if values else None
+
+    precision_at_5 = _average_metric("precision_at_5")
+    recall_at_5 = _average_metric("recall_at_5")
+    mrr_at_5 = _average_metric("mrr_at_5")
+    precision_measured = sum(
+        1 for result in retrieval_results if result.precision_at_5 is not None
+    )
+    recall_measured = sum(
+        1 for result in retrieval_results if result.recall_at_5 is not None
+    )
+    mrr_measured = sum(
+        1 for result in retrieval_results if result.mrr_at_5 is not None
+    )
+    metrics_measured = sum(
+        1
+        for result in retrieval_results
+        if result.precision_at_5 is not None
+        and result.recall_at_5 is not None
+        and result.mrr_at_5 is not None
+    )
+    metric_reasons: dict[str, int] = {}
+    for result in retrieval_results:
+        for metric, reason in result.metric_unmeasured_reasons.items():
+            key = f"{metric}:{reason}"
+            metric_reasons[key] = metric_reasons.get(key, 0) + 1
+
     per_case = [
         {
             "id": r.case_id,
@@ -165,6 +216,11 @@ def build_report(
             "failure_category": r.failure_category,
             "approval_signal": r.approval_signal,
             "embedding_cost_usd": r.embedding_cost_usd,
+            "ranked_chunk_ids": r.ranked_chunk_ids,
+            "precision_at_5": r.precision_at_5,
+            "recall_at_5": r.recall_at_5,
+            "mrr_at_5": r.mrr_at_5,
+            "metric_unmeasured_reasons": r.metric_unmeasured_reasons,
         }
         for r in retrieval_results
     ]
@@ -173,6 +229,7 @@ def build_report(
         dataset_version=dataset_version,
         run_at=datetime.now(timezone.utc).isoformat(),
         embedding_provider=embedding_provider,
+        selection_mode=selection_mode,
         top5_hit_rate=round(overall_top5, 4),
         hard_filter_violations=hard_filter_violations,
         cases_passed=passed,
@@ -192,6 +249,15 @@ def build_report(
         grounding_summary=grounding_summary or GroundingSummary(),
         localization_issues=localization_issues or [],
         approval_signal_source=approval_signal_source,
+        precision_at_5=precision_at_5,
+        recall_at_5=recall_at_5,
+        mrr_at_5=mrr_at_5,
+        precision_measured_case_count=precision_measured,
+        recall_measured_case_count=recall_measured,
+        mrr_measured_case_count=mrr_measured,
+        metrics_measured_case_count=metrics_measured,
+        metrics_unmeasured_case_count=total - metrics_measured,
+        metric_unmeasured_reasons=metric_reasons,
     )
 
 
@@ -210,6 +276,28 @@ def format_human_summary(report: EvaluationReport) -> str:
     lines.append(f"Empty-result with no gap: {report.empty_result_with_no_gap_count} {gap_ok}")
     lines.append(f"Avg retrieval latency: {report.avg_retrieval_latency_ms}ms")
     lines.append(f"Embedding provider: {report.embedding_provider}")
+    lines.append(f"Selection mode: {report.selection_mode}")
+    metric_values = (
+        f"precision@5={report.precision_at_5} "
+        f"recall@5={report.recall_at_5} mrr@5={report.mrr_at_5}"
+    )
+    lines.append(
+        "Labeled ranking metrics: "
+        f"{metric_values} "
+        f"(measured cases: precision {report.precision_measured_case_count}, "
+        f"recall {report.recall_measured_case_count}, "
+        f"MRR {report.mrr_measured_case_count}; fully measured "
+        f"{report.metrics_measured_case_count}/"
+        f"{report.metrics_measured_case_count + report.metrics_unmeasured_case_count})"
+    )
+    if report.metric_unmeasured_reasons:
+        lines.append(
+            "Unmeasured metric reasons: "
+            + ", ".join(
+                f"{reason} ({count})"
+                for reason, count in sorted(report.metric_unmeasured_reasons.items())
+            )
+        )
     lines.append("")
 
     if report.cases_failed > 0:
