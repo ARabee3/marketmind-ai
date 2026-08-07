@@ -60,6 +60,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [retainedConflictDraft, setRetainedConflictDraft] = useState<WeekContextDraft | null>(null);
+  const [retainedConflictWeek, setRetainedConflictWeek] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -143,11 +144,6 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  useEffect(() => {
-    setRetainedConflictDraft(null);
-    setActionError(null);
-  }, [cycleId, weekNumber]);
-
   // Attach progress polling hook for latest known pack
   const {
     pack: livePack,
@@ -200,6 +196,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       const errorKey = contentErrorKey(err as { status?: number; code?: string; message?: string });
       if (errorKey === "weekAlreadyClaimed") {
         setRetainedConflictDraft(draft);
+        setRetainedConflictWeek(weekNumber);
         setActionError(tErrors(errorKey));
         await loadData();
       } else {
@@ -365,7 +362,11 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
             isFrozen={isContextFrozen}
             isSubmitting={isMutating}
             onSave={handleSaveContext}
-            retainedConflictDraft={retainedConflictDraft}
+            retainedConflictDraft={
+              retainedConflictDraft && retainedConflictWeek === weekNumber
+                ? retainedConflictDraft
+                : null
+            }
           />
 
           {effectivePack && effectivePack.week_number === weekNumber && (
