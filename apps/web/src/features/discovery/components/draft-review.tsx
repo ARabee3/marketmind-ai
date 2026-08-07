@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import {
+  ArrowRight,
   CircleAlert,
   CircleCheck,
   CircleQuestionMark,
@@ -18,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslations, useFormatter } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -745,6 +747,7 @@ function DraftReviewHeader({
   completedDomains,
   blockingDomains,
   domainLabels,
+  readOnly = false,
 }: {
   isComplete: boolean
   completionReason: string
@@ -752,9 +755,49 @@ function DraftReviewHeader({
   completedDomains: number
   blockingDomains: readonly string[]
   domainLabels: Record<string, string>
+  readOnly?: boolean
 }) {
   const t = useTranslations('DiscoveryReview')
   const fmt = useFormatter()
+
+  if (readOnly) {
+    return (
+      <header className="space-y-4">
+        <div className="space-y-1.5">
+          <h1 className="text-balance text-2xl font-bold text-navy">{t('confirmedTitle')}</h1>
+          <p className="text-sm text-muted-foreground">{t('confirmedDescription')}</p>
+          <span aria-hidden="true" className="mt-3 block h-1 w-14 rounded-full bg-primary" />
+        </div>
+
+        <div className="flex items-center gap-3 rounded-xl border border-primary/15 bg-primary/5 p-4">
+          <CircleCheck className="size-5 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-primary">{t('profileConfirmedStatus')}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('completenessSummary', {
+                completed: fmt.number(completedDomains),
+                total: fmt.number(FACT_DOMAINS.length),
+              })}
+              {' · '}
+              {t('readinessLabel')}: {fmt.number(readiness.profile_readiness, { style: 'percent' })}
+            </p>
+          </div>
+        </div>
+
+        {blockingDomains.length > 0 && (
+          <div className="rounded-md border border-warning/20 bg-warning/10 p-4 text-warning" role="status">
+            <p className="text-sm font-medium">{t('blockingDomainsLabel')}</p>
+            <ul className="mt-1 list-inside list-disc text-sm">
+              {blockingDomains.map((domain) => (
+                <li key={domain}>{domainLabels[domain] ?? domain}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </header>
+    )
+  }
+
   return (
     <header className="space-y-4">
       <div className="space-y-1.5">
@@ -835,14 +878,17 @@ export function DraftReview({
   pending,
   onConfirm,
   disabled,
+  readOnly = false,
 }: {
   status: DiscoveryStatusResponse
   draft: BusinessProfileDraft
   pending: boolean
   onConfirm: (acknowledgeIncomplete: boolean, confirmedFacts?: MarketAwareBusinessFacts) => void
   disabled?: boolean
+  readOnly?: boolean
 }) {
   const t = useTranslations('DiscoveryReview')
+  const fmt = useFormatter()
   const [acknowledged, setAcknowledged] = useState(false)
   const [editingDomain, setEditingDomain] = useState<EditableDomain | null>(null)
   const [editedFacts, setEditedFacts] = useState<MarketAwareBusinessFacts | null>(null)
@@ -878,7 +924,7 @@ export function DraftReview({
   }
 
   const canEditDomain = (domain: EditableDomain) =>
-    editingDomain === null || editingDomain === domain
+    !readOnly && (editingDomain === null || editingDomain === domain)
 
   const domainLabels: Record<string, string> = {
     identity: t('domainIdentity'),
@@ -896,6 +942,7 @@ export function DraftReview({
   const canConfirm = isComplete || acknowledged
   const blockedSet = new Set(readiness.blocking_domains)
   const completedDomains = Math.max(0, FACT_DOMAINS.length - readiness.blocking_domains.length)
+  const unresolvedCount = draft.uncertainties.filter((u) => !u.resolved).length
 
   // Deduplicate research_observations against market_context evidence
   const marketEvidenceIds = new Set<string>()
@@ -975,6 +1022,7 @@ export function DraftReview({
         completedDomains={completedDomains}
         blockingDomains={readiness.blocking_domains}
         domainLabels={domainLabels}
+        readOnly={readOnly}
       />
 
       <FactSection
@@ -1122,19 +1170,56 @@ export function DraftReview({
       )}
 
       <div className="space-y-4 border-t border-border pt-4">
-        {!isComplete && (
-          <IncompleteProfileNotice
-            acknowledged={acknowledged}
-            onToggle={setAcknowledged}
-            disabled={disabled || pending}
-          />
+        {readOnly ? (
+          <>
+          <div className="rounded-lg border border-primary/15 bg-primary/5 p-4 text-sm text-muted-foreground">
+            <p>
+              <bdi>{facts.identity.business_name || t('notProvided')}</bdi>
+              {facts.identity.city && (
+                <span>
+                  {' · '}
+                  <bdi>{facts.identity.city}</bdi>
+                </span>
+              )}
+            </p>
+            <p className="mt-1 text-xs">
+              {t('completenessSummary', {
+                completed: fmt.number(completedDomains),
+                total: fmt.number(FACT_DOMAINS.length),
+              })}
+              {unresolvedCount > 0 && (
+                <span className="text-warning">
+                  {' · '}
+                  {t('unresolvedUncertainties')}: {unresolvedCount}
+                </span>
+              )}
+            </p>
+          </div>
+          <Link
+            href="/strategy"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            {t('goToStrategy')}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+          </>
+        ) : (
+          <>
+            {!isComplete && (
+              <IncompleteProfileNotice
+                acknowledged={acknowledged}
+                onToggle={setAcknowledged}
+                disabled={disabled || pending}
+              />
+            )}
+            <ConfirmActionBar
+              pending={pending}
+              disabled={disabled}
+              canConfirm={canConfirm}
+              onConfirm={() => onConfirm(!isComplete && acknowledged, hasEdits ? editedFacts ?? undefined : undefined)}
+            />
+          </>
         )}
-        <ConfirmActionBar
-          pending={pending}
-          disabled={disabled}
-          canConfirm={canConfirm}
-          onConfirm={() => onConfirm(!isComplete && acknowledged, hasEdits ? editedFacts ?? undefined : undefined)}
-        />
       </div>
     </div>
   )

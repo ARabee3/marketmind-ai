@@ -981,4 +981,72 @@ describe('DraftReview', () => {
     expect(within(offerSection).queryByRole('button', { name: 'editSection' })).toBeNull()
     expect(within(identitySection).getByRole('button', { name: 'saveEdits' })).toBeDefined()
   })
+
+  it('shows confirmed header and hides edit + confirm in readOnly mode', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Shows confirmed title instead of review title
+    expect(screen.getByText('confirmedTitle')).toBeDefined()
+    expect(screen.getByText('confirmedDescription')).toBeDefined()
+    expect(screen.getByText('profileConfirmedStatus')).toBeDefined()
+
+    // Does NOT show review title
+    expect(screen.queryByText('title')).toBeNull()
+
+    // Does NOT show edit buttons
+    expect(screen.queryByRole('button', { name: 'editSection' })).toBeNull()
+
+    // Does NOT show confirm button
+    expect(screen.queryByRole('button', { name: 'confirmProfile' })).toBeNull()
+  })
+
+  it('still renders domain cards with data in readOnly mode', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Domain cards still render (use heading role to avoid ambiguity with domain labels in other lists)
+    expect(screen.getByRole('heading', { name: 'domainIdentity' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'domainOffer' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'domainCustomers' })).toBeDefined()
+
+    // Business name data is visible (appears in both domain card and footer)
+    expect(screen.getAllByText('Test Cafe').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows unresolved count in readOnly footer', () => {
+    const draft = makeDraft({
+      uncertainties: [
+        { field_key: 'f1', domain: 'offer', description: 'Unresolved', severity: 'high', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f2', domain: 'offer', description: 'Resolved', severity: 'low', category: 'missing_information', source: 'owner_unknown', resolved: true },
+      ],
+    })
+
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Footer shows unresolved count (text includes count suffix in same node)
+    expect(screen.getByText(/unresolvedUncertainties/)).toBeDefined()
+  })
 })

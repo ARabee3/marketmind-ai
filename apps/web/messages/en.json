@@ -606,6 +606,7 @@
     "confirmedTitle": "Profile confirmed",
     "profileConfirmedStatus": "Business profile confirmed",
     "confirmedDescription": "Your business profile has been confirmed. Strategy is planned next, but it is not active in this sprint.",
+    "goToStrategy": "Go to Strategy",
     "carriedForwardGaps": "Carried forward gaps",
     "refreshStatus": "Refresh status",
     "domainIdentity": "Identity",

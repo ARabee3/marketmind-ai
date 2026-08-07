@@ -606,6 +606,7 @@
     "confirmedTitle": "تم تأكيد الملف الشخصي",
     "profileConfirmedStatus": "تم تأكيد ملف النشاط",
     "confirmedDescription": "تم تأكيد ملف نشاطك. الاستراتيجية مخططة كمرحلة تالية، لكنها غير مفعلة في هذا السبرنت.",
+    "goToStrategy": "الذهاب إلى الاستراتيجية",
     "carriedForwardGaps": "الفجوات المنقولة",
     "refreshStatus": "تحديث الحالة",
     "domainIdentity": "الهوية",

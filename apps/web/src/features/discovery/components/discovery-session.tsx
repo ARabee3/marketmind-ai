@@ -6,7 +6,6 @@ import { ConversationPanel } from './conversation-panel'
 import { ReadinessLedger } from './readiness-ledger'
 import { FinishDialog } from './finish-dialog'
 import { DraftReview } from './draft-review'
-import { ConfirmationSuccess } from './confirmation-success'
 import { canOpenInterview } from '@/features/discovery/hooks/use-discovery-progress'
 import { useDiscoverySession } from '@/features/discovery/hooks/use-discovery-session'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -192,7 +191,14 @@ export function DiscoverySession({
           t={tProgress}
           tErrors={tErrors}
         />
-        <ConfirmationSuccess draft={status.profile_draft} onRefresh={session.refresh} />
+        <DraftReview
+          status={status}
+          draft={status.profile_draft}
+          pending={pending}
+          onConfirm={() => {}}
+          disabled={pending}
+          readOnly
+        />
       </div>
     )
   }
