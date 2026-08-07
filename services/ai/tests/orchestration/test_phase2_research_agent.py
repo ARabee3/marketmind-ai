@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from orchestration_contracts import ResearchFactV1, ResearchKnowledgeGapV1
 
 from app.orchestration.phase2 import (
     DeterministicResearchSelector,
@@ -73,6 +74,47 @@ async def test_research_agent_reaches_sufficient_evidence_with_three_tools(
     assert all(fact.source_kind in {"discovery_evidence", "approved_knowledge"} for fact in result.pack.facts)
     assert result.pack.run_id == phase2_start.run_id
     assert result.pack.business_id == phase2_start.business_id
+
+
+@pytest.mark.asyncio
+async def test_research_agent_stops_on_a_blocking_knowledge_gap(
+    phase2_start,
+    phase2_intake,
+    phase2_candidate,
+):
+    async def blocked_search(_args, _context):
+        from app.orchestration.phase2 import ApprovedKnowledgeSearchResult
+
+        return ApprovedKnowledgeSearchResult(
+            retrieval_run_id="99999999-9999-4999-8999-999999999999",
+            facts=[
+                ResearchFactV1(
+                    statement="A cited fact exists.",
+                    source_ref="knowledge://entry-1/v1/chunk-1",
+                    source_kind="approved_knowledge",
+                    fetched_at="2026-08-07T08:00:00.000Z",
+                    confidence=0.9,
+                    relevance=0.9,
+                )
+            ],
+            knowledge_gaps=[
+                ResearchKnowledgeGapV1(
+                    field_key="budget:paid_media",
+                    question_hint="Confirm paid-media budget.",
+                    priority=1,
+                    blocking=True,
+                )
+            ],
+        )
+
+    registry, _ = build_registry(blocked_search)
+    result = await ResearchAgent(registry, DeterministicResearchSelector()).run(
+        make_request(phase2_start, phase2_intake, phase2_candidate)
+    )
+
+    assert result.pack.stop_reason == "owner_blocker"
+    assert result.tool_calls_used == 3
+    assert any(gap.blocking for gap in result.pack.knowledge_gaps)
 
 
 @pytest.mark.asyncio

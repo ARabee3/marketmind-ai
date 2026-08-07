@@ -60,6 +60,17 @@ exact Strategy/profile/week identities, input hashes, validation codes, and item
 counts. Prompt bodies, full Business Profiles, provider responses, credentials,
 and revision notes are not logged.
 
+### Orchestration Phase 5 tracing
+
+The agentic path remains disabled by default. Sanitized local trace events are
+the fallback evidence; external export is independently opt-in with
+`AI_ORCHESTRATION_TRACE_ENABLED=true` and
+`AI_ORCHESTRATION_TRACE_EXPORTER=langfuse`. The deployment injects the reviewed
+Langfuse/OTel transport rather than making the existing AI routes depend on a
+trace SDK. Export failures are recorded as degraded tracing and never fail a
+graph run. Prompt bodies, private profile content, credentials, and contact
+data are redacted before either local storage or export.
+
 ### Embedding provider (for RAG)
 
 - `EMBEDDING_PROVIDER_MODE=fake`: deterministic local/test behavior (default).

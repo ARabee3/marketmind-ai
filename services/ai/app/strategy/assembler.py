@@ -17,9 +17,11 @@ from strategy_contracts import (
     StrategyGenerateRequest,
     StrategyReviseRequest,
 )
+from orchestration_contracts import ResearchPackV1
 
 from app.strategy.prompts import (
     STRATEGY_GENERATE_SYSTEM_PROMPT,
+    STRATEGY_RESEARCH_HANDOFF_SYSTEM_PROMPT,
     STRATEGY_REVISE_SYSTEM_PROMPT,
     build_generate_user_context,
     build_revise_user_context,
@@ -27,6 +29,7 @@ from app.strategy.prompts import (
 from app.strategy.prompt_versions import (
     STRATEGY_GENERATE_PROMPT_VERSION,
     STRATEGY_REFERENCE_PATTERN_VERSION,
+    STRATEGY_RESEARCH_HANDOFF_PROMPT_VERSION,
     STRATEGY_REVISE_PROMPT_VERSION,
 )
 
@@ -133,6 +136,7 @@ def assemble_generation_prompt(
     decision_bundle: DecisionBundle,
     provider_name: str,
     model: str,
+    research_pack: ResearchPackV1 | None = None,
 ) -> PromptAssembly:
     """Assemble a provenance-aware prompt for Strategy generation."""
     _verify_input_consistency(request)
@@ -146,6 +150,7 @@ def assemble_generation_prompt(
         channel_scores=channel_scores,
         budget_scenarios=budget_scenarios,
         kpi_targets=kpi_targets,
+        research_pack=research_pack,
     )
 
     metadata = _build_metadata(
@@ -154,9 +159,19 @@ def assemble_generation_prompt(
         provider_name,
         model,
     )
+    if research_pack is not None:
+        metadata["research_run_id"] = research_pack.run_id
+        metadata["research_stop_reason"] = research_pack.stop_reason
+        metadata["research_handoff_prompt_version"] = (
+            STRATEGY_RESEARCH_HANDOFF_PROMPT_VERSION
+        )
+
+    system_prompt = STRATEGY_GENERATE_SYSTEM_PROMPT
+    if research_pack is not None:
+        system_prompt = f"{system_prompt}\n\n{STRATEGY_RESEARCH_HANDOFF_SYSTEM_PROMPT}"
 
     return PromptAssembly(
-        system_prompt=STRATEGY_GENERATE_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         user_prompt=user_prompt,
         metadata={
             **metadata,

@@ -232,6 +232,13 @@ class ResearchAgent:
             state.tools_used.append(execution.tool_name)
             self._ingest_result(state, execution.tool_name, execution.result)
 
+            if self._has_blocking_gap(state):
+                state.action_summaries.append(
+                    "Research stopped because a blocking knowledge gap requires an owner decision."
+                )
+                stop_reason = "owner_blocker"
+                continue
+
             if self._is_sufficient(state):
                 # Give the selector one final chance to request a legitimate
                 # owner blocker; otherwise the minimum evidence gate ends the run.
@@ -296,7 +303,12 @@ class ResearchAgent:
         return (
             len(state.facts) >= state.input.minimum_fact_count
             and len(set(state.tools_used)) >= state.input.minimum_tool_count
+            and not self._has_blocking_gap(state)
         )
+
+    @staticmethod
+    def _has_blocking_gap(state: _ResearchState) -> bool:
+        return any(gap.blocking for gap in state.gaps.values())
 
     def _deadline_reached(self, start: CampaignOrchestrationStartV1) -> bool:
         deadline = start.bounds.deadline_at
@@ -314,7 +326,7 @@ class ResearchAgent:
             for fact in result.facts:
                 state.facts.setdefault(fact.source_ref, fact)
             for gap in result.knowledge_gaps:
-                state.gaps.setdefault(gap.field_key, gap)
+                self._record_gap(state, gap)
             return
         if isinstance(result, EvidenceTriageResult):
             state.evidence_triage_ready = True
@@ -372,8 +384,8 @@ class ResearchAgent:
             state.strategy_decisions_ready = True
             for gap in result.knowledge_gaps:
                 category = str(gap.get("category", "strategy"))
-                state.gaps.setdefault(
-                    f"strategy:{category}",
+                self._record_gap(
+                    state,
                     ResearchKnowledgeGapV1(
                         field_key=f"strategy:{category}",
                         question_hint=self._bounded_text(
@@ -384,6 +396,16 @@ class ResearchAgent:
                     ),
                 )
             return
+
+    @staticmethod
+    def _record_gap(state: _ResearchState, gap: ResearchKnowledgeGapV1) -> None:
+        existing = state.gaps.get(gap.field_key)
+        if existing is None or (
+            gap.blocking and not existing.blocking
+        ) or (
+            gap.blocking == existing.blocking and gap.priority < existing.priority
+        ):
+            state.gaps[gap.field_key] = gap
 
     def _build_pack(self, state: _ResearchState, stop_reason: str) -> ResearchPackV1:
         return ResearchPackV1(

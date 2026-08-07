@@ -23,7 +23,11 @@ from .graph import (
     Phase3StartResult,
     build_phase3_graph,
 )
-from .preparation import Phase3PreparationError, prepare_phase3_input
+from .preparation import (
+    Phase3PreparationError,
+    prepare_phase3_input,
+    validate_prepared_phase3_input,
+)
 from .strategy_segment import (
     DeterministicStrategyQualityReviewer,
     Phase3GenerationError,
@@ -49,6 +53,7 @@ __all__ = [
     "build_phase3_graph",
     "Phase3PreparationError",
     "prepare_phase3_input",
+    "validate_prepared_phase3_input",
     "DeterministicStrategyQualityReviewer",
     "Phase3GenerationError",
     "StrategyGenerationResult",

@@ -6,6 +6,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from orchestration_contracts import (
     CampaignOrchestrationResumeV1,
     ResearchFactV1,
+    ResearchKnowledgeGapV1,
     ResearchPackV1,
     StrategyDecisionBindingV1,
 )
@@ -112,6 +113,16 @@ def _runner(provider: StrategyLLMProvider | None = None, reviewer=None):
     return Phase3Runner(graph)
 
 
+class RecordingStrategyProvider(MockStrategyProvider):
+    def __init__(self):
+        super().__init__()
+        self.prompts = []
+
+    async def generate_strategy_plan(self, prompt):
+        self.prompts.append(prompt)
+        return await super().generate_strategy_plan(prompt)
+
+
 @pytest.mark.asyncio
 async def test_phase3_preparation_is_immutable_and_builds_typed_handoff():
     request = _phase3_input()
@@ -141,6 +152,25 @@ def test_phase3_preparation_rejects_cross_business_research_pack():
         prepare_phase3_input(request)
 
 
+def test_phase3_preparation_rejects_blocking_research_gap():
+    request = _phase3_input()
+    blocked = request.research_pack.model_copy(
+        update={
+            "knowledge_gaps": [
+                ResearchKnowledgeGapV1(
+                    field_key="budget:paid_media",
+                    question_hint="Confirm paid-media budget.",
+                    priority=1,
+                    blocking=True,
+                )
+            ]
+        }
+    )
+
+    with pytest.raises(ValueError, match="blocking gap"):
+        prepare_phase3_input(request.model_copy(update={"research_pack": blocked}))
+
+
 def test_strategy_plan_checksum_is_canonical():
     request = _phase3_input()
     prepared = prepare_phase3_input(request)
@@ -152,6 +182,23 @@ def test_strategy_plan_checksum_is_canonical():
     )
     assert len(strategy_plan_checksum(plan)) == 64
     assert prepared.handoff.strategy_request.strategy_id == request.start.strategy_id
+
+
+@pytest.mark.asyncio
+async def test_phase3_runner_revalidates_direct_prepared_handoffs():
+    prepared = prepare_phase3_input(_phase3_input())
+    altered_request = prepared.handoff.strategy_request.model_copy(
+        update={"strategy_id": "99999999-9999-4999-8999-999999999999"}
+    )
+    altered_handoff = prepared.handoff.model_copy(
+        update={"strategy_request": altered_request}
+    )
+    tampered = prepared.model_copy(update={"handoff": altered_handoff})
+
+    with pytest.raises(Phase3RunError) as error:
+        await _runner().start(tampered)
+
+    assert error.value.code == "ORCHESTRATION_SCOPE_MISMATCH"
 
 
 @pytest.mark.asyncio
@@ -175,6 +222,60 @@ async def test_phase3_start_pauses_with_valid_immutable_draft_and_no_write_side_
     with pytest.raises(Phase3RunError) as duplicate:
         await runner.start(_phase3_input())
     assert duplicate.value.code == "ORCHESTRATION_DUPLICATE_START"
+
+
+@pytest.mark.asyncio
+async def test_phase3_strategy_prompt_receives_bounded_research_pack():
+    marker = "UNIQUE-RESEARCH-FACT-DO-NOT-LOSE"
+    request = _phase3_input()
+    research = request.research_pack.model_copy(
+        update={
+            "facts": [
+                ResearchFactV1(
+                    statement=marker,
+                    source_ref="discovery:candidate:unique",
+                    source_kind="discovery_evidence",
+                    fetched_at="2026-08-07T08:00:00.000Z",
+                    confidence=0.99,
+                    relevance=0.99,
+                )
+            ]
+        }
+    )
+    provider = RecordingStrategyProvider()
+
+    started = await _runner(provider).start(
+        request.model_copy(update={"research_pack": research})
+    )
+
+    assert started.approval_interrupt is not None
+    assert provider.prompts
+    prompt = provider.prompts[0]
+    assert marker in prompt.user_prompt
+    assert "research_pack" in prompt.user_prompt
+    assert "untrusted data" in prompt.system_prompt
+    assert "Research Pack" in prompt.system_prompt
+    assert prompt.metadata["research_run_id"] == request.start.run_id
+    assert prompt.metadata["research_handoff_prompt_version"] == "research-handoff-v1"
+
+
+@pytest.mark.asyncio
+async def test_phase3_fails_closed_before_provider_when_bounds_are_exhausted():
+    start = start_with_bounds(
+        make_start(),
+        deadline_at="2020-01-01T00:00:00.000Z",
+        token_budget=0,
+        cost_budget_usd=0.0,
+    )
+    provider = RecordingStrategyProvider()
+
+    result = await _runner(provider).start(_phase3_input(start=start))
+
+    assert result.approval_interrupt is None
+    assert result.result.status == "failed"
+    assert result.result.error is not None
+    assert result.result.error.code == "ORCHESTRATION_BUDGET_EXCEEDED"
+    assert provider.prompts == []
 
 
 class RepairOnceReviewer:
@@ -266,7 +367,13 @@ async def test_phase3_hard_validation_failure_is_visible_and_never_interrupted()
     assert provider.calls == 3
 
 
-def _resume_request(started, *, owner_id=OWNER_ID, checksum=None):
+def _resume_request(
+    started,
+    *,
+    owner_id=OWNER_ID,
+    checksum=None,
+    decision="approved",
+):
     approval = started.approval_interrupt
     assert approval is not None
     binding = StrategyDecisionBindingV1(
@@ -278,7 +385,7 @@ def _resume_request(started, *, owner_id=OWNER_ID, checksum=None):
         strategy_version=approval.strategy_version,
         strategy_checksum=checksum or approval.strategy_checksum,
         decision_id="88888888-8888-4888-8888-888888888888",
-        decision="approved",
+        decision=decision,
         decided_by_user_id=owner_id,
         decided_at="2026-08-07T08:15:00.000Z",
     )
@@ -337,3 +444,32 @@ async def test_phase3_resume_survives_new_runner_and_rejects_stale_or_cross_owne
     with pytest.raises(Phase3RunError) as duplicate:
         await restarted_runner.resume(_resume_request(started))
     assert duplicate.value.code == "ORCHESTRATION_STALE_RESUME"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("decision", ["rejected", "revision_requested"])
+async def test_phase3_non_approved_decision_cannot_continue(decision):
+    runner = _runner()
+    started = await runner.start(_phase3_input())
+    approval = started.approval_interrupt
+    assert approval is not None
+
+    await runner.attach_persisted_draft(
+        StrategyDraftPersistenceReceiptV1(
+            kind="strategy_draft_persisted",
+            run_id=RUN_ID,
+            business_id=BUSINESS_ID,
+            strategy_id=STRATEGY_ID,
+            draft_id=approval.draft_id,
+            strategy_version_id="77777777-7777-4777-8777-777777777777",
+            strategy_version=approval.strategy_version,
+            strategy_checksum=approval.strategy_checksum,
+        )
+    )
+
+    resumed = await runner.resume(_resume_request(started, decision=decision))
+
+    assert resumed.result.status == "cancelled"
+    assert resumed.result.state.strategy.pending_decision is False
+    assert resumed.result.state.strategy.decision_binding is not None
+    assert resumed.result.state.strategy.decision_binding.decision == decision

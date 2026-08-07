@@ -88,6 +88,9 @@ class TestPromptAssembly:
         assert "Owner-facing output language" in system
         assert "ar-EG" in system
         assert "brief.plan_language" in system
+        # Phase 3's Research handoff rules are intentionally conditional so
+        # the existing Strategy endpoint keeps its prior prompt contract.
+        assert "Research Pack" not in system
 
     def test_revision_system_prompt_contains_language_directive(self):
         request = make_revise_request()

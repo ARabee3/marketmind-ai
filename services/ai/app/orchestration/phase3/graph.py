@@ -36,12 +36,17 @@ from .checksum import strategy_plan_checksum
 from .contracts import (
     Phase3InputV1,
     PreparedPhase3InputV1,
+    ResearchStrategyHandoffV1,
     StrategyApprovalInterruptV1,
     StrategyDraftHandoffV1,
     StrategyDraftPersistenceReceiptV1,
     StrategyQualityReviewV1,
 )
-from .preparation import prepare_phase3_input
+from .preparation import (
+    Phase3PreparationError,
+    prepare_phase3_input,
+    validate_prepared_phase3_input,
+)
 from .strategy_segment import (
     DeterministicStrategyQualityReviewer,
     Phase3GenerationError,
@@ -221,11 +226,19 @@ def build_phase3_graph(
 
     async def strategy_node(state: Phase3GraphState) -> dict[str, Any]:
         request = StrategyGenerateRequest.model_validate(state["strategy_request"])
+        handoff = ResearchStrategyHandoffV1.model_validate(
+            state["research_strategy_handoff"]
+        )
+        orchestration = _orchestration_model(state)
         try:
             generated = await segment.generate(
                 request,
                 repair_instruction=state.get("replan_instruction"),
                 replan_attempt=int(state.get("replans_used", 0)),
+                research_pack=handoff.research_pack,
+                deadline_at=orchestration.bounds.deadline_at,
+                token_budget=orchestration.bounds.token_budget,
+                cost_budget_usd=orchestration.bounds.cost_budget_usd,
             )
         except Phase3GenerationError as exc:
             return _failure_state(
@@ -446,6 +459,33 @@ def build_phase3_graph(
                 message="Owner decision does not match the paused immutable Strategy draft.",
             )
 
+        if binding.decision != "approved":
+            strategy = OrchestrationStrategyStateV1(
+                draft_id=orchestration_model.strategy.draft_id,
+                version_id=binding.strategy_version_id,
+                version=binding.strategy_version,
+                checksum=binding.strategy_checksum,
+                validation_valid=True,
+                pending_decision=False,
+                decision_binding=binding,
+            )
+            orchestration = _replace_orchestration(
+                state,
+                status="cancelled",
+                current_role=None,
+                current_stage="cancelled",
+                strategy=strategy,
+                summary=(
+                    f"Owner Strategy decision recorded: {binding.decision}; "
+                    "the orchestration will not continue."
+                ),
+            )
+            return _bump(
+                state,
+                orchestration=orchestration,
+                approval_binding=binding.model_dump(mode="json"),
+            )
+
         strategy = OrchestrationStrategyStateV1(
             draft_id=orchestration_model.strategy.draft_id,
             version_id=binding.strategy_version_id,
@@ -570,11 +610,14 @@ class Phase3Runner:
         return {"configurable": {"thread_id": run_id}}
 
     async def start(self, request: Phase3InputV1 | PreparedPhase3InputV1) -> Phase3StartResult:
-        prepared = (
-            request
-            if isinstance(request, PreparedPhase3InputV1)
-            else prepare_phase3_input(request)
-        )
+        try:
+            prepared = (
+                validate_prepared_phase3_input(request)
+                if isinstance(request, PreparedPhase3InputV1)
+                else prepare_phase3_input(request)
+            )
+        except Phase3PreparationError as exc:
+            raise Phase3RunError(exc.code, str(exc)) from exc
         run_id = prepared.start.run_id
         async with self._acquire(run_id):
             config = self._config(run_id)
@@ -744,7 +787,6 @@ class Phase3Runner:
             or request.business_id != orchestration.business_id
             or request.owner_user_id != orchestration.owner_user_id
             or request.correlation_id != start.correlation_id
-            or request.idempotency_key != start.idempotency_key
         ):
             raise Phase3RunError(
                 "ORCHESTRATION_SCOPE_MISMATCH",

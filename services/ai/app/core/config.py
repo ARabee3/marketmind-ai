@@ -9,6 +9,7 @@ ProviderMode = Literal["mock", "openai", "gemini_dev", "openrouter"]
 EmbeddingProviderMode = Literal["openai", "fake", "gemini"]
 ImageProviderMode = Literal["mock", "openai", "gemini", "openrouter", "unavailable"]
 AssetStorageProvider = Literal["filesystem", "r2", "unavailable"]
+OrchestrationTraceExporter = Literal["none", "langfuse"]
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,14 @@ class Settings(BaseSettings):
     # Safety gate: orchestration is never enabled just because its code is
     # deployed. A later rollout must opt in explicitly after shadow checks.
     ai_orchestration_enabled: bool = False
+    # Trace export is independently disabled; local sanitized evidence remains
+    # available to an explicitly constructed Phase 5 recorder.
+    ai_orchestration_trace_enabled: bool = False
+    ai_orchestration_trace_exporter: OrchestrationTraceExporter = "none"
+    ai_orchestration_trace_environment: str = Field(
+        default="local", min_length=1, max_length=64
+    )
+    ai_orchestration_trace_timeout_ms: int = Field(default=500, ge=50, le=10_000)
     ai_request_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
     discovery_triage_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     openai_api_key: str = ""

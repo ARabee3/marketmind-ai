@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Protocol
 
 from error_codes import ERROR_CODES
+from orchestration_contracts import ResearchPackV1
 from strategy_contracts import (
     StrategyGenerateRequest,
     StrategyPlan,
@@ -160,7 +163,16 @@ class StrategySegment:
         *,
         repair_instruction: str | None = None,
         replan_attempt: int = 0,
+        research_pack: ResearchPackV1 | None = None,
+        deadline_at: str | None = None,
+        token_budget: int | None = None,
+        cost_budget_usd: float | None = None,
     ) -> StrategyGenerationResult:
+        _validate_execution_budget(
+            deadline_at=deadline_at,
+            token_budget=token_budget,
+            cost_budget_usd=cost_budget_usd,
+        )
         try:
             rag_pack = contract_pack_to_rag(request.retrieved_knowledge_pack)
             decisions = compute_strategy_decisions(
@@ -177,6 +189,7 @@ class StrategySegment:
                 ),
                 provider_name=self.provider.name,
                 model=self.model_name,
+                research_pack=research_pack,
             )
         except Exception as exc:
             raise Phase3GenerationError(
@@ -204,8 +217,24 @@ class StrategySegment:
         last_validation: StrategyValidationResult | None = None
         last_provider_error: ProviderError | None = None
         for attempt in range(1, self.max_provider_attempts + 1):
+            timeout_seconds = _remaining_deadline_seconds(deadline_at)
+            if timeout_seconds is not None and timeout_seconds <= 0:
+                raise Phase3GenerationError(
+                    "ORCHESTRATION_BUDGET_EXCEEDED",
+                    "Strategy generation deadline was reached before the provider attempt.",
+                )
             try:
-                plan = await self.provider.generate_strategy_plan(current_prompt)
+                if timeout_seconds is None:
+                    plan = await self.provider.generate_strategy_plan(current_prompt)
+                else:
+                    async with asyncio.timeout(timeout_seconds):
+                        plan = await self.provider.generate_strategy_plan(current_prompt)
+            except TimeoutError as exc:
+                raise Phase3GenerationError(
+                    "ORCHESTRATION_BUDGET_EXCEEDED",
+                    "Strategy provider exceeded the remaining orchestration deadline.",
+                    details={"deadline_at": deadline_at},
+                ) from exc
             except ProviderError as exc:
                 last_provider_error = exc
                 if not exc.retryable or attempt == self.max_provider_attempts:
@@ -251,4 +280,38 @@ class StrategySegment:
             "ORCHESTRATION_VALIDATION_FAILED",
             "Strategy provider did not produce a valid plan within the bounded retry limit.",
             details=details,
+        )
+
+
+def _remaining_deadline_seconds(deadline_at: str | None) -> float | None:
+    if deadline_at is None:
+        return None
+    deadline = datetime.fromisoformat(deadline_at.replace("Z", "+00:00"))
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return (deadline - datetime.now(timezone.utc)).total_seconds()
+
+
+def _validate_execution_budget(
+    *,
+    deadline_at: str | None,
+    token_budget: int | None,
+    cost_budget_usd: float | None,
+) -> None:
+    if token_budget is not None and token_budget <= 0:
+        raise Phase3GenerationError(
+            "ORCHESTRATION_BUDGET_EXCEEDED",
+            "Strategy generation cannot start with an exhausted token budget.",
+        )
+    if cost_budget_usd is not None and cost_budget_usd <= 0:
+        raise Phase3GenerationError(
+            "ORCHESTRATION_BUDGET_EXCEEDED",
+            "Strategy generation cannot start with an exhausted cost budget.",
+        )
+    remaining = _remaining_deadline_seconds(deadline_at)
+    if remaining is not None and remaining <= 0:
+        raise Phase3GenerationError(
+            "ORCHESTRATION_BUDGET_EXCEEDED",
+            "Strategy generation cannot start after its deadline.",
+            details={"deadline_at": deadline_at},
         )

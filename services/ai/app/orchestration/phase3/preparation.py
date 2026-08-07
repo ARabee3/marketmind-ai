@@ -73,10 +73,12 @@ def _validate_snapshots(request: Phase3InputV1) -> None:
         start.confirmed_profile_version_id,
         research.profile_version_id,
     )
-    if research.stop_reason != "sufficient_evidence":
+    if research.stop_reason != "sufficient_evidence" or any(
+        gap.blocking for gap in research.knowledge_gaps
+    ):
         raise Phase3PreparationError(
             "STRATEGY_KNOWLEDGE_GAP",
-            "Strategy preparation stopped because the Research evidence gate was not met.",
+            "Strategy preparation stopped because the Research evidence gate was not met or contains a blocking gap.",
         )
 
 
@@ -125,3 +127,32 @@ def prepare_phase3_input(request: Phase3InputV1) -> PreparedPhase3InputV1:
         start=request.start,
         handoff=handoff,
     )
+
+
+def validate_prepared_phase3_input(
+    prepared: PreparedPhase3InputV1,
+) -> PreparedPhase3InputV1:
+    """Rebuild and compare a prepared handoff before graph execution.
+
+    ``PreparedPhase3InputV1`` is JSON-safe but its nested values are not
+    cross-validated by Pydantic alone.  Reconstructing the raw input forces the
+    same immutable scope, Research gate, and deterministic Strategy checks to
+    run even when a caller supplies a prepared value directly.
+    """
+
+    strategy_request = prepared.handoff.strategy_request
+    raw = Phase3InputV1(
+        contract_version="phase3-input-v1",
+        start=prepared.start,
+        business_profile=strategy_request.business_profile,
+        strategy_brief=strategy_request.brief,
+        retrieval_pack=strategy_request.retrieved_knowledge_pack,
+        research_pack=prepared.handoff.research_pack,
+    )
+    canonical = prepare_phase3_input(raw)
+    if canonical.model_dump(mode="json") != prepared.model_dump(mode="json"):
+        raise Phase3PreparationError(
+            "ORCHESTRATION_SCOPE_MISMATCH",
+            "Prepared Phase 3 handoff does not match the immutable input or deterministic Strategy request.",
+        )
+    return canonical

@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: Phase 3 Strategy graph boundary implemented in isolation; live product graph remains gated
+- Status: Phase 5 observability/evaluation boundary implemented in isolation; live product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -877,6 +877,30 @@ Gate:
 One bilingual run reaches a valid Week-1 draft and completes after the exact
 decision with zero duplicate artifacts and zero publication actions.
 
+#### Current implementation evidence
+
+The isolated Phase 4 boundary now lives under
+`services/ai/app/orchestration/phase4/`. It requires the exact approved
+Strategy binding, confirmed profile, and Week-1 context before reusing the
+existing `content-v1` prompt, provider-retry, and deterministic validation
+pipeline. A generated three-to-five-item draft is returned to Nest for
+persistence; only after the matching persistence receipt does the graph expose
+the owner decision for the exact first immutable item version. Resume commands
+use their own idempotency keys and replay the completed checkpoint safely.
+Approved Content completes the narrow slice, while rejected or
+revision-requested decisions cancel it. A structured review can request a
+bounded Content-only replan, and checkpointed token/cost usage plus provider
+output caps fail before unbounded provider work.
+
+The graph performs no domain writes, creates no publication candidate, and is
+not imported by `app.main`; existing Content routes remain unchanged. The
+current proof intentionally selects the first item for the exact decision while
+the handoff carries the complete draft pack, keeping the demo boundary narrow
+and auditable. Focused coverage is in
+`services/ai/tests/orchestration/test_phase4_graph.py`; the production
+PostgreSQL restart gate remains the prerequisite before wiring any graph into
+live NestJS persistence or approvals.
+
 ### Phase 5 — observability, evaluation, and rollout
 
 Deliverables:
@@ -892,6 +916,29 @@ Gate:
 All hard guardrails and idempotency scenarios pass, quality does not regress,
 and the team can explain the complete trace before enabling the feature for the
 demo business.
+
+#### Current implementation evidence
+
+The isolated Phase 5 boundary now lives under
+`services/ai/app/orchestration/phase5/`. It provides a bounded, per-run local
+trace recorder, recursive redaction of prompts/private profile/contact data, explicit
+token/cost/source/validation fields, and a non-blocking exporter seam for a
+reviewed Langfuse/OTel transport. Export failure leaves the local event and
+marks the snapshot degraded; it cannot fail a graph run. The rollout helper
+returns an explicit disabled, shadow, or allow-list decision and always names
+the flag-based rollback action.
+
+The reviewed smoke case set separates measured results from `unmeasured`
+durability, provider, and full bilingual gates. Its report refuses fabricated
+pass rates and marks hard guardrails incomplete until every required scenario
+has actually run. Focused coverage is in
+`services/ai/tests/orchestration/test_phase5_observability.py` and
+`test_phase5_evaluation.py`; operational steps are in
+`Docs/planning/AGENTIC_ORCHESTRATION_PHASE5_RUNBOOK.md`. No existing route,
+provider path, domain write, approval, or publishing action is switched to the
+new layer by this phase. The shadow comparator requires one immutable scope
+key for both paths and reports validity, citation, latency, and cost deltas as
+`unmeasured` when either side lacks evidence.
 
 ## 21. Practical short-time delivery order
 

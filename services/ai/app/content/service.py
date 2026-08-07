@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -87,6 +88,28 @@ def _ensure_provider_allowed(breaker: CircuitBreaker | None) -> None:
             "Content provider circuit breaker is open; refusing provider call.",
             retryable=True,
         )
+
+
+async def _generate_content_pack(
+    provider: ContentLLMProvider,
+    prompt: PromptAssembly,
+    *,
+    max_output_tokens: int | None,
+) -> list[ContentItemVersion]:
+    """Call providers with an output cap without breaking older test adapters."""
+
+    method = provider.generate_content_pack
+    if max_output_tokens is None:
+        return await method(prompt)
+    try:
+        supports_cap = "max_output_tokens" in inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        supports_cap = False
+    if not supports_cap:
+        return await method(prompt)
+    return await method(prompt, max_output_tokens=max_output_tokens)
+
+
 def _provider_model(provider: ContentLLMProvider, prompt: PromptAssembly) -> str:
     return str(getattr(provider, "model", prompt.metadata.get("model", "unknown")))
 
@@ -239,6 +262,7 @@ async def generate_content_pack_with_repair(
     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
     retry_delay_seconds: float = 2.0,
     breaker: CircuitBreaker | None = None,
+    max_output_tokens: int | None = None,
 ) -> list[ContentItemVersion]:
     """Generate a complete pack with bounded schema repair and safe retry."""
     _ensure_provider_allowed(breaker)
@@ -246,7 +270,11 @@ async def generate_content_pack_with_repair(
     last_error: ProviderError | None = None
     for attempt in range(1, max_attempts + 1):
         try:
-            items = await provider.generate_content_pack(current_prompt)
+            items = await _generate_content_pack(
+                provider,
+                current_prompt,
+                max_output_tokens=max_output_tokens,
+            )
             _validate_pack_shape(items)
             if request is not None:
                 items = _finalize_generated_items(request, items, provider, current_prompt)
