@@ -35,6 +35,28 @@ approval gates. Agentic behavior exists only where it adds value: a specialist
 can choose from a small allow-list of tools, assess whether evidence is
 sufficient, and perform a bounded targeted replan after a structured review.
 
+### Non-regression contract
+
+Protecting the working product is the first acceptance condition for this work.
+
+- Discovery, Strategy, Content, owner approvals, billing, queues, and
+  deterministic publishing keep their current public behavior and remain the
+  authoritative path.
+- The orchestration feature ships disabled. No existing owner is routed through
+  it merely because the code has been deployed.
+- Until shadow comparison passes, an orchestration run may not create a second
+  Strategy version, Content pack, owner decision, publication candidate, or
+  external action.
+- The existing internal Strategy and Content paths remain the immediate
+  rollback. Disabling one feature flag returns all users to those paths.
+- A failed durability spike stops the LangGraph product implementation before
+  it is connected to live domain writes. It does not justify changing the
+  current workflow.
+
+This plan does not promise that new code can never contain a defect. It makes
+the new code unable to affect normal users or replace the current journey until
+it proves safe in isolated tests and shadow mode.
+
 ## 2. What “thin orchestration layer” means
 
 In simple terms, MarketMind already has several good specialists but no shared
@@ -206,9 +228,11 @@ Existing service functions will be called from graph nodes. They should not be
 rewritten to fit a framework abstraction.
 
 Before implementation expands, Phase 0 must prove the selected releases work
-with the supported Python runtime and the current OpenAI, Gemini, OpenRouter,
-and mock provider modes. The reviewed versions must then be pinned in the
-service lockfile.
+on Python 3.12, the deployment runtime, and the current OpenAI, Gemini,
+OpenRouter, and mock provider modes. A provider is eligible only after its
+tool-calling capability test passes; an unsupported provider fails visibly and
+does not receive a silent non-agentic substitute. The reviewed versions must
+then be pinned in the service lockfile.
 
 ## 7. Run lifecycle
 
@@ -324,15 +348,23 @@ target.
 | --- | --- | --- | --- |
 | `search_approved_marketing_knowledge` | curated Qdrant retrieval | Find approved playbooks relevant to a verified gap. | approved/current entries only; filters, result and token caps; citations required |
 | `plan_trusted_research_queries` | bilingual query planner | Turn a real evidence gap into a small search plan. | maximum query count; no owner secrets in query; no execution by itself |
-| `collect_trusted_business_evidence` | Nest-owned research integration | Request bounded evidence for an approved query plan. | narrow internal gateway; domain allow-list; owner/business scope; timeout and result cap; no generic browser |
+| `collect_trusted_business_evidence` | Nest-owned research integration | Request bounded evidence for an approved query plan. | **Deferred stretch tool:** useful later, but not a dependency of the first demo; narrow gateway and domain allow-list required before use |
 | `triage_research_evidence` | evidence triage service | Keep relevant evidence and expose weak or conflicting sources. | cannot remove provenance or promote unsupported claims |
 | `calculate_strategy_decisions` | deterministic decision service | Calculate channel scores, budgets, KPI modes, and gaps. | model cannot edit numeric outputs; validation rechecks them |
 | `validate_strategy_plan` | Strategy contract/policy validator | Decide whether a draft can reach owner review. | hard result cannot be overridden by an LLM |
 | `validate_content_pack` | Content contract/policy validator | Decide whether a pack can reach owner review. | hard result cannot be overridden by an LLM |
 
-The implementation and evaluation must show at least three genuine tool calls.
-Registering unused functions or renaming a fixed function call as a tool is not
-sufficient.
+The first demo must prove at least three genuine, agent-selected tools without
+depending on a new NestJS research gateway. Its safe initial set is:
+
+1. `search_approved_marketing_knowledge`;
+2. `plan_trusted_research_queries`;
+3. `triage_research_evidence` over evidence already collected by Discovery;
+4. `calculate_strategy_decisions`.
+
+`validate_strategy_plan` and `validate_content_pack` are mandatory guards, not
+optional agent tools and not part of the three-tool claim. Registering unused
+functions or renaming a fixed function call as a tool is not sufficient.
 
 ### Tool execution policy
 
@@ -654,17 +686,26 @@ small and collapse boundaries that have no distinct responsibility.
 
 Deliverables:
 
-- version compatibility note and pinned dependency proposal;
-- three-node fake graph using the mock provider;
-- PostgreSQL checkpoint, interrupt/resume, and process-restart proof;
+- Python 3.12, deployment-runtime, and OpenAI/Gemini/OpenRouter/mock
+  compatibility note with a pinned dependency proposal;
+- three-node fake graph using the mock provider and one idempotency-keyed fake
+  side effect;
+- PostgreSQL checkpoint, `interrupt()`, resume, and **fresh FastAPI
+  process-restart** proof;
 - serializer, encryption, migration, retention, and cleanup decision;
 - provider tool-calling capability matrix.
 
 Go/no-go gate:
 
-The team can stop, restart FastAPI, and resume the same fake thread without
-duplicating a fake side effect. If this does not work reliably, do not build the
-product graph on top of it.
+The test starts one fake run, reaches `interrupt()`, records the stable
+`thread_id`, terminates FastAPI, starts a fresh FastAPI process, and resumes the
+same thread. It must complete with the expected result and exactly one
+idempotency-keyed fake side effect. It must also reject a duplicate resume.
+
+If any part fails, do not build the LangGraph product graph or connect it to a
+live domain write. Keep the existing route unchanged. A later BullMQ/NestJS
+state-machine fallback may preserve sequential-agent behavior, but it must not
+be presented as passing the LangGraph/framework durability requirement.
 
 ### Phase 1 — contracts, lifecycle, and persistence
 
@@ -685,8 +726,10 @@ requests resolve to one run.
 Deliverables:
 
 - typed least-privilege tool registry;
-- Nest-owned bounded research gateway or another reviewed non-duplicating
-  adapter selected in Phase 0;
+- initial proof tools: approved Qdrant search, query planning, evidence triage
+  over existing Discovery evidence, and deterministic Strategy calculations;
+- optional Nest-owned bounded research gateway kept behind a later stretch
+  scope, not on the first-demo critical path;
 - Research Agent with sufficient-evidence and budget stop conditions;
 - cited `ResearchPackV1` and evaluation fixtures.
 
@@ -761,6 +804,10 @@ or checkpoint migration/security findings are legitimate reasons to adjust it.
 The minimum acceptable demo is not a fake fixed chain: it must still show real
 tool selection, durable state, an exact owner pause/resume, a bounded replan,
 and an inspectable trace.
+
+The minimum acceptable demo also leaves the existing journey unchanged. It runs
+behind the disabled-by-default flag until shadow-mode comparison and rollback
+tests pass.
 
 ## 22. Evaluation plan
 
@@ -844,11 +891,13 @@ Shadow runs establish the baseline before enabling the graph by default.
 
 ## 24. Rollout and rollback
 
-1. Ship with `AI_ORCHESTRATION_ENABLED=false`.
-2. Run mock and CI evaluation only.
+1. Ship with `AI_ORCHESTRATION_ENABLED=false`; retain the current Discovery,
+   Strategy, Content, approval, and publishing paths unchanged.
+2. Run mock and CI evaluation only. No owner or production domain row is
+   affected.
 3. Enable shadow mode for a reviewed fictional business. Shadow mode may record
    evaluation artifacts but must not persist duplicate Strategy/Content domain
-   versions.
+   versions, decisions, publication candidates, or external actions.
 4. Compare current and orchestrated paths for validity, grounding, citations,
    latency, cost, and failure rate.
 5. Enable the orchestrated path only for the demo allow-list.
@@ -856,6 +905,14 @@ Shadow runs establish the baseline before enabling the graph by default.
    evaluation and live demo evidence are accepted.
 7. Roll back by disabling the feature flag. Paused graph runs remain visible and
    are cancelled or migrated deliberately; they are not silently abandoned.
+
+### Non-regression release gate
+
+Before Step 5, verify the existing path still passes its current contract,
+service, and end-to-end tests; the shadow run is compared but has no authority
+to change owner-visible data. The rollback exercise must prove that disabling
+the flag routes the next job through the current implementation without a
+schema migration, data repair, or owner intervention.
 
 ## 25. Risks and mitigations
 
@@ -868,6 +925,7 @@ Shadow runs establish the baseline before enabling the graph by default.
 | Prompt injection through research | Trusted-source policy, delimited untrusted text, typed tools, no arbitrary browser, and adversarial evaluation. |
 | Checkpoint leaks sensitive data | Small typed state, redaction, strict serialization, reviewed encryption/retention/deletion. |
 | Provider lacks reliable tool calling | Phase 0 capability matrix, explicit unsupported error, and no silent fake-agent fallback. |
+| New graph changes current behavior | Disabled-by-default feature flag, no shadow-mode domain writes, existing path as rollback, and a release gate that reruns current-path tests. |
 | Tracing service outage | Non-blocking export plus local sanitized events. |
 | Publishing autonomy accidentally expands | No publishing tool exists; current deterministic publishing tests remain mandatory. |
 | Schedule pressure produces an unexplainable system | Merge gates require human review, a recorded trace, and a team walkthrough. |
@@ -878,10 +936,11 @@ Shadow runs establish the baseline before enabling the graph by default.
 | --- | --- |
 | Agentic framework | pinned LangGraph dependency, source graph, rendered graph, and architecture decision |
 | Tools | typed allow-list, at least three exercised real tools, tool tests, and trace spans |
-| State/memory | versioned typed state, PostgreSQL checkpoints, restart/resume transcript |
+| State/memory (limited claim) | versioned short-term execution state, PostgreSQL checkpoints, and a sanitized per-run event trace; no long-term conversational/cross-business memory claim |
 | Multi-agent | distinct Research -> Strategy -> Content prompts/contracts and handoff tests |
 | Human in the loop | exact Strategy and Content interrupts with delayed resume evidence |
 | Self-review/replan | structured issue output, targeted graph edge, attempt cap, and evaluation case |
+| Visible reasoning evidence (not CoT) | selected tool, cited evidence, stated constraint, validation issue, stop reason, and next-route record; hidden chain-of-thought is never stored |
 | Evaluation | reviewed dataset, thresholds, CI smoke/full reports, shadow comparison |
 | Observability | local run events plus Langfuse trace with model/tool/retrieval/token/cost data |
 
@@ -909,6 +968,8 @@ This work is complete only when:
 - hard validators cannot be bypassed and replans are targeted/capped;
 - trace, token/cost, source, validation, and terminal evidence is reviewable
   without exposing secrets or chain-of-thought;
+- the existing Discovery, Strategy, Content, approval, and publishing paths
+  still pass their current behavior tests and remain the immediate rollback;
 - publishing remains deterministic and outside the graph;
 - shadow comparison shows no validity regression;
 - `npm run check` and all affected service/evaluation tests pass;
