@@ -264,6 +264,28 @@ def _normalize_deterministic_kpi_targets(
     return normalized
 
 
+def _normalize_deterministic_budget_scenarios(
+    plan_dict: dict[str, Any],
+    deterministic_budget_scenarios: list[dict[str, Any]],
+    budget_mode: Any,
+) -> dict[str, Any]:
+    """Restore the owner-selected budget mode and its deterministic scenarios.
+
+    Budget scenarios are calculated before the model is called.  They must not
+    be invented or changed by a provider response; in particular, an
+    ``organic_only`` brief must always persist ``null`` rather than a model-made
+    paid scenario.  This mirrors the existing score and KPI normalization.
+    """
+    normalized = copy.deepcopy(plan_dict)
+    budget_mode_value = str(getattr(budget_mode, "value", budget_mode))
+    normalized["budget_mode"] = budget_mode_value
+    if budget_mode_value == "organic_only":
+        normalized["budget_scenarios"] = None
+    else:
+        normalized["budget_scenarios"] = deterministic_budget_scenarios
+    return normalized
+
+
 def _channel_rationales(plan_dict: dict[str, Any]) -> dict[str, dict[str, Any]]:
     rationales: dict[str, dict[str, Any]] = {}
     for field in ("all_channel_scores", "selected_channels"):
@@ -389,6 +411,11 @@ class GeminiStrategyProvider(StrategyLLMProvider):
                 normalized = _normalize_deterministic_kpi_targets(
                     normalized,
                     _deterministic_kpi_targets_from_prompt(prompt),
+                )
+                normalized = _normalize_deterministic_budget_scenarios(
+                    normalized,
+                    prompt.metadata.get("deterministic_budget_scenarios", []),
+                    prompt.metadata.get("budget_mode"),
                 )
                 return StrategyPlan.model_validate(normalized)
             except ValidationError as exc:
