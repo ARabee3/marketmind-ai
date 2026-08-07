@@ -5,6 +5,10 @@
 #
 # This file provides local development dependencies only.
 # Do not use this for production.
+#
+# Variable substitution: create `infra/docker/.env` (gitignored) next to this
+# file from `infra/docker/.env.example` before bringing n8n up — the n8n
+# service reads PUBLISHING_N8N_* and related vars from it.
 
 services:
   postgres:
@@ -37,5 +41,50 @@ services:
       timeout: 5s
       retries: 5
 
+  # n8n hosts the version-controlled publishing-v1 workflow
+  # (infra/n8n/workflows/publishing-v1.json). The NestJS API runs on the HOST
+  # (npm run start:dev), not as a compose service, so n8n must reach the host
+  # network to fetch dispatch assets and POST callbacks. host networking makes
+  # `http://localhost:3001` from inside the n8n container resolve to the
+  # host-run API, and `http://localhost:5678` from the host-run API reaches
+  # n8n. NOTE: `network_mode: host` is a Linux-first convention; on Docker
+  # Desktop (macOS/Windows) host networking is best-effort and the published
+  # 5678 port may not bind the same way — see infra/n8n/README.md.
+  n8n:
+    image: n8nio/n8n
+    container_name: marketmind-n8n
+    restart: unless-stopped
+    # Host networking is REQUIRED for the frozen publishing contract: the
+    # workflow's isSafeUrl validator only permits `http://localhost|127.0.0.1`
+    # and `https://*` URLs, so dispatch envelopes must advertize
+    # `http://localhost:3001` callback/retrieval URLs. With host networking
+    # those URLs resolve from inside the container to the host-run API.
+    network_mode: host
+    environment:
+      # Must match apps/api/.env exactly, or webhook auth + signature
+      # verification fail. Pulled from infra/docker/.env.
+      PUBLISHING_N8N_AUTH_TOKEN: ${PUBLISHING_N8N_AUTH_TOKEN:-}
+      PUBLISHING_N8N_SIGNING_SECRET: ${PUBLISHING_N8N_SIGNING_SECRET:-}
+      PUBLISHING_N8N_SIGNING_KID: ${PUBLISHING_N8N_SIGNING_KID:-}
+      # Token the workflow sends as `x-publishing-internal-token` when
+      # fetching dispatch asset bytes from the API's internal route. Must
+      # match apps/api/.env PUBLISHING_INTERNAL_SERVICE_TOKEN.
+      PUBLISHING_INTERNAL_SERVICE_TOKEN: ${PUBLISHING_INTERNAL_SERVICE_TOKEN:-}
+      # Real Meta adapter test-page identity + access token. Must match
+      # apps/api/.env META_TEST_* values for the live publish verification.
+      META_TEST_PAGE_ID: ${META_TEST_PAGE_ID:-}
+      META_TEST_PAGE_ACCESS_TOKEN: ${META_TEST_PAGE_ACCESS_TOKEN:-}
+      # The workflow reads `$env` in Code nodes (Check Auth, Sign Callback,
+      # Verify Signature, Real Meta Adapter). n8n blocks $env by default.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # HTTP/Cookie flags for local (non-TLS) localhost use.
+      N8N_SECURE_COOKIE: "false"
+      # Code nodes `require()` builtins. The real Meta adapter needs
+      # http/https (asset fetch + Graph API) on top of crypto (HMAC/sha256).
+      NODE_FUNCTION_ALLOW_BUILTIN: "crypto,http,https"
+    volumes:
+      - marketmind_n8n_data:/home/node/.n8n
+
 volumes:
   marketmind_pgdata:
+  marketmind_n8n_data:
