@@ -97,7 +97,7 @@ export function externalProviderConfig(): ExternalProviderConfig {
       ),
     },
     voiceTranscription: {
-      enabled: booleanEnv(process.env.DISCOVERY_VOICE_NOTES_ENABLED),
+      enabled: booleanEnv(process.env.DISCOVERY_VOICE_NOTES_ENABLED, true),
       internalToken: process.env.VOICE_TRANSCRIPTION_INTERNAL_TOKEN ?? "",
       maxBytes: positiveIntegerEnv(
         process.env.VOICE_TRANSCRIPTION_MAX_BYTES,
@@ -115,7 +115,9 @@ export function externalProviderConfig(): ExternalProviderConfig {
   };
 }
 
-function booleanEnv(value: string | undefined): boolean {
+function booleanEnv(value: string | undefined, fallback = false): boolean {
+  if (value === undefined) return fallback;
+
   return value?.trim().toLowerCase() === "true";
 }
 

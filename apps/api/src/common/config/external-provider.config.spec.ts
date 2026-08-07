@@ -58,4 +58,12 @@ describe("externalProviderConfig", () => {
       },
     });
   });
+
+  it("enables voice transcription by default and allows an explicit opt-out", () => {
+    delete process.env.DISCOVERY_VOICE_NOTES_ENABLED;
+    expect(externalProviderConfig().voiceTranscription.enabled).toBe(true);
+
+    process.env.DISCOVERY_VOICE_NOTES_ENABLED = "false";
+    expect(externalProviderConfig().voiceTranscription.enabled).toBe(false);
+  });
 });

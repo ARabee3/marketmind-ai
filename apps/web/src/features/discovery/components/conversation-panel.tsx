@@ -10,8 +10,9 @@ import type { TranslationKey } from '@/i18n/types'
 import { cn } from '@/lib/utils'
 import { VoiceNoteControl } from './voice-note-control'
 
+// Keep the control visible by default; deployments can explicitly opt out.
 const voiceNotesEnabled =
-  process.env.NEXT_PUBLIC_DISCOVERY_VOICE_NOTES_ENABLED === 'true'
+  process.env.NEXT_PUBLIC_DISCOVERY_VOICE_NOTES_ENABLED !== 'false'
 
 function MessageBubble({
   message,
