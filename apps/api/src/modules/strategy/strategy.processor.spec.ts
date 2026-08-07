@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { of, throwError } from "rxjs";
 import { StrategyProcessor } from "./strategy.processor";
 import { StrategyRepository } from "./strategy.repository";
+import { StrategyProgressGateway } from "./strategy-progress.gateway";
 
 type MockedRepo = jest.Mocked<Partial<StrategyRepository>>;
 
@@ -133,6 +134,10 @@ describe("StrategyProcessor", () => {
         StrategyProcessor,
         { provide: StrategyRepository, useValue: repository },
         { provide: HttpService, useValue: httpService },
+        {
+          provide: StrategyProgressGateway,
+          useValue: { emitProgress: jest.fn() },
+        },
         {
           provide: ConfigService,
           useValue: {
