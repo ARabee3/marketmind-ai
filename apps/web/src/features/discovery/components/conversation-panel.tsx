@@ -8,6 +8,10 @@ import { Label } from '@/components/ui/label'
 import type { DiscoveryMessage } from '@marketmind/contracts'
 import type { TranslationKey } from '@/i18n/types'
 import { cn } from '@/lib/utils'
+import { VoiceNoteControl } from './voice-note-control'
+
+const voiceNotesEnabled =
+  process.env.NEXT_PUBLIC_DISCOVERY_VOICE_NOTES_ENABLED === 'true'
 
 function MessageBubble({
   message,
@@ -60,6 +64,7 @@ function CurrentQuestionBubble({
 }
 
 export function ConversationPanel({
+  sessionId,
   messages,
   currentQuestion,
   suggestedAnswers,
@@ -70,6 +75,7 @@ export function ConversationPanel({
   onRetryStatus,
   disabled,
 }: {
+  sessionId?: string
   messages: DiscoveryMessage[]
   currentQuestion?: string
   suggestedAnswers?: readonly string[]
@@ -84,6 +90,7 @@ export function ConversationPanel({
   const tErrors = useTranslations('Errors')
   const tProgress = useTranslations('DiscoveryProgress')
   const [input, setInput] = useState('')
+  const [hasVoiceDraft, setHasVoiceDraft] = useState(false)
 
   function renderKeyedMessage(key: TranslationKey): string {
     if (key.startsWith('Errors.')) {
@@ -127,6 +134,7 @@ export function ConversationPanel({
     const result = await onSubmit(text)
     if (result.accepted) {
       setInput('')
+      setHasVoiceDraft(false)
     }
   }, [disabled, pending, input, onSubmit])
 
@@ -250,6 +258,7 @@ export function ConversationPanel({
               name="discovery-answer"
               autoComplete="off"
               value={input}
+              dir="auto"
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={disabled || pending}
@@ -270,6 +279,24 @@ export function ConversationPanel({
               {pending ? t('submittingLabel') : t('submitLabel')}
             </Button>
           </div>
+          {sessionId && voiceNotesEnabled && (
+            <VoiceNoteControl
+              sessionId={sessionId}
+              hasDraft={hasVoiceDraft}
+              onTranscriptReady={(transcript) => {
+                setInput(transcript)
+                setHasVoiceDraft(true)
+                textareaRef.current?.focus()
+              }}
+              onDiscard={() => {
+                setHasVoiceDraft(false)
+                setInput('')
+              }}
+              hasTypedText={input.trim().length > 0}
+              disabled={disabled || pending}
+              className="pt-1"
+            />
+          )}
           <p className="text-xs text-muted-foreground">{t('composerHint')}</p>
         </div>
       </CardContent>

@@ -22,7 +22,16 @@ function buildUrl(path: string): string {
 
 function buildHeaders(options: ApiRequestOptions): Headers {
   const headers = new Headers(options.headers)
-  if (options.body !== undefined && !headers.has('Content-Type')) {
+  const isFormDataBody =
+    typeof FormData !== 'undefined' && options.body instanceof FormData
+
+  // Let fetch add the multipart boundary for FormData. Setting JSON here
+  // makes Multer treat a voice upload as an empty request body.
+  if (
+    options.body !== undefined &&
+    !isFormDataBody &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
   return headers

@@ -516,7 +516,18 @@
     "severityHighLabel": "High severity",
     "terminalFailedTitle": "Session ended",
     "terminalFailedDescription": "This Discovery session could not continue. Please start a new session.",
-    "backToDiscovery": "Start a new Discovery"
+    "backToDiscovery": "Start a new Discovery",
+    "recordVoiceNote": "Record a voice note",
+    "recording": "Recording ({time}s)… Click to stop",
+    "transcribing": "Turning your note into text…",
+    "voiceDraftLabel": "Voice draft — check words and numbers before sending",
+    "discardDraft": "Discard",
+    "voiceNoteExplanation": "Audio is sent only for transcription. Only the reviewed transcript is saved when you send; raw audio is not stored.",
+    "voiceNoteErrorUnavailable": "Voice note transcription is unavailable right now. Please type your answer.",
+    "voiceNoteErrorMicDenied": "Microphone access was not allowed. Please allow access or type your answer.",
+    "voiceNoteErrorFailed": "We could not transcribe this note. Type your answer or try again.",
+    "voiceNoteErrorTooLong": "Recording exceeds 45 seconds limit. Please record a shorter note.",
+    "voiceNoteDisabledWithText": "Clear typed text before recording a voice note."
   },
   "DiscoveryReview": {
     "title": "Review your Discovery results",

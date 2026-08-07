@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,9 +9,13 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Request } from "express";
+import { DiscoveryTranscriptionResponse } from "@marketmind/contracts";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
@@ -19,6 +24,7 @@ import { PERMISSIONS } from "../rbac/rbac.constants";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryVoiceTranscriptionService } from "./discovery-voice-transcription.service";
 import {
   ConfirmProfileDto,
   DiscoveryRespondDto,
@@ -37,12 +43,19 @@ interface RequestWithUser extends Request {
   user: AuthenticatedUser;
 }
 
+const ALLOWED_VOICE_MIME_TYPES = new Set([
+  "audio/wav",
+  "audio/wave",
+  "audio/x-wav",
+]);
+
 @Controller("discovery")
 @UseGuards(JwtAuthGuard, PermissionsGuard, DiscoveryRateLimitGuard)
 export class DiscoveryController {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly conversationService: DiscoveryConversationService,
+    private readonly voiceTranscriptionService: DiscoveryVoiceTranscriptionService,
   ) {}
 
   @Post("start")
@@ -74,6 +87,39 @@ export class DiscoveryController {
       req.user.id,
       sessionId,
       dto,
+    );
+  }
+
+  @Post(":sessionId/transcribe")
+  @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
+  @UseInterceptors(
+    FileInterceptor("audio", { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async transcribe(
+    @Req() req: RequestWithUser,
+    @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
+    @UploadedFile() file?: { buffer: Buffer; mimetype?: string },
+    @Body("language_hint") languageHint?: string,
+  ): Promise<DiscoveryTranscriptionResponse> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException({
+        code: "DISCOVERY_TRANSCRIPTION_EMPTY",
+        message: "No audio file uploaded.",
+      });
+    }
+
+    if (!file.mimetype || !ALLOWED_VOICE_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException({
+        code: "DISCOVERY_TRANSCRIPTION_INVALID_AUDIO",
+        message: "Audio must be uploaded as a WAV file.",
+      });
+    }
+
+    return this.voiceTranscriptionService.transcribeVoiceNote(
+      req.user.id,
+      sessionId,
+      file.buffer,
+      languageHint,
     );
   }
 

@@ -88,20 +88,21 @@ describe("DiscoveryRateLimitGuard with Redis limiter", () => {
     const limiter = {
       checkLimit: jest.fn().mockResolvedValue(allowed),
     } as unknown as jest.Mocked<DiscoveryRedisLimiterService>;
-    const guard = new (require("./discovery-rate-limit.guard").DiscoveryRateLimitGuard)(
-      limiter,
-    );
+    const guard =
+      new (require("./discovery-rate-limit.guard").DiscoveryRateLimitGuard)(
+        limiter,
+      );
     return { guard, limiter };
   }
 
-  function contextFor(method: string) {
+  function contextFor(method: string, route = "/discovery/start") {
     return {
       switchToHttp: () => ({
         getRequest: () => ({
           method,
           ip: "127.0.0.1",
-          path: "/api/v1/discovery/start",
-          route: { path: "/discovery/start" },
+          path: `/api/v1${route}`,
+          route: { path: route },
           user: { id: "owner-id" },
         }),
       }),
@@ -149,5 +150,33 @@ describe("DiscoveryRateLimitGuard with Redis limiter", () => {
       expect(response.code).toBe("DISCOVERY_RATE_LIMITED");
       expect(response.message).toBe("Too many discovery requests");
     }
+  });
+
+  it("uses the dedicated voice-note rate limit for transcription", async () => {
+    const { guard, limiter } = createGuard(true);
+
+    await guard.canActivate(
+      contextFor("POST", "/discovery/:sessionId/transcribe") as never,
+    );
+
+    expect(limiter.checkLimit).toHaveBeenCalledWith(
+      "owner-id",
+      "/discovery/:sessionId/transcribe",
+      4,
+    );
+  });
+
+  it("returns a voice-specific error code when transcription is rate limited", async () => {
+    const { guard } = createGuard(false);
+
+    await expect(
+      guard.canActivate(
+        contextFor("POST", "/discovery/:sessionId/transcribe") as never,
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        code: "DISCOVERY_TRANSCRIPTION_RATE_LIMITED",
+      },
+    });
   });
 });

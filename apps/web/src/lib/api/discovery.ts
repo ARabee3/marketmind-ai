@@ -15,6 +15,7 @@ import type {
   DiscoverySummarizeResponse,
   ConfirmProfileRequest,
   ConfirmProfileResponse,
+  DiscoveryTranscriptionResponse,
   ErrorCode,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
@@ -96,4 +97,23 @@ export function confirmDiscoveryProfile(
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+/** POST /api/v1/discovery/:sessionId/transcribe */
+export function transcribeDiscoveryVoiceNote(
+  sessionId: string,
+  audioBlob: Blob,
+  languageHint = 'ar-EG',
+): Promise<DiscoveryTranscriptionResponse> {
+  const formData = new FormData()
+  formData.append('audio', audioBlob, 'voice-note.wav')
+  formData.append('language_hint', languageHint)
+
+  return request<DiscoveryTranscriptionResponse>(
+    `/discovery/${sessionId}/transcribe`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
 }

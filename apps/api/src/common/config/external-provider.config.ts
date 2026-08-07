@@ -8,6 +8,15 @@ export type ExternalProviderConfig = {
   readonly discoveryResearchTimeoutMs: number;
   readonly discoveryTriageTimeoutMs: number;
   readonly facebook: FacebookEnrichmentConfig;
+  readonly voiceTranscription: VoiceTranscriptionConfig;
+};
+
+export type VoiceTranscriptionConfig = {
+  readonly enabled: boolean;
+  readonly internalToken: string;
+  readonly maxBytes: number;
+  readonly maxSeconds: number;
+  readonly rateLimitPerMinute: number;
 };
 
 export type FacebookEnrichmentConfig = {
@@ -85,6 +94,22 @@ export function externalProviderConfig(): ExternalProviderConfig {
       maxPostChargeUsd: positiveNumberEnv(
         process.env.DISCOVERY_FACEBOOK_POSTS_MAX_CHARGE_USD,
         0.03,
+      ),
+    },
+    voiceTranscription: {
+      enabled: booleanEnv(process.env.DISCOVERY_VOICE_NOTES_ENABLED),
+      internalToken: process.env.VOICE_TRANSCRIPTION_INTERNAL_TOKEN ?? "",
+      maxBytes: positiveIntegerEnv(
+        process.env.VOICE_TRANSCRIPTION_MAX_BYTES,
+        5_242_880,
+      ),
+      maxSeconds: positiveIntegerEnv(
+        process.env.VOICE_TRANSCRIPTION_MAX_SECONDS,
+        45,
+      ),
+      rateLimitPerMinute: positiveIntegerEnv(
+        process.env.VOICE_TRANSCRIPTION_RATE_LIMIT_PER_MINUTE,
+        4,
       ),
     },
   };

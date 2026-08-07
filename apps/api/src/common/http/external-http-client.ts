@@ -65,6 +65,35 @@ export async function postExternalJson<T>(
   return JSON.parse(await responseText(response, options.maxBodyBytes)) as T;
 }
 
+export async function postExternalBinary<T>(
+  url: string,
+  body: Buffer,
+  options: ExternalHttpJsonOptions = {},
+): Promise<T> {
+  if (options.validateUrl) {
+    await assertSafeExternalUrl(url);
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "audio/wav",
+      ...(options.headers ?? {}),
+    },
+    body: body as unknown as BodyInit,
+    signal: requestSignal(options.timeoutMs ?? 30000, options.signal),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(
+      `External binary request failed with ${response.status}: ${errorText}`,
+    );
+  }
+
+  return JSON.parse(await responseText(response, options.maxBodyBytes)) as T;
+}
+
 async function fetchExternal(
   url: string,
   options: ExternalHttpJsonOptions,
