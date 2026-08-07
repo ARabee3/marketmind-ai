@@ -13,13 +13,7 @@ const frameworkPaths = [
   "Docs/marketing-knowledge/frameworks/situation-diagnosis-5cs-swot.md",
   "Docs/marketing-knowledge/frameworks/smart-objectives-funnel-mapping.md",
 ];
-const requiredReviewers = [
-  "ARabee3",
-  "mostafamerzk",
-  "abdulazimRabie",
-  "MostafaAhmed22",
-  "GergesYoussef-hub",
-];
+const finalApprover = "ARabee3";
 const requiredLiveProof = [
   "Corpus validation after approval",
   "Committed PostgreSQL and Qdrant ingestion",
@@ -53,10 +47,10 @@ if (!fs.existsSync(approvalRecordPath)) {
 
 const approvalRecord = fs.readFileSync(approvalRecordPath, "utf8");
 const entryChecks = frameworkPaths.map(metadataChecks);
-const reviewerChecks = requiredReviewers.map((reviewer) => ({
-  reviewer,
-  approved: checkedRecord(approvalRecord, `@${reviewer}`),
-}));
+const finalApprovalCheck = {
+  finalApprover,
+  approved: checkedRecord(approvalRecord, `@${finalApprover}`),
+};
 const liveProofChecks = requiredLiveProof.map((proof) => ({
   proof,
   recorded: checkedRecord(approvalRecord, proof),
@@ -67,7 +61,7 @@ const ready = [
     entry.reviewerRecorded,
     entry.reviewedAtRecorded,
   ]),
-  ...reviewerChecks.map((reviewer) => reviewer.approved),
+  finalApprovalCheck.approved,
   ...liveProofChecks.map((proof) => proof.recorded),
 ].every(Boolean);
 
@@ -77,7 +71,7 @@ console.log(
       strategyLiveReady: ready,
       issue: 103,
       entries: entryChecks,
-      reviewers: reviewerChecks,
+      finalApproval: finalApprovalCheck,
       liveProof: liveProofChecks,
     },
     null,
@@ -87,7 +81,7 @@ console.log(
 
 if (!ready) {
   console.error(
-    "\nStrategy live readiness is blocked. Humans must approve the two framework entries and record real PostgreSQL/Qdrant retrieval and generation evidence. Automation must not mark these checks complete.",
+    "\nStrategy live readiness is blocked. The accountable final approver must approve the two framework entries and real PostgreSQL/Qdrant retrieval and generation evidence must be recorded. Automation must not mark these checks complete.",
   );
   process.exitCode = 2;
 }

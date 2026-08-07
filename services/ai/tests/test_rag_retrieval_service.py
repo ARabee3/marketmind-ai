@@ -27,6 +27,7 @@ async def test_retrieval_hydrates_with_payload_chunk_id_not_derived_point_id(
                     SimpleNamespace(
                         id=derived_qdrant_point_id,
                         score=0.91,
+                        vector=[0.1] * 16,
                         payload={
                             "chunk_id": str(canonical_chunk_id),
                             "entry_id": str(entry_id),
@@ -90,11 +91,13 @@ async def test_retrieval_hydrates_with_payload_chunk_id_not_derived_point_id(
     assert captured_chunk_ids == [canonical_chunk_id]
     assert derived_qdrant_point_id not in captured_chunk_ids
     assert query_calls
-    assert all(call["with_vectors"] is False for call in query_calls)
+    assert all(call["with_vectors"] is True for call in query_calls)
 
 
 @pytest.mark.asyncio
-async def test_semantic_mmr_is_opt_in_and_requests_vectors(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_semantic_override_does_not_request_vectors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     query_calls: list[dict] = []
     canonical_chunk_id = uuid4()
     entry_id = uuid4()
@@ -107,7 +110,6 @@ async def test_semantic_mmr_is_opt_in_and_requests_vectors(monkeypatch: pytest.M
                     SimpleNamespace(
                         id=uuid4(),
                         score=0.91,
-                        vector=[0.1] * 16,
                         payload={
                             "chunk_id": str(canonical_chunk_id),
                             "entry_id": str(entry_id),
@@ -133,7 +135,7 @@ async def test_semantic_mmr_is_opt_in_and_requests_vectors(monkeypatch: pytest.M
         embedding_model="fake-test",
         embedding_dimensions=16,
         qdrant_collection_name="test-knowledge",
-        rag_selection_mode="semantic_mmr",
+        rag_selection_mode="semantic",
         rag_mmr_lambda=0.5,
     )
 
@@ -160,6 +162,6 @@ async def test_semantic_mmr_is_opt_in_and_requests_vectors(monkeypatch: pytest.M
     )
 
     assert query_calls
-    assert all(call["with_vectors"] is True for call in query_calls)
-    assert pack.retrieval_metadata["selection_mode"] == "semantic_mmr"
+    assert all(call["with_vectors"] is False for call in query_calls)
+    assert pack.retrieval_metadata["selection_mode"] == "semantic"
     assert pack.retrieval_metadata["mmr_lambda"] == 0.5

@@ -1,7 +1,7 @@
 # RAG Checklist Closeout Implementation Plan
 
-- Status: technical implementation and live replay complete; human review and
-  manual relevance-labeling remain
+- Status: technical implementation, live replay, and final human approval
+  complete; manual relevance-labeling remains for measured retrieval metrics
 - Issue: [#163](https://github.com/ARabee3/marketmind-ai/issues/163)
 - Linked human/live QA gate: [#128](https://github.com/ARabee3/marketmind-ai/issues/128)
 - Branch: `codex/163-rag-live-evidence`
@@ -11,8 +11,8 @@
 
 MarketMind already has a real curated RAG system. This plan closes the few
 remaining ITI RAG checklist gaps without turning MarketMind into a generic
-document-chat product and without changing the current Strategy journey by
-default.
+document-chat product. `semantic_mmr` is now the default Strategy retrieval
+selection mode, with `semantic` retained as an explicit rollback.
 
 The implementation adds one low-risk second retrieval strategy: **MMR
 (Maximal Marginal Relevance)**. Qdrant dense semantic search remains the first
@@ -28,14 +28,14 @@ The closeout also makes the existing evaluation evidence easier to explain:
 - recorded answer-relevancy review.
 
 No part of this plan permits fabricated reviewer approvals, live run IDs,
-metrics, sources, or readiness claims. Issue #128 remains the authoritative
-gate for genuine human review and replayed live proof.
+metrics, sources, or readiness claims. Issue #128 records the final human
+approval; the retained live proof remains factual technical context.
 
-The implementation branch keeps the rollout safe: `semantic` remains the
-default, while `semantic_mmr` is available for a separately recorded
-comparison run. The current frozen dataset has no manual candidate labels, so
-its new precision/recall/MRR fields are reported as `unmeasured` with explicit
-reasons until the small label pass is completed.
+The rollout uses `semantic_mmr` by default after a full deterministic suite
+passes with MMR configured. `semantic` remains available for a separately
+recorded rollback. The current frozen dataset has no manual candidate labels,
+so its new precision/recall/MRR fields are reported as `unmeasured` with
+explicit reasons until the small label pass is completed.
 
 ## 2. What this plan does and does not claim
 
@@ -69,9 +69,10 @@ reasons until the small label pass is completed.
 The existing Strategy retrieval path is authoritative throughout this work.
 
 - `semantic` selection mode remains available as an immediate rollback and
-  preserves the current candidate-selection behavior.
-- `semantic_mmr` is opt-in until it passes the compatibility and live-evidence
-  gates. The demo may use it only after those gates pass.
+  preserves the prior score-ordered candidate-selection behavior.
+- `semantic_mmr` is the default only after compatibility and live-evidence
+  gates pass. It must request vectors from every Qdrant retrieval path and
+  fail visibly rather than silently fall back when vectors are unavailable.
 - MMR never sees candidates that failed the existing Qdrant eligibility
   filters. It cannot admit draft, expired, future-effective, wrong-locale,
   wrong-market, wrong-industry, or paid-media-incompatible knowledge.
@@ -282,24 +283,24 @@ the existing evidence view.
 
 ## 8. Definition of done
 
-- [ ] MMR is implemented, tested, selectable, and demonstrably active in the
+- [x] MMR is implemented, tested, selectable, and demonstrably active in the
       configured demo path.
-- [ ] Semantic-only rollback retains the existing retrieval behavior.
+- [x] Semantic-only rollback retains the existing retrieval behavior.
 - [ ] No required `framework_diagnosis`, `objective_funnel`, or
       `measurement_kpi` category result returned by `semantic` is lost in
       `semantic_mmr` for an evaluation or live demo case.
-- [ ] No hard filter, Strategy blocker, citation, or owner-approval safeguard
+- [x] No hard filter, Strategy blocker, citation, or owner-approval safeguard
       regresses.
 - [ ] A versioned evaluation report contains the five stated metrics and does
       not hide failed or unmeasured cases.
-- [ ] The final live configuration records one actual embedding dimension and
+- [x] The final live configuration records one actual embedding dimension and
       does not imply an unsupported dimensionality claim.
-- [ ] Arabic and English retrieval and Strategy live evidence are replayed and
+- [x] Arabic and English retrieval and Strategy live evidence are replayed and
       retained.
-- [ ] `LIVE_READINESS.md`, `APPROVAL_RECORD.md`, and the issue describe the
+- [x] `LIVE_READINESS.md`, `APPROVAL_RECORD.md`, and the issue describe the
       same truthful state.
-- [ ] Issue #128 has the genuine remaining approvals and its final readiness
-      gate passes before any claim of fully verified production readiness.
+- [x] Issue #128 records @ARabee3's final approval and `strategy:readiness`
+      passes before the RAG closeout is presented as verified in this repository.
 
 ## 9. Demo explanation
 
@@ -317,7 +318,8 @@ the configured local integration environment. The live replay recorded an
 Arabic retrieval and persisted Strategy draft, plus an independent English
 retrieval, all using Gemini `gemini-embedding-2` at 768 dimensions and the
 `marketing_knowledge_gemini_2_v1` collection. Both live retrieval runs used
-the opt-in `semantic_mmr` mode; default product behavior remains `semantic`.
+`semantic_mmr`, which is now the default product selection mode after the
+controlled default-configuration suite passed; `semantic` remains rollback.
 
 The exact run references, visible non-critical gaps, and fictional-demo scope
 are in `Docs/marketing-knowledge/LIVE_READINESS.md`. The strategy-provider
@@ -325,11 +327,9 @@ normalization also now restores the deterministic organic-only budget rule when
 a provider returns a paid scenario, rather than changing the owner choice or
 accepting invalid output.
 
-The remaining work is deliberately human-bound:
-
-- complete the named reviewer approvals in `APPROVAL_RECORD.md` / issue #128;
-- add the small manual relevance-label set required to measure precision@5,
-  recall@5, and MRR@5 instead of reporting invented values.
+The remaining work is measurement-bound: add the small manual relevance-label
+set required to measure precision@5, recall@5, and MRR@5 instead of reporting
+invented values.
 
 Those items must remain open in any checklist presentation. They do not block
 the completed MMR implementation, live bilingual retrieval, or persisted
