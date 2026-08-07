@@ -41,21 +41,17 @@ collection name above. In each run, `framework_diagnosis` included the approved
 `objective_funnel` gap is visible rather than hidden; it was non-critical and
 did not block the Arabic Strategy draft.
 
-## Still required before claiming full readiness
+## Human approval result
 
-`npm run strategy:readiness` intentionally remains non-passing until the
-missing human review boxes in [APPROVAL_RECORD.md](APPROVAL_RECORD.md) are
-completed by those people:
+For Issue #103, the team reviewed the two framework entries and delegated one
+accountable final sign-off to Ahmed (`ARabee3`). Ahmed completed that approval
+on 2026-08-07. `npm run strategy:readiness` therefore verifies that final
+approval, entry metadata, and the retained live evidence above.
 
-- Ahmed (`ARabee3`)
-- Abdul (`abdulazimRabie`)
-- Mostafa Ahmed (`MostafaAhmed22`)
-- Gerges (`GergesYoussef-hub`)
-
-Merzek's recorded approval is already shown in the approval record. Do not
-check the remaining boxes from automation, a code review, or this live replay.
-The final human/live QA gate remains issue
-[#128](https://github.com/ARabee3/marketmind-ai/issues/128).
+This does not claim that every teammate personally signed an approval box, and
+it does not change the broader #68 entry-review tracking in
+[APPROVAL_RECORD.md](APPROVAL_RECORD.md). The final human/live QA gate remains
+issue [#128](https://github.com/ARabee3/marketmind-ai/issues/128).
 
 ## Re-run procedure
 

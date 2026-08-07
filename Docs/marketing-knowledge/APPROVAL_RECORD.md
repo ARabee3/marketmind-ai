@@ -68,23 +68,28 @@ For each entry, reviewers should confirm:
 | `sector-note-hospitality` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-retail` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
 | `sector-note-services` | Merzek approved; other reviews pending | Pending | Approved 2026-08-02 | Pending | Sector note |
-| `situation-diagnosis-5cs-swot` | Merzek and @ARabee3 approved; other Issue #103 reviews pending | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Issue #103 source-backed revision drafted; approval and live retrieval proof required |
-| `smart-objectives-funnel-mapping` | Merzek and @ARabee3 approved; other Issue #103 reviews pending | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Issue #103 source-backed revision approved by Merzek; remaining reviews and live proof are pending |
+| `situation-diagnosis-5cs-swot` | Issue #103 team-reviewed; final approval recorded | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Final approval by @ARabee3; broader #68 individual-review tracking remains separate |
+| `smart-objectives-funnel-mapping` | Issue #103 team-reviewed; final approval recorded | Approved 2026-08-07 | Approved 2026-08-02 | Pending | Final approval by @ARabee3; broader #68 individual-review tracking remains separate |
 
 ## Issue #103 completion record
 
 These checks apply specifically to
-`situation-diagnosis-5cs-swot` and `smart-objectives-funnel-mapping`. Do not
-check a reviewer on their behalf, and do not use a fixture-only or in-memory
+`situation-diagnosis-5cs-swot` and `smart-objectives-funnel-mapping`. The team
+reviewed both entries and delegated the accountable final decision to
+`@ARabee3`. This records that final decision; it does not create individual
+approval claims for other team members. Do not use a fixture-only or in-memory
 evaluation as live proof.
 
-### Required human reviews
+### Required final approval
 
-- [x] @ARabee3 — approved 2026-08-07 for both Issue #103 framework entries
-- [x] @mostafamerzk — approved 2026-08-02
-- [ ] @abdulazimRabie
-- [ ] @MostafaAhmed22
-- [ ] @GergesYoussef-hub
+- [x] @ARabee3 — final accountable approval, 2026-08-07, for both Issue #103 framework entries after team review
+
+### Team-review context
+
+Merzek's individual corpus review remains recorded above. The broader #68
+entry-review table remains separate from this Issue #103 final-approval gate;
+no individual approval is inferred here for a teammate who has not personally
+recorded one.
 
 ### Required live proof
 
