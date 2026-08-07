@@ -1,0 +1,102 @@
+[
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "trace-redaction",
+    "category": "observability",
+    "title": "Trace export redacts private prompt and contact data",
+    "hard_guardrail": true,
+    "smoke_supported": true,
+    "expected_signal": "safe trace contains IDs and counts but no prompt, phone, or email",
+    "measurement_note": "Measured by the local sanitizer test; no provider call is required."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "trace-outage",
+    "category": "observability",
+    "title": "Trace exporter outage leaves local evidence and does not fail work",
+    "hard_guardrail": true,
+    "smoke_supported": true,
+    "expected_signal": "local event is retained and degraded_export is visible",
+    "measurement_note": "Measured with a failing injected exporter; no external trace service is needed."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "disabled-by-default",
+    "category": "safety",
+    "title": "The orchestration path remains disabled by default",
+    "hard_guardrail": true,
+    "smoke_supported": true,
+    "expected_signal": "rollout mode is disabled and rollback is not needed",
+    "measurement_note": "Measured from the explicit rollout decision helper."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "no-publication-action",
+    "category": "safety",
+    "title": "The trace contains no autonomous publishing action",
+    "hard_guardrail": true,
+    "smoke_supported": true,
+    "expected_signal": "terminal evidence has no publish, schedule, spend, or external-send tool",
+    "measurement_note": "Measured against the explicit action allow-list; explanatory text is not treated as an action."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "exact-owner-resume",
+    "category": "approval",
+    "title": "Owner resume binds the exact immutable artifact",
+    "hard_guardrail": true,
+    "smoke_supported": false,
+    "expected_signal": "matching owner/checksum decision resumes; stale decision is rejected",
+    "measurement_note": "Covered by the Phase 3 and Phase 4 graph tests; the smoke runner may execute either fixture."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "bounded-replan",
+    "category": "bounded_execution",
+    "title": "Quality repair is targeted and capped",
+    "hard_guardrail": true,
+    "smoke_supported": false,
+    "expected_signal": "only the active specialist reruns and the configured replan limit terminates the loop",
+    "measurement_note": "Covered by the Phase 3 and Phase 4 targeted-replan tests."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "process-restart",
+    "category": "durability",
+    "title": "A paused thread resumes after a fresh FastAPI process",
+    "hard_guardrail": true,
+    "smoke_supported": false,
+    "expected_signal": "same thread completes with exactly one idempotency-keyed fake effect",
+    "measurement_note": "Requires the disposable PostgreSQL Phase 0 integration gate; not measured in the unit smoke run."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "duplicate-delivery",
+    "category": "durability",
+    "title": "Duplicate start and resume delivery cannot advance twice",
+    "hard_guardrail": true,
+    "smoke_supported": false,
+    "expected_signal": "duplicate requests resolve to one checkpoint and one effect",
+    "measurement_note": "Requires cross-process PostgreSQL advisory-lock and BullMQ delivery evidence."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "provider-capability",
+    "category": "quality",
+    "title": "Configured provider tool calling is verified before enablement",
+    "hard_guardrail": true,
+    "smoke_supported": false,
+    "expected_signal": "each enabled provider emits the requested tool call or remains unsupported",
+    "measurement_note": "Credentialed provider checks are opt-in and network-dependent."
+  },
+  {
+    "contract_version": "orchestration-eval-case-v1",
+    "case_id": "bilingual-quality",
+    "category": "quality",
+    "title": "Arabic, English, and mixed-language outputs retain validation evidence",
+    "hard_guardrail": false,
+    "smoke_supported": false,
+    "expected_signal": "existing Strategy and Content language validators show no regression",
+    "measurement_note": "Requires the reviewed bilingual evaluation dataset and provider mode selected for the run."
+  }
+]

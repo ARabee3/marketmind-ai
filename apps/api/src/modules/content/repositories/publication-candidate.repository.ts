@@ -1,4 +1,4 @@
-import { ConflictException } from "@nestjs/common";
+import { ConflictException, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
@@ -72,6 +72,7 @@ const CONTENT_CANDIDATE_TAMPERED = "CONTENT_CANDIDATE_TAMPERED";
  * State changes are separate PublicationCandidateStatusV1 rows with monotonic
  * state versions; they never rewrite the candidate bytes.
  */
+@Injectable()
 export class PublicationCandidateRepository {
   constructor(private readonly prisma: PrismaService) {}
 

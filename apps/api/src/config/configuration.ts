@@ -73,7 +73,13 @@ export const configuration = () => ({
       DEFAULT_AI_REQUEST_TIMEOUT_MS,
   },
 
-content: {
+  orchestration: {
+    // Explicit opt-in only. Deploying the Phase 1 contracts must not change
+    // which path existing workers use.
+    enabled: process.env.AI_ORCHESTRATION_ENABLED === "true",
+  },
+
+  content: {
     // Root directory for content asset blobs written through the
     // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
     // deployments override via CONTENT_ASSET_ROOT.

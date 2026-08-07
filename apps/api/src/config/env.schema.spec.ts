@@ -57,6 +57,23 @@ describe("envSchema mail configuration", () => {
   });
 });
 
+describe("envSchema orchestration feature flag", () => {
+  it("keeps orchestration disabled when the flag is omitted", () => {
+    expect(envSchema(validConfig())).toBeDefined();
+  });
+
+  it.each(["true", "false"])("accepts an explicit %s value", (value) => {
+    const config = { ...validConfig(), AI_ORCHESTRATION_ENABLED: value };
+    expect(envSchema(config)).toBe(config);
+  });
+
+  it("rejects an ambiguous orchestration flag", () => {
+    expect(() =>
+      envSchema({ ...validConfig(), AI_ORCHESTRATION_ENABLED: "yes" }),
+    ).toThrow("AI_ORCHESTRATION_ENABLED must be true or false");
+  });
+});
+
 describe("envSchema Facebook enrichment configuration", () => {
   it("accepts the documented bounded actor configuration", () => {
     const config = {

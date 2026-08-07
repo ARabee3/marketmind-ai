@@ -20,6 +20,7 @@ import { StrategyModule } from './modules/strategy/strategy.module';
 import { ContentModule } from './modules/content/content.module';
 import { PublishingModule } from './modules/publishing/publishing.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { OrchestrationModule } from './modules/orchestration/orchestration.module';
 
 @Module({
   imports: [
@@ -68,6 +69,8 @@ import { BillingModule } from './modules/billing/billing.module';
     ContentModule,
     PublishingModule,
     BillingModule,
+    // Phase 1 persistence/contracts only; no existing route is wired to it.
+    OrchestrationModule,
   ],
   controllers: [AppController],
 })

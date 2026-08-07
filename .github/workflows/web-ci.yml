@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'apps/web/**'
+      - 'packages/contracts/**'
       - '.github/workflows/web-ci.yml'
   push:
     branches: [main]
     paths:
       - 'apps/web/**'
+      - 'packages/contracts/**'
 
 defaults:
   run:

@@ -48,3 +48,54 @@ jobs:
         run: uv run pytest tests/evaluation/content -m "not network and not integration" -v
       - name: Assert automated hard-guardrail threshold
         run: uv run python -m tests.evaluation.content.runner.threshold --hard-guardrails-only
+
+  agentic-phase4-5:
+    name: agentic Phase 4/5 safety smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          cache-dependency-path: services/ai/pyproject.toml
+      - name: Install deps
+        run: uv sync --frozen
+      - name: Run Phase 4/5 orchestration smoke tests
+        run: >-
+          uv run pytest
+          tests/orchestration/test_phase4_graph.py
+          tests/orchestration/test_phase5_observability.py
+          tests/orchestration/test_phase5_evaluation.py
+          -q
+
+  phase0-durability:
+    name: LangGraph Phase 0 durability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: marketmind
+          POSTGRES_PASSWORD: marketmind_ci
+          POSTGRES_DB: marketmind_phase0_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketmind -d marketmind_phase0_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PHASE0_DATABASE_URL: postgresql://marketmind:marketmind_ci@localhost:5432/marketmind_phase0_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          cache-dependency-path: services/ai/pyproject.toml
+      - name: Install deps
+        run: uv sync --frozen
+      - name: Run fresh-process interrupt/resume gate
+        run: uv run pytest tests/orchestration/test_phase0_durability.py -m integration -vv
