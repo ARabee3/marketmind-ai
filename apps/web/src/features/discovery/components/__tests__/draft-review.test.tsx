@@ -19,6 +19,12 @@ vi.mock('next-intl', () => ({
   }),
 }))
 
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: Record<string, unknown>) => (
+    <a href={href as string} className={className as string}>{children as React.ReactNode}</a>
+  ),
+}))
+
 function makeDraft(overrides: Partial<BusinessProfileDraft> = {}): BusinessProfileDraft {
   return {
     id: 'draft-1',
