@@ -39,6 +39,7 @@ class RetrievalEvalResult(BaseModel):
     # Relevance-labelled metrics. None means the dataset did not provide
     # enough labels for that metric; it must not be interpreted as zero.
     ranked_chunk_ids: list[str] = Field(default_factory=list)
+    selected_categories: list[str] = Field(default_factory=list)
     precision_at_5: float | None = None
     recall_at_5: float | None = None
     mrr_at_5: float | None = None
@@ -217,6 +218,7 @@ def build_report(
             "approval_signal": r.approval_signal,
             "embedding_cost_usd": r.embedding_cost_usd,
             "ranked_chunk_ids": r.ranked_chunk_ids,
+            "selected_categories": r.selected_categories,
             "precision_at_5": r.precision_at_5,
             "recall_at_5": r.recall_at_5,
             "mrr_at_5": r.mrr_at_5,

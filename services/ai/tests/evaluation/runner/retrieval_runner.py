@@ -14,9 +14,9 @@ from app.qdrant import (
 )
 from app.qdrant.collection import collection_exists
 from app.rag.filter_builder import build_category_filter
-from app.rag.mmr import select_mmr
 from app.rag.query_builder import build_subqueries
 from app.rag.schemas import RetrievalCandidate, RetrievalQueryContext
+from app.rag.selection import select_retrieval_candidates
 
 from tests.evaluation.dataset.schema import EvalCase, EvalDataset
 from tests.evaluation.runner.report import (
@@ -88,7 +88,8 @@ class RetrievalEvalRunner:
 
         subquery_results: list[SubqueryEvalResult] = []
         all_returned_chunk_ids: set[str] = set()
-        ranked_chunk_ids: list[str] = []
+        raw_candidates: list[RetrievalCandidate] = []
+        query_vectors_by_category: dict[str, list[float]] = {}
         expected_found: set[str] = set()
 
         for sq in subqueries:
@@ -101,17 +102,27 @@ class RetrievalEvalRunner:
                 self.collection_name,
                 vector=vector,
                 query_filter=q_filter,
-                limit=12 if self.selection_mode == "semantic_mmr" else 5,
+                # Runtime always gathers twelve eligible candidates before the
+                # shared regional/MMR/dedup selection path. Preserve the first
+                # five per-subquery results below for the legacy top-5 signal,
+                # but build ranking metrics from the actual final pack.
+                limit=12,
                 with_vector=self.selection_mode == "semantic_mmr",
             )
-            if self.selection_mode == "semantic_mmr":
-                results = self._select_mmr_results(results, sq.category, vector)
             sq_elapsed = (time.perf_counter() - sq_start) * 1000
-            returned_ids = [r.payload["chunk_id"] for r in results]
-            all_returned_chunk_ids.update(returned_ids)
-            for chunk_id in returned_ids:
-                if chunk_id not in ranked_chunk_ids:
-                    ranked_chunk_ids.append(chunk_id)
+            top_five_results = results[:5]
+            returned_ids = [r.payload["chunk_id"] for r in top_five_results]
+            all_returned_chunk_ids.update(
+                result.payload["chunk_id"] for result in results
+            )
+            raw_candidates.extend(
+                self._to_retrieval_candidates(
+                    results,
+                    sq.category,
+                    require_vector=self.selection_mode == "semantic_mmr",
+                )
+            )
+            query_vectors_by_category[sq.category] = vector
 
             if expected.expected_chunk_ids:
                 expected_in_subquery = [
@@ -134,6 +145,24 @@ class RetrievalEvalRunner:
                     latency_ms=round(sq_elapsed, 2),
                 )
             )
+
+        final_candidates = select_retrieval_candidates(
+            raw_candidates,
+            requested_market=ctx.market,
+            selection_mode=self.selection_mode,
+            query_vectors_by_category=(
+                query_vectors_by_category
+                if self.selection_mode == "semantic_mmr"
+                else None
+            ),
+            mmr_lambda=self.mmr_lambda,
+        )
+        ranked_chunk_ids = [
+            str(candidate.candidate.chunk_id) for candidate in final_candidates
+        ]
+        selected_categories = [
+            candidate.candidate.subquery_category for candidate in final_candidates
+        ]
 
         total_elapsed = (time.perf_counter() - start) * 1000
         forbidden_found = all_returned_chunk_ids.intersection(expected.forbidden_chunk_ids)
@@ -211,6 +240,7 @@ class RetrievalEvalRunner:
             approval_signal=approval_signal,
             embedding_cost_usd=round(embedding_cost_usd, 6),
             ranked_chunk_ids=ranked_chunk_ids,
+            selected_categories=selected_categories,
             precision_at_5=labeled_metrics.precision_at_5,
             recall_at_5=labeled_metrics.recall_at_5,
             mrr_at_5=labeled_metrics.mrr_at_5,
@@ -234,37 +264,39 @@ class RetrievalEvalRunner:
             selection_mode=self.selection_mode,
         )
 
-    def _select_mmr_results(self, results, category: str, query_vector: list[float]):
+    @staticmethod
+    def _to_retrieval_candidates(
+        results,
+        category: str,
+        *,
+        require_vector: bool,
+    ) -> list[RetrievalCandidate]:
         candidates: list[RetrievalCandidate] = []
         for result in results:
+            payload = result.payload or {}
             raw_vector = getattr(result, "vector", None)
             if isinstance(raw_vector, dict):
                 raw_vector = next(iter(raw_vector.values()), None)
-            if raw_vector is None:
+            if require_vector and raw_vector is None:
                 raise ValueError(
                     f"MMR evaluation result for {category!r} is missing its vector"
                 )
             candidates.append(
                 RetrievalCandidate(
-                    chunk_id=UUID(str(result.payload["chunk_id"])),
-                    entry_id=UUID(str(result.payload["entry_id"])),
-                    entry_version=result.payload["entry_version"],
+                    chunk_id=UUID(str(payload["chunk_id"])),
+                    entry_id=UUID(str(payload["entry_id"])),
+                    entry_version=payload["entry_version"],
                     score=result.score,
-                    payload=result.payload,
+                    payload=payload,
                     subquery_category=category,
-                    vector=[float(value) for value in raw_vector],
+                    vector=(
+                        [float(value) for value in raw_vector]
+                        if raw_vector is not None
+                        else None
+                    ),
                 )
             )
-
-        ordered = select_mmr(
-            candidates,
-            query_vector,
-            lambda_mult=self.mmr_lambda,
-        )[:5]
-        result_by_chunk_id = {
-            str(result.payload["chunk_id"]): result for result in results
-        }
-        return [result_by_chunk_id[str(candidate.chunk_id)] for candidate in ordered]
+        return candidates
 
     async def _upsert_fixture_points(self, points: list[dict]) -> None:
         texts = [p["text"] for p in points]

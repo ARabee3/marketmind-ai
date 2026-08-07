@@ -4,7 +4,9 @@ import pytest
 
 from app.rag.dedup import deduplicate_and_cap
 from app.rag.mmr import MMRSelectionError, reorder_regional_candidates_with_mmr, select_mmr
+from app.rag.regional import apply_regional_preference
 from app.rag.schemas import RegionalCandidate, RetrievalCandidate
+from app.rag.selection import select_retrieval_candidates
 
 
 def _candidate(
@@ -98,3 +100,20 @@ def test_mmr_fails_explicitly_when_a_candidate_vector_is_missing() -> None:
 
     with pytest.raises(MMRSelectionError, match="missing its vector"):
         select_mmr([first, missing], [1.0, 0.0], lambda_mult=0.5)
+
+
+def test_shared_semantic_selection_preserves_the_existing_pipeline() -> None:
+    candidates = [
+        _candidate(category="framework_diagnosis", vector=None, score=0.9),
+        _candidate(category="objective_funnel", vector=None, score=0.8),
+        _candidate(category="measurement_kpi", vector=None, score=0.7),
+    ]
+
+    expected = deduplicate_and_cap(apply_regional_preference(candidates, "egypt"))
+    selected = select_retrieval_candidates(
+        candidates,
+        requested_market="egypt",
+        selection_mode="semantic",
+    )
+
+    assert selected == expected

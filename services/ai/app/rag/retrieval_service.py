@@ -11,14 +11,10 @@ from app.rag.schemas import RetrievalQueryContext, RetrievedKnowledgePack, Retri
 from app.rag.privacy import sanitize_query_context
 from app.rag.query_builder import build_subqueries
 from app.rag.filter_builder import build_category_filter
-from app.rag.regional import apply_regional_preference
-from app.rag.dedup import deduplicate_and_cap
 from app.rag.hydrator import hydrate_candidates
 from app.rag.persistence import save_retrieval_run
-from app.rag.mmr import (
-    MMRSelectionError,
-    reorder_regional_candidates_with_mmr,
-)
+from app.rag.mmr import MMRSelectionError
+from app.rag.selection import select_retrieval_candidates
 from app.embeddings.factory import EmbeddingProviderFactory
 from app.embeddings import EmbedRequest
 
@@ -103,30 +99,31 @@ async def retrieve_strategy_knowledge(
     nested = await asyncio.gather(*[_search_one(i) for i in range(len(subqueries))])
     qdrant_candidates = [c for sublist in nested for c in sublist]
             
-    # 5. Regional Fallback Sort
-    regional_cands = apply_regional_preference(qdrant_candidates, sanitized_context.market)
-
-    if use_mmr:
-        try:
-            regional_cands = reorder_regional_candidates_with_mmr(
-                regional_cands,
+    # 5. Regional preference, optional MMR, then the existing dedup/cap.
+    # This pure selector is also used by the evaluation runner so its ranked
+    # metrics describe the same candidate pack that reaches Strategy.
+    try:
+        regional_cands = select_retrieval_candidates(
+            qdrant_candidates,
+            requested_market=sanitized_context.market,
+            selection_mode=settings.rag_selection_mode,
+            query_vectors_by_category=(
                 {
                     subquery.category: vectors[index]
                     for index, subquery in enumerate(subqueries)
-                },
-                requested_market=sanitized_context.market,
-                lambda_mult=settings.rag_mmr_lambda,
-            )
-        except MMRSelectionError as exc:
-            # A configured MMR run must fail visibly if Qdrant does not return
-            # comparable vectors. Falling back silently would invalidate the
-            # semantic-vs-MMR comparison and hide a production misconfiguration.
-            raise NonRetryableRetrievalError(
-                f"MMR selection could not be completed safely: {exc}"
-            ) from exc
-    
-    # 6. Dedup before hydration: reduces DB queries and enforces caps early
-    regional_cands = deduplicate_and_cap(regional_cands)
+                }
+                if use_mmr
+                else None
+            ),
+            mmr_lambda=settings.rag_mmr_lambda,
+        )
+    except MMRSelectionError as exc:
+        # A configured MMR run must fail visibly if Qdrant does not return
+        # comparable vectors. Falling back silently would invalidate the
+        # semantic-vs-MMR comparison and hide a production misconfiguration.
+        raise NonRetryableRetrievalError(
+            f"MMR selection could not be completed safely: {exc}"
+        ) from exc
     
     # 7. PostgreSQL Hydration & Gap Detection
     hydrated_items, knowledge_gaps = await hydrate_candidates(

@@ -62,10 +62,17 @@ def measure_labeled_metrics(
         mrr_at_5 = 1 / first_relevant if first_relevant is not None else 0.0
 
     known_relevant = list(dict.fromkeys(known_relevant_chunk_ids))
+    labeled_relevant = {
+        chunk_id
+        for chunk_id, label in relevance_labels.items()
+        if label == "relevant"
+    }
     if not relevance_labels_complete:
         reasons["recall_at_5"] = "complete_relevant_set_not_declared"
     elif not known_relevant:
         reasons["recall_at_5"] = "complete_relevant_set_missing"
+    elif labeled_relevant != set(known_relevant):
+        reasons["recall_at_5"] = "complete_relevant_set_inconsistent"
     elif any(
         relevance_labels.get(chunk_id) != "relevant" for chunk_id in known_relevant
     ):
