@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
+import { externalProviderConfig } from "../../common/config/external-provider.config";
 import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
 
 type RequestWithUser = Request & {
@@ -31,12 +32,22 @@ export class DiscoveryRateLimitGuard implements CanActivate {
 
     const ownerKey = request.user?.id ?? request.ip ?? "anonymous";
     const routeKey = request.route?.path ?? request.path;
-    const allowed = await this.limiter.checkLimit(ownerKey, routeKey);
+    const isVoiceTranscription =
+      routeKey === "/discovery/:sessionId/transcribe";
+    const allowed = isVoiceTranscription
+      ? await this.limiter.checkLimit(
+          ownerKey,
+          routeKey,
+          externalProviderConfig().voiceTranscription.rateLimitPerMinute,
+        )
+      : await this.limiter.checkLimit(ownerKey, routeKey);
 
     if (!allowed) {
       throw new HttpException(
         {
-          code: "DISCOVERY_RATE_LIMITED",
+          code: isVoiceTranscription
+            ? "DISCOVERY_TRANSCRIPTION_RATE_LIMITED"
+            : "DISCOVERY_RATE_LIMITED",
           message: "Too many discovery requests",
         },
         HttpStatus.TOO_MANY_REQUESTS,

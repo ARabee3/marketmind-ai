@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { RedisService } from "../redis/redis.service";
 
 const WINDOW_SECONDS = 60;
-const MAX_POSTS_PER_WINDOW = 20;
+const DEFAULT_MAX_POSTS_PER_WINDOW = 20;
 
 /**
  * Atomic Redis-backed rate limiter for Discovery POST endpoints.
@@ -19,7 +19,11 @@ export class DiscoveryRedisLimiterService {
    *
    * @returns true if allowed, false if limit exceeded.
    */
-  async checkLimit(ownerId: string, route: string): Promise<boolean> {
+  async checkLimit(
+    ownerId: string,
+    route: string,
+    maxPostsPerWindow = DEFAULT_MAX_POSTS_PER_WINDOW,
+  ): Promise<boolean> {
     const key = this.buildKey(ownerId, route);
     const client = this.redis.getClient();
 
@@ -36,7 +40,7 @@ export class DiscoveryRedisLimiterService {
     const [incrResult] = results;
     const count = incrResult[1] as number;
 
-    return count <= MAX_POSTS_PER_WINDOW;
+    return count <= maxPostsPerWindow;
   }
 
   private buildKey(ownerId: string, route: string): string {

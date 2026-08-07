@@ -78,6 +78,17 @@ class Settings(BaseSettings):
     knowledge_chunk_overlap_tokens: int = Field(default=50, ge=0, le=1_000)
     knowledge_strict_sources: bool = True
 
+    # Voice transcription configuration (issue #169).
+    voice_transcription_enabled: bool = False
+    voice_transcription_internal_token: str = ""
+    voice_transcription_model: str = "gemini-3.6-flash"
+    voice_transcription_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
+    voice_transcription_max_bytes: int = Field(
+        default=5_242_880, ge=1_000, le=20_971_520
+    )
+    voice_transcription_max_seconds: int = Field(default=45, ge=1, le=180)
+    voice_transcription_rate_limit_per_minute: int = Field(default=4, ge=0)
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

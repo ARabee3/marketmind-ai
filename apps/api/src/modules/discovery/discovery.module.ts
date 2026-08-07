@@ -2,7 +2,9 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { AiEvidenceTriageClient } from "./ai-client/ai-evidence-triage.client";
+import { AiVoiceTranscriptionClient } from "./ai-client/ai-voice-transcription.client";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
+import { DiscoveryVoiceTranscriptionService } from "./discovery-voice-transcription.service";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
@@ -51,6 +53,8 @@ import { SourceEnrichmentService } from "./intelligence/source-enrichment.servic
     DiscoveryProgressGateway,
     AiDiscoveryClient,
     AiEvidenceTriageClient,
+    AiVoiceTranscriptionClient,
+    DiscoveryVoiceTranscriptionService,
     IntelligenceContractMapper,
     IntelligenceGathererService,
     EvidenceTriageService,

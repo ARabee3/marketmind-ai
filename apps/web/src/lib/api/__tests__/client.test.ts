@@ -101,6 +101,27 @@ describe('apiRequest', () => {
     expect(init.body).toBe(JSON.stringify({ value: 1 }))
   })
 
+  it('leaves FormData content type unset so fetch adds the multipart boundary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    )
+    const body = new FormData()
+    body.append(
+      'audio',
+      new Blob(['RIFF....WAVE'], { type: 'audio/wav' }),
+      'voice-note.wav',
+    )
+
+    await apiRequest('/discovery/session-1/transcribe', {
+      method: 'POST',
+      body,
+    })
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers.get('Content-Type')).toBeNull()
+    expect(init.body).toBe(body)
+  })
+
   it('adds the Authorization header when an access token exists', async () => {
     setAccessToken('token-123')
     fetchMock.mockResolvedValueOnce(

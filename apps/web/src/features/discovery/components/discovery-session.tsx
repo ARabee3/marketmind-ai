@@ -253,6 +253,7 @@ export function DiscoverySession({
         {/* Conversation */}
         <div className="flex-1 min-w-0">
           <ConversationPanel
+            sessionId={sessionId}
             messages={status.messages ?? []}
             currentQuestion={status.current_question}
             suggestedAnswers={status.current_suggested_answers}

@@ -375,3 +375,10 @@ export interface AiDiscoveryResult {
     retryable: boolean;
   };
 }
+
+export interface DiscoveryTranscriptionResponse {
+  session_id: UUID;
+  transcript: string;
+  language_hint: LanguageMode;
+  audio_persisted: false;
+}

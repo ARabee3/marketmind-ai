@@ -516,7 +516,18 @@
     "severityHighLabel": "خطورة عالية",
     "terminalFailedTitle": "انتهت الجلسة",
     "terminalFailedDescription": "تعذّر متابعة جلسة الاستكشاف. يرجى بدء جلسة جديدة.",
-    "backToDiscovery": "بدء استكشاف جديد"
+    "backToDiscovery": "بدء استكشاف جديد",
+    "recordVoiceNote": "تسجيل ملاحظة صوتية",
+    "recording": "جاري التسجيل ({time} ث)… انقر للإيقاف",
+    "transcribing": "جاري تحويل الملاحظة إلى نص…",
+    "voiceDraftLabel": "مسودة صوتية — راجع الكلمات والأرقام قبل الإرسال",
+    "discardDraft": "إلغاء المسودة",
+    "voiceNoteExplanation": "يتم إرسال التسجيل للتفريغ فقط. يتم حفظ النص الذي راجعته عند الإرسال، ولا يتم حفظ الصوت الخام.",
+    "voiceNoteErrorUnavailable": "خدمة التفريغ الصوتي غير متاحة حالياً. يرجى كتابة إجابتك.",
+    "voiceNoteErrorMicDenied": "تم رفض الوصول للميكروفون. يرجى السماح بالوصول أو كتابة الإجابة.",
+    "voiceNoteErrorFailed": "لم نتمكن من تفريغ هذه الملاحظة. يرجى كتابة الإجابة أو المحاولة مجدداً.",
+    "voiceNoteErrorTooLong": "يتجاوز التسجيل 45 ثانية. يرجى تسجيل ملاحظة أقصر.",
+    "voiceNoteDisabledWithText": "امسح النص المكتوب قبل تسجيل ملاحظة صوتية."
   },
   "DiscoveryReview": {
     "title": "مراجعة نتائج الاستكشاف",
