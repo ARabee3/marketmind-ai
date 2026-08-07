@@ -158,6 +158,18 @@ function discoverySummary<
 function businessSummary(
   session: JourneySessionRecord,
 ): CurrentJourneyBusinessSummary {
+  // Confirmed sessions must reflect the last-confirmed identity (which may
+  // include owner edits applied at confirm time), not the original intake.
+  if (session.status === "confirmed" && session.confirmedProfile) {
+    const business = session.confirmedProfile.business;
+    return {
+      business_name: business.displayName,
+      business_type: business.businessType,
+      city: business.city,
+      area: business.area,
+    };
+  }
+
   if (session.intake) {
     return {
       business_name: session.intake.businessName,

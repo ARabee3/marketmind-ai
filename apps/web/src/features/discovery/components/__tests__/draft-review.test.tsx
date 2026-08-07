@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { DraftReview } from '../draft-review'
-import type { BusinessProfileDraft, DiscoveryStatusResponse } from '@marketmind/contracts'
+import type {
+  BusinessProfileDraft,
+  DiscoveryStatusResponse,
+  MarketAwareBusinessFacts,
+} from '@marketmind/contracts'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -11,7 +15,14 @@ vi.mock('next-intl', () => ({
       if (opts?.style === 'percent') return `${Math.round(value * 100)}%`
       return String(value)
     },
+    dateTime: (value: Date) => String(value),
   }),
+}))
+
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children, className }: Record<string, unknown>) => (
+    <a href={href as string} className={className as string}>{children as React.ReactNode}</a>
+  ),
 }))
 
 function makeDraft(overrides: Partial<BusinessProfileDraft> = {}): BusinessProfileDraft {
@@ -181,7 +192,7 @@ describe('DraftReview', () => {
       />,
     )
 
-    expect(screen.getByText('incomplete')).toBeDefined()
+    expect(screen.getAllByText('incomplete').length).toBeGreaterThan(0)
     expect(screen.getByText((content) => content.includes('reason_owner_finished_early'))).toBeDefined()
   })
 
@@ -245,7 +256,7 @@ describe('DraftReview', () => {
     expect((confirmButton as HTMLButtonElement).disabled).toBe(false)
 
     fireEvent.click(confirmButton)
-    expect(onConfirm).toHaveBeenCalledWith(true)
+    expect(onConfirm).toHaveBeenCalledWith(true, undefined)
   })
 
   it('does not show acknowledgement for complete draft', () => {
@@ -262,7 +273,7 @@ describe('DraftReview', () => {
     expect(screen.queryByRole('checkbox')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
-    expect(onConfirm).toHaveBeenCalledWith(false)
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
   })
 
   it('shows not provided for empty fields', () => {
@@ -375,9 +386,9 @@ describe('DraftReview', () => {
       />,
     )
 
-    // Scope to the market evidence card; there are other notProvided spans in facts
-    const marketEvidenceCard = screen.getByText('marketEvidenceTitle').closest('[data-slot="card"]')
-    expect(marketEvidenceCard?.textContent).toContain('notProvided')
+    // Scope to the market evidence section; other sections have their own empty states
+    const marketEvidenceSection = screen.getByText('marketEvidenceTitle').closest('section')
+    expect(marketEvidenceSection?.textContent).toContain('emptySection')
   })
 
   it('renders only valid http/https links', () => {
@@ -444,5 +455,604 @@ describe('DraftReview', () => {
     expect(screen.getByText('Example Cafe')).toBeDefined()
     // The snippet should be preserved
     expect(screen.getByText('A nice cafe in Cairo')).toBeDefined()
+  })
+
+  it('renders a section-level empty state for fully empty sections', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    // customers is fully empty in the default draft
+    const customersSection = screen.getByText('domainCustomers').closest('section')
+    expect(customersSection?.textContent).toContain('emptySection')
+  })
+
+  it('renders a source link only when a valid URL is present', () => {
+    const status = makeStatus()
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-4',
+            source_ref_id: 'source-1',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Example Cafe' })).toBeDefined()
+  })
+
+  it('renders a retrieved-on date when the source has fetched_at', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-fetched',
+        source_type: 'search_result',
+        url: 'https://example.com/cafe',
+        title: 'Fetched Cafe',
+        fetched_at: '2026-01-01T00:00:00Z',
+        confidence: 0.8,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-fetched',
+            source_ref_id: 'source-fetched',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('evidenceRetrievedOn')).toBeDefined()
+  })
+
+  it('omits the retrieved-on date when the source has no fetched_at', () => {
+    const status = makeStatus()
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-4',
+            source_ref_id: 'source-1',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('evidenceRetrievedOn')).toBeNull()
+  })
+
+  it('falls back to the hostname when a source has a valid URL but no title', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-hosts',
+        source_type: 'metadata',
+        url: 'https://example.com/cafe',
+        title: undefined,
+        confidence: 0.8,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-hosts',
+            source_ref_id: 'source-hosts',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.8,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'example.com' })).toBeDefined()
+  })
+
+  it('falls back to the source-type label when a source has no title and no valid URL', () => {
+    const status = makeStatus()
+    status.intelligence.source_refs = [
+      {
+        id: 'source-type',
+        source_type: 'metadata',
+        url: 'ftp://invalid.url',
+        title: undefined,
+        confidence: 0.5,
+        metadata: {},
+      },
+    ]
+    const draft = makeDraft({
+      market_context: {
+        competitor_landscape: [
+          {
+            observation_id: 'obs-type',
+            source_ref_id: 'source-type',
+            statement: 'Cairo cafe market is growing',
+            confidence: 0.5,
+          },
+        ],
+        local_demand_signals: [],
+        digital_presence_signals: [],
+        other_signals: [],
+      },
+    })
+
+    render(
+      <DraftReview
+        status={status}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('citationSource_metadata')).toBeDefined()
+  })
+
+  it('groups uncertainties by severity and shows a count per group', () => {
+    const draft = makeDraft({
+      uncertainties: [
+        { field_key: 'f1', domain: 'offer', description: 'High one', severity: 'high', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f2', domain: 'offer', description: 'Medium one', severity: 'medium', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f3', domain: 'offer', description: 'Medium two', severity: 'medium', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f4', domain: 'offer', description: 'Low one', severity: 'low', category: 'missing_information', source: 'owner_unknown', resolved: false },
+      ],
+    })
+
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('High one')).toBeDefined()
+    expect(screen.getByText('Medium one')).toBeDefined()
+    expect(screen.getByText('Medium two')).toBeDefined()
+    expect(screen.getByText('Low one')).toBeDefined()
+    expect(screen.getAllByText('severity_high').length).toBe(1)
+    expect(screen.getAllByText('severity_medium').length).toBe(1)
+    expect(screen.getAllByText('severity_low').length).toBe(1)
+    // one count label per group (high, medium, low)
+    expect(screen.getAllByText('uncertaintyGroupCount').length).toBe(3)
+  })
+
+  it('shows a positive empty state when there are no uncertainties', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ uncertainties: [] })}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('uncertaintyNone')).toBeDefined()
+  })
+
+  it('disables confirm and shows the pending label while submitting', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    const confirmButton = screen.getByRole('button', { name: 'confirmingLabel' })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('does not fire onConfirm while the confirm button is disabled', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+
+    const confirmButton = screen.getByRole('button', { name: 'confirmProfile' })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(confirmButton)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('does not render a request-changes action when the prop is absent', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'requestChanges' })).toBeNull()
+  })
+
+  it('renders a readiness segment per profile domain', () => {
+    const { container } = render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    const meter = container.querySelector('ul[aria-label="completenessSummary"]')
+    expect(meter).not.toBeNull()
+    expect(meter?.querySelectorAll('li')).toHaveLength(7)
+  })
+
+  it('renders without layout-breaking errors under rtl direction', () => {
+    const { container } = render(
+      <div dir="rtl">
+        <DraftReview
+          status={makeStatus()}
+          draft={makeDraft()}
+          pending={false}
+          onConfirm={vi.fn()}
+        />
+      </div>,
+    )
+
+    expect(container.querySelector('[dir="rtl"]')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'confirmProfile' })).toBeDefined()
+  })
+
+  it('renders an edit button per editable fact section', () => {
+    render(
+      <DraftReview status={makeStatus()} draft={makeDraft()} pending={false} onConfirm={vi.fn()} />,
+    )
+    expect(screen.getAllByRole('button', { name: 'editSection' })).toHaveLength(6)
+  })
+
+  it('switches a section into editable mode on Edit', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+    const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
+    expect(within(identitySection).queryByLabelText('businessName')).toBeNull()
+
+    fireEvent.click(within(identitySection).getByRole('button', { name: 'editSection' }))
+
+    const input = within(identitySection).getByLabelText('businessName') as HTMLInputElement
+    expect(input.value).toBe('Test Cafe')
+    expect(within(identitySection).getByRole('button', { name: 'saveEdits' })).toBeDefined()
+    expect(within(identitySection).getByRole('button', { name: 'cancelEdits' })).toBeDefined()
+  })
+
+  it('saves edited value fields locally and confirms them with the edited facts', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+    const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
+    fireEvent.click(within(identitySection).getByRole('button', { name: 'editSection' }))
+    fireEvent.change(within(identitySection).getByLabelText('businessName'), {
+      target: { value: 'New Name' },
+    })
+    act(() => {
+      fireEvent.click(within(identitySection).getByRole('button', { name: 'saveEdits' }))
+    })
+
+    expect(within(identitySection).getByText('New Name')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(onConfirm.mock.calls[0][0]).toBe(false)
+    const confirmedFacts = onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts
+    expect(confirmedFacts.identity.business_name).toBe('New Name')
+    expect(confirmedFacts.identity.business_type).toBe('Cafe')
+    expect(confirmedFacts.identity.city).toBe('Cairo')
+    expect(confirmedFacts.offer).toEqual(makeDraft().confirmed_facts.offer)
+    expect(confirmedFacts.customers).toEqual(makeDraft().confirmed_facts.customers)
+  })
+
+  it('adds chips via button and Enter with trimming and deduping', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+    const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
+    fireEvent.click(within(offerSection).getByRole('button', { name: 'editSection' }))
+
+    const input = within(offerSection).getByLabelText('coreOfferings') as HTMLInputElement
+    const fieldWrapper = input.closest('div.min-w-0') as HTMLElement
+    fireEvent.change(input, { target: { value: '  Espresso  ' } })
+    fireEvent.click(within(fieldWrapper).getByRole('button', { name: 'addItem' }))
+
+    fireEvent.change(input, { target: { value: 'Espresso' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(within(offerSection).getAllByRole('button', { name: 'removeItem' })).toHaveLength(2)
+
+    act(() => {
+      fireEvent.click(within(offerSection).getByRole('button', { name: 'saveEdits' }))
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect((onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([
+      'Coffee',
+      'Espresso',
+    ])
+  })
+
+  it('removes a chip via its remove control', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+    const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
+    fireEvent.click(within(offerSection).getByRole('button', { name: 'editSection' }))
+
+    fireEvent.click(within(offerSection).getByRole('button', { name: 'removeItem' }))
+    expect(within(offerSection).queryAllByRole('button', { name: 'removeItem' })).toHaveLength(0)
+
+    act(() => {
+      fireEvent.click(within(offerSection).getByRole('button', { name: 'saveEdits' }))
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect((onConfirm.mock.calls[0][1] as MarketAwareBusinessFacts).offer.core_offerings).toEqual([])
+  })
+
+  it('cancelling discards edits and confirms without edited facts', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+    const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
+    fireEvent.click(within(identitySection).getByRole('button', { name: 'editSection' }))
+    fireEvent.change(within(identitySection).getByLabelText('businessName'), {
+      target: { value: 'Changed' },
+    })
+    fireEvent.click(within(identitySection).getByRole('button', { name: 'cancelEdits' }))
+
+    expect(within(identitySection).queryByLabelText('businessName')).toBeNull()
+    expect(within(identitySection).getByText('Test Cafe')).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
+  })
+
+  it('confirms without edited facts when nothing was changed', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft({ completeness: 'complete', completion_reason: 'sufficient' })}
+        pending={false}
+        onConfirm={onConfirm}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirmProfile' }))
+    expect(onConfirm).toHaveBeenCalledWith(false, undefined)
+  })
+
+  it('disables edit buttons while pending', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending
+        onConfirm={vi.fn()}
+      />,
+    )
+    const editButtons = screen.getAllByRole('button', { name: 'editSection' })
+    expect(editButtons).toHaveLength(6)
+    editButtons.forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true))
+  })
+
+  it('disables edit controls while pending', () => {
+    const { rerender } = render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+    const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
+    fireEvent.click(within(offerSection).getByRole('button', { name: 'editSection' }))
+
+    rerender(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending
+        onConfirm={vi.fn()}
+      />,
+    )
+
+    const pendingOfferSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
+    expect((within(pendingOfferSection).getByRole('button', { name: 'saveEdits' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(pendingOfferSection).getByRole('button', { name: 'cancelEdits' }) as HTMLButtonElement).disabled).toBe(true)
+    const pendingInput = within(pendingOfferSection).getByLabelText('coreOfferings') as HTMLInputElement
+    expect(pendingInput.disabled).toBe(true)
+    const pendingWrapper = pendingInput.closest('div.min-w-0') as HTMLElement
+    expect((within(pendingWrapper).getByRole('button', { name: 'addItem' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('only allows one section to be edited at a time', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+      />,
+    )
+    const identitySection = screen.getByRole('heading', { name: 'domainIdentity' }).closest('section')!
+    const offerSection = screen.getByRole('heading', { name: 'domainOffer' }).closest('section')!
+
+    fireEvent.click(within(identitySection).getByRole('button', { name: 'editSection' }))
+
+    // other sections hide their Edit action while a different section is being edited
+    expect(within(offerSection).queryByRole('button', { name: 'editSection' })).toBeNull()
+    expect(within(identitySection).getByRole('button', { name: 'saveEdits' })).toBeDefined()
+  })
+
+  it('shows confirmed header and hides edit + confirm in readOnly mode', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Shows confirmed title instead of review title
+    expect(screen.getByText('confirmedTitle')).toBeDefined()
+    expect(screen.getByText('confirmedDescription')).toBeDefined()
+    expect(screen.getByText('profileConfirmedStatus')).toBeDefined()
+
+    // Does NOT show review title
+    expect(screen.queryByText('title')).toBeNull()
+
+    // Does NOT show edit buttons
+    expect(screen.queryByRole('button', { name: 'editSection' })).toBeNull()
+
+    // Does NOT show confirm button
+    expect(screen.queryByRole('button', { name: 'confirmProfile' })).toBeNull()
+  })
+
+  it('still renders domain cards with data in readOnly mode', () => {
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={makeDraft()}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Domain cards still render (use heading role to avoid ambiguity with domain labels in other lists)
+    expect(screen.getByRole('heading', { name: 'domainIdentity' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'domainOffer' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'domainCustomers' })).toBeDefined()
+
+    // Business name data is visible (appears in both domain card and footer)
+    expect(screen.getAllByText('Test Cafe').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows unresolved count in readOnly footer', () => {
+    const draft = makeDraft({
+      uncertainties: [
+        { field_key: 'f1', domain: 'offer', description: 'Unresolved', severity: 'high', category: 'missing_information', source: 'owner_unknown', resolved: false },
+        { field_key: 'f2', domain: 'offer', description: 'Resolved', severity: 'low', category: 'missing_information', source: 'owner_unknown', resolved: true },
+      ],
+    })
+
+    render(
+      <DraftReview
+        status={makeStatus()}
+        draft={draft}
+        pending={false}
+        onConfirm={vi.fn()}
+        readOnly
+      />,
+    )
+
+    // Footer shows unresolved count (text includes count suffix in same node)
+    expect(screen.getByText(/unresolvedUncertainties/)).toBeDefined()
   })
 })

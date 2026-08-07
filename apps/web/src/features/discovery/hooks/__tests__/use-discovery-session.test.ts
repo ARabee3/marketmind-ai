@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import type { DiscoveryStatusResponse } from '@marketmind/contracts'
+import type { BusinessProfileDraft, DiscoveryStatusResponse } from '@marketmind/contracts'
 import { useDiscoverySession } from '../use-discovery-session'
 import {
   getDiscoveryStatus,
@@ -64,6 +64,31 @@ function makeStatus(overrides: Partial<DiscoveryStatusResponse> = {}): Discovery
     },
     progress_events: [],
     strategy_locked: true,
+    ...overrides,
+  }
+}
+
+function makeDraft(overrides: Partial<BusinessProfileDraft> = {}): BusinessProfileDraft {
+  return {
+    id: 'draft-1',
+    session_id: 'test-session',
+    version: 1,
+    status: 'ready_for_confirmation',
+    completeness: 'complete',
+    completion_reason: 'sufficient',
+    readiness: makeStatus().profile_state.readiness,
+    confirmed_facts: makeStatus().profile_state.known_facts,
+    market_context: {
+      competitor_landscape: [],
+      local_demand_signals: [],
+      digital_presence_signals: [],
+      other_signals: [],
+    },
+    research_observations: [],
+    uncertainties: [],
+    owner_goals: [],
+    strategy_relevant_notes: [],
+    raw_ai_output: {},
     ...overrides,
   }
 }
@@ -343,11 +368,28 @@ describe('useDiscoverySession', () => {
 
     await waitFor(() => expect(result.current.phase).toBe('review'))
 
+    const editedFacts = {
+      ...makeStatus().profile_state.known_facts,
+      identity: {
+        business_name: 'New Name',
+        business_type: 'Cafe',
+        city: 'Cairo',
+      },
+    }
     await act(async () => {
-      await result.current.confirm({ profile_draft_id: 'draft-1', owner_confirmation: true })
+      await result.current.confirm({
+        profile_draft_id: 'draft-1',
+        owner_confirmation: true,
+        confirmed_facts: editedFacts,
+      })
     })
 
     await waitFor(() => expect(result.current.phase).toBe('confirmed'))
+    expect(vi.mocked(confirmDiscoveryProfile)).toHaveBeenCalledWith('test', {
+      profile_draft_id: 'draft-1',
+      owner_confirmation: true,
+      confirmed_facts: editedFacts,
+    })
   })
 
   it('transitions directly to review when respond returns summary_ready', async () => {
@@ -506,5 +548,32 @@ describe('useDiscoverySession', () => {
     expect(result.current.status?.profile_draft?.completion_reason).toBe('turn_limit')
     expect(result.current.status?.profile_state.readiness.owner_turn_count).toBe(15)
     expect(result.current.status?.profile_state.readiness.ready).toBe(false)
+  })
+
+  it('confirm sets error without throwing on failure', async () => {
+    const draft = makeDraft()
+    vi.mocked(getDiscoveryStatus).mockResolvedValue(
+      makeStatus({ status: 'summary_ready', profile_draft: draft }),
+    )
+    vi.mocked(confirmDiscoveryProfile).mockRejectedValueOnce({
+      status: 409,
+      code: 'DISCOVERY_PROFILE_ALREADY_CONFIRMED',
+      message: 'already confirmed',
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('review'))
+
+    await act(async () => {
+      await result.current.confirm({
+        profile_draft_id: 'draft-1',
+        owner_confirmation: true,
+      })
+    })
+
+    expect(result.current.error).toBe('already confirmed')
+    expect(result.current.errorTranslationKey).toBe('Errors.discoveryAlreadyConfirmed')
+    expect(result.current.pending).toBe(false)
   })
 })

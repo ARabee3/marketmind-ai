@@ -6,6 +6,7 @@ import {
   DiscoveryRespondDto,
   DiscoverySummarizeDto,
 } from "./discovery-conversation.dto";
+import { emptyMarketAwareBusinessFacts } from "../market-profile";
 
 describe("DiscoveryRespondDto", () => {
   it("rejects overlong owner chat messages", async () => {
@@ -47,5 +48,38 @@ describe("Discovery completion DTOs", () => {
     const errors = await validate(dto);
 
     expect(JSON.stringify(errors)).toContain("isBoolean");
+  });
+
+  it("accepts a well-formed owner-edited facts payload", async () => {
+    const dto = plainToInstance(ConfirmProfileDto, {
+      profile_draft_id: "99999999-9999-4999-8999-999999999999",
+      owner_confirmation: true,
+      confirmed_facts: {
+        ...emptyMarketAwareBusinessFacts(),
+        identity: {
+          business_name: "Koshary Corner",
+          business_type: "restaurant",
+          city: "Cairo",
+          area: "Zamalek",
+        },
+      },
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
+  it("rejects malformed owner-edited facts payloads", async () => {
+    const dto = plainToInstance(ConfirmProfileDto, {
+      profile_draft_id: "99999999-9999-4999-8999-999999999999",
+      owner_confirmation: true,
+      confirmed_facts: {
+        ...emptyMarketAwareBusinessFacts(),
+        offer: "not-an-object",
+      },
+    });
+
+    const errors = await validate(dto);
+
+    expect(JSON.stringify(errors)).toContain("isMarketAwareBusinessFacts");
   });
 });

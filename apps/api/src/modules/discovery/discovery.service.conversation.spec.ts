@@ -410,6 +410,7 @@ describe("DiscoveryService conversation", () => {
       "99999999-9999-4999-8999-999999999999",
       intake(),
       false,
+      undefined,
     );
   });
 
@@ -447,6 +448,93 @@ describe("DiscoveryService conversation", () => {
       ),
     ).rejects.toMatchObject({ code: "AI_DISCOVERY_INVALID_OUTPUT" });
     expect(conversationRepository.saveProfileDraft).not.toHaveBeenCalled();
+  });
+
+  it("applies owner-edited facts at confirmation with recomputed readiness", async () => {
+    repository.findSessionForOwner.mockResolvedValue({
+      ...session("summary_ready"),
+      ownerTurnCount: 5,
+    } as never);
+    const baseReadiness = profileDraft().readiness;
+    conversationRepository.latestProfileDraft.mockResolvedValue({
+      ...profileDraft(),
+      readiness: {
+        ...baseReadiness,
+        llm_recommended: true,
+        completion_reason: "sufficient",
+        domain_scores: {
+          identity: 0.95,
+          offer: 0.75,
+          customers: 0.8,
+          differentiation: 0.65,
+          current_marketing: 0.65,
+          goals_and_constraints: 0.75,
+          market_context: 0,
+          research_confidence: 0,
+          profile_readiness: 0.85,
+        },
+      },
+    } as never);
+    const editedFacts = {
+      ...emptyMarketAwareBusinessFacts(),
+      identity: {
+        business_name: "Koshary Corner (corrected)",
+        business_type: "quick service restaurant",
+        city: "Cairo",
+        area: "Zamalek",
+      },
+    };
+    conversationRepository.confirmProfile.mockResolvedValue({
+      session_id: "11111111-1111-4111-8111-111111111111",
+      status: "confirmed",
+      business_profile_version_id: "version-id",
+      confirmed_at: "2026-06-29T10:10:00.000Z",
+      strategy_locked: false,
+    } as never);
+
+    await service.confirmProfile(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      {
+        profile_draft_id: "99999999-9999-4999-8999-999999999999",
+        owner_confirmation: true,
+        confirmed_facts: editedFacts,
+      },
+    );
+
+    expect(conversationRepository.latestProfileDraft).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+    );
+    const corrections = conversationRepository.confirmProfile.mock.calls[0][5];
+    expect(corrections?.confirmed_facts).toEqual(editedFacts);
+    expect(corrections?.readiness.owner_turn_count).toBe(5);
+    expect(corrections?.readiness.completion_reason).toBe("sufficient");
+    expect(corrections?.completeness).toBe("incomplete");
+  });
+
+  it("does not recompute corrections when no edited facts are submitted", async () => {
+    repository.findSessionForOwner.mockResolvedValue(
+      session("summary_ready") as never,
+    );
+    conversationRepository.confirmProfile.mockResolvedValue({
+      session_id: "11111111-1111-4111-8111-111111111111",
+      status: "confirmed",
+      business_profile_version_id: "version-id",
+      confirmed_at: "2026-06-29T10:10:00.000Z",
+      strategy_locked: false,
+    } as never);
+
+    await service.confirmProfile(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      {
+        profile_draft_id: "99999999-9999-4999-8999-999999999999",
+        owner_confirmation: true,
+      },
+    );
+
+    expect(conversationRepository.latestProfileDraft).not.toHaveBeenCalled();
+    expect(conversationRepository.confirmProfile.mock.calls[0][5]).toBeUndefined();
   });
 });
 

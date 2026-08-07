@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
@@ -22,10 +23,12 @@ import {
   DiscoveryCompletionReason,
   DiscoveryMessage,
   DiscoveryProfileState,
+  DiscoveryReadiness,
   DiscoveryRespondResponse,
   DiscoverySessionStatus,
   DiscoverySummarizeResponse,
   IntelligenceResult,
+  MarketAwareBusinessFacts,
 } from "./discovery-state";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { MAX_DISCOVERY_OWNER_TURNS } from "./market-profile";
@@ -207,6 +210,14 @@ export class DiscoveryConversationService {
     );
     assertStatusAllows(session.status, ["summary_ready", "confirmed"]);
     const intake = await this.conversationRepository.getIntake(session.id);
+    const corrections = dto.confirmed_facts
+      ? await this.confirmationCorrections(
+          sessionId,
+          dto.profile_draft_id,
+          dto.confirmed_facts,
+          session.ownerTurnCount,
+        )
+      : undefined;
 
     return this.conversationRepository.confirmProfile(
       ownerUserId,
@@ -214,7 +225,50 @@ export class DiscoveryConversationService {
       dto.profile_draft_id,
       intake,
       dto.acknowledge_incomplete === true,
+      corrections,
     );
+  }
+
+  private async confirmationCorrections(
+    sessionId: string,
+    profileDraftId: string,
+    confirmedFacts: MarketAwareBusinessFacts,
+    ownerTurnCount: number,
+  ): Promise<{
+    confirmed_facts: MarketAwareBusinessFacts;
+    readiness: DiscoveryReadiness;
+    completeness: BusinessProfileDraft["completeness"];
+  }> {
+    const draft = await this.conversationRepository.latestProfileDraft(sessionId);
+    if (!draft || draft.id !== profileDraftId) {
+      throw new NotFoundException("Profile draft not found");
+    }
+
+    const state = this.readinessService.evaluate(
+      {
+        updated_known_facts: confirmedFacts,
+        updated_uncertainties: draft.uncertainties.map(
+          ({
+            resolved: _resolved,
+            resolved_at: _at,
+            resolved_by_action: _by,
+            ...input
+          }) => input,
+        ),
+        domain_scores: draft.readiness.domain_scores,
+        ready_to_summarize: draft.readiness.llm_recommended,
+      },
+      ownerTurnCount,
+    );
+
+    return {
+      confirmed_facts: state.known_facts,
+      readiness: {
+        ...state.readiness,
+        completion_reason: draft.readiness.completion_reason,
+      },
+      completeness: draft.completeness,
+    };
   }
 
   private async completeDiscovery(

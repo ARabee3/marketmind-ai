@@ -102,6 +102,43 @@ describe("JourneyService", () => {
     expect(response.future_phase.reason).toBe("strategy_not_active");
   });
 
+  it("uses the confirmed profile identity for confirmed session summaries", async () => {
+    repository.findCurrentForOwner.mockResolvedValue({
+      owner: ownerRecord(),
+      session: sessionRecord({
+        status: "confirmed",
+        intake: {
+          businessName: "Old Cafe",
+          businessType: "cafe",
+          city: "Cairo",
+          area: "Downtown",
+        },
+        confirmedProfile: {
+          ...confirmedProfileRecord(),
+          business: {
+            displayName: "New Cafe",
+            businessType: "restaurant",
+            city: "Giza",
+            area: "Dokki",
+          },
+        },
+      }),
+      strategy: null,
+    });
+
+    const response = await service.getCurrent("owner-id");
+    assertResponse(response);
+
+    expect(response.journey.state).toBe("discovery_confirmed");
+    const summary = response.journey.discovery!.business_summary;
+    expect(summary).toEqual({
+      business_name: "New Cafe",
+      business_type: "restaurant",
+      city: "Giza",
+      area: "Dokki",
+    });
+  });
+
   it("keeps failed sessions unavailable without leaking strategy access", async () => {
     repository.findCurrentForOwner.mockResolvedValue({
       owner: ownerRecord(),

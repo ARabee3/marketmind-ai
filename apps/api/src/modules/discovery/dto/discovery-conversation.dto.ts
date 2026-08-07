@@ -6,8 +6,11 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Validate,
 } from "class-validator";
 import { LanguageModeDto } from "./start-discovery.dto";
+import { MarketAwareBusinessFacts } from "../discovery-state";
+import { IsMarketAwareBusinessFactsConstraint } from "./is-market-aware-business-facts.validator";
 
 export class DiscoveryRespondDto {
   @IsString()
@@ -30,6 +33,10 @@ export class ConfirmProfileDto {
   @IsOptional()
   @IsBoolean()
   acknowledge_incomplete?: true;
+
+  @IsOptional()
+  @Validate(IsMarketAwareBusinessFactsConstraint)
+  confirmed_facts?: MarketAwareBusinessFacts;
 }
 
 export class DiscoverySummarizeDto {
