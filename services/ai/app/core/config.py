@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     knowledge_strict_sources: bool = True
 
     # Voice transcription configuration (issue #169).
-    voice_transcription_enabled: bool = False
+    voice_transcription_enabled: bool = True
     voice_transcription_internal_token: str = ""
     voice_transcription_model: str = "gemini-3.6-flash"
     voice_transcription_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)

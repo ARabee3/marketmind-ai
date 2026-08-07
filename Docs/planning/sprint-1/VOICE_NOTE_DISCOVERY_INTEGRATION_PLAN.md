@@ -299,12 +299,14 @@ instructions that are spoken in the recording.
 
 ### 5.5 Configuration and rollout
 
-New settings are feature-scoped and default to off:
+New settings are feature-scoped and enabled by default. The internal token and
+provider configuration remain required; set any gate to `false` to disable the
+feature while evaluation or deployment configuration is incomplete:
 
 ```text
-NEXT_PUBLIC_DISCOVERY_VOICE_NOTES_ENABLED=false # web availability gate
-DISCOVERY_VOICE_NOTES_ENABLED=false             # Nest enforcement gate
-VOICE_TRANSCRIPTION_ENABLED=false                # FastAPI enforcement gate
+NEXT_PUBLIC_DISCOVERY_VOICE_NOTES_ENABLED=true # web availability gate
+DISCOVERY_VOICE_NOTES_ENABLED=true             # Nest enforcement gate
+VOICE_TRANSCRIPTION_ENABLED=true              # FastAPI enforcement gate
 VOICE_TRANSCRIPTION_INTERNAL_TOKEN=           # set in Nest and FastAPI
 VOICE_TRANSCRIPTION_MODEL=gemini-3.6-flash    # FastAPI only
 VOICE_TRANSCRIPTION_TIMEOUT_MS=30000

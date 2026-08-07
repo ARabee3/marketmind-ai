@@ -3,7 +3,7 @@ import wave
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.main import app
 
 
@@ -23,7 +23,15 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_transcribe_voice_disabled_by_default(client: TestClient) -> None:
+def test_voice_transcription_is_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("VOICE_TRANSCRIPTION_ENABLED", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.voice_transcription_enabled is True
+
+
+def test_transcribe_voice_disabled_when_flag_is_false(client: TestClient) -> None:
     settings = get_settings()
     settings.voice_transcription_enabled = False
 
