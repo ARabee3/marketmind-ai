@@ -160,11 +160,11 @@ describe("content-cycle-state", () => {
     it("resolves by currentVersionId when a newer draft version exists", () => {
       const draftProfileVersion =
         mockStrategyVersions[0]!.profile_version;
-      const draftSummary2: StrategyVersionSummary = {
+      const draftSummary: StrategyVersionSummary = {
         version_id: "draft-version-2",
         strategy_id: MOCK_STRATEGY_ID,
         version: 2,
-        status: "in_progress",
+        status: "draft",
         brief_id: "brief-1",
         retrieval_run_id: "run-2",
         profile_version: {
@@ -175,7 +175,7 @@ describe("content-cycle-state", () => {
         prompt_config: {},
         created_at: "2026-08-03T10:00:00.000Z",
       };
-      const versions = [...mockStrategyVersions, draftSummary2];
+      const versions = [...mockStrategyVersions, draftSummary];
       const result = resolveApprovedContentStrategy(
         mockJourneyNoCycle,
         mockApprovedStrategyApi,
