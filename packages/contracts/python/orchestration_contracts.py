@@ -2,14 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from content_base import FrozenModel
+from error_codes import ERROR_CODES
 
-UUID = str
-IsoDateTime = str
+UUID = Annotated[
+    str,
+    StringConstraints(
+        pattern=(
+            r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-"
+            r"[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+        )
+    ),
+]
+IsoDateTime = Annotated[
+    str,
+    StringConstraints(
+        pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+    ),
+]
+SHA256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-fA-F]{64}$")]
 
 OrchestrationContractVersion = Literal["orchestration-v1"]
 ResearchPackContractVersion = Literal["research-pack-v1"]
@@ -96,12 +111,20 @@ class ResearchPackV1(FrozenModel):
 class OrchestrationImmutableInputRefsV1(FrozenModel):
     confirmed_profile_version_id: UUID = Field(min_length=1)
     confirmed_profile_version: int = Field(ge=1)
-    confirmed_profile_checksum: str = Field(min_length=1)
+    confirmed_profile_checksum: SHA256
     strategy_id: UUID = Field(min_length=1)
     strategy_brief_id: UUID = Field(min_length=1)
     requested_week_number: int | None = Field(default=None, ge=1, le=12)
     week_context_id: UUID | None = None
-    week_context_checksum: str | None = None
+    week_context_checksum: SHA256 | None = None
+
+    @model_validator(mode="after")
+    def validate_week_context_pair(self) -> "OrchestrationImmutableInputRefsV1":
+        if (self.week_context_id is None) != (self.week_context_checksum is None):
+            raise ValueError(
+                "week_context_id and week_context_checksum must be supplied together"
+            )
+        return self
 
 
 class StrategyDecisionBindingV1(FrozenModel):
@@ -111,7 +134,7 @@ class StrategyDecisionBindingV1(FrozenModel):
     strategy_id: UUID = Field(min_length=1)
     strategy_version_id: UUID = Field(min_length=1)
     strategy_version: int = Field(ge=1)
-    strategy_checksum: str = Field(min_length=1)
+    strategy_checksum: SHA256
     decision_id: UUID = Field(min_length=1)
     decision: Literal["approved", "rejected", "revision_requested"]
     decided_by_user_id: UUID = Field(min_length=1)
@@ -127,11 +150,29 @@ class ContentDecisionBindingV1(FrozenModel):
     content_item_id: UUID = Field(min_length=1)
     content_item_version_id: UUID = Field(min_length=1)
     content_item_version: int = Field(ge=1)
-    content_item_version_checksum: str = Field(min_length=1)
+    content_item_version_checksum: SHA256
     decision_id: UUID = Field(min_length=1)
     decision: Literal["approved", "rejected", "revision_requested"]
     decided_by_user_id: UUID = Field(min_length=1)
     decided_at: IsoDateTime = Field(min_length=1)
+
+
+class OrchestrationBoundsV1(FrozenModel):
+    tool_calls_used: int = Field(ge=0)
+    tool_calls_limit: int = Field(ge=0)
+    replans_used: int = Field(ge=0)
+    replans_limit: int = Field(ge=0)
+    token_budget: int | None = Field(default=None, ge=0)
+    cost_budget_usd: float | None = Field(default=None, ge=0)
+    deadline_at: IsoDateTime | None = None
+
+    @model_validator(mode="after")
+    def validate_consumed_bounds(self) -> "OrchestrationBoundsV1":
+        if self.tool_calls_used > self.tool_calls_limit:
+            raise ValueError("tool_calls_used cannot exceed tool_calls_limit")
+        if self.replans_used > self.replans_limit:
+            raise ValueError("replans_used cannot exceed replans_limit")
+        return self
 
 
 class CampaignOrchestrationStartV1(FrozenModel):
@@ -146,11 +187,22 @@ class CampaignOrchestrationStartV1(FrozenModel):
     feature_cohort: str = Field(min_length=1)
     confirmed_profile_version_id: UUID = Field(min_length=1)
     confirmed_profile_version: int = Field(ge=1)
-    confirmed_profile_checksum: str = Field(min_length=1)
+    confirmed_profile_checksum: SHA256
     strategy_id: UUID = Field(min_length=1)
     strategy_brief_id: UUID = Field(min_length=1)
     requested_week_number: int | None = Field(default=None, ge=1, le=12)
-    requested_at: IsoDateTime = Field(min_length=1)
+    week_context_id: UUID | None = None
+    week_context_checksum: SHA256 | None = None
+    bounds: OrchestrationBoundsV1
+    requested_at: IsoDateTime
+
+    @model_validator(mode="after")
+    def validate_week_context_pair(self) -> "CampaignOrchestrationStartV1":
+        if (self.week_context_id is None) != (self.week_context_checksum is None):
+            raise ValueError(
+                "week_context_id and week_context_checksum must be supplied together"
+            )
+        return self
 
 
 class CampaignOrchestrationResumeV1(FrozenModel):
@@ -162,7 +214,20 @@ class CampaignOrchestrationResumeV1(FrozenModel):
     owner_user_id: UUID = Field(min_length=1)
     business_id: UUID = Field(min_length=1)
     decision_binding: StrategyDecisionBindingV1 | ContentDecisionBindingV1
-    requested_at: IsoDateTime = Field(min_length=1)
+    requested_at: IsoDateTime
+
+    @model_validator(mode="after")
+    def validate_resume_binding(self) -> "CampaignOrchestrationResumeV1":
+        if self.checkpoint_thread_id != self.run_id:
+            raise ValueError("checkpoint_thread_id must match run_id")
+        if (
+            self.decision_binding.run_id != self.run_id
+            or self.decision_binding.business_id != self.business_id
+        ):
+            raise ValueError(
+                "decision binding must belong to the resumed run and business"
+            )
+        return self
 
 
 class OrchestrationStrategyStateV1(FrozenModel):
@@ -172,6 +237,7 @@ class OrchestrationStrategyStateV1(FrozenModel):
     checksum: str | None = None
     validation_valid: bool | None = None
     pending_decision: bool
+    decision_binding: StrategyDecisionBindingV1 | None = None
 
 
 class OrchestrationContentStateV1(FrozenModel):
@@ -183,16 +249,7 @@ class OrchestrationContentStateV1(FrozenModel):
     checksum: str | None = None
     validation_valid: bool | None = None
     pending_decision: bool
-
-
-class OrchestrationBoundsV1(FrozenModel):
-    tool_calls_used: int = Field(ge=0)
-    tool_calls_limit: int = Field(ge=0)
-    replans_used: int = Field(ge=0)
-    replans_limit: int = Field(ge=0)
-    token_budget: int | None = Field(default=None, ge=0)
-    cost_budget_usd: float | None = Field(default=None, ge=0)
-    deadline_at: IsoDateTime | None = None
+    decision_binding: ContentDecisionBindingV1 | None = None
 
 
 class OrchestrationAuditV1(FrozenModel):
@@ -200,8 +257,16 @@ class OrchestrationAuditV1(FrozenModel):
     provider_versions: list[str]
     action_summaries: list[str]
     stable_errors: list[str]
-    created_at: IsoDateTime = Field(min_length=1)
-    updated_at: IsoDateTime = Field(min_length=1)
+    created_at: IsoDateTime
+    updated_at: IsoDateTime
+
+    @field_validator("stable_errors")
+    @classmethod
+    def validate_stable_errors(cls, values: list[str]) -> list[str]:
+        unknown = [value for value in values if value not in ERROR_CODES]
+        if unknown:
+            raise ValueError(f"unknown stable error code(s): {', '.join(unknown)}")
+        return values
 
 
 class CampaignOrchestrationStateV1(FrozenModel):
@@ -223,12 +288,34 @@ class CampaignOrchestrationStateV1(FrozenModel):
     bounds: OrchestrationBoundsV1
     audit: OrchestrationAuditV1
 
+    @model_validator(mode="after")
+    def validate_state_bindings(self) -> "CampaignOrchestrationStateV1":
+        for binding in (
+            self.strategy.decision_binding,
+            self.content.decision_binding,
+        ):
+            if binding is not None and (
+                binding.run_id != self.run_id
+                or binding.business_id != self.business_id
+            ):
+                raise ValueError(
+                    "decision binding must belong to the state run and business"
+                )
+        return self
+
 
 class OrchestrationErrorV1(FrozenModel):
     code: str = Field(min_length=1)
     message: str = Field(min_length=1)
     retryable: bool
     details: dict[str, Any]
+
+    @field_validator("code")
+    @classmethod
+    def validate_error_code(cls, value: str) -> str:
+        if value not in ERROR_CODES:
+            raise ValueError(f"unknown orchestration error code: {value}")
+        return value
 
 
 class CampaignOrchestrationResultV1(FrozenModel):
@@ -254,4 +341,4 @@ class CampaignOrchestrationEventV1(FrozenModel):
     tool: str | None = None
     summary: str = Field(min_length=1)
     payload: dict[str, Any]
-    created_at: IsoDateTime = Field(min_length=1)
+    created_at: IsoDateTime

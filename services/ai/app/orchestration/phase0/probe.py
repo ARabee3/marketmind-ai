@@ -48,6 +48,35 @@ class ResumeRequest(BaseModel):
     decision: Literal["approve", "reject"]
 
 
+class Phase0ThreadLock:
+    """Cross-process per-thread mutex backed by PostgreSQL advisory locks."""
+
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+
+    @asynccontextmanager
+    async def acquire(self, thread_id: str):
+        connection = await AsyncConnection.connect(self._database_url, autocommit=True)
+        try:
+            await connection.execute(
+                "SELECT pg_advisory_lock(hashtextextended(%s, 0))",
+                (f"marketmind-phase0:{thread_id}",),
+            )
+            yield
+        finally:
+            await connection.close()
+
+
+class Phase0MockToolProvider:
+    """Deterministic tool-calling provider used by the isolated graph only."""
+
+    async def choose_effect_tool(self, effect_key: str) -> dict[str, Any]:
+        return {
+            "name": "record_phase0_effect",
+            "arguments": {"effect_key": effect_key},
+        }
+
+
 class Phase0EffectStore:
     """Persistent idempotency-keyed fake side effect for the probe only."""
 
@@ -112,12 +141,24 @@ class Phase0EffectStore:
 
 
 def build_phase0_graph(
-    checkpointer: AsyncPostgresSaver, effect_store: Phase0EffectStore
+    checkpointer: AsyncPostgresSaver,
+    effect_store: Phase0EffectStore,
+    tool_provider: Phase0MockToolProvider | None = None,
 ):
     """Build the three-node fake graph used by the durability gate."""
 
+    provider = tool_provider or Phase0MockToolProvider()
+
     async def record_effect(state: Phase0State) -> dict[str, Any]:
-        count = await effect_store.record_once(state["effect_key"])
+        tool_call = await provider.choose_effect_tool(state["effect_key"])
+        if tool_call.get("name") != "record_phase0_effect":
+            raise RuntimeError("phase 0 mock provider selected an unknown tool")
+        arguments = tool_call.get("arguments")
+        if not isinstance(arguments, dict) or arguments.get("effect_key") != state[
+            "effect_key"
+        ]:
+            raise RuntimeError("phase 0 mock provider returned invalid arguments")
+        count = await effect_store.record_once(arguments["effect_key"])
         return {"effect_count": count}
 
     def await_owner(state: Phase0State) -> dict[str, Any]:
@@ -165,6 +206,7 @@ def create_app(database_url: str) -> FastAPI:
             await effect_store.setup()
             app.state.phase0_graph = build_phase0_graph(checkpointer, effect_store)
             app.state.phase0_effect_store = effect_store
+            app.state.phase0_thread_lock = Phase0ThreadLock(database_url)
             yield
 
     app = FastAPI(title="MarketMind Phase 0 Durability Probe", lifespan=lifespan)
@@ -175,50 +217,54 @@ def create_app(database_url: str) -> FastAPI:
 
     @app.post("/start")
     async def start(request: StartRequest) -> dict[str, Any]:
-        graph = app.state.phase0_graph
-        config = {"configurable": {"thread_id": request.thread_id}}
-        existing = await graph.aget_state(config)
-        if existing is not None and (
-            existing.values or existing.next or existing.interrupts
-        ):
-            raise HTTPException(status_code=409, detail="thread already exists")
+        async with app.state.phase0_thread_lock.acquire(request.thread_id):
+            graph = app.state.phase0_graph
+            config = {"configurable": {"thread_id": request.thread_id}}
+            existing = await graph.aget_state(config)
+            if existing is not None and (
+                existing.values or existing.next or existing.interrupts
+            ):
+                raise HTTPException(status_code=409, detail="thread already exists")
 
-        result = await graph.ainvoke(
-            {
+            result = await graph.ainvoke(
+                {
+                    "thread_id": request.thread_id,
+                    "effect_key": request.effect_key,
+                },
+                config,
+            )
+            interrupts = result.get("__interrupt__", [])
+            if not interrupts:  # pragma: no cover - graph invariant
+                raise HTTPException(status_code=500, detail="probe did not interrupt")
+            return {
+                "status": "paused",
                 "thread_id": request.thread_id,
-                "effect_key": request.effect_key,
-            },
-            config,
-        )
-        interrupts = result.get("__interrupt__", [])
-        if not interrupts:  # pragma: no cover - graph invariant
-            raise HTTPException(status_code=500, detail="probe did not interrupt")
-        return {
-            "status": "paused",
-            "thread_id": request.thread_id,
-            "interrupt_id": interrupts[0].id,
-        }
+                "interrupt_id": interrupts[0].id,
+            }
 
     @app.post("/resume")
     async def resume(request: ResumeRequest) -> dict[str, Any]:
-        graph = app.state.phase0_graph
-        config = {"configurable": {"thread_id": request.thread_id}}
-        snapshot = await graph.aget_state(config)
-        if snapshot is None or (
-            not snapshot.values and not snapshot.next and not snapshot.interrupts
-        ):
-            raise HTTPException(status_code=404, detail="thread not found")
-        if not snapshot.next or not snapshot.interrupts:
-            raise HTTPException(status_code=409, detail="thread is already complete")
+        async with app.state.phase0_thread_lock.acquire(request.thread_id):
+            graph = app.state.phase0_graph
+            config = {"configurable": {"thread_id": request.thread_id}}
+            snapshot = await graph.aget_state(config)
+            if snapshot is None or (
+                not snapshot.values and not snapshot.next and not snapshot.interrupts
+            ):
+                raise HTTPException(status_code=404, detail="thread not found")
+            if not snapshot.next or not snapshot.interrupts:
+                raise HTTPException(
+                    status_code=409, detail="thread is already complete"
+                )
 
-        result = await graph.ainvoke(Command(resume=request.decision), config)
-        if result.get("__interrupt__"):  # pragma: no cover - graph invariant
-            raise HTTPException(status_code=500, detail="probe interrupted twice")
-        return {
-            "status": "completed",
-            "thread_id": request.thread_id,
-            "result": result.get("result"),
-        }
+            result = await graph.ainvoke(Command(resume=request.decision), config)
+            if result.get("__interrupt__"):  # pragma: no cover - graph invariant
+                raise HTTPException(status_code=500, detail="probe interrupted twice")
+            return {
+                "status": "completed",
+                "thread_id": request.thread_id,
+                "result": result.get("result"),
+            }
 
     @app.get("/effects/{effect_key}")
     async def effect_count(effect_key: str) -> dict[str, Any]:

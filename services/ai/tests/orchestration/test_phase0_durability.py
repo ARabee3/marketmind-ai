@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import os
+import re
 import signal
 import socket
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -22,9 +24,6 @@ from psycopg import sql
 
 pytestmark = pytest.mark.integration
 SERVICE_ROOT = Path(__file__).parents[2]
-DEFAULT_DATABASE_URL = (
-    "postgresql://marketmind:marketmind_dev@localhost:5433/marketmind_dev"
-)
 
 
 def _normalise_database_url(database_url: str) -> str:
@@ -57,15 +56,29 @@ def _database_url_for_schema(database_url: str, schema: str) -> str:
 
 @pytest.fixture()
 def isolated_database_url() -> Iterator[str]:
-    base_url = _normalise_database_url(
-        os.environ.get("PHASE0_DATABASE_URL", DEFAULT_DATABASE_URL)
-    )
+    configured_url = os.environ.get("PHASE0_DATABASE_URL")
+    if not configured_url:
+        pytest.skip("set PHASE0_DATABASE_URL to a disposable local test database")
+
+    base_url = _normalise_database_url(configured_url)
+    parsed = urlsplit(base_url)
+    database_name = parsed.path.removeprefix("/")
+    if parsed.scheme not in {"postgres", "postgresql"}:
+        pytest.fail("PHASE0_DATABASE_URL must use postgres:// or postgresql://")
+    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        pytest.fail("Phase 0 may only use a local PostgreSQL database")
+    if not re.search(r"(?:^|[-_])(test|ci|e2e)$", database_name, re.IGNORECASE):
+        pytest.fail(
+            "PHASE0_DATABASE_URL must target a database ending in _test, _ci, or _e2e"
+        )
     schema = f"phase0_{uuid4().hex}"
     try:
         with psycopg.connect(base_url, autocommit=True) as connection:
-            connection.execute(sql.SQL("CREATE SCHEMA {} ").format(sql.Identifier(schema)))
+            connection.execute(
+                sql.SQL("CREATE SCHEMA {} ").format(sql.Identifier(schema))
+            )
     except psycopg.Error as exc:
-        pytest.skip(f"Phase 0 PostgreSQL is not available: {exc}")
+        pytest.fail(f"Phase 0 PostgreSQL is not available: {exc}")
 
     try:
         yield _database_url_for_schema(base_url, schema)
@@ -192,3 +205,53 @@ def test_phase0_resume_survives_fastapi_process_restart(
         )
         assert effect.status_code == 200, effect.text
         assert effect.json() == {"effect_key": effect_key, "count": 1}
+
+
+def test_phase0_serializes_concurrent_start_and_resume_requests(
+    isolated_database_url: str,
+) -> None:
+    """One thread can have only one owner of a start or resume operation."""
+
+    port = _free_port()
+    with running_probe(isolated_database_url, port):
+        paused_thread = f"phase0-concurrent-resume-{uuid4().hex}"
+        paused_effect = f"phase0-effect-{uuid4().hex}"
+        started = httpx.post(
+            f"http://127.0.0.1:{port}/start",
+            json={"thread_id": paused_thread, "effect_key": paused_effect},
+            timeout=5,
+        )
+        assert started.status_code == 200, started.text
+
+        def resume_once(_: int) -> int:
+            return httpx.post(
+                f"http://127.0.0.1:{port}/resume",
+                json={"thread_id": paused_thread, "decision": "approve"},
+                timeout=10,
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            resume_statuses = list(pool.map(resume_once, range(8)))
+        assert resume_statuses.count(200) == 1
+        assert resume_statuses.count(409) == 7
+
+        started_thread = f"phase0-concurrent-start-{uuid4().hex}"
+        effect_keys = [f"phase0-effect-{uuid4().hex}" for _ in range(8)]
+
+        def start_once(effect_key: str) -> int:
+            return httpx.post(
+                f"http://127.0.0.1:{port}/start",
+                json={"thread_id": started_thread, "effect_key": effect_key},
+                timeout=10,
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            start_statuses = list(pool.map(start_once, effect_keys))
+        assert start_statuses.count(200) == 1
+        assert start_statuses.count(409) == 7
+
+        with psycopg.connect(isolated_database_url) as connection:
+            effect_rows = connection.execute(
+                "SELECT COUNT(*) FROM phase0_effects"
+            ).fetchone()
+        assert effect_rows == (2,)

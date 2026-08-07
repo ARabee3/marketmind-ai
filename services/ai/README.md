@@ -143,18 +143,20 @@ Run only integration tests:
 uv run pytest -m integration
 ```
 
-Run the isolated LangGraph Phase 0 durability gate (requires the local
-PostgreSQL container):
+Run the isolated LangGraph Phase 0 durability gate against a disposable local
+database whose name ends in `_test`, `_ci`, or `_e2e`:
 
 ```bash
-uv run pytest tests/orchestration/test_phase0_durability.py -m integration -vv
+PHASE0_DATABASE_URL=postgresql://marketmind:marketmind_dev@localhost:5433/marketmind_phase0_test \
+  uv run pytest tests/orchestration/test_phase0_durability.py -m integration -vv
 ```
 
 The gate starts a disposable FastAPI probe, pauses a fake graph with
 `interrupt()`, terminates it, starts a fresh process, resumes the same
-`thread_id`, rejects a duplicate resume, and verifies one idempotency-keyed
-fake side effect. It is not mounted by `app.main` and does not write product
-Strategy, Content, approval, or publishing data.
+`thread_id`, rejects sequential and concurrent duplicate starts/resumes, and
+verifies one idempotency-keyed fake side effect. It is not mounted by
+`app.main` and does not write product Strategy, Content, approval, or
+publishing data.
 
 Provider tool-calling checks are intentionally opt-in because they make live
 requests. Configure the provider keys/models, then run:

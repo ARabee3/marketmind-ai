@@ -1,0 +1,15 @@
+{
+  "contract_version": "orchestration-v1",
+  "event_id": "99999999-9999-4999-8999-999999999999",
+  "run_id": "11111111-1111-4111-8111-111111111111",
+  "seq": 1,
+  "event_type": "run_created",
+  "status": "queued",
+  "current_role": null,
+  "current_stage": "prepare",
+  "node": null,
+  "tool": null,
+  "summary": "Orchestration run queued.",
+  "payload": {},
+  "created_at": "2026-08-07T08:00:00.000Z"
+}

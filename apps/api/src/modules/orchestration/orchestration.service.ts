@@ -3,31 +3,30 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import {
   ERROR_CODES,
+  OrchestrationContractValidationError,
+  OrchestrationLifecycleError,
+  assertCampaignOrchestrationResumeV1,
+  assertCampaignOrchestrationStartV1,
   computePublishingSha256,
   isOrchestrationStatus,
   transitionOrchestrationRun,
 } from "@marketmind/contracts";
 import type {
+  CampaignOrchestrationResumeV1,
   CampaignOrchestrationStartV1,
   OrchestrationStatus,
 } from "@marketmind/contracts";
 import { OrchestrationRepository } from "./orchestration.repository";
-import type { CreateOrchestrationRunInput } from "./orchestration.repository";
-
-const INITIAL_BOUNDS = {
-  tool_calls_used: 0,
-  tool_calls_limit: 0,
-  replans_used: 0,
-  replans_limit: 0,
-  token_budget: null,
-  cost_budget_usd: null,
-  deadline_at: null,
-} as const;
+import type {
+  CreateOrchestrationRunInput,
+  OrchestrationStartResult,
+} from "./orchestration.repository";
 
 @Injectable()
 export class OrchestrationService {
@@ -43,7 +42,7 @@ export class OrchestrationService {
   async startRun(
     input: CampaignOrchestrationStartV1,
     authorizedOwnerUserId: string,
-  ) {
+  ): Promise<OrchestrationStartResult> {
     if (!this.config.get<boolean>("orchestration.enabled", false)) {
       throw new BadRequestException({
         code: ERROR_CODES.ORCHESTRATION_FEATURE_DISABLED,
@@ -55,6 +54,28 @@ export class OrchestrationService {
       throw new ForbiddenException({
         code: ERROR_CODES.ORCHESTRATION_SCOPE_MISMATCH,
         message: "The orchestration owner scope does not match the caller.",
+      });
+    }
+
+    try {
+      assertCampaignOrchestrationStartV1(input);
+    } catch (error) {
+      if (error instanceof OrchestrationContractValidationError) {
+        throw new BadRequestException({
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    if (
+      !(await this.repository.isStartScopeValid(input, authorizedOwnerUserId))
+    ) {
+      throw new ForbiddenException({
+        code: ERROR_CODES.ORCHESTRATION_SCOPE_MISMATCH,
+        message:
+          "The business and immutable input references are outside the caller scope.",
       });
     }
 
@@ -86,11 +107,11 @@ export class OrchestrationService {
         strategy_id: input.strategy_id,
         strategy_brief_id: input.strategy_brief_id,
         requested_week_number: input.requested_week_number,
-        week_context_id: null,
-        week_context_checksum: null,
+        week_context_id: input.week_context_id,
+        week_context_checksum: input.week_context_checksum,
       },
       outputRefs: {},
-      bounds: INITIAL_BOUNDS,
+      bounds: { ...input.bounds },
       correlationId: input.correlation_id,
       idempotencyKey: input.idempotency_key,
       idempotencyFingerprint: fingerprint,
@@ -132,7 +153,17 @@ export class OrchestrationService {
       });
     }
     const from: OrchestrationStatus = current.status;
-    transitionOrchestrationRun(from, next);
+    try {
+      transitionOrchestrationRun(from, next);
+    } catch (error) {
+      if (error instanceof OrchestrationLifecycleError) {
+        throw new ConflictException({
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
     const transitioned = await this.repository.transitionStatus(
       runId,
       ownerUserId,
@@ -149,11 +180,82 @@ export class OrchestrationService {
     return true;
   }
 
-  private resolveIdempotentReplay<T extends { idempotencyFingerprint: string }>(
-    existing: T,
+  /**
+   * Validates the exact owner, thread, run, and decision binding before a
+   * future worker calls FastAPI with Command(resume=...). Keeping this check
+   * here prevents a resume caller from selecting an arbitrary checkpoint.
+   */
+  async validateResumeRequest(
+    input: CampaignOrchestrationResumeV1,
+    authorizedOwnerUserId: string,
+  ) {
+    if (!this.config.get<boolean>("orchestration.enabled", false)) {
+      throw new BadRequestException({
+        code: ERROR_CODES.ORCHESTRATION_FEATURE_DISABLED,
+        message: "Agentic orchestration is disabled by default.",
+      });
+    }
+
+    if (
+      input.owner_user_id !== authorizedOwnerUserId ||
+      input.decision_binding.decided_by_user_id !== authorizedOwnerUserId
+    ) {
+      throw new ForbiddenException({
+        code: ERROR_CODES.ORCHESTRATION_SCOPE_MISMATCH,
+        message:
+          "The orchestration decision owner scope does not match the caller.",
+      });
+    }
+
+    try {
+      assertCampaignOrchestrationResumeV1(input);
+    } catch (error) {
+      if (error instanceof OrchestrationContractValidationError) {
+        const Exception =
+          error.code === ERROR_CODES.ORCHESTRATION_SCOPE_MISMATCH
+            ? ForbiddenException
+            : BadRequestException;
+        throw new Exception({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+
+    const run = await this.repository.findByIdAndOwner(
+      input.run_id,
+      authorizedOwnerUserId,
+    );
+    if (!run) {
+      throw new NotFoundException({
+        code: ERROR_CODES.ORCHESTRATION_NOT_FOUND,
+        message: "The orchestration run was not found for this owner.",
+      });
+    }
+    if (
+      run.businessId !== input.business_id ||
+      run.checkpointThreadId !== input.checkpoint_thread_id
+    ) {
+      throw new ForbiddenException({
+        code: ERROR_CODES.ORCHESTRATION_SCOPE_MISMATCH,
+        message: "The resume binding does not match the persisted run scope.",
+      });
+    }
+    if (
+      run.status !== "awaiting_strategy_approval" &&
+      run.status !== "awaiting_content_approval"
+    ) {
+      throw new ConflictException({
+        code: ERROR_CODES.ORCHESTRATION_STALE_RESUME,
+        message: "The orchestration run is not waiting for an owner decision.",
+      });
+    }
+    return run;
+  }
+
+  private resolveIdempotentReplay(
+    existing: OrchestrationStartResult,
     fingerprint: string,
-  ): T {
-    if (existing.idempotencyFingerprint !== fingerprint) {
+  ): OrchestrationStartResult {
+    if (existing.run.idempotencyFingerprint !== fingerprint) {
       throw new ConflictException({
         code: ERROR_CODES.ORCHESTRATION_DUPLICATE_START,
         message:

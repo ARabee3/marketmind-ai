@@ -14,5 +14,16 @@
   "strategy_id": "55555555-5555-4555-8555-555555555555",
   "strategy_brief_id": "66666666-6666-4666-8666-666666666666",
   "requested_week_number": 1,
+  "week_context_id": null,
+  "week_context_checksum": null,
+  "bounds": {
+    "tool_calls_used": 0,
+    "tool_calls_limit": 8,
+    "replans_used": 0,
+    "replans_limit": 2,
+    "token_budget": 12000,
+    "cost_budget_usd": 0.5,
+    "deadline_at": "2026-08-07T08:30:00.000Z"
+  },
   "requested_at": "2026-08-07T08:00:00.000Z"
 }

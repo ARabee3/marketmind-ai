@@ -8,6 +8,7 @@ reported as skips rather than silently replaced with a fake agent.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -50,8 +51,17 @@ def _assert_openai_tool_call(response: Any) -> None:
     assert choices, "provider returned no choices"
     message = getattr(choices[0], "message", None)
     tool_calls = getattr(message, "tool_calls", None) or []
-    assert tool_calls, "provider returned no tool call"
+    assert len(tool_calls) == 1, "provider must return exactly one tool call"
     assert getattr(tool_calls[0].function, "name", None) == TOOL_NAME
+    arguments = json.loads(tool_calls[0].function.arguments)
+    assert arguments == {"value": "ok"}
+
+
+def _assert_gemini_tool_call(function_calls: list[Any]) -> None:
+    assert len(function_calls) == 1, "provider must return exactly one function call"
+    call = function_calls[0]
+    assert getattr(call, "name", None) == TOOL_NAME
+    assert dict(getattr(call, "args", {}) or {}) == {"value": "ok"}
 
 
 @pytest.mark.skipif(not _enabled(), reason="set PHASE0_PROVIDER_MATRIX=1 to opt in")
@@ -144,5 +154,4 @@ def test_gemini_tool_calling() -> None:
         )
         function_calls = [getattr(part, "function_call", None) for part in parts]
         function_calls = [call for call in function_calls if call is not None]
-    assert function_calls, "provider returned no function call"
-    assert getattr(function_calls[0], "name", None) == TOOL_NAME
+    _assert_gemini_tool_call(function_calls)

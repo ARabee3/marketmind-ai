@@ -719,10 +719,19 @@ The restart gate currently passes on Python 3.12 (the CI/deployment runtime)
 and Python 3.14 (the local development environment):
 
 ```text
-1 passed: pause -> terminate FastAPI -> fresh process -> resume same thread
-1 duplicate resume rejected with HTTP 409
-1 fake effect row after the full sequence
+2 passed: restart/resume and concurrent start/resume gate tests
+7 concurrent duplicate resumes rejected with HTTP 409
+7 concurrent duplicate starts rejected with HTTP 409
+2 fake effect rows for the two independent successful runs
 ```
+
+The probe holds a PostgreSQL advisory lock per thread while starting or
+resuming, so the duplicate-start and duplicate-resume guarantees also hold
+across separate FastAPI processes. The graph invokes a deterministic mock tool
+provider and verifies the tool name and arguments before applying its fake
+side effect. The gate is run in CI against an explicitly disposable
+`marketmind_phase0_ci` database; the local command also refuses an unsafe
+database name.
 
 The live OpenAI, Gemini, and OpenRouter tool-calling matrix is intentionally
 opt-in because it makes provider requests. The harness is present at
@@ -751,6 +760,15 @@ Gate:
 
 TypeScript and Pydantic agree, illegal transitions fail, and duplicate start
 requests resolve to one run.
+
+The current Phase 1 boundary carries caller-supplied execution budgets,
+validates UUID/checksum and cross-object bindings in both contract runtimes,
+checks that business/profile/strategy references belong to the caller before
+creating a run, and validates resume bindings against the persisted run and
+checkpoint thread. Idempotent start replay returns the same `{ run, event }`
+shape as the first request, and lifecycle failures map to stable conflict
+errors. Orchestration error codes are mirrored into the web localization map,
+and the full request/state/resume/event/result fixture set is checked in CI.
 
 ### Phase 2 — tools and Research Agent
 

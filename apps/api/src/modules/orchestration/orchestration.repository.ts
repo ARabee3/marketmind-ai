@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type {
+  CampaignOrchestrationStartV1,
   OrchestrationEventType,
   OrchestrationRole,
   OrchestrationStage,
@@ -49,6 +50,11 @@ type OrchestrationEventRecord = Prisma.OrchestrationEventGetPayload<
   Record<string, never>
 >;
 
+export type OrchestrationStartResult = {
+  readonly run: OrchestrationRunRecord;
+  readonly event: OrchestrationEventRecord | null;
+};
+
 @Injectable()
 export class OrchestrationRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -56,10 +62,59 @@ export class OrchestrationRepository {
   async findByIdempotency(
     ownerUserId: string,
     idempotencyKey: string,
-  ): Promise<OrchestrationRunRecord | null> {
-    return this.prisma.orchestrationRun.findUnique({
+  ): Promise<OrchestrationStartResult | null> {
+    const run = await this.prisma.orchestrationRun.findUnique({
       where: { ownerUserId_idempotencyKey: { ownerUserId, idempotencyKey } },
     });
+    if (!run) return null;
+
+    const event = await this.prisma.orchestrationEvent.findUnique({
+      where: { runId_seq: { runId: run.id, seq: 1 } },
+    });
+    return { run, event };
+  }
+
+  async isStartScopeValid(
+    input: Pick<
+      CampaignOrchestrationStartV1,
+      | "business_id"
+      | "confirmed_profile_version_id"
+      | "confirmed_profile_version"
+      | "strategy_id"
+      | "strategy_brief_id"
+    >,
+    ownerUserId: string,
+  ): Promise<boolean> {
+    const [business, profile, strategy] = await Promise.all([
+      this.prisma.business.findFirst({
+        where: { id: input.business_id, ownerUserId },
+        select: { id: true },
+      }),
+      this.prisma.businessProfileVersion.findFirst({
+        where: {
+          id: input.confirmed_profile_version_id,
+          businessId: input.business_id,
+          version: input.confirmed_profile_version,
+          business: { ownerUserId },
+        },
+        select: { id: true },
+      }),
+      this.prisma.strategy.findFirst({
+        where: {
+          id: input.strategy_id,
+          businessId: input.business_id,
+          ownerUserId,
+        },
+        select: { brief: { select: { id: true } } },
+      }),
+    ]);
+
+    return Boolean(
+      business &&
+      profile &&
+      strategy?.brief &&
+      strategy.brief.id === input.strategy_brief_id,
+    );
   }
 
   async findByIdAndOwner(

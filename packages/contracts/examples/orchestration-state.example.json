@@ -27,7 +27,8 @@
     "version": null,
     "checksum": null,
     "validation_valid": null,
-    "pending_decision": false
+    "pending_decision": false,
+    "decision_binding": null
   },
   "content": {
     "cycle_id": null,
@@ -37,7 +38,8 @@
     "item_version": null,
     "checksum": null,
     "validation_valid": null,
-    "pending_decision": false
+    "pending_decision": false,
+    "decision_binding": null
   },
   "bounds": {
     "tool_calls_used": 0,

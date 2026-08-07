@@ -102,6 +102,16 @@ export type OrchestrationDecisionBindingV1 =
   | StrategyDecisionBindingV1
   | ContentDecisionBindingV1;
 
+export interface OrchestrationBoundsV1 {
+  tool_calls_used: number;
+  tool_calls_limit: number;
+  replans_used: number;
+  replans_limit: number;
+  token_budget: number | null;
+  cost_budget_usd: number | null;
+  deadline_at: IsoDateTime | null;
+}
+
 export interface CampaignOrchestrationStartV1 {
   contract_version: OrchestrationContractVersion;
   run_id: UUID;
@@ -118,6 +128,9 @@ export interface CampaignOrchestrationStartV1 {
   strategy_id: UUID;
   strategy_brief_id: UUID;
   requested_week_number: number | null;
+  week_context_id: UUID | null;
+  week_context_checksum: string | null;
+  bounds: OrchestrationBoundsV1;
   requested_at: IsoDateTime;
 }
 
@@ -140,6 +153,7 @@ export interface OrchestrationStrategyStateV1 {
   checksum: string | null;
   validation_valid: boolean | null;
   pending_decision: boolean;
+  decision_binding: StrategyDecisionBindingV1 | null;
 }
 
 export interface OrchestrationContentStateV1 {
@@ -151,16 +165,7 @@ export interface OrchestrationContentStateV1 {
   checksum: string | null;
   validation_valid: boolean | null;
   pending_decision: boolean;
-}
-
-export interface OrchestrationBoundsV1 {
-  tool_calls_used: number;
-  tool_calls_limit: number;
-  replans_used: number;
-  replans_limit: number;
-  token_budget: number | null;
-  cost_budget_usd: number | null;
-  deadline_at: IsoDateTime | null;
+  decision_binding: ContentDecisionBindingV1 | null;
 }
 
 export interface OrchestrationAuditV1 {
