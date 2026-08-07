@@ -100,9 +100,15 @@ Editable transcript is placed in the existing answer textarea
 
 ### Composer wireframe
 
-Desktop uses the mic control as a compact companion to the existing textarea;
-mobile stacks the control above the Send action. It is not a modal and it does
-not compete with the actual answer field.
+The concrete subject is an Egyptian SME owner explaining a business situation
+in their own words; this interface has one job: turn that spoken thought into
+a calm, reviewable answer without making the owner feel they have entered a
+technical upload flow.
+
+The visual direction is deliberately restrained. Desktop uses the mic control
+as a compact companion to the existing textarea; mobile stacks it above the
+Send action. It is not a modal, a second chat pane, or a separate form. The
+existing answer field remains the visual and interaction centre of the page.
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
@@ -113,14 +119,48 @@ not compete with the actual answer field.
 │ [ mic Record a voice note ]                         [ Send ] │
 │                                                              │
 │ After Stop:                                                  │
-│ ┌ Transcript ready — check it before you send it. ────────┐ │
+│ Voice draft · check words and numbers before sending [Discard]│
+│ ┌──────────────────────────────────────────────────────────┐ │
 │ │ أنا عندي كافيه صغير ...                                  │ │
 │ └──────────────────────────────────────────────────────────┘ │
-│ [Use in answer] [Discard]                                    │
 │ Audio is sent to the transcription provider. It is not saved │
 │ by MarketMind unless you send the edited text as your answer. │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+The returned transcript is inserted directly into the **same** textarea; there
+is no second preview textarea and no redundant `Use in answer` confirmation.
+The small `Voice draft` label is the only extra context until the owner edits,
+sends, or discards it. If an owner has already typed text, recording is
+disabled with a short explanation rather than risking an unexpected overwrite.
+
+### Interaction and motion direction
+
+The signature interaction is one purposeful transformation of the mic control:
+it expands in place into a recording control, then contracts back into a calm
+status line. It should feel like a familiar voice-note control, not a generic
+AI loading widget.
+
+| Transition | Intended feel and behavior |
+| --- | --- |
+| Idle → recording | The compact teal mic control expands in place over 160–200 ms to show a timer and a clear Stop action. The recording indicator has one gentle pulse; no waveform decoration, sparkle, or full-screen overlay. |
+| Recording → transcribing | The same footprint changes to `Turning your note into text…`; do not move the composer, add a card, or show an indefinite spinner elsewhere on the page. |
+| Transcribing → draft | The status line resolves into `Voice draft — check it before sending`, and the transcript appears in the existing textarea with the cursor at its end. The owner retains full control of the normal Send action. |
+| Draft → discard | Clear only the voice draft, restore the idle control, and return focus to the recorder. Do not reset the whole conversation or show a success toast. |
+| Failure / denied permission | Preserve any typed text, replace the status line with a short inline recovery message, and keep a clear text-first path. Avoid blocking dialogs and vague technical errors. |
+
+- Keep the composer height stable across all states as far as practical; the
+  controls may transform within their row but must not cause the chat log or
+  Send button to jump.
+- Use existing MarketMind tokens only: primary teal for the active recording
+  state, action blue for Send, warning/danger only for actual caution/error.
+  Do not invent a neon "AI" palette or a decorative waveform.
+- Animate only the state hand-off, use short transform/opacity transitions,
+  and honour `prefers-reduced-motion` by presenting the same state changes
+  without motion.
+- Announce state changes through a concise live region, not visual motion
+  alone. On success, focus the textarea; on error, return focus to the action
+  the owner can take next.
 
 ### Required UI states
 
@@ -131,7 +171,7 @@ not compete with the actual answer field.
 | Permission denied | Clear `Microphone access was not allowed` recovery message | Do not re-prompt automatically; owner can type. |
 | Recording | Elapsed time, Stop, and a 45-second limit | Never start recording without the owner's click. |
 | Transcribing | Non-blocking progress inside the composer | Disable only recorder actions, not page navigation. |
-| Transcript ready | Editable preview with Use in answer / Discard | Do not call `/respond` yet. |
+| Transcript ready | The existing textarea contains an editable Voice draft plus a compact Discard action | Do not call `/respond` yet. |
 | Provider/network failure | `We could not transcribe this note. Type your answer or try again.` | No turn is consumed and no partial text is submitted. |
 
 All strings belong in both `DiscoveryInterview` dictionaries. Arabic layout
@@ -386,13 +426,16 @@ and owner-turn count unchanged.
 2. Capture WAV only after an explicit click; show duration, stop, discard,
    privacy context, and clear recovery states.
 3. Call the new transcription endpoint, then place its returned transcript in
-   the existing textarea. Focus the textarea and let the owner edit it.
+   the existing textarea in place—no second preview field or `Use` step. Focus
+   the textarea and let the owner edit it.
 4. Retain the normal `onSubmit` flow exactly: the visible Send button is the
    only action that creates a Discovery owner turn.
 5. Use typed `next-intl` keys in both languages; ensure Arabic labels and
    focus order are RTL-safe and transcript content remains `dir="auto"`.
 6. Use semantic buttons/labels, live status for recorder state, keyboard focus
-   restoration after Stop/Discard/error, and reduced-motion-safe feedback.
+   restoration after Stop/Discard/error, reduced-motion-safe feedback, and the
+   in-place motion/spacing rules above. Treat a stable composer as an acceptance
+   criterion, not a styling preference.
 
 **Exit gate:** a user can complete the same Discovery response with text,
 voice-plus-edit, a denied microphone, and a provider failure without a broken
@@ -463,6 +506,9 @@ must be checked at deployment time.
 - [ ] The normal response endpoint is the only code path that creates a
   Discovery owner message and increments a turn.
 - [ ] Browser capture produces bounded WAV and has a text-only fallback.
+- [ ] Recorder, transcribing, draft, error, and discard states transform within
+  a stable composer; there is no modal, duplicate answer field, layout jump, or
+  motion shown when reduced motion is requested.
 - [ ] EN/AR dictionaries have matching typed keys and pass
   `npm run check:dictionary`.
 - [ ] UI unit tests cover record, stop, transcript insertion, discard, deny,
