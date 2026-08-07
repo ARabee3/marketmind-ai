@@ -76,6 +76,8 @@ Recommended order:
     deterministic publishing plan and Automation-team issue split.
 14. Use `sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md` as the proposed
     pricing, Egypt-friendly gateway, billing-lifecycle, and implementation plan.
+15. Use `09_RAG_CHECKLIST_CLOSEOUT_IMPLEMENTATION_PLAN.md` for the focused
+    MMR, retrieval-evaluation, and truthful RAG-readiness closeout.
 
 ## Important team rule
 
