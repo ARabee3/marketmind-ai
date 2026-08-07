@@ -80,6 +80,9 @@ reviewed both entries and delegated the accountable final decision to
 approval claims for other team members. Do not use a fixture-only or in-memory
 evaluation as live proof.
 
+For this closeout, Issue #128 is the authoritative final-review record and
+supersedes the older individual-review mechanics in Issue #103.
+
 ### Required final approval
 
 - [x] @ARabee3 — final accountable approval, 2026-08-07, for both Issue #103 framework entries after team review

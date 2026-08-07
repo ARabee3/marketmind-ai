@@ -14,9 +14,9 @@ has approved the corpus.
   chunks were written with 0 failed entries.
 - Live collection: `marketing_knowledge_gemini_2_v1`
 - Embeddings: Gemini `gemini-embedding-2`, 768 dimensions
-- Controlled selection mode: `semantic_mmr`, `mmr_lambda=0.5`. The product
-  default remains `semantic`; this record is not permission to silently change
-  a deployed environment.
+- Default selection mode: `semantic_mmr`, `mmr_lambda=0.5`. `semantic` remains
+  the explicit score-ordered rollback mode; deployments must record any
+  environment override rather than silently changing selection behavior.
 
 The corpus was checked with `npm run check:marketing-knowledge` before the
 live replay.

@@ -55,10 +55,9 @@ class Settings(BaseSettings):
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
     embedding_request_timeout_ms: int = Field(default=60_000, ge=1_000, le=300_000)
 
-    # Retrieval selection is deliberately opt-in. `semantic` preserves the
-    # existing score-ordered path; `semantic_mmr` is enabled only after the
-    # offline comparison and category-preservation checks pass.
-    rag_selection_mode: RagSelectionMode = "semantic"
+    # MMR is the default after compatibility and live-evidence checks passed.
+    # `semantic` remains an explicit score-ordered rollback mode.
+    rag_selection_mode: RagSelectionMode = "semantic_mmr"
     rag_mmr_lambda: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Qdrant vector database configuration

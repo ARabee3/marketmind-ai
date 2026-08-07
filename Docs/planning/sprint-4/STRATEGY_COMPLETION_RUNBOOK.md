@@ -55,16 +55,14 @@ Use them to explain the flow: confirmed profile → separate Strategy brief →
 explicit generation → persisted retrieval → validated draft → owner revision,
 rejection, or approval → immutable history.
 
-## Human and live completion gate
+## Final human approval and retained live record
 
-Issue #103 cannot be completed by code review alone. The two framework entries
-remain `draft` until every named reviewer records approval:
-
-- Ahmed (`ARabee3`)
-- Merzek (`mostafamerzk`)
-- Abdulazim (`abdulazimRabie`)
-- Mostafa (`MostafaAhmed22`)
-- Gerges (`GergesYoussef-hub`)
+Issue #103 cannot be completed by code review alone. The two source-backed
+framework entries have been reviewed, and the accountable final approval is
+recorded by Ahmed (`ARabee3`) in `Docs/marketing-knowledge/APPROVAL_RECORD.md`.
+This does not imply individual approval records for other team members.
+Issue #128 is the authoritative final-review record for this closeout and
+supersedes Issue #103's earlier individual-review mechanics.
 
 After review, update each entry to `review_status: approved` with a real final
 reviewer and review date, update
@@ -75,8 +73,8 @@ npm run check:marketing-knowledge
 npm run strategy:readiness
 ```
 
-The readiness command intentionally fails until all human and live evidence is
-recorded. It never edits approval metadata.
+The readiness command verifies the recorded final approval and retained live
+proof. It never edits approval metadata.
 
 ## Approved-corpus ingestion
 
@@ -144,7 +142,7 @@ tagging, indexing, hydration, or query coverage.
 | #77 | Brief/readiness/progress/failure UI, tests, RTL/mobile, and reviewer approval |
 | #78 | Full plan/evidence/blocker review UI, tests, accessibility, and reviewer approval |
 | #79 | Owner decisions/revision/retry/history, conflict safety, tests, and reviewer approval |
-| #103 | All named human approvals plus committed live ingestion, Arabic/English retrieval, and Strategy smoke proof |
+| #103 | Final approval by `@ARabee3` plus committed live ingestion, Arabic/English retrieval, and Strategy smoke proof |
 | #80 | Automated suite plus real integrated flow, failure matrix, manual demo, and #103 complete |
 | #66 | Every child issue, including #80 and #103, is closed with evidence |
 

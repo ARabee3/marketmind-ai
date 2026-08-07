@@ -23,7 +23,7 @@ class RagConfig:
 
     embedding: EmbeddingConfig
     qdrant: QdrantConfig
-    selection_mode: RagSelectionMode = "semantic"
+    selection_mode: RagSelectionMode = "semantic_mmr"
     mmr_lambda: float = 0.5
 
     def retrieval_metadata(self) -> dict:
