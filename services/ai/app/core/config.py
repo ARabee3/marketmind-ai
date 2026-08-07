@@ -13,6 +13,9 @@ AssetStorageProvider = Literal["filesystem", "r2", "unavailable"]
 
 class Settings(BaseSettings):
     ai_provider_mode: ProviderMode = "mock"
+    # Safety gate: orchestration is never enabled just because its code is
+    # deployed. A later rollout must opt in explicitly after shadow checks.
+    ai_orchestration_enabled: bool = False
     ai_request_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
     discovery_triage_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     openai_api_key: str = ""

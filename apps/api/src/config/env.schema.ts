@@ -44,6 +44,16 @@ export function envSchema(
     errors.push("REDIS_URL is required (e.g. redis://localhost:6379)");
   }
 
+  const orchestrationEnabled = config.AI_ORCHESTRATION_ENABLED;
+  if (
+    orchestrationEnabled !== undefined &&
+    orchestrationEnabled !== "" &&
+    orchestrationEnabled !== "true" &&
+    orchestrationEnabled !== "false"
+  ) {
+    errors.push("AI_ORCHESTRATION_ENABLED must be true or false");
+  }
+
   // Google OAuth — required for federated sign-in (Issue #48)
   if (!config.GOOGLE_CLIENT_ID) {
     errors.push("GOOGLE_CLIENT_ID is required");
