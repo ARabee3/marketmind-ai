@@ -1674,7 +1674,11 @@ describe("ContentService.bulkDecision", () => {
     expect(result.find((entry) => entry.item_id === "item-2")).toEqual({
       item_id: "item-2",
       status: "ineligible",
-      error: { code: "CONTENT_VERSION_CONFLICT", message: expect.any(String) },
+      error: {
+        code: "CONTENT_VERSION_CONFLICT",
+        message: expect.any(String),
+        latest_version_id: "ver-2b",
+      },
     });
     expect(result.find((entry) => entry.item_id === "item-1")?.status).toBe(
       "approved",

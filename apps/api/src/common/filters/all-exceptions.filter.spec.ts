@@ -1,4 +1,8 @@
-import { ArgumentsHost, BadRequestException } from "@nestjs/common";
+import {
+  ArgumentsHost,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
 import { AllExceptionsFilter } from "./all-exceptions.filter";
 
 function makeHost(json: jest.Mock, status = jest.fn().mockReturnThis()) {
@@ -27,6 +31,51 @@ describe("AllExceptionsFilter", () => {
     expect(json).toHaveBeenCalledWith({
       code: "VALIDATION_ERROR",
       message: "Please check the submitted values.",
+    });
+  });
+
+  it("preserves extra custom fields from the exception payload", () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnThis();
+    const filter = new AllExceptionsFilter();
+
+    filter.catch(
+      new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message: "This item version is no longer the current version.",
+        latest_version_id: "11111111-1111-4111-8111-111111111111",
+      }),
+      makeHost(json, status),
+    );
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith({
+      code: "CONTENT_VERSION_CONFLICT",
+      message: "This item version is no longer the current version.",
+      latest_version_id: "11111111-1111-4111-8111-111111111111",
+    });
+  });
+
+  it("never forwards NestJS boilerplate fields to the client", () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnThis();
+    const filter = new AllExceptionsFilter();
+
+    filter.catch(
+      new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Please check the submitted values.",
+        statusCode: 400,
+        error: "Bad Request",
+        extra: "kept",
+      }),
+      makeHost(json, status),
+    );
+
+    expect(json).toHaveBeenCalledWith({
+      code: "VALIDATION_ERROR",
+      message: "Please check the submitted values.",
+      extra: "kept",
     });
   });
 
