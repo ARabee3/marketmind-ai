@@ -60,6 +60,17 @@ exact Strategy/profile/week identities, input hashes, validation codes, and item
 counts. Prompt bodies, full Business Profiles, provider responses, credentials,
 and revision notes are not logged.
 
+### Orchestration Phase 5 tracing
+
+The agentic path remains disabled by default. Sanitized local trace events are
+the fallback evidence; external export is independently opt-in with
+`AI_ORCHESTRATION_TRACE_ENABLED=true` and
+`AI_ORCHESTRATION_TRACE_EXPORTER=langfuse`. The deployment injects the reviewed
+Langfuse/OTel transport rather than making the existing AI routes depend on a
+trace SDK. Export failures are recorded as degraded tracing and never fail a
+graph run. Prompt bodies, private profile content, credentials, and contact
+data are redacted before either local storage or export.
+
 ### Embedding provider (for RAG)
 
 - `EMBEDDING_PROVIDER_MODE=fake`: deterministic local/test behavior (default).
@@ -142,6 +153,42 @@ Run only integration tests:
 ```bash
 uv run pytest -m integration
 ```
+
+Run the isolated LangGraph Phase 0 durability gate against a disposable local
+database whose name ends in `_test`, `_ci`, or `_e2e`:
+
+```bash
+PHASE0_DATABASE_URL=postgresql://marketmind:marketmind_dev@localhost:5433/marketmind_phase0_test \
+  uv run pytest tests/orchestration/test_phase0_durability.py -m integration -vv
+```
+
+The gate starts a disposable FastAPI probe, pauses a fake graph with
+`interrupt()`, terminates it, starts a fresh process, resumes the same
+`thread_id`, rejects sequential and concurrent duplicate starts/resumes, and
+verifies one idempotency-keyed fake side effect. It is not mounted by
+`app.main` and does not write product Strategy, Content, approval, or
+publishing data.
+
+Provider tool-calling checks are intentionally opt-in because they make live
+requests. Configure the provider keys/models, then run:
+
+```bash
+PHASE0_PROVIDER_MATRIX=1 uv run --env-file .env pytest \
+  tests/orchestration/test_provider_capability_matrix.py -m network -vv
+```
+
+If the configured OpenRouter route is rate-limited, choose a permitted model
+without editing `.env`, for example:
+
+```bash
+PHASE0_PROVIDER_MATRIX=1 PHASE0_OPENROUTER_MODEL=openai/gpt-4o-mini \
+  uv run --env-file .env pytest \
+  tests/orchestration/test_provider_capability_matrix.py -m network -vv
+```
+
+The mock provider
+is covered by the local durability probe; a live provider that cannot emit the
+requested function call is a visible Phase 0 no-go.
 
 ## Discovery Result Shape
 

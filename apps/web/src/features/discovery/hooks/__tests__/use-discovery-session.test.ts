@@ -90,6 +90,28 @@ describe('useDiscoverySession', () => {
     ])
   })
 
+  it('deduplicates concurrent status hydration requests for the same session', async () => {
+    let resolveStatus!: (status: DiscoveryStatusResponse) => void
+    vi.mocked(getDiscoveryStatus).mockImplementation(
+      () => new Promise((resolve) => {
+        resolveStatus = resolve
+      }),
+    )
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await act(async () => {
+      const first = result.current.refresh()
+      const second = result.current.refresh()
+
+      expect(getDiscoveryStatus).toHaveBeenCalledTimes(1)
+      resolveStatus(makeStatus())
+      await Promise.all([first, second])
+    })
+
+    expect(result.current.phase).toBe('interview')
+  })
+
   it('shows load_error when /status fails', async () => {
     vi.mocked(getDiscoveryStatus).mockRejectedValueOnce({ status: 500, code: 'server_error', message: 'fail' })
 

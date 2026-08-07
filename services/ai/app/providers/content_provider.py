@@ -57,7 +57,10 @@ class ContentLLMProvider(ABC):
 
     @abstractmethod
     async def generate_content_pack(
-        self, prompt: PromptAssembly
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
     ) -> list[ContentItemVersion]:
         raise NotImplementedError
 
@@ -134,9 +137,12 @@ class OpenAIContentProvider(ContentLLMProvider):
         self.top_p = top_p
 
     async def generate_content_pack(
-        self, prompt: PromptAssembly
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
     ) -> list[ContentItemVersion]:
-        return (await self._call_structured(prompt)).item_versions
+        return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
     async def revise_content_item(
         self, prompt: PromptAssembly
@@ -150,6 +156,7 @@ class OpenAIContentProvider(ContentLLMProvider):
         *,
         minimum_items: int = 3,
         maximum_items: int = 5,
+        max_output_tokens: int | None = None,
     ) -> ContentPackProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
@@ -185,6 +192,11 @@ class OpenAIContentProvider(ContentLLMProvider):
                 ],
                 text_format=ContentPackProviderOutput,
                 **sampling,
+                **(
+                    {"max_output_tokens": max_output_tokens}
+                    if max_output_tokens is not None
+                    else {}
+                ),
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -233,9 +245,12 @@ class GeminiContentProvider(ContentLLMProvider):
         self.top_p = top_p
 
     async def generate_content_pack(
-        self, prompt: PromptAssembly
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
     ) -> list[ContentItemVersion]:
-        return (await self._call_structured(prompt)).item_versions
+        return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
     async def revise_content_item(
         self, prompt: PromptAssembly
@@ -249,6 +264,7 @@ class GeminiContentProvider(ContentLLMProvider):
         *,
         minimum_items: int = 3,
         maximum_items: int = 5,
+        max_output_tokens: int | None = None,
     ) -> ContentPackProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
@@ -286,6 +302,11 @@ class GeminiContentProvider(ContentLLMProvider):
                     response_mime_type="application/json",
                     response_schema=schema,
                     http_options=types.HttpOptions(timeout=self.timeout_ms),
+                    **(
+                        {"max_output_tokens": max_output_tokens}
+                        if max_output_tokens is not None
+                        else {}
+                    ),
                     **sampling,
                 ),
             )
@@ -331,9 +352,12 @@ class OpenRouterContentProvider(ContentLLMProvider):
         self.top_p = top_p
 
     async def generate_content_pack(
-        self, prompt: PromptAssembly
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
     ) -> list[ContentItemVersion]:
-        return (await self._call_structured(prompt)).item_versions
+        return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
     async def revise_content_item(
         self, prompt: PromptAssembly
@@ -347,6 +371,7 @@ class OpenRouterContentProvider(ContentLLMProvider):
         *,
         minimum_items: int = 3,
         maximum_items: int = 5,
+        max_output_tokens: int | None = None,
     ) -> ContentPackProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
@@ -388,6 +413,11 @@ class OpenRouterContentProvider(ContentLLMProvider):
                         "schema": ContentPackProviderOutput.model_json_schema(),
                     },
                 },
+                **(
+                    {"max_tokens": max_output_tokens}
+                    if max_output_tokens is not None
+                    else {}
+                ),
                 **sampling,
             )
             if not response.choices:
@@ -430,7 +460,10 @@ class MockContentProvider(ContentLLMProvider):
     name = "mock"
 
     async def generate_content_pack(
-        self, prompt: PromptAssembly
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
     ) -> list[ContentItemVersion]:
         context = prompt.context
         identity = context["generation_identity"]

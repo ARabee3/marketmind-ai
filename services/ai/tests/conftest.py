@@ -31,6 +31,7 @@ def qdrant_test_settings() -> Settings:
     """Return settings with a unique test collection name."""
     return Settings(
         embedding_provider_mode="fake",
+        ai_orchestration_enabled=False,
         embedding_model="text-embedding-3-large",
         embedding_dimensions=3072,
         qdrant_host="localhost",
@@ -90,4 +91,3 @@ async def db_session(qdrant_test_settings: Settings) -> AsyncSession:
         await session.close()
         await transaction.rollback()
         await connection.close()
-

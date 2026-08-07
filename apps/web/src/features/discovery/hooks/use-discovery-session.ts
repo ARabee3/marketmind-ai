@@ -76,6 +76,13 @@ export function useDiscoverySession({ sessionId }: Options) {
 
   const pendingRef = useRef(false)
   const mountedRef = useRef(true)
+  // React Strict Mode intentionally mounts effects twice in development. Keep
+  // one in-flight status request per session so the replayed mount (and any
+  // simultaneous recovery action) cannot duplicate the GET /status call.
+  const statusRequestRef = useRef<{
+    sessionId: string
+    promise: Promise<DiscoveryStatusResponse | null>
+  } | null>(null)
 
   const setPending = useCallback((value: boolean) => {
     pendingRef.current = value
@@ -85,31 +92,51 @@ export function useDiscoverySession({ sessionId }: Options) {
 
   const loadStatus = useCallback(async (): Promise<DiscoveryStatusResponse | null> => {
     if (!mountedRef.current) return null
+    const inFlight = statusRequestRef.current
+    if (inFlight?.sessionId === sessionId) return inFlight.promise
+
     setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
-    try {
-      const res = await getDiscoveryStatus(sessionId)
-      if (!mountedRef.current) return null
-      setState({
-        status: res,
-        phase: getPhaseFromStatus(res.status),
-        pending: pendingRef.current,
-        error: null,
-        errorTranslationKey: null,
-      })
-      return res
-    } catch (err) {
-      if (!mountedRef.current) return null
-      const apiErr = err as ApiError
-      const key = getApiErrorTranslationKey(apiErr)
-      setState((prev) => ({
-        ...prev,
-        phase: prev.status ? prev.phase : 'load_error',
-        pending: false,
-        error: apiErr.message || 'network error',
-        errorTranslationKey: key,
-      }))
-      return null
-    }
+    const request = (async () => {
+      try {
+        const res = await getDiscoveryStatus(sessionId)
+        if (!mountedRef.current) return null
+        setState({
+          status: res,
+          phase: getPhaseFromStatus(res.status),
+          pending: pendingRef.current,
+          error: null,
+          errorTranslationKey: null,
+        })
+        return res
+      } catch (err) {
+        if (!mountedRef.current) return null
+        const apiErr = err as ApiError
+        const key = getApiErrorTranslationKey(apiErr)
+        setState((prev) => ({
+          ...prev,
+          phase: prev.status ? prev.phase : 'load_error',
+          pending: false,
+          error: apiErr.message || 'network error',
+          errorTranslationKey: key,
+        }))
+        return null
+      }
+    })()
+
+    statusRequestRef.current = { sessionId, promise: request }
+    request.then(
+      () => {
+        if (statusRequestRef.current?.promise === request) {
+          statusRequestRef.current = null
+        }
+      },
+      () => {
+        if (statusRequestRef.current?.promise === request) {
+          statusRequestRef.current = null
+        }
+      },
+    )
+    return request
   }, [sessionId])
 
   // Initial hydration

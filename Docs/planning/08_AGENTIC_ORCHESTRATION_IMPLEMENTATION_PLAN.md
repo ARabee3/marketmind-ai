@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: proposed for implementation
+- Status: Phase 0 restart gate, mock Research -> Strategy -> Content vertical slice, and mock shadow harness are verified; the live product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -707,6 +707,46 @@ live domain write. Keep the existing route unchanged. A later BullMQ/NestJS
 state-machine fallback may preserve sequential-agent behavior, but it must not
 be presented as passing the LangGraph/framework durability requirement.
 
+#### Current implementation evidence
+
+The isolated probe is implemented under
+`services/ai/app/orchestration/phase0/`. It is not imported by `app.main` and
+does not mount a product route. The probe uses a disposable PostgreSQL schema,
+an async `AsyncPostgresSaver`, a three-node graph, `interrupt()`, and a
+durable idempotency-keyed fake effect.
+
+The restart gate currently passes on Python 3.12 (the CI/deployment runtime)
+and Python 3.14 (the local development environment):
+
+```text
+2 passed: restart/resume and concurrent start/resume gate tests
+7 concurrent duplicate resumes rejected with HTTP 409
+7 concurrent duplicate starts rejected with HTTP 409
+2 fake effect rows for the two independent successful runs
+```
+
+The probe holds a PostgreSQL advisory lock per thread while starting or
+resuming, so the duplicate-start and duplicate-resume guarantees also hold
+across separate FastAPI processes. The graph invokes a deterministic mock tool
+provider and verifies the tool name and arguments before applying its fake
+side effect. The gate is run in CI against an explicitly disposable
+`marketmind_phase0_ci` database; the local command also refuses an unsafe
+database name.
+
+The live OpenAI, Gemini, and OpenRouter tool-calling matrix is intentionally
+opt-in because it makes provider requests. The harness is present at
+`services/ai/tests/orchestration/test_provider_capability_matrix.py`. The
+current verification recorded Gemini and OpenRouter tool calls successfully;
+OpenAI was skipped because `OPENAI_API_KEY` is not configured. The configured
+OpenRouter free route returned an upstream 429, so the successful check used
+the same key with the explicit `openai/gpt-4o-mini` model override. Serializer,
+encryption, migration, retention, cleanup, and the missing OpenAI capability
+check remain open.
+
+Until those remaining checks are complete, this is a green durability spike,
+not permission to connect LangGraph to live Strategy, Content, approval, or
+publishing writes.
+
 ### Phase 1 — contracts, lifecycle, and persistence
 
 Deliverables:
@@ -720,6 +760,22 @@ Gate:
 
 TypeScript and Pydantic agree, illegal transitions fail, and duplicate start
 requests resolve to one run.
+
+The current Phase 1 boundary carries caller-supplied execution budgets,
+validates UUID/checksum and cross-object bindings in both contract runtimes,
+checks that business/profile/strategy references belong to the caller before
+creating a run, and validates resume bindings against the persisted run and
+checkpoint thread. Idempotent start replay returns the same `{ run, event }`
+shape as the first request, and lifecycle failures map to stable conflict
+errors. Orchestration error codes are mirrored into the web localization map,
+and the full request/state/resume/event/result fixture set is checked in CI.
+
+The minimal NestJS handoff is reviewable in
+`apps/api/src/modules/orchestration/`. It persists only a run envelope and
+sanitized ordered events, and prepares an exact resume binding for a future
+FastAPI `Command(resume=...)` call. `AI_ORCHESTRATION_ENABLED` defaults to
+`false`; no existing worker, controller, or owner route is switched on by this
+boundary.
 
 ### Phase 2 — tools and Research Agent
 
@@ -738,6 +794,31 @@ Gate:
 At least three tools are genuinely exercised across reviewed cases, every fact
 retains provenance, and prompt-injection/tool-scope tests pass.
 
+The Phase 2 boundary is now implemented in the isolated
+`services/ai/app/orchestration/phase2/` package. The registry exposes exactly
+the four initial proof tools and accepts only typed model arguments; owner,
+business, candidate, provider, and persistence scope stay in the server-built
+context. The existing Strategy retrieval path remains unchanged by default,
+while orchestration search uses an explicit read-only retrieval call so a
+shadow run cannot create a second authoritative retrieval record.
+
+`ResearchAgent` uses a deterministic selector for CI/demo rehearsal and keeps
+the provider selector behind a small protocol for a later credentialed
+adapter. It emits cited `ResearchPackV1` facts, assumptions, gaps, visible
+stop reasons, and stable errors. Tool-call limits and optional deadlines stop
+the loop; context mismatches, unknown tools, extra scope arguments, duplicate
+or unavailable evidence indexes, oversized results, and untrusted candidate
+text are covered by tests. The first-demo set deliberately does not depend on
+the deferred Nest-owned research gateway or a live OpenAI key.
+
+Focused coverage lives in
+`services/ai/tests/orchestration/test_phase2_tools.py` and
+`test_phase2_research_agent.py`, with reviewed evaluation cases in
+`tests/orchestration/fixtures/phase2_research_cases.json`. The Phase 2 gate is
+green when those tests and the existing non-network AI suite pass; no FastAPI
+route or existing Discovery/Strategy/Content behavior is switched to this
+package yet.
+
 ### Phase 3 — Strategy graph segment
 
 Deliverables:
@@ -754,6 +835,46 @@ Gate:
 One mock and one credentialed run reach a valid immutable Strategy draft, pause,
 survive restart, and reject stale/cross-owner resume attempts.
 
+#### Current implementation evidence
+
+The isolated Phase 3 boundary now lives under
+`services/ai/app/orchestration/phase3/`. It prepares an immutable snapshot,
+recomputes deterministic Strategy decisions, emits a typed
+`ResearchStrategyHandoffV1`, reuses the existing Strategy prompt/provider/
+validation pipeline, and exposes only a compact structured quality review. A
+repairable review can re-enter Strategy at most `replans_limit` times without
+rerunning Research; hard validation failures and owner blockers terminate with
+a stable error.
+
+`build_phase3_graph()` uses LangGraph's `interrupt()` and an injected
+checkpointer. `Phase3Runner` validates owner, business, run, correlation,
+idempotency, Strategy version, and checksum before issuing a resume command.
+It accepts a shared lock context for production; the default in-memory lock is
+only for unit tests, while deployment must reuse the Phase 0 PostgreSQL
+advisory-lock pattern for cross-process duplicate delivery.
+The first pause includes a `StrategyDraftHandoffV1` for Nest to persist with
+its existing immutable Strategy transaction. Nest then sends a typed
+`StrategyDraftPersistenceReceiptV1`, the graph checkpoints the authoritative
+version ID, and only then exposes the owner-decision interrupt. This prevents
+FastAPI from guessing a domain version ID while still making the decision bind
+to the exact persisted version. The graph itself performs no domain writes and
+is not imported by `app.main`.
+
+Focused coverage in
+`services/ai/tests/orchestration/test_phase3_graph.py` proves immutable input
+preparation, typed handoff, mock/provider injection, targeted replanning and
+its cap, hard validation, duplicate-start protection, fresh-runner resume from
+the same checkpoint, and stale/cross-owner resume rejection. The unit harness
+uses LangGraph's in-memory checkpointer; the Phase 0 PostgreSQL restart gate
+remains the production checkpointer prerequisite. A live credentialed provider
+run is still opt-in and is not required for the mock safety suite.
+
+The complete mock composition is covered by
+`tests/orchestration/test_mock_vertical_slice.py`: the Research Agent selects
+three allow-listed tools, its cited pack is handed to Strategy, the exact
+Strategy approval is bound to Content, and an exact Content approval completes
+the run with zero publication actions.
+
 ### Phase 4 — Content graph segment
 
 Deliverables:
@@ -768,6 +889,35 @@ Gate:
 
 One bilingual run reaches a valid Week-1 draft and completes after the exact
 decision with zero duplicate artifacts and zero publication actions.
+
+#### Current implementation evidence
+
+The isolated Phase 4 boundary now lives under
+`services/ai/app/orchestration/phase4/`. It requires the exact approved
+Strategy binding, confirmed profile, and Week-1 context before reusing the
+existing `content-v1` prompt, provider-retry, and deterministic validation
+pipeline. A generated three-to-five-item draft is returned to Nest for
+persistence; only after the matching persistence receipt does the graph expose
+the owner decision for the exact first immutable item version. Resume commands
+use their own idempotency keys and replay the completed checkpoint safely.
+Approved Content completes the narrow slice, while rejected or
+revision-requested decisions cancel it. A structured review can request a
+bounded Content-only replan, and checkpointed token/cost usage plus provider
+output caps fail before unbounded provider work.
+
+The graph performs no domain writes, creates no publication candidate, and is
+not imported by `app.main`; existing Content routes remain unchanged. The
+current proof intentionally selects the first item for the exact decision while
+the handoff carries the complete draft pack, keeping the demo boundary narrow
+and auditable. Focused coverage is in
+`services/ai/tests/orchestration/test_phase4_graph.py`; the production
+PostgreSQL restart gate remains the prerequisite before wiring any graph into
+live NestJS persistence or approvals.
+
+The end-to-end mock rehearsal in
+`tests/orchestration/test_mock_vertical_slice.py` also verifies both
+persistence receipts and the terminal approved Content state across the
+Research -> Strategy -> Content handoffs.
 
 ### Phase 5 — observability, evaluation, and rollout
 
@@ -784,6 +934,38 @@ Gate:
 All hard guardrails and idempotency scenarios pass, quality does not regress,
 and the team can explain the complete trace before enabling the feature for the
 demo business.
+
+#### Current implementation evidence
+
+The isolated Phase 5 boundary now lives under
+`services/ai/app/orchestration/phase5/`. It provides a bounded, per-run local
+trace recorder, recursive redaction of prompts/private profile/contact data, explicit
+token/cost/source/validation fields, and a non-blocking exporter seam for a
+reviewed Langfuse/OTel transport. Export failure leaves the local event and
+marks the snapshot degraded; it cannot fail a graph run. The rollout helper
+returns an explicit disabled, shadow, or allow-list decision and always names
+the flag-based rollback action.
+
+The reviewed smoke case set separates measured results from `unmeasured`
+durability, provider, and full bilingual gates. Its report refuses fabricated
+pass rates and marks hard guardrails incomplete until every required scenario
+has actually run. Focused coverage is in
+`services/ai/tests/orchestration/test_phase5_observability.py` and
+`test_phase5_evaluation.py`; operational steps are in
+`Docs/planning/AGENTIC_ORCHESTRATION_PHASE5_RUNBOOK.md`. No existing route,
+provider path, domain write, approval, or publishing action is switched to the
+new layer by this phase. The shadow comparator requires one immutable scope
+key for both paths and reports validity, citation, latency, and cost deltas as
+`unmeasured` when either side lacks evidence.
+
+The executable mock shadow harness is now covered by
+`services/ai/tests/orchestration/test_shadow_mock_comparison.py`. It compares
+the existing generation seams with the isolated Phase 3/4 graphs for one
+hashed immutable fictional scope. Both stages matched validity and grounding
+with zero domain/publication actions. This is a repeatable no-write harness
+check only; live current-path traffic, credentialed provider usage, and
+production cost/latency remain rollout gates. See
+`Docs/planning/AGENTIC_ORCHESTRATION_SHADOW_RESULTS.md`.
 
 ## 21. Practical short-time delivery order
 

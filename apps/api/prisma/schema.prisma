@@ -46,6 +46,7 @@ model User {
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
   contentWeekContextsConfirmed ContentWeekContext[]
   publicationCandidateStatuses PublicationCandidateStatus[]
+  orchestrationRuns            OrchestrationRun[]
   billingAccount               BillingAccount?
 }
 
@@ -137,6 +138,7 @@ model Business {
   contentCycles           ContentCycle[]
   contentPacks            ContentPack[]
   publicationCandidates   PublicationCandidate[]
+  orchestrationRuns       OrchestrationRun[]
   billingAccounts         BillingAccount[]
 
   @@index([ownerUserId])
@@ -624,6 +626,64 @@ model AgentRun {
   @@index([runType, status])
   @@index([createdAt])
   @@map("agent_runs")
+}
+
+// Generic durable orchestration state. Domain rows remain authoritative;
+// this pair only records the run envelope, checkpoint references, and a
+// sanitized ordered event stream owned by the orchestration boundary.
+model OrchestrationRun {
+  id                    String   @id @default(uuid()) @db.Uuid
+  businessId            String   @map("business_id") @db.Uuid
+  ownerUserId           String   @map("owner_user_id") @db.Uuid
+  contractVersion       String   @map("contract_version")
+  graphName             String   @map("graph_name")
+  graphVersion          String   @map("graph_version")
+  status                String
+  currentRole           String?  @map("current_role")
+  currentStage          String   @map("current_stage")
+  featureCohort         String   @map("feature_cohort")
+  checkpointThreadId    String   @unique @map("checkpoint_thread_id")
+  checkpointVersion     Int?     @map("checkpoint_version")
+  immutableInputRefs    Json     @default("{}") @map("immutable_input_refs")
+  outputRefs            Json     @default("{}") @map("output_refs")
+  bounds                Json     @default("{}")
+  correlationId         String   @map("correlation_id")
+  idempotencyKey        String   @map("idempotency_key")
+  idempotencyFingerprint String  @map("idempotency_fingerprint")
+  terminalError         Json?    @map("terminal_error")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  business  Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  ownerUser User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  events    OrchestrationEvent[]
+
+  @@unique([ownerUserId, idempotencyKey])
+  @@index([businessId, status])
+  @@index([ownerUserId, status])
+  @@map("orchestration_runs")
+}
+
+model OrchestrationEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  runId          String   @map("run_id") @db.Uuid
+  seq            Int
+  contractVersion String  @map("contract_version")
+  eventType      String   @map("event_type")
+  status         String
+  currentRole    String?  @map("current_role")
+  currentStage   String   @map("current_stage")
+  node           String?
+  tool           String?
+  summary        String
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  run OrchestrationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, seq])
+  @@index([runId, createdAt])
+  @@map("orchestration_events")
 }
 
 model DiscoveryProgressEvent {
