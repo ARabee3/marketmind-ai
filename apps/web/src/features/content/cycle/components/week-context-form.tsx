@@ -17,6 +17,7 @@ type Props = {
   readonly onDraftChange?: (draft: WeekContextDraft) => void;
   readonly showSave?: boolean;
   readonly onSave: (draft: WeekContextDraft) => Promise<void>;
+  readonly retainedConflictDraft?: WeekContextDraft | null;
 };
 
 type EditableRowKeys = {
@@ -24,6 +25,31 @@ type EditableRowKeys = {
   readonly mustInclude: readonly string[];
   readonly mustAvoid: readonly string[];
 };
+
+function retainedConflictDraftText(draft: WeekContextDraft): string {
+  const lines: string[] = [];
+  lines.push(draft.promotionMode === "none" ? "Promotion: none" : `Promotion: ${draft.promotionText}`);
+  if (draft.promotionMode === "owner_approved") {
+    for (const term of draft.promotionTerms) lines.push(`Term: ${term}`);
+    if (draft.validFromLocal) lines.push(`Valid from: ${draft.validFromLocal}`);
+    if (draft.validUntilLocal) lines.push(`Valid until: ${draft.validUntilLocal}`);
+  }
+  for (const item of draft.mustInclude) lines.push(`Include: ${item}`);
+  for (const item of draft.mustAvoid) lines.push(`Avoid: ${item}`);
+  if (draft.ctaType) {
+    lines.push(`CTA: ${draft.ctaType}${draft.ctaValue ? ` — ${draft.ctaValue}` : ""}`);
+  }
+  return lines.filter((l) => l).join("\n");
+}
+
+async function copyRetainedConflictDraft(draft: WeekContextDraft): Promise<void> {
+  const text = retainedConflictDraftText(draft);
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Clipboard may be unavailable; the text is still visible for manual copy.
+  }
+}
 
 export function WeekContextForm({
   initialContext = null,
@@ -33,6 +59,7 @@ export function WeekContextForm({
   onDraftChange,
   showSave = true,
   onSave,
+  retainedConflictDraft = null,
 }: Props) {
   const t = useTranslations("ContentCycle.context");
   const formId = useId();
@@ -237,6 +264,26 @@ export function WeekContextForm({
         <div className="rounded-lg border border-warning/30 bg-warning/10 p-3.5 text-xs text-warning space-y-1">
           <p className="font-bold">{t("safeDefaultTitle")}</p>
           <p>{t("safeDefaultBody")}</p>
+        </div>
+      )}
+
+      {retainedConflictDraft && (
+        <div
+          role="alert"
+          className="rounded-lg border border-warning/30 bg-warning/10 p-3.5 text-xs text-warning space-y-2"
+        >
+          <p className="font-bold">{t("conflictRetainedTitle")}</p>
+          <p>{t("conflictRetainedBody")}</p>
+          <div className="max-h-40 overflow-auto rounded-md border border-border bg-surface p-3 font-mono text-[11px] whitespace-pre-wrap text-navy">
+            {retainedConflictDraftText(retainedConflictDraft)}
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyRetainedConflictDraft(retainedConflictDraft)}
+            className="rounded-md border border-warning/40 bg-surface px-2.5 py-1 text-[11px] font-bold text-warning hover:bg-warning/10 focus-visible:ring-2 focus-visible:ring-warning"
+          >
+            {t("copyRetained")}
+          </button>
         </div>
       )}
 

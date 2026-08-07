@@ -69,7 +69,11 @@ export function ContentReadiness({
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           {tReadiness("label")}
         </h2>
-        <p className="mt-1 text-sm font-bold text-navy">
+        <p
+          id="content-readiness-status"
+          tabIndex={-1}
+          className="mt-1 text-sm font-bold text-navy outline-none"
+        >
           {primaryAction !== "none"
             ? tReadiness("readyTitle")
             : tReadiness("blockedTitle")}
@@ -169,15 +173,22 @@ export function ContentReadiness({
           </button>
         )}
 
-        {primaryAction === "review_pack" &&
-          reviewRouteAvailable &&
-          packIdForReview && (
-          <Link
-            href={`/content/packs/${packIdForReview}`}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action"
-          >
-            {tActions("reviewPack")}
-          </Link>
+        {primaryAction === "review_pack" && packIdForReview && (
+          reviewRouteAvailable ? (
+            <Link
+              href={`/content/packs/${packIdForReview}`}
+              className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action"
+            >
+              {tActions("reviewPack")}
+            </Link>
+          ) : (
+            <div
+              role="status"
+              className="w-full rounded-lg border border-border bg-background p-3 text-center text-xs font-medium text-muted-foreground"
+            >
+              {tReadiness("packReviewUnavailable")}
+            </div>
+          )
         )}
 
         {primaryAction === "refresh_status" && onRefresh && (

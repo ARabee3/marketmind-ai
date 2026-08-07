@@ -25,6 +25,7 @@
     "navBilling": "Billing",
     "primaryNavLabel": "Primary",
     "mobileNavLabel": "Mobile primary",
+    "navScrollHelp": "Primary navigation, scrollable",
     "skipToMain": "Skip to main content",
     "workspaceLabel": "Workspace",
     "collapseSidebar": "Collapse sidebar",
@@ -1749,6 +1750,9 @@
       "staleProfileTitle": "Strategy Profile Mismatch",
       "staleProfileBody": "Your active confirmed profile has changed since this Strategy was created. Please update or generate a new Strategy.",
       "staleProfileAction": "Go to Strategy",
+      "staleRouteTitle": "Another Content Cycle Is Active",
+      "staleRouteBody": "A different content cycle is already in progress. Open that cycle to continue.",
+      "staleRouteAction": "Go to Current Cycle",
       "malformedPlanTitle": "Strategy Roadmap Incomplete",
       "malformedPlanBody": "The approved Strategy plan does not contain a complete 12-week roadmap.",
       "readyTitle": "Ready to Start 12-Week Content Cycle",
@@ -1832,6 +1836,9 @@
       "saving": "Saving context…",
       "saved": "Weekly context saved",
       "frozen": "Context is frozen for generation",
+      "conflictRetainedTitle": "Context was claimed while editing",
+      "conflictRetainedBody": "This week was claimed before your save arrived. Your unsaved edits are kept below so you can copy them; they were not submitted.",
+      "copyRetained": "Copy unsaved edits",
       "cutoff": "Context cutoff: {time}",
       "relativeCutoff": "Cutoff before Week {week} begins in Africa/Cairo",
       "safeDefaultTitle": "Safe default used",
@@ -1886,7 +1893,8 @@
       "cyclePaused": "Cycle is currently paused",
       "cycleCompleted": "12-week cycle is completed",
       "consequenceTitle": "Consequence",
-      "consequenceBody": "Generation creates draft posts for owner review. Nothing is published to social media."
+      "consequenceBody": "Generation creates draft posts for owner review. Nothing is published to social media.",
+      "packReviewUnavailable": "Draft pack is ready. Review workspace becomes available in a follow-up release."
     },
     "actions": {
       "startCycle": "Start 12-Week Content Cycle",

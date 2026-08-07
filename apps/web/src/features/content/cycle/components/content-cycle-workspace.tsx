@@ -59,6 +59,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   const [latestKnownPack, setLatestKnownPack] = useState<ContentPack | null>(null);
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [retainedConflictDraft, setRetainedConflictDraft] = useState<WeekContextDraft | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -142,6 +143,11 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     return () => clearTimeout(timer);
   }, [loadData]);
 
+  useEffect(() => {
+    setRetainedConflictDraft(null);
+    setActionError(null);
+  }, [cycleId, weekNumber]);
+
   // Attach progress polling hook for latest known pack
   const {
     pack: livePack,
@@ -160,6 +166,14 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   });
 
   const effectivePack = livePack ?? latestKnownPack;
+
+  const focusStatusHeading = () => {
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("content-readiness-status")
+        ?.focus({ preventScroll: true });
+    });
+  };
 
   const handleSaveContext = async (draft: WeekContextDraft) => {
     if (workspaceState.phase !== "ready" || isMutating) return;
@@ -181,9 +195,11 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         return [...filtered, updatedContext];
       });
       setActionError(null);
+      focusStatusHeading();
     } catch (err: unknown) {
       const errorKey = contentErrorKey(err as { status?: number; code?: string; message?: string });
       if (errorKey === "weekAlreadyClaimed") {
+        setRetainedConflictDraft(draft);
         setActionError(tErrors(errorKey));
         await loadData();
       } else {
@@ -254,13 +270,13 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     return (
       <div className="mx-auto max-w-xl py-12 text-center space-y-4">
         <div className="rounded-xl border border-warning/30 bg-warning/10 p-6 space-y-3 text-warning">
-          <h1 className="text-lg font-bold">{t("staleProfileTitle")}</h1>
-          <p className="text-xs leading-relaxed">{t("staleProfileBody")}</p>
+          <h1 className="text-lg font-bold">{t("staleRouteTitle")}</h1>
+          <p className="text-xs leading-relaxed">{t("staleRouteBody")}</p>
           <Link
-            href="/content"
+            href={workspaceState.currentCycleId ? `/content/${workspaceState.currentCycleId}/weeks/1` : "/content"}
             className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
           >
-            {tActions("refresh")}
+            {t("staleRouteAction")}
           </Link>
         </div>
       </div>
@@ -349,6 +365,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
             isFrozen={isContextFrozen}
             isSubmitting={isMutating}
             onSave={handleSaveContext}
+            retainedConflictDraft={retainedConflictDraft}
           />
 
           {effectivePack && effectivePack.week_number === weekNumber && (
