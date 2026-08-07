@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: proposed for implementation
+- Status: Phase 0 spike implemented; product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -706,6 +706,34 @@ If any part fails, do not build the LangGraph product graph or connect it to a
 live domain write. Keep the existing route unchanged. A later BullMQ/NestJS
 state-machine fallback may preserve sequential-agent behavior, but it must not
 be presented as passing the LangGraph/framework durability requirement.
+
+#### Current implementation evidence
+
+The isolated probe is implemented under
+`services/ai/app/orchestration/phase0/`. It is not imported by `app.main` and
+does not mount a product route. The probe uses a disposable PostgreSQL schema,
+an async `AsyncPostgresSaver`, a three-node graph, `interrupt()`, and a
+durable idempotency-keyed fake effect.
+
+The restart gate currently passes on Python 3.12 (the CI/deployment runtime)
+and Python 3.14 (the local development environment):
+
+```text
+1 passed: pause -> terminate FastAPI -> fresh process -> resume same thread
+1 duplicate resume rejected with HTTP 409
+1 fake effect row after the full sequence
+```
+
+The live OpenAI, Gemini, and OpenRouter tool-calling matrix is intentionally
+opt-in because it makes provider requests. The harness is present at
+`services/ai/tests/orchestration/test_provider_capability_matrix.py`, but no
+provider is eligible for the product graph until the team runs it with the
+intended models and records successful tool-call evidence. Serializer,
+encryption, migration, retention, and cleanup decisions also remain open.
+
+Until those remaining checks are complete, this is a green durability spike,
+not permission to connect LangGraph to live Strategy, Content, approval, or
+publishing writes.
 
 ### Phase 1 — contracts, lifecycle, and persistence
 

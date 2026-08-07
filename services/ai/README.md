@@ -143,6 +143,30 @@ Run only integration tests:
 uv run pytest -m integration
 ```
 
+Run the isolated LangGraph Phase 0 durability gate (requires the local
+PostgreSQL container):
+
+```bash
+uv run pytest tests/orchestration/test_phase0_durability.py -m integration -vv
+```
+
+The gate starts a disposable FastAPI probe, pauses a fake graph with
+`interrupt()`, terminates it, starts a fresh process, resumes the same
+`thread_id`, rejects a duplicate resume, and verifies one idempotency-keyed
+fake side effect. It is not mounted by `app.main` and does not write product
+Strategy, Content, approval, or publishing data.
+
+Provider tool-calling checks are intentionally opt-in because they make live
+requests. Configure the provider keys/models, then run:
+
+```bash
+PHASE0_PROVIDER_MATRIX=1 uv run pytest \
+  tests/orchestration/test_provider_capability_matrix.py -m network -vv
+```
+
+The mock provider is covered by the local durability probe; a live provider
+that cannot emit the requested function call is a visible Phase 0 no-go.
+
 ## Discovery Result Shape
 
 Every Discovery provider is normalized to one backend-friendly result:
