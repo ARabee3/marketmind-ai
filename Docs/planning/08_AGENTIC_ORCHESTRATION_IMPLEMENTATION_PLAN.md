@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: Phase 2 tool/Research Agent boundary implemented; product graph remains gated
+- Status: Phase 3 Strategy graph boundary implemented in isolation; live product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -827,6 +827,40 @@ Gate:
 
 One mock and one credentialed run reach a valid immutable Strategy draft, pause,
 survive restart, and reject stale/cross-owner resume attempts.
+
+#### Current implementation evidence
+
+The isolated Phase 3 boundary now lives under
+`services/ai/app/orchestration/phase3/`. It prepares an immutable snapshot,
+recomputes deterministic Strategy decisions, emits a typed
+`ResearchStrategyHandoffV1`, reuses the existing Strategy prompt/provider/
+validation pipeline, and exposes only a compact structured quality review. A
+repairable review can re-enter Strategy at most `replans_limit` times without
+rerunning Research; hard validation failures and owner blockers terminate with
+a stable error.
+
+`build_phase3_graph()` uses LangGraph's `interrupt()` and an injected
+checkpointer. `Phase3Runner` validates owner, business, run, correlation,
+idempotency, Strategy version, and checksum before issuing a resume command.
+It accepts a shared lock context for production; the default in-memory lock is
+only for unit tests, while deployment must reuse the Phase 0 PostgreSQL
+advisory-lock pattern for cross-process duplicate delivery.
+The first pause includes a `StrategyDraftHandoffV1` for Nest to persist with
+its existing immutable Strategy transaction. Nest then sends a typed
+`StrategyDraftPersistenceReceiptV1`, the graph checkpoints the authoritative
+version ID, and only then exposes the owner-decision interrupt. This prevents
+FastAPI from guessing a domain version ID while still making the decision bind
+to the exact persisted version. The graph itself performs no domain writes and
+is not imported by `app.main`.
+
+Focused coverage in
+`services/ai/tests/orchestration/test_phase3_graph.py` proves immutable input
+preparation, typed handoff, mock/provider injection, targeted replanning and
+its cap, hard validation, duplicate-start protection, fresh-runner resume from
+the same checkpoint, and stale/cross-owner resume rejection. The unit harness
+uses LangGraph's in-memory checkpointer; the Phase 0 PostgreSQL restart gate
+remains the production checkpointer prerequisite. A live credentialed provider
+run is still opt-in and is not required for the mock safety suite.
 
 ### Phase 4 — Content graph segment
 
