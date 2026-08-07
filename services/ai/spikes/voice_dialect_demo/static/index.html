@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>MarketMind | Voice-note transcription spike</title>
+    <style>
+      :root {
+        --ink: #102a43;
+        --teal: #0b6f71;
+        --blue: #246bfd;
+        --paper: #f7f8fa;
+        --surface: #ffffff;
+        --line: #d9e2ec;
+        --warm: #f8eedc;
+        --warning: #8a5300;
+        --danger: #b42318;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: Tahoma, Arial, sans-serif;
+      }
+
+      main {
+        width: min(100% - 32px, 760px);
+        margin: 0 auto;
+        padding: 48px 0 72px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--teal);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      h1 {
+        max-width: 680px;
+        margin: 0;
+        font-size: clamp(2rem, 6vw, 3.8rem);
+        line-height: 1.06;
+        letter-spacing: -0.04em;
+      }
+
+      .intro {
+        max-width: 620px;
+        margin: 18px 0 0;
+        color: #486581;
+        font-size: 1.06rem;
+        line-height: 1.75;
+      }
+
+      .recorder {
+        position: relative;
+        margin-top: 32px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: 0 18px 42px rgb(16 42 67 / 0.08);
+      }
+
+      .recorder::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 7px;
+        content: "";
+        background: var(--teal);
+      }
+
+      .card-header,
+      .card-body {
+        padding-inline: 28px;
+      }
+
+      .card-header {
+        padding-top: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      .card-header p {
+        margin: 8px 0 0;
+        color: #486581;
+        line-height: 1.55;
+      }
+
+      .card-body { padding-top: 24px; padding-bottom: 28px; }
+
+      label { display: block; font-weight: 700; }
+
+      select,
+      textarea {
+        width: 100%;
+        margin-top: 9px;
+        border: 1px solid #9fb3c8;
+        border-radius: 10px;
+        color: var(--ink);
+        background: #fff;
+        font: inherit;
+      }
+
+      select { min-height: 44px; padding: 0 12px; }
+
+      textarea {
+        min-height: 160px;
+        padding: 14px;
+        line-height: 1.7;
+        resize: vertical;
+      }
+
+      .record-area {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 18px;
+        align-items: center;
+        margin: 24px 0;
+        padding: 20px;
+        border: 1px solid #b9d8d9;
+        border-radius: 14px;
+        background: #f1f9f9;
+      }
+
+      .record-button {
+        display: grid;
+        width: 62px;
+        height: 62px;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        color: #fff;
+        background: var(--teal);
+        cursor: pointer;
+        font-size: 1.45rem;
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .record-button:hover { background: #075b5d; transform: translateY(-1px); }
+      .record-button[aria-pressed="true"] { background: var(--danger); }
+      button:focus-visible, select:focus-visible, textarea:focus-visible {
+        outline: 3px solid rgb(36 107 253 / 0.4);
+        outline-offset: 3px;
+      }
+
+      .record-copy strong { display: block; }
+      .record-copy span { display: block; margin-top: 4px; color: #486581; line-height: 1.5; }
+
+      .status {
+        min-height: 25px;
+        margin: 0 0 18px;
+        color: #486581;
+        line-height: 1.5;
+      }
+
+      .status[data-state="recording"] { color: var(--danger); font-weight: 700; }
+      .status[data-state="error"] { color: var(--danger); font-weight: 700; }
+      .status[data-state="ready"] { color: var(--teal); font-weight: 700; }
+
+      .privacy {
+        margin: 24px 0 0;
+        padding: 14px 16px;
+        border-radius: 10px;
+        color: var(--warning);
+        background: var(--warm);
+        font-size: 0.92rem;
+        line-height: 1.6;
+      }
+
+      .proof {
+        margin-top: 28px;
+        padding: 20px 22px;
+        border-top: 3px solid var(--blue);
+        background: #eaf0ff;
+      }
+
+      .proof p { margin: 8px 0 0; color: #334e68; line-height: 1.65; }
+
+      @media (max-width: 560px) {
+        main { width: min(100% - 24px, 760px); padding-top: 28px; }
+        .card-header, .card-body { padding-inline: 20px; }
+        .record-area { grid-template-columns: 1fr; text-align: center; }
+        .record-button { margin-inline: auto; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .record-button { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">MarketMind / feasibility spike</p>
+      <h1>احكي عن مشروعك بطريقتك.</h1>
+      <p class="intro">
+        سجل ملاحظة صوتية قصيرة بالمصري أو بالعربي أو بالإنجليزي. النتيجة هنا للتجربة فقط:
+        راجع النص بنفسك قبل ما نستخدمه لاحقًا في Discovery.
+      </p>
+
+      <section class="recorder" aria-labelledby="recorder-title">
+        <header class="card-header">
+          <h2 id="recorder-title">اختبار تفريغ الملاحظة الصوتية</h2>
+          <p>سجّل حتى 45 ثانية. التجربة لا تحفظ التسجيل أو النص في قاعدة بيانات.</p>
+        </header>
+
+        <div class="card-body">
+          <label for="languageHint">لغة الملاحظة</label>
+          <select id="languageHint" name="languageHint">
+            <option value="ar-EG">مصري / Egyptian Arabic</option>
+            <option value="ar">عربي</option>
+            <option value="en">English</option>
+            <option value="auto">تعرّف تلقائي</option>
+          </select>
+
+          <div class="record-area">
+            <button id="recordButton" class="record-button" type="button" aria-pressed="false" aria-label="ابدأ تسجيل ملاحظة صوتية">
+              <span aria-hidden="true">●</span>
+            </button>
+            <div class="record-copy">
+              <strong id="recordTitle">ابدأ التسجيل</strong>
+              <span id="recordDescription">اتكلم بشكل طبيعي عن مشروعك، هدفك، أو المشكلة اللي عندك.</span>
+            </div>
+          </div>
+
+          <p id="status" class="status" data-state="idle" role="status" aria-live="polite">
+            جاهز للتسجيل.
+          </p>
+
+          <label for="transcript">النص الناتج — عدّله لو محتاج</label>
+          <textarea id="transcript" dir="auto" placeholder="هيظهر هنا النص بعد التسجيل..." spellcheck="true"></textarea>
+
+          <p class="privacy">
+            <strong>خصوصية التجربة:</strong> الصوت يمر في الذاكرة إلى مزود التفريغ فقط. هذه الصفحة لا تخزّن الصوت أو النص، ولا ترسله إلى Discovery.
+          </p>
+        </div>
+      </section>
+
+      <aside class="proof" aria-label="What this test proves">
+        <strong>ما الذي نختبره؟</strong>
+        <p>هل يحافظ التفريغ على العامية المصرية ومعنى صاحب المشروع بما يكفي ليصلح كمدخل قابل للمراجعة؟ لا نعتبره حقيقة مؤكدة، ولا نستخدمه تلقائيًا.</p>
+      </aside>
+    </main>
+
+    <script>
+      const maximumRecordingMilliseconds = 45_000;
+      const button = document.querySelector("#recordButton");
+      const languageHint = document.querySelector("#languageHint");
+      const transcript = document.querySelector("#transcript");
+      const status = document.querySelector("#status");
+      const recordTitle = document.querySelector("#recordTitle");
+      const recordDescription = document.querySelector("#recordDescription");
+
+      let audioContext;
+      let mediaStream;
+      let source;
+      let processor;
+      let silentGain;
+      let chunks = [];
+      let stopTimer;
+      let isRecording = false;
+
+      function setStatus(message, state = "idle") {
+        status.textContent = message;
+        status.dataset.state = state;
+      }
+
+      function setRecordingState(recording) {
+        isRecording = recording;
+        button.setAttribute("aria-pressed", String(recording));
+        button.setAttribute("aria-label", recording ? "أوقف تسجيل الملاحظة الصوتية" : "ابدأ تسجيل ملاحظة صوتية");
+        recordTitle.textContent = recording ? "التسجيل شغال" : "ابدأ التسجيل";
+        recordDescription.textContent = recording
+          ? "اضغط مرة أخرى عندما تنتهي. هنوقف تلقائيًا بعد 45 ثانية."
+          : "اتكلم بشكل طبيعي عن مشروعك، هدفك، أو المشكلة اللي عندك.";
+      }
+
+      async function startRecording() {
+        if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+          setStatus("المتصفح ده لا يدعم التسجيل. استخدم Chrome أو Safari حديث.", "error");
+          return;
+        }
+
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+          });
+          audioContext = new AudioContext();
+          source = audioContext.createMediaStreamSource(mediaStream);
+          processor = audioContext.createScriptProcessor(4096, 1, 1);
+          chunks = [];
+          processor.onaudioprocess = (event) => {
+            chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+          };
+          source.connect(processor);
+          // Keep the processor alive without sending the microphone back to the
+          // speakers, which would otherwise risk an echo loop while recording.
+          silentGain = audioContext.createGain();
+          silentGain.gain.value = 0;
+          processor.connect(silentGain);
+          silentGain.connect(audioContext.destination);
+          setRecordingState(true);
+          setStatus("بنسجّل الآن…", "recording");
+          stopTimer = window.setTimeout(() => stopRecording(), maximumRecordingMilliseconds);
+        } catch (error) {
+          console.error(error);
+          setStatus("ما قدرناش نستخدم الميكروفون. اسمح بالوصول وحاول تاني.", "error");
+        }
+      }
+
+      async function stopRecording() {
+        if (!isRecording) return;
+        window.clearTimeout(stopTimer);
+        setRecordingState(false);
+        processor?.disconnect();
+        silentGain?.disconnect();
+        source?.disconnect();
+        mediaStream?.getTracks().forEach((track) => track.stop());
+        const sampleRate = audioContext?.sampleRate || 44_100;
+        await audioContext?.close();
+        const wav = encodeWav(chunks, sampleRate);
+        chunks = [];
+        setStatus("بنفرّغ الملاحظة الصوتية…", "idle");
+        await transcribe(wav);
+      }
+
+      async function transcribe(wav) {
+        try {
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            headers: {
+              "Content-Type": "audio/wav",
+              "X-Voice-Language-Hint": languageHint.value,
+            },
+            body: wav,
+          });
+          const body = await response.json();
+          if (!response.ok) {
+            throw new Error(body.detail?.message || "تعذر تفريغ الملاحظة الصوتية.");
+          }
+          transcript.value = body.transcript;
+          setStatus(`تم التفريغ في ${body.latency_ms}ms. راجع النص وعدّله لو محتاج.`, "ready");
+          transcript.focus();
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || "تعذر تفريغ الملاحظة الصوتية. حاول تاني.", "error");
+        }
+      }
+
+      function encodeWav(buffers, sampleRate) {
+        const length = buffers.reduce((total, buffer) => total + buffer.length, 0);
+        const output = new ArrayBuffer(44 + length * 2);
+        const view = new DataView(output);
+        writeAscii(view, 0, "RIFF");
+        view.setUint32(4, 36 + length * 2, true);
+        writeAscii(view, 8, "WAVE");
+        writeAscii(view, 12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeAscii(view, 36, "data");
+        view.setUint32(40, length * 2, true);
+        let offset = 44;
+        buffers.forEach((buffer) => {
+          for (let index = 0; index < buffer.length; index += 1) {
+            const sample = Math.max(-1, Math.min(1, buffer[index]));
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+            offset += 2;
+          }
+        });
+        return new Blob([output], { type: "audio/wav" });
+      }
+
+      function writeAscii(view, offset, value) {
+        for (let index = 0; index < value.length; index += 1) {
+          view.setUint8(offset + index, value.charCodeAt(index));
+        }
+      }
+
+      button.addEventListener("click", () => {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
+      });
+    </script>
+  </body>
+</html>
