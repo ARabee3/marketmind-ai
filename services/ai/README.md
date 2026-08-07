@@ -160,12 +160,22 @@ Provider tool-calling checks are intentionally opt-in because they make live
 requests. Configure the provider keys/models, then run:
 
 ```bash
-PHASE0_PROVIDER_MATRIX=1 uv run pytest \
+PHASE0_PROVIDER_MATRIX=1 uv run --env-file .env pytest \
   tests/orchestration/test_provider_capability_matrix.py -m network -vv
 ```
 
-The mock provider is covered by the local durability probe; a live provider
-that cannot emit the requested function call is a visible Phase 0 no-go.
+If the configured OpenRouter route is rate-limited, choose a permitted model
+without editing `.env`, for example:
+
+```bash
+PHASE0_PROVIDER_MATRIX=1 PHASE0_OPENROUTER_MODEL=openai/gpt-4o-mini \
+  uv run --env-file .env pytest \
+  tests/orchestration/test_provider_capability_matrix.py -m network -vv
+```
+
+The mock provider
+is covered by the local durability probe; a live provider that cannot emit the
+requested function call is a visible Phase 0 no-go.
 
 ## Discovery Result Shape
 

@@ -726,10 +726,13 @@ and Python 3.14 (the local development environment):
 
 The live OpenAI, Gemini, and OpenRouter tool-calling matrix is intentionally
 opt-in because it makes provider requests. The harness is present at
-`services/ai/tests/orchestration/test_provider_capability_matrix.py`, but no
-provider is eligible for the product graph until the team runs it with the
-intended models and records successful tool-call evidence. Serializer,
-encryption, migration, retention, and cleanup decisions also remain open.
+`services/ai/tests/orchestration/test_provider_capability_matrix.py`. The
+current verification recorded Gemini and OpenRouter tool calls successfully;
+OpenAI was skipped because `OPENAI_API_KEY` is not configured. The configured
+OpenRouter free route returned an upstream 429, so the successful check used
+the same key with the explicit `openai/gpt-4o-mini` model override. Serializer,
+encryption, migration, retention, cleanup, and the missing OpenAI capability
+check remain open.
 
 Until those remaining checks are complete, this is a green durability spike,
 not permission to connect LangGraph to live Strategy, Content, approval, or

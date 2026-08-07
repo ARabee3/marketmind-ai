@@ -115,25 +115,33 @@ def test_gemini_tool_calling() -> None:
         description=TOOL_DESCRIPTION,
         parametersJsonSchema=TOOL_PARAMETERS,
     )
-    response = genai.Client(api_key=api_key).models.generate_content(
-        model=model,
-        contents=PROMPT,
-        config=types.GenerateContentConfig(
-            temperature=0,
-            maxOutputTokens=64,
-            tools=[types.Tool(functionDeclarations=[declaration])],
-            toolConfig=types.ToolConfig(
-                functionCallingConfig=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowedFunctionNames=[TOOL_NAME],
-                )
+    # Keep the client alive through the request and the SDK's retry handling.
+    # Constructing it inline can let google-genai close its httpx client while
+    # a retry is still in flight, masking the real provider response.
+    with genai.Client(api_key=api_key) as client:
+        response = client.models.generate_content(
+            model=model,
+            contents=PROMPT,
+            config=types.GenerateContentConfig(
+                temperature=0,
+                maxOutputTokens=64,
+                tools=[types.Tool(functionDeclarations=[declaration])],
+                toolConfig=types.ToolConfig(
+                    functionCallingConfig=types.FunctionCallingConfig(
+                        mode=types.FunctionCallingConfigMode.ANY,
+                        allowedFunctionNames=[TOOL_NAME],
+                    )
+                ),
             ),
-        ),
-    )
+        )
     function_calls = getattr(response, "function_calls", None) or []
     if not function_calls:
         candidates = getattr(response, "candidates", None) or []
-        parts = getattr(getattr(candidates[0], "content", None), "parts", []) if candidates else []
+        parts = (
+            getattr(getattr(candidates[0], "content", None), "parts", [])
+            if candidates
+            else []
+        )
         function_calls = [getattr(part, "function_call", None) for part in parts]
         function_calls = [call for call in function_calls if call is not None]
     assert function_calls, "provider returned no function call"
