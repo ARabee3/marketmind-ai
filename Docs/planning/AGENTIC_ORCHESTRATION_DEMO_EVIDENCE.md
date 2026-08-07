@@ -84,6 +84,30 @@ interrupts, both persistence receipts, and exact owner decision bindings. It
 does not create a Strategy row, Content row, decision, publication candidate,
 or external action.
 
+### Mock shadow comparison
+
+The executable shadow harness in
+`tests/orchestration/test_shadow_mock_comparison.py` sends one immutable
+fictional scope through the existing generation seams and through the
+isolated Phase 3/4 graphs. The observed run produced `quality=match` for both
+Strategy and Content, equal validity and grounding counts on both paths, and
+zero domain or publication actions. The Strategy cost delta is explicitly
+unmeasured because the mock provider reports no usage; the Content values are
+bounded local estimates rather than provider billing.
+
+Command:
+
+```bash
+cd services/ai
+PYTHONPATH=.:../../packages/contracts/python \
+  uv run --isolated --python 3.12 pytest \
+  tests/orchestration/test_shadow_mock_comparison.py -s -vv
+```
+
+This is not a live current-path shadow and does not change the rollout gate.
+The full sample, status/latency values, and limitations are recorded in
+`Docs/planning/AGENTIC_ORCHESTRATION_SHADOW_RESULTS.md`.
+
 ## NestJS handoff boundary
 
 The Phase 1 boundary is already present in
@@ -132,7 +156,8 @@ not affect the orchestration changes, which never mount publishing code.
   slice (the capability harness is opt-in and network-bound);
 - a live NestJS worker that routes production jobs into the graph;
 - long-term conversational, cross-business, or episodic memory;
-- shadow comparison against a live current-path run;
+- shadow comparison against a live current-path run (the mock shadow harness
+  is measured, but production traffic is not);
 - production checkpoint encryption, retention, and deletion policy.
 
 These are not being claimed as passed. Until they are reviewed, keep

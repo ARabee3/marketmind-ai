@@ -62,6 +62,21 @@ PYTHONPATH=.:../../packages/contracts/python \
   tests/orchestration/test_mock_vertical_slice.py -s -vv
 ```
 
+The executable mock shadow comparison uses the same immutable fictional scope
+for the existing generation seams and the isolated Phase 3/4 graphs. It has no
+database or domain writes and keeps missing provider usage explicit:
+
+```bash
+PYTHONPATH=.:../../packages/contracts/python \
+  uv run --isolated --python 3.12 pytest \
+  tests/orchestration/test_shadow_mock_comparison.py -s -vv
+```
+
+This is harness evidence only. It is not a live current-path comparison and
+does not permit enabling the feature by default. See
+`Docs/planning/AGENTIC_ORCHESTRATION_SHADOW_RESULTS.md` for the observed
+sample and limitations.
+
 The Phase 0 PostgreSQL restart gate is still required for fresh-process
 durability. The provider capability matrix remains opt-in because it makes
 network requests.

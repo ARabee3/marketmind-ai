@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: Phase 0 restart gate and the mock Research -> Strategy -> Content vertical slice are verified; the live product graph remains gated
+- Status: Phase 0 restart gate, mock Research -> Strategy -> Content vertical slice, and mock shadow harness are verified; the live product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -957,6 +957,15 @@ provider path, domain write, approval, or publishing action is switched to the
 new layer by this phase. The shadow comparator requires one immutable scope
 key for both paths and reports validity, citation, latency, and cost deltas as
 `unmeasured` when either side lacks evidence.
+
+The executable mock shadow harness is now covered by
+`services/ai/tests/orchestration/test_shadow_mock_comparison.py`. It compares
+the existing generation seams with the isolated Phase 3/4 graphs for one
+hashed immutable fictional scope. Both stages matched validity and grounding
+with zero domain/publication actions. This is a repeatable no-write harness
+check only; live current-path traffic, credentialed provider usage, and
+production cost/latency remain rollout gates. See
+`Docs/planning/AGENTIC_ORCHESTRATION_SHADOW_RESULTS.md`.
 
 ## 21. Practical short-time delivery order
 
