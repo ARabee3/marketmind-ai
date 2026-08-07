@@ -1,6 +1,6 @@
 # Agentic Orchestration Implementation Plan
 
-- Status: Phase 0 spike implemented; product graph remains gated
+- Status: Phase 2 tool/Research Agent boundary implemented; product graph remains gated
 - Issue: [#161](https://github.com/ARabee3/marketmind-ai/issues/161)
 - Owner: `@ARabee3`
 - Required reviewers: `@mostafamerzk`, `@MostafaAhmed22`, and
@@ -786,6 +786,31 @@ Gate:
 
 At least three tools are genuinely exercised across reviewed cases, every fact
 retains provenance, and prompt-injection/tool-scope tests pass.
+
+The Phase 2 boundary is now implemented in the isolated
+`services/ai/app/orchestration/phase2/` package. The registry exposes exactly
+the four initial proof tools and accepts only typed model arguments; owner,
+business, candidate, provider, and persistence scope stay in the server-built
+context. The existing Strategy retrieval path remains unchanged by default,
+while orchestration search uses an explicit read-only retrieval call so a
+shadow run cannot create a second authoritative retrieval record.
+
+`ResearchAgent` uses a deterministic selector for CI/demo rehearsal and keeps
+the provider selector behind a small protocol for a later credentialed
+adapter. It emits cited `ResearchPackV1` facts, assumptions, gaps, visible
+stop reasons, and stable errors. Tool-call limits and optional deadlines stop
+the loop; context mismatches, unknown tools, extra scope arguments, duplicate
+or unavailable evidence indexes, oversized results, and untrusted candidate
+text are covered by tests. The first-demo set deliberately does not depend on
+the deferred Nest-owned research gateway or a live OpenAI key.
+
+Focused coverage lives in
+`services/ai/tests/orchestration/test_phase2_tools.py` and
+`test_phase2_research_agent.py`, with reviewed evaluation cases in
+`tests/orchestration/fixtures/phase2_research_cases.json`. The Phase 2 gate is
+green when those tests and the existing non-network AI suite pass; no FastAPI
+route or existing Discovery/Strategy/Content behavior is switched to this
+package yet.
 
 ### Phase 3 — Strategy graph segment
 

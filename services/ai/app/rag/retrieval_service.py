@@ -27,8 +27,14 @@ async def retrieve_strategy_knowledge(
     brief_id: UUID,
     profile_version_id: UUID,
     query_context: RetrievalQueryContext,
+    persist: bool = True,
 ) -> RetrievedKnowledgePack:
-    """Execute the full MarketMind filtered RAG pipeline."""
+    """Execute the full MarketMind filtered RAG pipeline.
+
+    ``persist`` remains enabled for the existing Strategy endpoint. The
+    Phase 2 orchestration tool can set it to ``False`` for a read-only shadow
+    lookup, so an agent cannot create a second authoritative retrieval run.
+    """
     start_time = datetime.now(timezone.utc)
     now_naive = start_time.replace(tzinfo=None)
     
@@ -122,8 +128,10 @@ async def retrieve_strategy_knowledge(
         retrieved_at=now_naive,
     )
     
-    # 8. Persist Run
-    await save_retrieval_run(db_session, strategy_id, pack)
-    await db_session.commit()
+    # 8. Persist Run for the existing Strategy path. Shadow/orchestration
+    # lookups intentionally return the same typed pack without a domain write.
+    if persist:
+        await save_retrieval_run(db_session, strategy_id, pack)
+        await db_session.commit()
     
     return pack
