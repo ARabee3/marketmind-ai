@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { getCurrentJourney } from "@/lib/api/journey";
-import { getStrategy, getStrategyVersions } from "@/lib/api/strategy";
+import { getStrategy, getStrategyVersion, getStrategyVersions } from "@/lib/api/strategy";
 import { createContentCycle } from "@/lib/api/content-cycle";
 import {
   type ContentEntryState,
@@ -92,7 +92,28 @@ export function ContentCycleEntry() {
 
         if (!isSubscribed) return;
 
-        const resolution = resolveApprovedContentStrategy(journeyRes, stratApi, versions);
+        // For a fresh entry, resolve by the currently approved version
+        // (currentVersionId) and fetch its exact plan instead of latestPlan,
+        // so a newer draft version never blocks starting the cycle.
+        const currentSummary =
+          stratApi.currentVersionId === null
+            ? null
+            : versions.find((v) => v.status === "approved" && v.version_id === stratApi.currentVersionId) ?? null;
+        const lockedPlan =
+          currentSummary === null
+            ? null
+            : await getStrategyVersion(strategyId, currentSummary.version);
+
+        if (!isSubscribed) return;
+
+        const resolution = resolveApprovedContentStrategy(
+          journeyRes,
+          stratApi,
+          versions,
+          currentSummary && lockedPlan
+            ? { strategyVersion: currentSummary.version, strategyDecisionId: currentSummary.decision?.id, plan: lockedPlan }
+            : {},
+        );
         if ("blocker" in resolution) {
           setState({
             phase: "blocked",

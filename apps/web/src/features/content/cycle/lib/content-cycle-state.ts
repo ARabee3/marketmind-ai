@@ -128,13 +128,13 @@ export function resolveApprovedContentStrategy(
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
-  const expectedVersion = options.strategyVersion ?? plan.version;
-  const matchingSummary = versions.find((v) =>
-    v.status === "approved" &&
-    (options.strategyVersion !== undefined
-      ? v.version === expectedVersion
-      : v.version_id === currentVersionId),
-  );
+  // For a fresh entry (no explicit version), resolve by the currently approved
+  // version referenced by currentVersionId, not by the latest plan. This keeps
+  // start possible when a newer draft version exists after approval.
+  const matchingSummary =
+    options.strategyVersion !== undefined
+      ? versions.find((v) => v.status === "approved" && v.version === options.strategyVersion)
+      : versions.find((v) => v.status === "approved" && currentVersionId !== null && v.version_id === currentVersionId);
 
   if (
     !matchingSummary ||
@@ -145,8 +145,9 @@ export function resolveApprovedContentStrategy(
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
+  const expectedVersion = matchingSummary.version;
+
   if (
-    matchingSummary.version !== expectedVersion ||
     plan.version !== expectedVersion ||
     plan.strategy_id !== strategyId ||
     matchingSummary.version !== plan.version ||
