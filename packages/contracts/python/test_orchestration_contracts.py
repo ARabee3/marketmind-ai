@@ -74,7 +74,11 @@ class OrchestrationContractTests(unittest.TestCase):
     def test_python_error_code_mirror_matches_typescript(self) -> None:
         source = (ROOT / "src" / "errors" / "error-codes.ts").read_text()
         typescript_codes = frozenset(
-            re.findall(r'^\s{2}\w+: "([A-Z0-9_]+)",$', source, re.MULTILINE)
+            re.findall(
+                r'^[ \t]{2}\w+:[ \t]*(?:\n[ \t]*)?"([A-Z0-9_]+)",?$',
+                source,
+                re.MULTILINE,
+            )
         )
         self.assertEqual(ERROR_CODES, typescript_codes)
 
