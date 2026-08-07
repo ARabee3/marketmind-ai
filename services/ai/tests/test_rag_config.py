@@ -10,6 +10,8 @@ def test_rag_config_matches_env() -> None:
     assert config.embedding.model == settings.embedding_model
     assert config.embedding.dimensions == settings.embedding_dimensions
     assert config.qdrant.collection_name == settings.qdrant_collection_name
+    assert config.selection_mode == settings.rag_selection_mode
+    assert config.mmr_lambda == settings.rag_mmr_lambda
 
 
 def test_rag_config_retrieval_metadata() -> None:

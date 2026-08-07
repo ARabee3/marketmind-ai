@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.core.config import Settings, get_settings
+from app.core.config import RagSelectionMode, Settings, get_settings
 from app.embeddings import EmbeddingConfig
 
 
@@ -23,6 +23,8 @@ class RagConfig:
 
     embedding: EmbeddingConfig
     qdrant: QdrantConfig
+    selection_mode: RagSelectionMode = "semantic"
+    mmr_lambda: float = 0.5
 
     def retrieval_metadata(self) -> dict:
         """Return a dictionary matching the RetrievalMetadata contract fields."""
@@ -54,6 +56,8 @@ def build_rag_config(settings: Settings | None = None) -> RagConfig:
             timeout_ms=config.qdrant_timeout_ms,
             use_grpc=config.qdrant_use_grpc,
         ),
+        selection_mode=config.rag_selection_mode,
+        mmr_lambda=config.rag_mmr_lambda,
     )
 
 

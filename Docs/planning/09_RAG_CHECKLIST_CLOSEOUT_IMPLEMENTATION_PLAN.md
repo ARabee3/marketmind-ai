@@ -1,9 +1,9 @@
 # RAG Checklist Closeout Implementation Plan
 
-- Status: proposed for implementation
+- Status: implementation in progress
 - Issue: [#163](https://github.com/ARabee3/marketmind-ai/issues/163)
 - Linked human/live QA gate: [#128](https://github.com/ARabee3/marketmind-ai/issues/128)
-- Branch: `codex/163-rag-checklist-closeout`
+- Branch: `codex/163-rag-checklist-implementation`
 - Last updated: 2026-08-07
 
 ## 1. Decision summary
@@ -29,6 +29,12 @@ The closeout also makes the existing evaluation evidence easier to explain:
 No part of this plan permits fabricated reviewer approvals, live run IDs,
 metrics, sources, or readiness claims. Issue #128 remains the authoritative
 gate for genuine human review and replayed live proof.
+
+The implementation branch keeps the rollout safe: `semantic` remains the
+default, while `semantic_mmr` is available for a separately recorded
+comparison run. The current frozen dataset has no manual candidate labels, so
+its new precision/recall/MRR fields are reported as `unmeasured` with explicit
+reasons until the small label pass is completed.
 
 ## 2. What this plan does and does not claim
 
@@ -133,9 +139,9 @@ fixture or configuration before adding MMR.
    channel result crowd out required framework, objective, measurement, or
    content-strategy categories.
 4. Always retain the highest raw semantic candidate when a category has one.
-   Use MMR only for the remaining slots. Start with a documented relevance
-   weight such as `lambda = 0.75`; tune it only through the frozen evaluation
-   set.
+   Use MMR only for the remaining slots. The implementation starts with the
+   documented `lambda = 0.5` balance; tune it only through the frozen
+   evaluation set.
 5. Preserve raw semantic score and existing source-quality data. Add selection
    metadata additively only when the shared contract and API mapping can carry
    it without breaking older consumers.
@@ -197,6 +203,11 @@ The report must state:
 - thresholds and whether each metric passed;
 - known limitations, including that deterministic fixture embeddings are not a
   substitute for a live provider run.
+
+The evaluation runner accepts `--selection-mode semantic` or
+`--selection-mode semantic_mmr`, and its JSON/human report records the chosen
+mode. It never fills missing relevance labels with inferred negatives or
+zeros.
 
 The preferred success rule is no regression in required retrieval recall or
 grounding, plus an observable diversity improvement where duplicate candidates
