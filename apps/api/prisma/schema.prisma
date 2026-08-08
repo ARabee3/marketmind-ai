@@ -1007,6 +1007,7 @@ model StrategyVersion {
   version        Int
   retrievalRunId String?  @map("retrieval_run_id") @db.Uuid
   promptConfig   Json     @default("{}") @map("prompt_config")
+  contractVersion String  @default("strategy-v1") @map("contract_version")
   planData       Json     @map("plan_data")
   createdAt      DateTime @default(now()) @map("created_at")
 

@@ -1,5 +1,49 @@
 import { BadRequestException } from "@nestjs/common";
 import { validatePlanShape } from "./strategy-plan.validator";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const V2_EXAMPLE = JSON.parse(
+  readFileSync(
+    resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "packages",
+      "contracts",
+      "examples",
+      "strategy-plan-v2.example.json",
+    ),
+    "utf8",
+  ),
+);
+
+const V2_BRIEF = JSON.parse(
+  readFileSync(
+    resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "packages",
+      "contracts",
+      "examples",
+      "strategy-brief-v2.example.json",
+    ),
+    "utf8",
+  ),
+);
+
+function v2Choices(): string[] {
+  return (V2_BRIEF.channel_choices ?? []).map(
+    (choice: { channel: string }) => choice.channel,
+  );
+}
 
 function validPlan(): Record<string, unknown> {
   return {
@@ -61,5 +105,53 @@ describe("validatePlanShape", () => {
     plan["citations"] = 42;
 
     expect(() => validatePlanShape(plan)).toThrow(/citations must be an array/);
+  });
+
+  describe("strategy-v2 (#135)", () => {
+    it("accepts the canonical v2 plan when commitments match the brief choices", () => {
+      expect(() =>
+        validatePlanShape(V2_EXAMPLE, v2Choices()),
+      ).not.toThrow();
+    });
+
+    it("rejects a v2 plan whose commitments include an unselected channel", () => {
+      const plan = structuredClone(V2_EXAMPLE);
+      plan.channel_commitments.push({
+        channel: "instagram",
+        role: "supporting",
+        rationale: "x",
+        capability_state: "setup_later",
+      });
+      expect(() => validatePlanShape(plan, v2Choices())).toThrow(
+        /STRATEGY_V2_COMMITMENT_MISMATCH/,
+      );
+    });
+
+    it("rejects a v2 plan missing a commitment for a selected channel", () => {
+      const plan = structuredClone(V2_EXAMPLE);
+      plan.channel_commitments = plan.channel_commitments.filter(
+        (c: { channel: string }) => c.channel !== "tiktok",
+      );
+      expect(() => validatePlanShape(plan, v2Choices())).toThrow(
+        /STRATEGY_V2_COMMITMENT_MISMATCH/,
+      );
+    });
+
+    it("rejects a v2 plan with an unknown handoff format", () => {
+      const plan = structuredClone(V2_EXAMPLE);
+      plan.content_handoff.weeks[0].format = "reels";
+      expect(() => validatePlanShape(plan, v2Choices())).toThrow(
+        /STRATEGY_V2_HANDOFF_FORMAT/,
+      );
+    });
+
+    it("accepts an explicitly unavailable handoff with a machine-readable reason", () => {
+      const plan = structuredClone(V2_EXAMPLE);
+      plan.content_handoff = {
+        available: false,
+        reason: "content_v1_unsupported_channels_only",
+      };
+      expect(() => validatePlanShape(plan, v2Choices())).not.toThrow();
+    });
   });
 });

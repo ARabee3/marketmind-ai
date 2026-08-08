@@ -17,6 +17,26 @@ import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-prov
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 import { StrategyProgressGateway } from "./strategy-progress.gateway";
 
+/**
+ * Extracts the owner-selected channels from a contract brief when it is a
+ * strategy-v2 brief (#135). Returns undefined for v1 briefs so the v2 exact
+ * commitment check is only enforced on v2 plans.
+ */
+function extractBriefChannelChoices(
+  brief: Record<string, unknown>,
+): string[] | undefined {
+  const choices = brief["channel_choices"];
+  if (!Array.isArray(choices)) return undefined;
+  const channels = choices
+    .map((choice) =>
+      choice && typeof choice === "object"
+        ? (choice as { channel?: unknown }).channel
+        : undefined,
+    )
+    .filter((channel): channel is string => typeof channel === "string");
+  return channels.length > 0 ? channels : undefined;
+}
+
 interface GenerateJobData {
   strategyId: string;
   retrievalRunId: string;
@@ -145,7 +165,7 @@ export class StrategyProcessor extends WorkerHost {
 
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
-      validatePlanShape(planData);
+      validatePlanShape(planData, extractBriefChannelChoices(contractBrief));
       assertStrategyValidationPassed(response.data.validation);
 
       this.logger.log(
@@ -432,7 +452,7 @@ export class StrategyProcessor extends WorkerHost {
 
       // Structural validation gate — catches malformed provider responses
       // before persisting an immutable version.
-      validatePlanShape(planData);
+      validatePlanShape(planData, extractBriefChannelChoices(contractBrief));
       assertStrategyValidationPassed(revisionResponse.data.validation);
 
       this.logger.log(

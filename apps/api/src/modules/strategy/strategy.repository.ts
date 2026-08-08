@@ -270,6 +270,13 @@ export class StrategyRepository {
     planData: Prisma.InputJsonValue,
     promptConfig: Prisma.InputJsonValue,
   ): Promise<StrategyVersion> {
+    const contractVersion =
+      typeof planData === "object" &&
+      planData !== null &&
+      !Array.isArray(planData) &&
+      (planData as Record<string, unknown>)["contract_version"] === "strategy-v2"
+        ? "strategy-v2"
+        : "strategy-v1";
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.strategy.findUniqueOrThrow({
         where: { id: strategyId },
@@ -298,6 +305,7 @@ export class StrategyRepository {
           retrievalRunId,
           planData,
           promptConfig,
+          contractVersion,
         },
       });
 

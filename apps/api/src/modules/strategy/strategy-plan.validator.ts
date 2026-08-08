@@ -1,4 +1,8 @@
 import { BadRequestException, Logger } from "@nestjs/common";
+import {
+  isStrategyPlanV2,
+  validateStrategyPlanV2,
+} from "@marketmind/contracts";
 
 const logger = new Logger("StrategyPlanValidator");
 
@@ -33,17 +37,36 @@ const REQUIRED_PLAN_FIELDS = [
  * Validates the structural shape of a plan returned by the FastAPI generation
  * or revision endpoint before it is persisted as an immutable StrategyVersion.
  *
+ * strategy-v2 plans (#135) are validated with the shared deterministic
+ * validator (`validateStrategyPlanV2`): exactly 12 calendar weeks, exact
+ * channel commitments vs the owner's brief choices, and a closed content
+ * handoff. strategy-v1 keeps the structural gate below.
+ *
  * Throws BadRequestException with the list of missing fields so the processor
  * can fail the job with a descriptive, stable error rather than persisting
  * an invalid plan that would break downstream reads.
  */
-export function validatePlanShape(planData: unknown): void {
+export function validatePlanShape(
+  planData: unknown,
+  briefChannelChoices?: string[],
+): void {
   if (!planData || typeof planData !== "object" || Array.isArray(planData)) {
     throw new BadRequestException(
       "AI generation service returned an invalid plan: expected a JSON object",
     );
   }
 
+  if (isStrategyPlanV2(planData)) {
+    const result = validateStrategyPlanV2(planData, briefChannelChoices);
+    if (!result.valid) {
+      const message = `AI generation service returned an invalid strategy-v2 plan: ${result.issues
+        .map((issue) => `${issue.code} (${issue.field}): ${issue.message}`)
+        .join("; ")}`;
+      logger.warn(message);
+      throw new BadRequestException(message);
+    }
+    return;
+  }
   const plan = planData as Record<string, unknown>;
   const missing: string[] = [];
 
