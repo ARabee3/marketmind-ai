@@ -20,8 +20,6 @@ import type {
   ErrorCode,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
-import { getAccessToken } from '@/lib/api/token-store'
-import { API_BASE_URL } from '@/lib/api/config'
 
 export interface ApiError {
   status: number
@@ -126,23 +124,87 @@ export function connectDiscoveryStream(
   sessionId: string,
   onEvent: (event: DiscoveryStreamEvent) => void,
 ): () => void {
-  if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+  if (typeof window === 'undefined') {
     return () => {}
   }
-  const token = getAccessToken()
-  const url = `${API_BASE_URL}/discovery/${sessionId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
-  const es = new EventSource(url, { withCredentials: true })
 
-  es.onmessage = (ev) => {
-    try {
-      const parsed = JSON.parse(ev.data) as DiscoveryStreamEvent
-      onEvent(parsed)
-    } catch {
-      // ignore parse errors
+  const controller = new AbortController()
+  void consumeDiscoveryStream(sessionId, onEvent, controller.signal).catch(
+    () => {
+      // The existing EventSource client exposed no stream error callback. Keep
+      // transport failures contained while status refresh remains authoritative.
+    },
+  )
+
+  return () => controller.abort()
+}
+
+async function consumeDiscoveryStream(
+  sessionId: string,
+  onEvent: (event: DiscoveryStreamEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await apiRequest(`/discovery/${sessionId}/stream`, {
+    headers: { Accept: 'text/event-stream' },
+    signal,
+  })
+
+  if (!response.ok || !response.body) return
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (!signal.aborted) {
+      const { value, done } = await reader.read()
+      if (value) buffer += decoder.decode(value, { stream: !done })
+
+      if (done) {
+        buffer += decoder.decode()
+        buffer = dispatchCompleteSseEvents(buffer, onEvent)
+        dispatchSseEvent(buffer, onEvent)
+        return
+      }
+
+      buffer = dispatchCompleteSseEvents(buffer, onEvent)
     }
+  } finally {
+    reader.releaseLock()
   }
+}
 
-  return () => {
-    es.close()
+function dispatchCompleteSseEvents(
+  buffer: string,
+  onEvent: (event: DiscoveryStreamEvent) => void,
+): string {
+  let remaining = buffer
+
+  while (true) {
+    const separator = /\r?\n\r?\n/.exec(remaining)
+    if (!separator || separator.index === undefined) return remaining
+
+    const rawEvent = remaining.slice(0, separator.index)
+    remaining = remaining.slice(separator.index + separator[0].length)
+    dispatchSseEvent(rawEvent, onEvent)
+  }
+}
+
+function dispatchSseEvent(
+  rawEvent: string,
+  onEvent: (event: DiscoveryStreamEvent) => void,
+): void {
+  const data = rawEvent
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice('data:'.length).trimStart())
+    .join('\n')
+
+  if (!data) return
+
+  try {
+    onEvent(JSON.parse(data) as DiscoveryStreamEvent)
+  } catch {
+    // Ignore malformed or non-JSON SSE payloads.
   }
 }
