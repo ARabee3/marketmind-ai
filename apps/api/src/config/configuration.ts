@@ -133,6 +133,59 @@ export const configuration = () => ({
     exportStoreDir:
       process.env.PUBLISHING_EXPORT_STORE_DIR ||
       path.resolve(process.cwd(), ".publishing-exports"),
+    // ── Issue #175 credential vault ─────────────────────────────────────
+    // AES-256-GCM encryption key for per-business provider credentials
+    // (32 bytes, hex). Deployment secret — never a customer Page token.
+    vaultKey: process.env.PUBLISHING_VAULT_KEY || "",
+    // Version tag written on every encrypted record (rotation seam).
+    vaultKeyVersion: process.env.PUBLISHING_VAULT_KEY_VERSION || "v1",
+    // Previously active key versions (JSON map version → hex key) accepted for
+    // decryption only — used by the rotation script to re-encrypt records.
+    vaultPreviousKeys: process.env.PUBLISHING_VAULT_PREVIOUS_KEYS || "{}",
+    // HMAC secret signing short-lived provider-fetch URLs for Instagram media.
+    // Deployment secret; fail-closed when empty and an IG publish is attempted.
+    mediaFetchSecret: process.env.PUBLISHING_MEDIA_FETCH_SECRET || "",
+    // Publicly reachable base URL Meta's Graph API can fetch media from
+    // (registered HTTPS host in production). Defaults to the callback base for
+    // local development.
+    mediaFetchBaseUrl:
+      process.env.PUBLISHING_MEDIA_FETCH_BASE_URL ||
+      process.env.PUBLISHING_CALLBACK_BASE_URL ||
+      "http://localhost:3001",
+    // Short-lived provider-fetch URL window (ms).
+    mediaFetchTtlMs: parseInt(
+      process.env.PUBLISHING_MEDIA_FETCH_TTL_MS || "900000",
+      10,
+    ),
+    // One-time OAuth state lifetime (ms).
+    metaOAuthStateTtlMs: parseInt(
+      process.env.PUBLISHING_META_OAUTH_STATE_TTL_MS || "600000",
+      10,
+    ),
+    // Origin the API-owned Meta callback redirects the browser back to after
+    // the OAuth round trip (issue #175). Never carries tokens — only a
+    // connection result id or sanitized result code.
+    webBaseUrl:
+      process.env.PUBLISHING_WEB_BASE_URL ||
+      process.env.WEB_ORIGIN ||
+      "http://localhost:3000",
+  },
+
+  meta: {
+    // MarketMind Meta app configuration — STATIC deployment secrets. Never a
+    // per-business Page token (issue #175).
+    appId: process.env.META_APP_ID || "",
+    appSecret: process.env.META_APP_SECRET || "",
+    // Registered HTTPS redirect URI for the API-owned GET callback.
+    redirectUri: process.env.META_REDIRECT_URI || "",
+    graphBaseUrl:
+      process.env.META_GRAPH_BASE_URL || "https://graph.facebook.com",
+    graphVersion: process.env.META_GRAPH_VERSION || "v21.0",
+    // Bounded Graph API timeout for server-side calls (ms).
+    requestTimeoutMs: parseInt(
+      process.env.META_REQUEST_TIMEOUT_MS || "15000",
+      10,
+    ),
   },
 
   billing: {

@@ -129,7 +129,7 @@ model Business {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  ownerUser               User                     @relation(fields: [ownerUserId], references: [id])
+  ownerUser               User                           @relation(fields: [ownerUserId], references: [id])
   discoverySessions       DiscoverySession[]
   socialLinks             SocialLink[]
   businessProfileDrafts   BusinessProfileDraft[]
@@ -140,6 +140,10 @@ model Business {
   publicationCandidates   PublicationCandidate[]
   orchestrationRuns       OrchestrationRun[]
   billingAccounts         BillingAccount[]
+  publishingCredentials   PublishingCredential[]
+  providerConnections     PublishingProviderConnection[]
+  connectionAudits        PublishingConnectionAudit[]
+  metaOAuthStates         MetaOAuthState[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -632,30 +636,30 @@ model AgentRun {
 // this pair only records the run envelope, checkpoint references, and a
 // sanitized ordered event stream owned by the orchestration boundary.
 model OrchestrationRun {
-  id                    String   @id @default(uuid()) @db.Uuid
-  businessId            String   @map("business_id") @db.Uuid
-  ownerUserId           String   @map("owner_user_id") @db.Uuid
-  contractVersion       String   @map("contract_version")
-  graphName             String   @map("graph_name")
-  graphVersion          String   @map("graph_version")
-  status                String
-  currentRole           String?  @map("current_role")
-  currentStage          String   @map("current_stage")
-  featureCohort         String   @map("feature_cohort")
-  checkpointThreadId    String   @unique @map("checkpoint_thread_id")
-  checkpointVersion     Int?     @map("checkpoint_version")
-  immutableInputRefs    Json     @default("{}") @map("immutable_input_refs")
-  outputRefs            Json     @default("{}") @map("output_refs")
-  bounds                Json     @default("{}")
-  correlationId         String   @map("correlation_id")
-  idempotencyKey        String   @map("idempotency_key")
-  idempotencyFingerprint String  @map("idempotency_fingerprint")
-  terminalError         Json?    @map("terminal_error")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                     String   @id @default(uuid()) @db.Uuid
+  businessId             String   @map("business_id") @db.Uuid
+  ownerUserId            String   @map("owner_user_id") @db.Uuid
+  contractVersion        String   @map("contract_version")
+  graphName              String   @map("graph_name")
+  graphVersion           String   @map("graph_version")
+  status                 String
+  currentRole            String?  @map("current_role")
+  currentStage           String   @map("current_stage")
+  featureCohort          String   @map("feature_cohort")
+  checkpointThreadId     String   @unique @map("checkpoint_thread_id")
+  checkpointVersion      Int?     @map("checkpoint_version")
+  immutableInputRefs     Json     @default("{}") @map("immutable_input_refs")
+  outputRefs             Json     @default("{}") @map("output_refs")
+  bounds                 Json     @default("{}")
+  correlationId          String   @map("correlation_id")
+  idempotencyKey         String   @map("idempotency_key")
+  idempotencyFingerprint String   @map("idempotency_fingerprint")
+  terminalError          Json?    @map("terminal_error")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  business  Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  ownerUser User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  business  Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  ownerUser User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   events    OrchestrationEvent[]
 
   @@unique([ownerUserId, idempotencyKey])
@@ -665,19 +669,19 @@ model OrchestrationRun {
 }
 
 model OrchestrationEvent {
-  id             String   @id @default(uuid()) @db.Uuid
-  runId          String   @map("run_id") @db.Uuid
-  seq            Int
-  contractVersion String  @map("contract_version")
-  eventType      String   @map("event_type")
-  status         String
-  currentRole    String?  @map("current_role")
-  currentStage   String   @map("current_stage")
-  node           String?
-  tool           String?
-  summary        String
-  payload        Json     @default("{}")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid()) @db.Uuid
+  runId           String   @map("run_id") @db.Uuid
+  seq             Int
+  contractVersion String   @map("contract_version")
+  eventType       String   @map("event_type")
+  status          String
+  currentRole     String?  @map("current_role")
+  currentStage    String   @map("current_stage")
+  node            String?
+  tool            String?
+  summary         String
+  payload         Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   run OrchestrationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
@@ -1495,7 +1499,7 @@ model PublishingCandidate {
 }
 
 /// A connected social publishing target (Facebook Page, Instagram account).
-/// credentialRef is an opaque pointer into the secret store — never the token.
+/// credentialRef is an opaque pointer into the credential vault — never the token.
 model PublishingTarget {
   id                String                          @id @default(uuid()) @db.Uuid
   businessId        String                          @map("business_id") @db.Uuid
@@ -1504,7 +1508,9 @@ model PublishingTarget {
   externalAccountId String                          @map("external_account_id")
   displayName       String                          @map("display_name")
   connectionState   PublishingTargetConnectionState @default(CONNECTED) @map("connection_state")
-  /// Opaque pointer to secret store — NEVER the raw token value
+  /// Opaque pointer to the credential vault (PublishingCredential.id) — NEVER
+  /// the raw token value. Issue #175: no env / fixture / seed path may stand in
+  /// for a vault record on a real dispatch path.
   credentialRef     String                          @map("credential_ref")
   /// JSON array of capability strings, e.g. ["static_image"]
   capabilities      Json                            @default("[]")
@@ -1514,10 +1520,136 @@ model PublishingTarget {
   createdAt         DateTime                        @default(now()) @map("created_at")
   updatedAt         DateTime                        @updatedAt @map("updated_at")
 
+  /// Provider connection that produced this target (issue #175). The same
+  /// Page can back a facebook target and its linked instagram target.
+  connectionId String?                       @map("connection_id") @db.Uuid
+  connection   PublishingProviderConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
   intents PublishingIntent[]
 
+  /// Issue #175: the same provider/channel/external account cannot be
+  /// connected twice for one business.
+  @@unique([businessId, provider, channel, externalAccountId])
   @@index([businessId, connectionState])
   @@map("publishing_targets")
+}
+
+enum PublishingConnectionState {
+  /// Authorized at Meta, but the owner has not finished selecting a Page yet.
+  PENDING_SELECTION
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+/// Encrypted credential vault record (issue #175). Stores ONLY ciphertext +
+/// key version + non-secret provider identity/expiry/audit metadata. Referenced
+/// opaquely by PublishingTarget.credentialRef; the raw token is never stored
+/// in a target row, seed data, fixtures, env, logs, or n8n execution data.
+model PublishingCredential {
+  id                String                   @id @default(uuid()) @db.Uuid
+  businessId        String                   @map("business_id") @db.Uuid
+  provider          PublishingTargetProvider
+  /// "user" (long-lived authorizing user token) | "page" | "instagram"
+  kind              String
+  /// Encryption key version that produced `ciphertext` (rotation seam).
+  keyVersion        String                   @map("key_version")
+  /// base64(iv).base64(authTag).base64(ciphertext) — AES-256-GCM.
+  ciphertext        String                   @db.Text
+  /// Non-secret provider identity metadata (never tokens).
+  providerUserId    String?                  @map("provider_user_id")
+  providerAccountId String?                  @map("provider_account_id")
+  expiresAt         DateTime?                @map("expires_at")
+  revokedAt         DateTime?                @map("revoked_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([providerAccountId])
+  @@map("publishing_credentials")
+}
+
+/// A Meta (Facebook/Instagram) provider connection scoped to businessId and the
+/// authorizing owner. One connection per linked Page; facebook and instagram
+/// targets derived from the same Page share this row. Issue #175.
+model PublishingProviderConnection {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  businessId          String                    @map("business_id") @db.Uuid
+  userId              String                    @map("user_id") @db.Uuid
+  provider            PublishingTargetProvider
+  /// Facebook user id of the authorizing owner at Meta.
+  providerIdentity    String                    @map("provider_identity")
+  displayName         String                    @map("display_name")
+  /// Facebook Page id backing this connection.
+  externalAccountId   String                    @map("external_account_id")
+  state               PublishingConnectionState @default(PENDING_SELECTION) @map("state")
+  /// "facebook" | "instagram" — the channel intent the owner started with.
+  requestedChannel    String?                   @map("requested_channel")
+  requestedCapability String                    @default("static_image") @map("requested_capability")
+  locale              String?
+  returnPath          String?                   @map("return_path")
+  /// Browser fingerprint bound at connect time; selection must match it.
+  fingerprint         String?
+  /// Vault ref to the long-lived authorizing user token (kind "user").
+  userCredentialRef   String?                   @map("user_credential_ref") @db.Uuid
+  expiresAt           DateTime?                 @map("expires_at")
+  version             Int                       @default(1)
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+
+  business Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  targets  PublishingTarget[]
+
+  /// Issue #175: one provider connection per business per external account.
+  @@unique([businessId, provider, externalAccountId])
+  @@index([businessId, state])
+  @@map("publishing_provider_connections")
+}
+
+/// Non-sensitive connection lifecycle audit trail (issue #175). Never stores
+/// tokens, codes, ciphertext, or credential references.
+model PublishingConnectionAudit {
+  id           String   @id @default(uuid()) @db.Uuid
+  businessId   String   @map("business_id") @db.Uuid
+  connectionId String?  @map("connection_id") @db.Uuid
+  targetId     String?  @map("target_id") @db.Uuid
+  actorUserId  String   @map("actor_user_id") @db.Uuid
+  /// CONNECTED | SELECTED | VERIFIED | DISCONNECTED | REVOKED | EXPIRED | ERROR
+  action       String
+  /// Non-sensitive detail (channel, blocker code, result code) only.
+  detail       Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("publishing_connection_audit")
+}
+
+/// One-time, short-lived, single-use OAuth state for the Meta connection
+/// journey (issue #175). Only the SHA-256 hash of the state is stored; the raw
+/// state travels to Meta in the authorization URL and is consumed atomically.
+model MetaOAuthState {
+  id                  String    @id @default(uuid()) @db.Uuid
+  stateHash           String    @unique @map("state_hash")
+  userId              String    @map("user_id") @db.Uuid
+  businessId          String    @map("business_id") @db.Uuid
+  locale              String?
+  returnPath          String?   @map("return_path")
+  requestedChannel    String?   @map("requested_channel")
+  requestedCapability String    @default("static_image") @map("requested_capability")
+  fingerprint         String?
+  expiresAt           DateTime  @map("expires_at")
+  consumedAt          DateTime? @map("consumed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  business            Business  @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@index([expiresAt])
+  @@map("meta_oauth_states")
 }
 
 /// One intent = the owner's plan for one candidate on one target.
