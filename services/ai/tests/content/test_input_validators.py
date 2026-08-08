@@ -176,6 +176,38 @@ def test_v2_plan_accepts_every_handoff_week() -> None:
     for week_number in range(1, 13):
         request = make_valid_v2_request()
         context = request.week_context.model_copy(update={"week_number": week_number})
-        request = request.model_copy(update={"week_context": context})
+        handoff = request.strategy_plan.content_handoff
+        week_formats = next(
+            week.formats for week in handoff.weeks if week.week_number == week_number
+        )
+        request = request.model_copy(
+            update={
+                "week_context": context,
+                "allowed_formats": week_formats,
+            }
+        )
         result = validate_content_generation_request(request)
         assert result.valid, f"week {week_number} failed: {result.issues}"
+
+
+def test_v2_plan_rejects_formats_outside_handoff_week() -> None:
+    request = make_valid_v2_request()
+    request = request.model_copy(update={"allowed_formats": ["text_post"]})
+    result = validate_content_generation_request(request)
+    assert not result.valid
+    assert any(
+        issue.code == "CONTENT_SCHEMA_FAILURE"
+        and issue.field == "allowed_formats"
+        for issue in result.issues
+    )
+
+
+def test_v2_plan_accepts_exact_handoff_week_formats() -> None:
+    request = make_valid_v2_request()
+    request = request.model_copy(
+        update={
+            "allowed_formats": make_valid_v2_request().strategy_plan.content_handoff.weeks[1].formats
+        }
+    )
+    result = validate_content_generation_request(request)
+    assert result.valid, result.issues

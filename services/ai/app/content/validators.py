@@ -204,6 +204,32 @@ def validate_content_generation_request(
             )
         )
 
+    # Owner-first v2 plans: generation formats must exactly match the week's
+    # deterministic content handoff projection (issue #135).
+    if (
+        _strategy_plan_is_v2(request)
+        and plan.content_handoff.available
+        and 1 <= context.week_number <= 12
+    ):
+        handoff_week = next(
+            (
+                week
+                for week in plan.content_handoff.weeks
+                if week.week_number == context.week_number
+            ),
+            None,
+        )
+        if handoff_week is not None and list(request.allowed_formats) != list(
+            handoff_week.formats
+        ):
+            issues.append(
+                _issue(
+                    "CONTENT_SCHEMA_FAILURE",
+                    "allowed_formats",
+                    "Generation formats must exactly match the approved Strategy week's content handoff.",
+                )
+            )
+
     # Owner-first v2 plans carry no free-text cadence; the 3-5 item boundary
     # below still applies to every pack.
     if _strategy_plan_is_v2(request):

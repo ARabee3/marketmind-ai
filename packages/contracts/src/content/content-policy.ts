@@ -14,6 +14,7 @@ import { isStrategyPlanV2 } from "../strategy/strategy-v2";
 import type {
   ContentChannel,
   ContentErrorCode,
+  ContentFormat,
   ContentValidationIssue,
   ContentValidationResult,
   IsoDateTime,
@@ -573,7 +574,35 @@ export function validateInternalContentGenerateRequest(
       "week_context.week_number",
       "Generation week must exist in the approved Strategy roadmap.",
     );
+  } else if (
+    planV2 &&
+    planV2.content_handoff.available === true &&
+    !formatsMatchExactly(
+      request.allowed_formats,
+      planV2.content_handoff.weeks.find(
+        (week) => week.week_number === request.week_context.week_number,
+      )?.formats ?? [],
+    )
+  ) {
+    // The content handoff is the deterministic weekly projection; generation
+    // must not add, drop, or reorder formats for that week (issue #135).
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "allowed_formats",
+      "Generation formats must exactly match the approved Strategy week's content handoff.",
+    );
   }
 
   return { valid: issues.length === 0, issues };
+}
+
+function formatsMatchExactly(
+  actual: readonly ContentFormat[],
+  expected: readonly ContentFormat[],
+): boolean {
+  return (
+    actual.length === expected.length &&
+    actual.every((format, index) => format === expected[index])
+  );
 }

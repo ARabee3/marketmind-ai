@@ -353,13 +353,18 @@ assert.deepEqual(
 const v2Plan = await load("strategy-plan-v2.example.json");
 const v2Handoff = v2Plan.content_handoff;
 assert(v2Handoff.available === true, "v2 example handoff must be usable");
+// The safe-default week context is week 2; the handoff must match that week.
+const v2Week = v2Handoff.weeks.find(
+  (week) => week.week_number === generateRequest.week_context.week_number,
+);
+assert(v2Week, "v2 handoff must contain the requested generation week");
 const v2GenerateRequest = {
   ...generateRequest,
   strategy_id: v2Plan.strategy_id,
   strategy_version: v2Plan.version,
   strategy_plan: v2Plan,
   selected_channels: v2Handoff.channels,
-  allowed_formats: v2Handoff.weeks[0].formats,
+  allowed_formats: v2Week.formats,
   language_mode: v2Handoff.language,
 } as InternalContentGenerateRequest;
 assert.deepEqual(
@@ -376,6 +381,18 @@ assert(
     (issue) => issue.code === "CONTENT_CHANNEL_MISMATCH",
   ),
   "v2 handoff channels must bound the generation envelope",
+);
+const v2RejectedFormats = {
+  ...v2GenerateRequest,
+  allowed_formats: ["text_post"],
+} as InternalContentGenerateRequest;
+assert(
+  validateInternalContentGenerateRequest(v2RejectedFormats).issues.some(
+    (issue) =>
+      issue.code === "CONTENT_SCHEMA_FAILURE" &&
+      issue.field === "allowed_formats",
+  ),
+  "generation formats must exactly match the v2 handoff week",
 );
 
 const staleGenerateRequest = {
