@@ -18,7 +18,7 @@ export function GoogleAuthButton({ showDivider = true }: { showDivider?: boolean
         className={cn(
           buttonVariants({ variant: 'outline' }),
           authStyles.outlineButton,
-          'h-12 gap-3 border-border bg-white text-base font-semibold text-navy hover:bg-white hover:text-navy hover:-translate-y-px hover:border-primary/40 active:translate-y-px focus-visible:ring-action',
+          'h-12 gap-3 border-border bg-white text-base font-semibold text-navy transition-all hover:border-primary/50 hover:bg-slate-50 active:translate-y-px focus-visible:ring-action',
         )}
       >
         <GoogleLogo />

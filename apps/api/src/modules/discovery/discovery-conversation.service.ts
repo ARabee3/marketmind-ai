@@ -34,6 +34,8 @@ import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { MAX_DISCOVERY_OWNER_TURNS } from "./market-profile";
 import { metadataForSuggestedAnswers } from "./discovery-suggested-answers";
 
+import { DiscoveryStreamService } from "./discovery-stream.service";
+
 const CONVERSATION_STATUSES: readonly DiscoverySessionStatus[] = [
   "partial_ready",
   "ready_for_chat",
@@ -48,6 +50,7 @@ export class DiscoveryConversationService {
     private readonly conversationRepository: DiscoveryConversationRepository,
     private readonly aiDiscoveryClient: AiDiscoveryClient,
     private readonly readinessService: DiscoveryReadinessService,
+    private readonly streamService?: DiscoveryStreamService,
   ) {}
 
   async respondToDiscovery(
@@ -55,6 +58,11 @@ export class DiscoveryConversationService {
     sessionId: string,
     dto: DiscoveryRespondDto,
   ): Promise<DiscoveryRespondResponse> {
+    this.streamService?.emitEvent(sessionId, {
+      type: "thinking",
+      session_id: sessionId,
+    });
+
     const session = await this.discoveryRepository.findSessionForOwner(
       ownerUserId,
       sessionId,
@@ -72,20 +80,54 @@ export class DiscoveryConversationService {
         source: "chat",
       },
     );
-    const result = await this.aiDiscoveryClient.respond(
-      sessionId,
-      languageMode,
-      intake,
-      session.intelligence,
-      messages,
-      ownerMessage,
-    );
+
+    let result;
+    try {
+      result = await this.aiDiscoveryClient.respond(
+        sessionId,
+        languageMode,
+        intake,
+        session.intelligence,
+        messages,
+        ownerMessage,
+      );
+    } catch (err: unknown) {
+      this.streamService?.emitEvent(sessionId, {
+        type: "error",
+        session_id: sessionId,
+        error: (err as Error).message ?? "AI response failed",
+      });
+      throw err;
+    }
+
     if (result.safe_error) {
+      this.streamService?.emitEvent(sessionId, {
+        type: "error",
+        session_id: sessionId,
+        error: result.safe_error.message,
+      });
       throw new ProviderError(
         result.safe_error.code,
         result.safe_error.message,
         result.safe_error.retryable,
       );
+    }
+
+    if (result.next_question) {
+      const nextQ = result.next_question;
+      const chunkSize = 15;
+      for (let i = 0; i < nextQ.length; i += chunkSize) {
+        this.streamService?.emitEvent(sessionId, {
+          type: "token",
+          session_id: sessionId,
+          delta: nextQ.slice(i, i + chunkSize),
+        });
+      }
+      this.streamService?.emitEvent(sessionId, {
+        type: "done",
+        session_id: sessionId,
+        full_text: nextQ,
+      });
     }
 
     const ownerTurnCount = session.ownerTurnCount + 1;

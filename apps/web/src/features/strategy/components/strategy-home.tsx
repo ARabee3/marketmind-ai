@@ -125,7 +125,7 @@ export function StrategyHome() {
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{t('home.subtitle')}</p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Link href="/strategy/new" className={buttonVariants({ size: 'lg', className: 'shadow-tactile' })}>
+                <Link href="/strategy/new" className={buttonVariants({ size: 'lg', className: 'shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all' })}>
                   {t('home.start')}
                 </Link>
               </div>

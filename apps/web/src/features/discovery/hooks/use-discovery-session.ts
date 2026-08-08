@@ -24,6 +24,7 @@ import {
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
+  connectDiscoveryStream,
   type ApiError,
 } from '@/lib/api/discovery'
 import { getApiErrorTranslationKey } from '@/features/discovery/lib/api-error-localization'
@@ -42,6 +43,8 @@ export interface DiscoverySessionState {
   status: DiscoveryStatusResponse | null
   phase: SessionPhase
   pending: boolean
+  isThinking: boolean
+  streamingText: string
   error: string | null
   errorTranslationKey: TranslationKey | null
 }
@@ -70,6 +73,8 @@ export function useDiscoverySession({ sessionId }: Options) {
     status: null,
     phase: 'loading',
     pending: false,
+    isThinking: false,
+    streamingText: '',
     error: null,
     errorTranslationKey: null,
   })
@@ -104,6 +109,8 @@ export function useDiscoverySession({ sessionId }: Options) {
           status: res,
           phase: getPhaseFromStatus(res.status),
           pending: pendingRef.current,
+          isThinking: false,
+          streamingText: '',
           error: null,
           errorTranslationKey: null,
         })
@@ -151,13 +158,39 @@ export function useDiscoverySession({ sessionId }: Options) {
     }
   }, [loadStatus])
 
+  // Connect SSE event stream during interview phase
+  useEffect(() => {
+    if (!sessionId || state.phase !== 'interview') return
+    const cleanup = connectDiscoveryStream(sessionId, (event) => {
+      if (!mountedRef.current) return
+      if (event.type === 'thinking') {
+        setState((prev) => ({ ...prev, isThinking: true, streamingText: '' }))
+      } else if (event.type === 'token') {
+        setState((prev) => ({
+          ...prev,
+          isThinking: false,
+          streamingText: prev.streamingText + event.delta,
+        }))
+      } else if (event.type === 'done') {
+        setState((prev) => ({ ...prev, isThinking: false, streamingText: '' }))
+      }
+    })
+    return cleanup
+  }, [sessionId, state.phase])
+
   const respond = useCallback(
     async (message: string): Promise<{ accepted: boolean }> => {
       if (pendingRef.current) return { accepted: false }
       if (message.trim().length === 0) return { accepted: false }
 
       setPending(true)
-      setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
+      setState((prev) => ({
+        ...prev,
+        isThinking: true,
+        streamingText: '',
+        error: null,
+        errorTranslationKey: null,
+      }))
 
       // Capture pre-submit owner message fingerprint for recovery comparison
       const preOwnerIds = new Set(state.status?.messages?.filter((m) => m.role === 'owner').map((m) => m.id) ?? [])
@@ -179,6 +212,8 @@ export function useDiscoverySession({ sessionId }: Options) {
           setState((prev) => ({
             ...prev,
             pending: false,
+            isThinking: false,
+            streamingText: '',
             error: apiErr.message || 'respond failed',
             errorTranslationKey: getApiErrorTranslationKey(apiErr),
           }))
@@ -187,6 +222,7 @@ export function useDiscoverySession({ sessionId }: Options) {
         }
 
         // Owner message was persisted despite the POST error response; treat as accepted
+        setState((prev) => ({ ...prev, isThinking: false, streamingText: '' }))
         setPending(false)
         return { accepted: true }
       }
@@ -195,6 +231,7 @@ export function useDiscoverySession({ sessionId }: Options) {
       await loadStatus()
       if (!mountedRef.current) return { accepted: false }
 
+      setState((prev) => ({ ...prev, isThinking: false, streamingText: '' }))
       setPending(false)
       return { accepted: true }
     },

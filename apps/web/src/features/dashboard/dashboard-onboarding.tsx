@@ -59,7 +59,7 @@ export function DashboardOnboarding({ userId }: { readonly userId: string | null
 
   return (
     <>
-      <Button type="button" size="lg" className="shadow-tactile" onClick={replay}>
+      <Button type="button" size="lg" className="shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all" onClick={replay}>
         {t('replay')}
       </Button>
 

@@ -70,6 +70,8 @@ export function ConversationPanel({
   currentQuestion,
   suggestedAnswers,
   pending,
+  isThinking,
+  streamingText,
   error,
   errorTranslationKey,
   onSubmit,
@@ -81,6 +83,8 @@ export function ConversationPanel({
   currentQuestion?: string
   suggestedAnswers?: readonly string[]
   pending: boolean
+  isThinking?: boolean
+  streamingText?: string
   error: string | null
   errorTranslationKey: TranslationKey | null
   onSubmit: (message: string) => Promise<{ accepted: boolean }> | { accepted: boolean }
@@ -195,7 +199,30 @@ export function ConversationPanel({
               label={t('assistantLabel')}
             />
           )}
-          {messages.length === 0 && !currentQuestion && (
+          {(pending || isThinking || (streamingText && streamingText.length > 0)) && (
+            <div
+              className="flex justify-start"
+              data-testid="thinking-indicator"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm min-w-0 bg-muted text-foreground rounded-ss-none flex items-center gap-2">
+                <span className="sr-only">{t('assistantThinking')}</span>
+                {streamingText ? (
+                  <p className="whitespace-pre-wrap break-words" dir="auto">
+                    <bdi>{streamingText}</bdi>
+                  </p>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 py-1" aria-hidden="true">
+                    <span className="size-2 rounded-full bg-primary/70 animate-bounce motion-reduce:animate-none" style={{ animationDelay: '0ms' }} />
+                    <span className="size-2 rounded-full bg-primary/70 animate-bounce motion-reduce:animate-none" style={{ animationDelay: '150ms' }} />
+                    <span className="size-2 rounded-full bg-primary/70 animate-bounce motion-reduce:animate-none" style={{ animationDelay: '300ms' }} />
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {messages.length === 0 && !currentQuestion && !pending && !isThinking && (!streamingText || streamingText.length === 0) && (
             <p className="text-sm text-muted-foreground italic text-center py-8">
               {t('emptyConversation')}
             </p>

@@ -14,6 +14,7 @@ vi.mock('@/lib/api/discovery', () => ({
   respondToDiscovery: vi.fn(),
   summarizeDiscovery: vi.fn(),
   confirmDiscoveryProfile: vi.fn(),
+  connectDiscoveryStream: vi.fn(() => () => {}),
 }))
 
 function makeStatus(overrides: Partial<DiscoveryStatusResponse> = {}): DiscoveryStatusResponse {

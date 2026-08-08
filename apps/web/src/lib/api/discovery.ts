@@ -16,9 +16,12 @@ import type {
   ConfirmProfileRequest,
   ConfirmProfileResponse,
   DiscoveryTranscriptionResponse,
+  DiscoveryStreamEvent,
   ErrorCode,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
+import { getAccessToken } from '@/lib/api/token-store'
+import { API_BASE_URL } from '@/lib/api/config'
 
 export interface ApiError {
   status: number
@@ -116,4 +119,30 @@ export function transcribeDiscoveryVoiceNote(
       body: formData,
     },
   )
+}
+
+/** Connect SSE stream for progressive question presentation */
+export function connectDiscoveryStream(
+  sessionId: string,
+  onEvent: (event: DiscoveryStreamEvent) => void,
+): () => void {
+  if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+    return () => {}
+  }
+  const token = getAccessToken()
+  const url = `${API_BASE_URL}/discovery/${sessionId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
+  const es = new EventSource(url, { withCredentials: true })
+
+  es.onmessage = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.data) as DiscoveryStreamEvent
+      onEvent(parsed)
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  return () => {
+    es.close()
+  }
 }

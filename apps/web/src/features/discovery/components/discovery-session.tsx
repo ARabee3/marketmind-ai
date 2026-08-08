@@ -256,7 +256,7 @@ export function DiscoverySession({
       </div>
 
       {/* Main layout */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row items-start gap-4">
         {/* Conversation */}
         <div className="flex-1 min-w-0">
           <ConversationPanel
@@ -265,6 +265,8 @@ export function DiscoverySession({
             currentQuestion={status.current_question}
             suggestedAnswers={status.current_suggested_answers}
             pending={pending}
+            isThinking={session.isThinking}
+            streamingText={session.streamingText}
             error={session.error}
             errorTranslationKey={session.errorTranslationKey}
             onSubmit={session.respond}
@@ -291,7 +293,7 @@ export function DiscoverySession({
         </div>
 
         {/* Readiness ledger (desktop) */}
-        <div className="hidden md:block w-80 shrink-0">
+        <div className="hidden md:block w-80 shrink-0 sticky top-24 self-start">
           <ReadinessLedger
             readiness={readiness}
             uncertainties={uncertainties}

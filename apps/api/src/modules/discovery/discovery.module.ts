@@ -36,6 +36,8 @@ import { SerpApiSearchProvider } from "./intelligence/serpapi-search.provider";
 import { SocialEnrichmentService } from "./intelligence/social-enrichment.service";
 import { SourceEnrichmentService } from "./intelligence/source-enrichment.service";
 
+import { DiscoveryStreamService } from "./discovery-stream.service";
+
 @Module({
   imports: [JwtModule.register({}), DiscoveryQueueModule],
   controllers: [DiscoveryController],
@@ -48,6 +50,7 @@ import { SourceEnrichmentService } from "./intelligence/source-enrichment.servic
     DiscoveryRedisLimiterService,
     DiscoveryReadinessService,
     DiscoveryService,
+    DiscoveryStreamService,
     DiscoveryQueueWorker,
     DiscoveryResearchProcessor,
     DiscoveryProgressGateway,
@@ -74,6 +77,6 @@ import { SourceEnrichmentService } from "./intelligence/source-enrichment.servic
     DuckDuckGoSearchProvider,
     SearchClientService,
   ],
-  exports: [DiscoveryService],
+  exports: [DiscoveryService, DiscoveryStreamService],
 })
 export class DiscoveryModule {}

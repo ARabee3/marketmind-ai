@@ -153,6 +153,43 @@ function AuthSection() {
   );
 }
 
+export function getInitials(name?: string | null): string {
+  if (!name || !name.trim()) return "MM";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export function BrandLogoMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "grid size-10 shrink-0 place-items-center rounded-lg border-2 border-navy bg-primary text-primary-foreground shadow-tactile",
+        className,
+      )}
+    >
+      <svg
+        className="size-5.5 text-primary-foreground"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          d="M4 18V6L12 13L20 6V18"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="12" cy="5" r="1.75" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
 function DesktopSidebar({
   brandName,
   collapsed,
@@ -164,6 +201,9 @@ function DesktopSidebar({
 }) {
   const t = useTranslations("Common");
   const pathname = usePathname();
+  const { user, isAuthenticated } = useSession();
+  const userInitials = getInitials(user?.fullName);
+  const userName = user?.fullName || user?.email || t("guestUser");
 
   return (
     <aside
@@ -186,9 +226,7 @@ function DesktopSidebar({
           )}
           aria-label={brandName}
         >
-          <span className="grid size-11 shrink-0 place-items-center rounded-lg border-2 border-navy bg-primary text-base font-bold text-primary-foreground shadow-tactile">
-            M
-          </span>
+          <BrandLogoMark />
           <span className={cn("min-w-0", collapsed && "sr-only")}>
             <span className="block truncate text-base font-bold tracking-tight">
               {brandName}
@@ -245,21 +283,28 @@ function DesktopSidebar({
       <div className="px-4 py-4">
         <div
           className={cn(
-            "rounded-lg border border-border bg-background p-3",
-            collapsed && "grid place-items-center p-2",
+            "flex items-center gap-3 rounded-lg border border-border bg-background p-2.5 shadow-xs transition-colors",
+            collapsed && "justify-center p-2",
           )}
+          title={collapsed ? userName : undefined}
         >
-          <span className="inline-flex size-9 items-center justify-center rounded-full bg-soft-teal text-sm font-bold text-primary">
-            MM
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-soft-teal text-xs font-bold text-primary ring-1 ring-primary/20">
+            {userInitials}
           </span>
-          <p
-            className={cn(
-              "mt-2 text-xs leading-5 text-muted-foreground",
-              collapsed && "sr-only",
+          <div className={cn("min-w-0 flex-1", collapsed && "sr-only")}>
+            <p className="truncate text-xs font-bold text-foreground">
+              {userName}
+            </p>
+            {user?.email && user.fullName ? (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {user.email}
+              </p>
+            ) : (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {isAuthenticated ? t("signedInAs") : t("guestUser")}
+              </p>
             )}
-          >
-            {t("ownerControlHint")}
-          </p>
+          </div>
         </div>
       </div>
     </aside>

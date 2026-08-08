@@ -5,16 +5,19 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  MessageEvent,
   Param,
   ParseUUIDPipe,
   Post,
   Req,
+  Sse,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Request } from "express";
+import { Observable } from "rxjs";
 import { DiscoveryTranscriptionResponse } from "@marketmind/contracts";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
@@ -24,6 +27,7 @@ import { PERMISSIONS } from "../rbac/rbac.constants";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryStreamService } from "./discovery-stream.service";
 import { DiscoveryVoiceTranscriptionService } from "./discovery-voice-transcription.service";
 import {
   ConfirmProfileDto,
@@ -56,6 +60,7 @@ export class DiscoveryController {
     private readonly discoveryService: DiscoveryService,
     private readonly conversationService: DiscoveryConversationService,
     private readonly voiceTranscriptionService: DiscoveryVoiceTranscriptionService,
+    private readonly streamService: DiscoveryStreamService,
   ) {}
 
   @Post("start")
@@ -74,6 +79,14 @@ export class DiscoveryController {
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
   ): Promise<DiscoveryStatusResponse> {
     return this.discoveryService.getStatus(req.user.id, sessionId);
+  }
+
+  @Sse(":sessionId/stream")
+  @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
+  stream(
+    @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
+  ): Observable<MessageEvent> {
+    return this.streamService.getStream(sessionId);
   }
 
   @Post(":sessionId/respond")

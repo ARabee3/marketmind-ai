@@ -5,3 +5,5 @@ export * from "./business-profile.schema";
 export * from "./discovery-session.schema";
 export * from "./social-link.schema";
 export * from "./uncertainty.schema";
+export * from "./discovery-stream";
+

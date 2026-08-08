@@ -59,9 +59,10 @@ vi.mock("@/components/language-switcher", () => ({
 }));
 
 let authenticated = false;
+let userMock: { id: string; email: string; fullName: string } | null = null;
 
 vi.mock("@/features/auth/session-provider", () => ({
-  useSession: () => ({ isAuthenticated: authenticated }),
+  useSession: () => ({ isAuthenticated: authenticated, user: userMock }),
 }));
 
 vi.mock("@/features/auth/logout-button", () => ({
@@ -210,5 +211,18 @@ describe("AppShell", () => {
 
     expect(screen.getByLabelText("Mobile primary")).toBeTruthy();
     expect(baseElement.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("renders signed-in user name and computed initials avatar in desktop sidebar", () => {
+    authenticated = true;
+    userMock = { id: "1", email: "ahmed@example.com", fullName: "Ahmed Mohamed" };
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.getByText("Ahmed Mohamed")).toBeTruthy();
+    expect(screen.getByText("AM")).toBeTruthy();
   });
 });
