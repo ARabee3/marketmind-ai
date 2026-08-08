@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
-import type {
-  ContentPack,
-  ContentWeekContext,
-} from "@marketmind/contracts";
+import { Link, useRouter } from "@/i18n/navigation";
+import type { ContentPack, ContentWeekContext } from "@marketmind/contracts";
 import { getCurrentJourney } from "@/lib/api/journey";
-import { getStrategy, getStrategyVersion, getStrategyVersions } from "@/lib/api/strategy";
+import {
+  getStrategy,
+  getStrategyVersion,
+  getStrategyVersions,
+} from "@/lib/api/strategy";
 import {
   getContentCycle,
   listContentWeeks,
@@ -33,7 +34,10 @@ import {
   serializeWeekContext,
 } from "../lib/content-cycle-form";
 import { contentErrorKey } from "../lib/content-cycle-errors";
-import { getWeekStartDate, cairoDateFromStrategyStart } from "../lib/content-cycle-schedule";
+import {
+  getWeekStartDate,
+  cairoDateFromStrategyStart,
+} from "../lib/content-cycle-schedule";
 import { useContentPackProgress } from "../hooks/use-content-pack-progress";
 import { CycleThesisHeader } from "./cycle-thesis-header";
 import { ContentWeekLedger } from "./content-week-ledger";
@@ -48,6 +52,7 @@ type Props = {
 };
 
 export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
+  const router = useRouter();
   const t = useTranslations("ContentCycle.entry");
   const tErrors = useTranslations("ContentCycle.errors");
   const tActions = useTranslations("ContentCycle.actions");
@@ -56,11 +61,16 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     phase: "loading",
   });
   const [contexts, setContexts] = useState<readonly ContentWeekContext[]>([]);
-  const [latestKnownPack, setLatestKnownPack] = useState<ContentPack | null>(null);
+  const [latestKnownPack, setLatestKnownPack] = useState<ContentPack | null>(
+    null,
+  );
   const [isMutating, setIsMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [retainedConflictDraft, setRetainedConflictDraft] = useState<WeekContextDraft | null>(null);
-  const [retainedConflictWeek, setRetainedConflictWeek] = useState<number | null>(null);
+  const [retainedConflictDraft, setRetainedConflictDraft] =
+    useState<WeekContextDraft | null>(null);
+  const [retainedConflictWeek, setRetainedConflictWeek] = useState<
+    number | null
+  >(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -75,6 +85,16 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         listContentWeeks(cycleId),
         getCurrentJourney(),
       ]);
+
+      // Content v2 cycles own a different route; a direct visit to the
+      // legacy week workspace recovers to the weekly studio (issue #187).
+      if (
+        (cycle as { contract_version?: string }).contract_version ===
+        "content-v2"
+      ) {
+        router.replace(`/content/${cycleId}/studio`);
+        return;
+      }
 
       const journeyCycle = journeyRes.content?.cycle;
       if (journeyCycle && journeyCycle.id !== cycleId) {
@@ -99,7 +119,9 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
           getStrategyVersion(cycle.strategy_id, cycle.strategy_version),
         ]);
       } catch (strategyErr: unknown) {
-        const strategyErrorKey = contentErrorKey(strategyErr as { status?: number; code?: string; message?: string });
+        const strategyErrorKey = contentErrorKey(
+          strategyErr as { status?: number; code?: string; message?: string },
+        );
         if (strategyErrorKey === "notFound") {
           setWorkspaceState({ phase: "cycle_unavailable" });
           return;
@@ -108,13 +130,18 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         return;
       }
 
-      const resolution = resolveApprovedContentStrategy(journeyRes, stratApi, versions, {
-        businessId: cycle.business_id,
-        strategyVersion: cycle.strategy_version,
-        strategyDecisionId: cycle.strategy_decision_id,
-        profileVersionId: cycle.profile_version_id,
-        plan: lockedPlan,
-      });
+      const resolution = resolveApprovedContentStrategy(
+        journeyRes,
+        stratApi,
+        versions,
+        {
+          businessId: cycle.business_id,
+          strategyVersion: cycle.strategy_version,
+          strategyDecisionId: cycle.strategy_decision_id,
+          profileVersionId: cycle.profile_version_id,
+          plan: lockedPlan,
+        },
+      );
       if ("blocker" in resolution) {
         setWorkspaceState({
           phase: "provenance_blocked",
@@ -149,9 +176,14 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         },
       });
     } catch (err: unknown) {
-      setWorkspaceState({ phase: "load_error", errorKey: contentErrorKey(err as { status?: number; code?: string; message?: string }) });
+      setWorkspaceState({
+        phase: "load_error",
+        errorKey: contentErrorKey(
+          err as { status?: number; code?: string; message?: string },
+        ),
+      });
     }
-  }, [cycleId, weekNumber]);
+  }, [cycleId, weekNumber, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -195,13 +227,19 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
 
     try {
       const snapshot = workspaceState.snapshot;
-      const week1StartDate = cairoDateFromStrategyStart(snapshot.approved.brief.start_date);
+      const week1StartDate = cairoDateFromStrategyStart(
+        snapshot.approved.brief.start_date,
+      );
       const startDateForWeek = getWeekStartDate(week1StartDate, weekNumber);
       const payload = serializeWeekContext(draft, {
         weekNumber,
         weekStartDate: startDateForWeek,
       });
-      const updatedContext = await updateContentWeekContext(cycleId, weekNumber, payload);
+      const updatedContext = await updateContentWeekContext(
+        cycleId,
+        weekNumber,
+        payload,
+      );
       setContexts((prev) => {
         const filtered = prev.filter((c) => c.week_number !== weekNumber);
         return [...filtered, updatedContext];
@@ -209,7 +247,9 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       setActionError(null);
       focusStatusHeading();
     } catch (err: unknown) {
-      const errorKey = contentErrorKey(err as { status?: number; code?: string; message?: string });
+      const errorKey = contentErrorKey(
+        err as { status?: number; code?: string; message?: string },
+      );
       if (errorKey === "weekAlreadyClaimed") {
         setRetainedConflictDraft(draft);
         setRetainedConflictWeek(weekNumber);
@@ -249,7 +289,13 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       setLatestKnownPack(res.content_pack);
       setActionError(null);
     } catch (err: unknown) {
-      setActionError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
+      setActionError(
+        tErrors(
+          contentErrorKey(
+            err as { status?: number; code?: string; message?: string },
+          ),
+        ),
+      );
     } finally {
       setIsMutating(false);
     }
@@ -265,7 +311,13 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       const res = await retryContentPack(effectivePack.id);
       setLatestKnownPack(res.content_pack);
     } catch (err: unknown) {
-      setActionError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
+      setActionError(
+        tErrors(
+          contentErrorKey(
+            err as { status?: number; code?: string; message?: string },
+          ),
+        ),
+      );
     } finally {
       setIsMutating(false);
     }
@@ -286,7 +338,11 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
           <h1 className="text-lg font-bold">{t("staleRouteTitle")}</h1>
           <p className="text-xs leading-relaxed">{t("staleRouteBody")}</p>
           <Link
-            href={workspaceState.currentCycleId ? `/content/${workspaceState.currentCycleId}/weeks/1` : "/content"}
+            href={
+              workspaceState.currentCycleId
+                ? `/content/${workspaceState.currentCycleId}/weeks/1`
+                : "/content"
+            }
             className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
           >
             {t("staleRouteAction")}
@@ -313,7 +369,10 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
     );
   }
 
-  if (workspaceState.phase === "load_error" || workspaceState.phase === "provenance_blocked") {
+  if (
+    workspaceState.phase === "load_error" ||
+    workspaceState.phase === "provenance_blocked"
+  ) {
     const loadMessage =
       workspaceState.phase === "load_error"
         ? tErrors(workspaceState.errorKey)
@@ -335,13 +394,14 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
   }
 
   const { cycle, approved } = workspaceState.snapshot;
-  const currentWeekContext = contexts.find((c) => c.week_number === weekNumber) ?? null;
+  const currentWeekContext =
+    contexts.find((c) => c.week_number === weekNumber) ?? null;
   const hasSelectedPack = Boolean(
     effectivePack && effectivePack.week_number === weekNumber,
   );
   const cutoffPassed = Boolean(
     currentWeekContext?.generation_cutoff_at &&
-      Date.parse(currentWeekContext.generation_cutoff_at) <= now,
+    Date.parse(currentWeekContext.generation_cutoff_at) <= now,
   );
   const isPastWeek = weekNumber < cycle.current_week_number;
   const isIneligibleFutureWeek = weekNumber > cycle.current_week_number + 1;
@@ -380,14 +440,21 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
       <ContentWeekLedger slots={slots} />
 
       {actionError && (
-        <div role="alert" aria-live="polite" className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger"
+        >
           {actionError}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
-          <ApprovedStrategyHandoff selectedWeek={weekNumber} approved={approved} />
+          <ApprovedStrategyHandoff
+            selectedWeek={weekNumber}
+            approved={approved}
+          />
 
           <WeekContextForm
             initialContext={currentWeekContext}
@@ -429,13 +496,18 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
               // Scroll or focus form
               const formEl = document.querySelector("form");
               formEl?.scrollIntoView({ behavior: "smooth", block: "start" });
-              formEl?.querySelector<HTMLElement>("input, select, textarea, button")?.focus({ preventScroll: true });
+              formEl
+                ?.querySelector<HTMLElement>("input, select, textarea, button")
+                ?.focus({ preventScroll: true });
             }}
             onGenerateWeek={handleGenerateWeek}
             onRetry={handleRetryPack}
             onRefresh={loadData}
             packIdForReview={
-              effectivePack && ["draft", "partially_approved", "approved"].includes(effectivePack.status)
+              effectivePack &&
+              ["draft", "partially_approved", "approved"].includes(
+                effectivePack.status,
+              )
                 ? effectivePack.id
                 : null
             }
