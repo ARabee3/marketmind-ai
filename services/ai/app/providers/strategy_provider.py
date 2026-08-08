@@ -20,12 +20,23 @@ from strategy_contracts import (
     DeterministicChannelScorecard,
     KpiTarget,
     StrategyPlan,
+    StrategyPlanV2,
 )
 
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
 from app.strategy.assembler import PromptAssembly
-from app.strategy.fixtures import load_default_plan_fixture
+from app.strategy.content_handoff import (
+    capability_state_for_choice,
+    project_content_handoff,
+)
+from app.strategy.fixtures import (
+    load_default_plan_fixture,
+    load_default_plan_v2_fixture,
+)
+
+
+StrategyOutputModel = type[StrategyPlan] | type[StrategyPlanV2]
 
 
 class StrategyLLMProvider(ABC):
@@ -34,7 +45,11 @@ class StrategyLLMProvider(ABC):
     name: str
 
     @abstractmethod
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(
+        self,
+        prompt: PromptAssembly,
+        output_model: StrategyOutputModel = StrategyPlan,
+    ) -> StrategyPlan | StrategyPlanV2:
         """Return a parsed StrategyPlan for the given prompt."""
         raise NotImplementedError
 
@@ -51,13 +66,17 @@ class OpenAIStrategyProvider(StrategyLLMProvider):
         self.model = model
         self.timeout_seconds = timeout_seconds
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(
+        self,
+        prompt: PromptAssembly,
+        output_model: StrategyOutputModel = StrategyPlan,
+    ) -> StrategyPlan | StrategyPlanV2:
         if not self.api_key:
             raise ProviderConfigError("OPENAI_API_KEY is required for AI_PROVIDER_MODE=openai.")
         if not self.model:
             raise ProviderConfigError("OPENAI_MODEL is required for AI_PROVIDER_MODE=openai.")
 
-        def call_openai() -> StrategyPlan:
+        def call_openai() -> StrategyPlan | StrategyPlanV2:
             try:
                 from openai import OpenAI
             except ImportError as exc:
@@ -70,7 +89,7 @@ class OpenAIStrategyProvider(StrategyLLMProvider):
                     {"role": "system", "content": prompt.system_prompt},
                     {"role": "user", "content": prompt.user_prompt},
                 ],
-                text_format=StrategyPlan,
+                text_format=output_model,
             )
             parsed = response.output_parsed
             if parsed is None:
@@ -80,7 +99,7 @@ class OpenAIStrategyProvider(StrategyLLMProvider):
                     retryable=False,
                 )
             try:
-                return StrategyPlan.model_validate(parsed)
+                return output_model.model_validate(parsed)
             except ValidationError as exc:
                 raise ProviderError(
                     "AI_PROVIDER_INVALID_OUTPUT",
@@ -369,20 +388,24 @@ class GeminiStrategyProvider(StrategyLLMProvider):
         self.model = model
         self.timeout_ms = timeout_ms
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(
+        self,
+        prompt: PromptAssembly,
+        output_model: StrategyOutputModel = StrategyPlan,
+    ) -> StrategyPlan | StrategyPlanV2:
         if not self.api_key:
             raise ProviderConfigError("GEMINI_API_KEY is required for AI_PROVIDER_MODE=gemini_dev.")
         if not self.model:
             raise ProviderConfigError("GEMINI_MODEL is required for AI_PROVIDER_MODE=gemini_dev.")
 
-        def call_gemini() -> StrategyPlan:
+        def call_gemini() -> StrategyPlan | StrategyPlanV2:
             try:
                 from google import genai
                 from google.genai import types
             except ImportError as exc:
                 raise ProviderConfigError("The google-genai package is not installed.") from exc
 
-            schema = _strip_additional_properties(StrategyPlan.model_json_schema())
+            schema = _strip_additional_properties(output_model.model_json_schema())
             client = genai.Client(api_key=self.api_key)
             response = client.models.generate_content(
                 model=self.model,
@@ -404,6 +427,15 @@ class GeminiStrategyProvider(StrategyLLMProvider):
                     retryable=False,
                 ) from exc
             try:
+                if output_model is StrategyPlanV2:
+                    normalized = _normalize_deterministic_channel_scores_v2(
+                        parsed,
+                        _deterministic_scores_from_prompt(prompt),
+                    )
+                    normalized = _normalize_v2_commitments_and_handoff(
+                        normalized, prompt
+                    )
+                    return StrategyPlanV2.model_validate(normalized)
                 normalized = _normalize_deterministic_channel_scores(
                     parsed,
                     _deterministic_scores_from_prompt(prompt),
@@ -438,6 +470,98 @@ class GeminiStrategyProvider(StrategyLLMProvider):
 
 
 # ---------------------------------------------------------------------------
+# Strategy v2 deterministic normalization
+# ---------------------------------------------------------------------------
+
+
+def _default_commitment_rationale(channel: str, language: Any) -> dict[str, Any]:
+    """Language-appropriate owner-input rationale for a commitment."""
+    language_value = str(getattr(language, "value", language))
+    if language_value == "ar-EG":
+        text = f"قناة {channel} اختارها المالك؛ تلتزم الخطة بها كما هي."
+    elif language_value == "en":
+        text = f"The owner selected {channel}; the plan commits to it as chosen."
+    else:
+        text = (
+            f"قناة {channel} اختارها المالك؛ تلتزم الخطة بها كما هي. / "
+            f"The owner selected {channel}; the plan commits to it as chosen."
+        )
+    return {
+        "text": text,
+        "source": "owner_input",
+        "citation_ids": [],
+    }
+
+
+def _normalize_v2_commitments_and_handoff(
+    plan_dict: dict[str, Any],
+    prompt: PromptAssembly,
+) -> dict[str, Any]:
+    """Enforce the owner-first invariant on a v2 plan dict.
+
+    Channel, role, setup state, and capability state come from the brief's
+    channel choices — the model can never add, replace, or drop a channel.
+    Only the rationale text is taken from the model output. The content
+    handoff is then projected deterministically from the calendar weeks.
+    """
+    normalized = copy.deepcopy(plan_dict)
+
+    choices = prompt.metadata.get("channel_choices")
+    if not isinstance(choices, list):
+        choices = []
+
+    model_commitments = normalized.get("channel_commitments")
+    rationale_by_channel: dict[str, dict[str, Any]] = {}
+    if isinstance(model_commitments, list):
+        for commitment in model_commitments:
+            if not isinstance(commitment, dict):
+                continue
+            channel = commitment.get("channel")
+            rationale = commitment.get("rationale")
+            if isinstance(channel, str) and isinstance(rationale, dict):
+                rationale_by_channel[channel] = rationale
+
+    language = normalized.get("plan_language", "ar-EG")
+    commitments: list[dict[str, Any]] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        setup_state = choice.get("setup_state", "setup_later")
+        publishing_target_id = choice.get("publishing_target_id")
+        capability_state = (
+            "publishing_ready"
+            if setup_state == "connected" and publishing_target_id
+            else "publishing_pending"
+            if setup_state == "connected"
+            else "owner_managed"
+        )
+        commitments.append(
+            {
+                "channel": choice["channel"],
+                "role": choice.get("role", "supporting"),
+                "setup_state": setup_state,
+                "capability_state": capability_state,
+                "rationale": rationale_by_channel.get(
+                    choice["channel"],
+                    _default_commitment_rationale(choice["channel"], language),
+                ),
+            }
+        )
+    normalized["channel_commitments"] = commitments
+
+    calendar_weeks = normalized.get("calendar_weeks")
+    selected_channels = [choice["channel"] for choice in choices if isinstance(choice, dict)]
+    if isinstance(calendar_weeks, list):
+        handoff = project_content_handoff(
+            calendar_weeks=calendar_weeks,
+            selected_channels=selected_channels,
+            language=language,
+        )
+        normalized["content_handoff"] = handoff.model_dump(mode="json")
+    return normalized
+
+
+# ---------------------------------------------------------------------------
 # Mock provider
 # ---------------------------------------------------------------------------
 
@@ -450,13 +574,85 @@ class MockStrategyProvider(StrategyLLMProvider):
 
     name = "mock"
 
-    def __init__(self, fixture_plan: StrategyPlan | None = None) -> None:
+    def __init__(
+        self,
+        fixture_plan: StrategyPlan | None = None,
+        fixture_plan_v2: StrategyPlanV2 | None = None,
+    ) -> None:
         self.fixture_plan = fixture_plan or load_default_plan_fixture()
+        self.fixture_plan_v2 = fixture_plan_v2 or load_default_plan_v2_fixture()
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(
+        self,
+        prompt: PromptAssembly,
+        output_model: StrategyOutputModel = StrategyPlan,
+    ) -> StrategyPlan | StrategyPlanV2:
         meta = prompt.metadata
         now = datetime.now(UTC)
 
+        if meta.get("contract_version") == "strategy-v2" or output_model is StrategyPlanV2:
+            plan_dict = self.fixture_plan_v2.model_dump(mode="json")
+            return self._rewrite_v2_plan(plan_dict, meta, now)
+
+        return self._rewrite_v1_plan(prompt, meta, now)
+
+    def _rewrite_v2_plan(
+        self,
+        plan_dict: dict[str, Any],
+        meta: dict[str, Any],
+        now: datetime,
+    ) -> StrategyPlanV2:
+        is_revision = bool(meta.get("revision_notes"))
+        previous_version = meta.get("previous_plan_version", 0)
+        plan_version = previous_version + 1 if is_revision else 1
+
+        profile_version = BusinessProfileVersionRef(
+            business_profile_version_id=meta["profile_version_id"],
+            confirmed_at=datetime.fromisoformat(meta["profile_confirmed_at"]),
+            version=meta["profile_version"],
+        )
+
+        plan_dict["id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"strategy:{meta['strategy_id']}:v{plan_version}"))
+        plan_dict["strategy_id"] = meta["strategy_id"]
+        plan_dict["version"] = plan_version
+        plan_dict["brief_id"] = meta["brief_id"]
+        plan_dict["profile_version"] = {
+            "business_profile_version_id": profile_version.business_profile_version_id,
+            "confirmed_at": profile_version.confirmed_at.isoformat(),
+            "version": profile_version.version,
+        }
+        plan_dict["retrieval_run_id"] = meta["retrieval_run_id"]
+        plan_dict["created_at"] = now.isoformat()
+
+        language_mode = meta.get("language_mode")
+        primary_objective = meta.get("primary_objective")
+        funnel_stage = meta.get("funnel_stage")
+        if language_mode is not None:
+            language_mode_value = str(getattr(language_mode, "value", language_mode))
+            plan_dict["plan_language"] = language_mode_value
+            if language_mode_value == "en":
+                _write_english_mock_owner_text_v2(plan_dict)
+        if primary_objective is not None:
+            plan_dict["primary_objective"] = str(
+                getattr(primary_objective, "value", primary_objective)
+            )
+        if funnel_stage:
+            plan_dict["funnel_stage"] = funnel_stage
+
+        plan_dict = self._rewrite_citations(plan_dict, meta)
+        plan_dict = _normalize_v2_commitments_and_handoff(plan_dict, PromptAssembly(
+            system_prompt="",
+            user_prompt="",
+            metadata=meta,
+        ))
+        return StrategyPlanV2.model_validate(plan_dict)
+
+    def _rewrite_v1_plan(
+        self,
+        prompt: PromptAssembly,
+        meta: dict[str, Any],
+        now: datetime,
+    ) -> StrategyPlan:
         is_revision = bool(meta.get("revision_notes"))
         previous_version = meta.get("previous_plan_version", 0)
         plan_version = previous_version + 1 if is_revision else 1
@@ -490,7 +686,6 @@ class MockStrategyProvider(StrategyLLMProvider):
             c.citation_id for c in citations if c.evidence_tier == EvidenceTier.verified_benchmark
         }
 
-        # Dump to JSON dict to do recursive modifications easily
         plan_dict = self.fixture_plan.model_dump(mode="json")
         plan_dict["id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"strategy:{meta['strategy_id']}:v{plan_version}"))
         plan_dict["strategy_id"] = meta["strategy_id"]
@@ -575,6 +770,51 @@ class MockStrategyProvider(StrategyLLMProvider):
             _deterministic_kpi_targets_from_prompt(prompt),
         )
         return StrategyPlan.model_validate(normalized)
+
+    def _rewrite_citations(
+        self,
+        plan_dict: dict[str, Any],
+        meta: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Rebuild citations and clean claim citation_ids for the v2 plan."""
+        pack_items = meta.get("retrieved_knowledge_pack_items") or []
+        citations = []
+        from strategy_contracts import EvidenceTier, PlanCitation
+
+        for idx, item in enumerate(pack_items):
+            citations.append(
+                PlanCitation(
+                    citation_id=f"c1000000-0000-4000-8000-00000000000{idx + 1}",
+                    chunk_id=item["chunk_id"],
+                    entry_id=item["entry_id"],
+                    entry_version=item.get("entry_version", 1),
+                    title=item.get("title", "Fixture Title"),
+                    excerpt=item.get("excerpt", "Fixture excerpt content."),
+                    evidence_tier=EvidenceTier(item["source_quality"]["evidence_tier"]),
+                    relevance_score=item.get("relevance_score", 0.9),
+                )
+            )
+        valid_citation_ids = {c.citation_id for c in citations}
+        plan_dict["citations"] = [c.model_dump(mode="json") for c in citations]
+
+        def recursive_clean(val):
+            if isinstance(val, dict):
+                if "source" in val and "citation_ids" in val:
+                    cids = val.get("citation_ids") or []
+                    new_cids = [cid for cid in cids if cid in valid_citation_ids]
+                    new_source = val["source"]
+                    if not new_cids and val["source"] == "retrieved_evidence":
+                        new_source = "confirmed_fact"
+                    val["citation_ids"] = new_cids
+                    val["source"] = new_source
+                for v in val.values():
+                    recursive_clean(v)
+            elif isinstance(val, list):
+                for item in val:
+                    recursive_clean(item)
+
+        recursive_clean(plan_dict)
+        return plan_dict
 
 
 def _write_english_mock_owner_text(plan: dict[str, Any]) -> None:
@@ -682,3 +922,47 @@ def create_strategy_provider(settings: Settings) -> StrategyLLMProvider:
             timeout_ms=settings.ai_request_timeout_ms,
         )
     return MockStrategyProvider()
+
+
+def _write_english_mock_owner_text_v2(plan: dict[str, Any]) -> None:
+    """Keep deterministic v2 mock output aligned with an English brief."""
+    plan["goal"]["text"] = (
+        "Attract more lunch customers from nearby offices over twelve weeks using "
+        "the channels the owner selected."
+    )
+    plan["evidence_summary"]["text"] = (
+        "The plan relies on the confirmed business profile and the reviewed "
+        "knowledge pack; unknown market facts are recorded as validation steps, "
+        "never invented."
+    )
+    for week in plan["calendar_weeks"]:
+        week["focus"] = f"Week {week['week_number']} focus"
+        week["expected_outcome"] = "A clear, owner-manageable outcome for the week."
+        week["measurement_check"] = "Check the weekly result in the channel insights."
+    for item in plan["owner_advice"]["before_week_1"]:
+        item["action"] = "Complete the setup of the selected channel."
+        item["why_it_matters"] = "A complete channel profile builds the first impression."
+        item["timing"] = "Within the first three days of the plan."
+        item["source"]["text"] = (
+            "Reviewed guidance: complete channel setup before the first publish."
+        )
+    for group in plan["owner_advice"]["weeks"]:
+        for item in group["items"]:
+            item["action"] = "Complete the week's owner-managed action."
+            item["why_it_matters"] = "Small consistent owner actions build the plan's results."
+            item["timing"] = "Before the end of the week."
+            item["source"]["text"] = (
+                "Owner-led advice grounded in the confirmed profile or reviewed guidance."
+            )
+    for risk in plan["risks"]:
+        risk["text"] = (
+            "The owner's limited weekly capacity may slow execution; keep the plan lean."
+        )
+    for gap in plan["knowledge_gaps"]:
+        gap["description"] = (
+            "Reliable local evidence is not yet available for this planning question."
+        )
+    for blocker in plan["blockers"]:
+        blocker["message"] = (
+            "Resolve this missing owner decision before approving the Strategy."
+        )

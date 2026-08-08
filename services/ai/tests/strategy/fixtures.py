@@ -10,7 +10,9 @@ from strategy_contracts import (
     BusinessProfilePayload,
     RetrievedKnowledgePack,
     StrategyBrief,
+    StrategyBriefV2,
     StrategyPlan,
+    StrategyPlanV2,
     StrategyReviseRequest,
 )
 
@@ -29,6 +31,14 @@ def default_business_profile() -> BusinessProfilePayload:
 
 def default_brief() -> StrategyBrief:
     return StrategyBrief.model_validate(load_json("strategy-brief.example.json"))
+
+
+def default_brief_v2() -> StrategyBriefV2:
+    return StrategyBriefV2.model_validate(load_json("strategy-brief-v2.example.json"))
+
+
+def default_plan_v2() -> StrategyPlanV2:
+    return StrategyPlanV2.model_validate(load_json("strategy-plan-v2.example.json"))
 
 
 def english_brief() -> StrategyBrief:
@@ -123,6 +133,83 @@ def make_revise_request(
         retrieved_knowledge_pack=pack,
         deterministic_channel_scores=default_plan().all_channel_scores,
         previous_plan=previous_plan or default_plan(),
+        revision_notes=revision_notes,
+    )
+
+
+def make_generate_request_v2(
+    profile: BusinessProfilePayload | None = None,
+    brief: StrategyBriefV2 | None = None,
+    pack: RetrievedKnowledgePack | None = None,
+    deterministic_channel_scores: list[Any] | None = None,
+) -> Any:
+    """Build a minimal StrategyGenerateRequest for an owner-first v2 brief."""
+    from strategy_contracts import StrategyGenerateRequest
+
+    brief = brief or default_brief_v2()
+    profile = profile or default_business_profile()
+    pack = pack or default_retrieval_pack()
+
+    profile = profile.model_copy(
+        update={
+            "id": brief.business_profile_version.business_profile_version_id,
+            "version": brief.business_profile_version.version,
+            "confirmed_at": brief.business_profile_version.confirmed_at,
+        }
+    )
+    pack = pack.model_copy(
+        update={
+            "profile_version_id": brief.business_profile_version.business_profile_version_id,
+            "brief_id": brief.id,
+        }
+    )
+
+    return StrategyGenerateRequest(
+        contract_version="strategy-v2",
+        strategy_id=brief.strategy_id,
+        business_profile=profile,
+        brief=brief,
+        retrieved_knowledge_pack=pack,
+        deterministic_channel_scores=deterministic_channel_scores or [],
+    )
+
+
+def make_revise_request_v2(
+    profile: BusinessProfilePayload | None = None,
+    brief: StrategyBriefV2 | None = None,
+    pack: RetrievedKnowledgePack | None = None,
+    previous_plan: StrategyPlanV2 | None = None,
+    revision_notes: str = "قلل من تركيز فيسبوك وركز أكثر على جوجل بزنس.",
+) -> StrategyReviseRequest:
+    """Build a StrategyReviseRequest for an owner-first v2 brief."""
+    from strategy_contracts import StrategyReviseRequest
+
+    brief = brief or default_brief_v2()
+    profile = profile or default_business_profile()
+    pack = pack or default_retrieval_pack()
+
+    profile = profile.model_copy(
+        update={
+            "id": brief.business_profile_version.business_profile_version_id,
+            "version": brief.business_profile_version.version,
+            "confirmed_at": brief.business_profile_version.confirmed_at,
+        }
+    )
+    pack = pack.model_copy(
+        update={
+            "profile_version_id": brief.business_profile_version.business_profile_version_id,
+            "brief_id": brief.id,
+        }
+    )
+
+    return StrategyReviseRequest(
+        contract_version="strategy-v2",
+        strategy_id=brief.strategy_id,
+        business_profile=profile,
+        brief=brief,
+        retrieved_knowledge_pack=pack,
+        deterministic_channel_scores=[],
+        previous_plan=previous_plan or default_plan_v2(),
         revision_notes=revision_notes,
     )
 

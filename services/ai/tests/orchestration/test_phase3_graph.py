@@ -118,7 +118,7 @@ class RecordingStrategyProvider(MockStrategyProvider):
         super().__init__()
         self.prompts = []
 
-    async def generate_strategy_plan(self, prompt):
+    async def generate_strategy_plan(self, prompt, output_model=None):
         self.prompts.append(prompt)
         return await super().generate_strategy_plan(prompt)
 
@@ -347,7 +347,7 @@ class InvalidPlanProvider(MockStrategyProvider):
         super().__init__()
         self.calls = 0
 
-    async def generate_strategy_plan(self, prompt):
+    async def generate_strategy_plan(self, prompt, output_model=None):
         self.calls += 1
         plan = await super().generate_strategy_plan(prompt)
         return plan.model_copy(update={"brief_id": "99999999-9999-4999-8999-999999999999"})
