@@ -12,6 +12,11 @@ import { ProviderError } from "../../common/errors/provider-error";
  * envelopes never silently fall back to "every supported format" when a
  * week is missing or uses unknown labels (issue #110 P1: fail closed).
  *
+ * Since issue #135, strategy-v2 plans carry a precomputed `content_handoff`
+ * projection with exact `content-v1` channels, language, and all twelve week
+ * mappings. v2 reads go straight through that projection without free-text
+ * format parsing or fallback; v1 plans keep the reviewed label mapping.
+ *
  * Normalization matches the contract: trim, lowercase, convert spaces and
  * hyphens to underscores. The four exact `content-v1` values pass through.
  * Unknown labels are dropped only when at least one known mapping remains;
@@ -61,12 +66,29 @@ function toPayload(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function schemaFailure(field: string): ProviderError {
+function schemaFailure(field: string, detail?: string): ProviderError {
   return new ProviderError(
     "CONTENT_SCHEMA_FAILURE",
-    `Strategy content_strategy is missing or unsupported at field '${field}'.`,
+    `Strategy content handoff is missing or unsupported at field '${field}'.${detail ? ` ${detail}` : ""}`,
     false,
   );
+}
+
+function isStrategyPlanV2(planData: unknown): boolean {
+  return toPayload(planData)["contract_version"] === "strategy-v2";
+}
+
+/**
+ * Reads the v2 plan's `content_handoff` projection. Returns `null` when the
+ * field is absent or malformed so callers can fail closed with a precise
+ * message.
+ */
+export function readContentHandoff(planData: unknown): Record<string, unknown> | null {
+  const handoff = toPayload(planData)["content_handoff"];
+  if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) {
+    return null;
+  }
+  return handoff as Record<string, unknown>;
 }
 
 /** Trim, lowercase, convert spaces and hyphens to underscores. */
@@ -92,14 +114,16 @@ export function mapStrategyLabelToContentFormat(
 /**
  * Resolves the exact supported Content formats for one Strategy week.
  *
- * Labels are normalized, mapped, then de-duplicated while preserving the
- * Strategy's order (the contract preserves Strategy ordering for grounding).
- * Unknown labels are dropped only when at least one known mapping remains.
+ * For v2 plans the week formats come from the deterministic
+ * `content_handoff.weeks` projection (exact content-v1 values — no parsing).
+ * For v1 plans labels are normalized, mapped, then de-duplicated while
+ * preserving the Strategy's order.
  *
  * Fails closed with a non-retryable `CONTENT_SCHEMA_FAILURE` naming the
  * exact Strategy field when:
- *  - `content_strategy` is missing or not an object;
- *  - `content_strategy.weeks` is missing, empty, or not an array;
+ *  - the v2 handoff is missing or unavailable, or the week is missing from it;
+ *  - `content_strategy` is missing or not an object (v1);
+ *  - `content_strategy.weeks` is missing, empty, or not an array (v1);
  *  - the requested `weekNumber` has no week plan;
  *  - the week's `formats` is missing, not an array, or empty;
  *  - every label is unknown (no supported mapping remains).
@@ -107,6 +131,65 @@ export function mapStrategyLabelToContentFormat(
  * Never falls back to all {@link CONTENT_FORMATS}.
  */
 export function adaptStrategyWeekFormats(
+  planData: unknown,
+  weekNumber: number,
+): ContentFormat[] {
+  if (isStrategyPlanV2(planData)) {
+    return adaptV2WeekFormats(planData, weekNumber);
+  }
+  return adaptV1WeekFormats(planData, weekNumber);
+}
+
+function adaptV2WeekFormats(
+  planData: unknown,
+  weekNumber: number,
+): ContentFormat[] {
+  const handoff = readContentHandoff(planData);
+  if (!handoff) {
+    throw schemaFailure("content_handoff");
+  }
+  if (handoff.available !== true) {
+    throw schemaFailure(
+      "content_handoff",
+      `Content handoff is unavailable (${String(handoff.reason ?? "unknown")}).`,
+    );
+  }
+  const weeks = handoff.weeks;
+  if (!Array.isArray(weeks) || weeks.length === 0) {
+    throw schemaFailure("content_handoff.weeks");
+  }
+  const weekPlan = weeks.find(
+    (week) =>
+      typeof week === "object" &&
+      week !== null &&
+      String((week as Record<string, unknown>)["week_number"]) ===
+        String(weekNumber),
+  );
+  if (!weekPlan || typeof weekPlan !== "object") {
+    throw schemaFailure(`content_handoff.weeks[week_number=${weekNumber}]`);
+  }
+  const formats = (weekPlan as Record<string, unknown>)["formats"];
+  if (!Array.isArray(formats) || formats.length === 0) {
+    throw schemaFailure(
+      `content_handoff.weeks[week_number=${weekNumber}].formats`,
+    );
+  }
+  const mapped: ContentFormat[] = [];
+  for (const raw of formats) {
+    if (typeof raw !== "string") continue;
+    if (!CONTENT_FORMAT_SET.has(raw)) continue;
+    const format = raw as ContentFormat;
+    if (!mapped.includes(format)) mapped.push(format);
+  }
+  if (mapped.length === 0) {
+    throw schemaFailure(
+      `content_handoff.weeks[week_number=${weekNumber}].formats`,
+    );
+  }
+  return mapped;
+}
+
+function adaptV1WeekFormats(
   planData: unknown,
   weekNumber: number,
 ): ContentFormat[] {
@@ -161,12 +244,23 @@ export function adaptStrategyWeekFormats(
 
 /**
  * Resolves the approved Strategy's plan language for the generation request.
+ * For v2 plans the language comes from the content handoff projection (when
+ * usable), falling back to `plan_language`; v1 plans use `plan_language`.
  * Falls back to `ar-EG` (the product's Arabic-first default) when the field
- * is absent or unknown — the Strategy plan validator already enforces the
- * allowed values, so this default is only reached for malformed plan data.
+ * is absent or unknown.
  */
 export function adaptLanguageMode(planData: unknown): LanguageMode {
   const language = toPayload(planData)["plan_language"];
+  if (isStrategyPlanV2(planData)) {
+    const handoff = readContentHandoff(planData);
+    const handoffLanguage =
+      handoff && handoff.available === true
+        ? handoff.language
+        : undefined;
+    if (handoffLanguage === "ar-EG" || handoffLanguage === "en" || handoffLanguage === "mixed") {
+      return handoffLanguage;
+    }
+  }
   if (language === "ar-EG" || language === "en" || language === "mixed") {
     return language;
   }
@@ -174,9 +268,10 @@ export function adaptLanguageMode(planData: unknown): LanguageMode {
 }
 
 /**
- * Extracts the supported Content channels (facebook, instagram) declared by
- * the Strategy plan's `selected_channels` scorecard, preserving order and
- * de-duplicating. Returns `[]` when the scorecard is absent or contains no
+ * Extracts the supported Content channels declared by the Strategy plan,
+ * preserving order and de-duplicating. For v2 plans this is the deterministic
+ * `content_handoff.channels` projection; for v1 plans it is the
+ * `selected_channels` scorecard. Returns `[]` when the plan declares no
  * supported channel. Use {@link adaptSelectedChannelsOrThrow} for the
  * generation/revision path, which must fail closed when nothing supported
  * remains.
@@ -184,6 +279,24 @@ export function adaptLanguageMode(planData: unknown): LanguageMode {
 export function extractSupportedContentChannels(
   planData: unknown,
 ): ContentChannel[] {
+  if (isStrategyPlanV2(planData)) {
+    const handoff = readContentHandoff(planData);
+    if (!handoff || handoff.available !== true) return [];
+    const channels = handoff.channels;
+    if (!Array.isArray(channels)) return [];
+    const result: ContentChannel[] = [];
+    for (const channel of channels) {
+      if (
+        typeof channel === "string" &&
+        SUPPORTED_CONTENT_CHANNELS.has(channel as ContentChannel)
+      ) {
+        const value = channel as ContentChannel;
+        if (!result.includes(value)) result.push(value);
+      }
+    }
+    return result;
+  }
+
   const selected = toPayload(planData)["selected_channels"];
   if (!Array.isArray(selected)) return [];
 
@@ -208,14 +321,25 @@ export function extractSupportedContentChannels(
  * Same as {@link extractSupportedContentChannels} but fails closed with a
  * non-retryable `CONTENT_SCHEMA_FAILURE` when no supported channel remains.
  * Generation and revision envelopes must never be sent with an empty
- * `selected_channels`.
+ * `selected_channels`. For v2 plans an unavailable content handoff surfaces
+ * its machine-readable reason so Content cycle creation reports a precise
+ * compatibility error instead of a silent empty cycle.
  */
 export function adaptSelectedChannelsOrThrow(
   planData: unknown,
 ): ContentChannel[] {
   const channels = extractSupportedContentChannels(planData);
   if (channels.length === 0) {
-    throw schemaFailure("selected_channels");
+    if (isStrategyPlanV2(planData)) {
+      const handoff = readContentHandoff(planData);
+      if (handoff && handoff.available === false) {
+        throw schemaFailure(
+          "content_handoff",
+          `Content handoff is unavailable (${String(handoff.reason ?? "unknown")}).`,
+        );
+      }
+    }
+    throw schemaFailure("content_handoff");
   }
   return channels;
 }

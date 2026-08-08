@@ -65,6 +65,7 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { extractSupportedContentChannels } from "./content-strategy.adapter";
 import {
   AssetStorage,
   CONTENT_ASSET_STORAGE,
@@ -226,6 +227,28 @@ export class ContentService {
         code: "CONTENT_STRATEGY_NOT_APPROVED",
         message:
           "The supplied strategy_decision_id does not match the approved Strategy version for this owner.",
+      });
+    }
+
+    // Owner-first v2 plans must expose a usable content-v1 handoff before any
+    // Content cycle can start. Website/delivery-only strategies stay
+    // owner-managed and fail here with a precise non-retryable compatibility
+    // reason instead of creating an empty, partial, or silently re-targeted
+    // cycle (issue #135).
+    const planData = toPayload(currentVersion.planData);
+    if (
+      planData["contract_version"] === "strategy-v2" &&
+      extractSupportedContentChannels(planData).length === 0
+    ) {
+      const handoff = toPayload(planData["content_handoff"]);
+      const reason =
+        handoff["available"] === false
+          ? String(handoff["reason"] ?? "unknown")
+          : "incomplete_weekly_formats";
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        retryable: false,
+        message: `The approved Strategy has no usable content-v1 handoff (${reason}). The plan remains owner-managed; a Content cycle cannot start.`,
       });
     }
 
@@ -1994,22 +2017,11 @@ function readyCandidateAssets(
 }
 
 export function planSelectedChannels(planData: unknown): ContentChannel[] {
-  const plan = toPayload(planData);
-  const selected = plan.selected_channels;
-  if (!Array.isArray(selected)) return [];
-  // MVP content pipeline supports facebook + instagram only; other channels in
-  // the strategy scorecard are intentionally dropped here. Lift this allowlist
-  // when the content processor and asset providers gain the new formats.
-  return selected
-    .map((scorecard) =>
-      typeof scorecard === "object" && scorecard !== null
-        ? (scorecard as { channel?: unknown }).channel
-        : undefined,
-    )
-    .filter(
-      (channel): channel is ContentChannel =>
-        channel === "facebook" || channel === "instagram",
-    );
+  // Single deterministic Strategy -> Content read (issue #135): v2 plans use
+  // the content_handoff projection, v1 plans use the selected_channels
+  // scorecard. Never a narrower allowlist that silently drops TikTok or
+  // Google Business Profile.
+  return extractSupportedContentChannels(planData);
 }
 
 export function normalizeStrategyDecision(
