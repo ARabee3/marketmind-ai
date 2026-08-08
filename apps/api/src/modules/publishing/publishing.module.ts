@@ -4,6 +4,7 @@ import { HttpModule } from "@nestjs/axios";
 import { ScheduleModule } from "@nestjs/schedule";
 
 import { PrismaModule } from "../../common/persistence/prisma.module";
+import { FacebookModule } from "../facebook/facebook.module";
 
 // Candidates
 import { CandidatesController } from "./candidates/candidates.controller";
@@ -63,6 +64,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
   imports: [
     PrismaModule,
     HttpModule,
+    FacebookModule,
     ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: "publishing-dispatch" }),
   ],

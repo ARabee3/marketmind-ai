@@ -108,7 +108,12 @@ describe("FacebookService", () => {
 
     it("throws when the app is not configured", () => {
       const service = createService();
-      const config = { get: jest.fn(() => "") } as unknown as ConfigService;
+      const config = {
+        get: jest.fn((path: string) => {
+          if (path === "facebook.tokenEncryptionKey") return TEST_KEY;
+          return "";
+        }),
+      } as unknown as ConfigService;
       const bare = new FacebookService(
         {} as PrismaService,
         config,
@@ -437,6 +442,99 @@ describe("FacebookService", () => {
         prisma: { socialConnection: { deleteMany: jest.Mock } };
       }).prisma.socialConnection.deleteMany;
       expect(deleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+    });
+  });
+
+  describe("publishPhotoViaPageToken", () => {
+    it("posts a photo to the page and resolves the permalink", async () => {
+      const service = createService();
+      axiosPostSpy.mockResolvedValue({
+        data: { id: "photo-1", post_id: "post-1" },
+      });
+      const linkSpy = jest.spyOn(axios, "get").mockResolvedValueOnce({
+        data: { link: "https://facebook.example/post-1" },
+      });
+
+      const result = await service.publishPhotoViaPageToken({
+        pageToken: "page-token",
+        pageId: "page-42",
+        imageUrl: "https://cdn.example/img.jpg",
+        caption: "test caption",
+      });
+
+      expect(result).toEqual({
+        remotePublicationId: "post-1",
+        remoteUrl: "https://facebook.example/post-1",
+      });
+      expect(axiosPostSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v20.0/page-42/photos"),
+        null,
+        expect.objectContaining({
+          params: expect.objectContaining({
+            url: "https://cdn.example/img.jpg",
+            caption: "test caption",
+            published: "true",
+            access_token: "page-token",
+          }),
+        }),
+      );
+      linkSpy.mockRestore();
+    });
+
+    it("returns remoteUrl null when the permalink lookup fails", async () => {
+      const service = createService();
+      axiosPostSpy.mockResolvedValue({
+        data: { post_id: "post-2" },
+      });
+      const linkSpy = jest.spyOn(axios, "get").mockRejectedValueOnce(new Error("down"));
+
+      const result = await service.publishPhotoViaPageToken({
+        pageToken: "page-token",
+        pageId: "page-42",
+        imageUrl: "https://cdn.example/img.jpg",
+        caption: "test caption",
+      });
+
+      expect(result.remotePublicationId).toBe("post-2");
+      expect(result.remoteUrl).toBeNull();
+      linkSpy.mockRestore();
+    });
+
+    it("throws when the response carries no post id", async () => {
+      const service = createService();
+      axiosPostSpy.mockResolvedValue({
+        data: { id: "" },
+      });
+
+      await expect(
+        service.publishPhotoViaPageToken({
+          pageToken: "page-token",
+          pageId: "page-42",
+          imageUrl: "https://cdn.example/img.jpg",
+          caption: "test caption",
+        }),
+      ).rejects.toThrow("page photos response carried no post id");
+    });
+
+    it("propagates Graph API errors so MetaGraphClient can normalise them", async () => {
+      const service = createService();
+      const graphError = Object.assign(new Error("Graph error"), {
+        isAxiosError: true,
+        response: {
+          status: 429,
+          data: { error: { code: 4, message: "rate limited" } },
+        },
+      });
+      axiosPostSpy.mockRejectedValue(graphError);
+
+      await expect(
+        service.publishPhotoViaPageToken({
+          pageToken: "page-token",
+          pageId: "page-42",
+          imageUrl: "https://cdn.example/img.jpg",
+          caption: "test caption",
+        }),
+      ).rejects.toThrow("Graph error");
     });
   });
 });

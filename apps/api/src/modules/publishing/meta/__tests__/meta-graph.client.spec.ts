@@ -8,10 +8,15 @@ import {
 } from "../meta-graph.client";
 import { mapMetaGraphError } from "../meta-error.mapper";
 
+const mockFacebookService = {
+  publishPhotoViaPageToken: jest.fn(),
+} as const;
+
 function makeClient(
   mockGet: (path: string, options: unknown) => unknown = () => of({ data: {} }),
   mockPost: (path: string, body: unknown, options: unknown) => unknown = () =>
     of({ data: {} }),
+  facebookOverride?: Partial<typeof mockFacebookService>,
 ) {
   const http = {
     get: jest.fn(mockGet),
@@ -30,8 +35,16 @@ function makeClient(
       return map[key] ?? fallback;
     }),
   } as unknown as ConfigService;
-  return { client: new MetaGraphClient(http as never, config), http };
+  const facebook = {
+    publishPhotoViaPageToken: mockFacebookService.publishPhotoViaPageToken,
+    ...facebookOverride,
+  };
+  return { client: new MetaGraphClient(http as never, config, facebook as never), http };
 }
+
+beforeEach(() => {
+  mockFacebookService.publishPhotoViaPageToken.mockReset();
+});
 
 describe("MetaGraphClient (issue #175)", () => {
   it("builds an authorization URL carrying state + least-privilege scopes — no token", () => {
@@ -139,14 +152,12 @@ describe("MetaGraphClient (issue #175)", () => {
     expect(pages[1].instagramBusinessAccount).toBeNull();
   });
 
-  it("publishes a Facebook photo via the short-lived provider-fetch URL", async () => {
-    const { client, http } = makeClient();
-    http.post.mockImplementation((path: string) =>
-      of({
-        data: path.includes("/photos") ? { id: "photo-1", post_id: "post-1" } : {},
-      }),
-    );
-    http.get.mockImplementation(() => of({ data: { link: "https://facebook.example/post-1" } }));
+  it("publishes a Facebook photo by delegating to FacebookService", async () => {
+    const { client } = makeClient();
+    mockFacebookService.publishPhotoViaPageToken.mockResolvedValue({
+      remotePublicationId: "post-1",
+      remoteUrl: "https://facebook.example/post-1",
+    });
 
     const result = await client.publishFacebookPhoto({
       pageToken: "page-token",
@@ -159,12 +170,34 @@ describe("MetaGraphClient (issue #175)", () => {
       remotePublicationId: "post-1",
       remoteUrl: "https://facebook.example/post-1",
     });
-    const postCall = http.post.mock.calls[0];
-    expect(postCall[0]).toBe("https://graph.facebook.com/v21.0/page-1/photos");
-    expect((postCall[2] as any).params).toMatchObject({
-      url: expect.stringContaining("media-fetch"),
+    expect(mockFacebookService.publishPhotoViaPageToken).toHaveBeenCalledWith({
+      pageToken: "page-token",
+      pageId: "page-1",
+      imageUrl: expect.stringContaining("media-fetch"),
       caption: "caption",
-      published: "true",
+    });
+  });
+
+  it("normalises FacebookService errors into MetaGraphClientError", async () => {
+    const { client } = makeClient();
+    const axiosError = Object.assign(new Error("boom"), {
+      isAxiosError: true,
+      response: {
+        status: 429,
+        data: { error: { code: 4, message: "rate limited" } },
+      },
+    });
+    mockFacebookService.publishPhotoViaPageToken.mockRejectedValue(axiosError);
+
+    await expect(
+      client.publishFacebookPhoto({
+        pageToken: "page-token",
+        pageId: "page-1",
+        imageUrl: "http://x",
+        caption: "c",
+      }),
+    ).rejects.toMatchObject({
+      info: { status: 429, code: 4 },
     });
   });
 

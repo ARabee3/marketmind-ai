@@ -32,6 +32,11 @@ export type FacebookCallbackResult =
   | { ok: true; pageName: string }
   | { ok: false; error: string };
 
+export interface FacebookPhotoPublishResult {
+  remotePublicationId: string;
+  remoteUrl: string | null;
+}
+
 export type PublishResult =
   | { success: true; postId: string }
   | { success: false; reason: "expired" }
@@ -280,6 +285,51 @@ export class FacebookService {
     await this.prisma.socialConnection.deleteMany({
       where: { userId },
     });
+  }
+
+  /**
+   * Stateless Facebook Page photo publish via a raw Page token (used by the
+   * publishing pipeline through MetaGraphClient). No SocialConnection lookup
+   * — the caller is responsible for token resolution (e.g. from the vault).
+   *
+   * Throws on Graph API errors so the pipeline's error normalisation
+   * (MetaGraphClientError) can wrap them.
+   */
+  async publishPhotoViaPageToken(params: {
+    pageToken: string;
+    pageId: string;
+    imageUrl: string;
+    caption: string;
+  }): Promise<FacebookPhotoPublishResult> {
+    const response = await axios.post<{ id?: string; post_id?: string }>(
+      this.graphUrl(`${params.pageId}/photos`),
+      null,
+      {
+        params: {
+          url: params.imageUrl,
+          caption: params.caption,
+          published: "true",
+          access_token: params.pageToken,
+        },
+      },
+    );
+    const remotePublicationId = String(
+      response.data?.post_id || response.data?.id || "",
+    );
+    if (!remotePublicationId) {
+      throw new Error("page photos response carried no post id");
+    }
+    let remoteUrl: string | null = null;
+    try {
+      const linkResponse = await axios.get<{ link?: string }>(
+        this.graphUrl(String(remotePublicationId)),
+        { params: { fields: "link", access_token: params.pageToken } },
+      );
+      remoteUrl = linkResponse.data?.link ?? null;
+    } catch {
+      // Permalink is best-effort after a confirmed publish.
+    }
+    return { remotePublicationId, remoteUrl };
   }
 
   private consumeState(state: string): PendingOAuthState | null {
