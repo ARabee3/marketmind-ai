@@ -52,11 +52,24 @@ export async function disconnectFacebookConnection(): Promise<void> {
 }
 
 /**
- * Opens the Meta/Facebook OAuth flow in a centered popup pointed at the
- * backend's `GET /auth/facebook/start` endpoint, and resolves once the popup
- * posts a result back via `window.opener.postMessage`.
+ * Opens the Meta/Facebook OAuth flow in a centered popup and resolves once
+ * the popup posts a result back via `window.opener.postMessage`.
+ *
+ * The popup is a plain browser navigation, so it cannot carry the Bearer
+ * access token. The flow therefore starts with an authenticated (Bearer)
+ * `POST /auth/facebook/start` that issues a short-lived HttpOnly start
+ * session cookie; the popup then opens `GET /auth/facebook/start`, which the
+ * backend uses that cookie for to identify the user and redirect to
+ * Facebook.
  */
 export async function connectMeta(): Promise<{ pageName: string }> {
+  const session = await apiRequest('/auth/facebook/start', {
+    method: 'POST',
+  })
+  if (!session.ok) {
+    throw new Error('We could not start the Facebook connection. Try again.')
+  }
+
   const width = 600
   const height = 700
   const left = window.screenX + (window.outerWidth - width) / 2

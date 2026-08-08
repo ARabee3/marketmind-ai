@@ -42,21 +42,34 @@ interface PendingOAuthState {
   expiresAt: number;
 }
 
+interface PendingStartSession {
+  userId: string;
+  expiresAt: number;
+}
+
 /**
  * Facebook Page connection service (one Page per user, dev milestone).
  *
- * OAuth state is a cryptographically random token bound to the authenticated
- * user and stored briefly in memory; the callback validates and consumes it
- * before any code exchange, so the callback knows which user the connection
- * belongs to. Token validity is checked reactively (at publish/test time):
- * Graph error code 190 invalidates the connection and triggers the reconnect
- * email.
+ * The OAuth dialog is opened from a popup, which is a plain browser
+ * navigation and therefore cannot carry the Bearer access token. Identity is
+ * delivered with a short-lived, single-use start session: the web app first
+ * calls `POST /auth/facebook/start` (Bearer-authenticated) which returns a
+ * random one-time token stored in an HttpOnly cookie; the popup then opens
+ * `GET /auth/facebook/start`, which consumes that token, resolves the owning
+ * user, and redirects to Facebook.
+ *
+ * The `state` parameter sent to Facebook is a separate cryptographically
+ * random token bound to the user and stored briefly in memory; the callback
+ * validates and consumes it before any code exchange. Token validity is
+ * checked reactively (at publish/test time): Graph error code 190
+ * invalidates the connection and triggers the reconnect email.
  */
 @Injectable()
 export class FacebookService {
   private readonly logger = new Logger(FacebookService.name);
   private readonly stateTtlMs = 10 * 60 * 1000;
   private readonly oauthStates = new Map<string, PendingOAuthState>();
+  private readonly startSessions = new Map<string, PendingStartSession>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,6 +105,30 @@ export class FacebookService {
       scope: FACEBOOK_SCOPES.join(","),
     });
     return `https://www.facebook.com/${graphVersion}/dialog/oauth?${params.toString()}`;
+  }
+
+  /**
+   * Creates a short-lived, single-use start session token bound to the user.
+   * The value is placed in an HttpOnly cookie by the controller so the
+   * popup's GET /auth/facebook/start can identify the user without carrying
+   * an Authorization header.
+   */
+  createStartSession(userId: string): string {
+    const token = crypto.randomBytes(32).toString("base64url");
+    this.startSessions.set(token, {
+      userId,
+      expiresAt: Date.now() + this.stateTtlMs,
+    });
+    return token;
+  }
+
+  /** Validates and consumes a start session token; returns the userId. */
+  consumeStartSession(token: string | undefined): string | null {
+    if (!token) return null;
+    const session = this.startSessions.get(token);
+    this.startSessions.delete(token);
+    if (!session || session.expiresAt < Date.now()) return null;
+    return session.userId;
   }
 
   /**

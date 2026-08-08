@@ -63,6 +63,31 @@ describe("FacebookService", () => {
     axiosPostSpy.mockRestore();
   });
 
+  describe("start sessions (popup identity without Bearer header)", () => {
+    it("creates a one-time token and consumes it back to the user", () => {
+      const service = createService();
+      const token = service.createStartSession("user-1");
+
+      expect(token).toBeTruthy();
+      expect(service.consumeStartSession(token)).toBe("user-1");
+    });
+
+    it("is single-use: a consumed token cannot be replayed", () => {
+      const service = createService();
+      const token = service.createStartSession("user-1");
+
+      expect(service.consumeStartSession(token)).toBe("user-1");
+      expect(service.consumeStartSession(token)).toBeNull();
+    });
+
+    it("rejects an unknown or empty token", () => {
+      const service = createService();
+
+      expect(service.consumeStartSession("bogus")).toBeNull();
+      expect(service.consumeStartSession(undefined)).toBeNull();
+    });
+  });
+
   describe("buildAuthorizationUrl", () => {
     it("builds the Facebook dialog URL with required scopes and a state", () => {
       const service = createService();

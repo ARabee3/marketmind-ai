@@ -20,6 +20,9 @@ interface RequestWithUser extends Request {
   user: AuthenticatedUser;
 }
 
+/** HttpOnly cookie carrying the short-lived start session for the popup. */
+export const FB_START_SESSION_COOKIE = "fb_connect_start";
+
 function postMessageHtml(message: string, origin: string): string {
   return `<!DOCTYPE html>
 <html>
@@ -62,11 +65,59 @@ export class FacebookController {
     private readonly config: ConfigService,
   ) {}
 
-  @Get("auth/facebook/start")
+  /**
+   * Authenticated (Bearer) session bootstrap: issues a short-lived,
+   * single-use start token in an HttpOnly cookie. The popup then opens
+   * `GET /auth/facebook/start` — a plain browser navigation that cannot
+   * carry the Authorization header — and the cookie is used instead to
+   * resolve the owning user.
+   */
+  @Post("auth/facebook/start")
   @UseGuards(JwtAuthGuard)
-  start(@Req() req: RequestWithUser, @Res() res: Response): void {
+  startSession(@Req() req: RequestWithUser, @Res() res: Response): void {
+    const token = this.facebookService.createStartSession(req.user.id);
+    res.cookie(FB_START_SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: this.config.get<boolean>("cookies.secure", false),
+      sameSite: this.config.get<"lax" | "strict" | "none">(
+        "cookies.sameSite",
+        "lax",
+      ),
+      path: "/",
+      maxAge: 10 * 60 * 1000,
+    });
+    res.status(204).send();
+  }
+
+  /**
+   * Popup entry point (browser navigation, no Bearer header): consumes the
+   * start-session cookie, builds the Facebook OAuth dialog URL, and redirects
+   * the popup to Facebook. On any failure the popup receives the
+   * fb-connect-error postMessage and closes.
+   */
+  @Get("auth/facebook/start")
+  start(@Req() req: Request, @Res() res: Response): void {
+    const userId = this.facebookService.consumeStartSession(
+      req.cookies?.[FB_START_SESSION_COOKIE],
+    );
+    if (!userId) {
+      this.sendConnectError(
+        res,
+        "The connection request expired. Please try again.",
+      );
+      return;
+    }
+    res.clearCookie(FB_START_SESSION_COOKIE, {
+      httpOnly: true,
+      secure: this.config.get<boolean>("cookies.secure", false),
+      sameSite: this.config.get<"lax" | "strict" | "none">(
+        "cookies.sameSite",
+        "lax",
+      ),
+      path: "/",
+    });
     try {
-      const url = this.facebookService.buildAuthorizationUrl(req.user.id);
+      const url = this.facebookService.buildAuthorizationUrl(userId);
       res.redirect(302, url);
     } catch (error) {
       this.logger.error(
@@ -74,18 +125,10 @@ export class FacebookController {
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      res
-        .status(200)
-        .type("html")
-        .send(
-          postMessageHtml(
-            JSON.stringify({
-              type: "fb-connect-error",
-              error: "Facebook connection is not available right now.",
-            }),
-            this.webOrigin,
-          ),
-        );
+      this.sendConnectError(
+        res,
+        "Facebook connection is not available right now.",
+      );
     }
   }
 
@@ -143,5 +186,14 @@ export class FacebookController {
 
   private get webOrigin(): string {
     return this.config.get<string>("cors.origin") ?? "http://localhost:3000";
+  }
+
+  private sendConnectError(res: Response, error: string): void {
+    res.status(200).type("html").send(
+      postMessageHtml(
+        JSON.stringify({ type: "fb-connect-error", error }),
+        this.webOrigin,
+      ),
+    );
   }
 }
