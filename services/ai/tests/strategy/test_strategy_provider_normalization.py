@@ -115,3 +115,81 @@ def test_normalization_restores_deterministic_paid_scenarios() -> None:
     assert [scenario.scenario_type for scenario in parsed.budget_scenarios or []] == [
         scenario.scenario_type for scenario in plan.budget_scenarios or []
     ]
+
+
+def test_stripped_v2_schema_converts_one_of_unions_for_gemini() -> None:
+    from strategy_contracts import StrategyPlanV2
+
+    from app.providers.strategy_provider import _strip_additional_properties
+
+    schema = _strip_additional_properties(StrategyPlanV2.model_json_schema())
+
+    assert "oneOf" not in schema
+    assert schema["properties"]["content_handoff"]["anyOf"]
+
+    from google.genai import types
+
+    types.Schema.model_validate(schema)
+
+
+async def test_gemini_v2_provider_round_trips_without_undefined_normalizer(
+    monkeypatch,
+) -> None:
+    """The Gemini v2 path must normalize without undefined helpers (regression).
+
+    ``_normalize_deterministic_channel_scores_v2`` never existed; the v2 path
+    must rebuild commitments and the content handoff deterministically and
+    validate as a StrategyPlanV2 without extra model-provided fields.
+    """
+    import json
+    from types import SimpleNamespace
+
+    from strategy_contracts import StrategyPlanV2
+
+    from app.providers.strategy_provider import (
+        GeminiStrategyProvider,
+        _normalize_v2_commitments_and_handoff,
+    )
+    from app.strategy.assembler import PromptAssembly
+    from tests.strategy.fixtures import default_brief_v2, default_plan_v2
+
+    brief = default_brief_v2()
+    plan_dict = default_plan_v2().model_dump(mode="json")
+    plan_dict.pop("channel_commitments")
+    plan_dict.pop("content_handoff")
+
+    class FakeModels:
+        def generate_content(self, **_kwargs):
+            return SimpleNamespace(text=json.dumps(plan_dict))
+
+    fake_types = SimpleNamespace()
+    fake_genai = SimpleNamespace(
+        types=fake_types,
+        Client=lambda **kwargs: SimpleNamespace(models=FakeModels()),
+    )
+
+    monkeypatch.setattr("google.genai", fake_genai)
+
+    prompt = PromptAssembly(
+        system_prompt="system",
+        user_prompt="user",
+        metadata={
+            "channel_choices": [
+                choice.model_dump(mode="json") for choice in brief.channel_choices
+            ]
+        },
+    )
+    provider = GeminiStrategyProvider(api_key="test", model="gemini-test", timeout_ms=5_000)
+
+    plan = await provider.generate_strategy_plan(
+        prompt, output_model=StrategyPlanV2
+    )
+
+    assert isinstance(plan, StrategyPlanV2)
+    assert plan.channel_commitments
+    assert plan.content_handoff
+
+    normalized = _normalize_v2_commitments_and_handoff(
+        plan.model_dump(mode="json"), prompt
+    )
+    assert normalized["channel_commitments"][0]["channel"] == "facebook"

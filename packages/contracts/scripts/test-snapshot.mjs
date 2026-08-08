@@ -5,6 +5,10 @@ const SNAPSHOT_PATH = new URL(
   "../schema-snapshots/strategy-v1.snapshot.json",
   import.meta.url,
 );
+const STRATEGY_V2_SNAPSHOT_PATH = new URL(
+  "../schema-snapshots/strategy-v2.snapshot.json",
+  import.meta.url,
+);
 const CONTENT_SNAPSHOT_PATH = new URL(
   "../schema-snapshots/content-v1.snapshot.json",
   import.meta.url,
@@ -59,6 +63,65 @@ async function run() {
       field in pack,
       `Backward compatibility failure: RetrievedKnowledgePack is missing field '${field}'`,
     );
+  }
+
+  // Owner-first strategy-v2 surfaces (issue #135).
+  const v2Snapshot = JSON.parse(
+    await fs.readFile(STRATEGY_V2_SNAPSHOT_PATH, "utf-8"),
+  );
+  const v2Brief = JSON.parse(
+    await fs.readFile(
+      new URL("strategy-brief-v2.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const v2Plan = JSON.parse(
+    await fs.readFile(
+      new URL("strategy-plan-v2.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  for (const field of v2Snapshot.StrategyBriefV2) {
+    assert(
+      field in v2Brief,
+      `Backward compatibility failure: StrategyBriefV2 is missing field '${field}'`,
+    );
+  }
+  for (const field of v2Snapshot.StrategyPlanV2) {
+    assert(
+      field in v2Plan,
+      `Backward compatibility failure: StrategyPlanV2 is missing field '${field}'`,
+    );
+  }
+  // Optional snapshot fields are asserted against a synthetic choice object so
+  // optionality never breaks the backward-compatibility check.
+  const syntheticChoice = {
+    channel: "instagram",
+    role: "supporting",
+    setup_state: "connected",
+    public_url: "https://instagram.com/kosharycorner",
+    publishing_target_id: "00000000-0000-4000-8000-000000000000",
+    note: "owner note",
+  };
+  for (const field of v2Snapshot.StrategyChannelChoice) {
+    assert(
+      field in syntheticChoice,
+      `Backward compatibility failure: StrategyChannelChoice is missing field '${field}'`,
+    );
+  }
+  for (const field of v2Snapshot.ChannelCommitment) {
+    assert(
+      field in v2Plan.channel_commitments[0],
+      `Backward compatibility failure: ChannelCommitment is missing field '${field}'`,
+    );
+  }
+  if (v2Plan.content_handoff.available === true) {
+    for (const field of v2Snapshot.ContentHandoffAvailable) {
+      assert(
+        field in v2Plan.content_handoff,
+        `Backward compatibility failure: ContentHandoffAvailable is missing field '${field}'`,
+      );
+    }
   }
 
   const contentSnapshotData = await fs.readFile(CONTENT_SNAPSHOT_PATH, "utf-8");

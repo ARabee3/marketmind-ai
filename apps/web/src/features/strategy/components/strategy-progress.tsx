@@ -25,6 +25,7 @@ export function StrategyProgress({
 }) {
   const t = useTranslations('Strategy')
   const current = ownerProgressLabel(status)
+  const approved = status === 'approved'
   const percent = strategyProgressPercent(status, progress)
   const lastFailure = [...progress]
     .reverse()
@@ -35,9 +36,11 @@ export function StrategyProgress({
     <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
       <header className="bg-navy p-5 text-primary-foreground md:p-6">
         <p className="text-xs font-bold tracking-[0.14em] text-journey-mint uppercase">
-          {t('progress.eyebrow')}
+          {t(approved ? 'progress.eyebrowApproved' : 'progress.eyebrow')}
         </p>
-        <h1 className="mt-3 text-3xl font-bold md:text-4xl">{t('progress.title')}</h1>
+        <h1 className="mt-3 text-3xl font-bold md:text-4xl">
+          {t(approved ? 'progress.titleApproved' : 'progress.title')}
+        </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">
           {t(`progress.labels.${current}`)}
         </p>

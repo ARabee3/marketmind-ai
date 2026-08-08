@@ -104,13 +104,13 @@ for (const locale of locales) {
 function title(locale: 'en' | 'ar', key: 'empty' | 'active' | 'review' | 'confirmed') {
   const values = {
     en: {
-      empty: 'Start Discovery',
+      empty: 'Start exploration journey',
       active: 'Continue Discovery',
       review: 'Review the business profile',
       confirmed: 'Discovery is confirmed',
     },
     ar: {
-      empty: 'ابدأ الاستكشاف',
+      empty: 'ابدأ رحلة الاستكشاف',
       active: 'كمّل الاستكشاف',
       review: 'راجع ملف النشاط',
       confirmed: 'تم تأكيد الاستكشاف',
@@ -121,8 +121,8 @@ function title(locale: 'en' | 'ar', key: 'empty' | 'active' | 'review' | 'confir
 
 function action(locale: 'en' | 'ar', key: 'start' | 'continue') {
   const values = {
-    en: { start: 'Start Discovery', continue: 'Continue Discovery' },
-    ar: { start: 'ابدأ الاستكشاف', continue: 'كمّل الاستكشاف' },
+    en: { start: 'Start exploration journey', continue: 'Continue Discovery' },
+    ar: { start: 'ابدأ رحلة الاستكشاف', continue: 'كمّل الاستكشاف' },
   }
   return values[locale][key]
 }

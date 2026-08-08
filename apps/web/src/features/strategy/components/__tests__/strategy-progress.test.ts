@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { StrategyProgressEvent } from '@marketmind/contracts'
 import { strategyProgressPercent } from '../strategy-progress'
+import { ownerProgressLabel } from '../../lib/strategy-state'
 
 vi.mock('@/i18n/navigation', () => ({
   Link: () => null,
@@ -32,5 +33,12 @@ describe('strategyProgressPercent', () => {
 
     expect(strategyProgressPercent('generating', progress)).toBe(99)
     expect(strategyProgressPercent('draft', progress)).toBe(100)
+  })
+})
+
+describe('ownerProgressLabel for approved plans', () => {
+  it('labels an approved strategy distinctly from a ready draft', () => {
+    expect(ownerProgressLabel('approved')).toBe('approved')
+    expect(ownerProgressLabel('draft')).toBe('ready')
   })
 })

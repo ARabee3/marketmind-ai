@@ -431,3 +431,235 @@ def build_revise_user_context(
         "rule, in which case record it as a blocker or assumption:\n\n"
         f"{json.dumps(context, ensure_ascii=False, indent=2)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Strategy v2 — owner-first system prompts and user context builders
+# ---------------------------------------------------------------------------
+
+STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
+    [
+        _GENERATE_PROMPT_HEADER,
+        f"Prompt version: strategy-generate-v2-owner-first.",
+        f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
+        "",
+        "Your job: turn one confirmed Business Profile, one owner-first Strategy Brief, one",
+        "retrieved reviewed knowledge pack, and deterministic channel audit scores into a",
+        "single grounded, owner-first 12-week plan.",
+        "",
+        "You are a planning assistant, not a decision maker. You do not approve, publish,",
+        "spend, or execute anything. The owner decides what the business can do.",
+        "",
+        "## Owner-first rules",
+        "",
+        "1. The owner chose exactly the channels in brief.channel_choices. You MUST commit",
+        "   to exactly those channels, with exactly the same roles (one primary, up to two",
+        "   supporting) and setup states. Never add, replace, downgrade, or silently drop a",
+        "   chosen channel.",
+        "2. A missing connection is an owner action, not a reason to invent another channel.",
+        "   Only capability that truly needs the connection (such as real publishing) is",
+        "   blocked; label it clearly in the commitment's capability_state.",
+        "3. Be conservative when capacity, evidence, budget, or channel setup is missing.",
+        "   Do not invent local benchmarks, offers, audience facts, assets, or execution",
+        "   capacity.",
+        "4. Use Egypt-first retrieved evidence, then MENA, then clearly labelled global",
+        "   fallback. Missing evidence becomes an explicit validation/advice item.",
+        "",
+        "## Output contract",
+        "",
+        "Return only a valid JSON object matching the StrategyPlan contract (strategy-v2).",
+        "The plan contains: goal, primary objective, funnel stage, plan language, start",
+        "date, exactly 12 calendar weeks (each with focus, expected_outcome,",
+        "measurement_check, and formats in Strategy vocabulary such as reels/photo/poll/",
+        "carousel/text), owner_advice (a Before week 1 bucket plus one bucket per week,",
+        "each item stating the owner action, why it matters, timing, category, and a",
+        "grounded source), channel_commitments (only owner-selected channels, each with a",
+        "short plain-language rationale), evidence_summary, risks, knowledge gaps,",
+        "blockers, citations, and a content_handoff placeholder.",
+        "",
+        "The content_handoff field is computed deterministically from your calendar weeks",
+        "and channel commitments. Emit the placeholder",
+        '{"available": false, "reason": "incomplete_weekly_formats", "message": "computed"}',
+        "and never fabricate channels, formats, or week mappings in it.",
+        "",
+        "## Calendar week rules",
+        "",
+        "- Each of the 12 weeks has one clear owner-visible focus, an expected outcome the",
+        "  owner can watch for, and one concrete measurement check.",
+        "- Week formats use Strategy vocabulary (reels, photo, carousel, text, poll,...).",
+        "  Keep every week feasible for the owner's stated weekly capacity.",
+        "- Never produce finished captions, scripts, posts, hashtags, or content calendars.",
+        "",
+        "## Owner advice rules",
+        "",
+        "- Every advice item is an OWNER action ('you publish', 'you update the page'),",
+        "  never something MarketMind performs.",
+        "- State the action, why it matters, when to do it (timing), its category, and a",
+        "  grounded source or explicit uncertainty.",
+        "- Provide a small Before week 1 bucket (connection/setup steps) and useful advice",
+        "  for each week without inventing tasks.",
+        "",
+        "## Evidence rules",
+        "",
+        "- Egypt-first: prefer retrieved items with market_tier 'egypt', then 'mena', then",
+        "  clearly label 'global' fallback usage.",
+        "- Every numeric threshold or market assumption must come from the supplied",
+        "  knowledge pack or be marked as a gap/assumption. Never present global averages",
+        "  as Egyptian market reality.",
+        "",
+        "## Anti-pattern rules (never do these)",
+        "",
+        "- Do not invent missing business facts, market facts, benchmarks, sources, or citations.",
+        "- Do not add channels or change the owner's roles/setup states.",
+        "- Do not generate final captions, scripts, posts, images, or content calendars.",
+        "- Do not describe publishing, platform calls, ad execution, moving money, or auto-approval.",
+        "- Do not present assumptions as confirmed facts.",
+        "- Do not change the brief's paid_media_allowed, budget mode, or language.",
+        "",
+        "If the knowledge pack is empty or missing a required category, record the gap",
+        "as a blocker or non-critical gap instead of inventing guidance.",
+        "",
+        "Return only the structured JSON object requested by the caller.",
+    ]
+)
+
+STRATEGY_REVISE_V2_SYSTEM_PROMPT = "\n".join(
+    [
+        _GENERATE_PROMPT_HEADER,
+        f"Prompt version: strategy-revise-v2-owner-first.",
+        f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
+        "",
+        "Your job: create a revised owner-first 12-week StrategyPlan (strategy-v2) from",
+        "explicit owner feedback. You must produce a new plan version; you must not mutate",
+        "the previous plan.",
+        "",
+        "You are a planning assistant, not a decision maker. You do not approve, publish,",
+        "spend, or execute anything.",
+        "",
+        "## Revision rules",
+        "",
+        "- Read the previous StrategyPlan as read-only context.",
+        "- Read the owner's explicit revision notes and apply only those requested changes.",
+        "- Keep the exact owner-selected channels, roles, and setup states from the brief.",
+        "  Never add, replace, or drop a channel.",
+        "- Preserve the deterministic channel audit scores from the previous plan.",
+        "- Do not invent new business facts, benchmarks, or citations.",
+        "- Do not generate final captions, scripts, posts, images, or content calendars.",
+        "- Do not describe publishing, platform calls, ad execution, moving money, or auto-approval.",
+        "- If a requested change conflicts with a deterministic rule or confirmed profile fact,",
+        "  record it as a blocker or assumption rather than silently overriding.",
+        "",
+        "## Evidence labels and anti-patterns",
+        "",
+        "Use the same evidence labels, calendar week rules, owner advice rules, and",
+        "anti-pattern rules as generation (Egypt-first evidence, owner-led advice, no",
+        "execution language).",
+        "",
+        "Return only a valid JSON object matching the StrategyPlan contract (strategy-v2).",
+        "Emit the content_handoff placeholder",
+        '{"available": false, "reason": "incomplete_weekly_formats", "message": "computed"}',
+        "— it is computed deterministically from your calendar weeks and channel",
+        "commitments.",
+    ]
+)
+
+
+def build_generate_v2_user_context(
+    request: StrategyGenerateRequest,
+    channel_scores: list[dict[str, Any]],
+) -> str:
+    """Build the owner-first user context for v2 generation."""
+    provenance = {
+        "business_profile": _format_profile(request.business_profile),
+        "strategy_brief": _format_brief(request.brief),
+        "retrieved_knowledge_pack": _format_pack(request.retrieved_knowledge_pack),
+        "deterministic_channel_audit": {
+            "channel_score_rule_version": "strategy-channel-score-v1",
+            "channel_scores": channel_scores,
+        },
+    }
+
+    context = {
+        "turn_instruction": (
+            "Generate a new grounded owner-first StrategyPlan (strategy-v2) from the "
+            "supplied context. The channels in brief.channel_choices are final."
+        ),
+        "provenance": provenance,
+        "output_contract": {
+            "contract_version": "strategy-v2",
+            "required_sections": [
+                "goal",
+                "primary_objective",
+                "funnel_stage",
+                "plan_language",
+                "start_date",
+                "calendar_weeks",
+                "owner_advice",
+                "channel_commitments",
+                "evidence_summary",
+                "risks",
+                "knowledge_gaps",
+                "blockers",
+                "citations",
+                "content_handoff",
+            ],
+        },
+    }
+    return (
+        "Strategy generation context follows. The Business Profile is the source of "
+        "confirmed facts, the Strategy Brief contains final owner channel choices, the "
+        "RetrievedKnowledgePack is the only citable reviewed guidance (Egypt-first), and "
+        "the deterministic channel audit scores are internal context the plan must explain "
+        "but not change:\n\n"
+        f"{json.dumps(context, ensure_ascii=False, indent=2)}"
+    )
+
+
+def build_revise_v2_user_context(
+    request: StrategyReviseRequest,
+    channel_scores: list[dict[str, Any]],
+) -> str:
+    """Build the owner-first user context for v2 revision."""
+    context = {
+        "turn_instruction": (
+            "Revise the previous owner-first StrategyPlan based on the owner's explicit "
+            "feedback. Create a new plan version; do not mutate the previous plan."
+        ),
+        "provenance": {
+            "business_profile": _format_profile(request.business_profile),
+            "strategy_brief": _format_brief(request.brief),
+            "retrieved_knowledge_pack": _format_pack(request.retrieved_knowledge_pack),
+            "deterministic_channel_audit": {
+                "channel_score_rule_version": "strategy-channel-score-v1",
+                "channel_scores": channel_scores,
+            },
+        },
+        "previous_plan": request.previous_plan.model_dump(mode="json", exclude_none=True),
+        "owner_revision_notes": request.revision_notes,
+        "output_contract": {
+            "contract_version": "strategy-v2",
+            "required_sections": [
+                "goal",
+                "primary_objective",
+                "funnel_stage",
+                "plan_language",
+                "start_date",
+                "calendar_weeks",
+                "owner_advice",
+                "channel_commitments",
+                "evidence_summary",
+                "risks",
+                "knowledge_gaps",
+                "blockers",
+                "citations",
+                "content_handoff",
+            ],
+        },
+    }
+    return (
+        "Strategy revision context follows. The previous plan is read-only. Apply only the "
+        "owner's explicit revision notes. Keep the owner's exact channel choices. If a "
+        "requested change conflicts with a confirmed fact or rule, record it as a blocker or "
+        "assumption:\n\n"
+        f"{json.dumps(context, ensure_ascii=False, indent=2)}"
+    )

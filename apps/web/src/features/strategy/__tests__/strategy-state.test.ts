@@ -17,6 +17,7 @@ describe('strategy frontend state', () => {
       'queued',
       'generating',
       'validating',
+      'approved',
       'rejected',
     ] satisfies StrategyStatus[]
     const labels = statuses.map(ownerProgressLabel)
@@ -27,6 +28,7 @@ describe('strategy frontend state', () => {
       'organizing_plan',
       'writing_draft',
       'checking_plan',
+      'approved',
       'revision_needed',
     ])
     expect(labels.join(' ')).not.toMatch(/rag|qdrant|retriev|llm|embedding|schema|validator/i)

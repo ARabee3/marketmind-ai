@@ -36,8 +36,7 @@
     "closeNavigation": "Close navigation",
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
-    "error": "Error",
-    "navContent": "Content"
+    "error": "Error"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -660,8 +659,10 @@
       "subtitle": "Choose the goal, budget approach, and team capacity first. MarketMind keeps the profile facts locked and asks before any important decision.",
       "start": "Start strategy choices",
       "review": "Review sample draft",
+      "viewApproved": "View approved plan",
       "currentLabel": "Current plan state",
       "currentBody": "This preview shows how the owner will move from choices to progress, review, and approval once Strategy planning is available.",
+      "currentBodyApproved": "The approved plan is saved. Open it to review the final plan and the recorded owner decision.",
       "loadError": "We could not load your Strategy workspace. Please try again.",
       "retry": "Try again"
     },
@@ -683,6 +684,8 @@
       "blockedTitle": "One decision is still needed",
       "readyBadge": "Ready",
       "needsDecisionBadge": "Needs decision",
+      "approvedTitle": "The plan is approved",
+      "approvedBadge": "Approved",
       "profile": "Business profile is confirmed",
       "objective": "Main goal is selected",
       "budget": "Budget answer needs a decision",
@@ -784,6 +787,8 @@
     "progress": {
       "eyebrow": "Preparing the plan",
       "title": "You can watch the plan being prepared.",
+      "eyebrowApproved": "Plan approved",
+      "titleApproved": "Your approved plan.",
       "estimate": "Estimated time",
       "estimateHint": "This estimate is approximate and can change while work runs.",
       "barLabel": "Strategy preparation progress",
@@ -795,6 +800,7 @@
         "writing_draft": "Writing the first Strategy draft.",
         "checking_plan": "Checking budget, facts, and supporting details.",
         "ready": "The draft is ready for review.",
+        "approved": "The plan is approved. Open it to review the final plan and decision.",
         "failed": "We could not finish this planning step.",
         "needs_choices": "Strategy choices are still needed.",
         "revision_needed": "The draft was rejected. Choose what should change before preparing another version."
@@ -995,6 +1001,13 @@
       "profileCurrent": "Business Profile version is current",
       "evidenceValid": "Every citation resolves to approved current evidence",
       "noBlockers": "No blocking gaps remain",
+      "approvedBadge": "Approved",
+      "approvedTitle": "This strategy is approved",
+      "approvedBody": "The owner approved this immutable plan version. Open the Content workspace to start a Content cycle when you are ready.",
+      "approvedAction": "Open Content workspace",
+      "rejectedBadge": "Rejected",
+      "rejectedTitle": "This draft was rejected",
+      "rejectedBody": "The owner recorded a rejection for this version. Start a revision when you are ready to prepare a new version.",
       "feedbackLabel": "Owner feedback",
       "feedbackPlaceholder": "Explain what should change or why this draft is being rejected…",
       "cancel": "Cancel",
@@ -1053,6 +1066,181 @@
         "rejected": "Rejected",
         "failed": "Revision failed"
       }
+    },
+    "channels": {
+      "label": "Channels",
+      "facebook": "Facebook Page",
+      "instagram": "Instagram Professional",
+      "tiktok": "TikTok",
+      "google_business_profile": "Google Business Profile",
+      "delivery_platforms": "Delivery platforms",
+      "website": "Website",
+      "roles": {
+        "primary": "Main focus",
+        "supporting": "Supporting"
+      },
+      "setupStates": {
+        "connected": "Connected",
+        "existing_link": "Existing link",
+        "setup_later": "Set up later"
+      },
+      "capabilities": {
+        "publishing_ready": "Ready for publishing",
+        "publishing_pending": "Connected — target verification pending",
+        "owner_managed": "Owner-managed"
+      }
+    },
+    "wizard": {
+      "eyebrow": "Build your Strategy",
+      "title": "Three quick choices, then your 12-week plan.",
+      "subtitle": "You decide the goal, the channels you will actually use, and what is realistic. MarketMind never adds or replaces a channel on your behalf.",
+      "steps": {
+        "goal": "Your goal",
+        "goalBody": "What do you want the next 12 weeks to achieve?",
+        "channels": "Where you will show up",
+        "channelsBody": "Choose one main channel and up to two supporting channels.",
+        "realistic": "What is realistic",
+        "realisticBody": "Tell us your weekly capacity and budget approach."
+      },
+      "stepOf": "Step {current} of {total}",
+      "next": "Continue",
+      "back": "Back",
+      "generate": "Generate plan",
+      "generatePending": "Saving and generating…",
+      "save": "Save draft and leave",
+      "saved": "Draft saved.",
+      "unsaved": "You have unsaved Strategy choices.",
+      "primaryHelp": "Choose one main focus for the next 12 weeks.",
+      "supportingHelp": "Choose up to two supporting channels. You can change them until you generate.",
+      "meta": {
+        "connect": "Connect with Meta",
+        "connectSoon": "Meta connection is coming soon. You can generate now and connect later.",
+        "addLink": "Add existing link",
+        "addLinkHelp": "Paste the URL of your existing page, account, or profile.",
+        "setUpLater": "Set up later",
+        "setUpLaterHelp": "Keep this channel in the plan without a connection yet.",
+        "publicUrlLabel": "Public URL",
+        "publicUrlPlaceholder": "https://…",
+        "publicUrlRequired": "Add the existing link URL.",
+        "metaTargetBlocked": "Real publishing stays blocked until the page is connected and verified.",
+        "connectedTarget": "Connected account",
+        "targetUnavailable": "needs reconnection",
+        "connectRequired": "Connect this selected channel or choose a different setup option.",
+        "connectUnavailable": "Meta connection is not available in this environment yet.",
+        "connectFailed": "We could not start the Meta connection. Try again.",
+        "connecting": "Opening Meta…",
+        "reconnect": "Reconnect with Meta"
+      },
+      "capacity": {
+        "label": "Weekly capacity",
+        "help": "How much time can you realistically give to this plan each week?",
+        "options": {
+          "one_to_two_hours": "1–2 hours a week",
+          "three_to_five_hours": "3–5 hours a week",
+          "half_day": "About half a day a week",
+          "full_day_plus": "A full day or more a week"
+        }
+      },
+      "capacityNote": {
+        "label": "Anything else about your time?",
+        "help": "Optional note about your capacity, e.g. weekends only."
+      },
+      "paidMedia": {
+        "label": "Paid media",
+        "help": "Are you open to paid promotion within the next 12 weeks?",
+        "organic": "Organic only — no paid ads",
+        "allowed": "Yes, within a budget"
+      },
+      "budgetAmount": {
+        "label": "Monthly budget (EGP)",
+        "help": "The maximum you can commit per month."
+      },
+      "constraints": {
+        "label": "Anything else the plan must respect?",
+        "help": "Optional note, e.g. avoid dairy offers or no weekend staff."
+      },
+      "validation": {
+        "required": "This is required.",
+        "primaryChannel": "Choose one main channel.",
+        "supportingLimit": "You can choose up to two supporting channels.",
+        "publicUrl": "Add the existing link URL.",
+        "loadFailed": "We could not load your profile. Please try again."
+      },
+      "readiness": {
+        "goal": "Your goal is set",
+        "channels": "Channels chosen",
+        "realistic": "Capacity and budget set"
+      }
+    },
+    "reviewV2": {
+      "badge": "Owner-first plan",
+      "title": "Your 12-week plan",
+      "subtitle": "Here is what you decided and what to expect each week. You stay in control of every action.",
+      "openAdvice": "Open owner advice",
+      "openHistory": "Version history",
+      "summaryLabel": "Your plan at a glance",
+      "goalLabel": "Goal",
+      "channelsLabel": "Channels",
+      "datesLabel": "Plan dates",
+      "startsOn": "Starts {date}",
+      "planLanguage": "Language",
+      "objective": "Objective",
+      "weeksGroup": {
+        "one": "Weeks 1–4",
+        "two": "Weeks 5–8",
+        "three": "Weeks 9–12"
+      },
+      "week": "Week {week}",
+      "focus": "Focus",
+      "outcome": "Expected outcome",
+      "measurement": "Measurement check",
+      "ownerActions": "{count, plural, =0 {No owner actions} one {# owner action} other {# owner actions}}",
+      "openAdviceForWeek": "See the owner actions for week {week}",
+      "contentHandoff": {
+        "label": "Content handoff",
+        "ready": "Ready for Content cycles",
+        "readyBody": "This plan can start a Content cycle for the supported channels.",
+        "unavailable": "Owner-managed plan",
+        "unavailableBody": "None of the selected channels are supported by Content yet. The plan stays yours to execute; a Content cycle cannot start."
+      },
+      "detailsTitle": "Plan details",
+      "details": {
+        "why": "Why this fits",
+        "evidence": "Evidence",
+        "evidenceBody": "{count} citations grounded in reviewed guidance",
+        "risks": "Risks and gaps",
+        "history": "Version history"
+      },
+      "capability": "Capability",
+      "setupState": "Setup",
+      "rationale": "Why this channel",
+      "noBlockers": "No blockers",
+      "blockingLabel": "Blocking",
+      "warningLabel": "Warning",
+      "channelsLabelList": "Selected channels"
+    },
+    "advice": {
+      "badge": "Owner advice",
+      "title": "Your to-do list for the plan",
+      "subtitle": "Every item is something you do — MarketMind never pretends to do it for you. Each item states the action, why it matters, when to do it, and its source.",
+      "beforeWeek1": "Before week 1",
+      "beforeWeek1Body": "Set up the foundation before the plan starts.",
+      "weekBucket": "Week {week}",
+      "backToReview": "Back to the plan",
+      "action": "What you do",
+      "why": "Why it matters",
+      "timing": "When",
+      "category": "Category",
+      "categories": {
+        "channel_setup": "Channel setup",
+        "audience": "Audience",
+        "content": "Content",
+        "budget": "Budget",
+        "measurement": "Measurement",
+        "capability": "Capability"
+      },
+      "empty": "No advice items for this week.",
+      "weekLink": "See this week in the plan"
     }
   },
   "Landing": {
@@ -1679,6 +1867,66 @@
       "body": "We could not load the latest candidates and decisions. Nothing was published by this screen.",
       "retry": "Try again",
       "unknown": "Something changed while you were reviewing. Refresh the latest state before trying again."
+    },
+    "meta": {
+      "connectTitle": "Connect a Meta account",
+      "connectBody": "Connect the Facebook Page you own, and optionally its linked Instagram Professional account, so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
+      "connectListTitle": "What gets connected",
+      "connectItemPage": "One Facebook Page you manage",
+      "connectItemInstagram": "The Page's linked Instagram Professional account (optional)",
+      "connectItemFormats": "Supported format: static image with caption",
+      "connectItemToken": "Your access token is encrypted at rest and referenced opaquely — it is never shown to you, stored in your browser, or written to logs",
+      "prereqTitle": "Before you continue",
+      "prereqPage": "You must be an admin of the Facebook Page",
+      "prereqInstagram": "The Instagram account must be a Professional account linked to the Page",
+      "prereqPermissions": "Grant only the publishing permissions MarketMind requests",
+      "startButton": "Continue with Meta",
+      "backButton": "Back to publishing",
+      "unavailableTitle": "Connection is not available right now",
+      "unavailableBody": "The Meta connection configuration is not set up in this environment yet. Export and simulation remain available — real publishing is blocked until the connection works.",
+      "unavailableRecovery": "Back to publishing",
+      "resultSuccessTitle": "Connected — choose your accounts",
+      "resultSuccessBody": "Your Facebook account is authorized. Select the Page (and optional Instagram account) to publish to. Only accounts that support the approved format are listed.",
+      "resultCancelledTitle": "Connection cancelled",
+      "resultCancelledBody": "You closed the Meta window without connecting. Nothing changed — you can try again whenever you like.",
+      "resultExpiredTitle": "Connection link expired",
+      "resultExpiredBody": "The connection link was used once or ran out of time. Start a new connection to try again.",
+      "resultDeniedTitle": "Connection was not granted",
+      "resultDeniedBody": "Meta did not grant the publishing permissions. You can retry and accept the permissions, or use export and simulation instead.",
+      "resultUnknownTitle": "Something went wrong",
+      "resultUnknownBody": "The connection could not be completed. Your accounts are unchanged. Try again, or use export and simulation instead.",
+      "resultRetry": "Start a new connection",
+      "resultBack": "Back to publishing",
+      "loadingOptions": "Checking your accounts with Meta…",
+      "noOptionsTitle": "No publishable accounts found",
+      "noOptionsBody": "Meta did not return any Facebook Page that supports the approved format. Make sure you manage the Page and that its Instagram account (if needed) is a linked Professional account.",
+      "optionPageLabel": "Facebook Page",
+      "optionInstagramLabel": "Instagram Professional account",
+      "optionSupported": "Ready to publish static images",
+      "optionBlocked": "Not available: {blocker}",
+      "blockerNoPagePrivilege": "you are not an admin of this Page",
+      "blockerPagePublishCapabilityMissing": "the Page publish permission is not granted",
+      "blockerInstagramNotLinked": "no linked Instagram Professional account",
+      "blockerInstagramNotProfessional": "the linked Instagram account is not a Professional account",
+      "blockerInstagramPublishCapabilityMissing": "the Instagram publish permission is not granted",
+      "blockerAuthorizationExpired": "authorization expired",
+      "blockerUnknown": "unavailable",
+      "selectPage": "Select the Page to connect",
+  "includeInstagram": "Also connect the linked Instagram Professional account",
+  "instagramRequired": "Instagram was selected as the Strategy channel and must be connected.",
+      "selectButton": "Connect selected accounts",
+      "selecting": "Connecting…",
+      "selectDoneTitle": "Accounts connected",
+      "selectDoneBody": "The selected accounts are connected and verified. You can now schedule and approve real publications.",
+      "selectDoneAction": "Go to publishing",
+      "expiredAt": "Authorization expires {date}",
+      "disconnectTitle": "Disconnect account",
+      "disconnectBody": "Disconnecting cancels any scheduled real publications on this account and revokes the stored credential. Export and simulation remain available.",
+      "disconnectButton": "Disconnect",
+      "disconnectConfirm": "Disconnect this account?",
+      "connectedTarget": "Connected account",
+      "reconnectButton": "Reconnect",
+      "chooseAnother": "Connect another account"
     }
   },
   "Billing": {
@@ -1787,6 +2035,9 @@
       "staleRouteTitle": "Another Content Cycle Is Active",
       "staleRouteBody": "A different content cycle is already in progress. Open that cycle to continue.",
       "staleRouteAction": "Go to Current Cycle",
+      "cycleUnavailableTitle": "Content Cycle Unavailable",
+      "cycleUnavailableBody": "The strategy behind this cycle is no longer available, so the cycle cannot be opened. Start a new cycle from your approved strategy.",
+      "cycleUnavailableAction": "Go to Content",
       "malformedPlanTitle": "Strategy Roadmap Incomplete",
       "malformedPlanBody": "The approved Strategy plan does not contain a complete 12-week roadmap.",
       "readyTitle": "Ready to Start 12-Week Content Cycle",

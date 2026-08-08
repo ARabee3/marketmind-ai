@@ -1,4 +1,20 @@
 import json
+from strategy_contracts import (
+    ChannelCapabilityState,
+    ChannelCommitment,
+    ChannelRole,
+    ChannelSetupState,
+    ClaimSource,
+    ContentHandoffAvailable,
+    ContentHandoffUnavailable,
+    ContentHandoffWeek,
+    SourcedClaim,
+    StrategyBriefV2,
+    StrategyChannelChoice,
+    StrategyPlanV2,
+    StrategyV2Channel,
+    validate_strategy_v2_bundle,
+)
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -490,6 +506,227 @@ class TestStrategyContracts(unittest.TestCase):
         decision = decision.model_copy(update={"strategy_version": plan.version + 1})
         self._expect_validation_code("STRATEGY_RULE_VIOLATION", decision=decision)
         self._expect_validation_code("STRATEGY_APPROVAL_BLOCKED", decision=decision)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class TestStrategyV2Contracts(unittest.TestCase):
+    """Owner-first strategy-v2 contract tests (issue #135)."""
+
+    EXAMPLES_DIR = EXAMPLES_DIR
+
+    def load_v2_bundle(self):
+        journey = json.loads(
+            (self.EXAMPLES_DIR / "cafe-full-journey.example.json").read_text(encoding="utf-8")
+        )
+        brief = StrategyBriefV2.model_validate(
+            json.loads(
+                (self.EXAMPLES_DIR / "strategy-brief-v2.example.json").read_text(encoding="utf-8")
+            )
+        )
+        plan = StrategyPlanV2.model_validate(
+            json.loads(
+                (self.EXAMPLES_DIR / "strategy-plan-v2.example.json").read_text(encoding="utf-8")
+            )
+        )
+        pack = RetrievedKnowledgePack.model_validate(
+            json.loads(
+                (self.EXAMPLES_DIR / "strategy-retrieval-pack.example.json").read_text(encoding="utf-8")
+            )
+        )
+        profile = BusinessProfilePayload.model_validate(journey["confirmed_business_profile"])
+        profile = profile.model_copy(
+            update={
+                "id": brief.business_profile_version.business_profile_version_id,
+                "version": brief.business_profile_version.version,
+                "confirmed_at": brief.business_profile_version.confirmed_at,
+            }
+        )
+        return profile, brief, plan, pack
+
+    def test_valid_v2_bundle(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=plan
+        )
+        self.assertTrue(result.valid, f"issues: {[i.model_dump() for i in result.issues]}")
+        self.assertEqual(result.issues, [])
+
+    def test_brief_v2_rejects_missing_primary(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = brief.model_copy(
+            update={
+                "channel_choices": [
+                    choice.model_copy(update={"role": "supporting"})
+                    for choice in brief.channel_choices
+                ]
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=bad, retrieval_pack=pack, plan=plan
+        )
+        self.assertFalse(result.valid)
+        codes = {issue.code for issue in result.issues}
+        self.assertIn("STRATEGY_CHANNEL_CHOICE_MISMATCH", codes)
+
+    def test_plan_v2_rejects_extra_channel_commitment(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = plan.model_copy(
+            update={
+                "channel_commitments": plan.channel_commitments
+                + [
+                    ChannelCommitment(
+                        channel=StrategyV2Channel.tiktok,
+                        role=ChannelRole.supporting,
+                        setup_state=ChannelSetupState.setup_later,
+                        capability_state=ChannelCapabilityState.owner_managed,
+                        rationale=SourcedClaim(
+                            text="لم يختر المالك تيك توك",
+                            source=ClaimSource.owner_input,
+                            citation_ids=[],
+                        ),
+                    )
+                ]
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=bad
+        )
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "STRATEGY_CHANNEL_CHOICE_MISMATCH", {issue.code for issue in result.issues}
+        )
+
+    def test_plan_v2_rejects_incomplete_handoff_week(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = plan.model_copy()
+        handoff = bad.content_handoff
+        self.assertTrue(handoff.available)
+        bad = bad.model_copy(
+            update={
+                "content_handoff": ContentHandoffAvailable(
+                    available=True,
+                    channels=handoff.channels,
+                    language=handoff.language,
+                    weeks=[ContentHandoffWeek(week_number=1, formats=[])]
+                    + handoff.weeks[1:],
+                )
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=bad
+        )
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "STRATEGY_CONTENT_HANDOFF_INVALID",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_owner_managed_plan_without_handoff_is_valid(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        brief = brief.model_copy(
+            update={
+                "channel_choices": [
+                    StrategyChannelChoice(
+                        channel=StrategyV2Channel.website,
+                        role=ChannelRole.primary,
+                        setup_state=ChannelSetupState.existing_link,
+                        public_url="https://kosharycorner.com",
+                    ),
+                    StrategyChannelChoice(
+                        channel=StrategyV2Channel.delivery_platforms,
+                        role=ChannelRole.supporting,
+                        setup_state=ChannelSetupState.setup_later,
+                    ),
+                ]
+            }
+        )
+        plan = plan.model_copy(
+            update={
+                "channel_commitments": [
+                    ChannelCommitment(
+                        channel=StrategyV2Channel.website,
+                        role=ChannelRole.primary,
+                        setup_state=ChannelSetupState.existing_link,
+                        capability_state=ChannelCapabilityState.owner_managed,
+                        rationale=SourcedClaim(
+                            text="الموقع يديره المالك مباشرة",
+                            source=ClaimSource.owner_input,
+                            citation_ids=[],
+                        ),
+                    ),
+                    ChannelCommitment(
+                        channel=StrategyV2Channel.delivery_platforms,
+                        role=ChannelRole.supporting,
+                        setup_state=ChannelSetupState.setup_later,
+                        capability_state=ChannelCapabilityState.owner_managed,
+                        rationale=SourcedClaim(
+                            text="منصات التوصيل تديرها المنصات نفسها",
+                            source=ClaimSource.owner_input,
+                            citation_ids=[],
+                        ),
+                    ),
+                ],
+                "content_handoff": ContentHandoffUnavailable(
+                    available=False,
+                    reason="no_content_supported_channels",
+                    message="No owner-selected channel maps to content-v1.",
+                ),
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=plan
+        )
+        self.assertTrue(result.valid, f"issues: {[i.model_dump() for i in result.issues]}")
+
+    def test_handoff_channel_must_be_owner_selected(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = plan.model_copy()
+        handoff = bad.content_handoff
+        bad = bad.model_copy(
+            update={
+                "content_handoff": ContentHandoffAvailable(
+                    available=True,
+                    channels=["tiktok"],
+                    language=handoff.language,
+                    weeks=handoff.weeks,
+                )
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=bad
+        )
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "STRATEGY_CONTENT_HANDOFF_INVALID",
+            {issue.code for issue in result.issues},
+        )
+
+    def test_connected_choice_requires_target_for_publishing_ready(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = plan.model_copy()
+        bad = bad.model_copy(
+            update={
+                "channel_commitments": [
+                    commitment.model_copy(
+                        update={"capability_state": ChannelCapabilityState.publishing_ready}
+                    )
+                    if commitment.channel == StrategyV2Channel.facebook
+                    else commitment
+                    for commitment in bad.channel_commitments
+                ]
+            }
+        )
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=bad
+        )
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "STRATEGY_CHANNEL_CHOICE_MISMATCH",
+            {issue.code for issue in result.issues},
+        )
 
 
 if __name__ == "__main__":

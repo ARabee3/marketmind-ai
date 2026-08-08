@@ -32,9 +32,11 @@ import { Button } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
+import { isStrategyPlanV2 } from '../lib/strategy-v2'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyBadge } from './strategy-badge'
 import { StrategyProfileSummary } from './strategy-profile-summary'
+import { StrategyReviewV2 } from './strategy-review-v2'
 
 type DecisionAction = 'approve' | 'revision_requested' | 'reject'
 
@@ -64,11 +66,16 @@ export function StrategyReview({
   readonly readOnly?: boolean
 }) {
   const t = useTranslations('Strategy')
-  const plan = resource.latest_plan
+  const latest = resource.latest_plan
   const { decide, retry, pending, error } = useStrategyActions()
   const [decision, setDecision] = useState<DecisionAction | null>(null)
   const [feedback, setFeedback] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+
+  // Owner-first strategy-v2 plans render on the calendar-first review.
+  // Hooks above stay unconditional; this is a pure render-time dispatch.
+  const isV2 = latest !== null && isStrategyPlanV2(latest)
+  const plan = isV2 ? null : (latest as StrategyPlan | null)
 
   const evidence = useMemo(
     () => inspectEvidence(plan, retrieval),
@@ -130,6 +137,20 @@ export function StrategyReview({
     if (!result) return
     setNotice(t('decision.success.retry'))
     await onRefresh()
+  }
+
+  if (isV2 && latest) {
+    return (
+      <StrategyReviewV2
+        profile={profile}
+        resource={resource}
+        currentVersionId={currentVersionId}
+        retrieval={retrieval}
+        progress={progress}
+        onRefresh={onRefresh}
+        readOnly={readOnly}
+      />
+    )
   }
 
   if (!plan) {
@@ -473,6 +494,10 @@ export function StrategyReview({
                 {t('history.readOnlyBody')}
               </p>
             </section>
+          ) : resource.status === 'approved' ? (
+            <ApprovedDecisionPanel />
+          ) : resource.status === 'rejected' ? (
+            <RejectedDecisionPanel />
           ) : (
           <>
           <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
@@ -1136,6 +1161,47 @@ function StatusBanner({
         {title}
       </h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{body}</p>
+    </section>
+  )
+}
+
+function ApprovedDecisionPanel() {
+  const t = useTranslations('Strategy')
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+      <StrategyBadge tone="good">{t('decision.approvedBadge')}</StrategyBadge>
+      <h2 className="mt-3 text-lg font-bold text-navy">
+        {t('decision.approvedTitle')}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {t('decision.approvedBody')}
+      </p>
+      <div className="mt-4">
+        <Link
+          href="/content"
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40"
+        >
+          {t('decision.approvedAction')}
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function RejectedDecisionPanel() {
+  const t = useTranslations('Strategy')
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+      <StrategyBadge tone="danger">{t('decision.rejectedBadge')}</StrategyBadge>
+      <h2 className="mt-3 text-lg font-bold text-navy">
+        {t('decision.rejectedTitle')}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {t('decision.rejectedBody')}
+      </p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">
+        {t('decision.safetyNote')}
+      </p>
     </section>
   )
 }

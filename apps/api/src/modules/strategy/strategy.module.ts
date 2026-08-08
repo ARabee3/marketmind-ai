@@ -10,12 +10,14 @@ import { StrategyProcessor } from './strategy.processor';
 import { StrategyRateLimitGuard } from './strategy-rate-limit.guard';
 import { BillingModule } from '../billing/billing.module';
 import { StrategyProgressGateway } from './strategy-progress.gateway';
+import { PublishingModule } from '../publishing/publishing.module';
 
 @Module({
   imports: [
     JwtModule.register({}),
     PrismaModule,
     BillingModule,
+    PublishingModule,
     HttpModule,
     BullModule.registerQueue({ name: 'strategy-generation' }),
   ],

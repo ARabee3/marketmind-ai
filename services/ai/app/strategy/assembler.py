@@ -21,10 +21,14 @@ from orchestration_contracts import ResearchPackV1
 
 from app.strategy.prompts import (
     STRATEGY_GENERATE_SYSTEM_PROMPT,
+    STRATEGY_GENERATE_V2_SYSTEM_PROMPT,
     STRATEGY_RESEARCH_HANDOFF_SYSTEM_PROMPT,
     STRATEGY_REVISE_SYSTEM_PROMPT,
+    STRATEGY_REVISE_V2_SYSTEM_PROMPT,
     build_generate_user_context,
+    build_generate_v2_user_context,
     build_revise_user_context,
+    build_revise_v2_user_context,
 )
 from app.strategy.prompt_versions import (
     STRATEGY_GENERATE_PROMPT_VERSION,
@@ -103,13 +107,14 @@ def _build_metadata(
     prompt_version: str,
     provider_name: str,
     model: str,
+    contract_version: str = "strategy-v1",
 ) -> dict[str, Any]:
     """Record prompt, provider, contract, and reference-pattern versions."""
     return {
         "prompt_version": prompt_version,
         "provider_name": provider_name,
         "model": model,
-        "contract_version": "strategy-v1",
+        "contract_version": contract_version,
         "reference_pattern_version": STRATEGY_REFERENCE_PATTERN_VERSION,
         "assembled_at": datetime.now(timezone.utc).isoformat(),
         "strategy_id": request.strategy_id,
@@ -220,5 +225,103 @@ def assemble_revision_prompt(
             **metadata,
             "deterministic_budget_scenarios": budget_scenarios,
             "deterministic_kpi_targets": kpi_targets,
+        },
+    )
+
+
+def assemble_generation_v2_prompt(
+    request: StrategyGenerateRequest,
+    decision_bundle: DecisionBundle,
+    provider_name: str,
+    model: str,
+) -> PromptAssembly:
+    """Assemble the owner-first prompt for Strategy v2 generation.
+
+    The channel scorecards are included as internal validation/audit context;
+    the plan commits only to the brief's owner-selected channels.
+    """
+    _verify_input_consistency(request)
+
+    channel_scores = _channel_scores_to_dicts(decision_bundle.channel_scores)
+
+    user_prompt = build_generate_v2_user_context(
+        request=request,
+        channel_scores=channel_scores,
+    )
+
+    metadata = _build_metadata(
+        request,
+        STRATEGY_GENERATE_PROMPT_VERSION,
+        provider_name,
+        model,
+        contract_version="strategy-v2",
+    )
+    metadata["channel_choices"] = [
+        {
+            "channel": choice.channel.value,
+            "role": choice.role.value,
+            "setup_state": choice.setup_state.value,
+            "public_url": choice.public_url,
+            "publishing_target_id": choice.publishing_target_id,
+            "note": choice.note,
+        }
+        for choice in request.brief.channel_choices
+    ]
+
+    return PromptAssembly(
+        system_prompt=STRATEGY_GENERATE_V2_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        metadata={
+            **metadata,
+            "deterministic_budget_scenarios": [],
+            "deterministic_kpi_targets": [],
+        },
+    )
+
+
+def assemble_revision_v2_prompt(
+    request: StrategyReviseRequest,
+    decision_bundle: DecisionBundle,
+    provider_name: str,
+    model: str,
+) -> PromptAssembly:
+    """Assemble the owner-first prompt for Strategy v2 revision."""
+    _verify_input_consistency(request)
+
+    channel_scores = _channel_scores_to_dicts(decision_bundle.channel_scores)
+
+    user_prompt = build_revise_v2_user_context(
+        request=request,
+        channel_scores=channel_scores,
+    )
+
+    metadata = _build_metadata(
+        request,
+        STRATEGY_REVISE_PROMPT_VERSION,
+        provider_name,
+        model,
+        contract_version="strategy-v2",
+    )
+    metadata["revision_notes"] = request.revision_notes
+    metadata["previous_plan_version"] = request.previous_plan.version
+    metadata["channel_choices"] = [
+        {
+            "channel": choice.channel.value,
+            "role": choice.role.value,
+            "setup_state": choice.setup_state.value,
+            "public_url": choice.public_url,
+            "publishing_target_id": choice.publishing_target_id,
+            "note": choice.note,
+        }
+        for choice in request.brief.channel_choices
+    ]
+
+    return PromptAssembly(
+        system_prompt=STRATEGY_REVISE_V2_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        metadata={
+            **metadata,
+            "deterministic_budget_scenarios": [],
+            "deterministic_kpi_targets": [],
         },
     )

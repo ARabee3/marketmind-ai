@@ -13,9 +13,11 @@ from strategy_contracts import (
     DeterministicChannelScorecard,
     KpiTarget,
     StrategyBrief,
+    StrategyBriefV2,
     StrategyGenerateRequest,
     StrategyGenerateResponse,
     StrategyPlan,
+    StrategyPlanV2,
     StrategyReviseRequest,
     StrategyValidationResult,
 )
@@ -24,9 +26,13 @@ from app.core.config import Settings, get_settings
 from app.db.client import get_db
 from app.decisions.errors import DecisionRuleInputError
 from app.decisions.explanations import ChannelScoreExplanation, StrategyDecisionBundle
-from app.decisions.service import compute_strategy_decisions
+from app.decisions.service import compute_strategy_decisions, compute_strategy_v2_decisions
 from app.providers.base import ProviderError
-from app.providers.strategy_provider import StrategyLLMProvider, create_strategy_provider
+from app.providers.strategy_provider import (
+    StrategyLLMProvider,
+    StrategyPlanV2,
+    create_strategy_provider,
+)
 from app.qdrant.client import create_qdrant_client
 from app.rag.errors import RetryableRetrievalError, NonRetryableRetrievalError
 from app.rag.schemas import KnowledgeGap, RetrievalQueryContext, RetrievedKnowledgePack
@@ -35,10 +41,15 @@ from app.strategy.assembler import (
     DecisionBundle,
     PromptAssembly,
     assemble_generation_prompt,
+    assemble_generation_v2_prompt,
     assemble_revision_prompt,
+    assemble_revision_v2_prompt,
 )
 from app.strategy.retrieval_adapter import contract_pack_to_rag
-from app.strategy.validators import validate_plan_against_request
+from app.strategy.validators import (
+    validate_plan_against_request,
+    validate_v2_plan_against_request,
+)
 
 
 router = APIRouter(prefix="/internal/v1/ai/strategy", tags=["internal-ai-strategy"])
@@ -101,7 +112,7 @@ class ScoreStrategyRequest(BaseModel):
     """Request body for deterministic strategy scoring."""
 
     business_profile: BusinessProfilePayload
-    brief: StrategyBrief
+    brief: StrategyBrief | StrategyBriefV2
     retrieval_pack: RetrievedKnowledgePack
 
 
@@ -193,7 +204,12 @@ async def _generate_validated_plan(
     provider: StrategyLLMProvider,
     prompt: PromptAssembly,
     request: StrategyGenerateRequest,
-) -> tuple[StrategyPlan, StrategyValidationResult]:
+    *,
+    output_model: type[StrategyPlan] | type[StrategyPlanV2] = StrategyPlan,
+    normalize_plan=None,
+    validate=None,
+) -> tuple[StrategyPlan | StrategyPlanV2, StrategyValidationResult]:
+    validate = validate or validate_plan_against_request
     current_prompt = PromptAssembly(
         system_prompt=prompt.system_prompt,
         user_prompt=prompt.user_prompt,
@@ -208,7 +224,11 @@ async def _generate_validated_plan(
 
     for attempt in range(_MAX_GENERATION_ATTEMPTS):
         try:
-            plan = await provider.generate_strategy_plan(current_prompt)
+            plan = await provider.generate_strategy_plan(
+                current_prompt, output_model=output_model
+            )
+            if normalize_plan is not None:
+                plan = normalize_plan(plan, request)
         except ProviderError as error:
             if (
                 error.code == "AI_PROVIDER_INVALID_OUTPUT"
@@ -233,7 +253,7 @@ async def _generate_validated_plan(
             await asyncio.sleep(2 ** attempt)
             continue
 
-        validation = validate_plan_against_request(plan=plan, request=request)
+        validation = validate(plan=plan, request=request)
         if validation.valid:
             return plan, validation
 
@@ -283,11 +303,18 @@ async def score_strategy(
 ) -> ScoreStrategyResponse:
     """Run deterministic strategy scoring without LLM generation."""
     try:
-        bundle = compute_strategy_decisions(
-            business_profile=request.business_profile,
-            brief=request.brief,
-            retrieval_pack=request.retrieval_pack,
-        )
+        if isinstance(request.brief, StrategyBriefV2):
+            bundle = compute_strategy_v2_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=request.retrieval_pack,
+            )
+        else:
+            bundle = compute_strategy_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=request.retrieval_pack,
+            )
     except DecisionRuleInputError as e:
         raise HTTPException(
             status_code=400,
@@ -340,13 +367,21 @@ async def generate_strategy(
     4. Calls the LLM provider with safe retry for transient failures.
     5. Parses and returns the plan.
     """
+    is_v2 = request.contract_version == "strategy-v2"
     try:
         rag_pack = contract_pack_to_rag(request.retrieved_knowledge_pack)
-        decisions = compute_strategy_decisions(
-            business_profile=request.business_profile,
-            brief=request.brief,
-            retrieval_pack=rag_pack,
-        )
+        if is_v2:
+            decisions = compute_strategy_v2_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=rag_pack,
+            )
+        else:
+            decisions = compute_strategy_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=rag_pack,
+            )
     except DecisionRuleInputError as e:
         raise HTTPException(
             status_code=400,
@@ -381,12 +416,20 @@ async def generate_strategy(
 
     model_name = settings.openai_model or settings.gemini_model or "mock"
     try:
-        prompt = assemble_generation_prompt(
-            request=request,
-            decision_bundle=bundle,
-            provider_name=settings.ai_provider_mode,
-            model=model_name,
-        )
+        if is_v2:
+            prompt = assemble_generation_v2_prompt(
+                request=request,
+                decision_bundle=bundle,
+                provider_name=settings.ai_provider_mode,
+                model=model_name,
+            )
+        else:
+            prompt = assemble_generation_prompt(
+                request=request,
+                decision_bundle=bundle,
+                provider_name=settings.ai_provider_mode,
+                model=model_name,
+            )
     except ValueError as e:
         raise HTTPException(
             status_code=400,
@@ -401,6 +444,9 @@ async def generate_strategy(
         provider=provider,
         prompt=prompt,
         request=request,
+        output_model=StrategyPlanV2 if is_v2 else StrategyPlan,
+        normalize_plan=_normalize_v2_plan if is_v2 else None,
+        validate=validate_v2_plan_against_request if is_v2 else None,
     )
 
     return StrategyGenerateResponse(
@@ -435,13 +481,21 @@ async def revise_strategy(
     3. Calls the LLM provider with safe retry.
     4. Validates the revised plan and returns it.
     """
+    is_v2 = request.contract_version == "strategy-v2"
     try:
         rag_pack = contract_pack_to_rag(request.retrieved_knowledge_pack)
-        decisions = compute_strategy_decisions(
-            business_profile=request.business_profile,
-            brief=request.brief,
-            retrieval_pack=rag_pack,
-        )
+        if is_v2:
+            decisions = compute_strategy_v2_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=rag_pack,
+            )
+        else:
+            decisions = compute_strategy_decisions(
+                business_profile=request.business_profile,
+                brief=request.brief,
+                retrieval_pack=rag_pack,
+            )
     except DecisionRuleInputError as e:
         raise HTTPException(
             status_code=400,
@@ -476,12 +530,20 @@ async def revise_strategy(
 
     model_name = settings.openai_model or settings.gemini_model or "mock"
     try:
-        prompt = assemble_revision_prompt(
-            request=request,
-            decision_bundle=bundle,
-            provider_name=settings.ai_provider_mode,
-            model=model_name,
-        )
+        if is_v2:
+            prompt = assemble_revision_v2_prompt(
+                request=request,
+                decision_bundle=bundle,
+                provider_name=settings.ai_provider_mode,
+                model=model_name,
+            )
+        else:
+            prompt = assemble_revision_prompt(
+                request=request,
+                decision_bundle=bundle,
+                provider_name=settings.ai_provider_mode,
+                model=model_name,
+            )
     except ValueError as e:
         raise HTTPException(
             status_code=400,
@@ -496,9 +558,47 @@ async def revise_strategy(
         provider=provider,
         prompt=prompt,
         request=request,
+        output_model=StrategyPlanV2 if is_v2 else StrategyPlan,
+        normalize_plan=_normalize_v2_plan if is_v2 else None,
+        validate=validate_v2_plan_against_request if is_v2 else None,
     )
 
     return StrategyGenerateResponse(
         plan=plan,
         validation=validation,
     )
+
+
+def _normalize_v2_plan(
+    plan: StrategyPlanV2,
+    request: StrategyGenerateRequest,
+) -> StrategyPlanV2:
+    """Deterministically enforce the owner-first invariant on a v2 plan.
+
+    Channel, role, setup state, and capability state always come from the
+    brief's channel choices; the content handoff is projected from the plan's
+    calendar weeks. This runs after every provider response, before validation.
+    """
+    from app.providers.strategy_provider import _normalize_v2_commitments_and_handoff
+
+    plan_dict = plan.model_dump(mode="json")
+    choices = [
+        {
+            "channel": choice.channel.value,
+            "role": choice.role.value,
+            "setup_state": choice.setup_state.value,
+            "public_url": choice.public_url,
+            "publishing_target_id": choice.publishing_target_id,
+            "note": choice.note,
+        }
+        for choice in request.brief.channel_choices
+    ]
+    normalized = _normalize_v2_commitments_and_handoff(
+        plan_dict,
+        PromptAssembly(
+            system_prompt="",
+            user_prompt="",
+            metadata={"channel_choices": choices},
+        ),
+    )
+    return StrategyPlanV2.model_validate(normalized)

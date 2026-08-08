@@ -14,8 +14,12 @@ const messages: Record<string, string> = {
   'home.subtitle': 'Choose the goal, budget approach, and team capacity first.',
   'home.start': 'Start strategy choices',
   'home.review': 'Review sample draft',
+  'home.viewApproved': 'View approved plan',
   'home.currentLabel': 'Current plan state',
   'home.currentBody': 'This preview shows the owner journey.',
+  'home.currentBodyApproved': 'The approved plan is saved.',
+  'progress.labels.ready': 'The draft is ready for review.',
+  'progress.labels.approved': 'The plan is approved.',
   'home.loadError': 'We could not load your Strategy workspace. Please try again.',
   'home.retry': 'Try again',
 }
@@ -40,6 +44,20 @@ vi.mock('@/lib/api/strategy', () => ({
   getStrategy: getStrategyMock,
   getStrategyProgress: getProgressMock,
   toStrategyResource: (api: unknown) => api,
+}))
+
+vi.mock('../strategy-review', () => ({
+  StrategyReview: ({
+    resource,
+    readOnly,
+  }: {
+    resource: { status: string }
+    readOnly?: boolean
+  }) => (
+    <div data-testid="approved-strategy" data-read-only={readOnly ? 'true' : 'false'}>
+      {resource.status}
+    </div>
+  ),
 }))
 
 const noStrategyJourney = {
@@ -113,6 +131,30 @@ describe('StrategyHome', () => {
 
     expect(await screen.findByText('Review sample draft')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('shows the approved strategy once it is approved', async () => {
+    journeyMock.mockResolvedValueOnce(readyJourney)
+    getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
+
+    render(<StrategyHome />)
+
+    const approvedStrategy = await screen.findByTestId('approved-strategy')
+    expect(approvedStrategy.textContent).toBe('approved')
+    expect(approvedStrategy.getAttribute('data-read-only')).toBe('true')
+    expect(screen.queryByText('Review sample draft')).toBeNull()
+    expect(screen.queryByText('The plan is approved.')).toBeNull()
+  })
+
+  it('renders an approved strategy without waiting for progress history', async () => {
+    journeyMock.mockResolvedValueOnce(readyJourney)
+    getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
+    getProgressMock.mockReturnValueOnce(new Promise<never>(() => undefined))
+
+    render(<StrategyHome />)
+
+    expect((await screen.findByTestId('approved-strategy')).textContent).toBe('approved')
+    expect(getProgressMock).not.toHaveBeenCalled()
   })
 
   it('never crashes on a null journey after a failed load', async () => {

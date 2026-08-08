@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { getQueueToken } from "@nestjs/bullmq";
-import { ContentService } from "./content.service";
+import { ContentService, planSelectedChannels } from "./content.service";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
@@ -481,6 +481,31 @@ describe("ContentService.createCycle", () => {
       service.createCycle(DTO, OWNER_ID),
       "CONTENT_PROFILE_STALE",
     );
+  });
+
+  it("rejects owner-managed v2 Strategies with a non-retryable CONTENT_SCHEMA_FAILURE", async () => {
+    // Website/delivery-only strategy-v2 plans have an explicitly unavailable
+    // content handoff; they must never create an empty Content cycle.
+    (strategyRepo.getVersionById as jest.Mock).mockResolvedValue({
+      id: "v-2",
+      strategyId: "strat-1",
+      version: 2,
+      planData: {
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: false,
+          reason: "no_content_supported_channels",
+          message: "owner-managed plan",
+        },
+      },
+    });
+
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_SCHEMA_FAILURE",
+    );
+    expect(cycleRepo.createCycleWithWeekOne).not.toHaveBeenCalled();
+    expect(packRepo.claimQueuedPack).not.toHaveBeenCalled();
   });
 
   it("creates the cycle and initial owner-confirmed week context for week 1", async () => {
@@ -2138,5 +2163,61 @@ describe("ContentService.retryPack", () => {
       expect.anything(),
     );
     expect(jobOutbox.markDirectDispatched).not.toHaveBeenCalled();
+  });
+});
+
+describe("planSelectedChannels (consolidated Strategy read)", () => {
+  it("carries every supported channel from a strategy-v1 scorecard", () => {
+    const channels = planSelectedChannels({
+      contract_version: "strategy-v1",
+      selected_channels: [
+        { channel: "facebook" },
+        { channel: "tiktok" },
+        { channel: "google_business_profile" },
+      ],
+    });
+    expect(channels).toEqual([
+      "facebook",
+      "tiktok",
+      "google_business_profile",
+    ]);
+  });
+
+  it("reads strategy-v2 plans from the deterministic content handoff", () => {
+    const channels = planSelectedChannels({
+      contract_version: "strategy-v2",
+      content_handoff: {
+        available: true,
+        channels: ["facebook", "instagram", "google_business_profile"],
+        language: "ar-EG",
+        weeks: [],
+      },
+    });
+    expect(channels).toEqual([
+      "facebook",
+      "instagram",
+      "google_business_profile",
+    ]);
+  });
+
+  it("returns [] for owner-managed v2 plans with an unavailable handoff", () => {
+    expect(
+      planSelectedChannels({
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: false,
+          reason: "no_content_supported_channels",
+          message: "owner-managed plan",
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns [] on malformed input instead of throwing", () => {
+    expect(planSelectedChannels({})).toEqual([]);
+    expect(planSelectedChannels(null)).toEqual([]);
+    expect(planSelectedChannels({ contract_version: "strategy-v2" })).toEqual(
+      [],
+    );
   });
 });

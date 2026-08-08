@@ -85,12 +85,28 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         return;
       }
 
-      // Fetch strategy details
-      const [stratApi, versions, lockedPlan] = await Promise.all([
-        getStrategy(cycle.strategy_id),
-        getStrategyVersions(cycle.strategy_id),
-        getStrategyVersion(cycle.strategy_id, cycle.strategy_version),
-      ]);
+      // Fetch strategy details. A 404 on the strategy endpoints means the
+      // cycle's Strategy no longer exists (orphaned cycle); surface a
+      // recovery state instead of a generic "not found" error so the owner
+      // can start a fresh cycle from their approved Strategy.
+      let stratApi: Awaited<ReturnType<typeof getStrategy>>;
+      let versions: Awaited<ReturnType<typeof getStrategyVersions>>;
+      let lockedPlan: Awaited<ReturnType<typeof getStrategyVersion>> | null;
+      try {
+        [stratApi, versions, lockedPlan] = await Promise.all([
+          getStrategy(cycle.strategy_id),
+          getStrategyVersions(cycle.strategy_id),
+          getStrategyVersion(cycle.strategy_id, cycle.strategy_version),
+        ]);
+      } catch (strategyErr: unknown) {
+        const strategyErrorKey = contentErrorKey(strategyErr as { status?: number; code?: string; message?: string });
+        if (strategyErrorKey === "notFound") {
+          setWorkspaceState({ phase: "cycle_unavailable" });
+          return;
+        }
+        setWorkspaceState({ phase: "load_error", errorKey: strategyErrorKey });
+        return;
+      }
 
       const resolution = resolveApprovedContentStrategy(journeyRes, stratApi, versions, {
         businessId: cycle.business_id,
@@ -274,6 +290,23 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
             className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
           >
             {t("staleRouteAction")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (workspaceState.phase === "cycle_unavailable") {
+    return (
+      <div className="mx-auto max-w-xl py-12 text-center space-y-4">
+        <div className="rounded-xl border border-warning/30 bg-warning/10 p-6 space-y-3 text-warning">
+          <h1 className="text-lg font-bold">{t("cycleUnavailableTitle")}</h1>
+          <p className="text-xs leading-relaxed">{t("cycleUnavailableBody")}</p>
+          <Link
+            href="/content"
+            className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
+          >
+            {t("cycleUnavailableAction")}
           </Link>
         </div>
       </div>

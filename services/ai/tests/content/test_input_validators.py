@@ -3,6 +3,7 @@
 import pytest
 
 from content_contracts import AiContentGenerateRequest, ContentWeekContext
+from strategy_contracts import BusinessProfilePayload
 
 from app.content.validators import validate_content_generation_request
 from tests.content.fixture_helpers import make_valid_request
@@ -96,3 +97,117 @@ def test_owner_instructions_cannot_require_and_forbid_the_same_text(
 
     assert not result.valid
     assert "CONTENT_POLICY_VIOLATION" in _codes(result)
+
+
+# ---------------------------------------------------------------------------
+# Owner-first strategy-v2 strategy_plan in the content-v1 envelope (issue #135)
+# ---------------------------------------------------------------------------
+
+
+def make_valid_v2_request() -> AiContentGenerateRequest:
+    """Content generation request grounded in an approved strategy-v2 plan."""
+    from strategy_contracts import StrategyPlanV2
+    from tests.content.fixture_helpers import load_example
+
+    strategy = StrategyPlanV2.model_validate(
+        load_example("strategy-plan-v2.example.json")
+    )
+    context = ContentWeekContext.model_validate(
+        load_example("content-week-context-safe-default.example.json")
+    )
+    profile = BusinessProfilePayload(
+        id=strategy.profile_version.business_profile_version_id,
+        business_id="11111111-1111-4111-8111-111111111111",
+        version=strategy.profile_version.version,
+        profile={"business_name": "Koshary Corner"},
+        confirmed_by_user_id="cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        confirmed_at=strategy.profile_version.confirmed_at,
+        created_at=strategy.profile_version.confirmed_at,
+    )
+    handoff = strategy.content_handoff
+    assert handoff.available is True
+    return AiContentGenerateRequest(
+        contract_version="content-v1",
+        content_pack_id="77777777-7777-4777-8777-777777777777",
+        business_id=profile.business_id,
+        strategy_id=strategy.strategy_id,
+        strategy_version=strategy.version,
+        strategy_decision_id="55555555-5555-4555-8555-555555555555",
+        strategy_plan=strategy,
+        business_profile=profile,
+        week_context=context,
+        selected_channels=handoff.channels,
+        allowed_formats=[
+            format
+            for week in handoff.weeks
+            if week.week_number == context.week_number
+            for format in week.formats
+        ],
+        language_mode=strategy.plan_language.value,
+    )
+
+
+def test_v2_plan_grounded_request_passes() -> None:
+    request = make_valid_v2_request()
+    result = validate_content_generation_request(request)
+    assert result.valid
+    assert result.issues == []
+
+
+def test_v2_plan_rejects_channel_outside_handoff() -> None:
+    request = make_valid_v2_request()
+    request = request.model_copy(update={"selected_channels": ["tiktok"]})
+    result = validate_content_generation_request(request)
+    assert not result.valid
+    assert "CONTENT_CHANNEL_MISMATCH" in _codes(result)
+
+
+def test_v2_plan_rejects_week_outside_handoff() -> None:
+    # The handoff covers all twelve weeks, so only an out-of-range week fails.
+    request = make_valid_v2_request()
+    context = request.week_context.model_copy(update={"week_number": 13})
+    request = request.model_copy(update={"week_context": context})
+    result = validate_content_generation_request(request)
+    assert not result.valid
+    assert "CONTENT_WEEK_OUT_OF_RANGE" in _codes(result)
+
+
+def test_v2_plan_accepts_every_handoff_week() -> None:
+    for week_number in range(1, 13):
+        request = make_valid_v2_request()
+        context = request.week_context.model_copy(update={"week_number": week_number})
+        handoff = request.strategy_plan.content_handoff
+        week_formats = next(
+            week.formats for week in handoff.weeks if week.week_number == week_number
+        )
+        request = request.model_copy(
+            update={
+                "week_context": context,
+                "allowed_formats": week_formats,
+            }
+        )
+        result = validate_content_generation_request(request)
+        assert result.valid, f"week {week_number} failed: {result.issues}"
+
+
+def test_v2_plan_rejects_formats_outside_handoff_week() -> None:
+    request = make_valid_v2_request()
+    request = request.model_copy(update={"allowed_formats": ["text_post"]})
+    result = validate_content_generation_request(request)
+    assert not result.valid
+    assert any(
+        issue.code == "CONTENT_SCHEMA_FAILURE"
+        and issue.field == "allowed_formats"
+        for issue in result.issues
+    )
+
+
+def test_v2_plan_accepts_exact_handoff_week_formats() -> None:
+    request = make_valid_v2_request()
+    request = request.model_copy(
+        update={
+            "allowed_formats": make_valid_v2_request().strategy_plan.content_handoff.weeks[1].formats
+        }
+    )
+    result = validate_content_generation_request(request)
+    assert result.valid, result.issues

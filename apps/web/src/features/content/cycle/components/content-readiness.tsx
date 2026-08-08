@@ -1,6 +1,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import type { ContentCycleStatus } from "@marketmind/contracts";
+import { isStrategyPlanV2 } from "@/features/strategy/lib/strategy-v2";
 import type { ApprovedContentStrategy, ContentPrimaryAction } from "../lib/content-cycle-state";
 
 type Props = {
@@ -47,7 +48,12 @@ export function ContentReadiness({
 
   const isStrategyOk = Boolean(approved);
   const isProfileOk = Boolean(approved);
-  const isRoadmapOk = approved?.plan.content_strategy?.weeks?.length === 12;
+  const isRoadmapOk = approved
+    ? isStrategyPlanV2(approved.plan)
+      ? approved.plan.content_handoff.available === true
+        && approved.plan.content_handoff.weeks.length === 12
+      : approved.plan.content_strategy?.weeks?.length === 12
+    : false;
 
   let cutoffText = tContext("relativeCutoff", { week: selectedWeek + 1 });
   if (contextCutoffIso) {

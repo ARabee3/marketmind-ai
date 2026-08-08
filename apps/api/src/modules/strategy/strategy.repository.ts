@@ -22,6 +22,9 @@ export class StrategyRepository {
         businessId,
         ownerUserId,
         status: "needs_brief",
+        // New strategies default to the owner-first v2 contract (issue #135).
+        // Legacy rows keep strategy-v1 and are never reinterpreted.
+        contractVersion: "strategy-v2",
       },
     });
   }

@@ -246,6 +246,7 @@ export class JourneyRepository implements JourneyRepositoryPort {
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        strategyId: true,
         status: true,
         currentWeekNumber: true,
         packs: {
@@ -264,6 +265,21 @@ export class JourneyRepository implements JourneyRepositoryPort {
     });
 
     if (!cycle) {
+      return { cycle: null, pack: null };
+    }
+
+    // A cycle is only usable while its Strategy still exists and belongs to
+    // the owner. The content workspace renders the approved Strategy's thesis
+    // and provenance, so an orphaned cycle (Strategy row deleted) can never
+    // load — surfacing it here would dead-end the owner on a workspace that
+    // 404s instead of letting them start a fresh cycle. Report it as no_cycle.
+    const strategy = cycle.strategyId
+      ? await this.prisma.strategy.findUnique({
+          where: { id: cycle.strategyId },
+          select: { ownerUserId: true },
+        })
+      : null;
+    if (!strategy || strategy.ownerUserId !== ownerUserId) {
       return { cycle: null, pack: null };
     }
 

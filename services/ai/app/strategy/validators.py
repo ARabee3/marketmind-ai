@@ -379,3 +379,180 @@ def validate_plan_against_request(
 ) -> StrategyValidationResult:
     """Convenience entry point that creates a default pipeline and validates."""
     return StrategyValidationPipeline().validate(plan, request)
+
+
+# ---------------------------------------------------------------------------
+# Strategy v2 validation pipeline
+# ---------------------------------------------------------------------------
+
+
+def _owner_facing_prose_texts_v2(plan: Any) -> list[tuple[str, str]]:
+    """Collect (field_path, text) for every owner-facing v2 prose field."""
+    entries: list[tuple[str, str]] = [
+        ("plan.goal.text", plan.goal.text),
+        ("plan.evidence_summary.text", plan.evidence_summary.text),
+    ]
+    for index, commitment in enumerate(plan.channel_commitments):
+        entries.append(
+            (
+                f"plan.channel_commitments[{index}].rationale.text",
+                commitment.rationale.text,
+            )
+        )
+    for index, week in enumerate(plan.calendar_weeks):
+        entries.extend(
+            [
+                (f"plan.calendar_weeks[{index}].focus", week.focus),
+                (
+                    f"plan.calendar_weeks[{index}].expected_outcome",
+                    week.expected_outcome,
+                ),
+                (
+                    f"plan.calendar_weeks[{index}].measurement_check",
+                    week.measurement_check,
+                ),
+            ]
+        )
+    for index, item in enumerate(plan.owner_advice.before_week_1):
+        entries.extend(
+            [
+                (f"plan.owner_advice.before_week_1[{index}].action", item.action),
+                (
+                    f"plan.owner_advice.before_week_1[{index}].why_it_matters",
+                    item.why_it_matters,
+                ),
+                (f"plan.owner_advice.before_week_1[{index}].timing", item.timing),
+                (
+                    f"plan.owner_advice.before_week_1[{index}].source.text",
+                    item.source.text,
+                ),
+            ]
+        )
+    for group_index, group in enumerate(plan.owner_advice.weeks):
+        for index, item in enumerate(group.items):
+            entries.extend(
+                [
+                    (
+                        f"plan.owner_advice.weeks[{group_index}].items[{index}].action",
+                        item.action,
+                    ),
+                    (
+                        f"plan.owner_advice.weeks[{group_index}].items[{index}].why_it_matters",
+                        item.why_it_matters,
+                    ),
+                    (
+                        f"plan.owner_advice.weeks[{group_index}].items[{index}].timing",
+                        item.timing,
+                    ),
+                    (
+                        f"plan.owner_advice.weeks[{group_index}].items[{index}].source.text",
+                        item.source.text,
+                    ),
+                ]
+            )
+    entries.extend(
+        (f"plan.risks[{index}].text", claim.text)
+        for index, claim in enumerate(plan.risks)
+    )
+    entries.extend(
+        (f"plan.knowledge_gaps[{index}].description", gap.description)
+        for index, gap in enumerate(plan.knowledge_gaps)
+    )
+    entries.extend(
+        (f"plan.blockers[{index}].message", blocker.message)
+        for index, blocker in enumerate(plan.blockers)
+    )
+    return entries
+
+
+class StrategyV2ValidationPipeline:
+    """Run all deterministic validators against an owner-first v2 plan."""
+
+    def validate(
+        self,
+        plan: Any,
+        request: Any,
+    ) -> StrategyValidationResult:
+        """Run the shared contract validator plus v2-specific checks."""
+        from strategy_contracts import validate_strategy_v2_bundle
+
+        contract_result = validate_strategy_v2_bundle(
+            business_profile=request.business_profile,
+            brief=request.brief,
+            retrieval_pack=request.retrieved_knowledge_pack,
+            plan=plan,
+            decision=None,
+        )
+
+        extra_issues: list[StrategyValidationIssue] = []
+        extra_issues.extend(_validate_v2_required_sections(plan))
+        extra_issues.extend(_validate_v2_owner_facing_language(plan, request))
+        return StrategyValidationResult(
+            valid=contract_result.valid and len(extra_issues) == 0,
+            issues=contract_result.issues + extra_issues,
+        )
+
+
+def _validate_v2_required_sections(plan: Any) -> list[StrategyValidationIssue]:
+    """Ensure the owner-visible v2 sections are non-empty."""
+    issues: list[StrategyValidationIssue] = []
+    sections = {
+        "goal": plan.goal.text,
+        "evidence_summary": plan.evidence_summary.text,
+    }
+    for field, text in sections.items():
+        if not text or not text.strip():
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_RULE_VIOLATION",
+                    field=f"plan.{field}.text",
+                    message=f"Required section {field} is empty.",
+                )
+            )
+    return issues
+
+
+def _validate_v2_owner_facing_language(
+    plan: Any,
+    request: Any,
+) -> list[StrategyValidationIssue]:
+    """Ensure v2 owner-facing prose follows ``brief.plan_language``."""
+    expected_language = request.brief.plan_language
+    issues: list[StrategyValidationIssue] = []
+
+    if plan.plan_language != expected_language:
+        issues.append(
+            StrategyValidationIssue(
+                code="STRATEGY_LANGUAGE_MISMATCH",
+                field="plan.plan_language",
+                message="Plan language metadata does not match brief.plan_language.",
+            )
+        )
+
+    if expected_language == "mixed":
+        return issues
+
+    for field_path, text in _owner_facing_prose_texts_v2(plan):
+        if not text or not text.strip():
+            continue
+        if not _matches_expected_script(text, expected_language):
+            language_name = "Arabic" if expected_language == "ar-EG" else "English"
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_LANGUAGE_MISMATCH",
+                    field=field_path,
+                    message=(
+                        f"Owner-facing field is not predominantly written in {language_name} "
+                        f"even though brief.plan_language is {expected_language}."
+                    ),
+                )
+            )
+    return issues
+
+
+def validate_v2_plan_against_request(
+    plan: Any,
+    request: Any,
+) -> StrategyValidationResult:
+    """Convenience entry point for the v2 validation pipeline."""
+    return StrategyV2ValidationPipeline().validate(plan, request)

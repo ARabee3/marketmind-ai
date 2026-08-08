@@ -322,4 +322,104 @@ describe("content-strategy.adapter", () => {
       ]);
     });
   });
+
+  // ── Owner-first strategy-v2 (issue #135) ────────────────────────────
+
+  describe("strategy-v2 content_handoff", () => {
+    const planV2 = loadJson("strategy-plan-v2.example.json") as Record<string, unknown>;
+
+    it("reads week formats straight from the deterministic handoff projection", () => {
+      expect(adaptStrategyWeekFormats(planV2, 1)).toEqual([
+        "short_video_script",
+        "static_image_post",
+      ]);
+      expect(adaptStrategyWeekFormats(planV2, 12)).toEqual([
+        "text_post",
+        "carousel_brief",
+      ]);
+    });
+
+    it("carries every supported owner-selected channel (no silent drops)", () => {
+      expect(extractSupportedContentChannels(planV2)).toEqual([
+        "facebook",
+        "instagram",
+        "google_business_profile",
+      ]);
+      expect(adaptSelectedChannelsOrThrow(planV2)).toEqual([
+        "facebook",
+        "instagram",
+        "google_business_profile",
+      ]);
+    });
+
+    it("uses the handoff language", () => {
+      expect(adaptLanguageMode(planV2)).toBe("ar-EG");
+    });
+
+    it("fails closed when the v2 handoff is unavailable", () => {
+      const unavailable = {
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: false,
+          reason: "no_content_supported_channels",
+          message: "owner-managed plan",
+        },
+      };
+      expect(extractSupportedContentChannels(unavailable)).toEqual([]);
+      const error = expectSchemaFailureWithError(() =>
+        adaptSelectedChannelsOrThrow(unavailable),
+      );
+      expect(error.message).toContain("no_content_supported_channels");
+      expectSchemaFailure(() => adaptStrategyWeekFormats(unavailable, 1));
+    });
+
+    it("fails closed on malformed or partial v2 handoff weeks", () => {
+      const missingWeeks = {
+        contract_version: "strategy-v2",
+        content_handoff: { available: true, channels: ["facebook"], language: "ar-EG" },
+      };
+      expectSchemaFailure(() => adaptStrategyWeekFormats(missingWeeks, 1));
+      expectSchemaFailure(() => adaptStrategyWeekFormats({}, 1));
+
+      const emptyWeek = {
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: true,
+          channels: ["facebook"],
+          language: "ar-EG",
+          weeks: [{ week_number: 1, formats: [] }],
+        },
+      };
+      expectSchemaFailure(() => adaptStrategyWeekFormats(emptyWeek, 1));
+    });
+
+    it("fails closed when the requested week is missing from the handoff", () => {
+      const oneWeek = {
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: true,
+          channels: ["facebook"],
+          language: "ar-EG",
+          weeks: [{ week_number: 3, formats: ["text_post"] }],
+        },
+      };
+      expectSchemaFailure(() => adaptStrategyWeekFormats(oneWeek, 1));
+    });
+  });
 });
+
+function expectSchemaFailureWithError(fn: () => unknown): ProviderError {
+  let error: ProviderError | null = null;
+  try {
+    fn();
+  } catch (caught) {
+    expect(caught).toBeInstanceOf(ProviderError);
+    error = caught as ProviderError;
+    expect(error.code).toBe("CONTENT_SCHEMA_FAILURE");
+    expect(error.retryable).toBe(false);
+  }
+  if (!error) {
+    throw new Error("Expected CONTENT_SCHEMA_FAILURE but no error was thrown");
+  }
+  return error;
+}

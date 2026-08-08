@@ -110,7 +110,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await page.goto('/en/discovery/new')
 
     await reachEnglishSourcesStep(page)
-    await page.getByRole('button', { name: 'Start Discovery' }).click()
+    await page.getByRole('button', { name: 'Start exploration journey' }).click()
 
     const startRequest = await discoveryStartRequest
     expect(await startRequest.headerValue('Authorization')).toBe(`Bearer ${mockAccessToken}`)
@@ -131,7 +131,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await reachEnglishSourcesStep(page)
 
     // Submit
-    await page.getByRole('button', { name: 'Start Discovery' }).click()
+    await page.getByRole('button', { name: 'Start exploration journey' }).click()
 
     // Should navigate to session page
     await expect(page).toHaveURL(/\/en\/discovery\/test-session-123/)
@@ -154,7 +154,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await page.getByLabel('مختلطة (عربي + إنجليزي)').check()
 
     // Submit
-    await page.getByRole('button', { name: 'بدء مرحلة الاستكشاف' }).click()
+    await page.getByRole('button', { name: 'ابدأ رحلة الاستكشاف' }).click()
 
     // Should navigate to session page
     await expect(page).toHaveURL(/\/ar\/discovery\/test-session-123/)
@@ -256,7 +256,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     await page.goto('/en/discovery/new')
     await reachEnglishSourcesStep(page)
-    await page.getByRole('button', { name: 'Start Discovery' }).click()
+    await page.getByRole('button', { name: 'Start exploration journey' }).click()
 
     await expect(page.getByText('Research could not be queued. Please try again.')).toBeVisible()
   })

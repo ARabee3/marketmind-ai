@@ -1,0 +1,35 @@
+{
+  "contract_version": "meta-connection-v1",
+  "connection_id": "2b2f3f2a-7d3e-4b5c-9d1e-3f4a5b6c7d8e",
+  "requested_channel": "facebook",
+  "requested_capability": "static_image",
+  "expires_at": "2026-08-08T07:15:00.000Z",
+  "options": [
+    {
+      "page": {
+        "channel": "facebook",
+        "account_id": "1287410314446237",
+        "display_name": "MarketMind Café — Helwan",
+        "capability_status": "supported",
+        "blockers": []
+      },
+      "instagram": {
+        "channel": "instagram",
+        "account_id": "17841405830123456",
+        "display_name": "marketmind.cafe",
+        "capability_status": "supported",
+        "blockers": []
+      }
+    },
+    {
+      "page": {
+        "channel": "facebook",
+        "account_id": "1287410314449999",
+        "display_name": "MarketMind Café — Maadi",
+        "capability_status": "unsupported",
+        "blockers": ["page_publish_capability_missing"]
+      },
+      "instagram": null
+    }
+  ]
+}

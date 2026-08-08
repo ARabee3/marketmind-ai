@@ -11,6 +11,7 @@ import type {
   PublishingTargetPublicV1,
 } from "@marketmind/contracts";
 import { apiRequest, type ApiRequestOptions } from "./client";
+import { getConnectionFingerprint } from "@/features/publishing/lib/publishing-state";
 
 export type PublishingApiError = {
   readonly status: number;
@@ -699,13 +700,97 @@ export async function listPublishingTargets(): Promise<
   return values.map(toPublishingTarget);
 }
 
-export async function connectMetaPublishingTarget(
-  channel: "facebook" | "instagram" = "facebook",
-): Promise<unknown> {
+export type PublishingMetaConnectResponse = {
+  readonly contract_version: "meta-connection-v1";
+  readonly connection_id: string;
+  readonly authorization_url: string;
+  readonly expires_at: string;
+};
+
+export type PublishingMetaChannelOption = {
+  readonly channel: "facebook" | "instagram";
+  readonly account_id: string;
+  readonly display_name: string;
+  readonly capability_status: "supported" | "unsupported";
+  readonly blockers: readonly string[];
+};
+
+export type PublishingMetaAccountOption = {
+  readonly page: PublishingMetaChannelOption;
+  readonly instagram: PublishingMetaChannelOption | null;
+};
+
+export type PublishingMetaPendingSelection = {
+  readonly contract_version: "meta-connection-v1";
+  readonly connection_id: string;
+  readonly requested_channel: "facebook" | "instagram" | null;
+  readonly requested_capability: string;
+  readonly expires_at: string | null;
+  readonly options: readonly PublishingMetaAccountOption[];
+};
+
+/**
+ * Issue #175: initiates the Meta OAuth journey. The API returns only a
+ * connection id + authorization URL; the browser redirects to Meta and NEVER
+ * handles an authorization code, token, credential reference, or ciphertext.
+ */
+export async function connectMetaPublishingTarget(input: {
+  channel: "facebook" | "instagram";
+  locale?: string;
+  returnPath?: string;
+  fingerprint?: string;
+}): Promise<PublishingMetaConnectResponse> {
   return request("/publishing-targets/meta/connect", {
     method: "POST",
-    body: { provider: "META", channel },
+    body: {
+      provider: "META",
+      channel: input.channel,
+      locale: input.locale,
+      return_path: input.returnPath,
+      fingerprint: input.fingerprint,
+    },
   });
+}
+
+/** Safe pending-account selection metadata (display metadata + blockers —
+ *  never tokens). */
+export async function getMetaPendingSelection(
+  connectionId: string,
+): Promise<PublishingMetaPendingSelection> {
+  return request(`/publishing-targets/meta/pending/${connectionId}`, {
+    headers: { "x-connection-fingerprint": getConnectionFingerprint() },
+  });
+}
+
+/** Creates CONNECTED targets only after live capability verification. */
+export async function selectMetaTargets(input: {
+  connectionId: string;
+  pageId: string;
+  includeInstagram: boolean;
+}): Promise<readonly PublishingTargetPublicV1[]> {
+  const response = await request<unknown>("/publishing-targets/meta/select", {
+    method: "POST",
+    body: {
+      connectionId: input.connectionId,
+      pageId: input.pageId,
+      includeInstagram: input.includeInstagram,
+      fingerprint: getConnectionFingerprint(),
+    },
+  });
+  const values = Array.isArray(response) ? response : [response];
+  return values.map(toPublishingTarget);
+}
+
+/** Safe disconnect: cancels scheduled real intents + revokes the credential
+ *  when unused. */
+export async function disconnectPublishingTarget(
+  target: PublishingTargetPublicV1,
+): Promise<PublishingTargetPublicV1> {
+  const response = await request<unknown>(
+    `/publishing-targets/${target.target_id}/disconnect`,
+    { method: "POST" },
+  );
+  return toPublishingTarget(response);
 }
 
 export async function verifyPublishingTarget(

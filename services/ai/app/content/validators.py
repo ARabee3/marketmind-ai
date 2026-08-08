@@ -159,7 +159,15 @@ def validate_content_generation_request(
             )
         )
 
-    approved_channels = {scorecard.channel for scorecard in plan.selected_channels}
+    if _strategy_plan_is_v2(request):
+        handoff = plan.content_handoff
+        approved_channels = (
+            set(handoff.channels) if handoff.available else set()
+        )
+    else:
+        approved_channels = {
+            scorecard.channel for scorecard in plan.selected_channels
+        }
     if not request.selected_channels or any(
         channel not in approved_channels for channel in request.selected_channels
     ):
@@ -196,7 +204,40 @@ def validate_content_generation_request(
             )
         )
 
-    target_item_count = derive_target_item_count(plan.content_strategy.weekly_cadence)
+    # Owner-first v2 plans: generation formats must exactly match the week's
+    # deterministic content handoff projection (issue #135).
+    if (
+        _strategy_plan_is_v2(request)
+        and plan.content_handoff.available
+        and 1 <= context.week_number <= 12
+    ):
+        handoff_week = next(
+            (
+                week
+                for week in plan.content_handoff.weeks
+                if week.week_number == context.week_number
+            ),
+            None,
+        )
+        if handoff_week is not None and list(request.allowed_formats) != list(
+            handoff_week.formats
+        ):
+            issues.append(
+                _issue(
+                    "CONTENT_SCHEMA_FAILURE",
+                    "allowed_formats",
+                    "Generation formats must exactly match the approved Strategy week's content handoff.",
+                )
+            )
+
+    # Owner-first v2 plans carry no free-text cadence; the 3-5 item boundary
+    # below still applies to every pack.
+    if _strategy_plan_is_v2(request):
+        target_item_count = None
+    else:
+        target_item_count = derive_target_item_count(
+            plan.content_strategy.weekly_cadence
+        )
     if target_item_count is not None and not 3 <= target_item_count <= 5:
         issues.append(
             _issue(
@@ -214,8 +255,21 @@ def validate_content_generation_request(
                 "Content week must be an integer from 1 through 12.",
             )
         )
-    elif not any(
-        week.week_number == context.week_number for week in plan.content_strategy.weeks
+    elif (
+        _strategy_plan_is_v2(request)
+        and not (
+            plan.content_handoff.available
+            and any(
+                week.week_number == context.week_number
+                for week in plan.content_handoff.weeks
+            )
+        )
+    ) or (
+        not _strategy_plan_is_v2(request)
+        and not any(
+            week.week_number == context.week_number
+            for week in plan.content_strategy.weeks
+        )
     ):
         issues.append(
             _issue(
@@ -387,6 +441,10 @@ def validate_content_generation_request(
 
 # Keep the shorter name available for service code and tests.
 validate_generation_request = validate_content_generation_request
+
+
+def _strategy_plan_is_v2(request: "AiContentGenerateRequest") -> bool:
+    return getattr(request.strategy_plan, "contract_version", None) == "strategy-v2"
 
 
 def derive_strategy_pillar_ids(strategy_id: str, count: int) -> list[str]:
@@ -983,11 +1041,13 @@ def _validate_item_against_generation_request(
     issues: list[ContentValidationIssue] = []
     strategy_week = request.week_context.week_number
     approved_channels = set(request.selected_channels)
+    if _strategy_plan_is_v2(request):
+        # v2 plans derive one weekly pillar from the calendar focus.
+        pillar_count = 1
+    else:
+        pillar_count = len(request.strategy_plan.content_strategy.pillars)
     expected_pillars = set(
-        derive_strategy_pillar_ids(
-            request.strategy_id,
-            len(request.strategy_plan.content_strategy.pillars),
-        )
+        derive_strategy_pillar_ids(request.strategy_id, pillar_count)
     )
     expected_objective = str(
         getattr(
@@ -1439,9 +1499,12 @@ def validate_generated_content_pack(
             "item_versions",
             "A generated Content pack must contain between 3 and 5 items.",
         )
-    target_item_count = derive_target_item_count(
-        request.strategy_plan.content_strategy.weekly_cadence
-    )
+    if _strategy_plan_is_v2(request):
+        target_item_count = None
+    else:
+        target_item_count = derive_target_item_count(
+            request.strategy_plan.content_strategy.weekly_cadence
+        )
     if (
         enforce_item_count
         and target_item_count is not None

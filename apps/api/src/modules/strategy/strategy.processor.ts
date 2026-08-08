@@ -96,7 +96,12 @@ export class StrategyProcessor extends WorkerHost {
         "strategy_cycle",
         1,
       );
-      const contractBrief = buildContractBrief(brief, businessProfile);
+      const contractVersion = strategy.contractVersion;
+      const contractBrief = buildContractBrief(
+        brief,
+        businessProfile,
+        contractVersion,
+      );
       const businessProfilePayload =
         buildBusinessProfilePayload(businessProfile);
 
@@ -125,7 +130,7 @@ export class StrategyProcessor extends WorkerHost {
         this.httpService.post(
           `${this.aiUrl}/internal/v1/ai/strategy/generate`,
           {
-            contract_version: "strategy-v1",
+            contract_version: contractVersion,
             strategy_id: strategyId,
             business_profile: businessProfilePayload,
             brief: contractBrief,
@@ -381,7 +386,11 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const contractBrief = buildContractBrief(brief, profileVersion);
+      const contractBrief = buildContractBrief(
+        brief,
+        profileVersion,
+        strategy.contractVersion,
+      );
       const businessProfilePayload =
         buildBusinessProfilePayload(profileVersion);
 
@@ -410,7 +419,7 @@ export class StrategyProcessor extends WorkerHost {
         this.httpService.post(
           `${this.aiUrl}/internal/v1/ai/strategy/revise`,
           {
-            contract_version: "strategy-v1",
+            contract_version: strategy.contractVersion,
             strategy_id: strategyId,
             business_profile: businessProfilePayload,
             brief: contractBrief,

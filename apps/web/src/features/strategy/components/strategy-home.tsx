@@ -15,6 +15,7 @@ import {
 import { StrategyProfileSummary } from './strategy-profile-summary'
 import { StrategyProgress } from './strategy-progress'
 import { StrategyReadiness } from './strategy-readiness'
+import { StrategyReview } from './strategy-review'
 
 type PageState =
   | { phase: 'loading' }
@@ -25,6 +26,7 @@ type PageState =
       journey: CurrentJourneyResponse
       resource: StrategyResource
       progress: readonly StrategyProgressEvent[]
+      currentVersionId: string | null
     }
 
 async function loadJourney(): Promise<PageState> {
@@ -32,11 +34,21 @@ async function loadJourney(): Promise<PageState> {
     const journey = await getCurrentJourney()
     const fc = journey.future_phase
     if (fc.availability === 'available' && fc.strategy_id) {
-      const [api, progress] = await Promise.all([
-        getStrategy(fc.strategy_id),
-        getStrategyProgress(fc.strategy_id),
-      ])
-      return { phase: 'ready', journey, resource: toStrategyResource(api), progress }
+      const api = await getStrategy(fc.strategy_id)
+      const resource = toStrategyResource(api)
+      // Progress history is supplementary to the strategy snapshot. In
+      // particular, an approved strategy must remain available when the
+      // historical progress endpoint is slow or unavailable.
+      const progress = resource.status === 'approved'
+        ? []
+        : await getStrategyProgress(fc.strategy_id).catch(() => [])
+      return {
+        phase: 'ready',
+        journey,
+        resource,
+        progress,
+        currentVersionId: api.currentVersionId,
+      }
     }
     return { phase: 'no_strategy', journey }
   } catch {
@@ -142,6 +154,20 @@ export function StrategyHome() {
   }
 
   const { resource } = state
+  if (resource.status === 'approved') {
+    return (
+      <StrategyReview
+        profile={profile}
+        resource={resource}
+        currentVersionId={state.currentVersionId}
+        retrieval={null}
+        progress={state.progress}
+        onRefresh={async () => undefined}
+        readOnly
+      />
+    )
+  }
+
   const readiness = getReadinessItems(resource, profile !== null)
   const statusLabel = ownerProgressLabel(resource.status)
 
@@ -182,7 +208,9 @@ export function StrategyHome() {
               {t('home.currentLabel')}
             </p>
             <h2 className="mt-2 text-xl font-bold text-navy">{t(`progress.labels.${statusLabel}`)}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('home.currentBody')}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {t('home.currentBody')}
+            </p>
           </section>
         </aside>
       </div>

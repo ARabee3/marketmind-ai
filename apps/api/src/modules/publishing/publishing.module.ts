@@ -13,15 +13,24 @@ import { CandidatesService } from "./candidates/candidates.service";
 // Targets
 import { TargetsController } from "./targets/targets.controller";
 import { TargetsService } from "./targets/targets.service";
+import { MetaConnectionService } from "./targets/meta-connection.service";
+import { MetaOAuthCallbackController } from "./targets/meta-oauth-callback.controller";
 
-// Intents
-import { IntentsController } from "./intents/intents.controller";
-import { IntentsService } from "./intents/intents.service";
+// Meta OAuth / credential vault (issue #175)
+import { CredentialVaultService } from "./credentials/credential-vault.service";
+import { MetaGraphClient } from "./meta/meta-graph.client";
+import { MetaOAuthStateStore } from "./meta/meta-oauth-state.store";
 
 // Dispatch
 import { DispatchProcessor } from "./dispatch/dispatch.processor";
 import { N8nClientService } from "./dispatch/n8n-client.service";
 import { DispatchEnvelopeBuilder } from "./dispatch/dispatch-envelope.builder";
+import { MetaProviderExecutor } from "./dispatch/meta-provider.executor";
+import { MediaFetchTokenService } from "./dispatch/media-fetch-token.service";
+import {
+  MetaExecutorController,
+  MediaFetchController,
+} from "./dispatch/meta-executor.controller";
 import {
   AssetIntegrityValidator,
   ASSET_BYTE_RETRIEVER,
@@ -32,6 +41,10 @@ import { AssetsController } from "./assets/assets.controller";
 import { PublishingAssetStore } from "./assets/publishing-asset.store";
 import { LocalFilesystemAssetByteRetriever } from "./assets/asset-byte-retriever";
 import { ManualExportArchiveService } from "./exports/manual-export-archive.service";
+
+// Intents
+import { IntentsController } from "./intents/intents.controller";
+import { IntentsService } from "./intents/intents.service";
 
 // Callbacks
 import { CallbacksController } from "./callbacks/callbacks.controller";
@@ -57,14 +70,23 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     CandidatesController,
     InternalCandidatesController,
     TargetsController,
+    MetaOAuthCallbackController,
     IntentsController,
     CallbacksController,
     AdminController,
     AssetsController,
+    MetaExecutorController,
+    MediaFetchController,
   ],
   providers: [
     CandidatesService,
     TargetsService,
+    MetaConnectionService,
+    CredentialVaultService,
+    MetaGraphClient,
+    MetaOAuthStateStore,
+    MetaProviderExecutor,
+    MediaFetchTokenService,
     IntentsService,
     DispatchProcessor,
     N8nClientService,

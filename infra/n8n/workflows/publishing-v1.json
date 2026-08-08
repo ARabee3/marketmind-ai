@@ -12,7 +12,10 @@
       "name": "Webhook - publishing-dispatch",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-1760, 608],
+      "position": [
+        -1760,
+        608
+      ],
       "webhookId": "a3433291-bb92-4e0a-8ad2-3eccf31b9edc"
     },
     {
@@ -24,7 +27,10 @@
       "name": "Check Auth",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1536, 608]
+      "position": [
+        -1536,
+        608
+      ]
     },
     {
       "parameters": {
@@ -55,7 +61,10 @@
       "name": "IF Auth OK",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-1328, 608]
+      "position": [
+        -1328,
+        608
+      ]
     },
     {
       "parameters": {
@@ -69,7 +78,10 @@
       "name": "Respond 401 - Auth",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-1104, 752]
+      "position": [
+        -1104,
+        752
+      ]
     },
     {
       "parameters": {
@@ -80,7 +92,10 @@
       "name": "Validate Envelope Shape",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1104, 464]
+      "position": [
+        -1104,
+        464
+      ]
     },
     {
       "parameters": {
@@ -111,7 +126,10 @@
       "name": "IF Shape OK",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-880, 464]
+      "position": [
+        -880,
+        464
+      ]
     },
     {
       "parameters": {
@@ -125,7 +143,10 @@
       "name": "Respond 400 - Shape",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-656, 640]
+      "position": [
+        -656,
+        640
+      ]
     },
     {
       "parameters": {
@@ -136,7 +157,10 @@
       "name": "Verify Signature",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-656, 288]
+      "position": [
+        -656,
+        288
+      ]
     },
     {
       "parameters": {
@@ -167,7 +191,10 @@
       "name": "IF Signature OK",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-448, 288]
+      "position": [
+        -448,
+        288
+      ]
     },
     {
       "parameters": {
@@ -181,18 +208,24 @@
       "name": "Respond 401 - Signature",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-224, 448]
+      "position": [
+        -224,
+        448
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const https = require(\"https\");\nconst http = require(\"http\");\nconst crypto = require(\"crypto\");\n\nconst env = $env || {};\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst candidate = body.candidate;\nconst target = body.target;\nconst assets = body.assets || [];\nconst asset = assets[0] || null;\n\nfunction httpReq(method, url, { headers = {}, multipart = false, formData = {}, binary = null } = {}) {\n  return new Promise((resolve, reject) => {\n    const finalHeaders = { ...headers };\n    let payload = null;\n\n    if (multipart) {\n      const boundary = \"----mmboundary\" + crypto.randomBytes(16).toString(\"hex\");\n      finalHeaders[\"Content-Type\"] = \"multipart/form-data; boundary=\" + boundary;\n      const chunks = [];\n      for (const [key, value] of Object.entries(formData)) {\n        chunks.push(Buffer.from(\n          \"--\" + boundary + \"\\r\\n\" +\n          \"Content-Disposition: form-data; name=\\\"\" + key + \"\\\"\\r\\n\\r\\n\" +\n          String(value) + \"\\r\\n\",\n          \"utf8\",\n        ));\n      }\n      chunks.push(Buffer.from(\n        \"--\" + boundary + \"\\r\\n\" +\n        \"Content-Disposition: form-data; name=\\\"source\\\"; filename=\\\"asset\\\"\\r\\n\" +\n        \"Content-Type: \" + asset.mime_type + \"\\r\\n\\r\\n\",\n        \"utf8\",\n      ));\n      chunks.push(binary);\n      chunks.push(Buffer.from(\"\\r\\n--\" + boundary + \"--\\r\\n\", \"utf8\"));\n      payload = Buffer.concat(chunks);\n      finalHeaders[\"Content-Length\"] = String(payload.length);\n    }\n\n    const lib = url.startsWith(\"https:\") ? https : http;\n    const req = lib.request(url, { method, headers: finalHeaders }, (res) => {\n      const chunks = [];\n      res.on(\"data\", (chunk) => chunks.push(Buffer.from(chunk)));\n      res.on(\"end\", () => {\n        const buffer = Buffer.concat(chunks);\n        resolve({\n          status: Number(res.statusCode || 0),\n          headers: res.headers || {},\n          body: buffer.toString(\"utf8\"),\n          buf: buffer,\n        });\n      });\n    });\n    req.on(\"error\", reject);\n    req.setTimeout(15000, () => {\n      const timeout = new Error(\"request timed out\");\n      timeout.code = \"ETIMEDOUT\";\n      req.destroy(timeout);\n    });\n    if (payload) req.end(payload);\n    else req.end();\n  });\n}\n\nfunction baseResult(outcome, extra = {}) {\n  return {\n    contract_version: \"publication-result-v1\",\n    result_id: crypto.randomUUID(),\n    attempt_id: body.attempt_id,\n    intent_id: body.intent_id,\n    intent_version: body.intent_version,\n    occurred_at: new Date().toISOString(),\n    mode: \"real\",\n    outcome,\n    provider: \"meta\",\n    remote_publication_id: null,\n    remote_url: null,\n    export_artifact_id: null,\n    simulation_reference_id: null,\n    simulation_label: null,\n    error_code: null,\n    retryable: false,\n    reconciliation_required: false,\n    ...extra,\n  };\n}\n\nfunction failed(errorCode, retryable) {\n  return baseResult(\"failed\", { error_code: errorCode, retryable });\n}\nfunction unknown() {\n  return baseResult(\"unknown\", {\n    error_code: \"PUBLISHING_PROVIDER_OUTCOME_UNKNOWN\",\n    retryable: false,\n    reconciliation_required: true,\n  });\n}\nfunction graphFailure(status, error) {\n  const code = error && error.code;\n  if (status === 401 || code === 190 || code === 102 || code === 463 || code === 467) {\n    return failed(\"PUBLISHING_TARGET_UNAUTHORIZED\", false);\n  }\n  if (status === 429 || code === 4 || code === 17 || code === 32 || code === 613) {\n    return failed(\"PUBLISHING_PROVIDER_RATE_LIMITED\", true);\n  }\n  return failed(\"PUBLISHING_PROVIDER_FAILURE\", status >= 500);\n}\nfunction confirmedId(value) {\n  if (typeof value === \"string\" && value.trim().length > 0) return value;\n  if (typeof value === \"number\" && Number.isFinite(value)) return String(value);\n  return null;\n}\n\nif (!asset) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\nconst expiry = Date.parse(asset.retrieval_expires_at);\nif (!Number.isFinite(expiry) || expiry < Date.now()) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\nconst internalToken = env.PUBLISHING_INTERNAL_SERVICE_TOKEN || \"\";\nif (!internalToken) {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", false) } };\n}\n\nlet assetBytes;\ntry {\n  const response = await httpReq(\"GET\", asset.retrieval_url, {\n    headers: { \"x-publishing-internal-token\": internalToken },\n  });\n  if (response.status !== 200 || !response.buf || response.buf.length === 0) {\n    return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", true) } };\n  }\n  const checksum = crypto.createHash(\"sha256\").update(response.buf).digest(\"hex\");\n  if (checksum !== asset.checksum) {\n    return { json: { envelope, result: failed(\"PUBLISHING_ASSET_TAMPERED\", false) } };\n  }\n  assetBytes = response.buf;\n} catch {\n  return { json: { envelope, result: failed(\"PUBLISHING_ASSET_UNAVAILABLE\", true) } };\n}\n\nconst pageId = target && target.external_account_id;\nconst configuredPageId = env.META_TEST_PAGE_ID || \"\";\nconst token = env.META_TEST_PAGE_ACCESS_TOKEN || \"\";\nif (!pageId || !token || (configuredPageId && configuredPageId !== pageId)) {\n  return { json: { envelope, result: failed(\"PUBLISHING_TARGET_UNAUTHORIZED\", false) } };\n}\n\nconst hashtags = Array.isArray(candidate.hashtags) ? candidate.hashtags.join(\" \") : \"\";\nconst caption = [candidate.caption, hashtags].filter(Boolean).join(\"\\n\");\n\nlet uploaded;\ntry {\n  uploaded = await httpReq(\n    \"POST\",\n    \"https://graph.facebook.com/v19.0/\" + encodeURIComponent(pageId) + \"/photos\",\n    {\n      headers: { Authorization: \"Bearer \" + token },\n      multipart: true,\n      formData: { caption, published: \"true\" },\n      binary: assetBytes,\n    },\n  );\n} catch {\n  // The request may have reached Meta. Never blind-retry an unconfirmed send.\n  return { json: { envelope, result: unknown() } };\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(uploaded.body);\n} catch {\n  // A response after the POST without a parseable provider result is ambiguous.\n  return { json: { envelope, result: unknown() } };\n}\n\nif (parsed && typeof parsed === \"object\" && parsed.error) {\n  return { json: { envelope, result: graphFailure(uploaded.status, parsed.error) } };\n}\nif (uploaded.status < 200 || uploaded.status >= 300) {\n  return { json: { envelope, result: unknown() } };\n}\n\nconst remotePublicationId = confirmedId(parsed && (parsed.post_id || parsed.id));\nif (!remotePublicationId) {\n  return { json: { envelope, result: unknown() } };\n}\n\nlet remoteUrl = null;\ntry {\n  const link = await httpReq(\n    \"GET\",\n    \"https://graph.facebook.com/v19.0/\" + encodeURIComponent(remotePublicationId) + \"?fields=link\",\n    { headers: { Authorization: \"Bearer \" + token } },\n  );\n  if (link.status >= 200 && link.status < 300) {\n    const parsedLink = JSON.parse(link.body);\n    if (parsedLink && typeof parsedLink.link === \"string\") remoteUrl = parsedLink.link;\n  }\n} catch {\n  // Permalink lookup is best-effort after a confirmed provider identity.\n}\n\nreturn {\n  json: {\n    envelope,\n    result: baseResult(\"published\", {\n      remote_publication_id: remotePublicationId,\n      remote_url: remoteUrl,\n    }),\n  },\n};"
+        "jsCode": "const https = require(\"https\");\nconst http = require(\"http\");\nconst crypto = require(\"crypto\");\n\n// Issue #175 — real-run credential boundary. This node NEVER reads a Meta\n// token from its environment (no META_TEST_PAGE_ACCESS_TOKEN, no customer\n// token anywhere in n8n data). It forwards only the immutable publication\n// identifiers to the API-owned Meta provider executor, which resolves the\n// exact target's vault credential server-side and returns a sanitized\n// publication-result-v1. n8n receives only opaque attempt/intent/target ids.\n\nconst env = $env || {};\nconst envelope = $json.envelope;\nconst body = envelope.body;\nconst target = body.target;\n\nfunction httpReq(method, url, { headers = {}, payload = null } = {}) {\n  return new Promise((resolve, reject) => {\n    const lib = url.startsWith(\"https:\") ? https : http;\n    const req = lib.request(url, { method, headers }, (res) => {\n      const chunks = [];\n      res.on(\"data\", (chunk) => chunks.push(Buffer.from(chunk)));\n      res.on(\"end\", () => {\n        resolve({\n          status: Number(res.statusCode || 0),\n          body: Buffer.concat(chunks).toString(\"utf8\"),\n        });\n      });\n    });\n    req.on(\"error\", reject);\n    req.setTimeout(30000, () => {\n      const timeout = new Error(\"request timed out\");\n      timeout.code = \"ETIMEDOUT\";\n      req.destroy(timeout);\n    });\n    if (payload) req.end(payload);\n    else req.end();\n  });\n}\n\nfunction baseResult(outcome, extra = {}) {\n  return {\n    contract_version: \"publication-result-v1\",\n    result_id: crypto.randomUUID(),\n    attempt_id: body.attempt_id,\n    intent_id: body.intent_id,\n    intent_version: body.intent_version,\n    occurred_at: new Date().toISOString(),\n    mode: \"real\",\n    outcome,\n    provider: \"meta\",\n    remote_publication_id: null,\n    remote_url: null,\n    export_artifact_id: null,\n    simulation_reference_id: null,\n    simulation_label: null,\n    error_code: null,\n    retryable: false,\n    reconciliation_required: false,\n    ...extra,\n  };\n}\nfunction failed(errorCode, retryable) {\n  return baseResult(\"failed\", { error_code: errorCode, retryable });\n}\nfunction unknown() {\n  return baseResult(\"unknown\", {\n    error_code: \"PUBLISHING_PROVIDER_OUTCOME_UNKNOWN\",\n    reconciliation_required: true,\n  });\n}\n\nconst executorBaseUrl = env.PUBLISHING_CALLBACK_BASE_URL || \"\";\nconst internalToken = env.PUBLISHING_INTERNAL_SERVICE_TOKEN || \"\";\nif (!executorBaseUrl || !internalToken) {\n  // Fail closed on misconfiguration — never fall back to an env token.\n  return {\n    json: {\n      envelope,\n      result: failed(\"PUBLISHING_TARGET_UNAUTHORIZED\", false),\n    },\n  };\n}\n\nlet executorResponse;\ntry {\n  executorResponse = await httpReq(\n    \"POST\",\n    executorBaseUrl + \"/internal/v1/publishing/execute-meta\",\n    {\n      headers: {\n        \"content-type\": \"application/json\",\n        \"x-publishing-internal-token\": internalToken,\n      },\n      payload: JSON.stringify({\n        attempt_id: body.attempt_id,\n        intent_id: body.intent_id,\n        target_id: target ? target.target_id : null,\n      }),\n    },\n  );\n} catch {\n  // The executor request may have reached the API — never blind-retry.\n  return { json: { envelope, result: unknown() } };\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(executorResponse.body);\n} catch {\n  // A response without a parseable normalized result is ambiguous.\n  return { json: { envelope, result: unknown() } };\n}\n\nconst result = parsed && parsed.result;\nif (!result || typeof result !== \"object\" || result.contract_version !== \"publication-result-v1\") {\n  return { json: { envelope, result: unknown() } };\n}\n\nconst outcome = [\"published\", \"failed\", \"unknown\"].includes(result.outcome)\n  ? result.outcome\n  : \"unknown\";\nconst sanitized = {\n  contract_version: \"publication-result-v1\",\n  result_id: typeof result.result_id === \"string\" && result.result_id\n    ? result.result_id\n    : crypto.randomUUID(),\n  attempt_id: body.attempt_id,\n  intent_id: body.intent_id,\n  intent_version: body.intent_version,\n  occurred_at: typeof result.occurred_at === \"string\" && result.occurred_at\n    ? result.occurred_at\n    : new Date().toISOString(),\n  mode: \"real\",\n  outcome,\n  provider: \"meta\",\n  remote_publication_id:\n    typeof result.remote_publication_id === \"string\" && result.remote_publication_id\n      ? result.remote_publication_id\n      : null,\n  remote_url: typeof result.remote_url === \"string\" ? result.remote_url : null,\n  export_artifact_id: null,\n  simulation_reference_id: null,\n  simulation_label: null,\n  error_code:\n    outcome === \"unknown\"\n      ? \"PUBLISHING_PROVIDER_OUTCOME_UNKNOWN\"\n      : typeof result.error_code === \"string\" && result.error_code\n        ? result.error_code\n        : null,\n  retryable: result.retryable === true,\n  reconciliation_required: outcome === \"unknown\",\n};\n\nreturn { json: { envelope, result: sanitized } };\n"
       },
       "id": "77a59e37-f4ed-461b-b751-e5308049c4df",
-      "name": "Real Meta Adapter (static image)",
+      "name": "Meta Provider Executor (server-side)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, -96]
+      "position": [
+        0,
+        -96
+      ]
     },
     {
       "parameters": {
@@ -203,7 +236,10 @@
       "name": "Manual Export Archive (manifest)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [16, 112]
+      "position": [
+        16,
+        112
+      ]
     },
     {
       "parameters": {
@@ -214,7 +250,10 @@
       "name": "Simulation Adapter (zero-network)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [16, 336]
+      "position": [
+        16,
+        336
+      ]
     },
     {
       "parameters": {
@@ -225,7 +264,10 @@
       "name": "Build Callback Body",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [224, 128]
+      "position": [
+        224,
+        128
+      ]
     },
     {
       "parameters": {
@@ -236,7 +278,10 @@
       "name": "Sign Callback Envelope",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [448, 128]
+      "position": [
+        448,
+        128
+      ]
     },
     {
       "parameters": {
@@ -262,7 +307,10 @@
       "name": "POST Callback to NestJS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [672, 128],
+      "position": [
+        672,
+        128
+      ],
       "settings": {
         "retryOnFail": true,
         "maxTries": 3,
@@ -281,7 +329,10 @@
       "name": "Respond 202 - Accepted",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-224, 64]
+      "position": [
+        -224,
+        64
+      ]
     },
     {
       "parameters": {
@@ -367,7 +418,10 @@
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [-224, 64],
+      "position": [
+        -224,
+        64
+      ],
       "id": "da78fd57-8e39-4c20-b906-44257b574965",
       "name": "Route By Mode"
     }
@@ -542,7 +596,7 @@
       "main": [
         [
           {
-            "node": "Real Meta Adapter (static image)",
+            "node": "Meta Provider Executor (server-side)",
             "type": "main",
             "index": 0
           }

@@ -78,14 +78,49 @@ export function buildBusinessProfilePayload(profileVersion: ProfileVersion) {
   };
 }
 
+function toChannelChoices(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (entry): entry is Record<string, unknown> =>
+        !!entry && typeof entry === "object",
+    )
+    .map((entry) => {
+      const choice: Record<string, unknown> = {
+        channel: stringField(entry.channel),
+        role: stringField(entry.role),
+        setup_state: stringField(entry.setup_state),
+      };
+      if (typeof entry.public_url === "string" && entry.public_url.trim()) {
+        choice.public_url = entry.public_url;
+      }
+      if (typeof entry.publishing_target_id === "string") {
+        choice.publishing_target_id = entry.publishing_target_id;
+      }
+      if (typeof entry.note === "string" && entry.note.trim()) {
+        choice.note = entry.note;
+      }
+      return choice;
+    })
+    .filter(
+      (choice) => choice.channel && choice.role && choice.setup_state,
+    );
+}
+
+/**
+ * Builds the contract brief for the AI payload. strategy-v2 briefs replace the
+ * free-text `team_capacity` with the plain-language `weekly_capacity` preset
+ * and carry the owner-selected `channel_choices`; v1 briefs are unchanged.
+ */
 export function buildContractBrief(
   brief: Brief,
   profileVersion: ProfileVersion,
+  contractVersion: string,
 ) {
   if (!brief) {
     throw new Error("Strategy brief missing when building contract payload");
   }
-  return {
+  const base = {
     id: brief.id,
     strategy_id: brief.strategyId,
     business_profile_version: {
@@ -99,11 +134,24 @@ export function buildContractBrief(
     paid_media_allowed: brief.paidMediaAllowed,
     external_budget_mode: brief.externalBudgetMode,
     external_budget_egp: brief.externalBudgetEgp ?? null,
-    team_capacity: brief.teamCapacity,
     constraints: splitConstraints(brief.constraints),
     clarification_answers: toClarificationAnswers(brief.clarificationAnswers),
     created_at: brief.createdAt.toISOString(),
     updated_at: brief.updatedAt.toISOString(),
+  };
+  if (contractVersion !== "strategy-v2") {
+    return {
+      ...base,
+      // Legacy strategy-v1 briefs always carry a free-text team capacity; the
+      // fallback guards against a null row without inventing a value.
+      team_capacity: brief.teamCapacity ?? "",
+    };
+  }
+  return {
+    ...base,
+    weekly_capacity: brief.weeklyCapacity ?? "one_to_two_hours",
+    weekly_capacity_note: brief.weeklyCapacityNote ?? null,
+    channel_choices: toChannelChoices(brief.channelChoices),
   };
 }
 

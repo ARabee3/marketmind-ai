@@ -199,3 +199,46 @@ def normalize_inputs(
         budget_anchor_egp=budget_anchor,
         budget_is_range=budget_is_range,
     )
+
+
+# Plain-language v2 weekly-capacity presets -> conservative capacity tier.
+CAPACITY_TIER_FROM_PRESET: dict[str, CapacityTier] = {
+    "one_to_two_hours": CapacityTier.low,
+    "three_to_five_hours": CapacityTier.low,
+    "half_day": CapacityTier.medium,
+    "full_day_plus": CapacityTier.high,
+}
+
+
+def normalize_inputs_v2(
+    *,
+    brief: Any,
+    profile_payload: dict[str, Any],
+) -> NormalizedInputs:
+    """Normalize a strategy-v2 brief: preset capacity + confirmed budget.
+
+    The plain-language weekly-capacity preset replaces v1's free-text
+    team_capacity. Mapping is deliberately conservative so the plan never
+    over-commits the owner's time.
+    """
+    budget_anchor, budget_is_range = normalize_budget(brief)
+    preset = brief.weekly_capacity
+    preset_value = preset.value if isinstance(preset, Enum) else str(preset)
+    tier = CAPACITY_TIER_FROM_PRESET.get(preset_value, CapacityTier.low)
+
+    profile_text = profile_team_capacity_from_profile(profile_payload)
+    if profile_text and profile_text.strip():
+        profile_tier = _tier_from_text(profile_text.strip())
+        if profile_tier is not None:
+            brief_index = CAPACITY_TIER_ORDER.index(tier.value)
+            profile_index = CAPACITY_TIER_ORDER.index(profile_tier.value)
+            if profile_index == brief_index + 1:
+                tier = profile_tier
+            elif profile_index > brief_index + 1:
+                tier = _upgrade_one_tier(tier)
+
+    return NormalizedInputs(
+        capacity_tier=tier,
+        budget_anchor_egp=budget_anchor,
+        budget_is_range=budget_is_range,
+    )

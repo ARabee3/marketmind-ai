@@ -6,6 +6,7 @@ import {
 } from "../content-cycle-state";
 import {
   mockApprovedStrategyApi,
+  mockApprovedStrategyApiV2,
   mockJourneyNoCycle,
   mockStrategyVersions,
   mockOwnerConfirmedContextWeek1,
@@ -20,7 +21,8 @@ import {
 } from "../content-cycle-fixtures";
 import type { CurrentJourneyResponse } from "@marketmind/contracts";
 import type { StrategyApiResponse } from "@/lib/api/strategy";
-import type { StrategyVersionSummary } from "@marketmind/contracts";
+import type { StrategyPlan, StrategyPlanV2, StrategyVersionSummary } from "@marketmind/contracts";
+import { isStrategyPlanV2 } from "@/features/strategy/lib/strategy-v2";
 
 describe("content-cycle-state", () => {
   describe("resolveApprovedContentStrategy", () => {
@@ -116,10 +118,85 @@ describe("content-cycle-state", () => {
       const stratApi: StrategyApiResponse = {
         ...mockApprovedStrategyApi,
         latestPlan: {
-          ...mockApprovedStrategyApi.latestPlan!,
+          ...(mockApprovedStrategyApi.latestPlan as StrategyPlan)!,
           content_strategy: {
-            ...mockApprovedStrategyApi.latestPlan!.content_strategy,
-            weeks: mockApprovedStrategyApi.latestPlan!.content_strategy.weeks.slice(0, 10),
+            ...(mockApprovedStrategyApi.latestPlan as StrategyPlan).content_strategy,
+            weeks: (mockApprovedStrategyApi.latestPlan as StrategyPlan)
+              .content_strategy.weeks.slice(0, 10),
+          },
+        },
+      };
+
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        stratApi,
+        mockStrategyVersions,
+      );
+
+      expect("blocker" in result).toBe(true);
+      if ("blocker" in result) {
+        expect(result.blocker).toBe("malformed_plan");
+      }
+    });
+
+    it("resolves an approved owner-first v2 plan with a usable content handoff", () => {
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        mockApprovedStrategyApiV2,
+        mockStrategyVersions,
+      );
+
+      expect("approved" in result).toBe(true);
+      if ("approved" in result) {
+        const plan = result.approved.plan;
+        expect(isStrategyPlanV2(plan)).toBe(true);
+        if (isStrategyPlanV2(plan) && plan.content_handoff.available === true) {
+          expect(plan.content_handoff.weeks).toHaveLength(12);
+        }
+        expect(result.approved.strategyVersionId).toBe(MOCK_STRATEGY_VERSION_ID);
+      }
+    });
+
+    it("blocks an owner-first v2 plan whose content handoff is unavailable", () => {
+      const planV2 = mockApprovedStrategyApiV2.latestPlan as StrategyPlanV2;
+      const stratApi: StrategyApiResponse = {
+        ...mockApprovedStrategyApiV2,
+        latestPlan: {
+          ...planV2,
+          content_handoff: {
+            available: false,
+            reason: "no_content_supported_channels",
+            message: "owner-managed plan",
+          },
+        },
+      };
+
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        stratApi,
+        mockStrategyVersions,
+      );
+
+      expect("blocker" in result).toBe(true);
+      if ("blocker" in result) {
+        expect(result.blocker).toBe("malformed_plan");
+      }
+    });
+
+    it("blocks an owner-first v2 plan with an incomplete handoff roadmap", () => {
+      const planV2 = mockApprovedStrategyApiV2.latestPlan as StrategyPlanV2;
+      const handoff = planV2.content_handoff.available === true
+        ? planV2.content_handoff
+        : null;
+      const stratApi: StrategyApiResponse = {
+        ...mockApprovedStrategyApiV2,
+        latestPlan: {
+          ...planV2,
+          content_handoff: {
+            available: true as const,
+            channels: handoff?.channels ?? [],
+            language: handoff?.language ?? "ar-EG",
+            weeks: (handoff?.weeks ?? []).slice(0, 10),
           },
         },
       };
@@ -146,7 +223,7 @@ describe("content-cycle-state", () => {
           strategyVersion: mockActiveCycle.strategy_version,
           strategyDecisionId: mockActiveCycle.strategy_decision_id,
           profileVersionId: mockActiveCycle.profile_version_id,
-          plan: mockApprovedStrategyApi.latestPlan,
+          plan: mockApprovedStrategyApi.latestPlan as StrategyPlan | null,
         },
       );
 
@@ -199,7 +276,7 @@ describe("content-cycle-state", () => {
           strategyVersion: mockActiveCycle.strategy_version,
           strategyDecisionId: "different-decision",
           profileVersionId: mockActiveCycle.profile_version_id,
-          plan: mockApprovedStrategyApi.latestPlan,
+          plan: mockApprovedStrategyApi.latestPlan as StrategyPlan | null,
         },
       );
 

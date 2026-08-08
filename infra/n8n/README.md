@@ -43,9 +43,14 @@ dispatch payloads and authenticates the webhook, and n8n verifies both.
 | `PUBLISHING_N8N_AUTH_TOKEN` | Bearer token the API sends to the webhook; the `Check Auth` node rejects anything else. |
 | `PUBLISHING_N8N_SIGNING_SECRET` | HMAC key used to verify inbound dispatch envelopes and sign outbound callback envelopes. |
 | `PUBLISHING_N8N_SIGNING_KID` | Key id for the signing secret (rotation seam). |
-| `PUBLISHING_INTERNAL_SERVICE_TOKEN` | Sent as `x-publishing-internal-token` when the workflow fetches dispatch asset bytes from the API's internal route. |
-| `META_TEST_PAGE_ID` | The Meta test page the real adapter publishes to. |
-| `META_TEST_PAGE_ACCESS_TOKEN` | Long-lived page access token for that page. |
+| `PUBLISHING_INTERNAL_SERVICE_TOKEN` | Sent as `x-publishing-internal-token` when the real-mode node calls the API-owned Meta provider executor (`POST /internal/v1/publishing/execute-meta`). |
+| `PUBLISHING_CALLBACK_BASE_URL` | Base URL of the host-run API the executor node calls (issue #175). |
+
+> Issue #175: n8n holds NO Meta credential of any kind. The old
+> `META_TEST_PAGE_ID` / `META_TEST_PAGE_ACCESS_TOKEN` environment variables
+> were removed from the real publishing path — the real-mode node forwards
+> only opaque attempt/intent/target ids to the executor, which resolves the
+> exact target's encrypted vault credential server-side.
 
 > The three `PUBLISHING_N8N_*` values are the critical "must match exactly"
 > set — any drift means webhook `401`s or signature mismatches before any
@@ -55,11 +60,11 @@ The compose service also pins three n8n runtime flags directly in
 `docker-compose.local.yml`:
 
 - `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` — the workflow reads `$env` in Code
-  nodes (`Check Auth`, `Sign Callback`, `Verify Signature`, `Real Meta
-  Adapter`); n8n blocks `$env` by default.
+  nodes (`Check Auth`, `Sign Callback`, `Verify Signature`, `Meta Provider
+  Executor`); n8n blocks `$env` by default.
 - `NODE_FUNCTION_ALLOW_BUILTIN=crypto,http,https` — the Code nodes
   `require()` these builtins (`crypto` for HMAC/sha256, `http`/`https` for
-  asset fetch + Graph API).
+  the executor call + callback POST).
 - `N8N_SECURE_COOKIE=false` — local (non-TLS) localhost use.
 
 ## Networking gotcha: API on host, n8n in Docker
@@ -149,8 +154,10 @@ npm --workspace apps/api run seed:publishing-demo
 ```
 
 Then in n8n → **Executions**, confirm the most recent
-`publishing-dispatch` run shows the **Real Meta Adapter (static image)**
-node fetching the asset successfully and the `POST Callback to NestJS` node
-completing. The asset-fetch step is the canary: if networking is wrong it
-fails first with a connection-refused / unreachable-host error. A
-successful run produces a new Meta post id on the configured test page.
+`publishing-dispatch` run shows the **Meta Provider Executor (server-side)**
+node completing (it forwards the opaque identifiers to the API-owned
+executor) and the `POST Callback to NestJS` node completing. The executor
+step is the canary: if networking is wrong it fails first with a
+connection-refused / unreachable-host error. A successful real run produces
+a new Meta post id on a VAULT-CONNECTED owner page — real-mode targets come
+only from the Meta OAuth journey (issue #175), never from an env token.

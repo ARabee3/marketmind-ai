@@ -249,21 +249,60 @@ def _format_profile(request: AiContentGenerateRequest) -> dict[str, Any]:
     return _redact_sensitive(data)
 
 
+def _strategy_plan_is_v2(request: AiContentGenerateRequest) -> bool:
+    return getattr(request.strategy_plan, "contract_version", None) == "strategy-v2"
+
+
 def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
     week_number = request.week_context.week_number
+    plan = request.strategy_plan
+    if _strategy_plan_is_v2(request):
+        # Owner-first v2 plans: the calendar week is the primary object and the
+        # owner commitments carry the approved channels.
+        week = next(
+            week for week in plan.calendar_weeks
+            if week.week_number == week_number
+        )
+        pillar_ids = derive_strategy_pillar_ids(request.strategy_id, 1)
+        return {
+            "week": week.model_dump(mode="json", exclude_none=True),
+            "theme": week.focus,
+            "focus": week.focus,
+            "expected_outcome": week.expected_outcome,
+            "measurement_check": week.measurement_check,
+            "objective": str(
+                getattr(plan.primary_objective, "value", plan.primary_objective)
+            ),
+            "pillars": [
+                {
+                    "pillar_id": pillar_ids[0],
+                    "text": week.focus,
+                    "source": "model_synthesis",
+                    "citation_ids": [],
+                }
+            ],
+            "selected_channels": [
+                commitment.model_dump(mode="json", exclude_none=True)
+                for commitment in plan.channel_commitments
+            ],
+            "goal": plan.goal.text,
+            "evidence_summary": plan.evidence_summary.text,
+            "weekly_cadence": None,
+            "experiments": [],
+        }
     week = next(
-        week for week in request.strategy_plan.content_strategy.weeks
+        week for week in plan.content_strategy.weeks
         if week.week_number == week_number
     )
     pillar_ids = derive_strategy_pillar_ids(
         request.strategy_id,
-        len(request.strategy_plan.content_strategy.pillars),
+        len(plan.content_strategy.pillars),
     )
     return {
         "week": week.model_dump(mode="json", exclude_none=True),
         "theme": week.theme,
         "objective": str(
-            getattr(request.strategy_plan.primary_objective, "value", request.strategy_plan.primary_objective)
+            getattr(plan.primary_objective, "value", plan.primary_objective)
         ),
         "pillars": [
             {
@@ -271,18 +310,18 @@ def _format_strategy_week(request: AiContentGenerateRequest) -> dict[str, Any]:
                 **pillar.model_dump(mode="json", exclude_none=True),
             }
             for index, pillar in enumerate(
-                request.strategy_plan.content_strategy.pillars
+                plan.content_strategy.pillars
             )
         ],
         "selected_channels": [
             scorecard.model_dump(mode="json", exclude_none=True)
-            for scorecard in request.strategy_plan.selected_channels
+            for scorecard in plan.selected_channels
         ],
-        "tone": request.strategy_plan.tone.model_dump(mode="json", exclude_none=True),
-        "weekly_cadence": request.strategy_plan.content_strategy.weekly_cadence,
+        "tone": plan.tone.model_dump(mode="json", exclude_none=True),
+        "weekly_cadence": plan.content_strategy.weekly_cadence,
         "experiments": [
             experiment.model_dump(mode="json", exclude_none=True)
-            for experiment in request.strategy_plan.content_strategy.experiments
+            for experiment in plan.content_strategy.experiments
         ],
     }
 

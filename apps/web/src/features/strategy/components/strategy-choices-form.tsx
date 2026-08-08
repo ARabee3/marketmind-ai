@@ -184,7 +184,7 @@ export function StrategyChoicesForm() {
             paidMedia: brief.paidMediaAllowed ? 'yes' : 'no',
             budgetMode: brief.externalBudgetMode as ExternalBudgetMode,
             budgetAmount: amount,
-            capacity: brief.teamCapacity,
+            capacity: brief.teamCapacity ?? '',
             constraints: brief.constraints ?? '',
             clarifications: clarificationAnswers
               .map((item) =>

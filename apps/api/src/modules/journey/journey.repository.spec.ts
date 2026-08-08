@@ -7,6 +7,10 @@ function contentCycleDelegate(cycle: unknown) {
   return { findFirst: jest.fn().mockResolvedValue(cycle) };
 }
 
+function strategyDelegate(strategy: unknown) {
+  return { findUnique: jest.fn().mockResolvedValue(strategy) };
+}
+
 describe("JourneyRepository", () => {
   it("scopes the current discovery session lookup to the owner", async () => {
     const prisma = {
@@ -213,6 +217,7 @@ describe("JourneyRepository", () => {
   it("reports no content cycle when the owner has none", async () => {
     const prisma = {
       contentCycle: contentCycleDelegate(null),
+      strategy: strategyDelegate(null),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -227,10 +232,51 @@ describe("JourneyRepository", () => {
     );
   });
 
+  it("reports no content cycle when the cycle's strategy no longer exists", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate({
+        id: "cycle-1",
+        strategyId: "strategy-1",
+        status: "active",
+        currentWeekNumber: 1,
+        packs: [],
+      }),
+      strategy: strategyDelegate(null),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response).toEqual({ cycle: null, pack: null });
+    expect(prisma.strategy.findUnique).toHaveBeenCalledWith({
+      where: { id: "strategy-1" },
+      select: { ownerUserId: true },
+    });
+  });
+
+  it("reports no content cycle when the cycle's strategy belongs to another owner", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate({
+        id: "cycle-1",
+        strategyId: "strategy-1",
+        status: "active",
+        currentWeekNumber: 1,
+        packs: [],
+      }),
+      strategy: strategyDelegate({ ownerUserId: "other-owner" }),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response).toEqual({ cycle: null, pack: null });
+  });
+
   it("counts pending decisions from non-final items in the latest pack", async () => {
     const prisma = {
       contentCycle: contentCycleDelegate({
         id: "cycle-1",
+        strategyId: "strategy-1",
         status: "active",
         currentWeekNumber: 2,
         packs: [
@@ -247,6 +293,7 @@ describe("JourneyRepository", () => {
           },
         ],
       }),
+      strategy: strategyDelegate({ ownerUserId: "owner-id" }),
     };
     const repository = new JourneyRepository(prisma as never);
 
@@ -269,10 +316,12 @@ describe("JourneyRepository", () => {
     const prisma = {
       contentCycle: contentCycleDelegate({
         id: "cycle-1",
+        strategyId: "strategy-1",
         status: "active",
         currentWeekNumber: 1,
         packs: [],
       }),
+      strategy: strategyDelegate({ ownerUserId: "owner-id" }),
     };
     const repository = new JourneyRepository(prisma as never);
 

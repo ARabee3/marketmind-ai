@@ -130,7 +130,7 @@ class TestGenerateEndpoint:
                 self.prompts = []
                 self.plans = [bad_plan, good_plan]
 
-            async def generate_strategy_plan(self, prompt):
+            async def generate_strategy_plan(self, prompt, output_model=None):
                 self.prompts.append(prompt)
                 return self.plans.pop(0)
 
@@ -162,7 +162,7 @@ class TestGenerateEndpoint:
             def __init__(self):
                 self.call_count = 0
 
-            async def generate_strategy_plan(self, _prompt):
+            async def generate_strategy_plan(self, _prompt, output_model=None):
                 self.call_count += 1
                 return bad_plan
 
@@ -192,7 +192,7 @@ class TestGenerateEndpoint:
             def __init__(self):
                 self.call_count = 0
 
-            async def generate_strategy_plan(self, _prompt):
+            async def generate_strategy_plan(self, _prompt, output_model=None):
                 self.call_count += 1
                 return invalid_plan
 
@@ -222,7 +222,7 @@ class TestGenerateEndpoint:
                 self.prompts = []
                 self.call_count = 0
 
-            async def generate_strategy_plan(self, prompt):
+            async def generate_strategy_plan(self, prompt, output_model=None):
                 self.call_count += 1
                 self.prompts.append(prompt)
                 if self.call_count == 1:
@@ -260,7 +260,7 @@ class TestGenerateEndpoint:
             def __init__(self):
                 self.call_count = 0
 
-            async def generate_strategy_plan(self, _prompt):
+            async def generate_strategy_plan(self, _prompt, output_model=None):
                 self.call_count += 1
                 raise ProviderError(
                     "AI_PROVIDER_INVALID_OUTPUT",
@@ -527,7 +527,7 @@ class _InvalidOutputProvider(MockStrategyProvider):
 
     name = "invalid_output"
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
         plan = load_default_plan_fixture()
         return plan.model_copy(update={"contract_version": "strategy-v0"})
 
@@ -537,7 +537,7 @@ class _FailingProvider(MockStrategyProvider):
 
     name = "failing"
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
         raise ProviderError("AI_PROVIDER_FAILURE", "Provider timeout.", retryable=True)
 
 
@@ -546,7 +546,7 @@ class _NonRetryableProvider(MockStrategyProvider):
 
     name = "non_retryable"
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
         raise ProviderError("AI_PROVIDER_INVALID_OUTPUT", "Bad output.", retryable=False)
 
 
@@ -555,7 +555,7 @@ class _SchemaMismatchProvider(MockStrategyProvider):
 
     name = "schema_mismatch"
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
         import json
         from pydantic import ValidationError
         # Return a valid JSON dict that completely omits required StrategyPlan fields
@@ -575,7 +575,7 @@ class _TimeoutProvider(MockStrategyProvider):
 
     name = "timeout"
 
-    async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+    async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
         raise ProviderError("AI_PROVIDER_FAILURE", "Provider timed out.", retryable=True)
 
 
@@ -784,7 +784,7 @@ class TestEndpointFailureModes:
         class _FlakyProvider(MockStrategyProvider):
             name = "flaky"
 
-            async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+            async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
@@ -813,7 +813,7 @@ class TestEndpointFailureModes:
         class _SimulatedTimeoutProvider(MockStrategyProvider):
             name = "simulated_timeout"
 
-            async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+            async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
                 nonlocal call_count
                 call_count += 1
                 raise ProviderError("AI_PROVIDER_FAILURE", "Simulated timeout.", retryable=True)
@@ -840,7 +840,7 @@ class TestEndpointFailureModes:
         class _AlwaysFailingProvider(MockStrategyProvider):
             name = "always_failing"
 
-            async def generate_strategy_plan(self, prompt: PromptAssembly) -> StrategyPlan:
+            async def generate_strategy_plan(self, prompt: PromptAssembly, output_model=None) -> StrategyPlan:
                 nonlocal call_count
                 call_count += 1
                 raise ProviderError("AI_PROVIDER_FAILURE", "Persistent failure.", retryable=True)

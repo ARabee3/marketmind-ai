@@ -113,3 +113,79 @@ def test_normalize_inputs_returns_capacity_and_budget():
     assert normalized.capacity_tier == CapacityTier.low
     assert normalized.budget_anchor_egp == 3000.0
     assert normalized.budget_is_range is False
+
+
+# ---------------------------------------------------------------------------
+# Owner-first v2 preset capacity normalization (issue #135)
+# ---------------------------------------------------------------------------
+
+from strategy_contracts import (
+    BusinessProfileVersionRef,
+    ChannelRole,
+    ChannelSetupState,
+    StrategyBriefV2,
+    StrategyChannelChoice,
+    StrategyV2Channel,
+)
+from app.decisions.normalize import CapacityTier, normalize_inputs_v2
+
+
+def _brief_v2(preset: str, mode: str = "organic_only", budget=None) -> StrategyBriefV2:
+    return StrategyBriefV2(
+        id="b1",
+        strategy_id="s1",
+        business_profile_version=BusinessProfileVersionRef(
+            business_profile_version_id="p1",
+            confirmed_at="2026-06-25T10:05:00.000Z",
+            version=1,
+        ),
+        primary_objective="conversion",
+        start_date="2026-07-06T00:00:00.000Z",
+        plan_language="ar-EG",
+        paid_media_allowed=mode != "organic_only",
+        external_budget_mode=mode,
+        external_budget_egp=budget,
+        weekly_capacity=preset,
+        channel_choices=[
+            StrategyChannelChoice(
+                channel=StrategyV2Channel.facebook,
+                role=ChannelRole.primary,
+                setup_state=ChannelSetupState.setup_later,
+            )
+        ],
+        constraints=[],
+        clarification_answers=[],
+        created_at="2026-07-01T12:00:00.000Z",
+        updated_at="2026-07-01T12:05:00.000Z",
+    )
+
+
+@pytest.mark.parametrize(
+    ("preset", "expected"),
+    [
+        ("one_to_two_hours", CapacityTier.low),
+        ("three_to_five_hours", CapacityTier.low),
+        ("half_day", CapacityTier.medium),
+        ("full_day_plus", CapacityTier.high),
+    ],
+)
+def test_v2_preset_maps_to_conservative_capacity_tier(preset, expected):
+    normalized = normalize_inputs_v2(
+        brief=_brief_v2(preset), profile_payload={}
+    )
+    assert normalized.capacity_tier == expected
+
+
+def test_v2_organic_only_keeps_null_budget_anchor():
+    normalized = normalize_inputs_v2(
+        brief=_brief_v2("three_to_five_hours"), profile_payload={}
+    )
+    assert normalized.budget_anchor_egp is None
+
+
+def test_v2_monthly_budget_keeps_anchor():
+    normalized = normalize_inputs_v2(
+        brief=_brief_v2("half_day", mode="monthly_amount", budget=3000),
+        profile_payload={},
+    )
+    assert normalized.budget_anchor_egp == 3000

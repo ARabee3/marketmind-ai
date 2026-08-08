@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Strategy Brief v2 (owner-first, Arabic)",
+    "description": "Owner-first strategy-v2 brief. The owner chooses channels before generation; no channel is added or replaced on their behalf. Facebook is set up later, Instagram and Google Business Profile are owner-managed existing presences.",
+    "business": "Koshary Corner",
+    "language": "ar-EG",
+    "scenario": "Owner wants to attract more lunch customers from nearby offices with a small marketing budget and limited weekly time."
+  },
+  "id": "b0000000-0000-4000-8000-000000000001",
+  "strategy_id": "a0000000-0000-4000-8000-000000000001",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "acquisition",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "plan_language": "ar-EG",
+  "paid_media_allowed": true,
+  "external_budget_mode": "monthly_amount",
+  "external_budget_egp": 3000,
+  "weekly_capacity": "three_to_five_hours",
+  "weekly_capacity_note": "بعد ساعات العمل فقط، مع مساعدة فردية في المطبخ.",
+  "channel_choices": [
+    {
+      "channel": "facebook",
+      "role": "primary",
+      "setup_state": "setup_later"
+    },
+    {
+      "channel": "instagram",
+      "role": "supporting",
+      "setup_state": "existing_link",
+      "public_url": "https://instagram.com/kosharycorner"
+    },
+    {
+      "channel": "google_business_profile",
+      "role": "supporting",
+      "setup_state": "existing_link",
+      "public_url": "https://maps.google.com/place/koshary-corner"
+    }
+  ],
+  "constraints": [
+    "لا يوجد وقت كاف لإنشاء محتوى يومي",
+    "الميزانية الشهرية محدودة بـ 3000 جنيه كحد أقصى",
+    "التوصيل متاح فقط عبر الوسائل التقليدية حالياً"
+  ],
+  "clarification_answers": [
+    {
+      "question_id": "q0000000-0000-4000-8000-000000000001",
+      "question_text": "هل لديك حساب بنكي أو محفظة رقمية للإنفاق على الإعلانات؟",
+      "answer_text": "نعم، لدي حساب بنكي تجاري.",
+      "answered_at": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "created_at": "2026-07-01T12:00:00.000Z",
+  "updated_at": "2026-07-01T12:05:00.000Z"
+}
