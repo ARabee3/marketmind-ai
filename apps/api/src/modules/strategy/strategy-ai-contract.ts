@@ -89,13 +89,16 @@ function toChannelChoices(value: unknown) {
       const choice: Record<string, unknown> = {
         channel: stringField(entry.channel),
         role: stringField(entry.role),
-        setup_state: stringField(entry.setup_state),
+        setup_state: stringField(entry.setup_state ?? entry.setupState),
       };
-      if (typeof entry.public_url === "string" && entry.public_url.trim()) {
-        choice.public_url = entry.public_url;
+      const publicUrl = entry.public_url ?? entry.publicUrl;
+      if (typeof publicUrl === "string" && publicUrl.trim()) {
+        choice.public_url = publicUrl;
       }
-      if (typeof entry.publishing_target_id === "string") {
-        choice.publishing_target_id = entry.publishing_target_id;
+      const publishingTargetId =
+        entry.publishing_target_id ?? entry.publishingTargetId;
+      if (typeof publishingTargetId === "string") {
+        choice.publishing_target_id = publishingTargetId;
       }
       if (typeof entry.note === "string" && entry.note.trim()) {
         choice.note = entry.note;

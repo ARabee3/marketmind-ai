@@ -30,7 +30,7 @@ describe("ContentJobOutboxDispatcher", () => {
     expect(generationQueue.add).toHaveBeenCalledWith(
       "generate-content",
       { contentPackId: "pack-1" },
-      expect.objectContaining({ jobId: "generate-content:pack-1" }),
+      expect.objectContaining({ jobId: "generate-content-pack-1" }),
     );
     expect(jobs.markDispatched).toHaveBeenCalledWith(
       "row-1",

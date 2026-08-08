@@ -4,6 +4,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
+import { toBullMqJobId } from "../../common/queues/bullmq-job-id";
 
 @Injectable()
 export class ContentJobOutboxDispatcher {
@@ -36,7 +37,7 @@ export class ContentJobOutboxDispatcher {
           continue;
         }
         await queue.add(job.jobName, job.payload, {
-          jobId: job.jobId,
+          jobId: toBullMqJobId(job.jobId),
           attempts: 3,
           backoff: { type: "exponential", delay: 2_000 },
         });

@@ -1855,7 +1855,7 @@ describe("ContentService.bulkDecision", () => {
         idempotencyKey: request.idempotency_key,
       }),
       expect.objectContaining({
-        jobId: `revise-content:${request.idempotency_key}`,
+        jobId: `revise-content-${request.idempotency_key}`,
       }),
     );
     expect(jobOutbox.markDirectDispatched).toHaveBeenCalledWith(

@@ -8,6 +8,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
+import { toBullMqJobId } from "../../common/queues/bullmq-job-id";
 
 interface OutboxJobData {
   eventId: string;
@@ -109,7 +110,7 @@ export class OutboxDispatcher extends WorkerHost {
           "dispatch-outbox",
           { eventId: event.eventId },
           {
-            jobId: `dispatch-outbox:${event.eventId}`,
+            jobId: toBullMqJobId(`dispatch-outbox:${event.eventId}`),
             attempts: 3,
             backoff: { type: "exponential", delay: 2_000 },
           },
