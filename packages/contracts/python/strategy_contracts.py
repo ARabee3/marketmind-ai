@@ -15,7 +15,9 @@ from typing import Any, Optional, Literal
 
 UUID = str
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from content_base import FrozenModel, ContentChannel, ContentFormat
 
 
 CHANNEL_SCORE_RULE_VERSION = "strategy-channel-score-v1"
@@ -720,6 +722,20 @@ StrategyValidationCode = Literal[
     "STRATEGY_SCORE_MISMATCH",
     "STRATEGY_LANGUAGE_MISMATCH",
     "STRATEGY_APPROVAL_BLOCKED",
+    # #135 strategy-v2 deterministic validation codes
+    "STRATEGY_V2_CHANNEL_COUNT",
+    "STRATEGY_V2_CHANNEL_UNIQUE",
+    "STRATEGY_V2_PRIMARY_COUNT",
+    "STRATEGY_V2_CHANNEL_UNKNOWN",
+    "STRATEGY_V2_SETUP_STATE",
+    "STRATEGY_V2_SECRET_FIELD",
+    "STRATEGY_V2_WEEK_COUNT",
+    "STRATEGY_V2_WEEK_SEQUENCE",
+    "STRATEGY_V2_COMMITMENT_MISMATCH",
+    "STRATEGY_V2_HANDOFF_CHANNEL",
+    "STRATEGY_V2_HANDOFF_FORMAT",
+    "STRATEGY_V2_HANDOFF_WEEKS",
+    "STRATEGY_V2_HANDOFF_LANGUAGE",
 ]
 
 
@@ -1228,3 +1244,250 @@ class StrategyProgressEvent(BaseModel):
     retryable: Optional[bool] = None
     payload: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# strategy-v2 — owner-first Strategy contract (#135)
+# ---------------------------------------------------------------------------
+# Versioned alongside v1 (legacy rows are never reinterpreted). Adds
+# owner-selected channel choices, an owner-visible 12-week calendar,
+# owner-led advice, and a deterministic content-v1 handoff. Invariants mirror
+# packages/contracts/src/strategy/strategy-v2.ts exactly.
+
+
+STRATEGY_CHANNEL_CATALOG = (
+    "facebook",
+    "instagram",
+    "tiktok",
+    "google_business_profile",
+    "delivery_platforms",
+    "website",
+)
+
+STRATEGY_CHANNEL_SETUP_STATES = (
+    "connected",
+    "existing_link",
+    "setup_later",
+)
+
+STRATEGY_WEEKLY_CAPACITY_PRESETS = (
+    "minimal",
+    "light",
+    "moderate",
+    "dedicated",
+)
+
+OWNER_ADVICE_CATEGORIES = (
+    "setup",
+    "content",
+    "engagement",
+    "offer",
+    "measurement",
+    "operations",
+)
+
+CONTENT_HANDOFF_UNAVAILABLE_REASONS = (
+    "content_v1_unsupported_channels_only",
+    "content_v1_handoff_unavailable",
+)
+
+
+class StrategyChannelChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel: Literal[
+        "facebook",
+        "instagram",
+        "tiktok",
+        "google_business_profile",
+        "delivery_platforms",
+        "website",
+    ]
+    is_primary: bool
+    setup_state: Literal["connected", "existing_link", "setup_later"]
+    publishing_target_id: Optional[UUID] = None
+    public_url: Optional[str] = None
+
+    @model_validator(mode="after")
+    def no_secret_fields(self) -> "StrategyChannelChoice":
+        """A brief channel choice never carries provider credentials. Only the
+        safe PublishingTarget projection (id) may be persisted."""
+        if self.setup_state == "connected" and not self.publishing_target_id:
+            raise ValueError(
+                "connected channels require a verified publishing_target_id"
+            )
+        return self
+
+
+class StrategyBriefV2(BaseModel):
+    id: UUID
+    strategy_id: UUID
+    business_profile_version: BusinessProfileVersionRef
+    primary_objective: StrategyObjective
+    channel_choices: list[StrategyChannelChoice]
+    weekly_capacity_preset: Literal["minimal", "light", "moderate", "dedicated"]
+    capacity_note: Optional[str] = None
+    plan_language: LanguageMode
+    start_date: datetime
+    paid_media_allowed: bool
+    constraints: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    @model_validator(mode="after")
+    def channel_choice_invariants(self) -> "StrategyBriefV2":
+        if not 1 <= len(self.channel_choices) <= 3:
+            raise ValueError("channel_choices must contain 1-3 channels")
+        channels = [choice.channel for choice in self.channel_choices]
+        if len(set(channels)) != len(channels):
+            raise ValueError("channel_choices must be unique")
+        primaries = sum(1 for choice in self.channel_choices if choice.is_primary)
+        if primaries != 1:
+            raise ValueError("exactly one primary channel is required")
+        return self
+
+
+class CalendarWeekV2(BaseModel):
+    week_number: int
+    focus: str
+    expected_outcome: str
+    measurement_check: str
+
+
+class OwnerAdviceItem(BaseModel):
+    action: str
+    why_it_matters: str
+    timing: str
+    category: Literal[
+        "setup",
+        "content",
+        "engagement",
+        "offer",
+        "measurement",
+        "operations",
+    ]
+    grounded_source: Optional[str] = None
+    uncertainty: Optional[str] = None
+
+
+class OwnerAdviceWeekBucket(BaseModel):
+    week_number: int
+    items: list[OwnerAdviceItem]
+
+
+class OwnerAdviceV2(BaseModel):
+    before_week_1: list[OwnerAdviceItem]
+    weeks: list[OwnerAdviceWeekBucket]
+
+
+class ChannelCommitmentV2(BaseModel):
+    channel: Literal[
+        "facebook",
+        "instagram",
+        "tiktok",
+        "google_business_profile",
+        "delivery_platforms",
+        "website",
+    ]
+    role: Literal["primary", "supporting"]
+    rationale: str
+    capability_state: Literal["connected", "existing_link", "setup_later"]
+
+
+class ContentHandoffWeek(BaseModel):
+    week_number: int
+    channel: ContentChannel
+    format: ContentFormat
+
+
+class ContentHandoffV2(BaseModel):
+    available: bool
+    language: Optional[LanguageMode] = None
+    weeks: list[ContentHandoffWeek] = Field(default_factory=list)
+    reason: Optional[
+        Literal[
+            "content_v1_unsupported_channels_only",
+            "content_v1_handoff_unavailable",
+        ]
+    ] = None
+
+    @model_validator(mode="after")
+    def handoff_completeness(self) -> "ContentHandoffV2":
+        if self.available:
+            if self.language not in ("ar-EG", "en", "mixed"):
+                raise ValueError("available handoff requires a valid language")
+            if len(self.weeks) != 12:
+                raise ValueError("available handoff must map all 12 weeks")
+            week_numbers = [week.week_number for week in self.weeks]
+            if week_numbers != list(range(1, 13)):
+                raise ValueError("handoff weeks must be 1..12 exactly once")
+        else:
+            if self.reason not in CONTENT_HANDOFF_UNAVAILABLE_REASONS:
+                raise ValueError("unavailable handoff requires a machine-readable reason")
+        return self
+
+
+class StrategyPlanV2(BaseModel):
+    id: UUID
+    strategy_id: UUID
+    version: int
+    contract_version: Literal["strategy-v2"] = "strategy-v2"
+    brief_id: UUID
+    profile_version: BusinessProfileVersionRef
+    primary_objective: StrategyObjective
+    plan_language: LanguageMode
+    start_date: datetime
+    calendar_weeks: list[CalendarWeekV2]
+    owner_advice: OwnerAdviceV2
+    channel_commitments: list[ChannelCommitmentV2]
+    content_handoff: ContentHandoffV2
+    evidence_regions: list[Literal["egypt", "mena", "global_fallback"]]
+    risks: list[str]
+    created_at: datetime
+
+    @model_validator(mode="after")
+    def calendar_invariants(self) -> "StrategyPlanV2":
+        week_numbers = [week.week_number for week in self.calendar_weeks]
+        if week_numbers != list(range(1, 13)):
+            raise ValueError("calendar_weeks must be exactly weeks 1..12 in order")
+        advice_numbers = [bucket.week_number for bucket in self.owner_advice.weeks]
+        if advice_numbers != list(range(1, 13)):
+            raise ValueError("owner_advice.weeks must be exactly weeks 1..12 in order")
+        return self
+
+
+def validate_strategy_plan_v2(
+    plan: StrategyPlanV2,
+    brief_channel_choices: list[str],
+) -> StrategyValidationResult:
+    """Deterministic strategy-v2 plan validation (mirror of the TS validator).
+
+    Fails closed on malformed weekly handoff data; never free-text parses or
+    falls back. Channels committed must exactly equal the owner's choices.
+    """
+    issues: list[StrategyValidationIssue] = []
+
+    def add(code: str, field: str, message: str) -> None:
+        issues.append(
+            StrategyValidationIssue(code=code, field=field, message=message)
+        )
+
+    committed = [c.channel for c in plan.channel_commitments]
+    chosen_set = set(brief_channel_choices)
+    committed_set = set(committed)
+    for channel in chosen_set:
+        if channel not in committed_set:
+            add(
+                "STRATEGY_V2_COMMITMENT_MISMATCH",
+                "channel_commitments",
+                f"commitment missing for selected channel '{channel}'",
+            )
+    for channel in committed_set:
+        if channel not in chosen_set:
+            add(
+                "STRATEGY_V2_COMMITMENT_MISMATCH",
+                "channel_commitments",
+                f"commitment for unselected channel '{channel}'",
+            )
+
+    return StrategyValidationResult(valid=len(issues) == 0, issues=issues)

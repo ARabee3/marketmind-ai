@@ -494,3 +494,98 @@ class TestStrategyContracts(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StrategyV2ContractTest(unittest.TestCase):
+    """strategy-v2 (#135): owner channel invariants + deterministic handoff."""
+
+    def _valid_plan(self):
+        plan = json.loads(
+            (EXAMPLES_DIR / "strategy-plan-v2.example.json").read_text(encoding="utf-8")
+        )
+        return plan
+
+    def _valid_brief(self):
+        brief = json.loads(
+            (EXAMPLES_DIR / "strategy-brief-v2.example.json").read_text(encoding="utf-8")
+        )
+        return brief
+
+    def test_canonical_brief_v2_parses(self):
+        from strategy_contracts import StrategyBriefV2
+
+        brief = StrategyBriefV2.model_validate(self._valid_brief())
+        self.assertEqual(len(brief.channel_choices), 3)
+        primaries = sum(1 for c in brief.channel_choices if c.is_primary)
+        self.assertEqual(primaries, 1)
+
+    def test_brief_requires_exactly_one_primary(self):
+        from strategy_contracts import StrategyBriefV2
+
+        brief = self._valid_brief()
+        brief["channel_choices"][0]["is_primary"] = False
+        with self.assertRaises(ValidationError):
+            StrategyBriefV2.model_validate(brief)
+
+    def test_brief_rejects_secret_fields(self):
+        from strategy_contracts import StrategyBriefV2
+
+        brief = self._valid_brief()
+        brief["channel_choices"][0]["access_token"] = "EAA…secret"
+        with self.assertRaises(ValidationError):
+            StrategyBriefV2.model_validate(brief)
+
+    def test_canonical_plan_v2_parses_and_validates(self):
+        from strategy_contracts import StrategyPlanV2, validate_strategy_plan_v2
+
+        plan = StrategyPlanV2.model_validate(self._valid_plan())
+        self.assertEqual(len(plan.calendar_weeks), 12)
+        self.assertTrue(plan.content_handoff.available)
+        self.assertEqual(len(plan.content_handoff.weeks), 12)
+        result = validate_strategy_plan_v2(
+            plan, [c["channel"] for c in self._valid_brief()["channel_choices"]]
+        )
+        self.assertTrue(result.valid, result.issues)
+
+    def test_commitment_mismatch_fails_closed(self):
+        from strategy_contracts import StrategyPlanV2, validate_strategy_plan_v2
+
+        plan = StrategyPlanV2.model_validate(self._valid_plan())
+        chosen = ["facebook", "tiktok", "website"]
+        result = validate_strategy_plan_v2(
+            StrategyPlanV2.model_copy(plan, deep=True).model_copy(deep=True), chosen
+        )
+        self.assertTrue(result.valid, result.issues)
+        # silently re-targeting: a commitment for a channel the owner never chose
+        copy = json.loads(json.dumps(plan.model_dump(mode="json")))
+        copy["channel_commitments"].append(
+            {"channel": "instagram", "role": "supporting", "rationale": "x", "capability_state": "setup_later"}
+        )
+        result = validate_strategy_plan_v2(StrategyPlanV2.model_validate(copy), chosen)
+        self.assertFalse(result.valid)
+        codes = {issue.code for issue in result.issues}
+        self.assertIn("STRATEGY_V2_COMMITMENT_MISMATCH", codes)
+
+    def test_handoff_unknown_format_fails_closed(self):
+        from strategy_contracts import StrategyPlanV2
+
+        plan = self._valid_plan()
+        plan["content_handoff"]["weeks"][0]["format"] = "reels"
+        with self.assertRaises(ValidationError):
+            StrategyPlanV2.model_validate(plan)
+
+    def test_handoff_requires_all_12_weeks(self):
+        from strategy_contracts import StrategyPlanV2
+
+        plan = self._valid_plan()
+        plan["content_handoff"]["weeks"] = plan["content_handoff"]["weeks"][:11]
+        with self.assertRaises(ValidationError):
+            StrategyPlanV2.model_validate(plan)
+
+    def test_unavailable_handoff_requires_reason(self):
+        from strategy_contracts import StrategyPlanV2
+
+        plan = self._valid_plan()
+        plan["content_handoff"] = {"available": False}
+        with self.assertRaises(ValidationError):
+            StrategyPlanV2.model_validate(plan)
