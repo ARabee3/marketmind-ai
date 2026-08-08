@@ -29,6 +29,9 @@ function postMessageHtml(message: string, origin: string): string {
   <head><meta charset="utf-8" /><title>MarketMind AI — Facebook connection</title></head>
   <body style="font-family: system-ui, sans-serif; padding: 2rem; color: #102A43;">
     <p>You can close this window.</p>
+    <p style="margin-top:1rem">
+      <a href="#" onclick="window.close();return false" style="color:#0B6F71">Close this window</a>
+    </p>
     <script>
       (function () {
         var message = ${message};
