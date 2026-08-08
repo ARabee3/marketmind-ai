@@ -222,6 +222,56 @@ class TestV2GenerateEndpoint:
         )
         assert result.valid
 
+    def test_policy_violation_is_retried_with_planning_only_repair_prompt(
+        self, client, monkeypatch
+    ):
+        from app.providers.strategy_provider import MockStrategyProvider
+
+        request = make_generate_request_v2()
+
+        class SequenceProvider(MockStrategyProvider):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.prompts = []
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                plan = await super().generate_strategy_plan(
+                    prompt, output_model=output_model
+                )
+                if self.call_count != 1:
+                    return plan
+
+                commitments = list(plan.channel_commitments)
+                commitments[1] = commitments[1].model_copy(
+                    update={
+                        "rationale": commitments[1].rationale.model_copy(
+                            update={
+                                "text": "Ads have been launched for this channel."
+                            }
+                        )
+                    }
+                )
+                return plan.model_copy(update={"channel_commitments": commitments})
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        assert "planning-only" in provider.prompts[1].system_prompt
+        assert "channel_commitments[*].rationale" in provider.prompts[1].system_prompt
+
     def test_v2_validation_pipeline_rejects_plan_language_mismatch(self):
         from strategy_contracts import StrategyPlanV2 as PlanV2
         from tests.strategy.fixtures import default_plan_v2

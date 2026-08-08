@@ -125,16 +125,15 @@ export class StrategyProcessor extends WorkerHost {
 
       // Deterministic scoring must run first: the generate endpoint requires
       // the precomputed channel scorecards so the plan reuses them verbatim.
-      const scoreResponse = await firstValueFrom(
-        this.httpService.post(
-          `${this.aiUrl}/internal/v1/ai/strategy/score`,
-          {
-            business_profile: businessProfilePayload,
-            brief: contractBrief,
-            retrieval_pack: toRagRetrievalPack(retrievalRun),
-          },
-          { timeout: 30_000 },
-        ),
+      const scoreResponse = await this.postAi(
+        "/internal/v1/ai/strategy/score",
+        {
+          business_profile: businessProfilePayload,
+          brief: contractBrief,
+          retrieval_pack: toRagRetrievalPack(retrievalRun),
+        },
+        30_000,
+        correlationId,
       );
       const deterministicChannelScores =
         scoreResponse.data?.deterministic_channel_scores;
@@ -147,19 +146,18 @@ export class StrategyProcessor extends WorkerHost {
       const response = await this.callAiGenerationWithRetry(
         correlationId,
         () =>
-          firstValueFrom(
-            this.httpService.post(
-              `${this.aiUrl}/internal/v1/ai/strategy/generate`,
-              {
-                contract_version: contractVersion,
-                strategy_id: strategyId,
-                business_profile: businessProfilePayload,
-                brief: contractBrief,
-                retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
-                deterministic_channel_scores: deterministicChannelScores,
-              },
-              { timeout: 45_000 },
-            ),
+          this.postAi(
+            "/internal/v1/ai/strategy/generate",
+            {
+              contract_version: contractVersion,
+              strategy_id: strategyId,
+              business_profile: businessProfilePayload,
+              brief: contractBrief,
+              retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+              deterministic_channel_scores: deterministicChannelScores,
+            },
+            45_000,
+            correlationId,
           ),
         (result) => {
           const planData = result.data?.plan;
@@ -321,19 +319,18 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const retrievalResponse = await firstValueFrom(
-        this.httpService.post(
-          `${this.aiUrl}/internal/v1/ai/strategy/retrieve`,
-          buildRetrievalQueryContext(brief, profileVersion, business),
-          {
-            params: {
-              strategy_id: strategyId,
-              brief_id: brief.id,
-              profile_version_id: brief.businessProfileVersionId,
-            },
-            timeout: this.aiRequestTimeoutMs,
+      const retrievalResponse = await this.postAi(
+        "/internal/v1/ai/strategy/retrieve",
+        buildRetrievalQueryContext(brief, profileVersion, business),
+        this.aiRequestTimeoutMs,
+        correlationId,
+        {
+          params: {
+            strategy_id: strategyId,
+            brief_id: brief.id,
+            profile_version_id: brief.businessProfileVersionId,
           },
-        ),
+        },
       );
 
       retrievalRunId = retrievalResponse.data.retrieval_run_id;
@@ -420,16 +417,15 @@ export class StrategyProcessor extends WorkerHost {
 
       // Deterministic scoring must run first: the revise endpoint requires the
       // precomputed channel scorecards so the revised plan reuses them verbatim.
-      const scoreResponse = await firstValueFrom(
-        this.httpService.post(
-          `${this.aiUrl}/internal/v1/ai/strategy/score`,
-          {
-            business_profile: businessProfilePayload,
-            brief: contractBrief,
-            retrieval_pack: toRagRetrievalPack(retrievalRun),
-          },
-          { timeout: 30_000 },
-        ),
+      const scoreResponse = await this.postAi(
+        "/internal/v1/ai/strategy/score",
+        {
+          business_profile: businessProfilePayload,
+          brief: contractBrief,
+          retrieval_pack: toRagRetrievalPack(retrievalRun),
+        },
+        30_000,
+        correlationId,
       );
       const deterministicChannelScores =
         scoreResponse.data?.deterministic_channel_scores;
@@ -442,21 +438,20 @@ export class StrategyProcessor extends WorkerHost {
       const revisionResponse = await this.callAiGenerationWithRetry(
         correlationId,
         () =>
-          firstValueFrom(
-            this.httpService.post(
-              `${this.aiUrl}/internal/v1/ai/strategy/revise`,
-              {
-                contract_version: strategy.contractVersion,
-                strategy_id: strategyId,
-                business_profile: businessProfilePayload,
-                brief: contractBrief,
-                retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
-                deterministic_channel_scores: deterministicChannelScores,
-                previous_plan: priorVersion.planData,
-                revision_notes: feedback?.trim() || "",
-              },
-              { timeout: 45_000 },
-            ),
+          this.postAi(
+            "/internal/v1/ai/strategy/revise",
+            {
+              contract_version: strategy.contractVersion,
+              strategy_id: strategyId,
+              business_profile: businessProfilePayload,
+              brief: contractBrief,
+              retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+              deterministic_channel_scores: deterministicChannelScores,
+              previous_plan: priorVersion.planData,
+              revision_notes: feedback?.trim() || "",
+            },
+            45_000,
+            correlationId,
           ),
         (result) => {
           const planData = result.data?.plan;
@@ -622,11 +617,51 @@ export class StrategyProcessor extends WorkerHost {
       );
     }
   }
+
+  private async postAi(
+    path: string,
+    payload: unknown,
+    timeout: number,
+    correlationId: string,
+    options: Record<string, unknown> = {},
+  ) {
+    try {
+      return await firstValueFrom(
+        this.httpService.post(`${this.aiUrl}${path}`, payload, {
+          ...options,
+          timeout,
+        }),
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `[Corr: ${correlationId}] AI request ${path} failed: ${errorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    const response = (error as Error & {
+      response?: { status?: unknown; data?: unknown };
+    }).response;
+    if (response?.status !== undefined) {
+      const detail = formatResponseData(response.data);
+      return `${error.message} (status=${String(response.status)}${detail ? `, response=${detail}` : ""})`;
+    }
+    return error.message;
+  }
   return String(error);
+}
+
+function formatResponseData(data: unknown): string {
+  if (data === undefined) return "";
+  const serialized = typeof data === "string" ? data : JSON.stringify(data);
+  if (!serialized) return "";
+  return serialized.length > 2_000
+    ? `${serialized.slice(0, 2_000)}…`
+    : serialized;
 }
 
 /**

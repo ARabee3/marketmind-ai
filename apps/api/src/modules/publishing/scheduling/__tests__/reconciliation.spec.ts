@@ -162,7 +162,7 @@ describe("ReconciliationService.recoverMissedJobs", () => {
         idempotencyKey: "recovery:intent-overdue:2",
       },
       expect.objectContaining({
-        jobId: "publish:intent-overdue:2",
+        jobId: "publish-intent-overdue-2",
         delay: 0,
         priority: 0,
       }),

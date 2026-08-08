@@ -44,6 +44,7 @@ import {
   normalizeGeneratedContentItemVersions,
 } from "./content-item-version-normalizer";
 import { ContentJobOutboxRepository } from "./content-job-outbox.repository";
+import { toBullMqJobId } from "../../common/queues/bullmq-job-id";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 import { BillingDomainException } from "../billing/billing.service";
 
@@ -909,7 +910,7 @@ export class ContentProcessor extends WorkerHost {
           this.jobOutbox ? payload : { ...payload, correlationId },
           this.jobOutbox
             ? {
-                jobId,
+                jobId: toBullMqJobId(jobId),
                 attempts: 3,
                 backoff: { type: "exponential", delay: 2000 },
               }

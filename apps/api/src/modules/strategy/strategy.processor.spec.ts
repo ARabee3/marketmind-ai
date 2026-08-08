@@ -379,6 +379,49 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
+    it("logs the AI endpoint and upstream response detail for HTTP errors", async () => {
+      const error = Object.assign(
+        new Error("Request failed with status code 400"),
+        {
+          response: {
+            status: 400,
+            data: {
+              detail: {
+                error_type: "invalid_input",
+                field: "brief.external_budget_egp",
+                message: "Budget is required.",
+              },
+            },
+          },
+        },
+      );
+      const logger = (processor as unknown as { logger: { error: jest.Mock } })
+        .logger;
+      const errorSpy = jest.spyOn(logger, "error");
+      httpService.post.mockReturnValue(throwError(() => error));
+
+      try {
+        await expect(
+          processor.process({
+            id: "job-1",
+            name: "generate-strategy",
+            data: baseJob,
+          } as never),
+        ).rejects.toThrow("Request failed with status code 400");
+
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            "AI request /internal/v1/ai/strategy/score failed",
+          ),
+        );
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('"field":"brief.external_budget_egp"'),
+        );
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
     it("transitions to failed on invalid response (missing plan)", async () => {
       httpService.post.mockReturnValue(of({ data: {} }));
 
