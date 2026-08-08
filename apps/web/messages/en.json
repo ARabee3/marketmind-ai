@@ -36,8 +36,7 @@
     "closeNavigation": "Close navigation",
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
-    "error": "Error",
-    "navContent": "Content"
+    "error": "Error"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -1053,6 +1052,174 @@
         "rejected": "Rejected",
         "failed": "Revision failed"
       }
+    },
+    "channels": {
+      "label": "Channels",
+      "facebook": "Facebook Page",
+      "instagram": "Instagram Professional",
+      "tiktok": "TikTok",
+      "google_business_profile": "Google Business Profile",
+      "delivery_platforms": "Delivery platforms",
+      "website": "Website",
+      "roles": {
+        "primary": "Main focus",
+        "supporting": "Supporting"
+      },
+      "setupStates": {
+        "connected": "Connected",
+        "existing_link": "Existing link",
+        "setup_later": "Set up later"
+      },
+      "capabilities": {
+        "publishing_ready": "Ready for publishing",
+        "publishing_pending": "Connected — target verification pending",
+        "owner_managed": "Owner-managed"
+      }
+    },
+    "wizard": {
+      "eyebrow": "Build your Strategy",
+      "title": "Three quick choices, then your 12-week plan.",
+      "subtitle": "You decide the goal, the channels you will actually use, and what is realistic. MarketMind never adds or replaces a channel on your behalf.",
+      "steps": {
+        "goal": "Your goal",
+        "goalBody": "What do you want the next 12 weeks to achieve?",
+        "channels": "Where you will show up",
+        "channelsBody": "Choose one main channel and up to two supporting channels.",
+        "realistic": "What is realistic",
+        "realisticBody": "Tell us your weekly capacity and budget approach."
+      },
+      "stepOf": "Step {current} of {total}",
+      "next": "Continue",
+      "back": "Back",
+      "generate": "Generate plan",
+      "generatePending": "Saving and generating…",
+      "save": "Save draft and leave",
+      "saved": "Draft saved.",
+      "unsaved": "You have unsaved Strategy choices.",
+      "primaryHelp": "Choose one main focus for the next 12 weeks.",
+      "supportingHelp": "Choose up to two supporting channels. You can change them until you generate.",
+      "meta": {
+        "connect": "Connect with Meta",
+        "connectSoon": "Meta connection is coming soon. You can generate now and connect later.",
+        "addLink": "Add existing link",
+        "addLinkHelp": "Paste the URL of your existing page, account, or profile.",
+        "setUpLater": "Set up later",
+        "setUpLaterHelp": "Keep this channel in the plan without a connection yet.",
+        "publicUrlLabel": "Public URL",
+        "publicUrlPlaceholder": "https://…",
+        "publicUrlRequired": "Add the existing link URL.",
+        "metaTargetBlocked": "Real publishing stays blocked until the page is connected and verified."
+      },
+      "capacity": {
+        "label": "Weekly capacity",
+        "help": "How much time can you realistically give to this plan each week?",
+        "options": {
+          "one_to_two_hours": "1–2 hours a week",
+          "three_to_five_hours": "3–5 hours a week",
+          "half_day": "About half a day a week",
+          "full_day_plus": "A full day or more a week"
+        }
+      },
+      "capacityNote": {
+        "label": "Anything else about your time?",
+        "help": "Optional note about your capacity, e.g. weekends only."
+      },
+      "paidMedia": {
+        "label": "Paid media",
+        "help": "Are you open to paid promotion within the next 12 weeks?",
+        "organic": "Organic only — no paid ads",
+        "allowed": "Yes, within a budget"
+      },
+      "budgetAmount": {
+        "label": "Monthly budget (EGP)",
+        "help": "The maximum you can commit per month."
+      },
+      "constraints": {
+        "label": "Anything else the plan must respect?",
+        "help": "Optional note, e.g. avoid dairy offers or no weekend staff."
+      },
+      "validation": {
+        "required": "This is required.",
+        "primaryChannel": "Choose one main channel.",
+        "supportingLimit": "You can choose up to two supporting channels.",
+        "publicUrl": "Add the existing link URL.",
+        "loadFailed": "We could not load your profile. Please try again."
+      },
+      "readiness": {
+        "goal": "Your goal is set",
+        "channels": "Channels chosen",
+        "realistic": "Capacity and budget set"
+      }
+    },
+    "reviewV2": {
+      "badge": "Owner-first plan",
+      "title": "Your 12-week plan",
+      "subtitle": "Here is what you decided and what to expect each week. You stay in control of every action.",
+      "openAdvice": "Open owner advice",
+      "openHistory": "Version history",
+      "summaryLabel": "Your plan at a glance",
+      "goalLabel": "Goal",
+      "channelsLabel": "Channels",
+      "datesLabel": "Plan dates",
+      "startsOn": "Starts {date}",
+      "planLanguage": "Language",
+      "objective": "Objective",
+      "weeksGroup": {
+        "one": "Weeks 1–4",
+        "two": "Weeks 5–8",
+        "three": "Weeks 9–12"
+      },
+      "week": "Week {week}",
+      "focus": "Focus",
+      "outcome": "Expected outcome",
+      "measurement": "Measurement check",
+      "ownerActions": "{count, plural, =0 {No owner actions} one {# owner action} other {# owner actions}}",
+      "openAdviceForWeek": "See the owner actions for week {week}",
+      "contentHandoff": {
+        "label": "Content handoff",
+        "ready": "Ready for Content cycles",
+        "readyBody": "This plan can start a Content cycle for the supported channels.",
+        "unavailable": "Owner-managed plan",
+        "unavailableBody": "None of the selected channels are supported by Content yet. The plan stays yours to execute; a Content cycle cannot start."
+      },
+      "detailsTitle": "Plan details",
+      "details": {
+        "why": "Why this fits",
+        "evidence": "Evidence",
+        "evidenceBody": "{count} citations grounded in reviewed guidance",
+        "risks": "Risks and gaps",
+        "history": "Version history"
+      },
+      "capability": "Capability",
+      "setupState": "Setup",
+      "rationale": "Why this channel",
+      "noBlockers": "No blockers",
+      "blockingLabel": "Blocking",
+      "warningLabel": "Warning",
+      "channelsLabelList": "Selected channels"
+    },
+    "advice": {
+      "badge": "Owner advice",
+      "title": "Your to-do list for the plan",
+      "subtitle": "Every item is something you do — MarketMind never pretends to do it for you. Each item states the action, why it matters, when to do it, and its source.",
+      "beforeWeek1": "Before week 1",
+      "beforeWeek1Body": "Set up the foundation before the plan starts.",
+      "weekBucket": "Week {week}",
+      "backToReview": "Back to the plan",
+      "action": "What you do",
+      "why": "Why it matters",
+      "timing": "When",
+      "category": "Category",
+      "categories": {
+        "channel_setup": "Channel setup",
+        "audience": "Audience",
+        "content": "Content",
+        "budget": "Budget",
+        "measurement": "Measurement",
+        "capability": "Capability"
+      },
+      "empty": "No advice items for this week.",
+      "weekLink": "See this week in the plan"
     }
   },
   "Landing": {

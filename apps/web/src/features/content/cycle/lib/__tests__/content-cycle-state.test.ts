@@ -20,7 +20,7 @@ import {
 } from "../content-cycle-fixtures";
 import type { CurrentJourneyResponse } from "@marketmind/contracts";
 import type { StrategyApiResponse } from "@/lib/api/strategy";
-import type { StrategyVersionSummary } from "@marketmind/contracts";
+import type { StrategyPlan, StrategyVersionSummary } from "@marketmind/contracts";
 
 describe("content-cycle-state", () => {
   describe("resolveApprovedContentStrategy", () => {
@@ -116,10 +116,11 @@ describe("content-cycle-state", () => {
       const stratApi: StrategyApiResponse = {
         ...mockApprovedStrategyApi,
         latestPlan: {
-          ...mockApprovedStrategyApi.latestPlan!,
+          ...(mockApprovedStrategyApi.latestPlan as StrategyPlan)!,
           content_strategy: {
-            ...mockApprovedStrategyApi.latestPlan!.content_strategy,
-            weeks: mockApprovedStrategyApi.latestPlan!.content_strategy.weeks.slice(0, 10),
+            ...(mockApprovedStrategyApi.latestPlan as StrategyPlan).content_strategy,
+            weeks: (mockApprovedStrategyApi.latestPlan as StrategyPlan)
+              .content_strategy.weeks.slice(0, 10),
           },
         },
       };
@@ -146,7 +147,7 @@ describe("content-cycle-state", () => {
           strategyVersion: mockActiveCycle.strategy_version,
           strategyDecisionId: mockActiveCycle.strategy_decision_id,
           profileVersionId: mockActiveCycle.profile_version_id,
-          plan: mockApprovedStrategyApi.latestPlan,
+          plan: mockApprovedStrategyApi.latestPlan as StrategyPlan | null,
         },
       );
 
@@ -199,7 +200,7 @@ describe("content-cycle-state", () => {
           strategyVersion: mockActiveCycle.strategy_version,
           strategyDecisionId: "different-decision",
           profileVersionId: mockActiveCycle.profile_version_id,
-          plan: mockApprovedStrategyApi.latestPlan,
+          plan: mockApprovedStrategyApi.latestPlan as StrategyPlan | null,
         },
       );
 

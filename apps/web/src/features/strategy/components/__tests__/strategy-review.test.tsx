@@ -8,6 +8,7 @@ import type {
 } from '@marketmind/contracts'
 import { StrategyReview } from '../strategy-review'
 import { createStrategyPlanFixture } from '../../lib/strategy-plan-fixture'
+import { createStrategyPlanV2Fixture } from '../../lib/strategy-plan-v2-fixture'
 
 const mockResource = {
   strategy_id: 'strat-1',
@@ -183,6 +184,55 @@ describe('StrategyReview', () => {
 
     expect(screen.getByText('review.unavailableTitle')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+  })
+
+  it('dispatches owner-first strategy-v2 plans to the calendar review', () => {
+    const v2Brief = {
+      ...brief,
+      weekly_capacity: 'three_to_five_hours',
+      channel_choices: [
+        {
+          channel: 'facebook',
+          role: 'primary',
+          setup_state: 'setup_later',
+        },
+      ],
+    } as const
+    const v2Resource = {
+      strategy_id: brief.strategy_id,
+      status: 'draft',
+      brief: v2Brief,
+      latest_plan: {
+        ...createStrategyPlanV2Fixture({
+          idSuffix: 'draftReady',
+          brief: v2Brief,
+          retrievalRunId: '33333333-3333-4333-8333-333333333333',
+          blockers: [],
+        }),
+        goal: sourcedClaim,
+        content_handoff: {
+          available: false,
+          reason: 'no_content_supported_channels',
+          message: 'owner-managed plan',
+        },
+      },
+    } satisfies StrategyResource
+
+    render(
+      <StrategyReview
+        profile={null}
+        resource={v2Resource}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    // The v2 review shows the calendar-first reading order, not v1 chapters.
+    expect(screen.getByText('reviewV2.badge')).toBeTruthy()
+    expect(screen.getByText('reviewV2.openAdvice')).toBeTruthy()
+    expect(screen.queryByText('review.sections.overview.title')).toBeNull()
   })
 
   it('renders the latest strategy plan instead of static demo copy', () => {

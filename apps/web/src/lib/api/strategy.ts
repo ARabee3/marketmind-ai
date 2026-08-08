@@ -1,10 +1,12 @@
 import type {
   OwnerDecision,
   StrategyPlan,
+  StrategyPlanV2,
   StrategyProgressEvent,
   StrategyStatus,
   StrategyResource,
   StrategyBrief,
+  StrategyBriefV2,
   StrategyVersionSummary,
   RetrievedKnowledgePack,
 } from '@marketmind/contracts'
@@ -45,7 +47,12 @@ export interface UpsertBriefPayload {
   externalBudgetMode: string
   externalBudgetEgpAmount?: number
   externalBudgetEgpRange?: { min_egp?: number; max_egp?: number }
-  teamCapacity: string
+  teamCapacity?: string
+  /** strategy-v2 only: plain-language weekly-capacity preset. */
+  weeklyCapacity?: string
+  weeklyCapacityNote?: string
+  /** strategy-v2 only: owner-selected channels (1-3, exactly one primary). */
+  channelChoices?: ChannelChoicePayload[]
   constraints?: string
   clarificationAnswers?: {
     question_id: string
@@ -53,6 +60,15 @@ export interface UpsertBriefPayload {
     answer_text: string
     answered_at: string
   }[]
+}
+
+export interface ChannelChoicePayload {
+  channel: string
+  role: 'primary' | 'supporting'
+  setupState: 'connected' | 'existing_link' | 'setup_later'
+  publicUrl?: string
+  publishingTargetId?: string
+  note?: string
 }
 
 export interface OwnerDecisionPayload {
@@ -70,37 +86,59 @@ export interface StrategyApiResponse {
   createdAt: string
   updatedAt: string
   brief: BriefApiResponse | null
-  latestPlan: StrategyPlan | null
+  latestPlan: StrategyPlan | StrategyPlanV2 | null
 }
 
 export function toStrategyResource(api: StrategyApiResponse): StrategyResource {
   return {
     strategy_id: api.id,
     status: api.status as StrategyStatus,
-    brief: api.brief
-      ? {
-          id: api.brief.id,
-          strategy_id: api.brief.strategyId,
-          business_profile_version: {
-            business_profile_version_id: api.brief.businessProfileVersionId,
-            confirmed_at: api.brief.businessProfileVersion.confirmedAt,
-            version: api.brief.businessProfileVersion.version,
-          },
-          primary_objective: api.brief.primaryObjective as StrategyBrief['primary_objective'],
-          start_date: api.brief.startDate,
-          plan_language: api.brief.planLanguage as StrategyBrief['plan_language'],
-          paid_media_allowed: api.brief.paidMediaAllowed,
-          external_budget_mode: api.brief.externalBudgetMode as StrategyBrief['external_budget_mode'],
-          external_budget_egp: api.brief.externalBudgetEgp as StrategyBrief['external_budget_egp'],
-          team_capacity: api.brief.teamCapacity,
-          constraints: typeof api.brief.constraints === 'string' ? [api.brief.constraints] : (api.brief.constraints ?? []),
-          clarification_answers: [],
-          created_at: api.brief.createdAt,
-          updated_at: api.brief.updatedAt,
-        }
-      : null,
+    brief: api.brief ? buildContractBrief(api.brief) : null,
     latest_plan: api.latestPlan ?? null,
   }
+}
+
+function buildContractBrief(
+  api: BriefApiResponse,
+): StrategyBrief | StrategyBriefV2 {
+  const base = {
+    id: api.id,
+    strategy_id: api.strategyId,
+    business_profile_version: {
+      business_profile_version_id: api.businessProfileVersionId,
+      confirmed_at: api.businessProfileVersion.confirmedAt,
+      version: api.businessProfileVersion.version,
+    },
+    primary_objective: api.primaryObjective as StrategyBrief['primary_objective'],
+    start_date: api.startDate,
+    plan_language: api.planLanguage as StrategyBrief['plan_language'],
+    paid_media_allowed: api.paidMediaAllowed,
+    external_budget_mode: api.externalBudgetMode as StrategyBrief['external_budget_mode'],
+    external_budget_egp: api.externalBudgetEgp as StrategyBrief['external_budget_egp'],
+    constraints: typeof api.constraints === 'string' ? [api.constraints] : (api.constraints ?? []),
+    clarification_answers: [],
+    created_at: api.createdAt,
+    updated_at: api.updatedAt,
+  }
+  if (Array.isArray(api.channelChoices) && api.channelChoices.length > 0) {
+    return {
+      ...base,
+      weekly_capacity: (api.weeklyCapacity ?? 'one_to_two_hours') as StrategyBriefV2['weekly_capacity'],
+      weekly_capacity_note: api.weeklyCapacityNote ?? undefined,
+      channel_choices: api.channelChoices.map((choice) => ({
+        channel: choice.channel as StrategyBriefV2['channel_choices'][number]['channel'],
+        role: choice.role as 'primary' | 'supporting',
+        setup_state: choice.setupState as StrategyBriefV2['channel_choices'][number]['setup_state'],
+        ...(choice.publicUrl ? { public_url: choice.publicUrl } : {}),
+        ...(choice.publishingTargetId ? { publishing_target_id: choice.publishingTargetId } : {}),
+        ...(choice.note ? { note: choice.note } : {}),
+      })),
+    } satisfies StrategyBriefV2
+  }
+  return {
+    ...base,
+    team_capacity: api.teamCapacity ?? '',
+  } satisfies StrategyBrief
 }
 
 export interface BriefApiResponse {
@@ -119,6 +157,16 @@ export interface BriefApiResponse {
   externalBudgetMode: string
   externalBudgetEgp: unknown
   teamCapacity: string
+  weeklyCapacity?: string | null
+  weeklyCapacityNote?: string | null
+  channelChoices?: Array<{
+    channel: string
+    role: string
+    setupState: string
+    publicUrl?: string
+    publishingTargetId?: string
+    note?: string
+  }> | null
   constraints: string | null
   clarificationAnswers: unknown
   createdAt: string

@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { StrategyChoicesForm } from '@/features/strategy/components/strategy-choices-form'
+import { StrategyWizard } from '@/features/strategy/components/strategy-wizard'
 
 export async function generateMetadata() {
   const t = await getTranslations('Strategy')
@@ -9,5 +9,5 @@ export async function generateMetadata() {
 }
 
 export default function NewStrategyPage() {
-  return <StrategyChoicesForm />
+  return <StrategyWizard />
 }

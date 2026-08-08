@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import type {
   CurrentJourneyResponse,
   RetrievedKnowledgePack,
+  StrategyBrief,
   StrategyPlan,
   StrategyProgressEvent,
   StrategyVersionSummary,
@@ -18,7 +19,7 @@ const PROFILE_ID = 'profile-version-id'
 const fixture = getStrategyDemoFixture('draftReady')
 const rawPlan = fixture.resource.latest_plan!
 const plan = {
-  ...rawPlan,
+  ...(rawPlan as StrategyPlan),
   profile_version: {
     ...rawPlan.profile_version,
     business_profile_version_id: PROFILE_ID,
@@ -77,13 +78,19 @@ test.describe('Strategy owner journey', () => {
     })
 
     await page.goto('/en/strategy/new')
+    // Step 1 — goal
     await page.getByLabel('Main objective').selectOption('conversion')
     await page.getByLabel('Start date').fill('2026-08-01')
-    await page.getByLabel('Paid media permission').selectOption('no')
-    await page.getByLabel('Team capacity').fill('Owner plus one helper')
-
     await expect(page.getByText('You have unsaved Strategy choices.')).toBeVisible()
-    await page.getByRole('button', { name: 'Prepare draft' }).click()
+    await page.getByRole('button', { name: 'Continue' }).click()
+    // Step 2 — channels: one primary, one supporting with an existing link
+    await page.getByLabel('Main focus').first().check()
+    await page.getByLabel('Supporting').nth(1).check()
+    await page.getByRole('button', { name: 'Continue' }).click()
+    // Step 3 — realistic: capacity preset + organic only
+    await page.getByLabel('3–5 hours a week').check()
+    await page.getByLabel('Paid media').selectOption('organic')
+    await page.getByRole('button', { name: 'Generate plan' }).click()
 
     await expect.poll(() => generationCalls).toBe(1)
     expect(savedBrief).toMatchObject({
@@ -92,7 +99,10 @@ test.describe('Strategy owner journey', () => {
       planLanguage: 'en',
       paidMediaAllowed: false,
       externalBudgetMode: 'organic_only',
-      teamCapacity: 'Owner plus one helper',
+      weeklyCapacity: 'three_to_five_hours',
+      channelChoices: expect.arrayContaining([
+        expect.objectContaining({ channel: 'facebook', role: 'primary' }),
+      ]),
     })
     await expect(page).toHaveURL(new RegExp(`/en/strategy/${STRATEGY_ID}$`))
   })
@@ -328,7 +338,7 @@ function strategyResponse(
       paidMediaAllowed: brief.paid_media_allowed,
       externalBudgetMode: brief.external_budget_mode,
       externalBudgetEgp: brief.external_budget_egp,
-      teamCapacity: brief.team_capacity,
+      teamCapacity: (brief as StrategyBrief).team_capacity,
       constraints: brief.constraints.join('\n'),
       clarificationAnswers: [],
       createdAt: brief.created_at,

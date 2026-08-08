@@ -122,11 +122,16 @@ export function resolveApprovedContentStrategy(
 
   const currentVersionId = strategyApi.currentVersionId;
   const brief = strategyApi.brief;
-  const plan = options.plan ?? strategyApi.latestPlan;
+  const rawPlan = options.plan ?? strategyApi.latestPlan;
 
-  if ((!currentVersionId && options.strategyVersion === undefined) || !brief || !plan) {
+  if ((!currentVersionId && options.strategyVersion === undefined) || !brief || !rawPlan) {
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
+
+  // Content cycles only run from content-v1 plans; owner-first v2 plans are
+  // blocked server-side by the content handoff gate, so this read model
+  // narrows to the v1 plan shape.
+  const plan = rawPlan as StrategyPlan;
 
   // For a fresh entry (no explicit version), resolve by the currently approved
   // version referenced by currentVersionId, not by the latest plan. This keeps

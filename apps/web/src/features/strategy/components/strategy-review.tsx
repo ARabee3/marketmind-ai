@@ -28,6 +28,7 @@ import type {
   StrategyProgressEvent,
   StrategyResource,
 } from '@marketmind/contracts'
+import { isStrategyPlanV2 } from '@marketmind/contracts'
 import { Button } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,7 @@ import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyBadge } from './strategy-badge'
 import { StrategyProfileSummary } from './strategy-profile-summary'
+import { StrategyReviewV2 } from './strategy-review-v2'
 
 type DecisionAction = 'approve' | 'revision_requested' | 'reject'
 
@@ -64,11 +66,16 @@ export function StrategyReview({
   readonly readOnly?: boolean
 }) {
   const t = useTranslations('Strategy')
-  const plan = resource.latest_plan
+  const latest = resource.latest_plan
   const { decide, retry, pending, error } = useStrategyActions()
   const [decision, setDecision] = useState<DecisionAction | null>(null)
   const [feedback, setFeedback] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+
+  // Owner-first strategy-v2 plans render on the calendar-first review.
+  // Hooks above stay unconditional; this is a pure render-time dispatch.
+  const isV2 = latest !== null && isStrategyPlanV2(latest)
+  const plan = isV2 ? null : (latest as StrategyPlan | null)
 
   const evidence = useMemo(
     () => inspectEvidence(plan, retrieval),
@@ -130,6 +137,20 @@ export function StrategyReview({
     if (!result) return
     setNotice(t('decision.success.retry'))
     await onRefresh()
+  }
+
+  if (isV2 && latest) {
+    return (
+      <StrategyReviewV2
+        profile={profile}
+        resource={resource}
+        currentVersionId={currentVersionId}
+        retrieval={retrieval}
+        progress={progress}
+        onRefresh={onRefresh}
+        readOnly={readOnly}
+      />
+    )
   }
 
   if (!plan) {
