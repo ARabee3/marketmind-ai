@@ -1,22 +1,19 @@
 import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { PublishingMetaCallbackResult } from "@/features/publishing/components/meta-connection-result";
 
-export default async function PublishingMetaCallbackPage() {
+export async function generateMetadata() {
   const t = await getTranslations("Publishing");
-  return (
-    <section className="mx-auto grid max-w-xl gap-4 rounded-xl border border-warning/25 bg-surface p-6 text-center shadow-elevated">
-      <h1 className="text-2xl font-bold text-navy">
-        {t("readiness.connectUnavailable")}
-      </h1>
-      <p className="text-sm leading-6 text-muted-foreground">
-        {t("target.connectUnavailable")}
-      </p>
-      <Link
-        href="/publishing"
-        className="mx-auto inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/40"
-      >
-        {t("header.title")}
-      </Link>
-    </section>
-  );
+  return { title: t("metadata.title") };
+}
+
+/**
+ * Return landing page for the API-owned Meta callback (issue #175).
+ *
+ * The API redirects here with ONLY a sanitized result code (`meta_result`)
+ * and a connection id (`meta_connection`) — never a token, code, ciphertext,
+ * or credential reference. The query is read client-side (same pattern as the
+ * publishing workspace) and the journey continues: choose accounts → ready.
+ */
+export default function PublishingMetaCallbackPage() {
+  return <PublishingMetaCallbackResult />;
 }

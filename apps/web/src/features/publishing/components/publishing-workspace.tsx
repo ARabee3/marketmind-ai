@@ -15,7 +15,6 @@ import { Link, useRouter } from "@/i18n/navigation";
 import {
   approvePublishingIntent,
   cancelPublishingIntent,
-  connectMetaPublishingTarget,
   createPublishingIntent,
   dispatchPublishingLocalAction,
   getPublishingExport,
@@ -264,20 +263,11 @@ export function PublishingWorkspace({
     await refresh();
   }
 
-  async function connectTarget() {
-    try {
-      const response = await connectMetaPublishingTarget("facebook");
-      const value = response as {
-        authorizationUrl?: string;
-        authorization_url?: string;
-      };
-      const authorizationUrl =
-        value.authorizationUrl ?? value.authorization_url;
-      if (authorizationUrl) window.location.assign(authorizationUrl);
-      else setNotice(t("readiness.connectUnavailable"));
-    } catch {
-      setNotice(t("target.connectUnavailable"));
-    }
+  function connectTarget() {
+    // Issue #175: the guided Meta connection journey (explain → Meta OAuth →
+    // choose accounts → ready) lives on its own page; the workspace never
+    // handles an authorization code or token.
+    router.push("/publishing/meta/connect");
   }
 
   async function verifyTarget(target: PublishingTargetPublicV1) {
@@ -410,7 +400,7 @@ export function PublishingWorkspace({
             onDispatch={dispatchIntent}
             onRetry={retryIntent}
             onRefresh={refresh}
-            onConnect={() => void connectTarget()}
+            onConnect={() => connectTarget()}
           />
           {detail ? (
             <PublicationOutcomePanel
@@ -427,7 +417,7 @@ export function PublishingWorkspace({
             candidate={selectedCandidate}
             targets={data.targets}
             intent={intent}
-            onConnect={() => void connectTarget()}
+            onConnect={() => connectTarget()}
             onVerify={(target) => void verifyTarget(target)}
           />
           <section className="grid gap-3 rounded-xl border border-border bg-surface p-5 shadow-elevated">
