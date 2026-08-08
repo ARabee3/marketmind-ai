@@ -62,6 +62,8 @@ export async function disconnectFacebookConnection(): Promise<void> {
  * backend uses that cookie for to identify the user and redirect to
  * Facebook.
  */
+const POPUP_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
+
 export async function connectMeta(): Promise<{ pageName: string }> {
   const session = await apiRequest('/auth/facebook/start', {
     method: 'POST',
@@ -86,17 +88,42 @@ export async function connectMeta(): Promise<{ pageName: string }> {
   }
 
   return new Promise((resolve, reject) => {
+    let settled = false
+
+    function done(result: "resolved" | "rejected", value?: unknown) {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
+      clearInterval(closeCheckId)
+      window.removeEventListener("message", handler)
+      try {
+        popup.close()
+      } catch {
+        // Popup may already be closed
+      }
+      if (result === "resolved") resolve(value)
+      else reject(new Error(value as string))
+    }
+
+    const timeoutId = setTimeout(() => {
+      done("rejected", "The Facebook connection timed out. Please try again.")
+    }, POPUP_TIMEOUT_MS)
+
+    // Poll for popup close: the start-session cookie lasts 10 minutes, but
+    // the popup may be closed by the user before completing OAuth.
+    const closeCheckId = setInterval(() => {
+      if (!popup || popup.closed) {
+        done("rejected", "The Facebook connection was cancelled.")
+      }
+    }, 500)
+
     const handler = (event: MessageEvent) => {
       if (event.origin !== API_ORIGIN) return
       if (event.data?.type === 'fb-connected') {
-        window.removeEventListener('message', handler)
-        popup.close()
-        resolve(event.data.payload)
+        done("resolved", event.data.payload)
       }
       if (event.data?.type === 'fb-connect-error') {
-        window.removeEventListener('message', handler)
-        popup.close()
-        reject(new Error(event.data.error))
+        done("rejected", event.data.error)
       }
     }
     window.addEventListener('message', handler)
