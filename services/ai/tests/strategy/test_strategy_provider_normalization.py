@@ -115,3 +115,18 @@ def test_normalization_restores_deterministic_paid_scenarios() -> None:
     assert [scenario.scenario_type for scenario in parsed.budget_scenarios or []] == [
         scenario.scenario_type for scenario in plan.budget_scenarios or []
     ]
+
+
+def test_stripped_v2_schema_converts_one_of_unions_for_gemini() -> None:
+    from strategy_contracts import StrategyPlanV2
+
+    from app.providers.strategy_provider import _strip_additional_properties
+
+    schema = _strip_additional_properties(StrategyPlanV2.model_json_schema())
+
+    assert "oneOf" not in schema
+    assert schema["properties"]["content_handoff"]["anyOf"]
+
+    from google.genai import types
+
+    types.Schema.model_validate(schema)
