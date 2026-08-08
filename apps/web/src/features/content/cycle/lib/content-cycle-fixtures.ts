@@ -4,8 +4,10 @@ import type {
   ContentProgressEvent,
   ContentWeekContext,
   CurrentJourneyResponse,
+  StrategyBriefV2,
   StrategyVersionSummary,
 } from "@marketmind/contracts";
+import { createStrategyPlanV2Fixture } from "@/features/strategy/lib/strategy-plan-v2-fixture";
 import type { StrategyApiResponse } from "@/lib/api/strategy";
 
 export const MOCK_BUSINESS_ID = "11111111-1111-4111-a111-111111111111";
@@ -184,6 +186,53 @@ export const mockStrategyVersions: StrategyVersionSummary[] = [
     },
   },
 ];
+
+const v2BriefContract: StrategyBriefV2 = {
+  id: "brief-1",
+  strategy_id: MOCK_STRATEGY_ID,
+  business_profile_version: {
+    business_profile_version_id: MOCK_PROFILE_VERSION_ID,
+    confirmed_at: "2026-08-01T09:00:00.000Z",
+    version: 1,
+  },
+  primary_objective: "conversion",
+  start_date: "2026-08-10",
+  plan_language: "ar-EG",
+  paid_media_allowed: false,
+  external_budget_mode: "organic_only",
+  external_budget_egp: null,
+  weekly_capacity: "three_to_five_hours",
+  weekly_capacity_note: undefined,
+  channel_choices: [
+    { channel: "facebook", role: "primary", setup_state: "setup_later" },
+    { channel: "instagram", role: "supporting", setup_state: "setup_later" },
+  ],
+  constraints: [],
+  clarification_answers: [],
+  created_at: "2026-08-01T09:30:00.000Z",
+  updated_at: "2026-08-01T09:30:00.000Z",
+};
+
+/** Approved owner-first strategy-v2 strategy whose handoff supports Content. */
+export const mockApprovedStrategyApiV2: StrategyApiResponse = {
+  ...mockApprovedStrategyApi,
+  brief: {
+    ...mockApprovedStrategyApi.brief!,
+    teamCapacity: null,
+    weeklyCapacity: "three_to_five_hours",
+    weeklyCapacityNote: null,
+    channelChoices: [
+      { channel: "facebook", role: "primary", setupState: "setup_later" },
+      { channel: "instagram", role: "supporting", setupState: "setup_later" },
+    ],
+  },
+  latestPlan: createStrategyPlanV2Fixture({
+    idSuffix: "contentReady",
+    brief: v2BriefContract,
+    retrievalRunId: "run-1",
+    blockers: [],
+  }),
+};
 
 export const mockJourneyNoCycle: CurrentJourneyResponse = {
   owner: {

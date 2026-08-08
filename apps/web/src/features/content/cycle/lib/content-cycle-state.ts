@@ -6,9 +6,10 @@ import type {
   CurrentJourneyResponse,
   StrategyBrief,
   StrategyPlan,
+  StrategyPlanV2,
   StrategyVersionSummary,
-  WeekPlan,
 } from "@marketmind/contracts";
+import { isStrategyPlanV2 } from "@/features/strategy/lib/strategy-v2";
 import type { StrategyApiResponse } from "@/lib/api/strategy";
 import type { ContentErrorKey } from "./content-cycle-errors";
 
@@ -22,7 +23,7 @@ export type ApprovedContentStrategy = {
   readonly profileVersionId: string;
   readonly profileVersion: number;
   readonly brief: StrategyBrief;
-  readonly plan: StrategyPlan;
+  readonly plan: StrategyPlan | StrategyPlanV2;
 };
 
 export type ContentEntryBlocker =
@@ -90,7 +91,7 @@ export type ApprovedContentStrategyResolutionOptions = {
   readonly strategyVersion?: number;
   readonly strategyDecisionId?: string;
   readonly profileVersionId?: string;
-  readonly plan?: StrategyPlan | null;
+  readonly plan?: StrategyPlan | StrategyPlanV2 | null;
 };
 
 /**
@@ -129,10 +130,11 @@ export function resolveApprovedContentStrategy(
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
-  // Content cycles only run from content-v1 plans; owner-first v2 plans are
-  // blocked server-side by the content handoff gate, so this read model
-  // narrows to the v1 plan shape.
-  const plan = rawPlan as StrategyPlan;
+  // Content cycles run from content-v1 plans and from owner-first v2 plans
+  // that expose a usable deterministic content-v1 handoff. The API blocks
+  // v2 plans without one (CONTENT_SCHEMA_FAILURE), so this read model must
+  // mirror that gate instead of assuming every approved plan is v1.
+  const plan = isStrategyPlanV2(rawPlan) ? rawPlan : (rawPlan as StrategyPlan);
 
   // For a fresh entry (no explicit version), resolve by the currently approved
   // version referenced by currentVersionId, not by the latest plan. This keeps
@@ -173,13 +175,17 @@ export function resolveApprovedContentStrategy(
     return { blocker: "stale_profile", destination: `/strategy/${strategyId}` };
   }
 
-  const weeks = plan.content_strategy?.weeks ?? [];
-  if (weeks.length !== 12) {
+  const roadmapWeeks = isStrategyPlanV2(plan)
+    ? plan.content_handoff.available === true
+      ? plan.content_handoff.weeks
+      : []
+    : (plan.content_strategy?.weeks ?? []);
+  if (roadmapWeeks.length !== 12) {
     return { blocker: "malformed_plan", destination: `/strategy/${strategyId}` };
   }
 
   for (let i = 1; i <= 12; i++) {
-    if (!weeks.some((w: WeekPlan) => w.week_number === i)) {
+    if (!roadmapWeeks.some((w) => w.week_number === i)) {
       return { blocker: "malformed_plan", destination: `/strategy/${strategyId}` };
     }
   }
@@ -207,7 +213,7 @@ export function resolveApprovedContentStrategy(
       paid_media_allowed: brief.paidMediaAllowed,
       external_budget_mode: brief.externalBudgetMode as StrategyBrief["external_budget_mode"],
       external_budget_egp: brief.externalBudgetEgp as StrategyBrief["external_budget_egp"],
-      team_capacity: brief.teamCapacity ?? '',
+      team_capacity: brief.teamCapacity ?? brief.weeklyCapacity ?? '',
       constraints: typeof brief.constraints === "string" ? [brief.constraints] : (brief.constraints ?? []),
       clarification_answers: [],
       created_at: brief.createdAt,

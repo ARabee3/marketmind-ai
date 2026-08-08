@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { isStrategyPlanV2 } from "@/features/strategy/lib/strategy-v2";
 import type { ApprovedContentStrategy } from "../lib/content-cycle-state";
 
 type Props = {
@@ -8,16 +9,24 @@ type Props = {
 
 export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
   const t = useTranslations("ContentCycle.strategy");
+  const plan = approved.plan;
 
-  const weekItem = approved.plan.content_strategy?.weeks?.find(
-    (w) => w.week_number === selectedWeek,
-  );
+  const isV2 = isStrategyPlanV2(plan);
+  const v1 = isV2 ? null : plan;
 
-  const theme = weekItem?.theme ?? t("themeUnavailable");
-  const channels = approved.plan.selected_channels ?? [];
-  const pillars = approved.plan.content_strategy?.pillars ?? [];
-  const toneText = approved.plan.tone?.text ?? t("notAvailable");
-  const cadence = approved.plan.content_strategy?.weekly_cadence ?? t("notAvailable");
+  const weekItem = isV2
+    ? plan.calendar_weeks.find((w) => w.week_number === selectedWeek)
+    : v1?.content_strategy?.weeks?.find((w) => w.week_number === selectedWeek);
+
+  const theme = isV2
+    ? (weekItem && "focus" in weekItem ? weekItem.focus : null) ?? t("themeUnavailable")
+    : (weekItem && "theme" in weekItem ? weekItem.theme : null) ?? t("themeUnavailable");
+  const channels = isV2
+    ? plan.channel_commitments
+    : (v1?.selected_channels ?? []);
+  const pillars = isV2 ? [] : (v1?.content_strategy?.pillars ?? []);
+  const toneText = isV2 ? null : (v1?.tone?.text ?? null);
+  const cadence = isV2 ? null : (v1?.content_strategy?.weekly_cadence ?? null);
   const capacity = approved.brief.team_capacity ?? t("notAvailable");
   const constraints = approved.brief.constraints ?? [];
 
@@ -90,7 +99,7 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
               {t("tone")}
             </p>
             <p className="text-xs text-navy font-medium">
-              <bdi>{toneText}</bdi>
+              <bdi>{toneText ?? t("notAvailable")}</bdi>
             </p>
           </div>
         </div>
@@ -103,7 +112,7 @@ export function ApprovedStrategyHandoff({ selectedWeek, approved }: Props) {
           </div>
           <div>
             <span className="text-muted-foreground">{t("cadence")}: </span>
-            <span className="font-medium text-navy">{cadence}</span>
+            <span className="font-medium text-navy">{cadence ?? t("notAvailable")}</span>
           </div>
           <div>
             <span className="text-muted-foreground">{t("capacity")}: </span>
