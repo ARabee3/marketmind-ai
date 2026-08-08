@@ -13,6 +13,10 @@ export interface BusinessProfileVersionRef {
   version: number;
 }
 
-export type ContractVersion = "strategy-v1";
+/** Versioned Strategy contract. New Strategies default to `strategy-v2`
+ *  after the #135 migration; legacy `strategy-v1` rows are never
+ *  reinterpreted (their persisted payloads remain readable exactly as
+ *  stored). */
+export type ContractVersion = "strategy-v1" | "strategy-v2";
 
 export type CurrencyCode = "EGP";

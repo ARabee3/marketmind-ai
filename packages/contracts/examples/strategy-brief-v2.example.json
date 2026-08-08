@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "contract_version": "strategy-v2",
+    "kind": "strategy-brief-v2"
+  },
+  "id": "b0000000-0000-4000-8000-000000000011",
+  "strategy_id": "a0000000-0000-4000-8000-000000000011",
+  "business_profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "acquisition",
+  "channel_choices": [
+    {
+      "channel": "facebook",
+      "is_primary": true,
+      "setup_state": "connected",
+      "publishing_target_id": "11111111-2222-4111-8111-111111111111"
+    },
+    {
+      "channel": "tiktok",
+      "is_primary": false,
+      "setup_state": "existing_link",
+      "public_url": "https://www.tiktok.com/@marketmind-demo"
+    },
+    {
+      "channel": "website",
+      "is_primary": false,
+      "setup_state": "setup_later"
+    }
+  ],
+  "weekly_capacity_preset": "light",
+  "capacity_note": "ساعتان يومياً متاحتان لإعداد المحتوى",
+  "plan_language": "ar-EG",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "paid_media_allowed": false,
+  "constraints": "بدون إعلانات مدفوعة حتى شهر ٩",
+  "created_at": "2026-06-29T09:00:00.000Z",
+  "updated_at": "2026-06-29T09:00:00.000Z"
+}

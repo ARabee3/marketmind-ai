@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "contract_version": "strategy-v2",
+    "kind": "strategy-plan-v2"
+  },
+  "id": "d0000000-0000-4000-8000-000000000011",
+  "strategy_id": "a0000000-0000-4000-8000-000000000011",
+  "version": 1,
+  "contract_version": "strategy-v2",
+  "brief_id": "b0000000-0000-4000-8000-000000000011",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "primary_objective": "acquisition",
+  "plan_language": "ar-EG",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "calendar_weeks": [
+    {
+      "week_number": 1,
+      "focus": "أسبوع 1: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 1",
+      "measurement_check": "فحص قياس الأسبوع 1"
+    },
+    {
+      "week_number": 2,
+      "focus": "أسبوع 2: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 2",
+      "measurement_check": "فحص قياس الأسبوع 2"
+    },
+    {
+      "week_number": 3,
+      "focus": "أسبوع 3: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 3",
+      "measurement_check": "فحص قياس الأسبوع 3"
+    },
+    {
+      "week_number": 4,
+      "focus": "أسبوع 4: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 4",
+      "measurement_check": "فحص قياس الأسبوع 4"
+    },
+    {
+      "week_number": 5,
+      "focus": "أسبوع 5: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 5",
+      "measurement_check": "فحص قياس الأسبوع 5"
+    },
+    {
+      "week_number": 6,
+      "focus": "أسبوع 6: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 6",
+      "measurement_check": "فحص قياس الأسبوع 6"
+    },
+    {
+      "week_number": 7,
+      "focus": "أسبوع 7: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 7",
+      "measurement_check": "فحص قياس الأسبوع 7"
+    },
+    {
+      "week_number": 8,
+      "focus": "أسبوع 8: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 8",
+      "measurement_check": "فحص قياس الأسبوع 8"
+    },
+    {
+      "week_number": 9,
+      "focus": "أسبوع 9: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 9",
+      "measurement_check": "فحص قياس الأسبوع 9"
+    },
+    {
+      "week_number": 10,
+      "focus": "أسبوع 10: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 10",
+      "measurement_check": "فحص قياس الأسبوع 10"
+    },
+    {
+      "week_number": 11,
+      "focus": "أسبوع 11: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 11",
+      "measurement_check": "فحص قياس الأسبوع 11"
+    },
+    {
+      "week_number": 12,
+      "focus": "أسبوع 12: النشر المتواصل",
+      "expected_outcome": "نتيجة متوقعة للأسبوع 12",
+      "measurement_check": "فحص قياس الأسبوع 12"
+    }
+  ],
+  "owner_advice": {
+    "before_week_1": [
+      {
+        "action": "جهّز صفحة الفيسبوك وصفحة الهبوط قبل الأسبوع الأول",
+        "why_it_matters": "بدون أساس جاهز يضيع أثر أول ٤ أسابيع",
+        "timing": "قبل بداية الأسبوع ١",
+        "category": "setup",
+        "grounded_source": "channel_playbook:channel-facebook",
+        "uncertainty": null
+      }
+    ],
+    "weeks": [
+      {
+        "week_number": 1,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 1)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 1",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 2,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 2)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 2",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 3,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 3)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 3",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 4,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 4)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 4",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 5,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 5)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 5",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 6,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 6)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 6",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 7,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 7)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 7",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 8,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 8)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 8",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 9,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 9)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 9",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 10,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 10)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 10",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 11,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 11)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 11",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      },
+      {
+        "week_number": 12,
+        "items": [
+          {
+            "action": "نشر أصل واحد ونشره على الصفحة (أسبوع 12)",
+            "why_it_matters": "ثبات الإيقاع يبني وصولاً متوقعاً",
+            "timing": "بداية الأسبوع 12",
+            "category": "content",
+            "grounded_source": "content_strategy_playbook:content-pillars-and-cadence-by-capacity",
+            "uncertainty": null
+          }
+        ]
+      }
+    ]
+  },
+  "channel_commitments": [
+    {
+      "channel": "facebook",
+      "role": "primary",
+      "rationale": "صفحة متصلة وموجودة أصلاً",
+      "capability_state": "connected"
+    },
+    {
+      "channel": "tiktok",
+      "role": "supporting",
+      "rationale": "حساب موجود يديره المالك",
+      "capability_state": "existing_link"
+    },
+    {
+      "channel": "website",
+      "role": "supporting",
+      "rationale": "صفحة هبوط لتحويل الزوار",
+      "capability_state": "setup_later"
+    }
+  ],
+  "content_handoff": {
+    "available": true,
+    "language": "ar-EG",
+    "weeks": [
+      {
+        "week_number": 1,
+        "channel": "facebook",
+        "format": "static_image_post"
+      },
+      {
+        "week_number": 2,
+        "channel": "tiktok",
+        "format": "short_video_script"
+      },
+      {
+        "week_number": 3,
+        "channel": "facebook",
+        "format": "carousel_brief"
+      },
+      {
+        "week_number": 4,
+        "channel": "tiktok",
+        "format": "text_post"
+      },
+      {
+        "week_number": 5,
+        "channel": "facebook",
+        "format": "static_image_post"
+      },
+      {
+        "week_number": 6,
+        "channel": "tiktok",
+        "format": "short_video_script"
+      },
+      {
+        "week_number": 7,
+        "channel": "facebook",
+        "format": "carousel_brief"
+      },
+      {
+        "week_number": 8,
+        "channel": "tiktok",
+        "format": "text_post"
+      },
+      {
+        "week_number": 9,
+        "channel": "facebook",
+        "format": "static_image_post"
+      },
+      {
+        "week_number": 10,
+        "channel": "tiktok",
+        "format": "short_video_script"
+      },
+      {
+        "week_number": 11,
+        "channel": "facebook",
+        "format": "carousel_brief"
+      },
+      {
+        "week_number": 12,
+        "channel": "tiktok",
+        "format": "text_post"
+      }
+    ]
+  },
+  "evidence_regions": [
+    "egypt",
+    "mena"
+  ],
+  "risks": [
+    "قدرة أسبوعية محدودة قد تؤخر بعض المهام"
+  ],
+  "created_at": "2026-06-29T09:05:00.000Z"
+}
