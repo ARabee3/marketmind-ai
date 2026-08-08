@@ -63,9 +63,18 @@ interface PendingStartSession {
  * validates and consumes it before any code exchange. Token validity is
  * checked reactively (at publish/test time): Graph error code 190
  * invalidates the connection and triggers the reconnect email.
+ *
+ * DEV MILESTONE NOTE: Both `oauthStates` and `startSessions` are stored in
+ * plain in-memory Maps. This means:
+ * - Server restarts lose all in-progress OAuth flows.
+ * - Deploying multiple instances breaks OAuth (state created on instance A
+ *   is not visible on instance B, where Facebook redirects the callback).
+ * Migrate to Redis-backed storage before any multi-instance production
+ * deployment.
  */
 @Injectable()
 export class FacebookService {
+  // DEV MILESTONE: in-memory Maps — migrate to Redis for production.
   private readonly logger = new Logger(FacebookService.name);
   private readonly stateTtlMs = 10 * 60 * 1000;
   private readonly oauthStates = new Map<string, PendingOAuthState>();
