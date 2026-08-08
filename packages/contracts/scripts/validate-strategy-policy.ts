@@ -3,13 +3,16 @@ import { readFile } from "node:fs/promises";
 
 import {
   validateStrategyBundle,
+  validateStrategyV2Bundle,
   type BusinessProfile,
   type DeterministicChannelScorecard,
   type OwnerDecision,
   type RetrievedKnowledgePack,
   type StrategyBrief,
+  type StrategyBriefV2,
   type StrategyGenerateRequest,
   type StrategyPlan,
+  type StrategyPlanV2,
 } from "../src/index";
 
 const examplesUrl = new URL("../examples/", import.meta.url);
@@ -145,5 +148,176 @@ const decision = await loadJson<OwnerDecision>(
 decision.strategy_version = plan.version + 1;
 expectCode("STRATEGY_RULE_VIOLATION", { decision });
 expectCode("STRATEGY_APPROVAL_BLOCKED", { decision });
+
+// ---------------------------------------------------------------------------
+// Owner-first strategy-v2 policy
+// ---------------------------------------------------------------------------
+
+const v2Brief = await loadJson<StrategyBriefV2>("strategy-brief-v2.example.json");
+const v2Plan = await loadJson<StrategyPlanV2>("strategy-plan-v2.example.json");
+
+function v2Profile() {
+  return {
+    ...request.business_profile,
+    id: v2Brief.business_profile_version.business_profile_version_id,
+    version: v2Brief.business_profile_version.version,
+    confirmed_at: v2Brief.business_profile_version.confirmed_at,
+  };
+}
+
+const v2Valid = validateStrategyV2Bundle({
+  business_profile: v2Profile(),
+  brief: v2Brief,
+  retrieval_pack: retrievalPack,
+  plan: v2Plan,
+});
+assert.deepEqual(
+  v2Valid.issues,
+  [],
+  `valid v2 fixture failed: ${JSON.stringify(v2Valid.issues)}`,
+);
+
+function expectV2Code(
+  code: string,
+  overrides: {
+    brief?: StrategyBriefV2;
+    plan?: StrategyPlanV2;
+  },
+): void {
+  const result = validateStrategyV2Bundle({
+    business_profile: v2Profile(),
+    brief: overrides.brief ?? v2Brief,
+    retrieval_pack: retrievalPack,
+    plan: overrides.plan ?? v2Plan,
+  });
+  assert(
+    result.issues.some((issue) => issue.code === code),
+    `expected ${code}, got ${JSON.stringify(result.issues)}`,
+  );
+}
+
+// The v2 plan must commit to exactly the owner's choices.
+const extraChannelPlan = clone(v2Plan) as unknown as StrategyPlanV2;
+extraChannelPlan.channel_commitments = [
+  ...extraChannelPlan.channel_commitments,
+  {
+    channel: "tiktok",
+    role: "supporting",
+    setup_state: "setup_later",
+    capability_state: "owner_managed",
+    rationale: {
+      text: "لم يختر المالك تيك توك.",
+      source: "owner_input",
+      citation_ids: [],
+    },
+  },
+];
+expectV2Code("STRATEGY_CHANNEL_CHOICE_MISMATCH", { plan: extraChannelPlan });
+
+const droppedChannelPlan = clone(v2Plan) as unknown as StrategyPlanV2;
+droppedChannelPlan.channel_commitments = droppedChannelPlan.channel_commitments
+  .slice(0, 2);
+expectV2Code("STRATEGY_CHANNEL_CHOICE_MISMATCH", { plan: droppedChannelPlan });
+
+const wrongRolePlan = clone(v2Plan) as unknown as StrategyPlanV2;
+wrongRolePlan.channel_commitments[0].role = "supporting";
+expectV2Code("STRATEGY_CHANNEL_CHOICE_MISMATCH", { plan: wrongRolePlan });
+
+const duplicateWeeksV2 = clone(v2Plan) as unknown as StrategyPlanV2;
+duplicateWeeksV2.calendar_weeks = Array.from({ length: 12 }, () =>
+  clone(v2Plan.calendar_weeks[0]),
+);
+expectV2Code("STRATEGY_RULE_VIOLATION", { plan: duplicateWeeksV2 });
+
+const badHandoffChannels = clone(v2Plan) as unknown as StrategyPlanV2;
+badHandoffChannels.content_handoff = {
+  available: true,
+  channels: ["tiktok"],
+  language: "ar-EG",
+  weeks: v2Plan.content_handoff.available === true
+    ? v2Plan.content_handoff.weeks
+    : [],
+};
+expectV2Code("STRATEGY_CONTENT_HANDOFF_INVALID", {
+  plan: badHandoffChannels,
+});
+
+const emptyHandoffWeek = clone(v2Plan) as unknown as StrategyPlanV2;
+if (emptyHandoffWeek.content_handoff.available === true) {
+  emptyHandoffWeek.content_handoff.weeks[0] = {
+    week_number: 1,
+    formats: [],
+  };
+}
+expectV2Code("STRATEGY_CONTENT_HANDOFF_INVALID", { plan: emptyHandoffWeek });
+
+const unknownHandoffFormat = clone(v2Plan) as unknown as StrategyPlanV2;
+if (unknownHandoffFormat.content_handoff.available === true) {
+  unknownHandoffFormat.content_handoff.weeks[1] = {
+    week_number: 2,
+    formats: ["mystery_format"],
+  };
+}
+expectV2Code("STRATEGY_CONTENT_HANDOFF_INVALID", { plan: unknownHandoffFormat });
+
+const badBriefChoices = {
+  ...v2Brief,
+  channel_choices: [v2Brief.channel_choices[0]],
+} satisfies StrategyBriefV2;
+expectV2Code("STRATEGY_CHANNEL_CHOICE_MISMATCH", { brief: badBriefChoices });
+
+const missingUrlChoice = {
+  ...v2Brief,
+  channel_choices: v2Brief.channel_choices.map((choice) =>
+    choice.channel === "instagram"
+      ? { ...choice, public_url: undefined }
+      : choice,
+  ),
+} satisfies StrategyBriefV2;
+expectV2Code("STRATEGY_CHANNEL_CHOICE_MISMATCH", { brief: missingUrlChoice });
+
+// Website/delivery-only plans remain approvable but the handoff is
+// explicitly unavailable.
+const ownerManagedPlan = clone(v2Plan) as unknown as StrategyPlanV2;
+ownerManagedPlan.channel_commitments = [
+  {
+    channel: "website",
+    role: "primary",
+    setup_state: "existing_link",
+    capability_state: "owner_managed",
+    rationale: {
+      text: "الموقع يديره المالك مباشرة.",
+      source: "owner_input",
+      citation_ids: [],
+    },
+  },
+];
+ownerManagedPlan.content_handoff = {
+  available: false,
+  reason: "no_content_supported_channels",
+  message: "No owner-selected channel maps to content-v1.",
+};
+const ownerManagedBrief = {
+  ...v2Brief,
+  channel_choices: [
+    {
+      channel: "website",
+      role: "primary",
+      setup_state: "existing_link",
+      public_url: "https://kosharycorner.com",
+    },
+  ],
+} satisfies StrategyBriefV2;
+const ownerManagedResult = validateStrategyV2Bundle({
+  business_profile: v2Profile(),
+  brief: ownerManagedBrief,
+  retrieval_pack: retrievalPack,
+  plan: ownerManagedPlan,
+});
+assert.deepEqual(
+  ownerManagedResult.issues,
+  [],
+  `owner-managed v2 plan failed: ${JSON.stringify(ownerManagedResult.issues)}`,
+);
 
 console.log("Strategy cross-object policy and endpoint contracts are valid.");

@@ -5,3 +5,4 @@ export * from "./strategy-plan";
 export * from "./strategy-lifecycle";
 export * from "./strategy-interfaces";
 export * from "./strategy-policy";
+export * from "./strategy-v2";

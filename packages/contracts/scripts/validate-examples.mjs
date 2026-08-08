@@ -1286,6 +1286,200 @@ function assertStrategyPlan(plan, label) {
   assertString(plan.created_at, `${label}.created_at`);
 }
 
+function assertStrategyPlanV2(plan, label) {
+  assertString(plan.id, `${label}.id`);
+  assertString(plan.strategy_id, `${label}.strategy_id`);
+  assert(
+    Number.isInteger(plan.version) && plan.version > 0,
+    `${label}.version must be a positive integer`,
+  );
+  assert(
+    plan.contract_version === "strategy-v2",
+    `${label}.contract_version must be strategy-v2`,
+  );
+  assertString(plan.brief_id, `${label}.brief_id`);
+  assertBusinessProfileVersionRef(plan.profile_version, `${label}.profile_version`);
+  assertString(plan.retrieval_run_id, `${label}.retrieval_run_id`);
+  assertSourcedClaim(plan.goal, `${label}.goal`);
+  assert(
+    strategyObjectives.has(plan.primary_objective),
+    `${label}.primary_objective is invalid`,
+  );
+  assertString(plan.funnel_stage, `${label}.funnel_stage`);
+  assert(
+    languageModes.has(plan.plan_language),
+    `${label}.plan_language is invalid`,
+  );
+  assertString(plan.start_date, `${label}.start_date`);
+
+  assert(
+    Array.isArray(plan.calendar_weeks) && plan.calendar_weeks.length === 12,
+    `${label}.calendar_weeks must contain 12 weeks`,
+  );
+  const weekNumbers = plan.calendar_weeks.map((week) => week.week_number);
+  assert(
+    new Set(weekNumbers).size === 12 &&
+      weekNumbers.every((week) => week >= 1 && week <= 12),
+    `${label}.calendar_weeks must contain each week 1-12 exactly once`,
+  );
+  plan.calendar_weeks.forEach((week, index) => {
+    assertString(week.focus, `${label}.calendar_weeks[${index}].focus`);
+    assertString(week.expected_outcome, `${label}.calendar_weeks[${index}].expected_outcome`);
+    assertString(week.measurement_check, `${label}.calendar_weeks[${index}].measurement_check`);
+    assert(
+      Array.isArray(week.formats) && week.formats.length > 0,
+      `${label}.calendar_weeks[${index}].formats must be non-empty`,
+    );
+  });
+
+  assert(
+    Array.isArray(plan.owner_advice.before_week_1) &&
+      plan.owner_advice.before_week_1.every((item) => item.week_number === 0),
+    `${label}.owner_advice.before_week_1 items must carry week_number 0`,
+  );
+  assert(
+    Array.isArray(plan.owner_advice.weeks) && plan.owner_advice.weeks.length === 12,
+    `${label}.owner_advice.weeks must contain 12 buckets`,
+  );
+  plan.owner_advice.weeks.forEach((bucket, index) => {
+    assert(
+      Number.isInteger(bucket.week_number) &&
+        bucket.week_number >= 1 &&
+        bucket.week_number <= 12,
+      `${label}.owner_advice.weeks[${index}].week_number must be an integer 1-12`,
+    );
+    assert(
+      Array.isArray(bucket.items),
+      `${label}.owner_advice.weeks[${index}].items must be an array`,
+    );
+    bucket.items.forEach((item, itemIndex) => {
+      assertString(item.action, `${label}.owner_advice.weeks[${index}].items[${itemIndex}].action`);
+      assertString(item.why_it_matters, `${label}.owner_advice.weeks[${index}].items[${itemIndex}].why_it_matters`);
+      assertString(item.timing, `${label}.owner_advice.weeks[${index}].items[${itemIndex}].timing`);
+      assertSourcedClaim(item.source, `${label}.owner_advice.weeks[${index}].items[${itemIndex}].source`);
+    });
+  });
+
+  assert(
+    Array.isArray(plan.channel_commitments) &&
+      plan.channel_commitments.length >= 1 &&
+      plan.channel_commitments.length <= 3,
+    `${label}.channel_commitments must contain 1-3 entries`,
+  );
+  plan.channel_commitments.forEach((commitment, index) => {
+    assertString(commitment.channel, `${label}.channel_commitments[${index}].channel`);
+    assertSourcedClaim(commitment.rationale, `${label}.channel_commitments[${index}].rationale`);
+  });
+
+  assertSourcedClaim(plan.evidence_summary, `${label}.evidence_summary`);
+  assert(
+    Array.isArray(plan.risks),
+    `${label}.risks must be an array`,
+  );
+  assert(
+    Array.isArray(plan.knowledge_gaps),
+    `${label}.knowledge_gaps must be an array`,
+  );
+  assert(
+    Array.isArray(plan.blockers),
+    `${label}.blockers must be an array`,
+  );
+  assert(
+    Array.isArray(plan.citations),
+    `${label}.citations must be an array`,
+  );
+  assert(
+    plan.content_handoff && typeof plan.content_handoff === "object",
+    `${label}.content_handoff must be an object`,
+  );
+  if (plan.content_handoff.available === true) {
+    assert(
+      Array.isArray(plan.content_handoff.channels) &&
+        plan.content_handoff.channels.length > 0,
+      `${label}.content_handoff.channels must be non-empty`,
+    );
+    assert(
+      languageModes.has(plan.content_handoff.language),
+      `${label}.content_handoff.language is invalid`,
+    );
+    assert(
+      Array.isArray(plan.content_handoff.weeks) &&
+        plan.content_handoff.weeks.length === 12,
+      `${label}.content_handoff.weeks must contain 12 weeks`,
+    );
+  } else {
+    assertString(plan.content_handoff.reason, `${label}.content_handoff.reason`);
+    assertString(plan.content_handoff.message, `${label}.content_handoff.message`);
+  }
+  assertString(plan.created_at, `${label}.created_at`);
+}
+
+function assertStrategyBriefV2(brief, label) {
+  assertString(brief.id, `${label}.id`);
+  assertString(brief.strategy_id, `${label}.strategy_id`);
+  assertBusinessProfileVersionRef(
+    brief.business_profile_version,
+    `${label}.business_profile_version`,
+  );
+  assert(
+    strategyObjectives.has(brief.primary_objective),
+    `${label}.primary_objective is invalid: ${brief.primary_objective}`,
+  );
+  assertString(brief.start_date, `${label}.start_date`);
+  assert(
+    languageModes.has(brief.plan_language),
+    `${label}.plan_language is invalid`,
+  );
+  assert(
+    typeof brief.paid_media_allowed === "boolean",
+    `${label}.paid_media_allowed must be boolean`,
+  );
+  assert(
+    strategyBudgetModes.has(brief.external_budget_mode),
+    `${label}.external_budget_mode is invalid`,
+  );
+  if (brief.external_budget_mode === "organic_only") {
+    assert(
+      brief.external_budget_egp === null,
+      `${label}.external_budget_egp must be null for organic_only`,
+    );
+  }
+  assertString(brief.weekly_capacity, `${label}.weekly_capacity`);
+  assert(
+    Array.isArray(brief.channel_choices) &&
+      brief.channel_choices.length >= 1 &&
+      brief.channel_choices.length <= 3,
+    `${label}.channel_choices must contain 1-3 channels`,
+  );
+  const channelNames = brief.channel_choices.map((choice) => choice.channel);
+  assert(
+    new Set(channelNames).size === channelNames.length,
+    `${label}.channel_choices must be unique`,
+  );
+  assert(
+    brief.channel_choices.filter((choice) => choice.role === "primary").length === 1,
+    `${label}.channel_choices must have exactly one primary`,
+  );
+  brief.channel_choices.forEach((choice, index) => {
+    assertString(choice.channel, `${label}.channel_choices[${index}].channel`);
+    assertString(choice.role, `${label}.channel_choices[${index}].role`);
+    assertString(choice.setup_state, `${label}.channel_choices[${index}].setup_state`);
+    if (choice.setup_state === "existing_link") {
+      assertString(choice.public_url, `${label}.channel_choices[${index}].public_url`);
+    }
+  });
+  assert(
+    Array.isArray(brief.constraints),
+    `${label}.constraints must be an array`,
+  );
+  assert(
+    Array.isArray(brief.clarification_answers),
+    `${label}.clarification_answers must be an array`,
+  );
+  assertString(brief.created_at, `${label}.created_at`);
+  assertString(brief.updated_at, `${label}.updated_at`);
+}
+
 function assertOwnerDecision(decision, label) {
   assertString(decision.id, `${label}.id`);
   assertString(decision.strategy_id, `${label}.strategy_id`);
@@ -1571,6 +1765,12 @@ assertStrategyPlan(strategyPlan, "strategyPlan");
 
 const strategyPlanOrganic = await loadJson("strategy-plan-organic.example.json");
 assertStrategyPlan(strategyPlanOrganic, "strategyPlanOrganic");
+
+const strategyBriefV2 = await loadJson("strategy-brief-v2.example.json");
+assertStrategyBriefV2(strategyBriefV2, "strategyBriefV2");
+
+const strategyPlanV2 = await loadJson("strategy-plan-v2.example.json");
+assertStrategyPlanV2(strategyPlanV2, "strategyPlanV2");
 
 const decisionApproved = await loadJson("strategy-decision-approved.example.json");
 assertOwnerDecision(decisionApproved, "decisionApproved");

@@ -6,6 +6,7 @@ import type {
 } from "./content-cycle";
 import type { BusinessProfile } from "../discovery/business-profile.schema";
 import type { StrategyPlan } from "../strategy/strategy-plan";
+import type { StrategyPlanV2 } from "../strategy/strategy-v2";
 import type {
   ContentAsset,
   ContentDecision,
@@ -133,7 +134,7 @@ export type InternalContentGenerateRequest = {
   readonly strategy_id: UUID;
   readonly strategy_version: number;
   readonly strategy_decision_id: UUID;
-  readonly strategy_plan: StrategyPlan;
+  readonly strategy_plan: StrategyPlan | StrategyPlanV2;
   readonly business_profile: BusinessProfile;
   readonly week_context: ContentWeekContext;
   readonly selected_channels: readonly ContentChannel[];

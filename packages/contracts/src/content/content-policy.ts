@@ -9,6 +9,8 @@ import type {
   ContentItemVersion,
 } from "./content-item";
 import type { InternalContentGenerateRequest } from "./content-interfaces";
+import type { StrategyPlan } from "../strategy/strategy-plan";
+import { isStrategyPlanV2 } from "../strategy/strategy-v2";
 import type {
   ContentChannel,
   ContentErrorCode,
@@ -530,8 +532,18 @@ export function validateInternalContentGenerateRequest(
     );
   }
 
+  // Owner-first v2 plans read approved channels and the weekly mapping from
+  // the deterministic content_handoff projection; v1 plans use the scorecard
+  // and content_strategy roadmap.
+  const planV2 = isStrategyPlanV2(plan) ? plan : null;
   const approvedChannels = new Set(
-    plan.selected_channels.map((scorecard) => scorecard.channel),
+    planV2
+      ? planV2.content_handoff.available === true
+        ? planV2.content_handoff.channels
+        : []
+      : (plan as StrategyPlan).selected_channels.map(
+          (scorecard) => scorecard.channel,
+        ),
   );
   if (
     request.selected_channels.length === 0 ||
@@ -545,9 +557,15 @@ export function validateInternalContentGenerateRequest(
     );
   }
 
-  const strategyWeek = plan.content_strategy.weeks.find(
-    (week) => week.week_number === request.week_context.week_number,
-  );
+  const strategyWeek = planV2
+    ? planV2.content_handoff.available === true
+      ? planV2.content_handoff.weeks.find(
+          (week) => week.week_number === request.week_context.week_number,
+        )
+      : undefined
+    : (plan as StrategyPlan).content_strategy.weeks.find(
+        (week) => week.week_number === request.week_context.week_number,
+      );
   if (!strategyWeek) {
     addIssue(
       issues,

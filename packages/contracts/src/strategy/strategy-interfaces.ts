@@ -7,6 +7,7 @@ import type {
   DeterministicChannelScorecard,
   StrategyPlan,
 } from "./strategy-plan";
+import type { StrategyBriefV2, StrategyPlanV2 } from "./strategy-v2";
 import type {
   RetrievedKnowledgePack,
   RetrievalQueryContext,
@@ -20,6 +21,12 @@ export interface CreateStrategyRequest {
 /** PUT /api/v1/strategies/:id/brief */
 export type UpdateStrategyBriefRequest = Omit<
   StrategyBrief,
+  "id" | "strategy_id" | "created_at" | "updated_at"
+>;
+
+/** PUT /api/v1/strategies/:id/brief (owner-first v2 brief) */
+export type UpdateStrategyBriefV2Request = Omit<
+  StrategyBriefV2,
   "id" | "strategy_id" | "created_at" | "updated_at"
 >;
 
@@ -68,12 +75,12 @@ export interface StrategyReviseRequest extends StrategyGenerateRequest {
 export interface StrategyResource {
   strategy_id: UUID;
   status: StrategyStatus;
-  brief: StrategyBrief | null;
-  latest_plan: StrategyPlan | null;
+  brief: StrategyBrief | StrategyBriefV2 | null;
+  latest_plan: StrategyPlan | StrategyPlanV2 | null;
 }
 
 export interface StrategyGenerateResponse {
-  plan: StrategyPlan;
+  plan: StrategyPlan | StrategyPlanV2;
   validation: StrategyValidationResult;
 }
 
@@ -97,7 +104,9 @@ export type StrategyValidationCode =
   | "STRATEGY_EVIDENCE_NOT_APPROVED"
   | "STRATEGY_SCORE_MISMATCH"
   | "STRATEGY_LANGUAGE_MISMATCH"
-  | "STRATEGY_APPROVAL_BLOCKED";
+  | "STRATEGY_APPROVAL_BLOCKED"
+  | "STRATEGY_CHANNEL_CHOICE_MISMATCH"
+  | "STRATEGY_CONTENT_HANDOFF_INVALID";
 
 export interface StrategyValidationResult {
   valid: boolean;

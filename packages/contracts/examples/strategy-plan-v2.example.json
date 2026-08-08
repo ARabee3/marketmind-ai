@@ -1,0 +1,597 @@
+{
+  "meta": {
+    "title": "Koshary Corner — Strategy Plan v2 (owner-first, Arabic)",
+    "description": "Canonical owner-first strategy-v2 plan. The 12-week calendar is the primary object; owner advice is separate; content_handoff is a deterministic content-v1 projection of the owner-selected channels and weekly formats.",
+    "business": "Koshary Corner",
+    "language": "ar-EG",
+    "scenario": "Owner-first plan for the owner-selected channels: Facebook (primary, set up later), Instagram (supporting), Google Business Profile (supporting)."
+  },
+  "id": "p2000000-0000-4000-8000-000000000001",
+  "strategy_id": "a0000000-0000-4000-8000-000000000001",
+  "version": 1,
+  "contract_version": "strategy-v2",
+  "brief_id": "b0000000-0000-4000-8000-000000000001",
+  "profile_version": {
+    "business_profile_version_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    "confirmed_at": "2026-06-25T10:05:00.000Z",
+    "version": 1
+  },
+  "retrieval_run_id": "c0000000-0000-4000-8000-000000000001",
+  "goal": {
+    "text": "جذب عملاء جدد في أوقات الغداء من المكاتب القريبة خلال 12 أسبوعاً، بالاعتماد على القنوات التي اختارها المالك: فيسبوك كقناة أساسية، وإنستجرام وجوجل بزنس كقنوات مساندة.",
+    "source": "owner_input",
+    "citation_ids": []
+  },
+  "primary_objective": "acquisition",
+  "funnel_stage": "awareness_to_purchase",
+  "plan_language": "ar-EG",
+  "start_date": "2026-07-06T00:00:00.000Z",
+  "calendar_weeks": [
+    {
+      "week_number": 1,
+      "focus": "تهيئة القنوات المختارة",
+      "expected_outcome": "صفحة فيسبوك جاهزة وقائمة إنستجرام وجوجل محدثة بالخدمات والأسعار",
+      "measurement_check": "مراجعة اكتمال بيانات الصفحة والقائمة في نهاية الأسبوع",
+      "formats": [
+        "reels",
+        "photo"
+      ]
+    },
+    {
+      "week_number": 2,
+      "focus": "التعريف بالمطعم",
+      "expected_outcome": "أول 6 منشورات تعرّف بالقائمة ومواعيد العمل",
+      "measurement_check": "عدد الوصول والمتابعين الجدد مقارنة بالأسبوع الأول",
+      "formats": [
+        "photo",
+        "carousel"
+      ]
+    },
+    {
+      "week_number": 3,
+      "focus": "وراء الكواليس",
+      "expected_outcome": "محتوى يبني الثقة في نظافة الطعام وتجهيزه",
+      "measurement_check": "معدل التفاعل على محتوى الكواليس",
+      "formats": [
+        "reels",
+        "photo"
+      ]
+    },
+    {
+      "week_number": 4,
+      "focus": "أول تقييم ومشاركة",
+      "expected_outcome": "تشجيع العملاء على التقييم على جوجل وطلب التقييمات على فيسبوك",
+      "measurement_check": "عدد التقييمات الجديدة على جوجل بزنس",
+      "formats": [
+        "photo",
+        "text"
+      ]
+    },
+    {
+      "week_number": 5,
+      "focus": "العروض الموسمية المباشرة",
+      "expected_outcome": "منشورات تعرض وجبة الغداء المتاحة للسحب السريع",
+      "measurement_check": "عدد الاستفسارات والطلبات القادمة من المنشورات",
+      "formats": [
+        "photo",
+        "text"
+      ]
+    },
+    {
+      "week_number": 6,
+      "focus": "قياس منتصف الرحلة",
+      "expected_outcome": "تقرير بسيط عن القنوات الأكثر أداءً خلال 5 أسابيع",
+      "measurement_check": "مقارنة الوصول والتفاعل بين فيسبوك وإنستجرام وجوجل",
+      "formats": [
+        "text",
+        "carousel"
+      ]
+    },
+    {
+      "week_number": 7,
+      "focus": "تكرار أفضل محتوى",
+      "expected_outcome": "إعادة إنتاج الصيغ الأفضل أداءً من الأسابيع السابقة",
+      "measurement_check": "استمرار أو ارتفاع التفاعل مقارنة بالأسبوع الخامس",
+      "formats": [
+        "reels",
+        "photo"
+      ]
+    },
+    {
+      "week_number": 8,
+      "focus": "الشراكة مع عملاء قريبين",
+      "expected_outcome": "محاولة تعاون بسيط مع مكتب أو نشاط قريب للترويج المتبادل",
+      "measurement_check": "عدد العملاء الجدد الذين ذكروا التعاون",
+      "formats": [
+        "photo",
+        "text"
+      ]
+    },
+    {
+      "week_number": 9,
+      "focus": "تذكير القائمة في جوجل",
+      "expected_outcome": "تحديث صور القائمة وأسعارها على جوجل بزنس مع ردود على التقييمات",
+      "measurement_check": "معدل الظهور في نتائج البحث القريبة",
+      "formats": [
+        "photo",
+        "carousel"
+      ]
+    },
+    {
+      "week_number": 10,
+      "focus": "بناء عادة الزيارة الأسبوعية",
+      "expected_outcome": "منشور ثابت أسبوعياً لليوم المفضل مع تذكير بمواعيد الغداء",
+      "measurement_check": "تكرار الزيارات من نفس العملاء",
+      "formats": [
+        "photo",
+        "poll"
+      ]
+    },
+    {
+      "week_number": 11,
+      "focus": "تقييم الأداء والاستعداد للشهر الجديد",
+      "expected_outcome": "ملخص ما نجح وما لم ينجح خلال 10 أسابيع",
+      "measurement_check": "مراجعة التقييمات والتفاعل والطلبات القادمة من كل قناة",
+      "formats": [
+        "text",
+        "reels"
+      ]
+    },
+    {
+      "week_number": 12,
+      "focus": "خطة الاثني عشر أسبوعاً التالية",
+      "expected_outcome": "قرار واضح: أي القنوات تستمر وأي الصيغ تتكرر",
+      "measurement_check": "وثيقة قرار مكتوبة من المالك بناء على الأرقام",
+      "formats": [
+        "text",
+        "carousel"
+      ]
+    }
+  ],
+  "owner_advice": {
+    "before_week_1": [
+      {
+        "id": "a0000000-0000-4000-8000-0000000000b1",
+        "week_number": 0,
+        "category": "channel_setup",
+        "action": "أنشئ صفحة فيسبوك للعمل واملأ بياناتها بالكامل",
+        "why_it_matters": "صفحة فيسبوك هي القناة الأساسية المختارة؛ بدون بيانات مكتملة يضيع أول انطباع",
+        "timing": "خلال أول 3 أيام من بدء الخطة",
+        "source": {
+          "text": "توصية مستخلصة من دليل المراجعة: إكمال بيانات القناة شرط أساسي قبل النشر",
+          "source": "retrieved_evidence",
+          "citation_ids": [
+            "c1000000-0000-4000-8000-000000000002"
+          ]
+        }
+      }
+    ],
+    "weeks": [
+      {
+        "week_number": 1,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a1",
+            "week_number": 1,
+            "category": "channel_setup",
+            "action": "حدّث قائمة إنستجرام ورابط الخريطة في البايو",
+            "why_it_matters": "ربط القنوات يسهل على العميل الوصول للقائمة والحجز",
+            "timing": "يومان من بداية الأسبوع",
+            "source": {
+              "text": "الربط بين القنوات المختارة يرفع فرصة التحويل من الوصول إلى الزيارة",
+              "source": "retrieved_evidence",
+              "citation_ids": [
+                "c1000000-0000-4000-8000-000000000002"
+              ]
+            }
+          },
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a2",
+            "week_number": 1,
+            "category": "content",
+            "action": "صوّر وجبتين جاهزتين وشارك صوراً حقيقية بدل الصور المخزنة",
+            "why_it_matters": "المحتوى الحقيقي يبني الثقة ويؤكد جودة الطعام",
+            "timing": "قبل نهاية الأسبوع",
+            "source": {
+              "text": "توصية مؤكدة من ملف النشاط: يملك النشاط أصول تصوير محدودة",
+              "source": "confirmed_fact",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 2,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a3",
+            "week_number": 2,
+            "category": "audience",
+            "action": "اسأل 5 عملاء غداء عن مصدر معرفتهم بالمطعم",
+            "why_it_matters": "معرفة القناة الأكثر جذباً توجّه مجهود الأسبوع المقبل",
+            "timing": "أيام الأحد والثلاثاء",
+            "source": {
+              "text": "لا توجد بيانات سوقية مؤكدة عن قنوات الوصول لهذه المنطقة؛ يُسجَّل كخطوة تحقق",
+              "source": "model_synthesis",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 3,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a4",
+            "week_number": 3,
+            "category": "content",
+            "action": "سجّل فيديو قصيراً واحداً من المطبخ أثناء التجهيز",
+            "why_it_matters": "محتوى الكواليس يزيد الثقة ويتميز عن منشورات الأسعار",
+            "timing": "أوائل الأسبوع",
+            "source": {
+              "text": "توصية من دليل المحتوى: المحتوى الحقيقي خلف الكواليس يرفع التفاعل محلياً",
+              "source": "retrieved_evidence",
+              "citation_ids": [
+                "c1000000-0000-4000-8000-000000000003"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 4,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a5",
+            "week_number": 4,
+            "category": "measurement",
+            "action": "اطلب من كل عميل راضٍ تقييمك على جوجل بزنس",
+            "why_it_matters": "التقييمات الجديدة ترفع الظهور المحلي وتؤثر في قرار العميل",
+            "timing": "بعد كل طلب ناجح",
+            "source": {
+              "text": "الجودة المحلية تعتمد على تقييمات حديثة مؤكدة؛ لا تُستخدم أرقام عالمية",
+              "source": "retrieved_evidence",
+              "citation_ids": [
+                "c1000000-0000-4000-8000-000000000004"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 5,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a6",
+            "week_number": 5,
+            "category": "budget",
+            "action": "إذا قررت الإعلان الممول، خصص 1000 جنيه كحد أقصى لتجربة أول أسبوعين",
+            "why_it_matters": "اختبار الميزانية على نطاق صغير قبل أي التزام أكبر",
+            "timing": "قبل إطلاق أي إعلان",
+            "source": {
+              "text": "ميزانية شهرية مؤكدة من المالك: 3000 جنيه كحد أقصى",
+              "source": "owner_input",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 6,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a7",
+            "week_number": 6,
+            "category": "measurement",
+            "action": "اكتب في سطرين: ما القناة الأكثر وصولاً وما الصيغة الأكثر تفاعلاً",
+            "why_it_matters": "قرار منتصف الرحلة يبنى على ملاحظة بسيطة لا على تخمين",
+            "timing": "نهاية الأسبوع السادس",
+            "source": {
+              "text": "لا توجد معايير وصول مؤكدة لهذه المنطقة؛ الاعتماد على ملاحظة المالك أولاً",
+              "source": "model_synthesis",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 7,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a8",
+            "week_number": 7,
+            "category": "content",
+            "action": "أعد نشر الصيغة الأعلى تفاعلاً من الأسابيع الماضية بنفس اللغة",
+            "why_it_matters": "التكرار يثبّت الرسالة دون استهلاك وقت جديد في الإبداع",
+            "timing": "منتصف الأسبوع",
+            "source": {
+              "text": "الاعتماد على نتائج الأداء السابقة في هذا النشاط أولى من معايير عامة",
+              "source": "confirmed_fact",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 8,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000a9",
+            "week_number": 8,
+            "category": "audience",
+            "action": "قدّم عرض تعارف واحداً لمكتب قريب وقياس النتيجة",
+            "why_it_matters": "شراكة واحدة قريبة تختبر سوق الغداء مباشرة",
+            "timing": "أوائل الأسبوع",
+            "source": {
+              "text": "الجمهور المستهدف مستخلص من ملف النشاط: موظفو المكاتب القريبة",
+              "source": "confirmed_fact",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 9,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000aa",
+            "week_number": 9,
+            "category": "measurement",
+            "action": "رد على كل تقييم جديد على جوجل خلال 48 ساعة",
+            "why_it_matters": "الرد السريع يعزز الظهور المحلي وثقة العملاء",
+            "timing": "يومياً لمدة 10 دقائق",
+            "source": {
+              "text": "قناة جوجل بزنس مملوكة للمالك وتم اختيارها كقناة مساندة",
+              "source": "owner_input",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 10,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000ab",
+            "week_number": 10,
+            "category": "content",
+            "action": "نشر استطلاع أسبوعي لاختيار طبق الغداء المفضل",
+            "why_it_matters": "الاستطلاع يبني عادة تفاعل أسبوعية ويكشف الأطباق الأقرب للعملاء",
+            "timing": "صباح الثلاثاء",
+            "source": {
+              "text": "الصيغ التفاعلية تناسب قدرة المالك الأسبوعية المحدودة (3-5 ساعات)",
+              "source": "owner_input",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 11,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000ac",
+            "week_number": 11,
+            "category": "measurement",
+            "action": "لخص أرقام الوصول والتفاعل والتقييمات لكل قناة",
+            "why_it_matters": "قرار الشهر التالي يحتاج أرقاماً من هذه الأسابيع لا انطباعات",
+            "timing": "قبل نهاية الأسبوع",
+            "source": {
+              "text": "لا توجد بيانات وصول مؤكدة خارج ملاحظات المالك؛ تُسجَّل قيود القياس بوضوح",
+              "source": "model_synthesis",
+              "citation_ids": []
+            }
+          }
+        ]
+      },
+      {
+        "week_number": 12,
+        "items": [
+          {
+            "id": "a0000000-0000-4000-8000-0000000000ad",
+            "week_number": 12,
+            "category": "capability",
+            "action": "اكتب قراراً من صفحة واحدة: القنوات التي ستستمر والصيغ التي ستتكرر",
+            "why_it_matters": "الخطة القادمة تبدأ من قرار موثق لا من ذاكرة",
+            "timing": "آخر يومين من الأسبوع",
+            "source": {
+              "text": "قرارات المالك هي مصدر الحقيقة للخطة التالية في هذا النطاق",
+              "source": "owner_input",
+              "citation_ids": []
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "channel_commitments": [
+    {
+      "channel": "facebook",
+      "role": "primary",
+      "setup_state": "setup_later",
+      "capability_state": "owner_managed",
+      "rationale": {
+        "text": "فيسبوك هي القناة الأساسية المختارة. سيجري الإعداد لاحقاً؛ لا يُفترض النشر الحقيقي قبل اكتمال الربط.",
+        "source": "owner_input",
+        "citation_ids": []
+      }
+    },
+    {
+      "channel": "instagram",
+      "role": "supporting",
+      "setup_state": "existing_link",
+      "capability_state": "owner_managed",
+      "rationale": {
+        "text": "حساب إنستجرام قائم ويديره المالك مباشرة؛ مناسب كقناة مساندة للمحتوى المرئي.",
+        "source": "confirmed_fact",
+        "citation_ids": []
+      }
+    },
+    {
+      "channel": "google_business_profile",
+      "role": "supporting",
+      "setup_state": "existing_link",
+      "capability_state": "owner_managed",
+      "rationale": {
+        "text": "الملف على جوجل بزنس قائم وله تقييمات؛ يخدم الوصول المحلي بدون تكلفة.",
+        "source": "confirmed_fact",
+        "citation_ids": []
+      }
+    }
+  ],
+  "evidence_summary": {
+    "text": "تعتمد الخطة على ملف النشاط المؤكد وعلى دليل إرشادي مراجع من حزمة المعرفة، مع تمييز أي فجوة كخطوة تحقق للرحلة لا كحقيقة سوقية.",
+    "source": "retrieved_evidence",
+    "citation_ids": [
+      "c1000000-0000-4000-8000-000000000003"
+    ]
+  },
+  "risks": [
+    {
+      "text": "التزام المالك محدود بـ3-5 ساعات أسبوعياً؛ أي خطة أكبر من ذلك ستفشل في التنفيذ",
+      "source": "owner_input",
+      "citation_ids": []
+    },
+    {
+      "text": "إعداد فيسبوك مؤجل؛ قد يتأخر أول نشر فعلي حتى اكتمال الربط",
+      "source": "owner_input",
+      "citation_ids": []
+    }
+  ],
+  "knowledge_gaps": [
+    {
+      "category": "market:benchmarks",
+      "description": "لا توجد معايير وصول مؤكدة لمنطقة وسط المدينة؛ يُكتفى بمقارنة الأداء الداخلي",
+      "severity": "non_critical"
+    }
+  ],
+  "blockers": [],
+  "citations": [
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000002",
+      "chunk_id": "cccccccc-0002-4000-8000-000000000002",
+      "entry_id": "eeeeeeee-0002-4000-8000-000000000002",
+      "entry_version": 1,
+      "title": "Reviewed guidance — local channel setup",
+      "excerpt": "Complete channel setup before first publish; evidence quality reviewed.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.86
+    },
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000003",
+      "chunk_id": "cccccccc-0003-4000-8000-000000000003",
+      "entry_id": "eeeeeeee-0003-4000-8000-000000000003",
+      "entry_version": 1,
+      "title": "Reviewed guidance — authentic local content",
+      "excerpt": "Authentic behind-the-scenes content raises local engagement.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.82
+    },
+    {
+      "citation_id": "c1000000-0000-4000-8000-000000000004",
+      "chunk_id": "cccccccc-0004-4000-8000-000000000004",
+      "entry_id": "eeeeeeee-0004-4000-8000-000000000004",
+      "entry_version": 1,
+      "title": "Reviewed guidance — local reviews",
+      "excerpt": "Recent verified reviews support local visibility decisions.",
+      "evidence_tier": "reviewed_guidance",
+      "relevance_score": 0.79
+    }
+  ],
+  "content_handoff": {
+    "available": true,
+    "channels": [
+      "facebook",
+      "instagram",
+      "google_business_profile"
+    ],
+    "language": "ar-EG",
+    "weeks": [
+      {
+        "week_number": 1,
+        "formats": [
+          "short_video_script",
+          "static_image_post"
+        ]
+      },
+      {
+        "week_number": 2,
+        "formats": [
+          "static_image_post",
+          "carousel_brief"
+        ]
+      },
+      {
+        "week_number": 3,
+        "formats": [
+          "short_video_script",
+          "static_image_post"
+        ]
+      },
+      {
+        "week_number": 4,
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ]
+      },
+      {
+        "week_number": 5,
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ]
+      },
+      {
+        "week_number": 6,
+        "formats": [
+          "text_post",
+          "carousel_brief"
+        ]
+      },
+      {
+        "week_number": 7,
+        "formats": [
+          "short_video_script",
+          "static_image_post"
+        ]
+      },
+      {
+        "week_number": 8,
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ]
+      },
+      {
+        "week_number": 9,
+        "formats": [
+          "static_image_post",
+          "carousel_brief"
+        ]
+      },
+      {
+        "week_number": 10,
+        "formats": [
+          "static_image_post",
+          "text_post"
+        ]
+      },
+      {
+        "week_number": 11,
+        "formats": [
+          "text_post",
+          "short_video_script"
+        ]
+      },
+      {
+        "week_number": 12,
+        "formats": [
+          "text_post",
+          "carousel_brief"
+        ]
+      }
+    ]
+  },
+  "created_at": "2026-07-02T09:00:00.000Z"
+}

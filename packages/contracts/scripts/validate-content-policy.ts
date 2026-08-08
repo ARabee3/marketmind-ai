@@ -349,6 +349,35 @@ assert.deepEqual(
   [],
   "grounded generation request must bind exact Strategy and profile snapshots",
 );
+// Owner-first strategy-v2 plans are accepted through the content handoff.
+const v2Plan = await load("strategy-plan-v2.example.json");
+const v2Handoff = v2Plan.content_handoff;
+assert(v2Handoff.available === true, "v2 example handoff must be usable");
+const v2GenerateRequest = {
+  ...generateRequest,
+  strategy_id: v2Plan.strategy_id,
+  strategy_version: v2Plan.version,
+  strategy_plan: v2Plan,
+  selected_channels: v2Handoff.channels,
+  allowed_formats: v2Handoff.weeks[0].formats,
+  language_mode: v2Handoff.language,
+} as InternalContentGenerateRequest;
+assert.deepEqual(
+  validateInternalContentGenerateRequest(v2GenerateRequest).issues,
+  [],
+  "v2 handoff must be accepted by the content policy validator",
+);
+const v2RejectedChannel = {
+  ...v2GenerateRequest,
+  selected_channels: ["tiktok"],
+} as InternalContentGenerateRequest;
+assert(
+  validateInternalContentGenerateRequest(v2RejectedChannel).issues.some(
+    (issue) => issue.code === "CONTENT_CHANNEL_MISMATCH",
+  ),
+  "v2 handoff channels must bound the generation envelope",
+);
+
 const staleGenerateRequest = {
   ...generateRequest,
   strategy_version: 99,

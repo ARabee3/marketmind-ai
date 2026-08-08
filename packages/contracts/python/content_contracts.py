@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field, RootModel, model_validator
 
 from content_base import ContentChannel, ContentFormat, FrozenModel, UUID
-from strategy_contracts import BusinessProfilePayload, StrategyPlan
+from strategy_contracts import BusinessProfilePayload, StrategyPlan, StrategyPlanV2
 
 ContentErrorCode = Literal[
     "CONTENT_STRATEGY_NOT_APPROVED",
@@ -357,7 +357,7 @@ class AiContentGenerateRequest(FrozenModel):
     strategy_id: UUID
     strategy_version: int = Field(ge=1)
     strategy_decision_id: UUID
-    strategy_plan: StrategyPlan
+    strategy_plan: StrategyPlan | StrategyPlanV2
     business_profile: BusinessProfilePayload
     week_context: ContentWeekContext
     selected_channels: list[ContentChannel]

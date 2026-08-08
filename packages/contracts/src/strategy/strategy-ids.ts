@@ -13,6 +13,6 @@ export interface BusinessProfileVersionRef {
   version: number;
 }
 
-export type ContractVersion = "strategy-v1";
+export type ContractVersion = "strategy-v1" | "strategy-v2";
 
 export type CurrencyCode = "EGP";

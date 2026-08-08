@@ -1,0 +1,70 @@
+{
+  "StrategyBriefV2": [
+    "id",
+    "strategy_id",
+    "business_profile_version",
+    "primary_objective",
+    "start_date",
+    "plan_language",
+    "paid_media_allowed",
+    "external_budget_mode",
+    "external_budget_egp",
+    "weekly_capacity",
+    "weekly_capacity_note",
+    "channel_choices",
+    "constraints",
+    "clarification_answers",
+    "created_at",
+    "updated_at"
+  ],
+  "StrategyChannelChoice": [
+    "channel",
+    "role",
+    "setup_state",
+    "public_url",
+    "publishing_target_id",
+    "note"
+  ],
+  "StrategyPlanV2": [
+    "id",
+    "strategy_id",
+    "version",
+    "contract_version",
+    "brief_id",
+    "profile_version",
+    "retrieval_run_id",
+    "goal",
+    "primary_objective",
+    "funnel_stage",
+    "plan_language",
+    "start_date",
+    "calendar_weeks",
+    "owner_advice",
+    "channel_commitments",
+    "evidence_summary",
+    "risks",
+    "knowledge_gaps",
+    "blockers",
+    "citations",
+    "content_handoff",
+    "created_at"
+  ],
+  "ContentHandoffAvailable": [
+    "available",
+    "channels",
+    "language",
+    "weeks"
+  ],
+  "ContentHandoffUnavailable": [
+    "available",
+    "reason",
+    "message"
+  ],
+  "ChannelCommitment": [
+    "channel",
+    "role",
+    "setup_state",
+    "capability_state",
+    "rationale"
+  ]
+}
