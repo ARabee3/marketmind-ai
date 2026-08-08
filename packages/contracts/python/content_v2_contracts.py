@@ -136,6 +136,7 @@ class ContentV2FrozenInput(FrozenModel):
     week_plan_id: UUID
     content_cycle_id: UUID
     week_number: int = Field(ge=1, le=12)
+    week_start_date: str
     editorial_profile: ContentEditorialProfileV2
     cta_entries: list[ContentCtaLibraryEntryV2]
     media_entries: list[ContentMediaLibraryEntryV2]

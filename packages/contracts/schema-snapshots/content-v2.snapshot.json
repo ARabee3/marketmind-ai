@@ -75,6 +75,7 @@
     "week_plan_id",
     "content_cycle_id",
     "week_number",
+    "week_start_date",
     "editorial_profile",
     "cta_entries",
     "media_entries",

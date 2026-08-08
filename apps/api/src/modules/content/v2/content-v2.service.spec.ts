@@ -43,7 +43,9 @@ function buildService(overrides: Record<string, unknown> = {}) {
           available: true,
           channels: ["instagram", "facebook"],
           language: "ar-EG",
-          weeks: [{ week_number: 1, formats: ["static_image_post", "text_post"] }],
+          weeks: [
+            { week_number: 1, formats: ["static_image_post", "text_post"] },
+          ],
         },
       },
     }),
@@ -76,6 +78,11 @@ function buildService(overrides: Record<string, unknown> = {}) {
       createdAt: new Date(),
       updatedAt: new Date(),
     }),
+    getWeekPlan: jest.fn(),
+    listWeekPlans: jest.fn(),
+  };
+  const packRepository = {
+    claimQueuedPackV2: jest.fn(),
   };
   const versionEditRepository = {};
   const contentAiClient = {
@@ -92,6 +99,9 @@ function buildService(overrides: Record<string, unknown> = {}) {
     weekPlanRepository as never,
     versionEditRepository as never,
     contentAiClient as never,
+    packRepository as never,
+    { createIntent: jest.fn(), markDirectDispatched: jest.fn() } as never,
+    { add: jest.fn() } as never,
     assetStorage as never,
   );
 
@@ -163,7 +173,9 @@ describe("ContentV2Service.planWeek", () => {
         }),
       }),
     );
-    expect(mocks.weekPlanRepository.createOrReplaceWeekPlan).toHaveBeenCalledWith(
+    expect(
+      mocks.weekPlanRepository.createOrReplaceWeekPlan,
+    ).toHaveBeenCalledWith(
       CYCLE,
       1,
       [
@@ -220,5 +232,266 @@ describe("ContentV2Service.planWeek", () => {
     await expect(service.planWeek(CYCLE, 1, OWNER)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+describe("ContentV2Service.generateWeek", () => {
+  function generateBuildService() {
+    const cycle = {
+      id: CYCLE,
+      contractVersion: "content-v2",
+      businessId: "biz-1",
+      strategyId: "strat-1",
+      strategyVersion: 2,
+      strategyDecisionId: "decision-1",
+      profileVersionId: "prof-1",
+      status: "active",
+      currentWeekNumber: 1,
+      nextGenerationAt: null,
+      timezone: "Africa/Cairo",
+      pauseReason: null,
+      completedAt: null,
+      ownerUserId: OWNER,
+      week1StartDate: new Date("2026-07-06T00:00:00.000Z"),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const prisma = {
+      contentCycle: { findFirst: jest.fn().mockResolvedValue(cycle) },
+      contentWeekContext: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "ctx-1",
+          weeklyClaimId: "claim-1",
+          weekStartDate: new Date("2026-07-06T00:00:00.000Z"),
+        }),
+      },
+    };
+    const weekPlanRepository = {
+      getWeekPlan: jest.fn().mockResolvedValue({
+        id: "week-plan-1",
+        contentCycleId: CYCLE,
+        weekNumber: 1,
+        status: "draft",
+        postPlans: [
+          {
+            id: "plan-1",
+            contentWeekPlanId: "week-plan-1",
+            position: 1,
+            purpose: "a",
+            intendedAudience: null,
+            channel: "instagram",
+            format: "static_image_post",
+            ctaLibraryEntryId: null,
+            ownerInstructions: null,
+            visualDirection: null,
+            selectedMediaIds: [],
+            planState: "planned",
+            source: "planner",
+            contentItemId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: "plan-2",
+            contentWeekPlanId: "week-plan-1",
+            position: 2,
+            purpose: "b",
+            intendedAudience: null,
+            channel: "facebook",
+            format: "static_image_post",
+            ctaLibraryEntryId: null,
+            ownerInstructions: null,
+            visualDirection: null,
+            selectedMediaIds: [],
+            planState: "planned",
+            source: "planner",
+            contentItemId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: "plan-3",
+            contentWeekPlanId: "week-plan-1",
+            position: 3,
+            purpose: "c",
+            intendedAudience: null,
+            channel: "instagram",
+            format: "short_video_script",
+            ctaLibraryEntryId: null,
+            ownerInstructions: null,
+            visualDirection: null,
+            selectedMediaIds: [],
+            planState: "planned",
+            source: "planner",
+            contentItemId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    };
+    const setupRepository = {
+      getEditorialProfile: jest.fn().mockResolvedValue({
+        id: "ed-1",
+        contentCycleId: CYCLE,
+        audienceNuance: "n",
+        voice: "v",
+        language: "ar-EG",
+        writingGuardrails: [],
+        defaultVisualGuidance: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      listCtaEntries: jest.fn().mockResolvedValue([
+        {
+          id: "cta-1",
+          contentCycleId: CYCLE,
+          label: "اطلب",
+          destination: { type: "whatsapp", value: "+201001234567" },
+          campaignContext: null,
+          active: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "cta-2",
+          contentCycleId: CYCLE,
+          label: "قديم",
+          destination: { type: "none", value: null },
+          campaignContext: null,
+          active: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]),
+    };
+    const mediaRepository = {
+      listCycleEntries: jest.fn().mockResolvedValue([]),
+    };
+    const packRepository = {
+      claimQueuedPackV2: jest.fn().mockResolvedValue({
+        pack: {
+          id: "pack-1",
+          contractVersion: "content-v2",
+          contentCycleId: CYCLE,
+          weeklyClaimId: "claim-1",
+          weekNumber: 1,
+          businessId: "biz-1",
+          strategyId: "strat-1",
+          strategyVersion: 2,
+          strategyDecisionId: "decision-1",
+          profileVersionId: "prof-1",
+          weekContextId: "ctx-1",
+          status: "queued",
+          retryEligible: true,
+          itemIds: [],
+          weekPlanId: "week-plan-1",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        created: true,
+      }),
+    };
+    const jobOutbox = {
+      markDirectDispatched: jest.fn().mockResolvedValue(undefined),
+    };
+    const contentQueue = { add: jest.fn().mockResolvedValue(undefined) };
+
+    const service = new ContentV2Service(
+      prisma as never,
+      { getVersionByNumber: jest.fn() } as never,
+      setupRepository as never,
+      mediaRepository as never,
+      { validateUpload: jest.fn(), checksum: jest.fn() } as never,
+      weekPlanRepository as never,
+      {} as never,
+      { plan: jest.fn() } as never,
+      packRepository as never,
+      jobOutbox as never,
+      contentQueue as never,
+      { store: jest.fn() } as never,
+    );
+
+    return {
+      service,
+      mocks: { packRepository, jobOutbox, contentQueue, weekPlanRepository },
+    };
+  }
+
+  it("freezes the week plan and claims the week with a frozen snapshot", async () => {
+    const { service, mocks } = generateBuildService();
+
+    const result = await service.generateWeek(
+      CYCLE,
+      1,
+      { content_cycle_id: CYCLE, week_number: 1, idempotency_key: "k-1" },
+      OWNER,
+    );
+
+    expect(mocks.packRepository.claimQueuedPackV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cycleId: CYCLE,
+        weekNumber: 1,
+        weekContextId: "ctx-1",
+        weekPlanId: "week-plan-1",
+        frozenInput: expect.objectContaining({
+          week_plan_id: "week-plan-1",
+          content_cycle_id: CYCLE,
+          week_number: 1,
+          week_start_date: "2026-07-06",
+          weekly_claim_id: "claim-1",
+          post_plans: expect.arrayContaining([
+            expect.objectContaining({ position: 1, channel: "instagram" }),
+            expect.objectContaining({ position: 2, channel: "facebook" }),
+          ]),
+        }),
+      }),
+    );
+    // Only active CTA entries are frozen into the snapshot.
+    const frozenInput = (
+      mocks.packRepository.claimQueuedPackV2.mock.calls[0][0] as {
+        frozenInput: { cta_entries: unknown[] };
+      }
+    ).frozenInput;
+    expect(frozenInput.cta_entries).toHaveLength(1);
+    expect(mocks.contentQueue.add).toHaveBeenCalledWith(
+      "generate-content-v2",
+      expect.objectContaining({ contentPackId: "pack-1" }),
+      expect.any(Object),
+    );
+    expect(mocks.jobOutbox.markDirectDispatched).toHaveBeenCalledWith(
+      "generate-content-v2:pack-1",
+    );
+    expect(result.content_pack.week_plan_id).toBe("week-plan-1");
+    expect(result.status).toBe("queued");
+  });
+
+  it("requires a draft week plan before generation", async () => {
+    const { service, mocks } = generateBuildService();
+    mocks.weekPlanRepository.getWeekPlan.mockResolvedValue(null);
+    await expect(
+      service.generateWeek(
+        CYCLE,
+        1,
+        { content_cycle_id: CYCLE, week_number: 1, idempotency_key: "k-1" },
+        OWNER,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects generation for a non-current week", async () => {
+    const { service } = generateBuildService();
+    await expect(
+      service.generateWeek(
+        CYCLE,
+        2,
+        { content_cycle_id: CYCLE, week_number: 2, idempotency_key: "k-1" },
+        OWNER,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: "CONTENT_WEEK_ALREADY_CLAIMED" },
+    });
   });
 });

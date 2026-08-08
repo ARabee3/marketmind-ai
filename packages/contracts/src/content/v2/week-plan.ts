@@ -76,6 +76,8 @@ export type ContentV2FrozenInput = {
   readonly week_plan_id: UUID;
   readonly content_cycle_id: UUID;
   readonly week_number: number;
+  /** Cairo calendar date of the frozen week; drives seasonal/publish context. */
+  readonly week_start_date: string;
   readonly editorial_profile: ContentEditorialProfileV2;
   /** Active CTA entries at freeze time (frozen copies). */
   readonly cta_entries: readonly ContentCtaLibraryEntryV2[];

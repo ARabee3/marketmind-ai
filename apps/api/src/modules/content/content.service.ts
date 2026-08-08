@@ -65,6 +65,7 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { ContentV2Service } from "./v2/content-v2.service";
 import { extractSupportedContentChannels } from "./content-strategy.adapter";
 import {
   AssetStorage,
@@ -133,6 +134,7 @@ export class ContentService {
     @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
     @Optional()
     private readonly billingEntitlements?: BillingEntitlementsService,
+    @Optional() private readonly contentV2Service?: ContentV2Service,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -512,6 +514,20 @@ export class ContentService {
     );
     if (!cycle) {
       throw new NotFoundException("Content cycle not found");
+    }
+    // Content v2 cycles run the owner-first studio path: freeze the plan
+    // with its frozen snapshot and queue the v2 worker job (issue #187).
+    if (cycle.contractVersion === "content-v2") {
+      return this.contentV2Service.generateWeek(
+        cycleId,
+        weekNumber,
+        dto,
+        ownerUserId,
+      ) as unknown as Promise<{
+        content_pack: ContentPack;
+        status: "queued";
+        correlation_id: string;
+      }>;
     }
     this.assertCycleActive(cycle);
     this.assertWeekNumberInRange(weekNumber);

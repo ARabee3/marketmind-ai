@@ -20,7 +20,12 @@ from content_contracts import (
     ContentValidationResult,
     ContentItemVersion,
 )
-from content_v2_contracts import AiContentV2PlanRequest, AiContentV2PlanResponse
+from content_v2_contracts import (
+    AiContentV2GenerateRequest,
+    AiContentV2GenerateResponse,
+    AiContentV2PlanRequest,
+    AiContentV2PlanResponse,
+)
 
 from app.content.circuit_breaker import CircuitBreaker
 from app.content.assembler import (
@@ -41,6 +46,7 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
+from app.content.v2_generator import generate_v2_content_pack
 from app.content.storage import R2StorageConfig, create_asset_storage
 from app.content.validators import (
     validate_content_generation_request,
@@ -273,6 +279,39 @@ async def plan_content_week(
         post_plans=plans,
         validation=validation,
     )
+
+
+@router.post(
+    "/v2/generate",
+    response_model=AiContentV2GenerateResponse,
+    summary="Generate Content v2 items from a frozen plan/profile/CTA/media snapshot",
+)
+async def generate_content_v2(
+    request: AiContentV2GenerateRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2GenerateResponse:
+    try:
+        provider = create_content_provider(settings)
+        response = await generate_v2_content_pack(
+            request,
+            provider,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_SCHEMA_FAILURE")
+
+    log_content_event(
+        logger,
+        "generation_v2_completed",
+        content_event_metadata(
+            {"contract_version": "content-v2", "content_pack_id": request.content_pack_id},
+            item_count=len(response.item_versions),
+            validation=response.validation,
+        ),
+    )
+    return response
 
 
 @router.post(

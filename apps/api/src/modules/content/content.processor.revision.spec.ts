@@ -4,6 +4,8 @@ import { ContentProcessor } from "./content.processor";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
+import { ContentWeekPlanRepository } from "./v2/content-week-plan.repository";
+import { PrismaService } from "../../common/persistence/prisma.service";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
 import { ProviderError } from "../../common/errors/provider-error";
@@ -230,6 +232,8 @@ describe("ContentProcessor - Revision Flow", () => {
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekContextRepo },
+        { provide: ContentWeekPlanRepository, useValue: {} },
+        { provide: PrismaService, useValue: {} },
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: aiClient },
         { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },

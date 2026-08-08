@@ -112,13 +112,11 @@ describe("ContentVersionEditRepository", () => {
   it("conflicts on a stale checksum without overwriting anything", async () => {
     const tx = mockTx({
       contentItemVersion: {
-        findUniqueOrThrow: jest
-          .fn()
-          .mockResolvedValue({
-            id: BASE,
-            version: 1,
-            versionChecksum: "b".repeat(64),
-          }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: BASE,
+          version: 1,
+          versionChecksum: "b".repeat(64),
+        }),
         create: jest.fn(),
       },
     });

@@ -364,8 +364,12 @@ def build_generate_context(request: AiContentGenerateRequest) -> dict[str, Any]:
         "output_contract": {
             "contract_version": "content-v1",
             "item_count": {"minimum": 3, "maximum": 5},
-            "target_item_count": derive_target_item_count(
-                request.strategy_plan.content_strategy.weekly_cadence
+            "target_item_count": (
+                None
+                if _strategy_plan_is_v2(request)
+                else derive_target_item_count(
+                    request.strategy_plan.content_strategy.weekly_cadence
+                )
             ),
             "wrapper_field": "item_versions",
             "required_fields": [

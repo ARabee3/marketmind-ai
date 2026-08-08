@@ -8,6 +8,8 @@ import {
   AiContentGenerateResponse,
   AiContentReviseRequest,
   AiContentReviseResponse,
+  AiContentV2GenerateRequest,
+  AiContentV2GenerateResponse,
   AiContentV2PlanRequest,
   AiContentV2PlanResponse,
   AiStaticAssetGenerateRequest,
@@ -102,6 +104,29 @@ export class ContentAiClient {
       throw new ProviderError(
         "CONTENT_SCHEMA_FAILURE",
         "AI content service returned an invalid plan response.",
+        false,
+      );
+    }
+
+    return response;
+  }
+
+  /**
+   * Full-draft worker (content-v2, issue #187): consumes the transactionally
+   * frozen plan/profile/CTA/media snapshot and returns v2 item versions.
+   */
+  async generateV2(
+    request: AiContentV2GenerateRequest,
+  ): Promise<AiContentV2GenerateResponse> {
+    const response = await this.post<AiContentV2GenerateResponse>(
+      "/internal/v1/ai/content/v2/generate",
+      request,
+    );
+
+    if (!isV2GenerateResponse(response)) {
+      throw new ProviderError(
+        "CONTENT_SCHEMA_FAILURE",
+        "AI content service returned an invalid v2 generate response.",
         false,
       );
     }
@@ -234,6 +259,24 @@ function isPlanResponse(value: unknown): value is AiContentV2PlanResponse {
     Array.isArray(candidate.post_plans) &&
     candidate.post_plans.length >= 3 &&
     candidate.post_plans.length <= 5 &&
+    isContentValidationPassed(candidate.validation)
+  );
+}
+
+function isV2GenerateResponse(
+  value: unknown,
+): value is AiContentV2GenerateResponse {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.contract_version === "content-v2" &&
+    typeof candidate.content_pack === "object" &&
+    candidate.content_pack !== null &&
+    typeof candidate.cycle === "object" &&
+    candidate.cycle !== null &&
+    Array.isArray(candidate.item_versions) &&
+    candidate.item_versions.length >= 3 &&
+    candidate.item_versions.length <= 5 &&
     isContentValidationPassed(candidate.validation)
   );
 }

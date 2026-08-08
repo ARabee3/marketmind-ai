@@ -236,7 +236,8 @@ export class ContentV2Controller {
 
   @Put("content-cycles/:id/weeks/:week_number/plan")
   @Permissions(PERMISSIONS.CONTENT_START)
-  createOrReplaceWeekPlan(    @Param("id", ParseUUIDPipe) id: string,
+  createOrReplaceWeekPlan(
+    @Param("id", ParseUUIDPipe) id: string,
     @Param("week_number", ParseIntPipe) weekNumber: number,
     @Req() req: RequestWithUser,
     @Body() dto: CreateOrReplaceWeekPlanDto,

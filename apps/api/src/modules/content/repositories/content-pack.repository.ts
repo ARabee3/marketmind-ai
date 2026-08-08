@@ -328,7 +328,7 @@ export class ContentPackRepository {
           );
         }
         if (
-          !( 
+          !(
             (weekNumber === 1 && cycle.currentWeekNumber === 1) ||
             weekNumber === cycle.currentWeekNumber + 1
           )
@@ -440,6 +440,178 @@ export class ContentPackRepository {
               contentCycleId: cycleId,
               weekNumber,
             },
+          },
+        });
+        if (existing) {
+          return { pack: existing, created: false };
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Content v2 claim (issue #187): serializes on the cycle row, freezes the
+   * week plan with its transactionally frozen plan/profile/CTA/media
+   * snapshot, freezes the week context, and creates the queued v2 pack plus
+   * its durable `generate-content-v2` job intent. Eligibility for v2 is the
+   * current actionable week only; the unique pack key stays the idempotency
+   * guard.
+   */
+  async claimQueuedPackV2(input: {
+    readonly cycleId: string;
+    readonly weekNumber: number;
+    readonly weekContextId: string;
+    readonly weekPlanId: string;
+    readonly frozenInput: unknown;
+    readonly jobIntent?: GenerationJobIntentInput;
+  }): Promise<{ pack: ContentPack; created: boolean }> {
+    const { cycleId, weekNumber, weekContextId, weekPlanId, frozenInput } =
+      input;
+    if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 12) {
+      throw new BadRequestException("Content week must be between 1 and 12.");
+    }
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id"
+          FROM "content_cycles"
+          WHERE "id" = ${cycleId}::uuid
+          FOR UPDATE
+        `;
+
+        const existing = await tx.contentPack.findUnique({
+          where: {
+            contentCycleId_weekNumber: { contentCycleId: cycleId, weekNumber },
+          },
+        });
+        if (existing) return { pack: existing, created: false };
+
+        const cycle = await tx.contentCycle.findUniqueOrThrow({
+          where: { id: cycleId },
+          select: {
+            businessId: true,
+            strategyId: true,
+            strategyVersion: true,
+            strategyDecisionId: true,
+            profileVersionId: true,
+            currentWeekNumber: true,
+            status: true,
+            week1StartDate: true,
+          },
+        });
+        if (cycle.status !== "active") {
+          throw new BadRequestException(
+            `Content cycle ${cycleId} is not active; cannot claim week ${weekNumber}.`,
+          );
+        }
+        if (weekNumber !== cycle.currentWeekNumber) {
+          throw new BadRequestException(
+            `Week ${weekNumber} is not the current actionable week for cycle ${cycleId}.`,
+          );
+        }
+
+        const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
+          where: { id: weekContextId },
+          select: {
+            weeklyClaimId: true,
+            contentCycleId: true,
+            weekNumber: true,
+            frozenAt: true,
+          },
+        });
+        if (
+          weekContext.contentCycleId !== cycleId ||
+          weekContext.weekNumber !== weekNumber
+        ) {
+          throw new BadRequestException(
+            `Week context ${weekContextId} does not belong to cycle ${cycleId} week ${weekNumber}.`,
+          );
+        }
+
+        const frozenPlan = await tx.contentWeekPlan.updateMany({
+          where: {
+            id: weekPlanId,
+            contentCycleId: cycleId,
+            weekNumber,
+            status: "draft",
+          },
+          data: {
+            status: "frozen",
+            frozenInput: frozenInput as Prisma.InputJsonValue,
+          },
+        });
+        if (frozenPlan.count === 0) {
+          throw new BadRequestException(
+            `Week ${weekNumber} plan is already frozen or missing; cannot claim.`,
+          );
+        }
+
+        const frozen = await tx.contentWeekContext.updateMany({
+          where: {
+            id: weekContextId,
+            contentCycleId: cycleId,
+            weekNumber,
+            frozenAt: null,
+          },
+          data: { frozenAt: new Date() },
+        });
+        if (frozen.count === 0 || weekContext.frozenAt !== null) {
+          throw new BadRequestException(
+            `Week ${weekNumber} context is already frozen or unavailable.`,
+          );
+        }
+
+        const createdPack = await tx.contentPack.create({
+          data: {
+            contentCycleId: cycleId,
+            weeklyClaimId: weekContext.weeklyClaimId,
+            weekNumber,
+            businessId: cycle.businessId,
+            strategyId: cycle.strategyId,
+            strategyVersion: cycle.strategyVersion,
+            strategyDecisionId: cycle.strategyDecisionId,
+            profileVersionId: cycle.profileVersionId,
+            weekContextId,
+            contractVersion: "content-v2",
+            weekPlanId,
+            status: "queued",
+            retryEligible: true,
+            itemIds: [],
+          },
+        });
+
+        if (input.jobIntent) {
+          await tx.contentJobOutbox.create({
+            data: {
+              jobId: `generate-content-v2:${createdPack.id}`,
+              queueName: "content-generation",
+              jobName: "generate-content-v2",
+              payload: {
+                contentCycleId: cycleId,
+                weekNumber,
+                contentPackId: createdPack.id,
+                idempotencyKey: `pack:${createdPack.id}`,
+                correlationId: `pack:${createdPack.id}`,
+              },
+            },
+          });
+        }
+
+        await tx.contentCycle.update({
+          where: { id: cycleId },
+          data: {
+            nextGenerationAt: weekCutoffDate(cycle.week1StartDate, weekNumber),
+          },
+        });
+
+        return { pack: createdPack, created: true };
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const existing = await this.prisma.contentPack.findUnique({
+          where: {
+            contentCycleId_weekNumber: { contentCycleId: cycleId, weekNumber },
           },
         });
         if (existing) {
@@ -876,6 +1048,146 @@ export class ContentPackRepository {
 
       for (const assetJob of input.assetJobs ?? []) {
         await createAssetJobIntent(tx, assetJob);
+      }
+
+      if (input.weekNumber === 12) {
+        await tx.contentCycle.updateMany({
+          where: {
+            id: input.cycleId,
+            status: "active",
+            currentWeekNumber: 12,
+          },
+          data: { status: "completed", completedAt: new Date() },
+        });
+      }
+
+      await tx.contentGenerationRun.create({
+        data: {
+          id: input.generationRunId,
+          contentPackId: input.packId,
+          contentCycleId: input.cycleId,
+          weekNumber: input.weekNumber,
+          runType: "generate",
+          status: "completed",
+          providerName: input.providerName,
+          providerModel: input.providerModel,
+          inputHash: input.inputHash,
+          latencyMs: input.latencyMs,
+          startedAt: input.startedAt,
+          finishedAt: input.finishedAt,
+        },
+      });
+
+      const seq = await tx.contentProgressEvent.count({
+        where: { contentPackId: input.packId },
+      });
+      await tx.contentProgressEvent.create({
+        data: {
+          contentPackId: input.packId,
+          seq: seq + 1,
+          stage: input.progressEvent.stage,
+          status: input.progressEvent.status,
+          messageKey: input.progressEvent.messageKey,
+          messageText: input.progressEvent.messageText,
+          payload: (input.progressEvent.payload ??
+            {}) as Prisma.InputJsonObject,
+        },
+      });
+
+      return tx.contentPack.findUniqueOrThrow({
+        where: { id: input.packId },
+      });
+    });
+  }
+
+  /**
+   * Content v2 persistence (issue #187): identical to
+   * `persistGeneratedItems` plus the v2 contract tag, the frozen-plan link,
+   * and immutable generated edit metadata on every version row.
+   */
+  async persistGeneratedItemsV2(
+    input: PersistGeneratedItemsInput,
+  ): Promise<ContentPack> {
+    return this.prisma.$transaction(async (tx) => {
+      const pack = await tx.contentPack.findUniqueOrThrow({
+        where: { id: input.packId },
+      });
+
+      if (
+        pack.contentCycleId !== input.cycleId ||
+        pack.weekNumber !== input.weekNumber
+      ) {
+        throw new BadRequestException(
+          `Pack ${input.packId} does not match the claimed cycle/week.`,
+        );
+      }
+      if (pack.status !== "validating") {
+        throw new BadRequestException(
+          `Cannot persist items: pack ${input.packId} is in status ${pack.status}, expected validating`,
+        );
+      }
+
+      const itemIds: string[] = [];
+      for (const draft of input.items) {
+        const item = await tx.contentItem.create({
+          data: {
+            id: draft.contentItemId,
+            contentPackId: input.packId,
+            status: "draft",
+          },
+        });
+        itemIds.push(item.id);
+
+        const version = await tx.contentItemVersion.create({
+          data: {
+            id: draft.id,
+            contentItemId: item.id,
+            contentPackId: input.packId,
+            contractVersion: "content-v2",
+            version: 1,
+            channel: draft.channel,
+            format: draft.format,
+            languageMode: draft.languageMode,
+            strategyTrace: draft.strategyTrace,
+            captionVariants: draft.captionVariants,
+            cta: draft.cta,
+            hashtags: draft.hashtags,
+            creativeBrief: draft.creativeBrief,
+            altText: draft.altText,
+            shortVideoScript: draft.shortVideoScript,
+            recommendedPublishWindow: draft.recommendedPublishWindow,
+            claimSources: draft.claimSources,
+            warnings: draft.warnings,
+            blockers: draft.blockers,
+            assetRequired: draft.assetRequired,
+            assetIds: draft.assetIds,
+            generationProvenance: draft.generationProvenance,
+            versionChecksum: draft.versionChecksum,
+            editKind: "generated",
+            baseVersionId: null,
+            baseVersionChecksum: null,
+            editedByUserId: null,
+            validationState: "validated",
+            editedAt: draft.createdAt,
+            createdAt: draft.createdAt,
+          },
+        });
+        await linkVersionAssets(tx, version.id, draft.assetIds, draft.altText);
+
+        await tx.contentItem.update({
+          where: { id: item.id },
+          data: { currentVersionId: version.id },
+        });
+      }
+
+      const updated = await tx.contentPack.updateMany({
+        where: { id: input.packId, status: "validating" },
+        data: { itemIds, status: "draft" },
+      });
+      if (updated.count === 0) {
+        throw new BadRequestException(
+          `Pack ${input.packId} is no longer in validating status`,
+        );
       }
 
       if (input.weekNumber === 12) {

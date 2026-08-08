@@ -4,6 +4,7 @@ import type {
   ContentEditorialProfileV2,
   ContentItemVersionV2,
   ContentMediaLibraryEntryV2,
+  ContentPackV2,
   ContentPostPlanV2,
   ContentWeekPlanV2,
 } from "@marketmind/contracts";
@@ -34,6 +35,14 @@ function toJsonStringArray(value: unknown): string[] {
     return value.map((item) => String(item));
   }
   return [];
+}
+
+/** Prisma JSON column → plain record (mirrors the v1 service helper). */
+export function toPayloadJson(value: unknown): Record<string, unknown> {
+  if (typeof value === "object" && value !== null) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
 export function toEditorialProfileV2(
@@ -156,5 +165,33 @@ export function toItemVersionV2(row: PrismaVersion): ContentItemVersionV2 {
       validation_state: "validated",
       edited_at: toIso(row.editedAt ?? row.createdAt),
     },
+  };
+}
+
+type PrismaContentPack = Prisma.ContentPackGetPayload<Record<string, never>>;
+
+/**
+ * v2 pack mapping with the frozen-plan link. Replaces the v1 mapper for v2
+ * rows so the service layer has no import cycle with content.service.
+ */
+export function toContentPackV2(pack: PrismaContentPack): ContentPackV2 {
+  return {
+    id: pack.id,
+    contract_version: "content-v2",
+    content_cycle_id: pack.contentCycleId,
+    weekly_claim_id: pack.weeklyClaimId,
+    week_number: pack.weekNumber,
+    business_id: pack.businessId,
+    strategy_id: pack.strategyId,
+    strategy_version: pack.strategyVersion,
+    strategy_decision_id: pack.strategyDecisionId,
+    profile_version_id: pack.profileVersionId,
+    week_context_id: pack.weekContextId,
+    status: pack.status as ContentPackV2["status"],
+    retry_eligible: pack.retryEligible,
+    item_ids: toJsonStringArray(pack.itemIds),
+    week_plan_id: pack.weekPlanId,
+    created_at: toIso(pack.createdAt),
+    updated_at: toIso(pack.updatedAt),
   };
 }

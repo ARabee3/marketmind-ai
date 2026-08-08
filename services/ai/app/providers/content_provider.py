@@ -555,6 +555,23 @@ class MockContentProvider(ContentLLMProvider):
         week_context = grounding["weekly_context"]
         channels = grounding["requested_channels"]
         formats = grounding["allowed_formats"]
+        post_plans = grounding.get("post_plans")
+        if post_plans:
+            # Content v2: produce exactly one item per frozen post card,
+            # matching each card's channel and format (issue #187).
+            return [
+                self._build_item(
+                    prompt,
+                    context,
+                    index=index,
+                    channel=str(post_plan["channel"]),
+                    content_format=str(post_plan["format"]),
+                    strategy_week=strategy_week,
+                    week_context=week_context,
+                    identity=identity,
+                )
+                for index, post_plan in enumerate(post_plans)
+            ]
         item_count = derive_target_item_count(strategy_week["weekly_cadence"])
         if item_count is None or not 3 <= item_count <= 5:
             item_count = 3
@@ -836,7 +853,7 @@ class MockContentProvider(ContentLLMProvider):
                 week_context["week_start_date"],
                 day_offset=index,
             ),
-            "claim_sources": _claim_sources(week_context),
+            "claim_sources": _claim_sources(week_context, strategy_week),
             "warnings": [],
             "blockers": ["CONTENT_ASSET_REQUIRED"] if asset_required and not asset_ids else [],
             "asset_required": asset_required,
@@ -938,7 +955,18 @@ def _publish_window(week_start_date: str, *, day_offset: int) -> dict[str, Any]:
     }
 
 
-def _claim_sources(week_context: dict[str, Any]) -> list[dict[str, Any]]:
+def _claim_sources(
+    week_context: dict[str, Any],
+    strategy_week: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    # Strategy-v2 rendering carries "goal"; legacy v1 rendering carries the
+    # content_strategy roadmap. The mock claims the exact path the caption
+    # is actually grounded in so deterministic validation passes.
+    strategy_path = (
+        "strategy_plan.goal.text"
+        if strategy_week is not None and "goal" in strategy_week
+        else "strategy_plan.content_strategy"
+    )
     claims = [
         ContentClaimSource(
             claim_type="business_fact",
@@ -949,7 +977,7 @@ def _claim_sources(week_context: dict[str, Any]) -> list[dict[str, Any]]:
         ContentClaimSource(
             claim_type="business_fact",
             source_type="strategy",
-            source_path="strategy_plan.content_strategy",
+            source_path=strategy_path,
             approved=True,
         ),
     ]

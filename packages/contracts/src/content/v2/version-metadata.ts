@@ -37,6 +37,7 @@ export type ContentItemVersionV2 = Omit<
   "contract_version" | "strategy_trace"
 > & {
   readonly contract_version: "content-v2";
+  readonly strategy_trace: ContentItemVersion["strategy_trace"];
   readonly edit_metadata: ContentVersionEditMetadataV2;
 };
 

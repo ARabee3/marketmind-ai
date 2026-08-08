@@ -18,14 +18,14 @@ import type {
   OwnerContentDirectEditRequest,
 } from "@marketmind/contracts";
 import { StrategyPlanV2 } from "@marketmind/contracts";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import type { GenerateContentPackRequest } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { StrategyRepository } from "../../strategy/strategy.repository";
-import {
-  toContentPack,
-  toContentWeekContext,
-  toPayload,
-} from "../content.service";
 import { ContentAiClient } from "../content.client";
+import { ContentPackRepository } from "../repositories/content-pack.repository";
+import { ContentJobOutboxRepository } from "../content-job-outbox.repository";
 import {
   CONTENT_ASSET_STORAGE,
   type AssetStorage,
@@ -47,10 +47,12 @@ import {
 } from "./content-week-plan.repository";
 import { ContentVersionEditRepository } from "./content-version-edit.repository";
 import {
+  toContentPackV2,
   toCtaLibraryEntryV2,
   toEditorialProfileV2,
   toItemVersionV2,
   toMediaLibraryEntryV2,
+  toPayloadJson,
   toWeekPlanV2,
 } from "./content-v2-mappers";
 
@@ -78,6 +80,9 @@ export class ContentV2Service {
     private readonly weekPlanRepository: ContentWeekPlanRepository,
     private readonly versionEditRepository: ContentVersionEditRepository,
     private readonly contentAiClient: ContentAiClient,
+    private readonly packRepository: ContentPackRepository,
+    private readonly jobOutbox: ContentJobOutboxRepository,
+    @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
   ) {}
 
@@ -377,7 +382,7 @@ export class ContentV2Service {
           "Configure the cycle editorial profile before planning the week.",
       });
     }
-    const planData = toPayload(strategyVersion?.planData ?? {});
+    const planData = toPayloadJson(strategyVersion?.planData ?? {});
     if (planData["contract_version"] !== "strategy-v2") {
       throw new BadRequestException({
         code: CONTENT_V2_REQUIRED,
@@ -426,8 +431,7 @@ export class ContentV2Service {
       media_library: mediaRows.map(toMediaLibraryEntryV2),
       allowed_channels:
         handoff.channels as AiContentV2PlanRequest["allowed_channels"],
-      allowed_formats:
-        weekFormats as AiContentV2PlanRequest["allowed_formats"],
+      allowed_formats: weekFormats as AiContentV2PlanRequest["allowed_formats"],
       language_mode:
         (handoff.language as AiContentV2PlanRequest["language_mode"]) ??
         "ar-EG",
@@ -454,6 +458,192 @@ export class ContentV2Service {
       ownerUserId,
     );
     return { week_plan: toWeekPlanV2(row) };
+  }
+
+  /**
+   * Explicit generation (issue #187): freezes the week plan with its
+   * transactionally frozen plan/profile/CTA/media snapshot, claims the week,
+   * and queues the `generate-content-v2` worker job. Idempotency and
+   * cutoff-safe behavior mirror the v1 claim path; the cursor only advances
+   * via the shared scheduler for v1 semantics.
+   */
+  async generateWeek(
+    cycleId: string,
+    weekNumber: number,
+    dto: GenerateContentPackRequest,
+    ownerUserId: string,
+  ): Promise<{
+    content_pack: ContentPackV2;
+    status: "queued";
+    correlation_id: string;
+  }> {
+    const cycle = await this.getCycleOrThrow(cycleId, ownerUserId);
+    if (cycle.status === "paused") {
+      throw new BadRequestException({
+        code: "CONTENT_CYCLE_PAUSED",
+        message: "Content cycle is paused; cannot generate.",
+      });
+    }
+    if (cycle.status === "completed") {
+      throw new BadRequestException({
+        code: "CONTENT_CYCLE_COMPLETED",
+        message: "Content cycle is completed; cannot generate.",
+      });
+    }
+    if (weekNumber !== cycle.currentWeekNumber) {
+      throw new ConflictException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Week ${weekNumber} is not the current actionable Content week.`,
+      });
+    }
+
+    const [weekPlan, editorialRow, ctaRows, mediaRows, weekContextRow] =
+      await Promise.all([
+        this.weekPlanRepository.getWeekPlan(cycleId, weekNumber, ownerUserId),
+        this.setupRepository.getEditorialProfile(cycleId, ownerUserId),
+        this.setupRepository.listCtaEntries(cycleId, ownerUserId),
+        this.mediaRepository.listCycleEntries(cycleId, ownerUserId),
+        this.prisma.contentWeekContext.findUnique({
+          where: {
+            contentCycleId_weekNumber: { contentCycleId: cycleId, weekNumber },
+          },
+        }),
+      ]);
+    if (!weekPlan || weekPlan.status !== "draft") {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        message: `Plan week ${weekNumber} before requesting generation.`,
+      });
+    }
+    if (weekPlan.postPlans.length < 3) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: `Week ${weekNumber} has fewer than three planned posts.`,
+      });
+    }
+    if (!editorialRow) {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        message: "Configure the cycle editorial profile before generation.",
+      });
+    }
+    if (!weekContextRow) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: `Week ${weekNumber} context is missing.`,
+      });
+    }
+
+    const referencedMediaIds = new Set(
+      weekPlan.postPlans.flatMap((plan) => {
+        const ids = Array.isArray(plan.selectedMediaIds)
+          ? plan.selectedMediaIds.map(String)
+          : [];
+        return ids;
+      }),
+    );
+    const frozenInput = {
+      week_plan_id: weekPlan.id,
+      content_cycle_id: cycleId,
+      week_number: weekNumber,
+      week_start_date: weekContextRow.weekStartDate.toISOString().slice(0, 10),
+      editorial_profile: toEditorialProfileV2(editorialRow),
+      cta_entries: ctaRows
+        .filter((entry) => entry.active)
+        .map(toCtaLibraryEntryV2),
+      media_entries: mediaRows
+        .filter((entry) => referencedMediaIds.has(entry.id))
+        .map(toMediaLibraryEntryV2),
+      post_plans: weekPlan.postPlans
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((plan) => ({
+          id: plan.id,
+          contract_version: "content-v2",
+          content_week_plan_id: plan.contentWeekPlanId,
+          position: plan.position,
+          purpose: plan.purpose,
+          intended_audience: plan.intendedAudience,
+          channel: plan.channel as never,
+          format: plan.format as never,
+          cta_library_entry_id: plan.ctaLibraryEntryId,
+          owner_instructions: plan.ownerInstructions,
+          visual_direction: plan.visualDirection,
+          selected_media_ids: Array.isArray(plan.selectedMediaIds)
+            ? plan.selectedMediaIds.map(String)
+            : [],
+          plan_state: plan.planState as never,
+          source: plan.source as never,
+          content_item_id: plan.contentItemId,
+          created_at: plan.createdAt.toISOString(),
+          updated_at: plan.updatedAt.toISOString(),
+        })),
+      weekly_claim_id: weekContextRow.weeklyClaimId,
+      frozen_at: new Date().toISOString(),
+    };
+
+    const { pack, created } = await this.packRepository.claimQueuedPackV2({
+      cycleId,
+      weekNumber,
+      weekContextId: weekContextRow.id,
+      weekPlanId: weekPlan.id,
+      frozenInput,
+      jobIntent: { idempotencyKey: dto.idempotency_key },
+    });
+
+    const correlationId = randomUUID();
+    const jobId = `generate-content-v2:${pack.id}`;
+    const durableJobPayload = {
+      contentCycleId: cycleId,
+      weekNumber,
+      contentPackId: pack.id,
+      idempotencyKey: `pack:${pack.id}`,
+      correlationId: `pack:${pack.id}`,
+    };
+    const queuePayload = created
+      ? durableJobPayload
+      : {
+          contentCycleId: cycleId,
+          weekNumber,
+          contentPackId: pack.id,
+          idempotencyKey: dto.idempotency_key,
+          correlationId,
+        };
+    const queueOptions = {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 2000 },
+    };
+    if (!created) {
+      if (
+        pack.status === "queued" &&
+        (!Array.isArray(pack.itemIds) || pack.itemIds.length === 0)
+      ) {
+        await this.contentQueue.add(
+          "generate-content-v2",
+          queuePayload,
+          queueOptions,
+        );
+      }
+      return {
+        content_pack: toContentPackV2(pack),
+        status: "queued",
+        correlation_id: `pack:${pack.id}`,
+      };
+    }
+
+    await this.contentQueue.add(
+      "generate-content-v2",
+      queuePayload,
+      queueOptions,
+    );
+    await this.jobOutbox.markDirectDispatched(jobId);
+
+    return {
+      content_pack: toContentPackV2(pack),
+      status: "queued",
+      correlation_id: correlationId,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -533,7 +723,7 @@ export class ContentV2Service {
       cycle.strategyId,
       cycle.strategyVersion,
     );
-    const planData = toPayload(strategyVersion?.planData ?? {});
+    const planData = toPayloadJson(strategyVersion?.planData ?? {});
     const whyThisWeek = this.buildWhyThisWeek(
       planData,
       cycle.currentWeekNumber,
@@ -737,7 +927,7 @@ export class ContentV2Service {
         };
       }),
       publication_candidate: candidate
-        ? (toPayload(candidate.payload) as never)
+        ? (toPayloadJson(candidate.payload) as never)
         : null,
     };
   }
@@ -901,7 +1091,7 @@ export class ContentV2Service {
     pack: Prisma.ContentPackGetPayload<Record<string, never>>,
   ): ContentPackV2 {
     return {
-      ...toContentPack(pack),
+      ...toContentPackV2(pack),
       contract_version: "content-v2" as const,
       week_plan_id: pack.weekPlanId,
     };
