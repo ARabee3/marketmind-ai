@@ -89,19 +89,22 @@ export async function connectMeta(): Promise<{ pageName: string }> {
 
   return new Promise((resolve, reject) => {
     let settled = false
+    const popupRef = popup
 
-    function done(result: "resolved" | "rejected", value?: unknown) {
+    function done(result: "resolved", value: { pageName: string }): void
+    function done(result: "rejected", value: string): void
+    function done(result: "resolved" | "rejected", value: unknown): void {
       if (settled) return
       settled = true
       clearTimeout(timeoutId)
       clearInterval(closeCheckId)
       window.removeEventListener("message", handler)
       try {
-        popup.close()
+        popupRef.close()
       } catch {
         // Popup may already be closed
       }
-      if (result === "resolved") resolve(value)
+      if (result === "resolved") resolve(value as { pageName: string })
       else reject(new Error(value as string))
     }
 
@@ -112,7 +115,7 @@ export async function connectMeta(): Promise<{ pageName: string }> {
     // Poll for popup close: the start-session cookie lasts 10 minutes, but
     // the popup may be closed by the user before completing OAuth.
     const closeCheckId = setInterval(() => {
-      if (!popup || popup.closed) {
+      if (!popupRef || popupRef.closed) {
         done("rejected", "The Facebook connection was cancelled.")
       }
     }, 500)
@@ -120,10 +123,10 @@ export async function connectMeta(): Promise<{ pageName: string }> {
     const handler = (event: MessageEvent) => {
       if (event.origin !== API_ORIGIN) return
       if (event.data?.type === 'fb-connected') {
-        done("resolved", event.data.payload)
+        done("resolved", event.data.payload as { pageName: string })
       }
       if (event.data?.type === 'fb-connect-error') {
-        done("rejected", event.data.error)
+        done("rejected", event.data.error as string)
       }
     }
     window.addEventListener('message', handler)
