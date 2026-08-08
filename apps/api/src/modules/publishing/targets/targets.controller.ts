@@ -11,28 +11,33 @@ import {
 import { TargetsService } from "./targets.service";
 import {
   ConnectMetaTargetDto,
-  MetaCallbackDto,
+  ReconnectMetaTargetDto,
+  SelectMetaTargetsDto,
   VerifyTargetDto,
 } from "./targets.dto";
+import { MetaConnectionService } from "./meta-connection.service";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { BusinessOwnershipGuard } from "../common/guards/business-ownership.guard";
 
 /**
  * Owner-facing publishing-target routes.
  *
- * P1 (#119 review): the owner browser CANNOT create a CONNECTED target with an
- * arbitrary `credentialRef`. The frozen flow requires the provider OAuth
- * boundary — `meta/connect` proves account ownership and `meta/callback` writes
- * the opaque credential reference — before a row becomes dispatchable. There is
- * NO plain `POST /publishing-targets` create and NO owner-side connection-state
- * mutation; the owner surface is list / get / verify / delete, plus initiating
- * the OAuth boundary. Real Meta OAuth lands in #120/#122 — until then meta/*
- * surfaces a clear 501 instead of fabricating a credential connection.
+ * Issue #175: the owner browser can NEVER create a CONNECTED target with an
+ * arbitrary `credentialRef`. The provider OAuth boundary — `meta/connect`
+ * proves account ownership and the API-owned `meta/callback` writes the
+ * encrypted credential behind an opaque reference — is the ONLY path that
+ * creates dispatchable rows. There is NO plain `POST /publishing-targets`
+ * create and NO owner-side connection-state mutation; the owner surface is
+ * list / get / verify / disconnect / delete, plus the safe connection journey
+ * (connect → callback → pending selection → select → reconnect).
  */
 @Controller("publishing-targets")
 @UseGuards(JwtAuthGuard, BusinessOwnershipGuard)
 export class TargetsController {
-  constructor(private readonly targetsService: TargetsService) {}
+  constructor(
+    private readonly targetsService: TargetsService,
+    private readonly metaConnection: MetaConnectionService,
+  ) {}
 
   @Get()
   list(@Req() req: Record<string, unknown>) {
@@ -49,16 +54,36 @@ export class TargetsController {
     return this.targetsService.getTarget(targetId, user.businessId);
   }
 
-  /** Frozen contract route (PUBLISHING_CONTRACT.md). Ownership-scoped;
-   *  version-conflict guard prevents stale verification results. */
+  /** Issue #175: live provider verification through the vault-backed
+   *  credential. A failed verification becomes a blocked state truthfully. */
   @Post(":targetId/verify")
   verify(
     @Param("targetId") targetId: string,
     @Body() dto: VerifyTargetDto,
     @Req() req: Record<string, unknown>,
   ) {
-    const user = req["user"] as { businessId: string };
-    return this.targetsService.verifyTarget(targetId, user.businessId, dto);
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.verifyTargetLive({
+      targetId,
+      businessId: user.businessId,
+      expectedVersion: dto.expectedTargetVersion,
+      actorUserId: user.id,
+    });
+  }
+
+  /** Issue #175: safe disconnect — cancels scheduled real intents, revokes the
+   *  credential when unused, preserves a non-sensitive audit trail. */
+  @Post(":targetId/disconnect")
+  disconnect(
+    @Param("targetId") targetId: string,
+    @Req() req: Record<string, unknown>,
+  ) {
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.disconnectTarget({
+      targetId,
+      businessId: user.businessId,
+      userId: user.id,
+    });
   }
 
   @Delete(":targetId")
@@ -66,33 +91,78 @@ export class TargetsController {
     @Param("targetId") targetId: string,
     @Req() req: Record<string, unknown>,
   ) {
-    const user = req["user"] as { businessId: string };
-    await this.targetsService.deleteTarget(targetId, user.businessId);
+    const user = req["user"] as { businessId: string; id: string };
+    await this.metaConnection.deleteTarget({
+      targetId,
+      businessId: user.businessId,
+      userId: user.id,
+    });
     return { ok: true };
   }
 
-  /** Frozen provider OAuth boundary — initiate account-ownership proof. */
+  /** Owner-authenticated initiation boundary — returns only the safe
+   *  authorization URL + connection id. */
   @Post("meta/connect")
   connect(@Body() dto: ConnectMetaTargetDto, @Req() req: Record<string, unknown>) {
-    const user = req["user"] as { businessId: string };
-    return this.targetsService.connectMetaTarget(
-      user.businessId,
-      dto.provider,
-      dto.channel,
-    );
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.initiateConnect({
+      businessId: user.businessId,
+      userId: user.id,
+      provider: dto.provider,
+      channel: dto.channel,
+      locale: dto.locale,
+      returnPath: dto.returnPath,
+      fingerprint: dto.fingerprint,
+    });
   }
 
-  /** Frozen provider OAuth boundary — complete the OAuth redirect and create the
-   *  CONNECTED target with the provider-derived credential reference. */
-  @Post("meta/callback")
-  callback(@Body() dto: MetaCallbackDto, @Req() req: Record<string, unknown>) {
-    const user = req["user"] as { businessId: string };
-    return this.targetsService.completeMetaCallback(
-      user.businessId,
-      dto.provider,
-      dto.channel,
-      dto.code,
-      dto.state,
-    );
+  /** Safe pending-account selection metadata (display metadata + blockers —
+   *  never tokens). */
+  @Get("meta/pending/:connectionId")
+  pendingSelection(
+    @Param("connectionId") connectionId: string,
+    @Req() req: Record<string, unknown>,
+  ) {
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.getPendingSelection({
+      businessId: user.businessId,
+      userId: user.id,
+      connectionId,
+      fingerprint: String(req.headers?.["x-connection-fingerprint"] ?? ""),
+    });
+  }
+
+  /** Creates CONNECTED targets only after live capability verification. */
+  @Post("meta/select")
+  select(
+    @Body() dto: SelectMetaTargetsDto,
+    @Req() req: Record<string, unknown>,
+  ) {
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.selectTargets({
+      businessId: user.businessId,
+      userId: user.id,
+      connectionId: dto.connectionId,
+      pageId: dto.pageId,
+      includeInstagram: dto.includeInstagram,
+      fingerprint: dto.fingerprint,
+    });
+  }
+
+  /** Explicit reconnect journey for an existing target. */
+  @Post("meta/reconnect")
+  reconnect(
+    @Body() dto: ReconnectMetaTargetDto,
+    @Req() req: Record<string, unknown>,
+  ) {
+    const user = req["user"] as { businessId: string; id: string };
+    return this.metaConnection.reconnectTarget({
+      businessId: user.businessId,
+      userId: user.id,
+      targetId: dto.targetId,
+      locale: dto.locale,
+      returnPath: dto.returnPath,
+      fingerprint: dto.fingerprint,
+    });
   }
 }

@@ -8,6 +8,19 @@ import type { PublishingIntentDetailView } from "@/lib/api/publishing";
 
 export type PublishingIntentStateKey = PublicationIntentV1["state"];
 
+/** Stable per-browser connection fingerprint (issue #175): bound to the OAuth
+ *  state at connect time and required again at account-selection time, so a
+ *  state minted in one browser cannot be replayed from another. */
+export function getConnectionFingerprint(): string {
+  const KEY = "marketmind.publishing.connection-fingerprint";
+  if (typeof window === "undefined") return "";
+  const existing = window.sessionStorage.getItem(KEY);
+  if (existing) return existing;
+  const created = `fp-${crypto.randomUUID()}`;
+  window.sessionStorage.setItem(KEY, created);
+  return created;
+}
+
 export function latestAttempt(
   detail: PublishingIntentDetailView | null,
 ): PublicationAttemptV1 | null {

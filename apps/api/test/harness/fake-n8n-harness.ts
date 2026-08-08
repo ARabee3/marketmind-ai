@@ -3,15 +3,19 @@
  *
  * Implements §3.4 of IMPLEMENTATION_PLAN_123.md. Executes the REAL node
  * JavaScript from `infra/n8n/workflows/publishing-v1.json` (Check Auth,
- * Validate Envelope Shape, Verify Signature, Real Meta Adapter (static
- * image), Manual Export Archive (manifest), Simulation Adapter
+ * Validate Envelope Shape, Verify Signature, Meta Provider Executor
+ * (server-side), Manual Export Archive (manifest), Simulation Adapter
  * (zero-network), Build Callback Body, Sign Callback Envelope) over a local
  * HTTP loopback — no live n8n instance and no Meta credentials.
  *
- * Truthfulness rules (PUBLISHING_CONTRACT.md / issue #123):
- *   - This harness never resolves `graph.facebook.com`. The Real Meta
- *     Adapter's `https`/`http` transport is a loopback stub that returns the
- *     canned provider response selected via `metaProviderMode`.
+ * Truthfulness rules (PUBLISHING_CONTRACT.md / issue #123 / #175):
+ *   - This harness never resolves `graph.facebook.com`. Since issue #175, the
+ *     REAL "Meta Provider Executor (server-side)" node no longer reads a
+ *     token from its environment — it POSTs only opaque attempt/intent/target
+ *     ids to the API-owned executor. The harness either PROXIES that call to a
+ *     running NestJS app (`executorBaseUrl`) or serves a canned sanitized
+ *     `publication-result-v1` from the fake transport selected via
+ *     `metaProviderMode`.
  *   - Callbacks POSTed to NestJS are signed by the REAL "Sign Callback
  *     Envelope" node code with the pinned fixture secret, so the API's HMAC
  *     verification runs unchanged.
@@ -35,12 +39,16 @@
  *                       API's safeHttp times out (ETIMEDOUT/ECONNABORTED →
  *                       AMBIGUOUS → UNKNOWN + STUCK_DISPATCH_TIMEOUT sentinel).
  *
- * Fake Meta provider modes (`metaProviderMode`, used only for mode "real"):
- *   - "success"       — 200 `{ id, post_id }` → adapter claims PUBLISHED.
- *   - "rate-limit"    — 429 `{ error: { code: 4 } }` → PUBLISHING_PROVIDER_RATE_LIMITED.
- *   - "auth-expired"  — 401 `{ error: { code: 190 } }` → PUBLISHING_TARGET_UNAUTHORIZED.
- *   - "network-error" — ECONNRESET on the POST → adapter reports UNKNOWN
- *                       (PUBLISHING_PROVIDER_OUTCOME_UNKNOWN).
+ * Fake Meta provider modes (`metaProviderMode`): when `executorBaseUrl` is
+ * NOT set, the fake transport answers the executor call itself with the
+ * sanitized result that the API-owned executor would produce:
+ *   - "success"       — published with remote ids (post-123).
+ *   - "rate-limit"    — failed PUBLISHING_PROVIDER_RATE_LIMITED (retryable).
+ *   - "auth-expired"  — failed PUBLISHING_TARGET_UNAUTHORIZED.
+ *   - "network-error" — unknown PUBLISHING_PROVIDER_OUTCOME_UNKNOWN.
+ * When `executorBaseUrl` IS set (integration E2E), the transport proxies the
+ * executor POST to the real app, which runs its vault-backed executor against
+ * a mocked Graph client.
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -107,12 +115,19 @@ export interface FakeN8nHarnessOptions {
   signingKeyId?: string;
   /** Bearer token the API sends as `Authorization` (PUBLISHING_N8N_AUTH_TOKEN). */
   authToken?: string;
-  /** Internal service token the adapter uses for asset retrieval. */
+  /** Internal service token the adapter uses for the executor call. */
   internalToken?: string;
-  /** META_TEST_PAGE_ID env for the adapter. Empty disables the page-id check. */
-  metaPageId?: string;
-  /** META_TEST_PAGE_ACCESS_TOKEN env for the adapter. */
-  metaAccessToken?: string;
+  /**
+   * Base URL of a RUNNING NestJS API (e.g. the E2E app origin). When set AND
+   * `proxyExecutorToApp` is true, the fake transport PROXIES the real-mode
+   * adapter's executor POST to the app (the app's vault-backed executor +
+   * mocked Graph client answer). Otherwise the transport serves canned
+   * sanitized results itself.
+   */
+  executorBaseUrl?: string;
+  /** When true, executor POSTs are proxied to `executorBaseUrl` instead of
+   *  being answered by the harness's canned transport. */
+  proxyExecutorToApp?: boolean;
   /** Bytes served for the adapter's asset-retrieval GET. Defaults to the
    *  committed demo asset (or deterministic bytes if the file is absent). */
   assetBytes?: Buffer;
@@ -180,61 +195,115 @@ async function runCodeNode(
   return item as { json: Record<string, any>; binary?: unknown };
 }
 
-// ── Fake https/http transport for the Real Meta Adapter ─────────────────────
+// ── Fake https/http transport for the Meta Provider Executor node ───────────
 interface PlannedResponse {
   status: number;
   body: Buffer;
   emitError?: boolean;
 }
 
+/** Canned sanitized executor result the harness serves when no app is running
+ *  (mirrors what the API-owned executor would return for each provider mode). */
+function fakeExecutorResult(
+  mode: FakeMetaProviderMode,
+  body: { attempt_id?: string; intent_id?: string; intent_version?: number },
+): PlannedResponse {
+  const base = {
+    contract_version: "publication-result-v1",
+    result_id: crypto.randomUUID(),
+    attempt_id: body.attempt_id ?? "",
+    intent_id: body.intent_id ?? "",
+    intent_version: body.intent_version ?? 1,
+    occurred_at: new Date().toISOString(),
+    mode: "real",
+    provider: "meta",
+    remote_publication_id: null,
+    remote_url: null,
+    export_artifact_id: null,
+    simulation_reference_id: null,
+    simulation_label: null,
+    error_code: null,
+    retryable: false,
+    reconciliation_required: false,
+  };
+  switch (mode) {
+    case "rate-limit":
+      return {
+        status: 200,
+        body: Buffer.from(
+          JSON.stringify({
+            result: {
+              ...base,
+              outcome: "failed",
+              error_code: "PUBLISHING_PROVIDER_RATE_LIMITED",
+              retryable: true,
+            },
+          }),
+          "utf8",
+        ),
+      };
+    case "auth-expired":
+      return {
+        status: 200,
+        body: Buffer.from(
+          JSON.stringify({
+            result: {
+              ...base,
+              outcome: "failed",
+              error_code: "PUBLISHING_TARGET_UNAUTHORIZED",
+              retryable: false,
+            },
+          }),
+          "utf8",
+        ),
+      };
+    case "network-error":
+      // The executor cannot prove whether the provider accepted the request —
+      // the outcome is ambiguous and must never be blind-retried.
+      return {
+        status: 200,
+        body: Buffer.from(
+          JSON.stringify({
+            result: {
+              ...base,
+              outcome: "unknown",
+              error_code: "PUBLISHING_PROVIDER_OUTCOME_UNKNOWN",
+              reconciliation_required: true,
+            },
+          }),
+          "utf8",
+        ),
+      };
+    case "success":
+    default:
+      return {
+        status: 200,
+        body: Buffer.from(
+          JSON.stringify({
+            result: {
+              ...base,
+              outcome: "published",
+              remote_publication_id: "post-123",
+              remote_url: "https://facebook.example/post-123",
+            },
+          }),
+          "utf8",
+        ),
+      };
+  }
+}
+
 function createAdapterTransport(opts: {
   metaProviderMode: FakeMetaProviderMode;
   assetBytes: Buffer;
+  /** When set AND proxyExecutorToApp, executor POSTs are proxied to the
+   *  running NestJS app. */
+  executorBaseUrl?: string;
+  proxyExecutorToApp?: boolean;
+  internalToken?: string;
 }) {
-  let graphCalls = 0;
-
-  const planMetaResponse = (): PlannedResponse => {
-    switch (opts.metaProviderMode) {
-      case "rate-limit":
-        return {
-          status: 429,
-          body: Buffer.from(
-            JSON.stringify({ error: { code: 4, message: "simulated rate limit" } }),
-            "utf8",
-          ),
-        };
-      case "auth-expired":
-        return {
-          status: 401,
-          body: Buffer.from(
-            JSON.stringify({ error: { code: 190, message: "simulated expired token" } }),
-            "utf8",
-          ),
-        };
-      case "network-error":
-        // Connection reset on the provider POST — the adapter cannot prove
-        // whether the request was accepted and must report UNKNOWN.
-        return { status: 0, body: Buffer.alloc(0), emitError: true };
-      case "success":
-      default:
-        if (graphCalls === 0) {
-          return {
-            status: 200,
-            body: Buffer.from(
-              JSON.stringify({ id: "photo-123", post_id: "post-123" }),
-              "utf8",
-            ),
-          };
-        }
-        return {
-          status: 200,
-          body: Buffer.from(
-            JSON.stringify({ link: "https://facebook.example/post-123" }),
-            "utf8",
-          ),
-        };
-    }
-  };
+  const executorUrl = (opts.executorBaseUrl ?? "").replace(/\/$/, "");
+  const executorHost = executorUrl ? new URL(executorUrl).host : null;
 
   const request = (
     url: string,
@@ -252,12 +321,69 @@ function createAdapterTransport(opts: {
     };
     req.setTimeout = () => req; // adapter registers a timeout handler; no-op here
     req.destroy = (error) => req.emit("error", error);
-    req.end = () => {
+    let payloadBuffer: Buffer | null = null;
+    req.end = (payload?: Buffer) => {
+      payloadBuffer = payload ?? null;
       queueMicrotask(() => {
         let planned: PlannedResponse;
-        if (url.includes("graph.facebook.com")) {
-          planned = planMetaResponse();
-          graphCalls += 1;
+        const urlObj = safeUrl(url);
+        const isExecutorCall =
+          urlObj !== null && urlObj.pathname.endsWith("/internal/v1/publishing/execute-meta");
+
+        if (
+          isExecutorCall &&
+          opts.proxyExecutorToApp === true &&
+          executorHost &&
+          urlObj!.host === executorHost
+        ) {
+          // Proxy to the running NestJS app: the vault-backed executor answers
+          // with the real (mocked-Graph) normalized result.
+          const payload = payloadBuffer ?? Buffer.alloc(0);
+          const proxy = httpRequestRaw(urlObj!, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-publishing-internal-token": opts.internalToken ?? "",
+              "content-length": String(payload.length),
+            },
+          });
+          const chunks: Buffer[] = [];
+          proxy.on("response", (res: import("node:http").IncomingMessage) => {
+            res.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+            res.on("end", () => {
+              const response = new EventEmitter() as EventEmitter & {
+                statusCode: number;
+                headers: object;
+              };
+              response.statusCode = res.statusCode ?? 500;
+              response.headers = res.headers;
+              onResponse(response);
+              const body = Buffer.concat(chunks);
+              if (body.length > 0) response.emit("data", body);
+              response.emit("end");
+            });
+          });
+          proxy.on("error", () => {
+            const err = new Error("executor proxy failed");
+            (err as NodeJS.ErrnoException).code = "ECONNRESET";
+            req.emit("error", err);
+          });
+          proxy.end(payload);
+          return;
+        }
+
+        if (isExecutorCall) {
+          // No app running (harness unit spec): serve the canned sanitized
+          // result the API-owned executor would produce for this mode.
+          let body: { attempt_id?: string; intent_id?: string } = {};
+          if (payloadBuffer && payloadBuffer.length > 0) {
+            try {
+              body = JSON.parse(payloadBuffer.toString("utf8"));
+            } catch {
+              body = {};
+            }
+          }
+          planned = fakeExecutorResult(opts.metaProviderMode, body);
         } else {
           // Asset retrieval (retrieval_url) — always serves the configured
           // asset bytes so the REAL adapter's sha256 checksum matches.
@@ -287,8 +413,24 @@ function createAdapterTransport(opts: {
 
   return {
     request,
-    graphCalls: () => graphCalls,
   };
+}
+
+function safeUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+function httpRequestRaw(
+  url: URL,
+  options: { method: string; headers: Record<string, string> },
+): import("node:http").ClientRequest {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const http = require("node:http") as typeof import("node:http");
+  return http.request(url, options);
 }
 
 // ── Harness ─────────────────────────────────────────────────────────────────
@@ -313,8 +455,8 @@ export async function startFakeN8n(
   const signingKeyId = options.signingKeyId ?? FIXTURE_SIGNING_KEY_ID;
   const authToken = options.authToken ?? "mm-test-n8n-bearer";
   const internalToken = options.internalToken ?? "mm-test-internal-token";
-  const metaPageId = options.metaPageId ?? "";
-  const metaAccessToken = options.metaAccessToken ?? "mm-test-meta-page-token";
+  const executorBaseUrl = options.executorBaseUrl ?? "http://127.0.0.1:9";
+  const proxyExecutorToApp = options.proxyExecutorToApp ?? false;
   const assetBytes = options.assetBytes ?? loadDefaultAssetBytes();
 
   let webhookMode: FakeN8nWebhookMode = options.webhookMode ?? "success";
@@ -402,8 +544,7 @@ export async function startFakeN8n(
     try {
       const adapterEnv: Record<string, string> = {
         PUBLISHING_INTERNAL_SERVICE_TOKEN: internalToken,
-        META_TEST_PAGE_ACCESS_TOKEN: metaAccessToken,
-        META_TEST_PAGE_ID: metaPageId,
+        PUBLISHING_CALLBACK_BASE_URL: executorBaseUrl,
       };
 
       let adapterOutput: { json: Record<string, any> };
@@ -412,16 +553,19 @@ export async function startFakeN8n(
           const transport = createAdapterTransport({
             metaProviderMode,
             assetBytes,
+            executorBaseUrl,
+            proxyExecutorToApp,
+            internalToken,
           });
           const adapterRequire = (name: string): unknown => {
             if (name === "crypto") return crypto;
             if (name === "https" || name === "http") return transport;
             throw new Error(
-              `fake-n8n-harness: unexpected require("${name}") in Real Meta Adapter`,
+              `fake-n8n-harness: unexpected require("${name}") in Meta Provider Executor node`,
             );
           };
           adapterOutput = await runCodeNode(
-            "Real Meta Adapter (static image)",
+            "Meta Provider Executor (server-side)",
             { envelope },
             adapterEnv,
             adapterRequire,

@@ -56,6 +56,7 @@ import {
 // load time, BEFORE the env fallbacks below can run — which is exactly the
 // failure CI hit (fresh worker process, no `.env.test`). It is imported
 // lazily inside beforeAll, after the fallbacks are in place.
+import { MetaGraphClientError } from "../src/modules/publishing/meta/meta-graph.client";
 import {
   startFakeN8n,
   type FakeN8nHarnessHandle,
@@ -85,8 +86,18 @@ process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN ??= "publishing-e2e-internal-token
 process.env.PUBLISHING_N8N_SIGNING_SECRET ??= "publishing-e2e-signing-secret";
 process.env.PUBLISHING_N8N_SIGNING_KID ??= "publishing-e2e-signing-kid";
 process.env.PUBLISHING_N8N_AUTH_TOKEN ??= "publishing-e2e-n8n-auth-token";
-process.env.META_TEST_PAGE_ID ??= "page_ci_test_123";
-process.env.META_TEST_PAGE_ACCESS_TOKEN ??= "EAA-test-token-publishing-e2e";
+// Issue #175 credential vault + Meta app configuration (static deployment
+// secrets — never a per-business Page token).
+process.env.PUBLISHING_VAULT_KEY ??=
+  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+process.env.PUBLISHING_VAULT_KEY_VERSION ??= "v1";
+process.env.PUBLISHING_MEDIA_FETCH_SECRET ??= "publishing-e2e-media-fetch-secret";
+process.env.PUBLISHING_MEDIA_FETCH_BASE_URL ??= "http://127.0.0.1:3101";
+process.env.META_APP_ID ??= "publishing-e2e-meta-app-id";
+process.env.META_APP_SECRET ??= "publishing-e2e-meta-app-secret";
+process.env.META_REDIRECT_URI ??=
+  "http://127.0.0.1:3101/api/v1/publishing-targets/meta/callback";
+process.env.META_GRAPH_BASE_URL ??= "https://graph.facebook.com";
 
 const API_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(__dirname, "../../..");
@@ -95,6 +106,121 @@ const APP_PORT = 3101;
 const APP_ORIGIN = `http://127.0.0.1:${APP_PORT}`;
 const OWNER_EMAIL = "owner-e2e-123@marketmind.test";
 const TARGET_ID = "11111111-2222-4111-8111-111111111111";
+const E2E_PAGE_ID = "page_ci_test_123";
+
+/**
+ * Issue #175: mode-switchable fake Meta Graph client. The API-owned provider
+ * executor runs server-side, so the E2E stubs the provider network (the same
+ * guarantee the old harness transport gave the n8n adapter): the workflow, the
+ * executor, the vault, and the callback chain stay REAL.
+ */
+type FakeMetaMode = "success" | "rate-limit" | "auth-expired" | "network-error";
+
+const fakeMetaClient = {
+  mode: "success" as FakeMetaMode,
+  setMode(mode: FakeMetaMode): void {
+    this.mode = mode;
+  },
+  isConfigured(): boolean {
+    return true;
+  },
+  buildAuthorizationUrl(state: string): string {
+    return `https://graph.facebook.com/v21.0/dialog/oauth?state=${encodeURIComponent(state)}`;
+  },
+  async exchangeCodeForLongLivedUserToken(code: string) {
+    if (code === "expired-code") throw this.errorFor("auth-expired");
+    return {
+      accessToken: "EAA-e2e-long-lived-user-token",
+      expiresAt: new Date(Date.now() + 60 * 60 * 24 * 60 * 1000),
+      userId: "e2e-fb-user-1",
+      userName: "E2E Meta User",
+    };
+  },
+  async fetchGrantedPermissions() {
+    return [
+      { permission: "pages_show_list", status: "granted" },
+      { permission: "pages_manage_posts", status: "granted" },
+      { permission: "pages_read_engagement", status: "granted" },
+      { permission: "instagram_basic", status: "granted" },
+      { permission: "instagram_content_publish", status: "granted" },
+    ];
+  },
+  async listManageablePages() {
+    return [
+      {
+        pageId: E2E_PAGE_ID,
+        name: "E2E Meta Page",
+        accessToken: "EAA-e2e-page-token",
+        instagramBusinessAccount: {
+          id: "ig_business_e2e_1",
+          username: "e2e.business",
+          name: "E2E Business IG",
+        },
+      },
+    ];
+  },
+  async verifyPageAccess(_pageToken: string, pageId: string) {
+    if (this.mode === "auth-expired") throw this.errorFor("auth-expired");
+    if (this.mode === "network-error") throw this.errorFor("network-error");
+    return { name: `Page ${pageId}` };
+  },
+  async verifyInstagramAccess(_pageToken: string, _igBusinessId: string) {
+    if (this.mode === "auth-expired") throw this.errorFor("auth-expired");
+    return { username: "e2e.business" };
+  },
+  async publishFacebookPhoto(_params: {
+    pageToken: string;
+    pageId: string;
+    imageUrl: string;
+    caption: string;
+  }) {
+    if (this.mode === "rate-limit") throw this.errorFor("rate-limit");
+    if (this.mode === "auth-expired") throw this.errorFor("auth-expired");
+    if (this.mode === "network-error") throw this.errorFor("network-error");
+    return {
+      remotePublicationId: "post-123",
+      remoteUrl: "https://facebook.example/post-123",
+    };
+  },
+  async publishInstagramPhoto(_params: {
+    pageToken: string;
+    igBusinessId: string;
+    imageUrl: string;
+    caption: string;
+  }) {
+    if (this.mode === "rate-limit") throw this.errorFor("rate-limit");
+    if (this.mode === "auth-expired") throw this.errorFor("auth-expired");
+    if (this.mode === "network-error") throw this.errorFor("network-error");
+    return {
+      remotePublicationId: "ig-media-123",
+      remoteUrl: null,
+    };
+  },
+  errorFor(mode: FakeMetaMode): unknown {
+    switch (mode) {
+      case "rate-limit":
+        return new MetaGraphClientError({
+          status: 429,
+          code: 4,
+          message: "simulated rate limit",
+        });
+      case "auth-expired":
+        return new MetaGraphClientError({
+          status: 401,
+          code: 190,
+          message: "simulated expired token",
+        });
+      case "network-error":
+        return new MetaGraphClientError({
+          status: 0,
+          code: 0,
+          message: "simulated connection reset",
+        });
+      default:
+        return new Error("unexpected fake mode");
+    }
+  },
+};
 const CANDIDATE_EVENT_PATH = path.join(
   REPO_ROOT,
   "packages/contracts/examples/publication-candidate-created-event.example.json",
@@ -181,6 +307,7 @@ function cairoLocalIn(secondsAhead: number): string {
 interface ApiResponse {
   status: number;
   body: any;
+  location: string | null;
 }
 
 async function api(
@@ -190,6 +317,8 @@ async function api(
     body?: unknown;
     token?: string;
     internalToken?: string;
+    fingerprint?: string;
+    redirect?: "manual";
   } = {},
 ): Promise<ApiResponse> {
   const headers: Record<string, string> = {};
@@ -200,10 +329,14 @@ async function api(
   if (opts.internalToken) {
     headers["x-publishing-internal-token"] = opts.internalToken;
   }
+  if (opts.fingerprint) {
+    headers["x-connection-fingerprint"] = opts.fingerprint;
+  }
   const response = await fetch(`${APP_ORIGIN}${pathname}`, {
     method: opts.method ?? "GET",
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    redirect: opts.redirect,
   });
   const text = await response.text();
   let body: any = null;
@@ -212,7 +345,8 @@ async function api(
   } catch {
     body = text;
   }
-  return { status: response.status, body };
+  const location = response.headers.get("location");
+  return { status: response.status, body, location };
 }
 
 async function waitFor(
@@ -358,6 +492,15 @@ function signingKeyIdFor(): string {
   return testSigningKeyId;
 }
 
+/**
+ * Switches BOTH provider stubs at once: the harness's transport (used only
+ * when no app answers) and the app's fake Meta Graph client (the real path in
+ * these E2Es, since the executor runs server-side).
+ */
+function setProviderMode(mode: "success" | "rate-limit" | "auth-expired" | "network-error"): void {
+  fakeMetaClient.setMode(mode);
+}
+
 describe("Publishing integration (issue #123, real workflow JS)", () => {
   let app: INestApplication;
   let harness: FakeN8nHarnessHandle;
@@ -398,14 +541,15 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     await redis.flushdb();
 
     // 3) Start the fake-n8n harness with the SAME signing secret the API uses.
+    //    Real-mode executor calls are proxied to THIS app instance.
     harness = await startFakeN8n({
       port: 0,
       signingSecret,
       signingKeyId,
       authToken: process.env.PUBLISHING_N8N_AUTH_TOKEN!,
       internalToken,
-      metaPageId: process.env.META_TEST_PAGE_ID!,
-      metaAccessToken: process.env.META_TEST_PAGE_ACCESS_TOKEN!,
+      executorBaseUrl: APP_ORIGIN,
+      proxyExecutorToApp: true,
     });
 
     // 4) Point the app at the harness + advertise loopback callback URL.
@@ -416,10 +560,20 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     // 5) Boot the real app module (worker included). Lazy import: the env
     // fallbacks at module scope must be in place before app.module.ts is
     // evaluated, or envSchema throws at import time.
+    // Issue #175: the API-owned Meta provider executor talks to the Graph API
+    // server-side, so the E2E overrides the Graph client with a mode-switchable
+    // fake (graph.facebook.com never resolves). The n8n workflow + executor
+    // boundary remain REAL; only the provider network is stubbed.
     const { AppModule } = await import("../src/app.module");
+    const { MetaGraphClient } = await import(
+      "../src/modules/publishing/meta/meta-graph.client"
+    );
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MetaGraphClient)
+      .useValue(fakeMetaClient)
+      .compile();
     app = moduleRef.createNestApplication();
     // Mirror main.ts exactly: global prefix + validation pipe.
     app.setGlobalPrefix("api/v1", { exclude: ["internal/*splat"] });
@@ -453,15 +607,40 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       },
     });
     businessId = business.id;
+
+    // Issue #175: a real-mode target's credentialRef MUST point at an
+    // encrypted vault record — never an env var. Seed one through the app's
+    // own vault service so the executor path is exactly the production one.
+    const { CredentialVaultService } = await import(
+      "../src/modules/publishing/credentials/credential-vault.service"
+    );
+    const vault = app.get(CredentialVaultService);
+    const encrypted = vault.encrypt(
+      JSON.stringify({
+        type: "page",
+        token: "EAA-e2e-vault-backed-page-token",
+        pageId: E2E_PAGE_ID,
+      }),
+    );
+    const vaultRecord = await prisma.publishingCredential.create({
+      data: {
+        businessId,
+        provider: "META",
+        kind: "page",
+        keyVersion: encrypted.keyVersion,
+        ciphertext: encrypted.ciphertext,
+        providerAccountId: E2E_PAGE_ID,
+      },
+    });
     await prisma.publishingTarget.upsert({
       where: { id: TARGET_ID },
       update: {
         businessId,
         provider: "META",
         channel: "facebook",
-        externalAccountId: process.env.META_TEST_PAGE_ID!,
+        externalAccountId: E2E_PAGE_ID,
         displayName: "E2E Meta Page",
-        credentialRef: "env:META_TEST_PAGE_ACCESS_TOKEN",
+        credentialRef: vaultRecord.id,
         connectionState: "CONNECTED",
         capabilities: ["static_image"],
         lastVerifiedAt: new Date(),
@@ -471,9 +650,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         businessId,
         provider: "META",
         channel: "facebook",
-        externalAccountId: process.env.META_TEST_PAGE_ID!,
+        externalAccountId: E2E_PAGE_ID,
         displayName: "E2E Meta Page",
-        credentialRef: "env:META_TEST_PAGE_ACCESS_TOKEN",
+        credentialRef: vaultRecord.id,
         connectionState: "CONNECTED",
         capabilities: ["static_image"],
         lastVerifiedAt: new Date(),
@@ -663,7 +842,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   // ── Suite B — provider legs (real adapter against the fake transport) ─────
   describe("Suite B: provider outcome legs", () => {
     it("maps a Meta 429 to FAILED + PUBLISHING_PROVIDER_RATE_LIMITED (retryable)", async () => {
-      harness.setMetaProviderMode("rate-limit");
+      setProviderMode("rate-limit");
       const { intentId, attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -682,7 +861,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("maps a Meta 401 to FAILED + PUBLISHING_TARGET_UNAUTHORIZED (deterministic)", async () => {
-      harness.setMetaProviderMode("auth-expired");
+      setProviderMode("auth-expired");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -697,7 +876,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("maps a Meta connection reset to UNKNOWN + ACTION_REQUIRED (never blind retry)", async () => {
-      harness.setMetaProviderMode("network-error");
+      setProviderMode("network-error");
       const { intentId, attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -716,7 +895,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("accepts an identical replay fired concurrently with no double-write (§3.1 acceptance)", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -955,7 +1134,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 60_000);
 
     it("blocks publication of a revoked candidate (CANDIDATE_REVOKED)", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1076,10 +1255,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // Suite F leaves the webhook in "timeout" mode — every journey here
       // needs a responsive harness with a successful provider.
       harness.setWebhookMode("success");
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
     });
     it("C1: duplicate BullMQ job resolves to the same attempt with one n8n call", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1161,7 +1340,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("C3: a conflicting subsequent callback is rejected and cannot mutate the result", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1208,7 +1387,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("C4: callback signed for attempt A cannot be posted to attempt B's URL", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1227,7 +1406,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("C5: a callback with an out-of-window timestamp is rejected", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1250,7 +1429,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("C6: a callback with a corrupted signature is rejected", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1271,7 +1450,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("C7: the partial unique index enforces one PUBLISHED result per intent", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { intentId, attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1325,10 +1504,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   describe("Suite H: reschedule invalidation & pre-call guards", () => {
     beforeEach(() => {
       harness.setWebhookMode("success");
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
     });
     it("H1: reschedule invalidates the prior approval and a stale v1 job cannot dispatch", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1447,7 +1626,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("H2: expired target discovered at dispatch blocks the provider call", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1524,7 +1703,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("H3: asset mismatch fails the attempt BEFORE any provider call", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidateWithAssetMismatch(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1592,7 +1771,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("H4: candidate revoked after approval cascade-cancels the intent before dispatch", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1693,7 +1872,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     }, 120_000);
 
     it("H5: a candidate revoked behind the ingest path is still blocked at dispatch", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
       await api(
         "/internal/v1/publishing/candidates/ingest",
@@ -1774,10 +1953,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   describe("Suite I: simulation label & tenant isolation negatives", () => {
     beforeEach(() => {
       harness.setWebhookMode("success");
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
     });
     it("I1: rejects a callback claiming SIMULATED without the SIMULATION label", async () => {
-      harness.setMetaProviderMode("success");
+      setProviderMode("success");
       const { attempt } = await publishJourney(
         buildCandidatePayload(businessId),
         { mode: "REAL", scheduleAheadSeconds: 10 },
@@ -1873,5 +2052,244 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       expect(foreignDownload.status).toBe(403);
       expect(foreignDownload.body.message).toContain("PUBLISHING_FORBIDDEN");
     }, 60_000);
+  });
+
+  // ── Suite J — Meta connection journey (issue #175) ─────────────────────────
+  // The full OAuth flow over HTTP: connect (authorization URL only) → API-owned
+  // GET callback (state consumption + server-side code exchange + encrypted
+  // user credential) → safe pending selection → select (vault-backed targets)
+  // → disconnect (intent cancellation + credential revocation). The fake Meta
+  // Graph client (overrideProvider) stands in for graph.facebook.com; the
+  // vault, state store, and DB constraints are REAL.
+  describe("Suite J: Meta connection journey (issue #175)", () => {
+    const fingerprint = "fp-e2e-connection-journey";
+    let state: string;
+    let stateId: string;
+    let connectionId: string;
+
+    it("J1: connect returns ONLY a connection id + authorization URL", async () => {
+      const response = await api("/api/v1/publishing-targets/meta/connect", {
+        method: "POST",
+        token: ownerToken,
+        body: {
+          provider: "META",
+          channel: "facebook",
+          locale: "ar",
+          returnPath: "/publishing",
+          fingerprint,
+        },
+      });
+      expect(response.status).toBe(201);
+      expect(response.body.connection_id).toBeTruthy();
+      expect(response.body.authorization_url).toContain("dialog/oauth");
+      expect(response.body.authorization_url).toContain("state=");
+      // No credential material may travel on this surface.
+      expect(JSON.stringify(response.body)).not.toMatch(
+        /token|secret|credentialRef|ciphertext/i,
+      );
+      state = new URL(response.body.authorization_url).searchParams.get("state")!;
+      stateId = response.body.connection_id;
+    });
+
+    it("J2: the API-owned callback validates state, exchanges the code server-side, and redirects with only a result code + connection id", async () => {
+      const callback = await api(
+        `/api/v1/publishing-targets/meta/callback?code=test-auth-code&state=${encodeURIComponent(state)}`,
+        { redirect: "manual" },
+      );
+      expect(callback.status).toBe(302);
+      const location = new URL(callback.location!);
+      expect(location.pathname).toContain("/publishing/meta/callback");
+      expect(location.searchParams.get("meta_result")).toBe("success");
+      connectionId = location.searchParams.get("meta_connection")!;
+      expect(connectionId).toBeTruthy();
+      // The authorization code and any token are NEVER echoed.
+      expect(callback.location).not.toContain("test-auth-code");
+      expect(callback.location).not.toMatch(/EAA-|access_token/i);
+
+      // The state is single-use: a replay redirects expired without exchange.
+      const replay = await api(
+        `/api/v1/publishing-targets/meta/callback?code=test-auth-code&state=${encodeURIComponent(state)}`,
+        { redirect: "manual" },
+      );
+      expect(replay.status).toBe(302);
+      expect(replay.location).toContain("meta_result=expired");
+
+      // The authorizing credential is encrypted in the vault — never plaintext.
+      const credentials = await prisma.publishingCredential.findMany({
+        where: { businessId },
+      });
+      expect(credentials.some((c) => c.kind === "user")).toBe(true);
+      for (const record of credentials) {
+        expect(record.ciphertext).not.toContain("EAA-");
+        expect(record.ciphertext).not.toContain("test-auth-code");
+      }
+    });
+
+    it("J3: pending selection returns safe display metadata + blockers — never tokens", async () => {
+      const pending = await api(
+        `/api/v1/publishing-targets/meta/pending/${connectionId}`,
+        { token: ownerToken, fingerprint },
+      );
+      expect(pending.status).toBe(200);
+      expect(pending.body.connection_id).toBe(connectionId);
+      expect(pending.body.options).toHaveLength(1);
+      const option = pending.body.options[0];
+      expect(option.page).toMatchObject({
+        channel: "facebook",
+        account_id: E2E_PAGE_ID,
+        display_name: "E2E Meta Page",
+        capability_status: "supported",
+        blockers: [],
+      });
+      expect(option.instagram).toMatchObject({
+        channel: "instagram",
+        account_id: "ig_business_e2e_1",
+        capability_status: "supported",
+      });
+      expect(JSON.stringify(pending.body)).not.toMatch(
+        /EAA-|access_token|credentialRef|ciphertext/i,
+      );
+    });
+
+    it("J4: selection creates CONNECTED targets with vault credentialRefs only", async () => {
+      const selected = await api("/api/v1/publishing-targets/meta/select", {
+        method: "POST",
+        token: ownerToken,
+        body: {
+          connectionId,
+          pageId: E2E_PAGE_ID,
+          includeInstagram: true,
+          fingerprint,
+        },
+      });
+      expect(selected.status).toBe(201);
+      const targets = selected.body;
+      expect(targets).toHaveLength(2);
+      const fb = targets.find((t: any) => t.channel === "facebook");
+      const ig = targets.find((t: any) => t.channel === "instagram");
+      expect(fb).toMatchObject({
+        connectionState: "CONNECTED",
+        externalAccountId: E2E_PAGE_ID,
+      });
+      expect(ig).toMatchObject({
+        connectionState: "CONNECTED",
+        externalAccountId: "ig_business_e2e_1",
+      });
+      // The browser-safe projection must never serialize credentialRef.
+      expect(JSON.stringify(targets)).not.toContain("credentialRef");
+      expect(JSON.stringify(targets)).not.toMatch(/EAA-|ciphertext/i);
+
+      // Vault rows exist and are encrypted; targets reference them opaquely.
+      const stored = await prisma.publishingTarget.findMany({
+        where: { businessId },
+      });
+      for (const target of stored) {
+        const record = await prisma.publishingCredential.findUnique({
+          where: { id: target.credentialRef },
+        });
+        expect(record).toBeTruthy();
+        expect(record!.ciphertext).not.toContain("EAA-");
+      }
+
+      // Duplicate connection is blocked by the per-business uniqueness rule.
+      const duplicate = await api("/api/v1/publishing-targets/meta/select", {
+        method: "POST",
+        token: ownerToken,
+        body: {
+          connectionId,
+          pageId: E2E_PAGE_ID,
+          includeInstagram: false,
+          fingerprint,
+        },
+      });
+      expect(duplicate.status).toBe(409);
+    });
+
+    it("J5: disconnect cancels scheduled real intents and revokes the credential", async () => {
+      // Schedule a real intent against the freshly connected page target.
+      const candidate = buildCandidatePayload(businessId);
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
+      const create = await api("/api/v1/publication-intents", {
+        method: "POST",
+        token: ownerToken,
+        body: {
+          candidateId: candidate.candidate_id,
+          mode: "REAL",
+          idempotencyKey: `create-${uuid()}`,
+        },
+      });
+      expect(create.status).toBe(201);
+      const intentId = create.body.id;
+      const targets = await prisma.publishingTarget.findMany({
+        where: { businessId, channel: "facebook" },
+      });
+      const targetId = targets[0].id;
+      const targetVersion = targets[0].version;
+      const igSibling = await prisma.publishingTarget.findFirst({
+        where: { businessId, channel: "instagram" },
+      });
+      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
+        method: "PUT",
+        token: ownerToken,
+        body: {
+          scheduledLocalAt: cairoLocalIn(3600),
+          timezone: "Africa/Cairo",
+          targetId,
+          currentVersion: 1,
+          idempotencyKey: `schedule-${uuid()}`,
+        },
+      });
+      expect(schedule.status).toBe(200);
+
+      const disconnect = await api(
+        `/api/v1/publishing-targets/${targetId}/disconnect`,
+        { method: "POST", token: ownerToken },
+      );
+      expect(disconnect.status).toBe(201);
+      expect(disconnect.body.connectionState).toBe("REVOKED");
+
+      const intent = await prisma.publishingIntent.findUniqueOrThrow({
+        where: { id: intentId },
+      });
+      expect(intent.status).toBe("CANCELLED");
+      expect(intent.targetId).toBe(targetId);
+
+      // The facebook credential is gone (no other target uses it), while the
+      // Instagram sibling keeps its own credential — disconnect is per-target.
+      const fbRow = await prisma.publishingTarget.findUniqueOrThrow({
+        where: { id: targetId },
+      });
+      expect(fbRow.connectionState).toBe("REVOKED");
+      const fbCredential = await prisma.publishingCredential.findUnique({
+        where: { id: fbRow.credentialRef },
+      });
+      expect(fbCredential).toBeNull();
+      const igRow = await prisma.publishingTarget.findUniqueOrThrow({
+        where: { id: igSibling!.id },
+      });
+      expect(igRow.connectionState).toBe("CONNECTED");
+      const igCredential = await prisma.publishingCredential.findUnique({
+        where: { id: igRow.credentialRef },
+      });
+      expect(igCredential).toBeTruthy();
+
+      // The target projection never exposes credentialRef.
+      expect(disconnect.body.credentialRef).toBeUndefined();
+      void targetVersion;
+    }, 60_000);
+
+    it("J6: cross-tenant access to a connection state is rejected", async () => {
+      const response = await api(
+        `/api/v1/publishing-targets/meta/pending/${connectionId}`,
+        { token: ownerToken, fingerprint: "fp-someone-else" },
+      );
+      // A state minted in one browser cannot be driven from another: the
+      // fingerprint binding fails closed with 403.
+      expect(response.status).toBe(403);
+    });
   });
 });
