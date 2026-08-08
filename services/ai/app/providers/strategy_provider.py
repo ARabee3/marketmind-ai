@@ -213,6 +213,13 @@ def _strip_additional_properties(schema: dict[str, Any]) -> dict[str, Any]:
     if defs:
         schema = _resolve_refs(schema, defs)
 
+    # 1b. Gemini's response-schema parser accepts anyOf but not oneOf; unions
+    # (e.g. discriminated unions) emit oneOf and must be converted.
+    if "oneOf" in schema:
+        if "anyOf" not in schema:
+            schema["anyOf"] = schema["oneOf"]
+        schema.pop("oneOf")
+
     # 2. Strip non-allowed keys
     allowed = _ALLOWED_JSON_SCHEMA_KEYS
     for key in list(schema):
@@ -464,7 +471,7 @@ class GeminiStrategyProvider(StrategyLLMProvider):
         except Exception as exc:
             raise ProviderError(
                 "AI_PROVIDER_FAILURE",
-                "Gemini provider call failed.",
+                f"Gemini provider call failed: {exc}",
                 retryable=True,
             ) from exc
 
