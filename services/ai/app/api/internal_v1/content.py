@@ -20,6 +20,7 @@ from content_contracts import (
     ContentValidationResult,
     ContentItemVersion,
 )
+from content_v2_contracts import AiContentV2PlanRequest, AiContentV2PlanResponse
 
 from app.content.circuit_breaker import CircuitBreaker
 from app.content.assembler import (
@@ -32,6 +33,10 @@ from app.content.image_provider import (
     generate_static_asset,
 )
 from app.content.observability import content_event_metadata
+from app.content.planner import (
+    assemble_plan_prompt,
+    plan_content_week_with_repair,
+)
 from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
@@ -220,6 +225,52 @@ async def generate_content(
         contract_version="content-v1",
         content_pack=_build_draft_pack(request, items),
         item_versions=items,
+        validation=validation,
+    )
+
+
+@router.post(
+    "/v2/plan",
+    response_model=AiContentV2PlanResponse,
+    summary="Plan one Content week as 3-5 high-level post cards",
+)
+async def plan_content_week(
+    request: AiContentV2PlanRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2PlanResponse:
+    try:
+        prompt = assemble_plan_prompt(
+            request,
+            provider_name=settings.ai_provider_mode,
+            model=_model_name(settings),
+        )
+        log_content_event(
+            logger,
+            "plan_started",
+            content_event_metadata(prompt.metadata),
+        )
+        provider = create_content_provider(settings)
+        plans = await plan_content_week_with_repair(
+            provider,
+            prompt,
+            request=request,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_SCHEMA_FAILURE")
+
+    validation = ContentValidationResult(valid=True, issues=[])
+    log_content_event(
+        logger,
+        "plan_completed",
+        content_event_metadata(prompt.metadata, plan_count=len(plans)),
+    )
+    return AiContentV2PlanResponse(
+        contract_version="content-v2",
+        week_plan_id=request.week_plan_id,
+        post_plans=plans,
         validation=validation,
     )
 

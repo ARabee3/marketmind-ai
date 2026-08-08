@@ -8,10 +8,13 @@ import {
   AiContentGenerateResponse,
   AiContentReviseRequest,
   AiContentReviseResponse,
+  AiContentV2PlanRequest,
+  AiContentV2PlanResponse,
   AiStaticAssetGenerateRequest,
   AiStaticAssetGenerateResponse,
   ContentItemVersion,
   validateInternalContentGenerateRequest,
+  validateInternalContentV2PlanRequest,
 } from "@marketmind/contracts";
 
 const CONTENT_AI_REQUEST_TIMEOUT_MS = 60_000;
@@ -67,6 +70,38 @@ export class ContentAiClient {
       throw new ProviderError(
         "CONTENT_SCHEMA_FAILURE",
         "AI content service returned an invalid generate response.",
+        false,
+      );
+    }
+
+    return response;
+  }
+
+  /**
+   * Planner stage (content-v2, issue #187): returns 3–5 high-level post
+   * cards for the requested week. Never returns publishable copy.
+   */
+  async plan(
+    request: AiContentV2PlanRequest,
+  ): Promise<AiContentV2PlanResponse> {
+    const validation = validateInternalContentV2PlanRequest(request);
+    if (!validation.valid) {
+      throw new ProviderError(
+        "CONTENT_SCHEMA_FAILURE",
+        "Content plan request failed deterministic validation.",
+        false,
+      );
+    }
+
+    const response = await this.post<AiContentV2PlanResponse>(
+      "/internal/v1/ai/content/v2/plan",
+      request,
+    );
+
+    if (!isPlanResponse(response)) {
+      throw new ProviderError(
+        "CONTENT_SCHEMA_FAILURE",
+        "AI content service returned an invalid plan response.",
         false,
       );
     }
@@ -187,6 +222,18 @@ function isStaticAssetResponse(
     candidate.contract_version === "content-v1" &&
     typeof candidate.asset === "object" &&
     candidate.asset !== null &&
+    isContentValidationPassed(candidate.validation)
+  );
+}
+
+function isPlanResponse(value: unknown): value is AiContentV2PlanResponse {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.contract_version === "content-v2" &&
+    Array.isArray(candidate.post_plans) &&
+    candidate.post_plans.length >= 3 &&
+    candidate.post_plans.length <= 5 &&
     isContentValidationPassed(candidate.validation)
   );
 }

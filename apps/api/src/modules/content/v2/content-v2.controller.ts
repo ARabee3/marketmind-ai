@@ -236,8 +236,7 @@ export class ContentV2Controller {
 
   @Put("content-cycles/:id/weeks/:week_number/plan")
   @Permissions(PERMISSIONS.CONTENT_START)
-  createOrReplaceWeekPlan(
-    @Param("id", ParseUUIDPipe) id: string,
+  createOrReplaceWeekPlan(    @Param("id", ParseUUIDPipe) id: string,
     @Param("week_number", ParseIntPipe) weekNumber: number,
     @Req() req: RequestWithUser,
     @Body() dto: CreateOrReplaceWeekPlanDto,
@@ -268,6 +267,16 @@ export class ContentV2Controller {
     @Req() req: RequestWithUser,
   ) {
     return this.contentV2Service.listWeekPlans(id, req.user.id);
+  }
+
+  @Post("content-cycles/:id/weeks/:week_number/plan")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  planWeek(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("week_number", ParseIntPipe) weekNumber: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.contentV2Service.planWeek(id, weekNumber, req.user.id);
   }
 
   // -------------------------------------------------------------------------

@@ -12,6 +12,7 @@ def content_event_metadata(
     *,
     attempt: int | None = None,
     item_count: int | None = None,
+    plan_count: int | None = None,
     validation: ContentValidationResult | None = None,
 ) -> dict[str, Any]:
     """Build reproducible, non-secret event metadata from PromptAssembly data."""
@@ -20,6 +21,8 @@ def content_event_metadata(
         metadata["attempt"] = attempt
     if item_count is not None:
         metadata["item_count"] = item_count
+    if plan_count is not None:
+        metadata["plan_count"] = plan_count
     if validation is not None:
         metadata["validation_valid"] = validation.valid
         metadata["validation_issue_codes"] = [

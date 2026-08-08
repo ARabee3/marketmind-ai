@@ -23,6 +23,7 @@ from content_contracts import (
     ContentShortVideoScript,
     ContentStrategyTrace,
 )
+from content_v2_contracts import ContentPostPlanDraftV2
 
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
@@ -50,6 +51,13 @@ class ContentPackProviderOutput(BaseModel):
     item_versions: list[ContentItemVersion]
 
 
+class ContentPlanProviderOutput(BaseModel):
+    """Internal structured-output wrapper for the planner stage."""
+
+    model_config = ConfigDict(extra="forbid")
+    post_plans: list[ContentPostPlanDraftV2]
+
+
 class ContentLLMProvider(ABC):
     """Provider that turns a Content prompt into structured item versions."""
 
@@ -64,6 +72,23 @@ class ContentLLMProvider(ABC):
     ) -> list[ContentItemVersion]:
         raise NotImplementedError
 
+    async def generate_content_plan(
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
+    ) -> list[ContentPostPlanDraftV2]:
+        """Planner stage: high-level post cards only, never publishable copy.
+
+        Concrete default so light-weight test fakes stay valid; production
+        providers override it.
+        """
+        raise ProviderError(
+            "CONTENT_PROVIDER_FAILURE",
+            "This Content provider does not implement the planner stage.",
+            retryable=False,
+        )
+
     @abstractmethod
     async def revise_content_item(
         self, prompt: PromptAssembly
@@ -71,9 +96,13 @@ class ContentLLMProvider(ABC):
         raise NotImplementedError
 
 
-def _parse_provider_output(raw_output: Any) -> ContentPackProviderOutput:
+def _parse_provider_output(
+    raw_output: Any,
+    model: type[ContentPackProviderOutput]
+    | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
+) -> ContentPackProviderOutput | ContentPlanProviderOutput:
     try:
-        return ContentPackProviderOutput.model_validate(raw_output)
+        return model.model_validate(raw_output)
     except ValidationError as exc:
         safe_errors = [
             {
@@ -95,7 +124,10 @@ def _parse_provider_output(raw_output: Any) -> ContentPackProviderOutput:
         ) from exc
 
 
-def _parse_json_provider_output(raw_text: str) -> ContentPackProviderOutput:
+def _parse_json_provider_output(
+    raw_text: str,
+    model: type[ContentPackProviderOutput] | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
+) -> ContentPackProviderOutput | ContentPlanProviderOutput:
     try:
         raw_output = json.loads(raw_text)
     except json.JSONDecodeError as exc:
@@ -104,7 +136,7 @@ def _parse_json_provider_output(raw_text: str) -> ContentPackProviderOutput:
             f"Content provider returned invalid JSON: {exc}",
             retryable=False,
         ) from exc
-    return _parse_provider_output(raw_output)
+    return _parse_provider_output(raw_output, model)
 
 
 def _is_retryable_provider_exception(error: Exception) -> bool:
@@ -144,6 +176,20 @@ class OpenAIContentProvider(ContentLLMProvider):
     ) -> list[ContentItemVersion]:
         return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
+    async def generate_content_plan(
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
+    ) -> list[ContentPostPlanDraftV2]:
+        output = await self._call_structured(
+            prompt,
+            output_model=ContentPlanProviderOutput,
+            output_field="post_plans",
+            max_output_tokens=max_output_tokens,
+        )
+        return output.post_plans
+
     async def revise_content_item(
         self, prompt: PromptAssembly
     ) -> ContentItemVersion:
@@ -157,7 +203,10 @@ class OpenAIContentProvider(ContentLLMProvider):
         minimum_items: int = 3,
         maximum_items: int = 5,
         max_output_tokens: int | None = None,
-    ) -> ContentPackProviderOutput:
+        output_model: type[ContentPackProviderOutput]
+        | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
+        output_field: str = "item_versions",
+    ) -> ContentPackProviderOutput | ContentPlanProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
                 "OPENAI_API_KEY is required for AI_PROVIDER_MODE=openai."
@@ -167,7 +216,7 @@ class OpenAIContentProvider(ContentLLMProvider):
                 "OPENAI_MODEL is required for AI_PROVIDER_MODE=openai."
             )
 
-        def call_openai() -> ContentPackProviderOutput:
+        def call_openai() -> ContentPackProviderOutput | ContentPlanProviderOutput:
             try:
                 from openai import OpenAI
             except ImportError as exc:
@@ -190,7 +239,7 @@ class OpenAIContentProvider(ContentLLMProvider):
                     {"role": "system", "content": prompt.system_prompt},
                     {"role": "user", "content": prompt.user_prompt},
                 ],
-                text_format=ContentPackProviderOutput,
+                text_format=output_model,
                 **sampling,
                 **(
                     {"max_output_tokens": max_output_tokens}
@@ -205,11 +254,11 @@ class OpenAIContentProvider(ContentLLMProvider):
                     "OpenAI returned no parsed Content output.",
                     retryable=False,
                 )
-            output = _parse_provider_output(parsed)
-            if not minimum_items <= len(output.item_versions) <= maximum_items:
+            output = _parse_provider_output(parsed, output_model)
+            if not minimum_items <= len(getattr(output, output_field)) <= maximum_items:
                 raise ProviderError(
                     "CONTENT_SCHEMA_FAILURE",
-                    "OpenAI returned an invalid number of Content item versions.",
+                    f"OpenAI returned an invalid number of {output_field}.",
                     retryable=False,
                 )
             return output
@@ -252,6 +301,20 @@ class GeminiContentProvider(ContentLLMProvider):
     ) -> list[ContentItemVersion]:
         return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
+    async def generate_content_plan(
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
+    ) -> list[ContentPostPlanDraftV2]:
+        output = await self._call_structured(
+            prompt,
+            output_model=ContentPlanProviderOutput,
+            output_field="post_plans",
+            max_output_tokens=max_output_tokens,
+        )
+        return output.post_plans
+
     async def revise_content_item(
         self, prompt: PromptAssembly
     ) -> ContentItemVersion:
@@ -265,7 +328,10 @@ class GeminiContentProvider(ContentLLMProvider):
         minimum_items: int = 3,
         maximum_items: int = 5,
         max_output_tokens: int | None = None,
-    ) -> ContentPackProviderOutput:
+        output_model: type[ContentPackProviderOutput]
+        | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
+        output_field: str = "item_versions",
+    ) -> ContentPackProviderOutput | ContentPlanProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
                 "GEMINI_API_KEY is required for AI_PROVIDER_MODE=gemini_dev."
@@ -275,7 +341,7 @@ class GeminiContentProvider(ContentLLMProvider):
                 "GEMINI_MODEL is required for AI_PROVIDER_MODE=gemini_dev."
             )
 
-        def call_gemini() -> ContentPackProviderOutput:
+        def call_gemini() -> ContentPackProviderOutput | ContentPlanProviderOutput:
             try:
                 from google import genai
                 from google.genai import types
@@ -286,7 +352,7 @@ class GeminiContentProvider(ContentLLMProvider):
                 ) from exc
 
             schema = _strip_additional_properties(
-                copy.deepcopy(ContentPackProviderOutput.model_json_schema())
+                copy.deepcopy(output_model.model_json_schema())
             )
             sampling: dict[str, float] = {}
             if self.temperature is not None:
@@ -310,11 +376,11 @@ class GeminiContentProvider(ContentLLMProvider):
                     **sampling,
                 ),
             )
-            output = _parse_json_provider_output(response.text or "{}")
-            if not minimum_items <= len(output.item_versions) <= maximum_items:
+            output = _parse_json_provider_output(response.text or "{}", output_model)
+            if not minimum_items <= len(getattr(output, output_field)) <= maximum_items:
                 raise ProviderError(
                     "CONTENT_SCHEMA_FAILURE",
-                    "Gemini returned an invalid number of Content item versions.",
+                    f"Gemini returned an invalid number of {output_field}.",
                     retryable=False,
                 )
             return output
@@ -359,6 +425,20 @@ class OpenRouterContentProvider(ContentLLMProvider):
     ) -> list[ContentItemVersion]:
         return (await self._call_structured(prompt, max_output_tokens=max_output_tokens)).item_versions
 
+    async def generate_content_plan(
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
+    ) -> list[ContentPostPlanDraftV2]:
+        output = await self._call_structured(
+            prompt,
+            output_model=ContentPlanProviderOutput,
+            output_field="post_plans",
+            max_output_tokens=max_output_tokens,
+        )
+        return output.post_plans
+
     async def revise_content_item(
         self, prompt: PromptAssembly
     ) -> ContentItemVersion:
@@ -372,7 +452,10 @@ class OpenRouterContentProvider(ContentLLMProvider):
         minimum_items: int = 3,
         maximum_items: int = 5,
         max_output_tokens: int | None = None,
-    ) -> ContentPackProviderOutput:
+        output_model: type[ContentPackProviderOutput]
+        | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
+        output_field: str = "item_versions",
+    ) -> ContentPackProviderOutput | ContentPlanProviderOutput:
         if not self.api_key:
             raise ProviderConfigError(
                 "OPEN_ROUTER_API_KEY is required for AI_PROVIDER_MODE=openrouter."
@@ -382,7 +465,7 @@ class OpenRouterContentProvider(ContentLLMProvider):
                 "OPEN_ROUTER_MODEL is required for AI_PROVIDER_MODE=openrouter."
             )
 
-        def call_openrouter() -> ContentPackProviderOutput:
+        def call_openrouter() -> ContentPackProviderOutput | ContentPlanProviderOutput:
             try:
                 from openai import OpenAI
             except ImportError as exc:
@@ -408,9 +491,9 @@ class OpenRouterContentProvider(ContentLLMProvider):
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
-                        "name": "content_pack_provider_output",
+                        "name": "content_plan_provider_output",
                         "strict": True,
-                        "schema": ContentPackProviderOutput.model_json_schema(),
+                        "schema": output_model.model_json_schema(),
                     },
                 },
                 **(
@@ -433,11 +516,11 @@ class OpenRouterContentProvider(ContentLLMProvider):
                     "OpenRouter returned empty Content output.",
                     retryable=False,
                 )
-            output = _parse_json_provider_output(content)
-            if not minimum_items <= len(output.item_versions) <= maximum_items:
+            output = _parse_json_provider_output(content, output_model)
+            if not minimum_items <= len(getattr(output, output_field)) <= maximum_items:
                 raise ProviderError(
                     "CONTENT_SCHEMA_FAILURE",
-                    "OpenRouter returned an invalid number of Content item versions.",
+                    f"OpenRouter returned an invalid number of {output_field}.",
                     retryable=False,
                 )
             return output
@@ -511,6 +594,54 @@ class MockContentProvider(ContentLLMProvider):
         return item.model_copy(
             update={"version_checksum": compute_content_item_checksum(item)}
         )
+
+    async def generate_content_plan(
+        self,
+        prompt: PromptAssembly,
+        *,
+        max_output_tokens: int | None = None,
+    ) -> list[ContentPostPlanDraftV2]:
+        """Deterministic planner cards: 3-5 high-level post plans only."""
+        context = prompt.context
+        identity = context["plan_identity"]
+        grounding = context["grounding_inputs"]
+        channels = grounding["allowed_channels"]
+        formats = grounding["allowed_formats"]
+        cta_entries = grounding["cta_library"]
+        media_entries = grounding["media_library"]
+        focus = grounding["strategy_week"]["focus"]
+        language = identity["language_mode"]
+        item_count = 3
+        suffix = "الغداء السريع" if language != "en" else "fast lunch"
+        return [
+            ContentPostPlanDraftV2(
+                purpose=(
+                    f"{focus} — منشور {index + 1} يستهدف {suffix}."
+                    if language != "en"
+                    else f"{focus} — post {index + 1} targeting {suffix}."
+                ),
+                intended_audience="موظفو المكاتب القريبة" if language != "en" else "nearby office workers",
+                channel=channels[index % len(channels)],
+                format=formats[index % len(formats)],
+                cta_library_entry_id=(
+                    cta_entries[0]["id"]
+                    if index == 0 and cta_entries
+                    else None
+                ),
+                owner_instructions=None,
+                visual_direction=(
+                    grounding["editorial_profile"]["default_visual_guidance"]
+                    if index == 0
+                    else None
+                ),
+                selected_media_ids=(
+                    [media_entries[0]["id"]]
+                    if index == 0 and media_entries
+                    else []
+                ),
+            )
+            for index in range(item_count)
+        ]
 
     def _build_item(
         self,

@@ -8,6 +8,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type {
+  AiContentV2PlanRequest,
   ContentClaimSource,
   ContentCycleWorkspaceV2,
   ContentMediaLibraryEntryV2,
@@ -16,6 +17,7 @@ import type {
   ContentWeekPlanV2,
   OwnerContentDirectEditRequest,
 } from "@marketmind/contracts";
+import { StrategyPlanV2 } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { StrategyRepository } from "../../strategy/strategy.repository";
 import {
@@ -23,6 +25,7 @@ import {
   toContentWeekContext,
   toPayload,
 } from "../content.service";
+import { ContentAiClient } from "../content.client";
 import {
   CONTENT_ASSET_STORAGE,
   type AssetStorage,
@@ -74,6 +77,7 @@ export class ContentV2Service {
     private readonly mediaValidator: ContentMediaValidator,
     private readonly weekPlanRepository: ContentWeekPlanRepository,
     private readonly versionEditRepository: ContentVersionEditRepository,
+    private readonly contentAiClient: ContentAiClient,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
   ) {}
 
@@ -336,6 +340,120 @@ export class ContentV2Service {
       ownerUserId,
     );
     return { week_plans: rows.map(toWeekPlanV2) };
+  }
+
+  /**
+   * Planner stage (issue #187): asks the AI planner for 3–5 high-level post
+   * cards and persists them as a draft week plan. The planner receives only
+   * the approved Strategy v2 handoff, the cycle editorial settings, and
+   * permitted owner inputs; it never returns publishable copy.
+   */
+  async planWeek(
+    cycleId: string,
+    weekNumber: number,
+    ownerUserId: string,
+  ): Promise<{ week_plan: ContentWeekPlanV2 }> {
+    const cycle = await this.getCycleOrThrow(cycleId, ownerUserId);
+    if (weekNumber !== cycle.currentWeekNumber) {
+      throw new BadRequestException({
+        code: "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: `Only the current week (${cycle.currentWeekNumber}) can be planned.`,
+      });
+    }
+    const [editorialRow, ctaRows, mediaRows, strategyVersion] =
+      await Promise.all([
+        this.setupRepository.getEditorialProfile(cycleId, ownerUserId),
+        this.setupRepository.listCtaEntries(cycleId, ownerUserId),
+        this.mediaRepository.listCycleEntries(cycleId, ownerUserId),
+        this.strategyRepository.getVersionByNumber(
+          cycle.strategyId,
+          cycle.strategyVersion,
+        ),
+      ]);
+    if (!editorialRow) {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        message:
+          "Configure the cycle editorial profile before planning the week.",
+      });
+    }
+    const planData = toPayload(strategyVersion?.planData ?? {});
+    if (planData["contract_version"] !== "strategy-v2") {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        message: "The approved Strategy plan is not content-v2 compatible.",
+      });
+    }
+    const handoff = planData["content_handoff"] as
+      | {
+          available: true;
+          channels: string[];
+          language: string;
+          weeks: Array<{ week_number: number; formats: string[] }>;
+        }
+      | {
+          available: false;
+          reason: string;
+          message: string;
+        };
+    if (handoff.available !== true) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: "The approved Strategy has no usable content handoff.",
+      });
+    }
+    const weekFormats = handoff.weeks.find(
+      (week) => week.week_number === weekNumber,
+    )?.formats;
+    if (!weekFormats || weekFormats.length === 0) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: `The approved Strategy handoff has no formats for week ${weekNumber}.`,
+      });
+    }
+
+    const planRequest: AiContentV2PlanRequest = {
+      contract_version: "content-v2",
+      week_plan_id: cycleId,
+      business_id: cycle.businessId,
+      strategy_id: cycle.strategyId,
+      strategy_version: cycle.strategyVersion,
+      strategy_decision_id: cycle.strategyDecisionId,
+      strategy_plan: planData as unknown as StrategyPlanV2,
+      week_number: weekNumber,
+      editorial_profile: toEditorialProfileV2(editorialRow),
+      cta_library: ctaRows.map(toCtaLibraryEntryV2),
+      media_library: mediaRows.map(toMediaLibraryEntryV2),
+      allowed_channels:
+        handoff.channels as AiContentV2PlanRequest["allowed_channels"],
+      allowed_formats:
+        weekFormats as AiContentV2PlanRequest["allowed_formats"],
+      language_mode:
+        (handoff.language as AiContentV2PlanRequest["language_mode"]) ??
+        "ar-EG",
+      idempotency_key: `plan:${cycleId}:week:${weekNumber}`,
+    };
+
+    const response = await this.contentAiClient.plan(planRequest);
+
+    const row = await this.weekPlanRepository.createOrReplaceWeekPlan(
+      cycleId,
+      weekNumber,
+      response.post_plans.map((plan, index) => ({
+        position: index + 1,
+        purpose: plan.purpose,
+        intendedAudience: plan.intended_audience ?? null,
+        channel: plan.channel,
+        format: plan.format,
+        ctaLibraryEntryId: plan.cta_library_entry_id,
+        ownerInstructions: plan.owner_instructions ?? null,
+        visualDirection: plan.visual_direction ?? null,
+        selectedMediaIds: plan.selected_media_ids,
+        source: "planner",
+      })),
+      ownerUserId,
+    );
+    return { week_plan: toWeekPlanV2(row) };
   }
 
   // -------------------------------------------------------------------------

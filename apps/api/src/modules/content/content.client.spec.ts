@@ -9,6 +9,8 @@ import type {
   AiContentGenerateResponse,
   AiContentReviseRequest,
   AiContentReviseResponse,
+  AiContentV2PlanRequest,
+  AiContentV2PlanResponse,
   AiStaticAssetGenerateRequest,
   AiStaticAssetGenerateResponse,
 } from "@marketmind/contracts";
@@ -261,6 +263,116 @@ describe("ContentAiClient", () => {
       await expect(
         client.generateStaticAsset(STATIC_ASSET_REQUEST),
       ).rejects.toMatchObject({
+        code: "CONTENT_SCHEMA_FAILURE",
+        retryable: false,
+      });
+    });
+  });
+
+  describe("plan", () => {
+    const PLAN_REQUEST: AiContentV2PlanRequest = {
+      contract_version: "content-v2",
+      week_plan_id: "week-plan-1",
+      business_id: "biz-1",
+      strategy_id: "strat-1",
+      strategy_version: 2,
+      strategy_decision_id: "decision-1",
+      strategy_plan: {
+        strategy_id: "strat-1",
+        version: 2,
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: true,
+          channels: ["instagram"],
+          language: "ar-EG",
+          weeks: [{ week_number: 1, formats: ["static_image_post"] }],
+        },
+        calendar_weeks: [{ week_number: 1 }],
+      } as unknown as AiContentV2PlanRequest["strategy_plan"],
+      week_number: 1,
+      editorial_profile: {} as AiContentV2PlanRequest["editorial_profile"],
+      cta_library: [],
+      media_library: [],
+      allowed_channels: ["instagram"],
+      allowed_formats: ["static_image_post"],
+      language_mode: "ar-EG",
+      idempotency_key: "plan-key",
+    };
+
+    const PLAN_RESPONSE: AiContentV2PlanResponse = {
+      contract_version: "content-v2",
+      week_plan_id: "week-plan-1",
+      post_plans: [
+        {
+          purpose: "Card one",
+          intended_audience: null,
+          channel: "instagram",
+          format: "static_image_post",
+          cta_library_entry_id: null,
+          owner_instructions: null,
+          visual_direction: null,
+          selected_media_ids: [],
+        },
+        {
+          purpose: "Card two",
+          intended_audience: null,
+          channel: "instagram",
+          format: "static_image_post",
+          cta_library_entry_id: null,
+          owner_instructions: null,
+          visual_direction: null,
+          selected_media_ids: [],
+        },
+        {
+          purpose: "Card three",
+          intended_audience: null,
+          channel: "instagram",
+          format: "static_image_post",
+          cta_library_entry_id: null,
+          owner_instructions: null,
+          visual_direction: null,
+          selected_media_ids: [],
+        },
+      ],
+      validation: { valid: true, issues: [] },
+    };
+
+    it("posts to the v2 plan endpoint and returns the validated response", async () => {
+      httpService.post.mockReturnValue(of({ data: PLAN_RESPONSE }));
+
+      const result = await client.plan(PLAN_REQUEST);
+
+      expect(httpService.post).toHaveBeenCalledWith(
+        "http://localhost:8000/internal/v1/ai/content/v2/plan",
+        PLAN_REQUEST,
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      expect(result).toEqual(PLAN_RESPONSE);
+    });
+
+    it("rejects a plan response with fewer than three cards", async () => {
+      httpService.post.mockReturnValue(
+        of({
+          data: {
+            contract_version: "content-v2",
+            post_plans: [],
+            validation: { valid: true, issues: [] },
+          },
+        }),
+      );
+
+      await expect(client.plan(PLAN_REQUEST)).rejects.toMatchObject({
+        code: "CONTENT_SCHEMA_FAILURE",
+        retryable: false,
+      });
+    });
+
+    it("rejects a non-v2 plan response", async () => {
+      httpService.post.mockReturnValue(
+        of({ data: { contract_version: "content-v1", post_plans: [] } }),
+      );
+
+      await expect(client.plan(PLAN_REQUEST)).rejects.toMatchObject({
         code: "CONTENT_SCHEMA_FAILURE",
         retryable: false,
       });

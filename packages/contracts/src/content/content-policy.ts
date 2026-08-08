@@ -9,6 +9,7 @@ import type {
   ContentItemVersion,
 } from "./content-item";
 import type { InternalContentGenerateRequest } from "./content-interfaces";
+import type { AiContentV2PlanRequest } from "./v2/ai-contracts";
 import type { StrategyPlan } from "../strategy/strategy-plan";
 import { isStrategyPlanV2 } from "../strategy/strategy-v2";
 import type {
@@ -605,4 +606,67 @@ function formatsMatchExactly(
     actual.length === expected.length &&
     actual.every((format, index) => format === expected[index])
   );
+}
+
+/**
+ * Deterministic grounding gate for the content-v2 planner request (issue
+ * #187). The planner may only consume the exact approved Strategy v2 handoff
+ * and the cycle's own editorial settings.
+ */
+export function validateInternalContentV2PlanRequest(
+  request: AiContentV2PlanRequest,
+): ContentValidationResult {
+  const issues: ContentValidationIssue[] = [];
+  const plan = request.strategy_plan;
+
+  if (plan.strategy_id !== request.strategy_id || plan.version !== request.strategy_version) {
+    addIssue(
+      issues,
+      "CONTENT_VERSION_CONFLICT",
+      "strategy_plan.version",
+      "Planning requires the exact approved Strategy identity and version.",
+    );
+  }
+
+  if (
+    request.allowed_channels.length === 0 ||
+    request.allowed_formats.length === 0
+  ) {
+    addIssue(
+      issues,
+      "CONTENT_CHANNEL_MISMATCH",
+      "allowed_channels",
+      "Planning requires at least one content-supported channel and format.",
+    );
+  }
+
+  if (plan.content_handoff.available !== true) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "strategy_plan.content_handoff",
+      "Planning requires a usable content handoff from the approved Strategy v2 plan.",
+    );
+  } else {
+    const weekHandoff = plan.content_handoff.weeks.find(
+      (week) => week.week_number === request.week_number,
+    );
+    if (!weekHandoff) {
+      addIssue(
+        issues,
+        "CONTENT_WEEK_OUT_OF_RANGE",
+        "week_number",
+        "Planning week must exist in the approved Strategy roadmap.",
+      );
+    } else if (!formatsMatchExactly(request.allowed_formats, weekHandoff.formats)) {
+      addIssue(
+        issues,
+        "CONTENT_SCHEMA_FAILURE",
+        "allowed_formats",
+        "Planning formats must exactly match the approved Strategy week's content handoff.",
+      );
+    }
+  }
+
+  return { valid: issues.length === 0, issues };
 }
