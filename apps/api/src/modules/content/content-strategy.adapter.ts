@@ -219,3 +219,190 @@ export function adaptSelectedChannelsOrThrow(
   }
   return channels;
 }
+
+// ---------------------------------------------------------------------------
+// strategy-v2 deterministic content handoff (#135)
+// ---------------------------------------------------------------------------
+//
+// v2 plans carry a `content_handoff` projection instead of free-text
+// `content_strategy.weeks` labels. The projection is either:
+//   - available: 12 exact {week_number, channel, format} mappings using only
+//     existing ContentChannel / ContentFormat values plus the selected
+//     language; or
+//   - unavailable: a machine-readable reason (e.g. the owner chose only
+//     website/delivery channels, which content-v1 does not support).
+//
+// The adapter reads the projection deterministically. It never free-text
+// parses, never falls back to "all supported formats", and fails closed with
+// a precise non-retryable CONTENT_SCHEMA_FAILURE naming the exact field.
+
+const CONTENT_HANDOFF_UNAVAILABLE_REASONS = new Set([
+  "content_v1_unsupported_channels_only",
+  "content_v1_handoff_unavailable",
+]);
+
+/** True when the persisted plan payload is a strategy-v2 plan. */
+export function isStrategyPlanV2(planData: unknown): boolean {
+  return (
+    typeof planData === "object" &&
+    planData !== null &&
+    !Array.isArray(planData) &&
+    (planData as Record<string, unknown>)["contract_version"] === "strategy-v2"
+  );
+}
+
+function readContentHandoff(planData: unknown): Record<string, unknown> {
+  const handoff = toPayload(planData)["content_handoff"];
+  if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) {
+    throw schemaFailure("content_handoff");
+  }
+  return handoff as Record<string, unknown>;
+}
+
+function contentHandoffUnavailableReason(
+  handoff: Record<string, unknown>,
+): ProviderError {
+  const reason = handoff["reason"];
+  const label = typeof reason === "string" ? reason : "content_v1_handoff_unavailable";
+  return new ProviderError(
+    "CONTENT_SCHEMA_FAILURE",
+    `Strategy content_handoff is unavailable: ${label}. No Content cycle can be created from this strategy.`,
+    false,
+  );
+}
+
+/**
+ * Resolves the strategy-v2 plan's cycle-level supported channels from the
+ * `content_handoff` projection. Returns an empty array when the handoff is
+ * explicitly unavailable — callers must then fail closed with the precise
+ * reason (see {@link requireContentHandoffAvailable}).
+ */
+export function extractContentHandoffChannels(
+  planData: unknown,
+): ContentChannel[] {
+  const handoff = readContentHandoff(planData);
+  if (handoff["available"] !== true) return [];
+  const weeks = handoff["weeks"];
+  if (!Array.isArray(weeks)) return [];
+  const channels: ContentChannel[] = [];
+  for (const week of weeks) {
+    const channel =
+      typeof week === "object" && week !== null
+        ? (week as { channel?: unknown }).channel
+        : undefined;
+    if (
+      typeof channel === "string" &&
+      SUPPORTED_CONTENT_CHANNELS.has(channel as ContentChannel)
+    ) {
+      const value = channel as ContentChannel;
+      if (!channels.includes(value)) channels.push(value);
+    }
+  }
+  return channels;
+}
+
+/** Throws a precise non-retryable CONTENT_SCHEMA_FAILURE when the v2 plan has
+ *  no usable content handoff (unavailable, malformed, or empty). */
+export function requireContentHandoffAvailable(planData: unknown): void {
+  const handoff = readContentHandoff(planData);
+  if (handoff["available"] !== true) {
+    throw contentHandoffUnavailableReason(handoff);
+  }
+  if (extractContentHandoffChannels(planData).length === 0) {
+    throw schemaFailure("content_handoff.weeks[].channel");
+  }
+}
+
+/**
+ * Resolves one exact week mapping from a strategy-v2 content_handoff.
+ * Fails closed (non-retryable CONTENT_SCHEMA_FAILURE) when the week is
+ * missing, duplicated, uses an unknown channel/format, or the handoff is
+ * unavailable. No fallback, no free-text parsing.
+ */
+export function adaptStrategyV2WeekHandoff(
+  planData: unknown,
+  weekNumber: number,
+): { channel: ContentChannel; format: ContentFormat } {
+  const handoff = readContentHandoff(planData);
+  if (handoff["available"] !== true) {
+    throw contentHandoffUnavailableReason(handoff);
+  }
+  const weeks = handoff["weeks"];
+  if (!Array.isArray(weeks)) {
+    throw schemaFailure("content_handoff.weeks");
+  }
+  const weekEntry = weeks.find(
+    (week) =>
+      typeof week === "object" &&
+      week !== null &&
+      String((week as Record<string, unknown>)["week_number"]) ===
+        String(weekNumber),
+  );
+  if (!weekEntry || typeof weekEntry !== "object") {
+    throw schemaFailure(`content_handoff.weeks[week_number=${weekNumber}]`);
+  }
+  const entry = weekEntry as Record<string, unknown>;
+  const channel = entry["channel"];
+  const format = entry["format"];
+  if (
+    typeof channel !== "string" ||
+    !SUPPORTED_CONTENT_CHANNELS.has(channel as ContentChannel)
+  ) {
+    throw schemaFailure(
+      `content_handoff.weeks[week_number=${weekNumber}].channel`,
+    );
+  }
+  if (
+    typeof format !== "string" ||
+    !CONTENT_FORMAT_SET.has(format as ContentFormat)
+  ) {
+    throw schemaFailure(
+      `content_handoff.weeks[week_number=${weekNumber}].format`,
+    );
+  }
+  return { channel: channel as ContentChannel, format: format as ContentFormat };
+}
+
+/**
+ * One-stop read model for a strategy-v2 generation/revision request: exact
+ * cycle channels, exact week format, and the handoff language. Fails closed
+ * when the handoff is unavailable or any week mapping is malformed.
+ */
+export function adaptStrategyV2GenerationInput(
+  planData: unknown,
+  weekNumber: number,
+): { selected_channels: ContentChannel[]; allowed_formats: ContentFormat[]; language_mode: LanguageMode } {
+  requireContentHandoffAvailable(planData);
+  const handoff = readContentHandoff(planData);
+  const language = handoff["language"];
+  const languageMode: LanguageMode =
+    language === "ar-EG" || language === "en" || language === "mixed"
+      ? language
+      : "ar-EG";
+  const week = adaptStrategyV2WeekHandoff(planData, weekNumber);
+  return {
+    selected_channels: extractContentHandoffChannels(planData),
+    allowed_formats: [week.format],
+    language_mode: languageMode,
+  };
+}
+
+/** Maps a strategy-v2 unavailable-handoff reason for machine-readable error
+ *  propagation (used by the Content service to block cycle creation). */
+export function contentHandoffUnavailableReasonCode(
+  planData: unknown,
+): string | null {
+  try {
+    const handoff = readContentHandoff(planData);
+    if (handoff["available"] === false) {
+      const reason = handoff["reason"];
+      if (typeof reason === "string" && CONTENT_HANDOFF_UNAVAILABLE_REASONS.has(reason)) {
+        return reason;
+      }
+      return "content_v1_handoff_unavailable";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

@@ -12,7 +12,13 @@ import {
   deterministicGeneratedAssetId,
   validateContentPolicyFixture,
 } from "@marketmind/contracts";
-import type { StrategyPlan, BusinessProfileData } from "@marketmind/contracts";
+import type {
+  StrategyPlan,
+  BusinessProfileData,
+  ContentChannel,
+  ContentFormat,
+  LanguageMode,
+} from "@marketmind/contracts";
 import {
   ContentPackRepository,
   ContentItemVersionDraftInput,
@@ -37,6 +43,8 @@ import {
   adaptStrategyWeekFormats,
   adaptLanguageMode,
   adaptSelectedChannelsOrThrow,
+  adaptStrategyV2GenerationInput,
+  isStrategyPlanV2,
 } from "./content-strategy.adapter";
 import {
   assertGeneratedContentPackIdentity,
@@ -74,6 +82,31 @@ interface ContentGenerateStaticAssetJobData {
   height: number;
   idempotencyKey: string;
   correlationId: string;
+}
+
+/**
+ * Resolves the generation/revision channel inputs from an approved Strategy
+ * plan. strategy-v1 keeps the existing label-mapping path; strategy-v2 (#135)
+ * reads the deterministic content_handoff and fails closed (non-retryable
+ * CONTENT_SCHEMA_FAILURE) when the handoff is unavailable or malformed — no
+ * Content consumer may silently drop or re-target a selected channel.
+ */
+function resolveGenerationChannelInputs(
+  planData: unknown,
+  weekNumber: number,
+): {
+  selected_channels: ContentChannel[];
+  allowed_formats: ContentFormat[];
+  language_mode: LanguageMode;
+} {
+  if (isStrategyPlanV2(planData)) {
+    return adaptStrategyV2GenerationInput(planData, weekNumber);
+  }
+  return {
+    selected_channels: adaptSelectedChannelsOrThrow(planData),
+    allowed_formats: adaptStrategyWeekFormats(planData, weekNumber),
+    language_mode: adaptLanguageMode(planData),
+  };
 }
 
 @Processor("content-generation")
@@ -180,8 +213,9 @@ export class ContentProcessor extends WorkerHost {
         3,
       );
 
-      const selectedChannels = adaptSelectedChannelsOrThrow(
+      const channelInputs = resolveGenerationChannelInputs(
         strategyVersion.planData,
+        pack.weekNumber,
       );
 
       const request = {
@@ -203,12 +237,9 @@ export class ContentProcessor extends WorkerHost {
           created_at: profileVersion.createdAt.toISOString(),
         },
         week_context: toContentWeekContext(weekContext),
-        selected_channels: selectedChannels,
-        allowed_formats: adaptStrategyWeekFormats(
-          strategyVersion.planData,
-          pack.weekNumber,
-        ),
-        language_mode: adaptLanguageMode(strategyVersion.planData),
+        selected_channels: channelInputs.selected_channels,
+        allowed_formats: channelInputs.allowed_formats,
+        language_mode: channelInputs.language_mode,
       };
 
       const response = await this.contentAiClient.generate(request);
@@ -261,7 +292,7 @@ export class ContentProcessor extends WorkerHost {
           cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
           profile_version_id: pack.profileVersionId,
           current_profile_version_id: profileVersion.id,
-          selected_channels: selectedChannels,
+          selected_channels: channelInputs.selected_channels,
           existing_weekly_claims: [],
           week_context: toContentWeekContext(weekContext),
           pack: fixturePack,
@@ -465,8 +496,9 @@ export class ContentProcessor extends WorkerHost {
         1,
       );
 
-      const selectedChannels = adaptSelectedChannelsOrThrow(
+      const channelInputs = resolveGenerationChannelInputs(
         strategyVersion.planData,
+        pack.weekNumber,
       );
 
       const generationRequest = {
@@ -488,12 +520,9 @@ export class ContentProcessor extends WorkerHost {
           created_at: profileVersion.createdAt.toISOString(),
         },
         week_context: toContentWeekContext(weekContext),
-        selected_channels: selectedChannels,
-        allowed_formats: adaptStrategyWeekFormats(
-          strategyVersion.planData,
-          pack.weekNumber,
-        ),
-        language_mode: adaptLanguageMode(strategyVersion.planData),
+        selected_channels: channelInputs.selected_channels,
+        allowed_formats: channelInputs.allowed_formats,
+        language_mode: channelInputs.language_mode,
       };
 
       const reviseRequest = {
@@ -546,7 +575,7 @@ export class ContentProcessor extends WorkerHost {
           cycle_status: cycle.status as ContentPolicyFixture["cycle_status"],
           profile_version_id: pack.profileVersionId,
           current_profile_version_id: profileVersion.id,
-          selected_channels: selectedChannels,
+          selected_channels: channelInputs.selected_channels,
           existing_weekly_claims: [],
           week_context: toContentWeekContext(weekContext),
           pack: toContentPack(pack),

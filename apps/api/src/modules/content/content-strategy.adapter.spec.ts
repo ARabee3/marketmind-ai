@@ -323,3 +323,66 @@ describe("content-strategy.adapter", () => {
     });
   });
 });
+describe("strategy-v2 content handoff adapter (#135)", () => {
+  const v2Plan = loadJson("strategy-plan-v2.example.json") as Record<string, unknown>;
+
+  it("reads the deterministic handoff channels, week format, and language", () => {
+    const { adaptStrategyV2GenerationInput, isStrategyPlanV2 } =
+      require("./content-strategy.adapter") as typeof import("./content-strategy.adapter");
+    expect(isStrategyPlanV2(v2Plan)).toBe(true);
+    const input = adaptStrategyV2GenerationInput(v2Plan, 3);
+    expect(input.selected_channels).toEqual(["facebook", "tiktok"]);
+    expect(input.allowed_formats).toEqual(["carousel_brief"]);
+    expect(input.language_mode).toBe("ar-EG");
+  });
+
+  it("maps each of the 12 weeks deterministically from the handoff", () => {
+    const { adaptStrategyV2WeekHandoff } =
+      require("./content-strategy.adapter") as typeof import("./content-strategy.adapter");
+    const formats = [1, 2, 3, 4].map((week) =>
+      adaptStrategyV2WeekHandoff(v2Plan, week).format,
+    );
+    expect(formats).toEqual([
+      "static_image_post",
+      "short_video_script",
+      "carousel_brief",
+      "text_post",
+    ]);
+  });
+
+  it("fails closed on an unknown handoff format (no fallback)", () => {
+    const { adaptStrategyV2WeekHandoff } =
+      require("./content-strategy.adapter") as typeof import("./content-strategy.adapter");
+    const plan = structuredClone(v2Plan);
+    (plan.content_handoff as { weeks: unknown[] }).weeks[0] = {
+      week_number: 1,
+      channel: "facebook",
+      format: "reels",
+    };
+    expect(() => adaptStrategyV2WeekHandoff(plan, 1)).toThrow(ProviderError);
+  });
+
+  it("fails closed with a precise reason when the handoff is unavailable", () => {
+    const {
+      adaptStrategyV2GenerationInput,
+      contentHandoffUnavailableReasonCode,
+    } = require("./content-strategy.adapter") as typeof import("./content-strategy.adapter");
+    const plan = structuredClone(v2Plan);
+    plan.content_handoff = {
+      available: false,
+      reason: "content_v1_unsupported_channels_only",
+    };
+    expect(contentHandoffUnavailableReasonCode(plan)).toBe(
+      "content_v1_unsupported_channels_only",
+    );
+    expect(() => adaptStrategyV2GenerationInput(plan, 1)).toThrow(
+      "content_v1_unsupported_channels_only",
+    );
+  });
+
+  it("does not treat a v1 plan as strategy-v2", () => {
+    const { isStrategyPlanV2 } =
+      require("./content-strategy.adapter") as typeof import("./content-strategy.adapter");
+    expect(isStrategyPlanV2(loadJson("strategy-plan.example.json"))).toBe(false);
+  });
+});
