@@ -84,11 +84,10 @@ export const configuration = () => ({
     // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
     // deployments override via CONTENT_ASSET_ROOT.
     assetRoot: process.env.CONTENT_ASSET_ROOT || "./.content-assets",
-    // Rollout gate for the content-v2 owner-first studio (issue #187). New
-    // cycles become content-v2 only after the full backend + web path is
-    // verified in the deployment; keep false during rollout.
-    v2DefaultEnabled:
-      process.env.CONTENT_V2_DEFAULT_ENABLED === "true",
+    // Content v2 is the default owner-first studio path (issue #187). Set
+    // CONTENT_V2_DEFAULT_ENABLED=false only when an explicit legacy v1
+    // fallback is required for a deployment or migration window.
+    v2DefaultEnabled: process.env.CONTENT_V2_DEFAULT_ENABLED !== "false",
   },
 
   publishing: {

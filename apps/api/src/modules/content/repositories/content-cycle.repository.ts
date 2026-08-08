@@ -26,9 +26,10 @@ export type CreateCycleWithWeekOneInput = CreateContentCycleInput & {
   readonly initialWeekContext: ContentWeekContextOwnerInput;
   readonly generationJob?: { readonly idempotencyKey: string };
   /**
-   * Issue #187 rollout gate: new cycles become `content-v2` when enabled.
-   * v2 cycles skip the automatic week-1 claim/queue because the owner must
-   * configure the editorial profile and plan the week first.
+   * New cycles use `content-v2` by default. The service passes
+   * `content-v1` explicitly for the legacy fallback; v2 cycles skip the
+   * automatic week-1 claim/queue because the owner must configure the
+   * editorial profile and plan the week first.
    */
   readonly contractVersion?: "content-v1" | "content-v2";
   readonly skipWeekOneClaim?: boolean;

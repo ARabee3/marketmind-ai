@@ -285,6 +285,13 @@ export class ContentService {
       3,
     );
 
+    // Content v2 is the default path. Keep v1 available only as an explicit
+    // deployment fallback so a missing ConfigService or missing environment
+    // variable cannot silently send new owners into the legacy workspace.
+    const contentV2DefaultEnabled =
+      this.configService?.get<boolean>("content.v2DefaultEnabled", true) ??
+      true;
+
     const created = await this.cycleRepository.createCycleWithWeekOne(
       {
         businessId: strategy.businessId,
@@ -304,21 +311,11 @@ export class ContentService {
         generationJob: this.jobOutbox
           ? { idempotencyKey: `cycle-creation:${strategy.id}:week:1` }
           : undefined,
-        // Issue #187 rollout gate: new cycles become content-v2 only when the
-        // deployment enables the owner-first studio path. v2 cycles skip the
-        // automatic week-1 claim because the owner configures and plans first.
-        contractVersion:
-          this.configService?.get<boolean>(
-            "content.v2DefaultEnabled",
-            false,
-          ) === true
-            ? "content-v2"
-            : undefined,
-        skipWeekOneClaim:
-          this.configService?.get<boolean>(
-            "content.v2DefaultEnabled",
-            false,
-          ) === true,
+        // v2 cycles skip the automatic week-1 claim because the owner must
+        // configure the editorial profile and plan the week first. The
+        // legacy path is selected only by the explicit false override.
+        contractVersion: contentV2DefaultEnabled ? "content-v2" : "content-v1",
+        skipWeekOneClaim: contentV2DefaultEnabled,
       },
       ownerUserId,
     );

@@ -74,6 +74,23 @@ describe("envSchema orchestration feature flag", () => {
   });
 });
 
+describe("envSchema Content v2 default feature flag", () => {
+  it("allows the flag to be omitted because v2 is the application default", () => {
+    expect(envSchema(validConfig())).toBeDefined();
+  });
+
+  it.each(["true", "false"])("accepts an explicit %s value", (value) => {
+    const config = { ...validConfig(), CONTENT_V2_DEFAULT_ENABLED: value };
+    expect(envSchema(config)).toBe(config);
+  });
+
+  it("rejects an ambiguous content v2 default flag", () => {
+    expect(() =>
+      envSchema({ ...validConfig(), CONTENT_V2_DEFAULT_ENABLED: "yes" }),
+    ).toThrow("CONTENT_V2_DEFAULT_ENABLED must be true or false");
+  });
+});
+
 describe("envSchema Facebook enrichment configuration", () => {
   it("accepts the documented bounded actor configuration", () => {
     const config = {
