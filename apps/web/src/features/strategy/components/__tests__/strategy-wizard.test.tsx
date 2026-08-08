@@ -279,3 +279,29 @@ describe('StrategyWizard', () => {
     })
   })
 })
+
+  it('demotes the previous primary when a new main focus is chosen', async () => {
+    render(<StrategyWizard />)
+
+    await screen.findByLabelText('Main objective')
+    fireEvent.change(screen.getByLabelText('Main objective'), {
+      target: { value: 'conversion' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+    const primaryRadios = screen.getAllByRole('radio', {
+      name: 'Main focus',
+    })
+    fireEvent.click(primaryRadios[0] as never)
+    fireEvent.click(primaryRadios[2] as never)
+
+    // Exactly one primary remains — the old one was demoted.
+    expect(
+      screen
+        .getAllByRole('radio', { name: 'Main focus' })
+        .filter((radio) => (radio as HTMLInputElement).checked),
+    ).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    // Step 3 renders without a "Choose one main channel" validation error.
+    expect(screen.queryByText('Choose one main channel.')).toBeNull()
+  })

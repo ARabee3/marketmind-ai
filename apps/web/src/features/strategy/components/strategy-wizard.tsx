@@ -313,9 +313,18 @@ export function StrategyWizard() {
     setSaved(false)
     setDirty(true)
     setForm((previous) => {
-      const choices = previous.choices.map((choice) =>
+      let choices = previous.choices.map((choice) =>
         choice.channel === channel ? { ...choice, ...patch } : choice,
       )
+      // Selecting a new primary demotes the previous primary so there is
+      // always exactly one main focus.
+      if (patch.role === 'primary') {
+        choices = choices.map((choice) =>
+          choice.role === 'primary' && choice.channel !== channel
+            ? { ...choice, role: null }
+            : choice,
+        )
+      }
       const primaryCount = choices.filter(
         (choice) => choice.role === 'primary',
       ).length
