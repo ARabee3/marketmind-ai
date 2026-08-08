@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { getCurrentJourney } from "@/lib/api/journey";
-import { getStrategy, getStrategyVersion, getStrategyVersions } from "@/lib/api/strategy";
-import { createContentCycle } from "@/lib/api/content-cycle";
+import {
+  getStrategy,
+  getStrategyVersion,
+  getStrategyVersions,
+} from "@/lib/api/strategy";
+import { createContentCycle, getContentCycle } from "@/lib/api/content-cycle";
 import {
   type ContentEntryState,
   resolveApprovedContentStrategy,
@@ -35,7 +39,9 @@ export function ContentCycleEntry() {
   const router = useRouter();
 
   const [state, setState] = useState<ContentEntryState>({ phase: "loading" });
-  const [week1Draft, setWeek1Draft] = useState<WeekContextDraft>(createEmptyWeekContextDraft());
+  const [week1Draft, setWeek1Draft] = useState<WeekContextDraft>(
+    createEmptyWeekContextDraft(),
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -51,8 +57,25 @@ export function ContentCycleEntry() {
         if (cycle) {
           const currentWeek = cycle.current_week;
           if (currentWeek >= 1 && currentWeek <= 12) {
-            setState({ phase: "redirecting", cycleId: cycle.id, week: currentWeek });
-            router.replace(`/content/${cycle.id}/weeks/${currentWeek}`);
+            // Content v2 cycles open the weekly studio; v1 cycles keep the
+            // legacy week workspace (issue #187).
+            let destination: string;
+            try {
+              const cycleRow = await getContentCycle(cycle.id);
+              destination =
+                (cycleRow as { contract_version?: string }).contract_version ===
+                "content-v2"
+                  ? `/content/${cycle.id}/studio`
+                  : `/content/${cycle.id}/weeks/${currentWeek}`;
+            } catch {
+              destination = `/content/${cycle.id}/weeks/${currentWeek}`;
+            }
+            setState({
+              phase: "redirecting",
+              cycleId: cycle.id,
+              week: currentWeek,
+            });
+            router.replace(destination as never);
             return;
           }
           setState({ phase: "load_error", errorKey: "invalidServerWeek" });
@@ -98,7 +121,11 @@ export function ContentCycleEntry() {
         const currentSummary =
           stratApi.currentVersionId === null
             ? null
-            : versions.find((v) => v.status === "approved" && v.version_id === stratApi.currentVersionId) ?? null;
+            : (versions.find(
+                (v) =>
+                  v.status === "approved" &&
+                  v.version_id === stratApi.currentVersionId,
+              ) ?? null);
         const lockedPlan =
           currentSummary === null
             ? null
@@ -111,7 +138,11 @@ export function ContentCycleEntry() {
           stratApi,
           versions,
           currentSummary && lockedPlan
-            ? { strategyVersion: currentSummary.version, strategyDecisionId: currentSummary.decision?.id, plan: lockedPlan }
+            ? {
+                strategyVersion: currentSummary.version,
+                strategyDecisionId: currentSummary.decision?.id,
+                plan: lockedPlan,
+              }
             : {},
         );
         if ("blocker" in resolution) {
@@ -126,7 +157,12 @@ export function ContentCycleEntry() {
         setState({ phase: "ready_to_start", approved: resolution.approved });
       } catch (err: unknown) {
         if (!isSubscribed) return;
-        setState({ phase: "load_error", errorKey: contentErrorKey(err as { status?: number; code?: string; message?: string }) });
+        setState({
+          phase: "load_error",
+          errorKey: contentErrorKey(
+            err as { status?: number; code?: string; message?: string },
+          ),
+        });
       }
     }
 
@@ -178,7 +214,13 @@ export function ContentCycleEntry() {
       clearIdempotencyKey(scope);
       router.replace(`/content/${response.content_cycle.id}/weeks/1`);
     } catch (err: unknown) {
-      setStartError(tErrors(contentErrorKey(err as { status?: number; code?: string; message?: string })));
+      setStartError(
+        tErrors(
+          contentErrorKey(
+            err as { status?: number; code?: string; message?: string },
+          ),
+        ),
+      );
     } finally {
       setIsStarting(false);
     }
@@ -246,7 +288,9 @@ export function ContentCycleEntry() {
       <div className="mx-auto max-w-xl py-12 text-center space-y-4">
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-3">
           <h1 className="text-lg font-bold text-navy">{title}</h1>
-          <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {body}
+          </p>
 
           {state.destination && (
             <div className="pt-2">
@@ -271,7 +315,11 @@ export function ContentCycleEntry() {
       <CycleThesisHeader selectedWeek={1} approved={approved} />
 
       {startError && (
-        <div role="alert" aria-live="polite" className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger">
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded-lg border border-danger/30 bg-danger/10 p-3.5 text-xs font-semibold text-danger"
+        >
           {startError}
         </div>
       )}

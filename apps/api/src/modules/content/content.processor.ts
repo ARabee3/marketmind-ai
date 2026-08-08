@@ -2,7 +2,10 @@ import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { Queue } from "bullmq";
 import { Injectable, Logger, Inject, Optional } from "@nestjs/common";
-import { Prisma, type ContentAsset as PrismaContentAsset } from "@prisma/client";
+import {
+  Prisma,
+  type ContentAsset as PrismaContentAsset,
+} from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
 import {
@@ -11,6 +14,11 @@ import {
   ContentPolicyFixture,
   deterministicGeneratedAssetId,
   validateContentPolicyFixture,
+} from "@marketmind/contracts";
+import type {
+  AiContentV2GenerateRequest,
+  ContentV2FrozenInput,
+  StrategyPlanV2,
 } from "@marketmind/contracts";
 import type { StrategyPlan, BusinessProfileData } from "@marketmind/contracts";
 import {
@@ -22,6 +30,8 @@ import { ContentCycleRepository } from "./repositories/content-cycle.repository"
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
+import { ContentWeekPlanRepository } from "./v2/content-week-plan.repository";
+import { PrismaService } from "../../common/persistence/prisma.service";
 import {
   AssetStorage,
   CONTENT_ASSET_STORAGE,
@@ -88,10 +98,13 @@ export class ContentProcessor extends WorkerHost {
     private readonly weekContextRepo: ContentWeekContextRepository,
     private readonly strategyRepo: StrategyRepository,
     private readonly contentAiClient: ContentAiClient,
+    private readonly weekPlanRepo: ContentWeekPlanRepository,
+    private readonly prisma: PrismaService,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
-    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
+    @Optional()
+    private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     super();
   }
@@ -100,6 +113,10 @@ export class ContentProcessor extends WorkerHost {
     switch (job.name) {
       case "generate-content":
         return this.handleGenerate(
+          job as unknown as Job<ContentGenerateJobData>,
+        );
+      case "generate-content-v2":
+        return this.handleGenerateV2(
           job as unknown as Job<ContentGenerateJobData>,
         );
       case "revise-content":
@@ -347,8 +364,244 @@ export class ContentProcessor extends WorkerHost {
             error instanceof BillingDomainException
               ? error.code
               : error instanceof ProviderError
+                ? error.code
+                : "CONTENT_GENERATION_FAILED",
+          retryable: retryEligible,
+          correlation_id: correlationId,
+        },
+      );
+
+      if (retryable) {
+        throw error;
+      }
+    }
+  }
+
+  private async handleGenerateV2(
+    job: Job<ContentGenerateJobData>,
+  ): Promise<void> {
+    const { contentCycleId, weekNumber, contentPackId, correlationId } =
+      job.data;
+    const startedAt = new Date();
+
+    const pack = await this.packRepo.getPackById(contentPackId);
+    if (!pack) {
+      this.logger.error(`Pack ${contentPackId} not found`);
+      return;
+    }
+    if (pack.contractVersion !== "content-v2" || !pack.weekPlanId) {
+      throw new ProviderError(
+        "CONTENT_SCHEMA_FAILURE",
+        `Pack ${pack.id} is not a content-v2 pack with a frozen plan.`,
+        false,
+      );
+    }
+
+    const claimed = await this.packRepo.claimPackForGeneration(pack.id);
+    if (!claimed.changed) {
+      this.logger.warn(`Pack ${pack.id} already claimed by another worker`);
+      return;
+    }
+
+    await this.packRepo.appendProgressEvent(pack.id, {
+      stage: "generating",
+      status: "started",
+      messageKey: "content.generating",
+      messageText: "Generating content items…",
+      payload: { correlation_id: correlationId },
+    });
+
+    try {
+      const [cycle, strategy, strategyVersion, strategyDecision, weekPlan] =
+        await Promise.all([
+          this.cycleRepo.getCycleById(contentCycleId),
+          this.strategyRepo.readStrategy(pack.strategyId),
+          this.strategyRepo.getVersionByNumber(
+            pack.strategyId,
+            pack.strategyVersion,
+          ),
+          this.strategyRepo.getDecisionById(pack.strategyDecisionId),
+          this.prisma.contentWeekPlan.findUnique({
+            where: { id: pack.weekPlanId },
+            include: { postPlans: true },
+          }),
+        ]);
+      const profileVersion =
+        await this.strategyRepo.getActiveConfirmedProfileVersion(
+          pack.businessId,
+        );
+      if (
+        !cycle ||
+        !strategy ||
+        !strategyVersion ||
+        !profileVersion ||
+        !weekPlan
+      ) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Missing required data for pack ${pack.id}`,
+          false,
+        );
+      }
+      const frozenInput =
+        weekPlan.frozenInput as unknown as ContentV2FrozenInput | null;
+      if (!frozenInput) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          `Pack ${pack.id} has no frozen input snapshot.`,
+          false,
+        );
+      }
+
+      await this.billingEntitlements?.assertAllowed(
+        cycle.ownerUserId,
+        "content_item",
+        3,
+      );
+
+      const request: AiContentV2GenerateRequest = {
+        contract_version: "content-v2",
+        content_pack_id: pack.id,
+        business_id: pack.businessId,
+        strategy_id: pack.strategyId,
+        strategy_version: pack.strategyVersion,
+        strategy_decision_id: pack.strategyDecisionId,
+        strategy_plan: strategyVersion.planData as unknown as StrategyPlanV2,
+        business_profile: {
+          id: profileVersion.id,
+          business_id: profileVersion.businessId,
+          draft_id: profileVersion.id,
+          version: profileVersion.version,
+          profile: profileVersion.profile as unknown as BusinessProfileData,
+          confirmed_by_user_id: profileVersion.confirmedByUserId ?? undefined,
+          confirmed_at: profileVersion.confirmedAt?.toISOString() ?? undefined,
+          created_at: profileVersion.createdAt.toISOString(),
+        },
+        frozen_input: frozenInput,
+        language_mode: (frozenInput.editorial_profile?.language ??
+          "ar-EG") as AiContentV2GenerateRequest["language_mode"],
+        idempotency_key: `pack:${pack.id}`,
+      };
+
+      const response = await this.contentAiClient.generateV2(request);
+
+      await this.packRepo.markPackStatus(pack.id, "generating", "validating");
+
+      if (response.content_pack.id !== pack.id) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          "AI content service returned a mismatched v2 pack identity.",
+          false,
+        );
+      }
+      if (
+        response.item_versions.length !== frozenInput.post_plans.length ||
+        response.item_versions.length < 3
+      ) {
+        throw new ProviderError(
+          "CONTENT_SCHEMA_FAILURE",
+          "AI content service returned a plan-count mismatch.",
+          false,
+        );
+      }
+
+      const generationRunId = randomUUID();
+      const finishedAt = new Date();
+
+      await this.packRepo.persistGeneratedItemsV2({
+        packId: pack.id,
+        cycleId: contentCycleId,
+        weekNumber,
+        generationRunId,
+        items: response.item_versions.map((iv) => ({
+          id: iv.id,
+          contentItemId: iv.content_item_id,
+          channel: iv.channel,
+          format: iv.format,
+          languageMode: iv.language_mode,
+          strategyTrace: iv.strategy_trace as Prisma.InputJsonValue,
+          captionVariants: iv.caption_variants as Prisma.InputJsonValue,
+          cta: iv.cta,
+          hashtags: iv.hashtags as Prisma.InputJsonValue,
+          creativeBrief: iv.creative_brief,
+          altText: iv.alt_text,
+          shortVideoScript:
+            iv.short_video_script === null
+              ? null
+              : (iv.short_video_script as Prisma.InputJsonValue),
+          recommendedPublishWindow:
+            iv.recommended_publish_window as Prisma.InputJsonValue,
+          claimSources: iv.claim_sources as Prisma.InputJsonValue,
+          warnings: iv.warnings as Prisma.InputJsonValue,
+          blockers: iv.blockers as Prisma.InputJsonValue,
+          assetRequired: iv.asset_required,
+          assetIds: iv.asset_ids as Prisma.InputJsonValue,
+          generationProvenance:
+            iv.generation_provenance as Prisma.InputJsonValue,
+          versionChecksum: iv.version_checksum,
+          createdAt: new Date(iv.created_at),
+        })),
+        progressEvent: {
+          stage: "ready",
+          status: "complete",
+          messageKey: "content.ready",
+          messageText: "Content pack draft ready for review.",
+        },
+        providerName:
+          response.item_versions[0]?.generation_provenance?.provider_name,
+        providerModel:
+          response.item_versions[0]?.generation_provenance?.provider_model,
+        latencyMs: finishedAt.getTime() - startedAt.getTime(),
+        startedAt,
+        finishedAt,
+      });
+
+      for (const [index, plan] of frozenInput.post_plans
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .entries()) {
+        const item = response.item_versions[index];
+        if (!item) continue;
+        await this.weekPlanRepo.attachGeneratedItem(
+          plan.content_week_plan_id,
+          plan.position,
+          item.content_item_id,
+        );
+      }
+
+      await this.billingEntitlements?.record(
+        cycle.ownerUserId,
+        "content_item",
+        response.item_versions.length,
+        `content-pack:${pack.id}`,
+        pack.businessId,
+      );
+
+      this.logger.log(
+        `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
+      );
+    } catch (error) {
+      const retryable =
+        error instanceof BillingDomainException
+          ? false
+          : error instanceof ProviderError
+            ? error.retryable
+            : true;
+      const attemptsMade = job.attemptsMade ?? 0;
+      const maxAttempts = Number(job.opts?.attempts ?? 3);
+      const retryEligible = retryable && attemptsMade + 1 < maxAttempts;
+
+      await this.packRepo.safeFail(
+        pack.id,
+        "content.generation_failed",
+        error instanceof Error ? error.message : "Unknown error",
+        {
+          error_code:
+            error instanceof BillingDomainException
               ? error.code
-              : "CONTENT_GENERATION_FAILED",
+              : error instanceof ProviderError
+                ? error.code
+                : "CONTENT_GENERATION_FAILED",
           retryable: retryEligible,
           correlation_id: correlationId,
         },
@@ -663,8 +916,8 @@ export class ContentProcessor extends WorkerHost {
             error instanceof BillingDomainException
               ? error.code
               : error instanceof ProviderError
-              ? error.code
-              : "CONTENT_REVISION_FAILED",
+                ? error.code
+                : "CONTENT_REVISION_FAILED",
           retryable: retryEligible,
           correlation_id: correlationId,
           item_id: contentItemId,
@@ -714,7 +967,8 @@ export class ContentProcessor extends WorkerHost {
       }
       if (existing.status === "ready") return;
 
-      const billingContext = await this.packRepo.getAssetBillingContext?.(assetId);
+      const billingContext =
+        await this.packRepo.getAssetBillingContext?.(assetId);
       if (billingContext) {
         await this.billingEntitlements?.assertAllowed(
           billingContext.ownerUserId,
@@ -814,8 +1068,8 @@ export class ContentProcessor extends WorkerHost {
         error instanceof BillingDomainException
           ? error.code
           : error instanceof ProviderError
-          ? error.code
-          : "CONTENT_ASSET_GENERATION_FAILED";
+            ? error.code
+            : "CONTENT_ASSET_GENERATION_FAILED";
 
       await this.packRepo.markAssetFailed({
         assetId,

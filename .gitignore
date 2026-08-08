@@ -45,3 +45,5 @@ Issues/
 # Local analysis/planning scratch (never committed)
 content-phase-report.txt
 agents-skills.zip
+.playwright-mcp/
+apps/api/.content-assets/

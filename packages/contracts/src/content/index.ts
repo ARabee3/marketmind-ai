@@ -1,4 +1,5 @@
 export * from "./content-types";
+export * from "./v2";
 export * from "./content-cycle";
 export * from "./content-item";
 export * from "./content-asset-identity";

@@ -5,6 +5,8 @@ import { ContentProcessor } from "./content.processor";
 import { ContentPackRepository } from "./repositories/content-pack.repository";
 import { ContentCycleRepository } from "./repositories/content-cycle.repository";
 import { ContentWeekContextRepository } from "./repositories/content-week-context.repository";
+import { ContentWeekPlanRepository } from "./v2/content-week-plan.repository";
+import { PrismaService } from "../../common/persistence/prisma.service";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { ContentAiClient } from "./content.client";
 import { CONTENT_ASSET_STORAGE } from "./assets/asset-storage.port";
@@ -312,6 +314,8 @@ describe("ContentProcessor", () => {
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekContextRepo },
+        { provide: ContentWeekPlanRepository, useValue: {} },
+        { provide: PrismaService, useValue: {} },
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: client },
         { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
@@ -414,7 +418,9 @@ describe("ContentProcessor", () => {
         AI_RESPONSE_WITH_GENERATED_ASSET.item_versions[0].id,
       );
       const assetId = deterministicGeneratedAssetId(assetVersionId);
-      client.generate.mockResolvedValue(AI_RESPONSE_WITH_GENERATED_ASSET as never);
+      client.generate.mockResolvedValue(
+        AI_RESPONSE_WITH_GENERATED_ASSET as never,
+      );
       packRepo.listReusableAssets = jest.fn().mockResolvedValue([]);
       packRepo.getAssetById = jest.fn().mockResolvedValue({
         id: assetId,
@@ -424,8 +430,10 @@ describe("ContentProcessor", () => {
 
       await processor.process(makeJob());
 
-      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
-        .calls.map((call) => call[0])
+      const assetFixture = (
+        validateContentPolicyFixture as jest.Mock
+      ).mock.calls
+        .map((call) => call[0])
         .reverse()
         .find((fixture) => fixture.item_version.asset_required);
       expect(assetFixture.assets).toEqual([
@@ -496,8 +504,10 @@ describe("ContentProcessor", () => {
         "business-1",
         "owner-1",
       );
-      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
-        .calls.map((call) => call[0])
+      const assetFixture = (
+        validateContentPolicyFixture as jest.Mock
+      ).mock.calls
+        .map((call) => call[0])
         .reverse()
         .find((fixture) => fixture.item_version.asset_required);
       expect(assetFixture.assets).toEqual([
@@ -526,9 +536,9 @@ describe("ContentProcessor", () => {
         ],
       };
       client.generate.mockResolvedValue(response as never);
-      packRepo.listReusableAssets = jest.fn().mockResolvedValue([
-        { id: assetId, status: "ready" },
-      ]);
+      packRepo.listReusableAssets = jest
+        .fn()
+        .mockResolvedValue([{ id: assetId, status: "ready" }]);
       packRepo.getAssetById = jest.fn().mockResolvedValue(null);
 
       await processor.process(makeJob());
@@ -538,8 +548,10 @@ describe("ContentProcessor", () => {
         "business-1",
         "owner-1",
       );
-      const assetFixture = (validateContentPolicyFixture as jest.Mock).mock
-        .calls.map((call) => call[0])
+      const assetFixture = (
+        validateContentPolicyFixture as jest.Mock
+      ).mock.calls
+        .map((call) => call[0])
         .reverse()
         .find((fixture) => fixture.item_version.asset_required);
       expect(assetFixture.assets).toEqual([]);

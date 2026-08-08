@@ -10,7 +10,11 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
-from content_contracts import AiContentGenerateRequest, ContentItemVersion
+from content_contracts import (
+    AiContentGenerateRequest,
+    ContentItemVersion,
+    ContentValidationResult,
+)
 from platform_constraints import validate_platform_constraints
 
 from app.content.assembler import PromptAssembly
@@ -263,8 +267,16 @@ async def generate_content_pack_with_repair(
     retry_delay_seconds: float = 2.0,
     breaker: CircuitBreaker | None = None,
     max_output_tokens: int | None = None,
+    extra_validator: Callable[
+        [list[ContentItemVersion]], ContentValidationResult
+    ] | None = None,
 ) -> list[ContentItemVersion]:
-    """Generate a complete pack with bounded schema repair and safe retry."""
+    """Generate a complete pack with bounded schema repair and safe retry.
+
+    ``extra_validator`` (content-v2) runs after the standard pack validation
+    on every attempt; its first issue becomes a repairable ProviderError so
+    plan-alignment failures repair like any other schema failure.
+    """
     _ensure_provider_allowed(breaker)
     current_prompt = prompt
     last_error: ProviderError | None = None
@@ -290,6 +302,15 @@ async def generate_content_pack_with_repair(
                         issue.code,
                         f"{issue.field}: {issue.message}",
                         retryable=False,
+                    )
+            if extra_validator is not None:
+                extra_validation = extra_validator(items)
+                if not extra_validation.valid:
+                    issue = extra_validation.issues[0]
+                    raise ProviderError(
+                        issue.code,
+                        f"{issue.field}: {issue.message}",
+                        retryable=issue.retryable,
                     )
             if breaker is not None:
                 breaker.record_success()

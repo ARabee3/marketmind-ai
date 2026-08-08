@@ -7,6 +7,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { createHash, randomUUID } from "node:crypto";
@@ -65,6 +66,7 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { ContentV2Service } from "./v2/content-v2.service";
 import { extractSupportedContentChannels } from "./content-strategy.adapter";
 import {
   AssetStorage,
@@ -134,6 +136,8 @@ export class ContentService {
     @Optional() private readonly jobOutbox?: ContentJobOutboxRepository,
     @Optional()
     private readonly billingEntitlements?: BillingEntitlementsService,
+    @Optional() private readonly contentV2Service?: ContentV2Service,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -300,6 +304,21 @@ export class ContentService {
         generationJob: this.jobOutbox
           ? { idempotencyKey: `cycle-creation:${strategy.id}:week:1` }
           : undefined,
+        // Issue #187 rollout gate: new cycles become content-v2 only when the
+        // deployment enables the owner-first studio path. v2 cycles skip the
+        // automatic week-1 claim because the owner configures and plans first.
+        contractVersion:
+          this.configService?.get<boolean>(
+            "content.v2DefaultEnabled",
+            false,
+          ) === true
+            ? "content-v2"
+            : undefined,
+        skipWeekOneClaim:
+          this.configService?.get<boolean>(
+            "content.v2DefaultEnabled",
+            false,
+          ) === true,
       },
       ownerUserId,
     );
@@ -307,6 +326,15 @@ export class ContentService {
     this.logger.log(
       `[ContentCycle ${created.cycle.id}] ${created.created ? "Created" : "Replayed"} from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
     );
+
+    // v2 cycles do not auto-generate week 1; the weekly studio drives
+    // configuration → planning → explicit generation.
+    if (created.cycle.contractVersion === "content-v2") {
+      return {
+        content_cycle: toContentCycle(created.cycle),
+        initial_week_context: toContentWeekContext(created.weekContext),
+      };
+    }
 
     // Issue #110 requires week 1 to be queued immediately when the cycle starts.
     // generateWeek's idempotent claim ensures a duplicate cycle-creation request
@@ -514,6 +542,20 @@ export class ContentService {
     if (!cycle) {
       throw new NotFoundException("Content cycle not found");
     }
+    // Content v2 cycles run the owner-first studio path: freeze the plan
+    // with its frozen snapshot and queue the v2 worker job (issue #187).
+    if (cycle.contractVersion === "content-v2") {
+      return this.contentV2Service.generateWeek(
+        cycleId,
+        weekNumber,
+        dto,
+        ownerUserId,
+      ) as unknown as Promise<{
+        content_pack: ContentPack;
+        status: "queued";
+        correlation_id: string;
+      }>;
+    }
     this.assertCycleActive(cycle);
     this.assertWeekNumberInRange(weekNumber);
     await this.billingEntitlements?.assertAllowed(
@@ -561,7 +603,7 @@ export class ContentService {
         );
 
     const correlationId = randomUUID();
-    const jobId = `generate-content:${pack.id}`;
+    const jobId = `generate-content-${pack.id}`;
     const durableJobPayload = {
       contentCycleId: cycleId,
       weekNumber,
@@ -866,7 +908,13 @@ export class ContentService {
     }
 
     const correlationId = randomUUID();
-    const jobId = `generate-content:retry:${pack.id}:${correlationId}`;
+    // Content v2 packs retry through the v2 worker job (issue #187); the
+    // frozen plan snapshot is read from the pack's week plan.
+    const isV2 = pack.contractVersion === "content-v2";
+    const jobId = isV2
+      ? `generate-content-v2-${pack.id}-${correlationId}`
+      : `generate-content-retry-${pack.id}-${correlationId}`;
+    const jobName = isV2 ? "generate-content-v2" : "generate-content";
     const durableJobPayload = {
       contentCycleId: pack.contentCycleId,
       weekNumber: pack.weekNumber,
@@ -898,7 +946,7 @@ export class ContentService {
           {
             jobId,
             queueName: "content-generation",
-            jobName: "generate-content",
+            jobName,
             payload: durableJobPayload,
           },
           tx,
@@ -906,19 +954,14 @@ export class ContentService {
       }
     });
 
-    await this.contentQueue.add(
-      "generate-content",
-      this.jobOutbox
-        ? durableJobPayload
-        : { ...durableJobPayload, correlationId },
-      this.jobOutbox
-        ? {
-            jobId: toBullMqJobId(jobId),
-            attempts: 3,
-            backoff: { type: "exponential", delay: 2000 },
-          }
-        : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
-    );
+    const queueOptions = this.jobOutbox
+      ? {
+          jobId: toBullMqJobId(jobId),
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+        }
+      : { attempts: 3, backoff: { type: "exponential", delay: 2000 } };
+    await this.contentQueue.add(jobName, durableJobPayload, queueOptions);
     await this.jobOutbox?.markDirectDispatched(jobId);
 
     await this.packRepository.appendProgressEvent(pack.id, {
@@ -1804,7 +1847,7 @@ export class ContentService {
 function toContentCycle(cycle: ContentCycleRow): ContentCycle {
   return {
     id: cycle.id,
-    contract_version: "content-v1",
+    contract_version: cycle.contractVersion as ContentCycle["contract_version"],
     business_id: cycle.businessId,
     strategy_id: cycle.strategyId,
     strategy_version: cycle.strategyVersion,

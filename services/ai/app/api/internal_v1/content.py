@@ -20,6 +20,14 @@ from content_contracts import (
     ContentValidationResult,
     ContentItemVersion,
 )
+from content_v2_contracts import (
+    AiContentV2GenerateRequest,
+    AiContentV2GenerateResponse,
+    AiContentV2PlanRequest,
+    AiContentV2PlanResponse,
+    AiContentV2ReviseRequest,
+    AiContentV2ReviseResponse,
+)
 
 from app.content.circuit_breaker import CircuitBreaker
 from app.content.assembler import (
@@ -32,9 +40,17 @@ from app.content.image_provider import (
     generate_static_asset,
 )
 from app.content.observability import content_event_metadata
+from app.content.planner import (
+    assemble_plan_prompt,
+    plan_content_week_with_repair,
+)
 from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
+)
+from app.content.v2_generator import (
+    generate_v2_content_pack,
+    revise_v2_content_item,
 )
 from app.content.storage import R2StorageConfig, create_asset_storage
 from app.content.validators import (
@@ -222,6 +238,121 @@ async def generate_content(
         item_versions=items,
         validation=validation,
     )
+
+
+@router.post(
+    "/v2/plan",
+    response_model=AiContentV2PlanResponse,
+    summary="Plan one Content week as 3-5 high-level post cards",
+)
+async def plan_content_week(
+    request: AiContentV2PlanRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2PlanResponse:
+    try:
+        prompt = assemble_plan_prompt(
+            request,
+            provider_name=settings.ai_provider_mode,
+            model=_model_name(settings),
+        )
+        log_content_event(
+            logger,
+            "plan_started",
+            content_event_metadata(prompt.metadata),
+        )
+        provider = create_content_provider(settings)
+        plans = await plan_content_week_with_repair(
+            provider,
+            prompt,
+            request=request,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_SCHEMA_FAILURE")
+
+    validation = ContentValidationResult(valid=True, issues=[])
+    log_content_event(
+        logger,
+        "plan_completed",
+        content_event_metadata(prompt.metadata, plan_count=len(plans)),
+    )
+    return AiContentV2PlanResponse(
+        contract_version="content-v2",
+        week_plan_id=request.week_plan_id,
+        post_plans=plans,
+        validation=validation,
+    )
+
+
+@router.post(
+    "/v2/generate",
+    response_model=AiContentV2GenerateResponse,
+    summary="Generate Content v2 items from a frozen plan/profile/CTA/media snapshot",
+)
+async def generate_content_v2(
+    request: AiContentV2GenerateRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2GenerateResponse:
+    try:
+        provider = create_content_provider(settings)
+        response = await generate_v2_content_pack(
+            request,
+            provider,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_SCHEMA_FAILURE")
+
+    log_content_event(
+        logger,
+        "generation_v2_completed",
+        content_event_metadata(
+            {"contract_version": "content-v2", "content_pack_id": request.content_pack_id},
+            item_count=len(response.item_versions),
+            validation=response.validation,
+        ),
+    )
+    return response
+
+
+@router.post(
+    "/v2/revise",
+    response_model=AiContentV2ReviseResponse,
+    summary="AI-rewrite one Content v2 item version against the frozen snapshot",
+)
+async def revise_content_v2(
+    request: AiContentV2ReviseRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2ReviseResponse:
+    try:
+        provider = create_content_provider(settings)
+        response = await revise_v2_content_item(
+            request,
+            provider,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_VERSION_CONFLICT")
+
+    log_content_event(
+        logger,
+        "revision_v2_completed",
+        content_event_metadata(
+            {
+                "contract_version": "content-v2",
+                "content_pack_id": request.content_pack_id,
+                "base_item_version_id": request.base_item_version.id,
+            },
+            validation=response.validation,
+        ),
+    )
+    return response
 
 
 @router.post(

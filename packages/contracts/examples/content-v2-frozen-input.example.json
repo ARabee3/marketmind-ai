@@ -1,0 +1,153 @@
+{
+  "week_plan_id": "be000000-0000-4000-8000-00000000be01",
+  "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+  "week_number": 1,
+  "week_start_date": "2026-07-06",
+  "editorial_profile": {
+    "id": "ed000000-0000-4000-8000-00000000ed01",
+    "contract_version": "content-v2",
+    "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+    "audience_nuance": "موظفون في المكاتب القريبة يبحثون عن غداء سريع وطازج، مع عائلات في المساء.",
+    "voice": "ودي وعملي، نغمة صديق يشرح الأطباق بوضوح دون مبالغة.",
+    "language": "ar-EG",
+    "writing_guardrails": [
+      "لا تذكر أسعاراً غير مؤكدة",
+      "لا تدّعي تفوقاً على المنافسين"
+    ],
+    "default_visual_guidance": "أطباق كشري ملونة بإضاءة طبيعية، خلفية بسيطة دون كتابة عربية داخل الصورة",
+    "created_at": "2026-08-01T09:00:00+03:00",
+    "updated_at": "2026-08-02T11:30:00+03:00"
+  },
+  "cta_entries": [
+    {
+      "id": "ca000000-0000-4000-8000-00000000ca01",
+      "contract_version": "content-v2",
+      "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+      "label": "اطلب بالواتساب",
+      "destination": {
+        "type": "whatsapp",
+        "value": "+201001234567"
+      },
+      "campaign_context": "طلبات الغداء من المكاتب القريبة",
+      "active": true,
+      "created_at": "2026-08-01T09:05:00+03:00",
+      "updated_at": "2026-08-01T09:05:00+03:00"
+    },
+    {
+      "id": "ca000000-0000-4000-8000-00000000ca02",
+      "contract_version": "content-v2",
+      "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+      "label": "قيمنا على جوجل",
+      "destination": {
+        "type": "website",
+        "value": "https://maps.google.com/place/koshary-corner"
+      },
+      "campaign_context": "تعزيز المراجعات قبل نهاية الشهر",
+      "active": true,
+      "created_at": "2026-08-01T09:06:00+03:00",
+      "updated_at": "2026-08-01T09:06:00+03:00"
+    }
+  ],
+  "media_entries": [
+    {
+      "id": "ab000000-0000-4000-8000-00000000ab01",
+      "contract_version": "content-v2",
+      "business_id": "11111111-1111-4111-8111-111111111111",
+      "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+      "owner_user_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "kind": "owner_uploaded",
+      "status": "ready",
+      "mime_type": "image/jpeg",
+      "size_bytes": 1536000,
+      "width": 1080,
+      "height": 1080,
+      "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "storage_key": "media/33333333-3333-4333-8333-333333333333/ab000000-0000-4000-8000-00000000ab01.jpg",
+      "failure_code": null,
+      "created_at": "2026-08-01T10:00:00+03:00",
+      "updated_at": "2026-08-01T10:00:00+03:00"
+    }
+  ],
+  "post_plans": [
+    {
+      "id": "be000000-0000-4000-8000-00000000be11",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 1,
+      "purpose": "تقديم طبق الكشري الشهير لموظفي المكاتب القريبة وقت الغداء",
+      "intended_audience": "موظفو المكاتب القريبة الباحثون عن غداء سريع",
+      "channel": "instagram",
+      "format": "static_image_post",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca01",
+      "owner_instructions": "التركيز على سرعة التحضير والتوصيل بالمنطقة",
+      "visual_direction": "صورة كشري طازج بإضاءة طبيعية",
+      "selected_media_ids": [
+        "ab000000-0000-4000-8000-00000000ab01"
+      ],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    },
+    {
+      "id": "be000000-0000-4000-8000-00000000be12",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 2,
+      "purpose": "توضيح مكونات الطبق وطريقة الطلب بالواتساب",
+      "intended_audience": "عملاء جدد يتعرفون على المكونات لأول مرة",
+      "channel": "facebook",
+      "format": "static_image_post",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca01",
+      "owner_instructions": "لا تذكر أسعاراً غير مؤكدة",
+      "visual_direction": "صورة طبق كشري مع شرح سريع بالمكونات",
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    },
+    {
+      "id": "be000000-0000-4000-8000-00000000be13",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 3,
+      "purpose": "دعوة العملاء الراضين لتقييم التجربة على جوجل",
+      "intended_audience": "الزبائن الذين زاروا الفرع هذا الأسبوع",
+      "channel": "google_business_profile",
+      "format": "short_video_script",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca02",
+      "owner_instructions": null,
+      "visual_direction": "لقطات قصيرة للفرع والطبق",
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    },
+    {
+      "id": "be000000-0000-4000-8000-00000000be14",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 4,
+      "purpose": "فيلم قصير يعرض تجربة زيارة الفرع في وقت الذروة",
+      "intended_audience": "عائلات تبحث عن عشاء سريع بالمنطقة",
+      "channel": "instagram",
+      "format": "short_video_script",
+      "cta_library_entry_id": null,
+      "owner_instructions": "نهاية الفيديو بدون عبارة شراء مباشرة",
+      "visual_direction": "لقطات سريعة من المطبخ إلى الطاولة",
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    }
+  ],
+  "weekly_claim_id": "99999999-9999-4999-8999-999999999999",
+  "frozen_at": "2026-08-02T12:00:00+03:00"
+}
