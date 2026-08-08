@@ -305,4 +305,75 @@ describe("Strategy lifecycle transition matrix", () => {
       });
     });
   });
+
+  describe("StrategyRepository.deleteStrategy", () => {
+    function makePrisma(overrides: Record<string, unknown> = {}) {
+      const deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+      const findUnique = jest
+        .fn()
+        .mockResolvedValue({ id: "strat-1", status: "draft" });
+      const findMany = jest.fn().mockResolvedValue([{ id: "ver-1" }]);
+      const remove = jest.fn().mockResolvedValue({ id: "strat-1" });
+      const tx = {
+        strategy: {
+          findUnique,
+          deleteMany: deleteMany as unknown as ReturnType<typeof jest.fn>,
+          delete: remove,
+        },
+        strategyVersion: { findMany, deleteMany },
+        strategyDecision: { deleteMany },
+        strategyRetrievalRun: { deleteMany },
+        strategyBrief: { deleteMany },
+        strategyProgressEvent: { deleteMany },
+        ...overrides,
+      };
+      return {
+        prisma: {
+          $transaction: jest.fn(
+            async (callback: (t: unknown) => Promise<unknown>) =>
+              callback(tx),
+          ),
+        },
+        deleteMany,
+        findUnique,
+        findMany,
+        remove,
+        tx,
+      };
+    }
+
+    it("deletes every strategy-owned row in one transaction", async () => {
+      const { prisma, deleteMany, findMany, remove } = makePrisma();
+      const repo = new StrategyRepository(prisma as unknown as PrismaService);
+
+      await repo.deleteStrategy("strat-1");
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { strategyId: "strat-1" },
+        select: { id: true },
+      });
+      expect(deleteMany).toHaveBeenCalledWith({
+        where: { strategyVersionId: { in: ["ver-1"] } },
+      });
+      expect(deleteMany).toHaveBeenCalledWith({
+        where: { strategyId: "strat-1" },
+      });
+      expect(remove).toHaveBeenCalledWith({ where: { id: "strat-1" } });
+    });
+
+    it("refuses to delete a strategy that is no longer in draft (concurrent decision)", async () => {
+      const { prisma } = makePrisma({
+        strategy: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          deleteMany: jest.fn(),
+          delete: jest.fn(),
+        },
+      });
+      const repo = new StrategyRepository(prisma as unknown as PrismaService);
+
+      await expect(repo.deleteStrategy("strat-1")).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
 });

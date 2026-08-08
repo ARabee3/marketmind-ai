@@ -18,7 +18,7 @@ import type {
   StrategyResource,
 } from '@marketmind/contracts'
 import { Button } from '@/components/ui/button'
-import { Link } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
@@ -52,6 +52,7 @@ export function StrategyReviewV2({
 }) {
   const t = useTranslations('Strategy')
   const format = useFormatter()
+  const router = useRouter()
   const plan = resource.latest_plan as StrategyPlanV2 | null
   const { decide, retry, pending, error } = useStrategyActions()
   const [decision, setDecision] = useState<DecisionAction | null>(null)
@@ -102,6 +103,12 @@ export function StrategyReviewV2({
     if (!result) return
     setDecision(null)
     setFeedback('')
+    if (result.nextStatus === 'needs_brief') {
+      // The owner rejected the plan. The server wiped the whole strategy
+      // cycle; route the owner back to the creation wizard to start over.
+      router.push('/strategy/new')
+      return
+    }
     setNotice(t(`decision.success.${decision}`))
     await onRefresh()
   }

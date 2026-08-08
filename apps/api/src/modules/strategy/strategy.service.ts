@@ -565,6 +565,27 @@ export class StrategyService {
 
     // Atomic idempotency: claim via the terminal transition so a concurrent
     // duplicate approve/reject cannot both succeed.
+    if (dto.action === "reject") {
+      // Owner rejection wipes the whole strategy cycle so the owner starts
+      // over from scratch: brief, versions, decisions, retrieval runs, and
+      // progress events are all deleted. Nothing from the rejected cycle is
+      // kept — the frontend routes the owner back to the creation wizard.
+      await this.strategyRepository.deleteStrategy(id);
+      // Release the billing usage the deleted cycle consumed so the owner can
+      // actually start over instead of hitting an entitlement limit.
+      try {
+        await this.billingEntitlements?.releaseStrategyCycle(ownerUserId, id);
+      } catch (releaseError: unknown) {
+        this.logger.warn(
+          `[Strategy ${id}] Could not release usage for deleted cycle: ${errorMessage(releaseError)}`,
+        );
+      }
+      this.logger.log(
+        `[Strategy ${id}] Owner rejected the plan; strategy deleted for a fresh start.`,
+      );
+      return { decision: null, nextStatus: "needs_brief" as const };
+    }
+
     if (dto.action === "revision_requested") {
       await this.billingEntitlements?.assertAllowed(
         ownerUserId,
@@ -619,7 +640,7 @@ export class StrategyService {
       return { decision, correlationId };
     }
 
-    // approve / reject — recordOwnerDecision enforces FSM + transitions atomically.
+    // approve — recordOwnerDecision enforces FSM + transitions atomically.
     const { decision, nextStatus } =
       await this.strategyRepository.recordOwnerDecision(
         dto.versionId,

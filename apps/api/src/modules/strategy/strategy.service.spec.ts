@@ -85,6 +85,7 @@ function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
     countRetries: jest.fn().mockResolvedValue(0),
     recordRetryDecision: jest.fn(),
     recordOwnerDecision: jest.fn(),
+    deleteStrategy: jest.fn().mockResolvedValue(undefined),
     claimForGeneration: jest.fn(),
     appendProgressEvent: jest.fn().mockResolvedValue({}),
     listProgressEvents: jest.fn(),
@@ -1250,6 +1251,71 @@ describe("StrategyService", () => {
         STRAT_ID,
         expect.objectContaining({ messageKey: "strategy.approved" }),
       );
+    });
+
+    it("requires owner feedback when rejecting a plan", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "reject",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.deleteStrategy).not.toHaveBeenCalled();
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+    });
+
+    it("wipes the whole strategy cycle on reject and signals a fresh start", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+
+      const result = await service.handleDecision(STRAT_ID, OWNER_ID, {
+        versionId: "v-1",
+        action: "reject",
+        feedback: "This plan does not fit our business.",
+      });
+
+      // The rejected cycle is deleted outright — nothing is kept for a retry.
+      expect(repository.deleteStrategy).toHaveBeenCalledWith(STRAT_ID);
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+      expect(result.nextStatus).toBe("needs_brief");
+      expect(result.decision).toBeNull();
+    });
+
+    it("does not delete the strategy when a reject races a concurrent decision", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "draft",
+        currentVersionId: "v-1",
+        businessId: "biz-1",
+        brief: { businessProfileVersionId: "prof-1" },
+      });
+      (repository.deleteStrategy as jest.Mock).mockRejectedValue(
+        new BadRequestException(
+          "Strategy is no longer in draft state; decision could not be applied",
+        ),
+      );
+
+      await expect(
+        service.handleDecision(STRAT_ID, OWNER_ID, {
+          versionId: "v-1",
+          action: "reject",
+          feedback: "This plan does not fit our business.",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
     });
   });
 

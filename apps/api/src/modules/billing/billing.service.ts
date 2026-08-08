@@ -233,10 +233,32 @@ export class BillingService {
     });
   }
 
+  /**
+   * Releases usage ledger rows consumed by a strategy cycle that no longer
+   * exists. An owner rejection deletes the whole cycle, so entitlement
+   * accounting for that deleted work must not block the owner from starting
+   * over with a fresh strategy. Idempotent: cycles that were never recorded
+   * match zero rows.
+   */
+  async releaseUsageForStrategy(
+    userId: string,
+    strategyId: string,
+  ): Promise<void> {
+    const account = await this.ensureBillingAccount(userId);
+    await this.prisma.billingUsageLedger.deleteMany({
+      where: {
+        billingAccountId: account.id,
+        OR: [
+          { claimKey: { startsWith: `strategy-cycle:${strategyId}:` } },
+          { claimKey: { startsWith: `strategy-revision:${strategyId}:` } },
+        ],
+      },
+    });
+  }
+
   async getTransactions(
     userId: string,
-  ): Promise<BillingTransactionsResponse> {
-    const account = await this.ensureBillingAccount(userId);
+  ): Promise<BillingTransactionsResponse> {    const account = await this.ensureBillingAccount(userId);
     const transactions = await this.prisma.billingPaymentTransaction.findMany({
       where: { billingAccountId: account.id },
       orderBy: { occurredAt: "desc" },

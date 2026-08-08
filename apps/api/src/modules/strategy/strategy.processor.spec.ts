@@ -141,9 +141,11 @@ describe("StrategyProcessor", () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: string) =>
-              key === "aiService.url" ? "http://localhost:8000" : 30_000,
-            ),
+            get: jest.fn((key: string) => {
+              if (key === "aiService.url") return "http://localhost:8000";
+              if (key === "aiService.generationRetryDelayMs") return 0;
+              return 30_000;
+            }),
           },
         },
       ],
@@ -329,9 +331,11 @@ describe("StrategyProcessor", () => {
         contractVersion: "strategy-v2",
       };
       (repository.readStrategy as jest.Mock).mockResolvedValue(strategyV2);
+      // Persistent mock: the auto-retry loop re-attempts with the same
+      // malformed plan until the attempt budget is exhausted.
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValueOnce(
+        .mockReturnValue(
           of({
             data: {
               plan: { contract_version: "strategy-v2", id: "plan-v2-2" },
@@ -447,7 +451,7 @@ describe("StrategyProcessor", () => {
       };
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValueOnce(
+        .mockReturnValue(
           of({
             data: {
               plan: validPlan,
@@ -514,7 +518,7 @@ describe("StrategyProcessor", () => {
       };
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValueOnce(of({ data: { plan: successResponse } }));
+        .mockReturnValue(of({ data: { plan: successResponse } }));
 
       await expect(
         processor.process({
@@ -524,6 +528,148 @@ describe("StrategyProcessor", () => {
         } as never),
       ).rejects.toThrow("no valid validation result");
 
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── generate-strategy: automatic retry until valid + approvable ─────
+
+  describe("handleGenerate — automatic retry", () => {
+    const validPlan = {
+      id: "plan-1",
+      strategy_id: "strat-1",
+      version: 1,
+      contract_version: "2026-07-01",
+      brief_id: "brief-1",
+      retrieval_run_id: "run-1",
+      executive_summary: {
+        text: "summary",
+        source: "model_synthesis",
+        citation_ids: [],
+      },
+      situation_diagnosis: {
+        text: "diag",
+        source: "model_synthesis",
+        citation_ids: [],
+      },
+      primary_objective: "awareness",
+      selected_channels: [],
+      all_channel_scores: [],
+      content_strategy: {
+        format_mix: [],
+        weekly_cadence: "1",
+        weeks: [],
+        experiments: [],
+      },
+      budget_mode: "organic_only",
+      kpi_targets: [],
+      citations: [],
+      created_at: "2026-07-28T10:00:00.000Z",
+    };
+
+    it("retries a 422 validation rejection and persists the later valid plan", async () => {
+      (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
+        id: "ver-1",
+        version: 1,
+      });
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(
+          throwError(() => new Error("Request failed with status code 422")),
+        )
+        .mockReturnValueOnce(
+          of({
+            data: {
+              plan: validPlan,
+              validation: { valid: true, issues: [] },
+              prompt_config: { model: "gpt-4o" },
+            },
+          }),
+        );
+
+      const result = await processor.process({
+        id: "job-1",
+        name: "generate-strategy",
+        data: baseJob,
+      } as never);
+
+      expect(result).toEqual({ success: true, versionId: "ver-1" });
+      // Score + two generate attempts (failed 422 then success).
+      expect(httpService.post).toHaveBeenCalledTimes(3);
+      // The strategy never moved to failed — the owner never saw a retry UI.
+      expect(repository.updateStrategyStatus).not.toHaveBeenCalledWith(
+        "strat-1",
+        "failed",
+      );
+    });
+
+    it("rejects a plan carrying blocking blockers and regenerates until approvable", async () => {
+      (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
+        id: "ver-1",
+        version: 1,
+      });
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(
+          of({
+            data: {
+              plan: {
+                ...validPlan,
+                blockers: [
+                  { severity: "blocking", code: "BUDGET", message: "No budget" },
+                ],
+              },
+              validation: { valid: true, issues: [] },
+            },
+          }),
+        )
+        .mockReturnValue(
+          of({
+            data: {
+              plan: { ...validPlan, blockers: [] },
+              validation: { valid: true, issues: [] },
+              prompt_config: {},
+            },
+          }),
+        );
+
+      const result = await processor.process({
+        id: "job-1",
+        name: "generate-strategy",
+        data: baseJob,
+      } as never);
+
+      expect(result).toEqual({ success: true, versionId: "ver-1" });
+      expect(httpService.post).toHaveBeenCalledTimes(3);
+      expect(repository.appendStrategyVersion).toHaveBeenCalledWith(
+        "strat-1",
+        "run-1",
+        expect.objectContaining({ blockers: [] }),
+        {},
+      );
+    });
+
+    it("fails to failed only after every automatic attempt is exhausted", async () => {
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValue(
+          throwError(() => new Error("Request failed with status code 422")),
+        );
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("Request failed with status code 422");
+
+      // Score + MAX_AI_GENERATION_ATTEMPTS generate attempts.
+      expect(httpService.post).toHaveBeenCalledTimes(4);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
+        "strat-1",
+        "failed",
+      );
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
   });
@@ -691,7 +837,7 @@ describe("StrategyProcessor", () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { retrieval_run_id: "run-2" } }))
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValueOnce(
+        .mockReturnValue(
           of({
             data: {
               plan: {
