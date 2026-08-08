@@ -8,7 +8,10 @@ import type {
   ContentWeekSummaryV2,
 } from "@marketmind/contracts";
 import { getCycleWorkspaceV2, planWeekV2 } from "@/lib/api/content-v2";
-import { generateContentWeek } from "@/lib/api/content-cycle";
+import {
+  generateContentWeek,
+  retryContentPack,
+} from "@/lib/api/content-cycle";
 import { createIdempotencyKey } from "@/lib/api/publishing";
 import { ContentV2PostCard } from "./content-v2-post-card";
 import { ContentV2Setup } from "./content-v2-setup";
@@ -71,16 +74,20 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (retry = false) => {
     if (!workspace || isMutating) return;
     setIsMutating(true);
     setMutationError(null);
     try {
-      await generateContentWeek(cycleId, workspace.current_week.week_number, {
-        content_cycle_id: cycleId,
-        week_number: workspace.current_week.week_number,
-        idempotency_key: createIdempotencyKey(),
-      });
+      if (retry && workspace.current_week.pack) {
+        await retryContentPack(workspace.current_week.pack.id);
+      } else {
+        await generateContentWeek(cycleId, workspace.current_week.week_number, {
+          content_cycle_id: cycleId,
+          week_number: workspace.current_week.week_number,
+          idempotency_key: createIdempotencyKey(),
+        });
+      }
       await load();
     } catch {
       setMutationError("generateFailed");
@@ -155,7 +162,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
         void handleGenerate();
         return;
       case "retry":
-        void handleGenerate();
+        void handleGenerate(true);
         return;
       default:
         return;

@@ -187,6 +187,7 @@ export class ContentMediaValidator {
 }
 
 export type CreateMediaEntryInput = {
+  readonly id: string;
   readonly businessId: string;
   readonly contentCycleId: string;
   readonly ownerUserId: string;
@@ -228,6 +229,7 @@ export class ContentMediaLibraryRepository {
   ): Promise<ContentMediaLibraryEntry> {
     return this.prisma.contentMediaLibraryEntry.create({
       data: {
+        id: input.id,
         businessId: input.businessId,
         contentCycleId: input.contentCycleId,
         ownerUserId: input.ownerUserId,

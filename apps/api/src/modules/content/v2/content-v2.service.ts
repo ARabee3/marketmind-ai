@@ -235,6 +235,7 @@ export class ContentV2Service {
     const validation = this.mediaValidator.validateUpload(buffer, declaredType);
     if (validation.valid === false) {
       const failed = await this.mediaRepository.createEntry({
+        id: randomUUID(),
         businessId: cycle.businessId,
         contentCycleId: cycleId,
         ownerUserId,
@@ -255,6 +256,7 @@ export class ContentV2Service {
     const storageKey = buildMediaStorageKey(cycleId, mediaId, declaredMime);
     const checksum = this.mediaValidator.checksum(buffer);
     await this.mediaRepository.createEntry({
+      id: mediaId,
       businessId: cycle.businessId,
       contentCycleId: cycleId,
       ownerUserId,
@@ -602,7 +604,7 @@ export class ContentV2Service {
     });
 
     const correlationId = randomUUID();
-    const jobId = `generate-content-v2:${pack.id}`;
+    const jobId = `generate-content-v2-${pack.id}`;
     const durableJobPayload = {
       contentCycleId: cycleId,
       weekNumber,
@@ -760,9 +762,7 @@ export class ContentV2Service {
           "The frozen plan snapshot or profile is missing for this pack.",
       });
     }
-    const plan = frozenInput.post_plans.find(
-      (entry) => entry.content_item_id === itemId,
-    );
+    const plan = this.frozenPlanForItem(frozenInput, pack, itemId);
     if (!plan) {
       throw new NotFoundException("Post plan for the content item not found");
     }
@@ -833,6 +833,25 @@ export class ContentV2Service {
         .generation_provenance as Prisma.InputJsonValue,
     });
     return { item_version: toItemVersionV2(version) };
+  }
+
+  private frozenPlanForItem(
+    frozenInput: ContentV2FrozenInput,
+    pack: { itemIds: unknown },
+    itemId: string,
+  ): ContentV2FrozenInput["post_plans"][number] | undefined {
+    const ordered = [...frozenInput.post_plans].sort(
+      (a, b) => a.position - b.position,
+    );
+    const itemIndex = Array.isArray(pack.itemIds)
+      ? pack.itemIds.map(String).indexOf(itemId)
+      : -1;
+    if (itemIndex >= 0 && itemIndex < ordered.length) {
+      return ordered[itemIndex];
+    }
+    return frozenInput.post_plans.find(
+      (entry) => entry.content_item_id === itemId,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -1203,11 +1222,18 @@ export class ContentV2Service {
     if (cycle.status === "paused" || cycle.status === "completed") {
       return "none";
     }
+    // The editorial profile is a precondition for planning; surface the
+    // setup action first so the owner never hits a plan-time error.
+    if (!editorialRow) {
+      return "configure_editorial_profile";
+    }
     if (!pack && !weekPlan) {
       return "plan_week";
     }
+    // A draft plan is reviewable and refinable, but the dominant owner
+    // action is explicit generation (which freezes the plan snapshot).
     if (weekPlan?.status === "draft") {
-      return "refine_plan";
+      return "generate";
     }
     if (pack?.status === "failed") {
       return "retry";

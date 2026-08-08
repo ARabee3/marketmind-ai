@@ -408,7 +408,7 @@ export class ContentPackRepository {
         if (jobIntent) {
           await tx.contentJobOutbox.create({
             data: {
-              jobId: `generate-content:${createdPack.id}`,
+              jobId: `generate-content-${createdPack.id}`,
               queueName: "content-generation",
               jobName: "generate-content",
               payload: {
@@ -584,7 +584,7 @@ export class ContentPackRepository {
         if (input.jobIntent) {
           await tx.contentJobOutbox.create({
             data: {
-              jobId: `generate-content-v2:${createdPack.id}`,
+              jobId: `generate-content-v2-${createdPack.id}`,
               queueName: "content-generation",
               jobName: "generate-content-v2",
               payload: {

@@ -80,8 +80,9 @@ export class UpsertEditorialProfileDto {
   language: LanguageMode;
 
   @IsArray()
+  @ArrayMaxSize(20)
   @IsString({ each: true })
-  @MaxLength(20)
+  @MaxLength(2000, { each: true })
   writing_guardrails: string[];
 
   @IsOptional()
@@ -237,8 +238,9 @@ export class OwnerContentDirectEditDto {
   cta: string | null;
 
   @IsArray()
+  @ArrayMaxSize(50)
   @IsString({ each: true })
-  @MaxLength(50)
+  @MaxLength(50, { each: true })
   hashtags: string[];
 
   @IsString()

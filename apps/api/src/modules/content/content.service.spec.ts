@@ -2125,7 +2125,7 @@ describe("ContentService.retryPack", () => {
     );
     expect(jobOutbox.createIntent).toHaveBeenCalledWith(
       expect.objectContaining({
-        jobId: expect.stringContaining("generate-content:retry:pack-1:"),
+        jobId: expect.stringContaining("generate-content-retry-pack-1-"),
         queueName: "content-generation",
         jobName: "generate-content",
         payload: expect.objectContaining({
@@ -2136,7 +2136,7 @@ describe("ContentService.retryPack", () => {
       expect.anything(),
     );
     expect(jobOutbox.markDirectDispatched).toHaveBeenCalledWith(
-      expect.stringContaining("generate-content:retry:pack-1:"),
+      expect.stringContaining("generate-content-retry-pack-1-"),
     );
     expect(packRepo.appendProgressEvent).toHaveBeenCalledWith(
       "pack-1",

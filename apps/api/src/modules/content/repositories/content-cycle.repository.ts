@@ -156,10 +156,14 @@ export class ContentCycleRepository {
           },
         });
         const frozenAt = new Date();
-        await tx.contentWeekContext.updateMany({
-          where: { id: weekContext.id, frozenAt: null },
-          data: { frozenAt },
-        });
+        // v2 cycles leave the context unfrozen: the v2 generation claim
+        // freezes it together with the week-plan snapshot.
+        if (!input.skipWeekOneClaim) {
+          await tx.contentWeekContext.updateMany({
+            where: { id: weekContext.id, frozenAt: null },
+            data: { frozenAt },
+          });
+        }
         const pack = input.skipWeekOneClaim
           ? null
           : await tx.contentPack.create({
@@ -184,7 +188,7 @@ export class ContentCycleRepository {
         if (input.generationJob && pack) {
           await tx.contentJobOutbox.create({
             data: {
-              jobId: `generate-content:${pack.id}`,
+              jobId: `generate-content-${pack.id}`,
               queueName: "content-generation",
               jobName: "generate-content",
               payload: {

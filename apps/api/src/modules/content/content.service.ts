@@ -602,7 +602,7 @@ export class ContentService {
         );
 
     const correlationId = randomUUID();
-    const jobId = `generate-content:${pack.id}`;
+    const jobId = `generate-content-${pack.id}`;
     const durableJobPayload = {
       contentCycleId: cycleId,
       weekNumber,
@@ -903,7 +903,13 @@ export class ContentService {
     }
 
     const correlationId = randomUUID();
-    const jobId = `generate-content:retry:${pack.id}:${correlationId}`;
+    // Content v2 packs retry through the v2 worker job (issue #187); the
+    // frozen plan snapshot is read from the pack's week plan.
+    const isV2 = pack.contractVersion === "content-v2";
+    const jobId = isV2
+      ? `generate-content-v2-${pack.id}-${correlationId}`
+      : `generate-content-retry-${pack.id}-${correlationId}`;
+    const jobName = isV2 ? "generate-content-v2" : "generate-content";
     const durableJobPayload = {
       contentCycleId: pack.contentCycleId,
       weekNumber: pack.weekNumber,
@@ -935,7 +941,7 @@ export class ContentService {
           {
             jobId,
             queueName: "content-generation",
-            jobName: "generate-content",
+            jobName,
             payload: durableJobPayload,
           },
           tx,
@@ -943,19 +949,10 @@ export class ContentService {
       }
     });
 
-    await this.contentQueue.add(
-      "generate-content",
-      this.jobOutbox
-        ? durableJobPayload
-        : { ...durableJobPayload, correlationId },
-      this.jobOutbox
-        ? {
-            jobId,
-            attempts: 3,
-            backoff: { type: "exponential", delay: 2000 },
-          }
-        : { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
-    );
+    const queueOptions = this.jobOutbox
+      ? { jobId, attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+      : { attempts: 3, backoff: { type: "exponential", delay: 2000 } };
+    await this.contentQueue.add(jobName, durableJobPayload, queueOptions);
     await this.jobOutbox?.markDirectDispatched(jobId);
 
     await this.packRepository.appendProgressEvent(pack.id, {
@@ -1841,7 +1838,7 @@ export class ContentService {
 function toContentCycle(cycle: ContentCycleRow): ContentCycle {
   return {
     id: cycle.id,
-    contract_version: "content-v1",
+    contract_version: cycle.contractVersion as ContentCycle["contract_version"],
     business_id: cycle.businessId,
     strategy_id: cycle.strategyId,
     strategy_version: cycle.strategyVersion,

@@ -462,7 +462,7 @@ describe("ContentV2Service.generateWeek", () => {
       expect.any(Object),
     );
     expect(mocks.jobOutbox.markDirectDispatched).toHaveBeenCalledWith(
-      "generate-content-v2:pack-1",
+      "generate-content-v2-pack-1",
     );
     expect(result.content_pack.week_plan_id).toBe("week-plan-1");
     expect(result.status).toBe("queued");
