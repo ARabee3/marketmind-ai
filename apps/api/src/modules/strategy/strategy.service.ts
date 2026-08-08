@@ -18,6 +18,7 @@ import type {
   StrategyProgressEvent,
   StrategyVersionSummary,
 } from "@marketmind/contracts";
+import { CHANNEL_SETUP_STATES } from "@marketmind/contracts";
 import { StrategyRepository } from "./strategy.repository";
 import { CreateStrategyDto } from "./dto/create-strategy.dto";
 import { UpsertBriefDto } from "./dto/upsert-brief.dto";
@@ -121,6 +122,20 @@ export class StrategyService {
       dto.externalBudgetEgpRange,
     );
 
+    const isV2 = strategy.contractVersion === "strategy-v2";
+    if (isV2) {
+      assertValidChannelChoices(dto.channelChoices ?? []);
+      if (!dto.weeklyCapacity) {
+        throw new BadRequestException(
+          "weeklyCapacity is required for an owner-first Strategy brief",
+        );
+      }
+    } else if (!dto.teamCapacity) {
+      throw new BadRequestException(
+        "teamCapacity is required for this Strategy brief",
+      );
+    }
+
     // Persist only against the owner-confirmed profile verified above. The
     // status guard keeps the brief immutable once a generated version can
     // reference it for provenance.
@@ -135,6 +150,13 @@ export class StrategyService {
       teamCapacity: dto.teamCapacity,
       constraints: dto.constraints,
       clarificationAnswers: dto.clarificationAnswers ?? [],
+      ...(isV2
+        ? {
+            weeklyCapacity: dto.weeklyCapacity,
+            weeklyCapacityNote: dto.weeklyCapacityNote ?? null,
+            channelChoices: toPersistedChannelChoices(dto.channelChoices ?? []),
+          }
+        : {}),
     } as never);
 
     if (this.isBriefReady(brief) && strategy.status === "needs_brief") {
@@ -157,13 +179,15 @@ export class StrategyService {
     planLanguage: string;
     externalBudgetMode: string;
     teamCapacity: string;
+    weeklyCapacity: string | null;
+    channelChoices: unknown;
   }): boolean {
     return !!(
       brief.primaryObjective &&
       brief.startDate &&
       brief.planLanguage &&
       brief.externalBudgetMode &&
-      brief.teamCapacity
+      (brief.teamCapacity || (brief.weeklyCapacity && Array.isArray(brief.channelChoices) && brief.channelChoices.length > 0))
     );
   }
 
@@ -840,6 +864,103 @@ function normalizeStartDate(value: string): Date {
     );
   }
   return date;
+}
+
+/**
+ * Owner-first channel-choice invariants (issue #135): 1–3 unique catalog
+ * channels, exactly one primary, at most two supporting, and a safe setup
+ * state. A public URL is only allowed for an owner-managed existing link and
+ * a publishing target only for a connected channel — the brief never carries
+ * credentials or provider secrets.
+ */
+function assertValidChannelChoices(
+  choices: Array<{
+    channel: string;
+    role: string;
+    setupState: string;
+    publicUrl?: string;
+    publishingTargetId?: string;
+  }>,
+): void {
+  if (choices.length < 1 || choices.length > 3) {
+    throw new BadRequestException(
+      "An owner-first Strategy brief must contain 1 to 3 channel choices.",
+    );
+  }
+  const channels = choices.map((choice) => choice.channel);
+  if (new Set(channels).size !== channels.length) {
+    throw new BadRequestException(
+      "Channel choices must be unique.",
+    );
+  }
+  const primaryCount = choices.filter(
+    (choice) => choice.role === "primary",
+  ).length;
+  if (primaryCount !== 1) {
+    throw new BadRequestException(
+      "Exactly one primary channel must be selected.",
+    );
+  }
+  const supportingCount = choices.filter(
+    (choice) => choice.role === "supporting",
+  ).length;
+  if (supportingCount > 2) {
+    throw new BadRequestException(
+      "At most two supporting channels may be selected.",
+    );
+  }
+  choices.forEach((choice, index) => {
+    if (!CHANNEL_SETUP_STATES.includes(choice.setupState as never)) {
+      throw new BadRequestException(
+        `Unsupported setup state '${choice.setupState}' for channel ${index + 1}.`,
+      );
+    }
+    if (choice.setupState !== "existing_link" && choice.publicUrl) {
+      throw new BadRequestException(
+        "A public URL is only allowed for an existing_link setup state.",
+      );
+    }
+    if (choice.setupState === "existing_link" && !choice.publicUrl?.trim()) {
+      throw new BadRequestException(
+        "An existing_link choice requires an owner-managed public URL.",
+      );
+    }
+    if (choice.setupState !== "connected" && choice.publishingTargetId) {
+      throw new BadRequestException(
+        "A publishing target is only allowed for a connected setup state.",
+      );
+    }
+  });
+}
+
+/**
+ * Persists channel choices in the wire-contract snake_case shape so the AI
+ * payload builder (`buildContractBrief`) can pass them through unchanged.
+ * Only the safe fields are stored — never credentials or provider secrets.
+ */
+function toPersistedChannelChoices(
+  choices: Array<{
+    channel: string;
+    role: string;
+    setupState: string;
+    publicUrl?: string;
+    publishingTargetId?: string;
+    note?: string;
+  }>,
+): Array<Record<string, unknown>> {
+  return choices.map((choice) => {
+    const persisted: Record<string, unknown> = {
+      channel: choice.channel,
+      role: choice.role,
+      setup_state: choice.setupState,
+    };
+    if (choice.publicUrl) persisted.public_url = choice.publicUrl;
+    if (choice.publishingTargetId) {
+      persisted.publishing_target_id = choice.publishingTargetId;
+    }
+    if (choice.note) persisted.note = choice.note;
+    return persisted;
+  });
 }
 
 function toVersionSummary(

@@ -277,6 +277,185 @@ describe("StrategyService", () => {
       );
     });
 
+    // ── Owner-first strategy-v2 briefs (issue #135) ───────────────────
+
+    const v2Strategy = {
+      id: STRAT_ID,
+      status: "needs_brief",
+      businessId: "biz-1",
+      contractVersion: "strategy-v2",
+    };
+
+    const v2Brief = {
+      businessProfileVersionId: "prof-1",
+      primaryObjective: "conversion",
+      startDate: "2026-08-03",
+      planLanguage: "ar-EG",
+      paidMediaAllowed: false,
+      externalBudgetMode: "organic_only",
+      weeklyCapacity: "three_to_five_hours",
+      channelChoices: [
+        {
+          channel: "facebook",
+          role: "primary",
+          setupState: "setup_later",
+        },
+        {
+          channel: "instagram",
+          role: "supporting",
+          setupState: "existing_link",
+          publicUrl: "https://instagram.com/kosharycorner",
+        },
+      ],
+      constraints: "",
+      clarificationAnswers: [],
+    };
+
+    function mockV2UpsertBase() {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue(
+        v2Strategy,
+      );
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+      });
+    }
+
+    it("persists an owner-first v2 brief with snake_case channel choices", async () => {
+      mockV2UpsertBase();
+      (repository.upsertBrief as jest.Mock).mockResolvedValue({
+        id: "brief-1",
+        primaryObjective: "conversion",
+        startDate: new Date("2026-08-03"),
+        planLanguage: "ar-EG",
+        paidMediaAllowed: false,
+        externalBudgetMode: "organic_only",
+        weeklyCapacity: "three_to_five_hours",
+        channelChoices: v2Brief.channelChoices,
+      });
+
+      await service.upsertBrief(STRAT_ID, OWNER_ID, v2Brief as never);
+
+      const args = (repository.upsertBrief as jest.Mock).mock.calls[0][1];
+      expect(args.weeklyCapacity).toBe("three_to_five_hours");
+      expect(args.channelChoices).toEqual([
+        {
+          channel: "facebook",
+          role: "primary",
+          setup_state: "setup_later",
+        },
+        {
+          channel: "instagram",
+          role: "supporting",
+          setup_state: "existing_link",
+          public_url: "https://instagram.com/kosharycorner",
+        },
+      ]);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
+        STRAT_ID,
+        "ready",
+      );
+    });
+
+    it("rejects v2 briefs without a weekly capacity preset", async () => {
+      mockV2UpsertBase();
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, {
+          ...v2Brief,
+          weeklyCapacity: undefined,
+        } as never),
+      ).rejects.toThrow(/weeklyCapacity/);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("rejects v2 briefs with no channel choices", async () => {
+      mockV2UpsertBase();
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, {
+          ...v2Brief,
+          channelChoices: [],
+        } as never),
+      ).rejects.toThrow(/1 to 3 channel choices/);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("rejects v2 briefs with two primary channels", async () => {
+      mockV2UpsertBase();
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, {
+          ...v2Brief,
+          channelChoices: [
+            ...v2Brief.channelChoices,
+            {
+              channel: "google_business_profile",
+              role: "primary",
+              setupState: "setup_later",
+            },
+          ],
+        } as never),
+      ).rejects.toThrow(/Exactly one primary channel/);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("rejects v2 briefs with a public URL on a setup_later choice", async () => {
+      mockV2UpsertBase();
+
+      await expect(
+        service.upsertBrief(STRAT_ID, OWNER_ID, {
+          ...v2Brief,
+          channelChoices: [
+            {
+              channel: "facebook",
+              role: "primary",
+              setupState: "setup_later",
+              publicUrl: "https://facebook.com/kosharycorner",
+            },
+          ],
+        } as never),
+      ).rejects.toThrow(/only allowed for an existing_link/);
+
+      expect(repository.upsertBrief).not.toHaveBeenCalled();
+    });
+
+    it("keeps v1 briefs on the legacy path without channel choices", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        status: "needs_brief",
+        businessId: "biz-1",
+        contractVersion: "strategy-v1",
+      });
+      (
+        repository.getConfirmedProfileVersionByIdAndOwner as jest.Mock
+      ).mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+      });
+      (repository.upsertBrief as jest.Mock).mockResolvedValue({
+        id: "brief-1",
+        primaryObjective: "conversion",
+        startDate: new Date("2026-08-01"),
+        planLanguage: "en",
+        paidMediaAllowed: false,
+        externalBudgetMode: "organic_only",
+        teamCapacity: "Owner plus one helper",
+      });
+
+      await service.upsertBrief(STRAT_ID, OWNER_ID, validBrief);
+
+      const args = (repository.upsertBrief as jest.Mock).mock.calls[0][1];
+      expect(args.weeklyCapacity).toBeUndefined();
+      expect(args.channelChoices).toBeUndefined();
+      expect(args.teamCapacity).toBe("Owner plus one helper");
+    });
+
     it("rejects an invalid startDate with a friendly 400 instead of a Prisma error", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,

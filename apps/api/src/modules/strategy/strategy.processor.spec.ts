@@ -227,6 +227,132 @@ describe("StrategyProcessor", () => {
     });
   });
 
+  // ── generate-strategy: owner-first strategy-v2 (issue #135) ─────────
+
+  describe("handleGenerate — strategy-v2", () => {
+    it("requests the v2 contract and persists a validated v2 plan", async () => {
+      const strategyV2 = {
+        ...STRATEGY_FIXTURE,
+        contractVersion: "strategy-v2",
+        brief: {
+          ...STRATEGY_FIXTURE.brief,
+          weeklyCapacity: "three_to_five_hours",
+          channelChoices: [
+            {
+              channel: "facebook",
+              role: "primary",
+              setup_state: "setup_later",
+            },
+            {
+              channel: "instagram",
+              role: "supporting",
+              setup_state: "existing_link",
+              public_url: "https://instagram.com/kosharycorner",
+            },
+          ],
+        },
+      };
+      (repository.readStrategy as jest.Mock).mockResolvedValue(strategyV2);
+
+      const validPlanV2 = {
+        id: "plan-v2-1",
+        strategy_id: "strat-1",
+        version: 1,
+        contract_version: "strategy-v2",
+        brief_id: "brief-1",
+        retrieval_run_id: "run-1",
+        goal: { text: "هدف المالك", source: "owner_input", citation_ids: [] },
+        primary_objective: "awareness",
+        funnel_stage: "awareness",
+        plan_language: "ar-EG",
+        start_date: "2026-08-01T00:00:00.000Z",
+        calendar_weeks: [],
+        owner_advice: { before_week_1: [], weeks: [] },
+        channel_commitments: [],
+        evidence_summary: {
+          text: "ملخص الأدلة",
+          source: "model_synthesis",
+          citation_ids: [],
+        },
+        risks: [],
+        knowledge_gaps: [],
+        blockers: [],
+        citations: [],
+        content_handoff: {
+          available: false,
+          reason: "no_content_supported_channels",
+          message: "owner-managed plan",
+        },
+        created_at: "2026-07-28T10:00:00.000Z",
+      };
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(
+          of({
+            data: {
+              plan: validPlanV2,
+              validation: { valid: true, issues: [] },
+              prompt_config: { model: "gpt-4o" },
+            },
+          }),
+        );
+      (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
+        id: "ver-2",
+        version: 1,
+      });
+
+      const result = await processor.process({
+        id: "job-2",
+        name: "generate-strategy",
+        data: { ...baseJob, correlationId: "corr-2" },
+      } as never);
+
+      expect(result).toEqual({ success: true, versionId: "ver-2" });
+      const generatePayload = httpService.post.mock.calls[1][1];
+      expect(generatePayload.contract_version).toBe("strategy-v2");
+      // The v2 contract brief replaces free-text capacity with the preset and
+      // carries the owner's channel choices.
+      expect(generatePayload.brief.weekly_capacity).toBe("three_to_five_hours");
+      expect(generatePayload.brief.channel_choices).toHaveLength(2);
+      expect(generatePayload.brief.team_capacity).toBeUndefined();
+      expect(repository.appendStrategyVersion).toHaveBeenCalledWith(
+        "strat-1",
+        "run-1",
+        expect.objectContaining({ contract_version: "strategy-v2" }),
+        { model: "gpt-4o" },
+      );
+    });
+
+    it("rejects an incomplete v2 plan before persisting", async () => {
+      const strategyV2 = {
+        ...STRATEGY_FIXTURE,
+        contractVersion: "strategy-v2",
+      };
+      (repository.readStrategy as jest.Mock).mockResolvedValue(strategyV2);
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(
+          of({
+            data: {
+              plan: { contract_version: "strategy-v2", id: "plan-v2-2" },
+              validation: { valid: true, issues: [] },
+              prompt_config: {},
+            },
+          }),
+        );
+
+      await expect(
+        processor.process({
+          id: "job-3",
+          name: "generate-strategy",
+          data: { ...baseJob, correlationId: "corr-3" },
+        } as never),
+      ).rejects.toThrow(/calendar_weeks/);
+
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+  });
+
   // ── generate-strategy: FastAPI timeout/error ────────────────────────
 
   describe("handleGenerate — FastAPI errors", () => {

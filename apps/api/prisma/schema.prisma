@@ -958,13 +958,14 @@ model StrategyRetrievalGap {
 }
 
 model Strategy {
-  id               String   @id @default(uuid()) @db.Uuid
-  businessId       String   @map("business_id") @db.Uuid
-  status           String   @default("needs_brief")
+  id              String   @id @default(uuid()) @db.Uuid
+  businessId      String   @map("business_id") @db.Uuid
+  status          String   @default("needs_brief")
+  contractVersion String   @default("strategy-v1") @map("contract_version")
   currentVersionId String?  @map("current_version_id") @db.Uuid
-  ownerUserId      String   @map("owner_user_id") @db.Uuid
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  ownerUserId     String   @map("owner_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   business       Business                @relation(fields: [businessId], references: [id])
   ownerUser      User                    @relation(fields: [ownerUserId], references: [id])
@@ -989,6 +990,9 @@ model StrategyBrief {
   externalBudgetMode       String   @map("external_budget_mode")
   externalBudgetEgp        Json?    @map("external_budget_egp")
   teamCapacity             String   @map("team_capacity")
+  weeklyCapacity           String?  @map("weekly_capacity")
+  weeklyCapacityNote       String?  @map("weekly_capacity_note")
+  channelChoices           Json?    @map("channel_choices")
   constraints              String?
   clarificationAnswers     Json?    @map("clarification_answers")
   createdAt                DateTime @default(now()) @map("created_at")

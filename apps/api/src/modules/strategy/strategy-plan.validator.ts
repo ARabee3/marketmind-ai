@@ -30,8 +30,39 @@ const REQUIRED_PLAN_FIELDS = [
 ] as const;
 
 /**
+ * Required top-level fields on an owner-first StrategyPlanV2
+ * (packages/contracts/src/strategy/strategy-v2.ts).
+ */
+const REQUIRED_PLAN_V2_FIELDS = [
+  "id",
+  "strategy_id",
+  "version",
+  "contract_version",
+  "brief_id",
+  "retrieval_run_id",
+  "goal",
+  "primary_objective",
+  "funnel_stage",
+  "plan_language",
+  "start_date",
+  "calendar_weeks",
+  "owner_advice",
+  "channel_commitments",
+  "evidence_summary",
+  "risks",
+  "knowledge_gaps",
+  "blockers",
+  "citations",
+  "content_handoff",
+  "created_at",
+] as const;
+
+/**
  * Validates the structural shape of a plan returned by the FastAPI generation
  * or revision endpoint before it is persisted as an immutable StrategyVersion.
+ *
+ * Dispatches on `plan.contract_version`: owner-first v2 plans require the v2
+ * field set; legacy v1 plans keep the exact v1 shape.
  *
  * Throws BadRequestException with the list of missing fields so the processor
  * can fail the job with a descriptive, stable error rather than persisting
@@ -45,9 +76,11 @@ export function validatePlanShape(planData: unknown): void {
   }
 
   const plan = planData as Record<string, unknown>;
+  const isV2 = plan["contract_version"] === "strategy-v2";
+  const required = isV2 ? REQUIRED_PLAN_V2_FIELDS : REQUIRED_PLAN_FIELDS;
   const missing: string[] = [];
 
-  for (const field of REQUIRED_PLAN_FIELDS) {
+  for (const field of required) {
     if (plan[field] === undefined || plan[field] === null) {
       missing.push(field);
     }
@@ -57,6 +90,25 @@ export function validatePlanShape(planData: unknown): void {
     const message = `AI generation service returned an incomplete plan: missing fields [${missing.join(", ")}]`;
     logger.warn(message);
     throw new BadRequestException(message);
+  }
+
+  if (isV2) {
+    if (!Array.isArray(plan["calendar_weeks"])) {
+      throw new BadRequestException(
+        "AI generation service returned an invalid plan: calendar_weeks must be an array",
+      );
+    }
+    if (!Array.isArray(plan["channel_commitments"])) {
+      throw new BadRequestException(
+        "AI generation service returned an invalid plan: channel_commitments must be an array",
+      );
+    }
+    if (!Array.isArray(plan["citations"])) {
+      throw new BadRequestException(
+        "AI generation service returned an invalid plan: citations must be an array",
+      );
+    }
+    return;
   }
 
   // Spot-check critical nested shapes.
