@@ -1,4 +1,5 @@
 export * from "./publishing-types";
+export * from "./meta-connection";
 export * from "./publishing-canonical";
 export * from "./publishing-asset-integrity";
 export * from "./publication-intent";
