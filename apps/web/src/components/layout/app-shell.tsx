@@ -22,6 +22,7 @@ type NavItem = {
     | "/strategy"
     | "/content"
     | "/publishing"
+    | "/connections"
     | "/billing";
   labelKey:
     | "navDiscovery"
@@ -29,6 +30,7 @@ type NavItem = {
     | "navStrategy"
     | "navContent"
     | "navPublishing"
+    | "navConnections"
     | "navBilling";
   iconName: AppShellIconName;
 };
@@ -43,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/strategy", labelKey: "navStrategy", iconName: "strategy" },
   { href: "/content", labelKey: "navContent", iconName: "content" },
   { href: "/publishing", labelKey: "navPublishing", iconName: "publishing" },
+  { href: "/connections", labelKey: "navConnections", iconName: "connections" },
   { href: "/billing", labelKey: "navBilling", iconName: "wallet" },
 ];
 

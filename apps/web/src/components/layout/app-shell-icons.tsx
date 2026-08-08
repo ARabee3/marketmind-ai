@@ -6,7 +6,8 @@ export type AppShellIconName =
   | "strategy"
   | "content"
   | "publishing"
-  | "wallet";
+  | "wallet"
+  | "connections";
 
 export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
   const common = {
@@ -69,6 +70,15 @@ export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
         <path d="M8 13h4" />
         <path d="M8 16h7" />
         <path d="m16 13 2-2 2 2" />
+      </svg>
+    );
+  }
+
+  if (name === "connections") {
+    return (
+      <svg {...common}>
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </svg>
     );
   }
