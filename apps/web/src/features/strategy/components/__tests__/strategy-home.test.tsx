@@ -46,6 +46,20 @@ vi.mock('@/lib/api/strategy', () => ({
   toStrategyResource: (api: unknown) => api,
 }))
 
+vi.mock('../strategy-review', () => ({
+  StrategyReview: ({
+    resource,
+    readOnly,
+  }: {
+    resource: { status: string }
+    readOnly?: boolean
+  }) => (
+    <div data-testid="approved-strategy" data-read-only={readOnly ? 'true' : 'false'}>
+      {resource.status}
+    </div>
+  ),
+}))
+
 const noStrategyJourney = {
   owner: { email: 'owner@example.com', email_verified: true },
   journey: { state: 'discovery_not_started', profile: null },
@@ -119,15 +133,17 @@ describe('StrategyHome', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
 
-  it('shows the approved-plan CTA once the strategy is approved', async () => {
+  it('shows the approved strategy once it is approved', async () => {
     journeyMock.mockResolvedValueOnce(readyJourney)
     getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
 
     render(<StrategyHome />)
 
-    expect(await screen.findByText('View approved plan')).toBeTruthy()
+    const approvedStrategy = await screen.findByTestId('approved-strategy')
+    expect(approvedStrategy.textContent).toBe('approved')
+    expect(approvedStrategy.getAttribute('data-read-only')).toBe('true')
     expect(screen.queryByText('Review sample draft')).toBeNull()
-    expect(screen.getAllByText('The plan is approved.').length).toBeGreaterThan(0)
+    expect(screen.queryByText('The plan is approved.')).toBeNull()
   })
 
   it('renders an approved strategy without waiting for progress history', async () => {
@@ -137,7 +153,7 @@ describe('StrategyHome', () => {
 
     render(<StrategyHome />)
 
-    expect(await screen.findByText('View approved plan')).toBeTruthy()
+    expect((await screen.findByTestId('approved-strategy')).textContent).toBe('approved')
     expect(getProgressMock).not.toHaveBeenCalled()
   })
 

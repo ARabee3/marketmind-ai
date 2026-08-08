@@ -15,6 +15,7 @@ import {
 import { StrategyProfileSummary } from './strategy-profile-summary'
 import { StrategyProgress } from './strategy-progress'
 import { StrategyReadiness } from './strategy-readiness'
+import { StrategyReview } from './strategy-review'
 
 type PageState =
   | { phase: 'loading' }
@@ -25,6 +26,7 @@ type PageState =
       journey: CurrentJourneyResponse
       resource: StrategyResource
       progress: readonly StrategyProgressEvent[]
+      currentVersionId: string | null
     }
 
 async function loadJourney(): Promise<PageState> {
@@ -40,7 +42,13 @@ async function loadJourney(): Promise<PageState> {
       const progress = resource.status === 'approved'
         ? []
         : await getStrategyProgress(fc.strategy_id).catch(() => [])
-      return { phase: 'ready', journey, resource, progress }
+      return {
+        phase: 'ready',
+        journey,
+        resource,
+        progress,
+        currentVersionId: api.currentVersionId,
+      }
     }
     return { phase: 'no_strategy', journey }
   } catch {
@@ -146,6 +154,20 @@ export function StrategyHome() {
   }
 
   const { resource } = state
+  if (resource.status === 'approved') {
+    return (
+      <StrategyReview
+        profile={profile}
+        resource={resource}
+        currentVersionId={state.currentVersionId}
+        retrieval={null}
+        progress={state.progress}
+        onRefresh={async () => undefined}
+        readOnly
+      />
+    )
+  }
+
   const readiness = getReadinessItems(resource, profile !== null)
   const statusLabel = ownerProgressLabel(resource.status)
 
@@ -166,9 +188,7 @@ export function StrategyHome() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link href={`/strategy/${resource.strategy_id}/review`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-white/15 focus-visible:ring-3 focus-visible:ring-white/40">
-                {resource.status === 'approved'
-                  ? t('home.viewApproved')
-                  : t('home.review')}
+                {t('home.review')}
                 <ArrowUpRight className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
               </Link>
             </div>
@@ -189,9 +209,7 @@ export function StrategyHome() {
             </p>
             <h2 className="mt-2 text-xl font-bold text-navy">{t(`progress.labels.${statusLabel}`)}</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {resource.status === 'approved'
-                ? t('home.currentBodyApproved')
-                : t('home.currentBody')}
+              {t('home.currentBody')}
             </p>
           </section>
         </aside>
