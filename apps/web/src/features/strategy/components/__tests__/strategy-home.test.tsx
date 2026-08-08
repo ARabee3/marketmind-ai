@@ -14,8 +14,12 @@ const messages: Record<string, string> = {
   'home.subtitle': 'Choose the goal, budget approach, and team capacity first.',
   'home.start': 'Start strategy choices',
   'home.review': 'Review sample draft',
+  'home.viewApproved': 'View approved plan',
   'home.currentLabel': 'Current plan state',
   'home.currentBody': 'This preview shows the owner journey.',
+  'home.currentBodyApproved': 'The approved plan is saved.',
+  'progress.labels.ready': 'The draft is ready for review.',
+  'progress.labels.approved': 'The plan is approved.',
   'home.loadError': 'We could not load your Strategy workspace. Please try again.',
   'home.retry': 'Try again',
 }
@@ -113,6 +117,18 @@ describe('StrategyHome', () => {
 
     expect(await screen.findByText('Review sample draft')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('shows the approved-plan CTA once the strategy is approved', async () => {
+    journeyMock.mockResolvedValueOnce(readyJourney)
+    getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
+    getProgressMock.mockResolvedValueOnce([])
+
+    render(<StrategyHome />)
+
+    expect(await screen.findByText('View approved plan')).toBeTruthy()
+    expect(screen.queryByText('Review sample draft')).toBeNull()
+    expect(screen.getAllByText('The plan is approved.').length).toBeGreaterThan(0)
   })
 
   it('never crashes on a null journey after a failed load', async () => {

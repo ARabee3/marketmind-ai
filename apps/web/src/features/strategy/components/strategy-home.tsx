@@ -162,7 +162,9 @@ export function StrategyHome() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link href={`/strategy/${resource.strategy_id}/review`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-white/15 focus-visible:ring-3 focus-visible:ring-white/40">
-                {t('home.review')}
+                {resource.status === 'approved'
+                  ? t('home.viewApproved')
+                  : t('home.review')}
                 <ArrowUpRight className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
               </Link>
             </div>
@@ -182,7 +184,11 @@ export function StrategyHome() {
               {t('home.currentLabel')}
             </p>
             <h2 className="mt-2 text-xl font-bold text-navy">{t(`progress.labels.${statusLabel}`)}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('home.currentBody')}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {resource.status === 'approved'
+                ? t('home.currentBodyApproved')
+                : t('home.currentBody')}
+            </p>
           </section>
         </aside>
       </div>

@@ -16,6 +16,7 @@ export function StrategyReadiness({
 }) {
   const t = useTranslations('Strategy')
   const view = getStrategyReadiness(resource)
+  const approved = resource.status === 'approved'
 
   return (
     <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated md:p-5">
@@ -25,18 +26,28 @@ export function StrategyReadiness({
             {t('readiness.label')}
           </p>
           <h2 className="mt-2 text-xl font-bold text-navy">
-            {view.ready ? t('readiness.readyTitle') : t('readiness.blockedTitle')}
+            {approved
+              ? t('readiness.approvedTitle')
+              : view.ready
+                ? t('readiness.readyTitle')
+                : t('readiness.blockedTitle')}
           </h2>
         </div>
         <span
           className={cn(
             'rounded-full px-3 py-1 text-xs font-bold',
-            view.ready ? 'bg-soft-teal text-primary' : 'bg-warning/10 text-warning',
+            approved || view.ready ? 'bg-soft-teal text-primary' : 'bg-warning/10 text-warning',
           )}
         >
-          {view.ready ? t('readiness.readyBadge') : t('readiness.needsDecisionBadge')}
+          {approved
+            ? t('readiness.approvedBadge')
+            : view.ready
+              ? t('readiness.readyBadge')
+              : t('readiness.needsDecisionBadge')}
         </span>
       </div>
+      {approved ? null : (
+      <>
       <ol className="mt-5 grid gap-3">
         {readiness.map((item) => (
           <li key={item.id} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
@@ -65,6 +76,8 @@ export function StrategyReadiness({
           {t('readiness.budgetBlocker')}
         </div>
       ) : null}
+      </>
+      )}
     </section>
   )
 }

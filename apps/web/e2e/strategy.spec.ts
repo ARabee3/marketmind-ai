@@ -148,6 +148,17 @@ test.describe('Strategy owner journey', () => {
       action: 'approve',
     })
     await expect(page.getByText('Strategy approved by the owner.')).toBeVisible()
+    // After approval the owner sees the approved panel instead of a blocked
+    // decision rail, and the decision buttons disappear.
+    await expect(
+      page.getByRole('heading', { name: 'This strategy is approved' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Approve strategy' }),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('link', { name: 'Open Content workspace' }),
+    ).toHaveCount(1)
   })
 
   test('records revision and rejection feedback once against the immutable version', async ({ page }) => {
@@ -453,6 +464,7 @@ async function mockStrategyApi(
     }
   },
 ) {
+  let currentStatus: string = options.status
   await page.route(/\/strategies(?:\/.*)?$/, async (route, request) => {
     const path = new URL(request.url()).pathname
     const method = request.method()
@@ -476,7 +488,11 @@ async function mockStrategyApi(
         )
         return
       }
-      await json(route, {
+      if (body.action === 'approve') {
+        currentStatus = 'approved'
+      } else if (body.action === 'reject') {
+        currentStatus = 'rejected'
+      }      await json(route, {
         decision: { id: 'decision-1' },
         nextStatus:
           body.action === 'revision_requested'
@@ -499,12 +515,12 @@ async function mockStrategyApi(
     if (path.endsWith(`/strategies/${STRATEGY_ID}/progress`)) {
       await json(
         route,
-        progressEvents(options.status, options.retryable),
+        progressEvents(currentStatus === 'failed' ? 'failed' : 'draft', options.retryable),
       )
       return
     }
     if (path.endsWith(`/strategies/${STRATEGY_ID}/versions`)) {
-      await json(route, versions(options.status))
+      await json(route, versions(currentStatus === 'failed' ? 'failed' : 'draft'))
       return
     }
     if (path.endsWith(`/strategies/${STRATEGY_ID}/versions/1`)) {
@@ -512,7 +528,7 @@ async function mockStrategyApi(
       return
     }
     if (path.endsWith(`/strategies/${STRATEGY_ID}`)) {
-      await json(route, strategyResponse(options.status, options.plan))
+      await json(route, strategyResponse(currentStatus, options.plan))
       return
     }
     await json(route, { code: 'NOT_FOUND' }, 404)

@@ -278,4 +278,43 @@ describe('StrategyReview', () => {
     ).toBe(false)
     expect(screen.queryByText('review.invalidEvidenceTitle')).toBeNull()
   })
+
+  it('replaces the decision rail with an approved panel once the plan is approved', () => {
+    render(
+      <StrategyReview
+        profile={null}
+        resource={{ ...draftResource, status: 'approved' }}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('decision.approvedTitle')).toBeTruthy()
+    expect(screen.getByText('decision.approvedBody')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'decision.approvedAction' }).getAttribute('href'),
+    ).toBe('/content')
+    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Request revision' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reject draft' })).toBeNull()
+  })
+
+  it('replaces the decision rail with a rejected panel once the draft is rejected', () => {
+    render(
+      <StrategyReview
+        profile={null}
+        resource={{ ...draftResource, status: 'rejected' }}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('decision.rejectedTitle')).toBeTruthy()
+    expect(screen.getByText('decision.rejectedBody')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+  })
 })

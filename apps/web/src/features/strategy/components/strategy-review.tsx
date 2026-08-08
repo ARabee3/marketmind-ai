@@ -494,6 +494,10 @@ export function StrategyReview({
                 {t('history.readOnlyBody')}
               </p>
             </section>
+          ) : resource.status === 'approved' ? (
+            <ApprovedDecisionPanel />
+          ) : resource.status === 'rejected' ? (
+            <RejectedDecisionPanel />
           ) : (
           <>
           <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
@@ -1157,6 +1161,47 @@ function StatusBanner({
         {title}
       </h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{body}</p>
+    </section>
+  )
+}
+
+function ApprovedDecisionPanel() {
+  const t = useTranslations('Strategy')
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+      <StrategyBadge tone="good">{t('decision.approvedBadge')}</StrategyBadge>
+      <h2 className="mt-3 text-lg font-bold text-navy">
+        {t('decision.approvedTitle')}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {t('decision.approvedBody')}
+      </p>
+      <div className="mt-4">
+        <Link
+          href="/content"
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40"
+        >
+          {t('decision.approvedAction')}
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function RejectedDecisionPanel() {
+  const t = useTranslations('Strategy')
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+      <StrategyBadge tone="danger">{t('decision.rejectedBadge')}</StrategyBadge>
+      <h2 className="mt-3 text-lg font-bold text-navy">
+        {t('decision.rejectedTitle')}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {t('decision.rejectedBody')}
+      </p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">
+        {t('decision.safetyNote')}
+      </p>
     </section>
   )
 }
