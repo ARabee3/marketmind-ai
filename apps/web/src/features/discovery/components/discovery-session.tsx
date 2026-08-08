@@ -256,7 +256,7 @@ export function DiscoverySession({
       </div>
 
       {/* Main layout */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row items-start gap-4">
         {/* Conversation */}
         <div className="flex-1 min-w-0">
           <ConversationPanel
@@ -293,14 +293,12 @@ export function DiscoverySession({
         </div>
 
         {/* Readiness ledger (desktop) */}
-        <aside className="hidden lg:block w-80 shrink-0 lg:sticky lg:top-20">
-          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto pe-1 focus:outline-none">
-            <ReadinessLedger
-              readiness={readiness}
-              uncertainties={uncertainties}
-            />
-          </div>
-        </aside>
+        <div className="hidden md:block w-80 shrink-0 sticky top-24 self-start">
+          <ReadinessLedger
+            readiness={readiness}
+            uncertainties={uncertainties}
+          />
+        </div>
       </div>
     </div>
   )
