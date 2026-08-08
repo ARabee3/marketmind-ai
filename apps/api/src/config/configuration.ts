@@ -37,6 +37,20 @@ export const configuration = () => ({
     callbackUrl: process.env.GOOGLE_CALLBACK_URL || "",
   },
 
+  facebook: {
+    // MarketMind Meta/Facebook app configuration — STATIC deployment secrets,
+    // never a per-Page token. Used by the Facebook Page connection feature
+    // (one Page per user; token validity checked reactively at publish time).
+    appId: process.env.FB_APP_ID || "",
+    appSecret: process.env.FB_APP_SECRET || "",
+    // Registered HTTPS redirect URI for the API-owned OAuth callback.
+    redirectUri: process.env.FB_REDIRECT_URI || "",
+    graphVersion: process.env.FB_GRAPH_VERSION || "v20.0",
+    // AES-256-GCM key (32 bytes as 64 hex chars) for reversible Page token
+    // encryption. The raw token must stay decryptable for Graph API calls.
+    tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || "",
+  },
+
   redis: {
     url: process.env.REDIS_URL || "redis://localhost:6379",
   },
