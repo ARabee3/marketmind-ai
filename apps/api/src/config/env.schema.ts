@@ -54,6 +54,16 @@ export function envSchema(
     errors.push("AI_ORCHESTRATION_ENABLED must be true or false");
   }
 
+  const contentV2DefaultEnabled = config.CONTENT_V2_DEFAULT_ENABLED;
+  if (
+    contentV2DefaultEnabled !== undefined &&
+    contentV2DefaultEnabled !== "" &&
+    contentV2DefaultEnabled !== "true" &&
+    contentV2DefaultEnabled !== "false"
+  ) {
+    errors.push("CONTENT_V2_DEFAULT_ENABLED must be true or false");
+  }
+
   // Google OAuth — required for federated sign-in (Issue #48)
   if (!config.GOOGLE_CLIENT_ID) {
     errors.push("GOOGLE_CLIENT_ID is required");
@@ -95,7 +105,10 @@ export function envSchema(
   }
 
   const billingProvider = config.BILLING_PROVIDER as string | undefined;
-  if (billingProvider && !["fake", "paymob", "geidea"].includes(billingProvider)) {
+  if (
+    billingProvider &&
+    !["fake", "paymob", "geidea"].includes(billingProvider)
+  ) {
     errors.push("BILLING_PROVIDER must be one of: fake, paymob, geidea");
   }
 

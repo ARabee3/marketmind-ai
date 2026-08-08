@@ -68,7 +68,12 @@ export function ContentCycleEntry() {
                   ? `/content/${cycle.id}/studio`
                   : `/content/${cycle.id}/weeks/${currentWeek}`;
             } catch {
-              destination = `/content/${cycle.id}/weeks/${currentWeek}`;
+              // The contract version is the only safe source of truth for
+              // choosing a workspace. Do not guess v1 when the cycle read
+              // fails; surface a retryable load error instead.
+              if (!isSubscribed) return;
+              setState({ phase: "load_error", errorKey: "unknown" });
+              return;
             }
             setState({
               phase: "redirecting",
@@ -212,7 +217,15 @@ export function ContentCycleEntry() {
       });
 
       clearIdempotencyKey(scope);
-      router.replace(`/content/${response.content_cycle.id}/weeks/1`);
+      const createdCycle = response.content_cycle as {
+        id: string;
+        contract_version?: string;
+      };
+      router.replace(
+        createdCycle.contract_version === "content-v2"
+          ? `/content/${createdCycle.id}/studio`
+          : `/content/${createdCycle.id}/weeks/1`,
+      );
     } catch (err: unknown) {
       setStartError(
         tErrors(

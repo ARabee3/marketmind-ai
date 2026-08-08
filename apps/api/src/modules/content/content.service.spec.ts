@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import {
   BadRequestException,
   ConflictException,
@@ -390,8 +391,10 @@ describe("ContentService.createCycle", () => {
   let cycleRepo: MockedCycleRepo;
   let weekRepo: MockedWeekRepo;
   let packRepo: MockedPackRepo;
+  let contentV2DefaultEnabled: boolean | undefined;
 
   beforeEach(async () => {
+    contentV2DefaultEnabled = false;
     strategyRepo = makeStrategyRepo();
     cycleRepo = makeCycleRepo();
     weekRepo = makeWeekRepo();
@@ -419,6 +422,12 @@ describe("ContentService.createCycle", () => {
         },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(() => contentV2DefaultEnabled),
+          },
+        },
       ],
     }).compile();
 
@@ -524,6 +533,8 @@ describe("ContentService.createCycle", () => {
         strategyDecisionId: "decision-1",
         profileVersionId: "prof-1",
         idempotencyKey: "idem-1",
+        contractVersion: "content-v1",
+        skipWeekOneClaim: false,
         week1StartDate: new Date("2026-08-01T00:00:00.000Z"),
         initialWeekContext: expect.objectContaining({
           week_number: 1,
@@ -553,6 +564,28 @@ describe("ContentService.createCycle", () => {
       1,
       expect.any(String),
     );
+  });
+
+  it("defaults new cycles to the content-v2 owner-first studio", async () => {
+    contentV2DefaultEnabled = undefined;
+    (cycleRepo.createCycleWithWeekOne as jest.Mock).mockResolvedValue({
+      cycle: { ...CYCLE_ROW, contractVersion: "content-v2" },
+      weekContext: WEEK_ROW,
+      pack: null,
+      created: true,
+    });
+
+    const result = await service.createCycle(DTO, OWNER_ID);
+
+    expect(result.content_cycle.contract_version).toBe("content-v2");
+    expect(cycleRepo.createCycleWithWeekOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractVersion: "content-v2",
+        skipWeekOneClaim: true,
+      }),
+      OWNER_ID,
+    );
+    expect(packRepo.claimQueuedPack).not.toHaveBeenCalled();
   });
 
   it("returns the same cycle on idempotent replay (repository returns the original row)", async () => {
@@ -2176,11 +2209,7 @@ describe("planSelectedChannels (consolidated Strategy read)", () => {
         { channel: "google_business_profile" },
       ],
     });
-    expect(channels).toEqual([
-      "facebook",
-      "tiktok",
-      "google_business_profile",
-    ]);
+    expect(channels).toEqual(["facebook", "tiktok", "google_business_profile"]);
   });
 
   it("reads strategy-v2 plans from the deterministic content handoff", () => {
