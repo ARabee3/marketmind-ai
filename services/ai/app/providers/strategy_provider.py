@@ -435,12 +435,8 @@ class GeminiStrategyProvider(StrategyLLMProvider):
                 ) from exc
             try:
                 if output_model is StrategyPlanV2:
-                    normalized = _normalize_deterministic_channel_scores_v2(
-                        parsed,
-                        _deterministic_scores_from_prompt(prompt),
-                    )
                     normalized = _normalize_v2_commitments_and_handoff(
-                        normalized, prompt
+                        parsed, prompt
                     )
                     return StrategyPlanV2.model_validate(normalized)
                 normalized = _normalize_deterministic_channel_scores(
