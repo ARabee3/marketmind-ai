@@ -2,6 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DiscoveryConversationService } from "./discovery-conversation.service";
+import { DiscoveryStreamService } from "./discovery-stream.service";
 import { DiscoveryVoiceTranscriptionService } from "./discovery-voice-transcription.service";
 import { DiscoveryController } from "./discovery.controller";
 import { DiscoveryService } from "./discovery.service";
@@ -28,6 +29,9 @@ describe("DiscoveryController", () => {
   const voiceTranscriptionService = {
     transcribeVoiceNote: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryVoiceTranscriptionService>;
+  const streamService = {
+    getStream: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryStreamService>;
 
   let controller: DiscoveryController;
 
@@ -45,6 +49,7 @@ describe("DiscoveryController", () => {
           provide: DiscoveryVoiceTranscriptionService,
           useValue: voiceTranscriptionService,
         },
+        { provide: DiscoveryStreamService, useValue: streamService },
         RbacService,
         DiscoveryRateLimitGuard,
         DiscoveryRedisLimiterService,
