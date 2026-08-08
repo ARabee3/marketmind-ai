@@ -69,6 +69,7 @@ export type ContentWorkspaceState =
   | { phase: "loading" }
   | { phase: "load_error"; errorKey: ContentErrorKey }
   | { phase: "stale_route"; currentCycleId: string | null }
+  | { phase: "cycle_unavailable" }
   | { phase: "provenance_blocked"; reason: ContentEntryBlocker }
   | { phase: "ready"; snapshot: ContentWorkspaceSnapshot };
 
