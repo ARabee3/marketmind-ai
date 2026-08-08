@@ -36,7 +36,8 @@
     "ownerControlHint": "كل خطوة مهمة تحتاج قرارًا واضحًا منك قبل أن يتحرك النظام.",
     "saving": "جاري الحفظ…",
     "error": "خطأ",
-    "navContent": "المحتوى"
+    "navContent": "المحتوى",
+    "navConnections": "الاتصالات"
   },
   "Dashboard": {
     "eyebrow": "مساحة صاحب النشاط",
@@ -1171,6 +1172,14 @@
         "goal": "هدفك محدد",
         "channels": "القنوات مختارة",
         "realistic": "الوقت والميزانية محددان"
+      },
+      "facebookPage": {
+        "label": "اتصال صفحة فيسبوك",
+        "connect": "ربط صفحة فيسبوك",
+        "reconnect": "إعادة ربط صفحة فيسبوك",
+        "connecting": "جارٍ الربط…",
+        "connected": "تم الربط مع {pageName}.",
+        "failed": "تعذّر ربط صفحة فيسبوك. حاول مرة أخرى."
       }
     },
     "reviewV2": {
@@ -2614,5 +2623,40 @@
       "rewriteFailed": "فشلت إعادة الكتابة.",
       "conflict": "تغيّرت هذه المسودة على الخادم. حدّث الصفحة وحاول مرة أخرى."
     }
+  },
+  "Connections": {
+    "metadata": {
+      "title": "الاتصالات"
+    },
+    "loading": "جارٍ التحميل…",
+    "eyebrow": "مساحة العمل",
+    "title": "الاتصالات",
+    "subtitle": "اربط الحسابات التي ينشر عليها MarketMind AI. حافظ على صحة رمز صفحة فيسبوك حتى يستمر النشر.",
+    "loadFailed": "تعذّر تحميل حالة الاتصال. حاول مرة أخرى.",
+    "retry": "حاول مرة أخرى",
+    "connectButton": "ربط صفحة فيسبوك",
+    "connecting": "جارٍ الربط…",
+    "connected": "تم الربط مع {pageName}.",
+    "connectFailed": "تعذّر ربط صفحة فيسبوك. حاول مرة أخرى.",
+    "testButton": "اختبار الاتصال",
+    "testSucceeded": "تم نشر منشور تجريبي — الاتصال مؤكد.",
+    "testExpired": "انتهت صلاحية الاتصال. يرجى إعادة الربط.",
+    "testFailed": "تعذّر نشر المنشور التجريبي. حاول مرة أخرى.",
+    "disconnectButton": "قطع الاتصال",
+    "disconnectFailed": "تعذّر قطع الاتصال بصفحة فيسبوك. حاول مرة أخرى.",
+    "disconnected": "تمت إزالة اتصال صفحة فيسبوك.",
+    "emptyTitle": "اربط صفحة فيسبوك",
+    "emptyBody": "اربط صفحة فيسبوك واحدة ليتمكن MarketMind AI من النشر عليها نيابة عنك. يتم التحقق من الاتصال بمنشور تجريبي صغير.",
+    "facebookProvider": "صفحة فيسبوك",
+    "statusConnected": "متصل",
+    "connectedAt": "تاريخ الربط",
+    "lastTestedAt": "آخر اختبار",
+    "neverTested": "لم يُختبر بعد",
+    "expiredTitle": "انتهت صلاحية الاتصال",
+    "expiredBody": "لم يعد رمز الوصول لصفحة فيسبوك صالحًا. أعد الربط لاستعادة النشر.",
+    "reconnectButton": "إعادة الربط",
+    "disconnectConfirm": "هل تريد قطع اتصال صفحة فيسبوك؟",
+    "disconnectConfirmAction": "نعم، اقطع الاتصال",
+    "cancelDisconnect": "إلغاء"
   }
 }

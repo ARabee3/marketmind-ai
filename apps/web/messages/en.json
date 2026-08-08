@@ -36,7 +36,8 @@
     "closeNavigation": "Close navigation",
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
-    "error": "Error"
+    "error": "Error",
+    "navConnections": "Connections"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -1171,6 +1172,14 @@
         "goal": "Your goal is set",
         "channels": "Channels chosen",
         "realistic": "Capacity and budget set"
+      },
+      "facebookPage": {
+        "label": "Facebook Page connection",
+        "connect": "Connect Facebook Page",
+        "reconnect": "Reconnect Facebook Page",
+        "connecting": "Connecting…",
+        "connected": "Connected to {pageName}.",
+        "failed": "We could not connect your Facebook Page. Try again."
       }
     },
     "reviewV2": {
@@ -2614,5 +2623,40 @@
       "rewriteFailed": "AI rewrite failed.",
       "conflict": "This draft changed on the server. Refresh and retry."
     }
+  },
+  "Connections": {
+    "metadata": {
+      "title": "Connections"
+    },
+    "loading": "Loading…",
+    "eyebrow": "Workspace",
+    "title": "Connections",
+    "subtitle": "Connect the accounts MarketMind AI publishes to. Keep your Facebook Page token healthy so publishing keeps working.",
+    "loadFailed": "We could not load your connection status. Try again.",
+    "retry": "Try again",
+    "connectButton": "Connect Facebook Page",
+    "connecting": "Connecting…",
+    "connected": "Connected to {pageName}.",
+    "connectFailed": "We could not connect your Facebook Page. Try again.",
+    "testButton": "Test Connection",
+    "testSucceeded": "Test post published — connection verified.",
+    "testExpired": "The connection has expired. Please reconnect.",
+    "testFailed": "The test post could not be published. Try again.",
+    "disconnectButton": "Disconnect",
+    "disconnectFailed": "We could not disconnect the Facebook Page. Try again.",
+    "disconnected": "The Facebook Page connection has been removed.",
+    "emptyTitle": "Connect your Facebook Page",
+    "emptyBody": "Connect one Facebook Page so MarketMind AI can publish posts to it on your behalf. The connection is verified with a small test post.",
+    "facebookProvider": "Facebook Page",
+    "statusConnected": "Connected",
+    "connectedAt": "Connected on",
+    "lastTestedAt": "Last tested",
+    "neverTested": "Not tested yet",
+    "expiredTitle": "Connection expired",
+    "expiredBody": "The access token for your Facebook Page is no longer valid. Reconnect to restore publishing.",
+    "reconnectButton": "Reconnect",
+    "disconnectConfirm": "Disconnect the Facebook Page connection?",
+    "disconnectConfirmAction": "Yes, disconnect",
+    "cancelDisconnect": "Cancel"
   }
 }
