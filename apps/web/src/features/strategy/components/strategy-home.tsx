@@ -32,11 +32,15 @@ async function loadJourney(): Promise<PageState> {
     const journey = await getCurrentJourney()
     const fc = journey.future_phase
     if (fc.availability === 'available' && fc.strategy_id) {
-      const [api, progress] = await Promise.all([
-        getStrategy(fc.strategy_id),
-        getStrategyProgress(fc.strategy_id),
-      ])
-      return { phase: 'ready', journey, resource: toStrategyResource(api), progress }
+      const api = await getStrategy(fc.strategy_id)
+      const resource = toStrategyResource(api)
+      // Progress history is supplementary to the strategy snapshot. In
+      // particular, an approved strategy must remain available when the
+      // historical progress endpoint is slow or unavailable.
+      const progress = resource.status === 'approved'
+        ? []
+        : await getStrategyProgress(fc.strategy_id).catch(() => [])
+      return { phase: 'ready', journey, resource, progress }
     }
     return { phase: 'no_strategy', journey }
   } catch {

@@ -122,13 +122,23 @@ describe('StrategyHome', () => {
   it('shows the approved-plan CTA once the strategy is approved', async () => {
     journeyMock.mockResolvedValueOnce(readyJourney)
     getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
-    getProgressMock.mockResolvedValueOnce([])
 
     render(<StrategyHome />)
 
     expect(await screen.findByText('View approved plan')).toBeTruthy()
     expect(screen.queryByText('Review sample draft')).toBeNull()
     expect(screen.getAllByText('The plan is approved.').length).toBeGreaterThan(0)
+  })
+
+  it('renders an approved strategy without waiting for progress history', async () => {
+    journeyMock.mockResolvedValueOnce(readyJourney)
+    getStrategyMock.mockResolvedValueOnce({ strategy_id: 'strat-1', status: 'approved', brief: null, latest_plan: null })
+    getProgressMock.mockReturnValueOnce(new Promise<never>(() => undefined))
+
+    render(<StrategyHome />)
+
+    expect(await screen.findByText('View approved plan')).toBeTruthy()
+    expect(getProgressMock).not.toHaveBeenCalled()
   })
 
   it('never crashes on a null journey after a failed load', async () => {
