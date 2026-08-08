@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { PublishingTargetPublicV1 } from "@marketmind/contracts";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -36,28 +38,42 @@ const RESULT_CODES: readonly MetaConnectionResultCode[] = [
   "unknown",
 ];
 
-/** Reads the API callback redirect params (sanitized codes only) client-side
- *  and renders the connection journey state. */
-export function PublishingMetaCallbackResult() {
-  const [params, setParams] = useState<{
-    code: MetaConnectionResultCode;
-    connectionId: string | null;
-  } | null>(null);
+export type MetaConnectionCompleteContext = {
+  readonly requestedChannel: "facebook" | "instagram" | null;
+  readonly includeInstagram: boolean;
+};
 
-  useEffect(() => {
-    const search = new URLSearchParams(window.location.search);
-    const raw = search.get("meta_result");
-    const code: MetaConnectionResultCode = RESULT_CODES.includes(raw as never)
-      ? (raw as MetaConnectionResultCode)
-      : "unknown";
-    setParams({
-      code,
-      connectionId: search.get("meta_connection"),
-    });
-  }, []);
+export type MetaConnectionResultProps = {
+  readonly onComplete?: (
+    targets: readonly PublishingTargetPublicV1[],
+    context: MetaConnectionCompleteContext,
+  ) => Promise<void> | void;
+  readonly backHref?: string;
+  readonly retryHref?: string;
+  readonly successHref?: string;
+  readonly requiredChannel?: "facebook" | "instagram" | null;
+};
 
-  if (!params) return null;
-  return <MetaConnectionResult code={params.code} connectionId={params.connectionId} />;
+/** Reads the API callback redirect params (sanitized codes only) through the
+ * Next navigation boundary and renders the connection journey state. */
+export function PublishingMetaCallbackResult(
+  props: MetaConnectionResultProps = {},
+) {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("meta_result");
+  const code: MetaConnectionResultCode = RESULT_CODES.includes(raw as never)
+    ? (raw as MetaConnectionResultCode)
+    : "unknown";
+  const connectionId = searchParams.get("meta_connection");
+
+  if (!raw && !connectionId) return null;
+  return (
+    <MetaConnectionResult
+      code={code}
+      connectionId={connectionId}
+      {...props}
+    />
+  );
 }
 
 type State =
@@ -105,10 +121,15 @@ const BLOCKER_KEYS: Record<string, MetaMessageKey> = {
 export function MetaConnectionResult({
   code,
   connectionId,
+  onComplete,
+  backHref = "/publishing",
+  retryHref = "/publishing/meta/connect",
+  successHref = "/publishing",
+  requiredChannel = null,
 }: {
   readonly code: MetaConnectionResultCode;
   readonly connectionId: string | null;
-}) {
+} & MetaConnectionResultProps) {
   const t = useTranslations("Publishing.meta");
   const [state, setState] = useState<State>(
     code === "success" ? { phase: "loading", code } : { phase: "result", code },
@@ -137,20 +158,56 @@ export function MetaConnectionResult({
   }, [connectionId]);
 
   useEffect(() => {
-    if (code === "success") void loadSelection();
-  }, [code, loadSelection]);
+    if (code !== "success") return;
+
+    let active = true;
+    if (!connectionId) {
+      void Promise.resolve().then(() => {
+        if (active) setState({ phase: "result", code: "unknown" });
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void getMetaPendingSelection(connectionId)
+      .then((selection) => {
+        if (!active) return;
+        const requestedChannel = requiredChannel ?? selection.requested_channel;
+        const supported = selection.options.find(
+          (option) => option.page.capability_status === "supported",
+        );
+        setSelectedPageId(supported?.page.account_id ?? null);
+        setIncludeInstagram(requestedChannel === "instagram");
+        setState({ phase: "choose", selection });
+      })
+      .catch(() => {
+        if (active) setState({ phase: "result", code: "unknown" });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [code, connectionId, requiredChannel]);
 
   async function confirmSelection() {
     if (!connectionId || !selectedPageId) return;
     if (state.phase !== "choose") return;
     const selection = state.selection;
+    const requestedChannel = requiredChannel ?? selection.requested_channel;
+    const shouldIncludeInstagram =
+      requestedChannel === "instagram" || includeInstagram;
     setState({ phase: "selecting", selection });
     setSelectError(null);
     try {
-      await selectMetaTargets({
+      const targets = await selectMetaTargets({
         connectionId,
         pageId: selectedPageId,
-        includeInstagram,
+        includeInstagram: shouldIncludeInstagram,
+      });
+      await onComplete?.(targets, {
+        requestedChannel,
+        includeInstagram: shouldIncludeInstagram,
       });
       setState({ phase: "done" });
     } catch (err) {
@@ -174,6 +231,8 @@ export function MetaConnectionResult({
           setState({ phase: "loading", code: "success" });
           void loadSelection();
         }}
+        retryHref={retryHref}
+        backHref={backHref}
       />
     );
   }
@@ -204,7 +263,7 @@ export function MetaConnectionResult({
           {t("selectDoneBody")}
         </p>
         <Link
-          href="/publishing"
+          href={successHref}
           className={cn(buttonVariants({}), "mx-auto")}
         >
           {t("selectDoneAction")}
@@ -215,6 +274,8 @@ export function MetaConnectionResult({
 
   const selection = state.selection;
   const options = selection.options;
+  const instagramRequired =
+    (requiredChannel ?? selection.requested_channel) === "instagram";
 
   if (options.length === 0) {
     return (
@@ -225,7 +286,7 @@ export function MetaConnectionResult({
           {t("noOptionsBody")}
         </p>
         <Link
-          href="/publishing"
+          href={backHref}
           className={cn(buttonVariants({ variant: "outline" }), "mx-auto")}
         >
           {t("resultBack")}
@@ -254,7 +315,7 @@ export function MetaConnectionResult({
             selected={selectedPageId === option.page.account_id}
             onSelect={(pageId, instagram) => {
               setSelectedPageId(pageId);
-              setIncludeInstagram(instagram);
+              setIncludeInstagram(instagramRequired || instagram);
             }}
           />
         ))}
@@ -266,10 +327,17 @@ export function MetaConnectionResult({
           className="mt-1 size-4 accent-[var(--color-primary)]"
           checked={includeInstagram}
           onChange={(event) => setIncludeInstagram(event.target.checked)}
+          disabled={instagramRequired}
+          aria-describedby={instagramRequired ? "meta-instagram-required" : undefined}
         />
         <span className="text-sm leading-6 text-muted-foreground">
           {t("includeInstagram")}
         </span>
+        {instagramRequired ? (
+          <span id="meta-instagram-required" className="sr-only">
+            {t("instagramRequired")}
+          </span>
+        ) : null}
       </label>
 
       {selectError ? (
@@ -296,7 +364,7 @@ export function MetaConnectionResult({
           {state.phase === "selecting" ? t("selecting") : t("selectButton")}
         </Button>
         <Link
-          href="/publishing"
+          href={backHref}
           className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
         >
           <ArrowLeft className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
@@ -318,8 +386,6 @@ function AccountOption({
 }) {
   const t = useTranslations("Publishing.meta");
   const pageBlocked = option.page.capability_status !== "supported";
-  const instagramAvailable =
-    option.instagram !== null && !pageBlocked;
 
   return (
     <label
@@ -363,21 +429,6 @@ function AccountOption({
               ) : null}
             </p>
           ) : null}
-          {instagramAvailable && selected ? (
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={false}
-              aria-label={t("includeInstagram")}
-              className="mt-2 text-start text-xs font-semibold text-action underline decoration-dotted underline-offset-4 hover:text-action/80"
-              onClick={(event) => {
-                event.preventDefault();
-                onSelect(option.page.account_id, true);
-              }}
-            >
-              {t("includeInstagram")}
-            </button>
-          ) : null}
         </div>
       </div>
     </label>
@@ -391,9 +442,13 @@ function blockerLabel(code: string): MetaMessageKey {
 function ResultState({
   code,
   onRetry,
+  backHref,
+  retryHref,
 }: {
   readonly code: MetaConnectionResultCode;
   readonly onRetry: () => void;
+  readonly backHref: string;
+  readonly retryHref: string;
 }) {
   const t = useTranslations("Publishing.meta");
   const router = useRouter();
@@ -404,7 +459,7 @@ function ResultState({
       return;
     }
     // Direct recovery action: start a brand-new connection journey.
-    router.push("/publishing/meta/connect");
+    router.push(retryHref);
   }
 
   const content: Record<
@@ -463,7 +518,7 @@ function ResultState({
             {t("resultRetry")}
           </Button>
         ) : null}
-        <Link href="/publishing" className={buttonVariants({ variant: "outline" })}>
+        <Link href={backHref} className={buttonVariants({ variant: "outline" })}>
           {t("resultBack")}
         </Link>
       </div>

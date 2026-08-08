@@ -128,9 +128,16 @@ function buildContractBrief(
       channel_choices: api.channelChoices.map((choice) => ({
         channel: choice.channel as StrategyBriefV2['channel_choices'][number]['channel'],
         role: choice.role as 'primary' | 'supporting',
-        setup_state: choice.setupState as StrategyBriefV2['channel_choices'][number]['setup_state'],
-        ...(choice.publicUrl ? { public_url: choice.publicUrl } : {}),
-        ...(choice.publishingTargetId ? { publishing_target_id: choice.publishingTargetId } : {}),
+        setup_state: (choice.setupState ?? choice.setup_state) as StrategyBriefV2['channel_choices'][number]['setup_state'],
+        ...((choice.publicUrl ?? choice.public_url)
+          ? { public_url: choice.publicUrl ?? choice.public_url }
+          : {}),
+        ...((choice.publishingTargetId ?? choice.publishing_target_id)
+          ? {
+              publishing_target_id:
+                choice.publishingTargetId ?? choice.publishing_target_id,
+            }
+          : {}),
         ...(choice.note ? { note: choice.note } : {}),
       })),
     } satisfies StrategyBriefV2
@@ -165,6 +172,9 @@ export interface BriefApiResponse {
     setupState: string
     publicUrl?: string
     publishingTargetId?: string
+    setup_state?: string
+    public_url?: string
+    publishing_target_id?: string
     note?: string
   }> | null
   constraints: string | null

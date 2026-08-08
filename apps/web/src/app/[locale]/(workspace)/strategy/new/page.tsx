@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { StrategyWizard } from '@/features/strategy/components/strategy-wizard'
 
@@ -9,5 +10,9 @@ export async function generateMetadata() {
 }
 
 export default function NewStrategyPage() {
-  return <StrategyWizard />
+  return (
+    <Suspense fallback={null}>
+      <StrategyWizard />
+    </Suspense>
+  )
 }

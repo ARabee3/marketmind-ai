@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { PublishingMetaCallbackResult } from "@/features/publishing/components/meta-connection-result";
 
@@ -15,5 +16,9 @@ export async function generateMetadata() {
  * publishing workspace) and the journey continues: choose accounts → ready.
  */
 export default function PublishingMetaCallbackPage() {
-  return <PublishingMetaCallbackResult />;
+  return (
+    <Suspense fallback={null}>
+      <PublishingMetaCallbackResult />
+    </Suspense>
+  );
 }

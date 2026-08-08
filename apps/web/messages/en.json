@@ -1122,7 +1122,14 @@
         "publicUrlLabel": "Public URL",
         "publicUrlPlaceholder": "https://…",
         "publicUrlRequired": "Add the existing link URL.",
-        "metaTargetBlocked": "Real publishing stays blocked until the page is connected and verified."
+        "metaTargetBlocked": "Real publishing stays blocked until the page is connected and verified.",
+        "connectedTarget": "Connected account",
+        "targetUnavailable": "needs reconnection",
+        "connectRequired": "Connect this selected channel or choose a different setup option.",
+        "connectUnavailable": "Meta connection is not available in this environment yet.",
+        "connectFailed": "We could not start the Meta connection. Try again.",
+        "connecting": "Opening Meta…",
+        "reconnect": "Reconnect with Meta"
       },
       "capacity": {
         "label": "Weekly capacity",
@@ -1905,7 +1912,8 @@
       "blockerAuthorizationExpired": "authorization expired",
       "blockerUnknown": "unavailable",
       "selectPage": "Select the Page to connect",
-      "includeInstagram": "Also connect the linked Instagram Professional account",
+  "includeInstagram": "Also connect the linked Instagram Professional account",
+  "instagramRequired": "Instagram was selected as the Strategy channel and must be connected.",
       "selectButton": "Connect selected accounts",
       "selecting": "Connecting…",
       "selectDoneTitle": "Accounts connected",

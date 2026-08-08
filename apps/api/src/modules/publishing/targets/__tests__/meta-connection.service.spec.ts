@@ -299,6 +299,40 @@ describe("MetaConnectionService.initiateConnect", () => {
       service.initiateConnect({ ...USER, provider: "META", channel: "facebook" }),
     ).rejects.toThrow(ServiceUnavailableException);
   });
+
+  it("allows only the generic publishing or Strategy return paths", async () => {
+    const { service, stateStore } = makeService();
+
+    await expect(
+      service.initiateConnect({
+        ...USER,
+        provider: "META",
+        channel: "facebook",
+        returnPath: "https://evil.example/steal",
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: "PUBLISHING_META_RETURN_PATH_INVALID",
+      }),
+    });
+
+    expect(stateStore.create).not.toHaveBeenCalled();
+
+    await service.initiateConnect({
+      ...USER,
+      provider: "META",
+      channel: "instagram",
+      locale: "en",
+      returnPath: "/strategy/new",
+    });
+    expect(stateStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locale: "en",
+        returnPath: "/strategy/new",
+        requestedChannel: "instagram",
+      }),
+    );
+  });
 });
 
 describe("MetaConnectionService.handleCallback", () => {
@@ -338,6 +372,35 @@ describe("MetaConnectionService.handleCallback", () => {
     expect(redirect.url).toContain("/en/publishing/meta/callback");
     // Meta's error text is NEVER echoed back to the browser.
     expect(redirect.url).not.toContain("denied the app");
+  });
+
+  it("returns a Strategy callback to the Strategy wizard without exposing provider data", async () => {
+    const stateStore = {
+      create: jest.fn(),
+      consume: jest.fn(),
+      markConsumed: jest.fn(async () => undefined),
+      peek: jest.fn(async () => ({
+        id: "state-row-1",
+        userId: "owner-1",
+        businessId: "biz-1",
+        locale: "en",
+        returnPath: "/strategy/new",
+        requestedChannel: "instagram",
+        requestedCapability: "static_image",
+        fingerprint: null,
+      })),
+    };
+    const { service } = makeService({ stateStore });
+
+    const redirect = await service.handleCallback({
+      state: "raw-state-1",
+      error: "access_denied",
+      error_description: "provider details must stay server-side",
+    });
+
+    expect(redirect.url).toContain("/en/strategy/new");
+    expect(redirect.url).toContain("meta_result=cancelled");
+    expect(redirect.url).not.toContain("provider details");
   });
 
   it("redirects expired when the state is unknown/replayed/expired", async () => {

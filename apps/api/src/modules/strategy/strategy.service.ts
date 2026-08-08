@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   Logger,
   Optional,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
@@ -28,6 +29,7 @@ import { strategyProgressEventsFromPersistence } from "./strategy-progress.mappe
 import { buildRetrievalQueryContext } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
+import { TargetsService } from "../publishing/targets/targets.service";
 
 /** Owner-initiated retry limit (distinct from BullMQ queue-level job retries). */
 const MAX_OWNER_RETRIES = 3;
@@ -47,6 +49,7 @@ export class StrategyService {
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
     private readonly progressGateway: StrategyProgressGateway,
+    private readonly targetsService: TargetsService,
     @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     this.aiUrl =
@@ -125,6 +128,10 @@ export class StrategyService {
     const isV2 = strategy.contractVersion === "strategy-v2";
     if (isV2) {
       assertValidChannelChoices(dto.channelChoices ?? []);
+      await this.assertConnectedTargetBindings(
+        dto.channelChoices ?? [],
+        strategy.businessId,
+      );
       if (!dto.weeklyCapacity) {
         throw new BadRequestException(
           "weeklyCapacity is required for an owner-first Strategy brief",
@@ -170,7 +177,74 @@ export class StrategyService {
       });
     }
 
-    return brief;
+    return {
+      ...brief,
+      channelChoices: normalizeChannelChoicesForResponse(
+        (brief as { channelChoices?: unknown }).channelChoices,
+      ),
+    };
+  }
+
+  /**
+   * A Strategy brief carries only the public publishing-target id. Resolve it
+   * inside the business scope and verify that it is still usable for the
+   * selected channel before persisting the brief. This keeps stale, revoked,
+   * cross-business, or capability-incompatible targets out of the content
+   * handoff without exposing provider or credential details.
+   */
+  private async assertConnectedTargetBindings(
+    choices: Array<{
+      channel: string;
+      setupState: string;
+      publishingTargetId?: string;
+    }>,
+    businessId: string,
+  ): Promise<void> {
+    for (const choice of choices) {
+      if (choice.setupState !== "connected") continue;
+
+      if (!choice.publishingTargetId) {
+        throw new BadRequestException({
+          code: "STRATEGY_TARGET_REQUIRED",
+          message: "A connected channel must have a publishing target.",
+          recovery: "choose_target",
+        });
+      }
+
+      let target: Awaited<ReturnType<TargetsService["getTarget"]>>;
+      try {
+        target = await this.targetsService.getTarget(
+          choice.publishingTargetId,
+          businessId,
+        );
+      } catch {
+        throw strategyTargetUnavailable("choose_target");
+      }
+
+      const targetChannel = target.channel.trim().toLowerCase();
+      if (targetChannel !== choice.channel.trim().toLowerCase()) {
+        throw strategyTargetUnavailable("choose_target");
+      }
+
+      const state = target.connectionState.trim().toUpperCase();
+      const expiryTime =
+        target.expiresAt == null ? null : new Date(target.expiresAt).getTime();
+      const expired =
+        expiryTime != null && (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
+      if (state !== "CONNECTED" || expired) {
+        throw strategyTargetUnavailable("reconnect");
+      }
+
+      const capabilities = Array.isArray(target.capabilities)
+        ? target.capabilities.filter(
+            (capability): capability is string =>
+              typeof capability === "string",
+          )
+        : [];
+      if (!capabilities.includes("static_image")) {
+        throw strategyTargetUnavailable("choose_target");
+      }
+    }
   }
 
   private isBriefReady(brief: {
@@ -356,6 +430,14 @@ export class StrategyService {
 
     return {
       ...strategy,
+      brief: strategy.brief
+        ? {
+            ...strategy.brief,
+            channelChoices: normalizeChannelChoicesForResponse(
+              (strategy.brief as { channelChoices?: unknown }).channelChoices,
+            ),
+          }
+        : strategy.brief,
       latestPlan:
         currentVersion?.strategyId === id ? currentVersion.planData : null,
     };
@@ -867,6 +949,39 @@ function normalizeStartDate(value: string): Date {
 }
 
 /**
+ * Prisma stores the AI-facing channel-choice JSON in snake_case. HTTP clients
+ * consume the owner-facing camelCase brief, so normalize only these public
+ * fields at the response boundary while leaving the persisted/AI contract
+ * unchanged.
+ */
+function normalizeChannelChoicesForResponse(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return entry;
+    }
+    const raw = entry as Record<string, unknown>;
+    const normalized: Record<string, unknown> = { ...raw };
+    if (normalized.setupState == null && typeof raw.setup_state === "string") {
+      normalized.setupState = raw.setup_state;
+    }
+    if (normalized.publicUrl == null && typeof raw.public_url === "string") {
+      normalized.publicUrl = raw.public_url;
+    }
+    if (
+      normalized.publishingTargetId == null &&
+      typeof raw.publishing_target_id === "string"
+    ) {
+      normalized.publishingTargetId = raw.publishing_target_id;
+    }
+    delete normalized.setup_state;
+    delete normalized.public_url;
+    delete normalized.publishing_target_id;
+    return normalized;
+  });
+}
+
+/**
  * Owner-first channel-choice invariants (issue #135): 1–3 unique catalog
  * channels, exactly one primary, at most two supporting, and a safe setup
  * state. A public URL is only allowed for an owner-managed existing link and
@@ -930,6 +1045,21 @@ function assertValidChannelChoices(
         "A publishing target is only allowed for a connected setup state.",
       );
     }
+    if (choice.setupState === "connected" && !choice.publishingTargetId) {
+      throw new BadRequestException(
+        "A connected setup state requires a publishing target.",
+      );
+    }
+  });
+}
+
+function strategyTargetUnavailable(
+  recovery: "reconnect" | "choose_target" | "setup_later",
+): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: "STRATEGY_TARGET_UNAVAILABLE",
+    message: "The selected publishing target is not available for this channel.",
+    recovery,
   });
 }
 

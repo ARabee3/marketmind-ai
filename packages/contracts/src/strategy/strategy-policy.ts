@@ -612,6 +612,13 @@ export function validateStrategyBriefV2Choices(
         "A publishing target is only allowed for a connected setup state.",
       );
     }
+    if (choice.setup_state === "connected" && !choice.publishing_target_id) {
+      add(
+        "STRATEGY_CHANNEL_CHOICE_MISMATCH",
+        `brief.channel_choices[${index}].publishing_target_id`,
+        "A connected setup state requires a publishing target.",
+      );
+    }
   });
 
   if (!STRATEGY_WEEKLY_CAPACITY_PRESETS.includes(brief.weekly_capacity)) {

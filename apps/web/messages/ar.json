@@ -1122,7 +1122,14 @@
         "publicUrlLabel": "الرابط العام",
         "publicUrlPlaceholder": "https://…",
         "publicUrlRequired": "أضف رابط الوجود القائم.",
-        "metaTargetBlocked": "يظل النشر الفعلي محجوباً حتى يتم الاتصال بالصفحة والتحقق منها."
+        "metaTargetBlocked": "يظل النشر الفعلي محجوباً حتى يتم الاتصال بالصفحة والتحقق منها.",
+        "connectedTarget": "حساب مرتبط",
+        "targetUnavailable": "يحتاج إلى إعادة الربط",
+        "connectRequired": "اربط هذه القناة المختارة أو اختر طريقة إعداد أخرى.",
+        "connectUnavailable": "ربط ميتا غير متاح في هذه البيئة حاليًا.",
+        "connectFailed": "تعذر بدء ربط ميتا. حاول مرة أخرى.",
+        "connecting": "جارٍ فتح ميتا…",
+        "reconnect": "إعادة الربط عبر ميتا"
       },
       "capacity": {
         "label": "الوقت الأسبوعي",
@@ -1905,7 +1912,8 @@
       "blockerAuthorizationExpired": "انتهت صلاحية التفويض",
       "blockerUnknown": "غير متاح",
       "selectPage": "اختر الصفحة التي تريد ربطها",
-      "includeInstagram": "اربط أيضًا حساب إنستغرام الاحترافي المرتبط",
+  "includeInstagram": "اربط أيضًا حساب إنستغرام الاحترافي المرتبط",
+  "instagramRequired": "تم اختيار إنستغرام كقناة للاستراتيجية، لذلك يجب ربطه.",
       "selectButton": "ربط الحسابات المختارة",
       "selecting": "جارٍ الربط…",
       "selectDoneTitle": "تم ربط الحسابات",

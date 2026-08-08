@@ -31,6 +31,7 @@ import { MetaGraphClientError } from "../meta/meta-graph.client";
 export const MetaConnectionErrorCode = {
   NOT_CONFIGURED: "PUBLISHING_META_NOT_CONFIGURED",
   STATE_INVALID: "PUBLISHING_META_STATE_INVALID",
+  RETURN_PATH_INVALID: "PUBLISHING_META_RETURN_PATH_INVALID",
   TARGET_BLOCKED: "PUBLISHING_TARGET_BLOCKED",
   TARGET_CONFLICT: "PUBLISHING_TARGET_CONFLICT",
   SELECTION_EXPIRED: "PUBLISHING_META_SELECTION_EXPIRED",
@@ -145,8 +146,8 @@ export class MetaConnectionService {
     const created = await this.stateStore.create({
       userId: input.userId,
       businessId: input.businessId,
-      locale: input.locale ?? null,
-      returnPath: input.returnPath ?? null,
+      locale: normalizeLocale(input.locale),
+      returnPath: normalizeReturnPath(input.returnPath),
       requestedChannel: input.channel,
       requestedCapability: CAPABILITY_STATIC_IMAGE,
       fingerprint: input.fingerprint ?? null,
@@ -1063,16 +1064,48 @@ export class MetaConnectionService {
   private redirect(
     result: MetaCallbackResultCode,
     connectionId: string | null,
-    bound?: { locale?: string | null },
+    bound?: { locale?: string | null; returnPath?: string | null },
   ): MetaCallbackRedirect {
-    const locale = bound?.locale ?? DEFAULT_LOCALE;
+    const locale = normalizeLocale(bound?.locale);
+    let returnPath = DEFAULT_RETURN_PATH;
+    try {
+      returnPath = normalizeReturnPath(bound?.returnPath);
+    } catch {
+      this.logger.warn(
+        `Ignoring an invalid stored Meta return path for connection=${connectionId ?? "?"}`,
+      );
+    }
     const params = new URLSearchParams({ meta_result: result });
     if (connectionId) params.set("meta_connection", connectionId);
-    const path = `${bound?.locale ? `/${bound.locale}` : `/${locale}`}${DEFAULT_RETURN_PATH}/meta/callback?${params.toString()}`;
+    const route =
+      returnPath === DEFAULT_RETURN_PATH
+        ? `${DEFAULT_RETURN_PATH}/meta/callback`
+        : returnPath;
+    const path = `/${locale}${route}?${params.toString()}`;
     const url = `${this.webBaseUrl}${path}`;
-    // Never leak the locale through an invalid base — fail-closed default.
     return { url: safeRedirectUrl(url, `${this.webBaseUrl}/publishing`) };
   }
+}
+
+function normalizeLocale(locale?: string | null): string {
+  return locale === "en" || locale === "ar" ? locale : DEFAULT_LOCALE;
+}
+
+/**
+ * OAuth return destinations are an intentionally tiny relative-path allowlist.
+ * The caller can choose whether to resume the generic publishing callback or
+ * the Strategy wizard, but cannot turn the provider callback into an open
+ * redirect or smuggle query/path data into the browser URL.
+ */
+function normalizeReturnPath(returnPath?: string | null): string {
+  if (!returnPath || returnPath === DEFAULT_RETURN_PATH) {
+    return DEFAULT_RETURN_PATH;
+  }
+  if (returnPath === "/strategy/new") return returnPath;
+  throw new UnprocessableEntityException({
+    code: MetaConnectionErrorCode.RETURN_PATH_INVALID,
+    message: "The OAuth return destination is not supported.",
+  });
 }
 
 /** Keeps the redirect target same-origin relative to the configured web base
@@ -1080,7 +1113,11 @@ export class MetaConnectionService {
 function safeRedirectUrl(url: string, fallback: string): string {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    const fallbackUrl = new URL(fallback);
+    if (
+      (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+      parsed.origin !== fallbackUrl.origin
+    ) {
       return fallback;
     }
     return parsed.toString();

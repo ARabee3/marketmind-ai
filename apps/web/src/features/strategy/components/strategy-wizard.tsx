@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Check, CircleAlert, Globe, Link2, PlugZap, Store } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import type {
   ChannelSetupState,
+  PublishingTargetPublicV1,
   StrategyObjective,
   StrategyV2Channel,
 } from '@marketmind/contracts'
@@ -15,6 +17,16 @@ import { useRouter } from '@/i18n/navigation'
 import { getCurrentJourney } from '@/lib/api/journey'
 import { getStrategy } from '@/lib/api/strategy'
 import type { UpsertBriefPayload } from '@/lib/api/strategy'
+import {
+  connectMetaPublishingTarget,
+  listPublishingTargets,
+  type PublishingApiError,
+} from '@/lib/api/publishing'
+import {
+  PublishingMetaCallbackResult,
+  type MetaConnectionCompleteContext,
+} from '@/features/publishing/components/meta-connection-result'
+import { getConnectionFingerprint } from '@/features/publishing/lib/publishing-state'
 import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
@@ -64,6 +76,7 @@ type WizardChoice = {
   role: 'primary' | 'supporting' | null
   setupState: ChannelSetupState
   publicUrl: string
+  publishingTargetId?: string
 }
 
 type FormData = {
@@ -86,6 +99,8 @@ type LoadedContext = {
 }
 
 const CLARIFICATION_ID = '00000000-0000-4000-8000-000000000001'
+const META_DRAFT_PREFIX = 'marketmind.strategy.meta.v1:'
+const META_LATEST_DRAFT_KEY = `${META_DRAFT_PREFIX}latest`
 
 function emptyChoices(): WizardChoice[] {
   return CATALOG.map(({ channel }) => ({
@@ -132,6 +147,77 @@ function emptyForm(language: 'ar-EG' | 'en'): FormData {
   }
 }
 
+function metaDraftKey(connectionId: string): string {
+  return `${META_DRAFT_PREFIX}${connectionId}`
+}
+
+function isUsablePublishingTarget(
+  target: PublishingTargetPublicV1,
+  channel: StrategyV2Channel,
+): boolean {
+  return (
+    target.channel === channel
+    && target.connection_state === 'connected'
+    && target.capabilities.includes('static_image')
+  )
+}
+
+function readMetaDraft(connectionId: string | null): {
+  strategyId: string | null
+  requestedChannel: 'facebook' | 'instagram'
+  form: FormData
+  step: StepId
+} | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const id = connectionId || window.sessionStorage.getItem(META_LATEST_DRAFT_KEY)
+    if (!id) return null
+    const raw = window.sessionStorage.getItem(metaDraftKey(id))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as {
+      strategyId?: unknown
+      requestedChannel?: unknown
+      form?: FormData
+      step?: unknown
+    }
+    if (
+      (parsed.requestedChannel !== 'facebook' && parsed.requestedChannel !== 'instagram')
+      || !parsed.form
+      || !Array.isArray(parsed.form.choices)
+      || !STEPS.some((entry) => entry.id === parsed.step)
+    ) {
+      return null
+    }
+    return {
+      strategyId: typeof parsed.strategyId === 'string' ? parsed.strategyId : null,
+      requestedChannel: parsed.requestedChannel,
+      form: {
+        ...parsed.form,
+        errors: {},
+        choices: emptyChoices().map((choice) => {
+          const saved = parsed.form?.choices.find(
+            (entry) => entry.channel === choice.channel,
+          )
+          if (!saved) return choice
+          return {
+            ...choice,
+            role: saved.role,
+            setupState: saved.setupState,
+            publicUrl: typeof saved.publicUrl === 'string' ? saved.publicUrl : '',
+            publishingTargetId:
+              typeof saved.publishingTargetId === 'string'
+                ? saved.publishingTargetId
+                : undefined,
+          }
+        }),
+      },
+      step: parsed.step as StepId,
+    }
+  } catch {
+    return null
+  }
+}
+
 function toDateInput(value: string): string {
   return value.slice(0, 10)
 }
@@ -162,6 +248,9 @@ function buildPayload(
         ...(choice.publicUrl.trim()
           ? { publicUrl: choice.publicUrl.trim() }
           : {}),
+        ...(choice.publishingTargetId
+          ? { publishingTargetId: choice.publishingTargetId }
+          : {}),
       })),
     constraints: form.constraints.trim() || undefined,
     clarificationAnswers: form.constraints.trim()
@@ -180,6 +269,9 @@ export function StrategyWizard() {
   const tc = useTranslations('Common')
   const locale = useLocale()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const metaResult = searchParams.get('meta_result')
+  const metaConnectionId = searchParams.get('meta_connection')
   const { create, saveBrief, generate, pending, error } = useStrategyActions()
   const [step, setStep] = useState<StepId>('goal')
   const [form, setForm] = useState<FormData>(() =>
@@ -190,15 +282,24 @@ export function StrategyWizard() {
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [legacyV1, setLegacyV1] = useState(false)
+  const [targets, setTargets] = useState<readonly PublishingTargetPublicV1[]>([])
+  const [metaPending, setMetaPending] = useState(false)
+  const [metaError, setMetaError] = useState<string | null>(null)
+  const metaResumeRef = useRef(false)
 
   const stepIndex = useMemo(() => STEPS.findIndex((entry) => entry.id === step), [step])
 
   useEffect(() => {
+    if (!metaConnectionId && metaResumeRef.current) return
     let cancelled = false
 
     async function load() {
       try {
-        const journey = await getCurrentJourney()
+        const [journey, availableTargets] = await Promise.all([
+          getCurrentJourney(),
+          listPublishingTargets().catch(() => []),
+        ])
+        if (!cancelled) setTargets(availableTargets)
         if (
           cancelled
           || journey.journey.state !== 'discovery_confirmed'
@@ -224,16 +325,34 @@ export function StrategyWizard() {
           },
         })
 
+        const draft = readMetaDraft(metaConnectionId)
+        const draftMatches =
+          draft && (!draft.strategyId || draft.strategyId === strategyId)
+
         if (strategyId) {
           const strategy = await getStrategy(strategyId)
           const brief = strategy.brief
-          if (cancelled || !brief) return
+          if (cancelled) return
+          if (!brief) {
+            if (draftMatches) {
+              setForm(draft.form)
+              setStep(draft.step)
+              setDirty(true)
+            }
+            return
+          }
           const choices = Array.isArray(brief.channelChoices)
             ? brief.channelChoices
             : []
           if (choices.length === 0) {
-            // Legacy strategy-v1 strategy: keep the original choices form.
-            setLegacyV1(true)
+            if (draftMatches) {
+              setForm(draft.form)
+              setStep(draft.step)
+              setDirty(true)
+            } else {
+              // Legacy strategy-v1 strategy: keep the original choices form.
+              setLegacyV1(true)
+            }
             return
           }
           const capacity = brief.weeklyCapacity ?? ''
@@ -263,13 +382,25 @@ export function StrategyWizard() {
               return {
                 channel: choice.channel,
                 role: saved.role as WizardChoice['role'],
-                setupState: saved.setupState as ChannelSetupState,
+                setupState: (saved.setupState ?? saved.setup_state) as ChannelSetupState,
                 publicUrl:
-                  typeof saved.publicUrl === 'string' ? saved.publicUrl : '',
+                  typeof (saved.publicUrl ?? saved.public_url) === 'string'
+                    ? (saved.publicUrl ?? saved.public_url) as string
+                    : '',
+                publishingTargetId:
+                  typeof (saved.publishingTargetId ?? saved.publishing_target_id) === 'string'
+                    ? (saved.publishingTargetId ?? saved.publishing_target_id) as string
+                    : undefined,
               }
             }),
             errors: {},
           })
+        }
+
+        if (draftMatches && !cancelled) {
+          setForm(draft.form)
+          setStep(draft.step)
+          setDirty(true)
         }
       } catch {
         if (!cancelled) {
@@ -285,7 +416,7 @@ export function StrategyWizard() {
 
     load()
     return () => { cancelled = true }
-  }, [t])
+  }, [metaConnectionId, t])
 
   useEffect(() => {
     if (!dirty) return
@@ -313,8 +444,12 @@ export function StrategyWizard() {
     setSaved(false)
     setDirty(true)
     setForm((previous) => {
+      const normalizedPatch =
+        patch.setupState && patch.setupState !== 'connected'
+          ? { ...patch, publishingTargetId: undefined }
+          : patch
       let choices = previous.choices.map((choice) =>
-        choice.channel === channel ? { ...choice, ...patch } : choice,
+        choice.channel === channel ? { ...choice, ...normalizedPatch } : choice,
       )
       // Selecting a new primary demotes the previous primary so there is
       // always exactly one main focus.
@@ -372,6 +507,13 @@ export function StrategyWizard() {
             && !choice.publicUrl.trim(),
         )
         if (badLink) errors.channels = t('wizard.validation.publicUrl')
+        const missingTarget = form.choices.find(
+          (choice) =>
+            choice.role !== null
+            && choice.setupState === 'connected'
+            && !choice.publishingTargetId,
+        )
+        if (missingTarget) errors.channels = t('wizard.meta.connectRequired')
       }
     } else {
       if (!form.weeklyCapacity) {
@@ -420,6 +562,99 @@ export function StrategyWizard() {
     return created.id
   }
 
+  async function connectMeta(channel: 'facebook' | 'instagram') {
+    if (!context) return
+    setMetaError(null)
+    setMetaPending(true)
+    try {
+      const strategyId = await ensureStrategy()
+      if (!strategyId) return
+      const connection = await connectMetaPublishingTarget({
+        channel,
+        locale,
+        returnPath: '/strategy/new',
+        fingerprint: getConnectionFingerprint(),
+      })
+      window.sessionStorage.setItem(
+        metaDraftKey(connection.connection_id),
+        JSON.stringify({
+          strategyId,
+          requestedChannel: channel,
+          form,
+          step,
+        }),
+      )
+      window.sessionStorage.setItem(
+        META_LATEST_DRAFT_KEY,
+        connection.connection_id,
+      )
+      window.location.assign(connection.authorization_url)
+    } catch (caught) {
+      const apiError = caught as Partial<PublishingApiError>
+      setMetaError(
+        apiError.code === 'PUBLISHING_META_NOT_CONFIGURED'
+          ? t('wizard.meta.connectUnavailable')
+          : t('wizard.meta.connectFailed'),
+      )
+    } finally {
+      setMetaPending(false)
+    }
+  }
+
+  async function handleMetaComplete(
+    connectionId: string | null,
+    selectedTargets: readonly PublishingTargetPublicV1[],
+    selection: MetaConnectionCompleteContext,
+  ) {
+    const draft = readMetaDraft(connectionId)
+    const sourceForm = draft?.form ?? form
+    const targetByChannel = new Map(
+      selectedTargets.map((target) => [target.channel, target]),
+    )
+    const nextForm: FormData = {
+      ...sourceForm,
+      errors: {},
+      choices: sourceForm.choices.map((choice) => {
+        if (choice.role === null) return choice
+        const target =
+          choice.channel === 'facebook' || choice.channel === 'instagram'
+            ? targetByChannel.get(choice.channel)
+            : undefined
+        const canBindInstagram =
+          choice.channel !== 'instagram'
+          || selection.includeInstagram
+          || selection.requestedChannel === 'instagram'
+        if (!target || !canBindInstagram || !isUsablePublishingTarget(target, choice.channel)) {
+          return choice
+        }
+        return {
+          ...choice,
+          setupState: 'connected',
+          publishingTargetId: target.target_id,
+          publicUrl: '',
+        }
+      }),
+    }
+    setForm(nextForm)
+    setStep(draft?.step ?? 'channels')
+    setDirty(true)
+    setSaved(false)
+    setMetaError(null)
+    setTargets((previous) => {
+      const merged = new Map(previous.map((target) => [target.target_id, target]))
+      selectedTargets.forEach((target) => merged.set(target.target_id, target))
+      return [...merged.values()]
+    })
+    if (typeof window !== 'undefined') {
+      if (connectionId) window.sessionStorage.removeItem(metaDraftKey(connectionId))
+      window.sessionStorage.removeItem(META_LATEST_DRAFT_KEY)
+    }
+    const refreshed = await listPublishingTargets().catch(() => null)
+    if (refreshed) setTargets(refreshed)
+    metaResumeRef.current = true
+    router.replace('/strategy/new')
+  }
+
   async function persist(shouldGenerate: boolean) {
     if (!validateStep(step) || !context) return
     const strategyId = await ensureStrategy()
@@ -439,6 +674,21 @@ export function StrategyWizard() {
     } else {
       router.push('/strategy')
     }
+  }
+
+  if (metaResult || metaConnectionId) {
+    return (
+      <section className="grid gap-5 rounded-xl border border-border bg-background p-4 md:p-6">
+        <PublishingMetaCallbackResult
+          backHref="/strategy/new"
+          retryHref="/strategy/new"
+          successHref="/strategy/new"
+          onComplete={(selectedTargets, selection) =>
+            handleMetaComplete(metaConnectionId, selectedTargets, selection)
+          }
+        />
+      </section>
+    )
   }
 
   if (legacyV1) {
@@ -529,6 +779,10 @@ export function StrategyWizard() {
                 choices={form.choices}
                 errors={form.errors.channels}
                 onChange={updateChoice}
+                targets={targets}
+                metaPending={metaPending}
+                metaError={metaError}
+                onConnect={connectMeta}
               />
             ) : null}
             {step === 'realistic' ? (
@@ -727,6 +981,10 @@ function ChannelsStep({
   choices,
   errors,
   onChange,
+  targets,
+  metaPending,
+  metaError,
+  onConnect,
 }: {
   readonly choices: readonly WizardChoice[]
   readonly errors?: string
@@ -734,6 +992,10 @@ function ChannelsStep({
     channel: StrategyV2Channel,
     patch: Partial<WizardChoice>,
   ) => void
+  readonly targets: readonly PublishingTargetPublicV1[]
+  readonly metaPending: boolean
+  readonly metaError: string | null
+  readonly onConnect: (channel: 'facebook' | 'instagram') => void
 }) {
   const t = useTranslations('Strategy')
   return (
@@ -801,12 +1063,61 @@ function ChannelsStep({
               {choice.role !== null ? (
                 <div className="grid gap-2">
                   {meta.meta ? (
-                    <p className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-xs leading-5 text-warning">
-                      {t('wizard.meta.connectSoon')}
-                      <span className="mt-1 block">
-                        {t('wizard.meta.metaTargetBlocked')}
-                      </span>
-                    </p>
+                    <div className="grid gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      {targets
+                        .filter((target) => target.channel === choice.channel)
+                        .map((target) => (
+                          <label
+                            key={target.target_id}
+                            className={cn(
+                              'flex cursor-pointer items-start gap-2 text-sm font-semibold text-navy',
+                              target.connection_state !== 'connected' && 'text-muted-foreground',
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name={`setup-${choice.channel}`}
+                              checked={
+                                choice.setupState === 'connected'
+                                && choice.publishingTargetId === target.target_id
+                              }
+                              disabled={!isUsablePublishingTarget(target, choice.channel)}
+                              onChange={() =>
+                                onChange(choice.channel, {
+                                  setupState: 'connected',
+                                  publishingTargetId: target.target_id,
+                                  publicUrl: '',
+                                })
+                              }
+                            />
+                            <span>
+                              {isUsablePublishingTarget(target, choice.channel)
+                                ? `${t('wizard.meta.connectedTarget')}: ${target.display_name}`
+                                : `${target.display_name} — ${t('wizard.meta.targetUnavailable')}`}
+                            </span>
+                          </label>
+                        ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit"
+                        disabled={metaPending}
+                        onClick={() =>
+                          onConnect(choice.channel as 'facebook' | 'instagram')
+                        }
+                      >
+                        <PlugZap className="size-4" aria-hidden="true" />
+                        {metaPending
+                          ? t('wizard.meta.connecting')
+                          : targets.some(
+                              (target) =>
+                                target.channel === choice.channel
+                                && target.connection_state !== 'connected',
+                            )
+                            ? t('wizard.meta.reconnect')
+                            : t('wizard.meta.connect')}
+                      </Button>
+                    </div>
                   ) : null}
                   <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-navy">
                     <input
@@ -864,6 +1175,11 @@ function ChannelsStep({
       </fieldset>
 
       <div aria-live="polite">
+        {metaError ? (
+          <p className="mt-3 text-sm font-semibold text-danger" role="alert">
+            {metaError}
+          </p>
+        ) : null}
         {errors ? (
           <p className="mt-3 text-sm font-semibold text-danger" role="alert">
             {errors}

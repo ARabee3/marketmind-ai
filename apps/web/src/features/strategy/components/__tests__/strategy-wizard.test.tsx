@@ -9,6 +9,8 @@ const actionMocks = vi.hoisted(() => ({
   generate: vi.fn(),
 }))
 const pushMock = vi.hoisted(() => vi.fn())
+const replaceMock = vi.hoisted(() => vi.fn())
+const listTargetsMock = vi.hoisted(() => vi.fn())
 
 const messages: Record<string, string> = {
   'choices.selectPlaceholder': 'Choose…',
@@ -95,7 +97,11 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock }),
+}))
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 vi.mock('@/lib/api/journey', () => ({
@@ -105,6 +111,13 @@ vi.mock('@/lib/api/journey', () => ({
 const getStrategyMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/api/strategy', () => ({
   getStrategy: getStrategyMock,
+}))
+
+vi.mock('@/lib/api/publishing', () => ({
+  listPublishingTargets: listTargetsMock,
+  connectMetaPublishingTarget: vi.fn(),
+  getMetaPendingSelection: vi.fn(),
+  selectMetaTargets: vi.fn(),
 }))
 
 vi.mock('../../hooks/use-strategy-actions', () => ({
@@ -118,6 +131,7 @@ vi.mock('../../hooks/use-strategy-actions', () => ({
 describe('StrategyWizard', () => {
   beforeEach(() => {
     getStrategyMock.mockReset().mockResolvedValue({ brief: null })
+    listTargetsMock.mockReset().mockResolvedValue([])
     journeyMock.mockReset()
     journeyMock.mockResolvedValue({
       journey: {
