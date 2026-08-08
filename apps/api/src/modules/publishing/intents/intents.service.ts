@@ -45,6 +45,7 @@ import {
 } from "./intents.dto";
 
 import { PublishingIntentStatus } from "@prisma/client";
+import { toBullMqJobId } from "../../../common/queues/bullmq-job-id";
 
 /** Statuses that occupy the one-intent-per-candidate slot (P1 #119 review):
  *  only CANCELLED frees the candidate, so a succeeded/failed/action-required
@@ -460,7 +461,11 @@ export class IntentsService {
               version: intent.version,
               idempotencyKey: this.dispatchKeyFor(dto.idempotencyKey),
             },
-            { jobId: jobKey, delay, priority: publishingPriorityFor(intent.scheduledUtcAt) },
+            {
+              jobId: toBullMqJobId(jobKey),
+              delay,
+              priority: publishingPriorityFor(intent.scheduledUtcAt),
+            },
           );
           this.logger.log(
             `Enqueued dispatch job ${jobKey} with delay=${delay}ms`,
@@ -604,7 +609,11 @@ export class IntentsService {
               version: updated.version,
               idempotencyKey: this.dispatchKeyFor(dto.idempotencyKey),
             },
-            { jobId: jobKey, delay, priority: publishingPriorityFor(updated.scheduledUtcAt) },
+            {
+              jobId: toBullMqJobId(jobKey),
+              delay,
+              priority: publishingPriorityFor(updated.scheduledUtcAt),
+            },
           );
           this.logger.log(`Re-enqueued dispatch job ${jobKey} after retry`);
         }

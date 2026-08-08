@@ -79,6 +79,7 @@ import {
   weekStartDate,
 } from "./content-schedule";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
+import { toBullMqJobId } from "../../common/queues/bullmq-job-id";
 
 export type BulkDecisionItemStatus =
   | "approved"
@@ -626,7 +627,11 @@ export class ContentService {
           correlationId,
         };
     const queueOptions = this.jobOutbox
-      ? { jobId, attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+      ? {
+          jobId: toBullMqJobId(jobId),
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+        }
       : { attempts: 3, backoff: { type: "exponential", delay: 2000 } };
     if (!created) {
       // Idempotent replay. If the pack is still queued (no worker picked it up
@@ -950,7 +955,11 @@ export class ContentService {
     });
 
     const queueOptions = this.jobOutbox
-      ? { jobId, attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+      ? {
+          jobId: toBullMqJobId(jobId),
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+        }
       : { attempts: 3, backoff: { type: "exponential", delay: 2000 } };
     await this.contentQueue.add(jobName, durableJobPayload, queueOptions);
     await this.jobOutbox?.markDirectDispatched(jobId);
@@ -1175,7 +1184,7 @@ export class ContentService {
         "dispatch-outbox",
         { eventId: outboxEventId },
         {
-          jobId: `dispatch-outbox:${outboxEventId}`,
+          jobId: toBullMqJobId(`dispatch-outbox:${outboxEventId}`),
           attempts: 3,
           backoff: { type: "exponential", delay: 2_000 },
         },
@@ -1318,7 +1327,7 @@ export class ContentService {
           },
       this.jobOutbox
         ? {
-            jobId: revisionJobId,
+            jobId: toBullMqJobId(revisionJobId),
             attempts: 3,
             backoff: { type: "exponential", delay: 2000 },
           }
@@ -1649,7 +1658,7 @@ export class ContentService {
         "dispatch-outbox",
         { eventId },
         {
-          jobId: `dispatch-outbox:${eventId}`,
+          jobId: toBullMqJobId(`dispatch-outbox:${eventId}`),
           attempts: 3,
           backoff: { type: "exponential", delay: 2_000 },
         },
@@ -1671,7 +1680,7 @@ export class ContentService {
           : { ...job.payload, correlationId: randomUUID() },
         this.jobOutbox
           ? {
-              jobId: job.jobId,
+              jobId: toBullMqJobId(job.jobId),
               attempts: 3,
               backoff: { type: "exponential", delay: 2000 },
             }

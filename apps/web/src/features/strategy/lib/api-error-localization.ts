@@ -16,6 +16,8 @@ const STRATEGY_ERROR_CODE_TO_TRANSLATION: Partial<Record<string, TranslationKey>
   STRATEGY_VERSION_CONFLICT: 'Errors.strategyVersionConflict',
   STRATEGY_RATE_LIMITED: 'Errors.generic',
   STRATEGY_NOT_FOUND: 'Errors.notFound',
+  BILLING_ENTITLEMENT_EXHAUSTED: 'Errors.billingLimitReached',
+  BILLING_TRIAL_EXPIRED: 'Errors.billingLimitReached',
 }
 
 export function getStrategyErrorTranslationKey(err: ApiError): TranslationKey {

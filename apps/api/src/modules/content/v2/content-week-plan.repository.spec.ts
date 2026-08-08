@@ -179,6 +179,7 @@ describe("ContentWeekPlanRepository", () => {
       week_plan_id: "plan-1",
       content_cycle_id: CYCLE,
       week_number: 1,
+      week_start_date: "2026-07-06",
       editorial_profile: {} as never,
       cta_entries: [],
       media_entries: [],

@@ -97,4 +97,16 @@ export class BillingEntitlementsService {
       businessId,
     );
   }
+
+  /**
+   * Releases the entitlement accounting for a strategy cycle that was deleted
+   * (owner rejection wipes the whole cycle), so the owner can start over
+   * without being blocked by usage that no longer represents real work.
+   */
+  async releaseStrategyCycle(
+    userId: string,
+    strategyId: string,
+  ): Promise<void> {
+    await this.billingService.releaseUsageForStrategy(userId, strategyId);
+  }
 }

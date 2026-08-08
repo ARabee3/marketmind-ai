@@ -29,6 +29,45 @@ export class StrategyRepository {
     });
   }
 
+  /**
+   * Permanently removes a strategy and every row owned by it (brief, versions,
+   * decisions, retrieval runs/items/gaps, progress events) in one transaction.
+   *
+   * Used when the owner rejects the plan: the whole cycle is wiped so the
+   * owner starts over from scratch with a brand-new strategy. This is a hard
+   * delete that bypasses the status FSM on purpose — the strategy must not
+   * linger in a terminal state with orphaned children.
+   */
+  async deleteStrategy(id: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.strategy.findUnique({
+        where: { id },
+        select: { id: true, status: true },
+      });
+      // A concurrent approve/reject that already moved the status will leave
+      // nothing to delete — reject with the same guard recordOwnerDecision
+      // uses so a duplicate decision can never appear to succeed.
+      if (!existing || existing.status !== "draft") {
+        throw new BadRequestException(
+          "Strategy is no longer in draft state; decision could not be applied",
+        );
+      }
+
+      const versions = await tx.strategyVersion.findMany({
+        where: { strategyId: id },
+        select: { id: true },
+      });
+      await tx.strategyDecision.deleteMany({
+        where: { strategyVersionId: { in: versions.map((v) => v.id) } },
+      });
+      await tx.strategyVersion.deleteMany({ where: { strategyId: id } });
+      await tx.strategyRetrievalRun.deleteMany({ where: { strategyId: id } });
+      await tx.strategyBrief.deleteMany({ where: { strategyId: id } });
+      await tx.strategyProgressEvent.deleteMany({ where: { strategyId: id } });
+      await tx.strategy.delete({ where: { id } });
+    });
+  }
+
   async getConfirmedProfileVersionByIdAndOwner(
     id: string,
     ownerUserId: string,

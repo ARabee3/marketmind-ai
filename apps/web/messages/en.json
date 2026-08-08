@@ -645,6 +645,7 @@
     "validationError": "Please check the form for errors.",
     "strategyVersionConflict": "This Strategy version is stale. Refresh before deciding.",
     "discoveryAlreadyConfirmed": "A business profile is already confirmed. View your saved discovery result in the dashboard.",
+    "billingLimitReached": "Your plan limit for this action has been reached for the current period.",
     "serverError": "Server error. Please try again later."
   },
   "Strategy": {

@@ -248,7 +248,7 @@ describe("OutboxDispatcher", () => {
       expect(queue.add).toHaveBeenCalledWith(
         "dispatch-outbox",
         { eventId: "event-reconcile-1" },
-        expect.objectContaining({ jobId: "dispatch-outbox:event-reconcile-1" }),
+        expect.objectContaining({ jobId: "dispatch-outbox-event-reconcile-1" }),
       );
       expect(repository.releaseOutboxClaim).toHaveBeenCalledWith(
         "event-reconcile-1",

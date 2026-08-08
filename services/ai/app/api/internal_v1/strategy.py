@@ -189,7 +189,13 @@ def _validation_repair_prompt(
             "MANDATORY PLAN VALIDATION REPAIR: The previous output failed the "
             "Strategy policy. Regenerate the complete plan so every validation "
             "issue is resolved. Keep deterministic channel scores, identifiers, "
-            "and provenance metadata unchanged."
+            "and provenance metadata unchanged. This is a planning-only output: "
+            "rewrite affected prose as a strategic explanation, proposal, or "
+            "conditional owner decision. In particular, channel_commitments[*].rationale "
+            "must explain channel fit and role, never state or imply that a post was, "
+            "is, or will be published; an ad was, is, or will be launched; money was, "
+            "is, or will be spent; or anything was auto-approved. Do not echo the "
+            "validation message as output."
         ),
         user_prompt=(
             f"{prompt.user_prompt}\n\n"
