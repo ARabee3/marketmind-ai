@@ -142,7 +142,9 @@ export function buildContractBrief(
   if (contractVersion !== "strategy-v2") {
     return {
       ...base,
-      team_capacity: brief.teamCapacity,
+      // Legacy strategy-v1 briefs always carry a free-text team capacity; the
+      // fallback guards against a null row without inventing a value.
+      team_capacity: brief.teamCapacity ?? "",
     };
   }
   return {

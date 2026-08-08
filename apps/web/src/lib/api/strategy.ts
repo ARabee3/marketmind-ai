@@ -156,7 +156,7 @@ export interface BriefApiResponse {
   paidMediaAllowed: boolean
   externalBudgetMode: string
   externalBudgetEgp: unknown
-  teamCapacity: string
+  teamCapacity: string | null
   weeklyCapacity?: string | null
   weeklyCapacityNote?: string | null
   channelChoices?: Array<{

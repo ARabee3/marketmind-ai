@@ -989,7 +989,7 @@ model StrategyBrief {
   paidMediaAllowed         Boolean  @map("paid_media_allowed")
   externalBudgetMode       String   @map("external_budget_mode")
   externalBudgetEgp        Json?    @map("external_budget_egp")
-  teamCapacity             String   @map("team_capacity")
+  teamCapacity             String?  @map("team_capacity")
   weeklyCapacity           String?  @map("weekly_capacity")
   weeklyCapacityNote       String?  @map("weekly_capacity_note")
   channelChoices           Json?    @map("channel_choices")

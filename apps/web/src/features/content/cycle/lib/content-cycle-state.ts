@@ -206,7 +206,7 @@ export function resolveApprovedContentStrategy(
       paid_media_allowed: brief.paidMediaAllowed,
       external_budget_mode: brief.externalBudgetMode as StrategyBrief["external_budget_mode"],
       external_budget_egp: brief.externalBudgetEgp as StrategyBrief["external_budget_egp"],
-      team_capacity: brief.teamCapacity,
+      team_capacity: brief.teamCapacity ?? '',
       constraints: typeof brief.constraints === "string" ? [brief.constraints] : (brief.constraints ?? []),
       clarification_answers: [],
       created_at: brief.createdAt,
