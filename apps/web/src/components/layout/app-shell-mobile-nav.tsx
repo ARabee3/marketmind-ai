@@ -6,6 +6,8 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { AppShellNavIcon, type AppShellIconName } from "./app-shell-icons";
 
+import { BrandLogoMark } from "./app-shell";
+
 export type AppShellMobileNavItem = {
   readonly href:
     | "/discovery"
@@ -42,9 +44,7 @@ export function AppShellMobileNav({ brandName, navItems, topActions }: Props) {
           className="flex min-w-0 items-center gap-2 rounded text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
           aria-label={brandName}
         >
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg border-2 border-navy bg-primary text-sm font-bold text-primary-foreground shadow-tactile">
-            M
-          </span>
+          <BrandLogoMark className="size-9" />
           <span className="hidden truncate text-base font-bold min-[360px]:inline">
             {brandName}
           </span>

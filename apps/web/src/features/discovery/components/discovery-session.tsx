@@ -265,6 +265,8 @@ export function DiscoverySession({
             currentQuestion={status.current_question}
             suggestedAnswers={status.current_suggested_answers}
             pending={pending}
+            isThinking={session.isThinking}
+            streamingText={session.streamingText}
             error={session.error}
             errorTranslationKey={session.errorTranslationKey}
             onSubmit={session.respond}
@@ -291,12 +293,14 @@ export function DiscoverySession({
         </div>
 
         {/* Readiness ledger (desktop) */}
-        <div className="hidden md:block w-80 shrink-0">
-          <ReadinessLedger
-            readiness={readiness}
-            uncertainties={uncertainties}
-          />
-        </div>
+        <aside className="hidden lg:block w-80 shrink-0 lg:sticky lg:top-20">
+          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto pe-1 focus:outline-none">
+            <ReadinessLedger
+              readiness={readiness}
+              uncertainties={uncertainties}
+            />
+          </div>
+        </aside>
       </div>
     </div>
   )

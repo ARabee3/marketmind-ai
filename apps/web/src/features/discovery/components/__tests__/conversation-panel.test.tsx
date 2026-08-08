@@ -257,6 +257,42 @@ describe('ConversationPanel', () => {
     expect((screen.getByPlaceholderText('answerPlaceholder') as HTMLTextAreaElement).disabled).toBe(true)
   })
 
+  it('renders thinking indicator (three dancing dots) and live region while pending', () => {
+    render(
+      <ConversationPanel
+        messages={[]}
+        pending={true}
+        isThinking={true}
+        error={null}
+        errorTranslationKey={null}
+        onSubmit={vi.fn(() => Promise.resolve({ accepted: true }))}
+        onRetryStatus={vi.fn()}
+      />,
+    )
+
+    const indicator = screen.getByTestId('thinking-indicator')
+    expect(indicator).toBeDefined()
+    expect(indicator.getAttribute('role')).toBe('status')
+    expect(indicator.getAttribute('aria-live')).toBe('polite')
+    expect(screen.getByText('assistantThinking')).toBeDefined()
+  })
+
+  it('renders progressive streaming text inside assistant bubble', () => {
+    render(
+      <ConversationPanel
+        messages={[]}
+        pending={true}
+        streamingText="What is your target"
+        error={null}
+        errorTranslationKey={null}
+        onSubmit={vi.fn(() => Promise.resolve({ accepted: true }))}
+        onRetryStatus={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('What is your target')).toBeDefined()
+  })
+
   it('shows error with retry button', () => {
     const onRetryStatus = vi.fn()
     render(

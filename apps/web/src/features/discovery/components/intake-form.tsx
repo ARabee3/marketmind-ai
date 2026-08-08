@@ -199,7 +199,7 @@ export function IntakeForm() {
                 {locale === 'ar' ? <ArrowLeft aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
               </Button>
             ) : (
-              <Button key="submit" type="submit" disabled={isSubmitting} className="min-h-11 px-6 shadow-tactile hover:translate-y-[3px] hover:shadow-tactile-pressed">
+              <Button key="submit" type="submit" disabled={isSubmitting} className="min-h-11 px-6 shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all">
                 {isSubmitting ? t('submitting') : t('submit')}
               </Button>
             )}

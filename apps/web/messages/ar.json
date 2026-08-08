@@ -15,7 +15,9 @@
     "arabic": "العربية",
     "heroSubtitle": "تسويق مدعوم بالذكاء الاصطناعي للشركات الصغيرة والمتوسطة المصرية.",
     "footer": "© {year} ماركت مايند",
-    "tagline": "ذكاء تسويقي للشركات الصغيرة والمتوسطة",
+    "tagline": "ذكاء تسويقي لنشاطك",
+    "signedInAs": "مسجّل كـ",
+    "guestUser": "مستخدم غير مسجل",
     "navHome": "الرئيسية",
     "navDiscovery": "الاستكشاف",
     "navDashboard": "لوحة التحكم",
@@ -60,7 +62,7 @@
     "journeyTitle": "ما الذي يفتح بعد كل قرار منك",
     "state": {
       "empty": {
-        "title": "ابدأ الاستكشاف",
+        "title": "ابدأ رحلة الاستكشاف",
         "body": "عرّف ماركت مايند بنشاطك. سنبحث في المصادر العامة، ونسأل أسئلة مركزة، ونبني ملف النشاط قبل أي خطوة استراتيجية."
       },
       "active": {
@@ -107,7 +109,7 @@
       "logout": "تسجيل الخروج"
     },
     "actions": {
-      "start_discovery": "ابدأ الاستكشاف",
+      "start_discovery": "ابدأ رحلة الاستكشاف",
       "continue_discovery": "كمّل الاستكشاف",
       "review_profile": "راجع الملف",
       "view_discovery": "عرض الاستكشاف",
@@ -358,8 +360,8 @@
     "platformGoogleMaps": "خرائط جوجل",
     "platformDelivery": "تطبيق توصيل",
     "platformOther": "أخرى",
-    "submit": "بدء مرحلة الاستكشاف",
-    "submitting": "جارٍ البدء…",
+    "submit": "ابدأ رحلة الاستكشاف",
+    "submitting": "جارٍ بدء رحلة الاستكشاف…",
     "validationNameRequired": "اسم النشاط التجاري حقل مطلوب",
     "validationTypeRequired": "نوع النشاط حقل مطلوب",
     "validationCityRequired": "المدينة حقل مطلوب",
@@ -486,6 +488,7 @@
     "conversationLabel": "سجل المحادثة",
     "ownerLabel": "أنت",
     "assistantLabel": "المساعد",
+    "assistantThinking": "جارٍ تفكير الذكاء الاصطناعي وصياغة السؤال…",
     "systemLabel": "النظام",
     "suggestedAnswersLabel": "إجابات مقترحة",
     "composerLabel": "إجابتك",

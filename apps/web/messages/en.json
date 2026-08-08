@@ -15,7 +15,9 @@
     "arabic": "Arabic",
     "heroSubtitle": "AI-powered marketing for Egyptian small and medium businesses.",
     "footer": "© {year} MarketMind AI",
-    "tagline": "Marketing intelligence for SMEs",
+    "tagline": "Marketing intelligence",
+    "signedInAs": "Signed in as",
+    "guestUser": "Guest user",
     "navHome": "Home",
     "navDiscovery": "Discovery",
     "navDashboard": "Dashboard",
@@ -61,7 +63,7 @@
     "journeyTitle": "What opens after each owner decision",
     "state": {
       "empty": {
-        "title": "Start Discovery",
+        "title": "Start exploration journey",
         "body": "Tell MarketMind about the business. We will research public evidence, ask focused questions, and build the profile before any strategy work starts."
       },
       "active": {
@@ -108,7 +110,7 @@
       "logout": "Sign out"
     },
     "actions": {
-      "start_discovery": "Start Discovery",
+      "start_discovery": "Start exploration journey",
       "continue_discovery": "Continue Discovery",
       "review_profile": "Review profile",
       "view_discovery": "View Discovery",
@@ -359,8 +361,8 @@
     "platformGoogleMaps": "Google Maps",
     "platformDelivery": "Delivery app",
     "platformOther": "Other",
-    "submit": "Start Discovery",
-    "submitting": "Starting…",
+    "submit": "Start exploration journey",
+    "submitting": "Starting exploration…",
     "validationNameRequired": "Business name is required",
     "validationTypeRequired": "Business type is required",
     "validationCityRequired": "City is required",
@@ -487,6 +489,7 @@
     "conversationLabel": "Conversation history",
     "ownerLabel": "You",
     "assistantLabel": "Assistant",
+    "assistantThinking": "AI is thinking and composing the next question…",
     "systemLabel": "System",
     "suggestedAnswersLabel": "Suggested answers",
     "composerLabel": "Your answer",
