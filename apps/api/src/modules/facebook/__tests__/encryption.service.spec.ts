@@ -34,11 +34,15 @@ describe("EncryptionService (facebook Page tokens)", () => {
     expect(first.authTag).not.toBe(second.authTag);
   });
 
-  it("throws when the encryption key is not configured", () => {
-    const service = encryption("");
+  it("throws at construction when the encryption key is not a valid 32-byte hex string", () => {
+    const configService = {
+      get: jest.fn((path: string) =>
+        path === "facebook.tokenEncryptionKey" ? "" : undefined,
+      ),
+    } as unknown as ConfigService;
 
-    expect(() => service.encrypt("token")).toThrow(
-      "Facebook token encryption key is not configured",
+    expect(() => new EncryptionService(configService)).toThrow(
+      "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars",
     );
   });
 

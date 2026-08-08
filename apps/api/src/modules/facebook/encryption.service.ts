@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as crypto from "crypto";
 
@@ -17,31 +17,25 @@ export interface EncryptedPayload {
  * - 32-byte key read from `TOKEN_ENCRYPTION_KEY` (hex-encoded env var);
  * - a fresh random 12-byte IV is generated per encryption;
  * - ciphertext / IV / authTag are stored as base64 strings.
+ * - Throws at construction when the key is not a valid 32-byte hex string so
+ *   the app fails fast on misconfiguration.
  */
 @Injectable()
 export class EncryptionService {
-  private readonly logger = new Logger(EncryptionService.name);
   private readonly key: Buffer;
 
   constructor(config: ConfigService) {
     const rawKey = config.get<string>("facebook.tokenEncryptionKey") ?? "";
     const key = Buffer.from(rawKey, "hex");
     if (key.length !== 32) {
-      this.logger.error(
-        "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars; facebook token encryption is not available",
+      throw new Error(
+        "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars",
       );
     }
     this.key = key;
   }
 
-  private get isConfigured(): boolean {
-    return this.key.length === 32;
-  }
-
   encrypt(plaintext: string): EncryptedPayload {
-    if (!this.isConfigured) {
-      throw new Error("Facebook token encryption key is not configured");
-    }
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv("aes-256-gcm", this.key, iv);
     const encrypted = Buffer.concat([
@@ -56,9 +50,6 @@ export class EncryptionService {
   }
 
   decrypt(ciphertext: string, iv: string, authTag: string): string {
-    if (!this.isConfigured) {
-      throw new Error("Facebook token encryption key is not configured");
-    }
     const decipher = crypto.createDecipheriv(
       "aes-256-gcm",
       this.key,
