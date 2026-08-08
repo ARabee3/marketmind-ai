@@ -2,8 +2,8 @@
 
 import { use } from 'react'
 import { useTranslations } from 'next-intl'
-import { isStrategyPlanV2 } from '@marketmind/contracts'
 import { useStrategy } from '@/features/strategy/hooks/use-strategy'
+import { isStrategyPlanV2 } from '@/features/strategy/lib/strategy-v2'
 import { StrategyAdvice } from '@/features/strategy/components/strategy-advice'
 import { StrategyReview } from '@/features/strategy/components/strategy-review'
 import { toStrategyResource } from '@/lib/api/strategy'

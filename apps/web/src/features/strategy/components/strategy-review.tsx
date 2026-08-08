@@ -28,11 +28,11 @@ import type {
   StrategyProgressEvent,
   StrategyResource,
 } from '@marketmind/contracts'
-import { isStrategyPlanV2 } from '@marketmind/contracts'
 import { Button } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
+import { isStrategyPlanV2 } from '../lib/strategy-v2'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyBadge } from './strategy-badge'
 import { StrategyProfileSummary } from './strategy-profile-summary'
