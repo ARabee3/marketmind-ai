@@ -24,7 +24,9 @@ describe("publishing-v1 simulation branch is zero-network (#120 Phase 7)", () =>
     nodes: Array<{ name: string; type: string; parameters: { jsCode?: string } }>;
   };
   const sim = wf.nodes.find((n) => n.name === "Simulation Adapter (zero-network)");
-  const real = wf.nodes.find((n) => n.name === "Real Meta Adapter (static image)");
+  const real = wf.nodes.find(
+    (n) => n.name === "Meta Provider Executor (server-side)",
+  );
 
   it("the workflow exports a Simulation Adapter node", () => {
     expect(sim).toBeDefined();
@@ -50,9 +52,18 @@ describe("publishing-v1 simulation branch is zero-network (#120 Phase 7)", () =>
     expect(code).toMatch(/provider:\s*null/);
   });
 
-  it("the real adapter (contrast) DOES use the network — guard against a stale swap", () => {
+  it("the real-mode executor node (contrast) DOES use the network — guard against a stale swap", () => {
     const code = real!.parameters.jsCode ?? "";
     expect(code).toMatch(/require\s*\(\s*["']https["']\s*\)/);
-    expect(code).toMatch(/graph\.facebook\.com/);
+    expect(code).toMatch(/internal\/v1\/publishing\/execute-meta/);
+  });
+
+  it("issue #175: the real-mode node never reads a Meta token from its environment", () => {
+    const code = real!.parameters.jsCode ?? "";
+    // The node must not READ a token env var (a comment may mention the legacy
+    // name to explain the boundary — actual env reads or Bearer usage fail).
+    expect(code).not.toMatch(/env\.META_TEST|META_TEST_PAGE_ACCESS_TOKEN\s*[=:]/);
+    expect(code).not.toMatch(/graph\.facebook\.com/);
+    expect(code).toMatch(/x-publishing-internal-token/);
   });
 });
