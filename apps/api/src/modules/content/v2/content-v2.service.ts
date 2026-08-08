@@ -9,11 +9,13 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type {
   AiContentV2PlanRequest,
+  AiContentV2ReviseRequest,
   ContentClaimSource,
   ContentCycleWorkspaceV2,
   ContentMediaLibraryEntryV2,
   ContentPackV2,
   ContentPackWorkspaceV2,
+  ContentV2FrozenInput,
   ContentWeekPlanV2,
   OwnerContentDirectEditRequest,
 } from "@marketmind/contracts";
@@ -61,6 +63,14 @@ export const CONTENT_V2_REQUIRED = "CONTENT_V2_REQUIRED";
 export type UploadMediaResult = {
   readonly media: ContentMediaLibraryEntryV2;
   readonly created: boolean;
+};
+
+export type ContentV2RewriteRequest = {
+  readonly contract_version: "content-v2";
+  readonly base_version_id: string;
+  readonly base_version_checksum: string;
+  readonly revision_notes: string;
+  readonly idempotency_key: string;
 };
 
 /**
@@ -694,6 +704,133 @@ export class ContentV2Service {
       assetRequired: baseVersion.assetRequired,
       assetIds: baseVersion.assetIds as readonly string[],
       versionChecksum: dto.base_version_checksum,
+    });
+    return { item_version: toItemVersionV2(version) };
+  }
+
+  /**
+   * AI rewrite (issue #187): sends the owner's revision notes plus the frozen
+   * plan/profile/CTA/media snapshot and the confirmed profile to the AI
+   * service, then persists the returned immutable `ai_rewrite` version gated
+   * on the base id + checksum.
+   */
+  async rewriteItem(
+    packId: string,
+    itemId: string,
+    dto: ContentV2RewriteRequest,
+    ownerUserId: string,
+  ) {
+    const pack = await this.getPackOrThrow(packId, ownerUserId);
+    if (pack.contractVersion !== "content-v2" || !pack.weekPlanId) {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        message: "AI rewrite is only available on content-v2 packs.",
+      });
+    }
+    const baseVersion = await this.prisma.contentItemVersion.findFirst({
+      where: { id: dto.base_version_id, contentPackId: packId },
+    });
+    if (!baseVersion) {
+      throw new NotFoundException("Base content item version not found");
+    }
+    if (baseVersion.versionChecksum !== dto.base_version_checksum) {
+      throw new ConflictException({
+        code: "CONTENT_VERSION_CONFLICT",
+        message: "The base version checksum does not match. Refresh and retry.",
+      });
+    }
+
+    const [weekPlanRow, strategyVersion, profileVersion] = await Promise.all([
+      this.prisma.contentWeekPlan.findUnique({
+        where: { id: pack.weekPlanId },
+        include: { postPlans: true },
+      }),
+      this.strategyRepository.getVersionByNumber(
+        pack.strategyId,
+        pack.strategyVersion,
+      ),
+      this.strategyRepository.getActiveConfirmedProfileVersion(pack.businessId),
+    ]);
+    const frozenInput =
+      weekPlanRow?.frozenInput as unknown as ContentV2FrozenInput | null;
+    if (!frozenInput || !strategyVersion || !profileVersion) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message:
+          "The frozen plan snapshot or profile is missing for this pack.",
+      });
+    }
+    const plan = frozenInput.post_plans.find(
+      (entry) => entry.content_item_id === itemId,
+    );
+    if (!plan) {
+      throw new NotFoundException("Post plan for the content item not found");
+    }
+
+    const aiRequest: AiContentV2ReviseRequest = {
+      contract_version: "content-v2",
+      content_pack_id: packId,
+      content_item_id: itemId,
+      business_id: pack.businessId,
+      strategy_id: pack.strategyId,
+      strategy_version: pack.strategyVersion,
+      strategy_decision_id: pack.strategyDecisionId,
+      strategy_plan: toPayloadJson(
+        strategyVersion.planData,
+      ) as unknown as StrategyPlanV2,
+      business_profile: {
+        id: profileVersion.id,
+        business_id: profileVersion.businessId,
+        draft_id: profileVersion.id,
+        version: profileVersion.version,
+        profile:
+          profileVersion.profile as unknown as AiContentV2ReviseRequest["business_profile"]["profile"],
+        confirmed_by_user_id: profileVersion.confirmedByUserId ?? undefined,
+        confirmed_at: profileVersion.confirmedAt?.toISOString() ?? undefined,
+        created_at: profileVersion.createdAt.toISOString(),
+      },
+      frozen_input: frozenInput,
+      language_mode: (frozenInput.editorial_profile?.language ??
+        "ar-EG") as AiContentV2ReviseRequest["language_mode"],
+      idempotency_key: dto.idempotency_key,
+      base_item_version: toItemVersionV2(baseVersion),
+      revision_notes: dto.revision_notes,
+    };
+
+    const response = await this.contentAiClient.reviseV2(aiRequest);
+
+    const version = await this.versionEditRepository.appendAiRewriteVersion({
+      contentItemId: itemId,
+      contentPackId: packId,
+      baseVersionId: dto.base_version_id,
+      baseVersionChecksum: dto.base_version_checksum,
+      editedByUserId: ownerUserId,
+      newVersionNumber: baseVersion.version + 1,
+      channel: response.item_version.channel,
+      format: response.item_version.format,
+      languageMode: response.item_version.language_mode,
+      strategyTrace: response.item_version
+        .strategy_trace as Prisma.InputJsonValue,
+      captionVariants: response.item_version.caption_variants,
+      cta: response.item_version.cta,
+      hashtags: response.item_version.hashtags,
+      creativeBrief: response.item_version.creative_brief,
+      altText: response.item_version.alt_text,
+      shortVideoScript:
+        response.item_version.short_video_script === null
+          ? null
+          : (response.item_version.short_video_script as Prisma.InputJsonValue),
+      recommendedPublishWindow: response.item_version
+        .recommended_publish_window as Prisma.InputJsonValue,
+      claimSources: response.item_version
+        .claim_sources as unknown as readonly ContentClaimSource[],
+      warnings: response.item_version.warnings,
+      blockers: response.item_version.blockers,
+      assetRequired: response.item_version.asset_required,
+      assetIds: response.item_version.asset_ids,
+      versionChecksum: response.item_version.version_checksum,
+      generationProvenance: response.item_version
+        .generation_provenance as Prisma.InputJsonValue,
     });
     return { item_version: toItemVersionV2(version) };
   }

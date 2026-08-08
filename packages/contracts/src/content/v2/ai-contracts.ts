@@ -85,15 +85,16 @@ export type AiContentV2GenerateResponse = {
   readonly validation: ContentValidationResult;
 };
 
-export type AiContentV2ReviseRequest = {
-  readonly contract_version: "content-v2";
-  readonly content_pack_id: UUID;
+/**
+ * AI rewrite (content-v2, issue #187). Carries the same frozen generation
+ * context as the full-draft worker plus the read-only base version and the
+ * owner's revision notes; the AI service reuses the v1 revision machinery
+ * against that grounded snapshot.
+ */
+export type AiContentV2ReviseRequest = AiContentV2GenerateRequest & {
   readonly content_item_id: UUID;
   readonly base_item_version: ContentItemVersionV2;
-  readonly plan: ContentPostPlanV2;
-  readonly editorial_profile: ContentEditorialProfileV2;
   readonly revision_notes: string;
-  readonly idempotency_key: string;
 };
 
 export type AiContentV2ReviseResponse = {

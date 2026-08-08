@@ -25,6 +25,13 @@ export type CreateContentCycleInput = {
 export type CreateCycleWithWeekOneInput = CreateContentCycleInput & {
   readonly initialWeekContext: ContentWeekContextOwnerInput;
   readonly generationJob?: { readonly idempotencyKey: string };
+  /**
+   * Issue #187 rollout gate: new cycles become `content-v2` when enabled.
+   * v2 cycles skip the automatic week-1 claim/queue because the owner must
+   * configure the editorial profile and plan the week first.
+   */
+  readonly contractVersion?: "content-v1" | "content-v2";
+  readonly skipWeekOneClaim?: boolean;
 };
 
 /**
@@ -96,7 +103,7 @@ export class ContentCycleRepository {
   ): Promise<{
     cycle: ContentCycle;
     weekContext: Prisma.ContentWeekContextGetPayload<Record<string, never>>;
-    pack: Prisma.ContentPackGetPayload<Record<string, never>>;
+    pack: Prisma.ContentPackGetPayload<Record<string, never>> | null;
     created: boolean;
   }> {
     if (!input.nextGenerationAt) {
@@ -118,6 +125,9 @@ export class ContentCycleRepository {
             idempotencyKey: input.idempotencyKey ?? null,
             idempotencyFingerprint: input.requestFingerprint ?? null,
             nextGenerationAt: input.nextGenerationAt,
+            ...(input.contractVersion
+              ? { contractVersion: input.contractVersion }
+              : {}),
           },
         });
         const weekContext = await tx.contentWeekContext.create({
@@ -150,23 +160,28 @@ export class ContentCycleRepository {
           where: { id: weekContext.id, frozenAt: null },
           data: { frozenAt },
         });
-        const pack = await tx.contentPack.create({
-          data: {
-            contentCycleId: cycle.id,
-            weeklyClaimId: weekContext.weeklyClaimId,
-            weekNumber: 1,
-            businessId: input.businessId,
-            strategyId: input.strategyId,
-            strategyVersion: input.strategyVersion,
-            strategyDecisionId: input.strategyDecisionId,
-            profileVersionId: input.profileVersionId,
-            weekContextId: weekContext.id,
-            status: "queued",
-            retryEligible: true,
-            itemIds: [],
-          },
-        });
-        if (input.generationJob) {
+        const pack = input.skipWeekOneClaim
+          ? null
+          : await tx.contentPack.create({
+              data: {
+                contentCycleId: cycle.id,
+                weeklyClaimId: weekContext.weeklyClaimId,
+                weekNumber: 1,
+                businessId: input.businessId,
+                strategyId: input.strategyId,
+                strategyVersion: input.strategyVersion,
+                strategyDecisionId: input.strategyDecisionId,
+                profileVersionId: input.profileVersionId,
+                weekContextId: weekContext.id,
+                status: "queued",
+                retryEligible: true,
+                itemIds: [],
+                ...(input.contractVersion
+                  ? { contractVersion: input.contractVersion }
+                  : {}),
+              },
+            });
+        if (input.generationJob && pack) {
           await tx.contentJobOutbox.create({
             data: {
               jobId: `generate-content:${pack.id}`,
@@ -202,24 +217,26 @@ export class ContentCycleRepository {
                 "The idempotency key was already used with a different Content cycle request.",
             });
           }
-          const [weekContext, pack] = await Promise.all([
-            this.prisma.contentWeekContext.findUniqueOrThrow({
+          const weekContext =
+            await this.prisma.contentWeekContext.findUniqueOrThrow({
               where: {
                 contentCycleId_weekNumber: {
                   contentCycleId: existing.id,
                   weekNumber: 1,
                 },
               },
-            }),
-            this.prisma.contentPack.findUniqueOrThrow({
-              where: {
-                contentCycleId_weekNumber: {
-                  contentCycleId: existing.id,
-                  weekNumber: 1,
-                },
-              },
-            }),
-          ]);
+            });
+          const pack =
+            existing.contractVersion === "content-v2"
+              ? null
+              : await this.prisma.contentPack.findUniqueOrThrow({
+                  where: {
+                    contentCycleId_weekNumber: {
+                      contentCycleId: existing.id,
+                      weekNumber: 1,
+                    },
+                  },
+                });
           return { cycle: existing, weekContext, pack, created: false };
         }
       }

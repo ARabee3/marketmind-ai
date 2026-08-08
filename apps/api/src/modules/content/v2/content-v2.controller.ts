@@ -33,6 +33,7 @@ import {
   CreateCtaEntryDto,
   CreateOrReplaceWeekPlanDto,
   OwnerContentDirectEditDto,
+  RewriteContentItemDto,
   UpdateCtaEntryDto,
   UpsertEditorialProfileDto,
 } from "./dto/content-v2.dto";
@@ -307,5 +308,16 @@ export class ContentV2Controller {
       dto as unknown as OwnerContentDirectEditRequest,
       req.user.id,
     );
+  }
+
+  @Post("content-packs/:id/items/:item_id/rewrite")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  rewriteItem(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("item_id", ParseUUIDPipe) itemId: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: RewriteContentItemDto,
+  ) {
+    return this.contentV2Service.rewriteItem(id, itemId, dto, req.user.id);
   }
 }

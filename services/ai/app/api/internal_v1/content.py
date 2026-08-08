@@ -25,6 +25,8 @@ from content_v2_contracts import (
     AiContentV2GenerateResponse,
     AiContentV2PlanRequest,
     AiContentV2PlanResponse,
+    AiContentV2ReviseRequest,
+    AiContentV2ReviseResponse,
 )
 
 from app.content.circuit_breaker import CircuitBreaker
@@ -46,7 +48,10 @@ from app.content.service import (
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
-from app.content.v2_generator import generate_v2_content_pack
+from app.content.v2_generator import (
+    generate_v2_content_pack,
+    revise_v2_content_item,
+)
 from app.content.storage import R2StorageConfig, create_asset_storage
 from app.content.validators import (
     validate_content_generation_request,
@@ -308,6 +313,42 @@ async def generate_content_v2(
         content_event_metadata(
             {"contract_version": "content-v2", "content_pack_id": request.content_pack_id},
             item_count=len(response.item_versions),
+            validation=response.validation,
+        ),
+    )
+    return response
+
+
+@router.post(
+    "/v2/revise",
+    response_model=AiContentV2ReviseResponse,
+    summary="AI-rewrite one Content v2 item version against the frozen snapshot",
+)
+async def revise_content_v2(
+    request: AiContentV2ReviseRequest = Body(...),
+    settings: Settings = Depends(get_settings),
+) -> AiContentV2ReviseResponse:
+    try:
+        provider = create_content_provider(settings)
+        response = await revise_v2_content_item(
+            request,
+            provider,
+            breaker=_content_breaker,
+        )
+    except ProviderError as error:
+        _raise_provider_error(error)
+    except ValueError as error:
+        _raise_value_error(error, default_code="CONTENT_VERSION_CONFLICT")
+
+    log_content_event(
+        logger,
+        "revision_v2_completed",
+        content_event_metadata(
+            {
+                "contract_version": "content-v2",
+                "content_pack_id": request.content_pack_id,
+                "base_item_version_id": request.base_item_version.id,
+            },
             validation=response.validation,
         ),
     )

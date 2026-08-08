@@ -2572,6 +2572,46 @@
       "saveFailed": "Saving failed.",
       "refresh": "Refresh",
       "legacyCycle": "This cycle uses the previous Content experience."
+    },
+    "review": {
+      "title": "Review drafts",
+      "loading": "Loading draft review…",
+      "empty": "No drafts to review yet.",
+      "backToStudio": "Back to the weekly studio",
+      "postTitle": "Post",
+      "copySection": "Caption and copy",
+      "ctaTag": "CTA",
+      "altText": "Alt text",
+      "timing": "Recommended window",
+      "historySection": "Version history",
+      "editKind": {
+        "generated": "Generated",
+        "owner_direct_edit": "Owner edit",
+        "ai_rewrite": "AI rewrite"
+      },
+      "editInlineCta": "Edit caption",
+      "saveEditCta": "Save",
+      "saving": "Saving…",
+      "cancelCta": "Cancel",
+      "rewriteCta": "AI rewrite",
+      "rewriteNotesLabel": "Revision notes",
+      "rewriteNotesPlaceholder": "e.g. make the headline more engaging",
+      "rewriteConfirmCta": "Rewrite",
+      "rewriting": "Rewriting…",
+      "approveCta": "Approve",
+      "decision": {
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "revision_requested": "Revision requested"
+      },
+      "saved": "New version saved",
+      "rewritten": "AI rewrite saved as a new version",
+      "approved": "Approved",
+      "approvedWithCandidate": "Approved — a publication candidate was created",
+      "approvalFailed": "Approval failed.",
+      "saveFailed": "Saving failed.",
+      "rewriteFailed": "AI rewrite failed.",
+      "conflict": "This draft changed on the server. Refresh and retry."
     }
   }
 }

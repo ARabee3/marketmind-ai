@@ -17,6 +17,7 @@ from typing import Any
 
 from content_contracts import (
     AiContentGenerateRequest,
+    AiContentReviseRequest,
     ContentCtaDestination,
     ContentItemVersion,
     ContentValidationIssue,
@@ -26,6 +27,8 @@ from content_contracts import (
 from content_v2_contracts import (
     AiContentV2GenerateRequest,
     AiContentV2GenerateResponse,
+    AiContentV2ReviseRequest,
+    AiContentV2ReviseResponse,
     ContentItemVersionV2,
     ContentVersionEditMetadataV2,
     ContentPackV2,
@@ -33,10 +36,20 @@ from content_v2_contracts import (
 )
 from strategy_contracts import BusinessProfilePayload
 
-from app.content.assembler import assemble_generation_prompt, PromptAssembly
+from app.content.assembler import (
+    assemble_generation_prompt,
+    assemble_revision_prompt,
+    PromptAssembly,
+)
 from app.content.circuit_breaker import CircuitBreaker
-from app.content.service import generate_content_pack_with_repair
-from app.content.validators import validate_generated_content_pack
+from app.content.service import (
+    generate_content_pack_with_repair,
+    revise_content_item_with_repair,
+)
+from app.content.validators import (
+    validate_generated_content_pack,
+    validate_revision_item,
+)
 from app.providers.base import ProviderError
 from app.providers.content_provider import ContentLLMProvider
 
@@ -194,19 +207,33 @@ def validate_plan_alignment(
     return ContentValidationResult(valid=not issues, issues=issues)
 
 
-def to_v2_item_version(item: ContentItemVersion) -> ContentItemVersionV2:
-    """Tag a generated v1 item version as a validated v2 generated version."""
+def to_v2_item_version(
+    item: ContentItemVersion,
+    *,
+    edit_kind: str = "generated",
+    base_version_id: str | None = None,
+    base_version_checksum: str | None = None,
+) -> ContentItemVersionV2:
+    """Tag a pipeline item version as an immutable validated v2 version."""
     data = item.model_dump(mode="json")
     data["contract_version"] = "content-v2"
     data["edit_metadata"] = ContentVersionEditMetadataV2(
-        edit_kind="generated",
-        base_version_id=None,
-        base_version_checksum=None,
+        edit_kind=edit_kind,
+        base_version_id=base_version_id,
+        base_version_checksum=base_version_checksum,
         edited_by_user_id=None,
         validation_state="validated",
         edited_at=data["created_at"],
     ).model_dump(mode="json")
     return ContentItemVersionV2.model_validate(data)
+
+
+def to_v1_item_version(item: ContentItemVersionV2) -> ContentItemVersion:
+    """Strip v2-only fields back to the v1 pipeline surface."""
+    data = item.model_dump(mode="json")
+    data["contract_version"] = "content-v1"
+    data.pop("edit_metadata", None)
+    return ContentItemVersion.model_validate(data)
 
 
 def _sha256(value: str) -> str:
@@ -297,5 +324,57 @@ async def generate_v2_content_pack(
         content_pack=pack,
         cycle=cycle,
         item_versions=item_versions,
+        validation=validation,
+    )
+
+
+async def revise_v2_content_item(
+    request: AiContentV2ReviseRequest,
+    provider: ContentLLMProvider,
+    breaker: CircuitBreaker | None,
+) -> AiContentV2ReviseResponse:
+    """AI rewrite (issue #187): reuse the v1 revision machinery against the
+    frozen snapshot, then tag the result as an immutable ai_rewrite version."""
+    v1_request = v2_generate_to_v1_request(request)
+    v1_base = to_v1_item_version(request.base_item_version)
+    v1_revise = AiContentReviseRequest(
+        contract_version="content-v1",
+        content_pack_id=request.content_pack_id,
+        content_item_id=request.content_item_id,
+        base_item_version_id=request.base_item_version.id,
+        revision_notes=request.revision_notes,
+        idempotency_key=request.idempotency_key,
+    )
+    prompt = assemble_revision_prompt(
+        v1_revise,
+        v1_base,
+        provider_name=provider.name,
+        model=str(getattr(provider, "model", "unknown")),
+        generation_request=v1_request,
+    )
+    item = await revise_content_item_with_repair(
+        provider,
+        prompt,
+        base_item_version=v1_base,
+        generation_request=v1_request,
+        breaker=breaker,
+    )
+    validation = validate_revision_item(v1_base, item, v1_request)
+    if not validation.valid:
+        issue = validation.issues[0]
+        raise ProviderError(
+            issue.code,
+            f"{issue.field}: {issue.message}",
+            retryable=issue.retryable,
+        )
+    v2_item = to_v2_item_version(
+        item,
+        edit_kind="ai_rewrite",
+        base_version_id=request.base_item_version.id,
+        base_version_checksum=request.base_item_version.version_checksum,
+    )
+    return AiContentV2ReviseResponse(
+        contract_version="content-v2",
+        item_version=v2_item,
         validation=validation,
     )

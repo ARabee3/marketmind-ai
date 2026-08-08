@@ -253,3 +253,25 @@ export class OwnerContentDirectEditDto {
   @MinLength(1)
   idempotency_key: string;
 }
+
+export class RewriteContentItemDto {
+  @IsString()
+  contract_version: "content-v2";
+
+  @IsUUID()
+  base_version_id: string;
+
+  @IsString()
+  @MinLength(64)
+  @MaxLength(64)
+  base_version_checksum: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  revision_notes: string;
+
+  @IsString()
+  @MinLength(1)
+  idempotency_key: string;
+}

@@ -7,6 +7,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { createHash, randomUUID } from "node:crypto";
@@ -135,6 +136,7 @@ export class ContentService {
     @Optional()
     private readonly billingEntitlements?: BillingEntitlementsService,
     @Optional() private readonly contentV2Service?: ContentV2Service,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -301,6 +303,21 @@ export class ContentService {
         generationJob: this.jobOutbox
           ? { idempotencyKey: `cycle-creation:${strategy.id}:week:1` }
           : undefined,
+        // Issue #187 rollout gate: new cycles become content-v2 only when the
+        // deployment enables the owner-first studio path. v2 cycles skip the
+        // automatic week-1 claim because the owner configures and plans first.
+        contractVersion:
+          this.configService?.get<boolean>(
+            "content.v2DefaultEnabled",
+            false,
+          ) === true
+            ? "content-v2"
+            : undefined,
+        skipWeekOneClaim:
+          this.configService?.get<boolean>(
+            "content.v2DefaultEnabled",
+            false,
+          ) === true,
       },
       ownerUserId,
     );
@@ -308,6 +325,15 @@ export class ContentService {
     this.logger.log(
       `[ContentCycle ${created.cycle.id}] ${created.created ? "Created" : "Replayed"} from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
     );
+
+    // v2 cycles do not auto-generate week 1; the weekly studio drives
+    // configuration → planning → explicit generation.
+    if (created.cycle.contractVersion === "content-v2") {
+      return {
+        content_cycle: toContentCycle(created.cycle),
+        initial_week_context: toContentWeekContext(created.weekContext),
+      };
+    }
 
     // Issue #110 requires week 1 to be queued immediately when the cycle starts.
     // generateWeek's idempotent claim ensures a duplicate cycle-creation request

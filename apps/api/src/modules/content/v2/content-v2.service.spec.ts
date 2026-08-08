@@ -495,3 +495,198 @@ describe("ContentV2Service.generateWeek", () => {
     });
   });
 });
+
+describe("ContentV2Service.rewriteItem", () => {
+  function rewriteBuild() {
+    const baseVersion = {
+      id: "ver-1",
+      contractVersion: "content-v2",
+      contentItemId: "item-1",
+      contentPackId: "pack-1",
+      version: 1,
+      channel: "instagram",
+      format: "static_image_post",
+      languageMode: "ar-EG",
+      strategyTrace: { week_number: 1 },
+      captionVariants: [],
+      cta: null,
+      hashtags: [],
+      creativeBrief: "brief",
+      altText: "alt",
+      shortVideoScript: null,
+      recommendedPublishWindow: {},
+      claimSources: [],
+      warnings: [],
+      blockers: [],
+      assetRequired: false,
+      assetIds: [],
+      generationProvenance: {},
+      versionChecksum: "a".repeat(64),
+      editKind: "generated",
+      baseVersionId: null,
+      baseVersionChecksum: null,
+      editedByUserId: null,
+      validationState: "validated",
+      editedAt: new Date(),
+      createdAt: new Date(),
+    };
+    const pack = {
+      id: "pack-1",
+      contractVersion: "content-v2",
+      contentCycleId: CYCLE,
+      weeklyClaimId: "claim-1",
+      weekNumber: 1,
+      businessId: "biz-1",
+      strategyId: "strat-1",
+      strategyVersion: 2,
+      strategyDecisionId: "decision-1",
+      profileVersionId: "prof-1",
+      weekContextId: "ctx-1",
+      status: "draft",
+      retryEligible: false,
+      itemIds: ["item-1"],
+      weekPlanId: "week-plan-1",
+      contentCycle: { ownerUserId: OWNER },
+      weekContext: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const prisma = {
+      contentPack: { findUnique: jest.fn().mockResolvedValue(pack) },
+      contentItemVersion: {
+        findFirst: jest.fn().mockResolvedValue(baseVersion),
+      },
+      contentWeekPlan: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "week-plan-1",
+          frozenInput: {
+            week_plan_id: "week-plan-1",
+            content_cycle_id: CYCLE,
+            week_number: 1,
+            week_start_date: "2026-07-06",
+            editorial_profile: { language: "ar-EG" },
+            cta_entries: [],
+            media_entries: [],
+            post_plans: [{ content_item_id: "item-1", position: 1 }],
+            weekly_claim_id: "claim-1",
+            frozen_at: "2026-08-02T12:00:00+03:00",
+          },
+        }),
+      },
+    };
+    const strategyRepository = {
+      getVersionByNumber: jest.fn().mockResolvedValue({
+        planData: { contract_version: "strategy-v2" },
+      }),
+      getActiveConfirmedProfileVersion: jest.fn().mockResolvedValue({
+        id: "prof-1",
+        businessId: "biz-1",
+        version: 1,
+        profile: {},
+        confirmedByUserId: OWNER,
+        confirmedAt: new Date(),
+        createdAt: new Date(),
+      }),
+    };
+    const contentAiClient = {
+      reviseV2: jest.fn().mockResolvedValue({
+        contract_version: "content-v2",
+        item_version: {
+          id: "ver-2",
+          contract_version: "content-v2",
+          content_item_id: "item-1",
+          content_pack_id: "pack-1",
+          version: 2,
+          channel: "instagram",
+          format: "static_image_post",
+          language_mode: "ar-EG",
+          strategy_trace: { week_number: 1 },
+          caption_variants: [],
+          cta: null,
+          hashtags: [],
+          creative_brief: "rewritten",
+          alt_text: "alt",
+          short_video_script: null,
+          recommended_publish_window: {},
+          claim_sources: [],
+          warnings: [],
+          blockers: [],
+          asset_required: false,
+          asset_ids: [],
+          generation_provenance: { provider_name: "mock" },
+          version_checksum: "b".repeat(64),
+          created_at: "2026-08-02T13:00:00+03:00",
+          edit_metadata: {
+            edit_kind: "ai_rewrite",
+            base_version_id: "ver-1",
+            base_version_checksum: "a".repeat(64),
+            edited_by_user_id: null,
+            validation_state: "validated",
+            edited_at: "2026-08-02T13:00:00+03:00",
+          },
+        },
+        validation: { valid: true, issues: [] },
+      }),
+    };
+    const versionEditRepository = {
+      appendAiRewriteVersion: jest.fn().mockResolvedValue({
+        ...baseVersion,
+        id: "ver-2",
+        version: 2,
+        editKind: "ai_rewrite",
+      }),
+    };
+    const service = new ContentV2Service(
+      prisma as never,
+      strategyRepository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      versionEditRepository as never,
+      contentAiClient as never,
+      {} as never,
+      {} as never,
+      { add: jest.fn() } as never,
+      {} as never,
+    );
+    return { service, mocks: { contentAiClient, versionEditRepository } };
+  }
+
+  it("rewrites an item via the AI service and persists an ai_rewrite version", async () => {
+    const { service, mocks } = rewriteBuild();
+
+    const result = await service.rewriteItem(
+      "pack-1",
+      "item-1",
+      {
+        contract_version: "content-v2",
+        base_version_id: "ver-1",
+        base_version_checksum: "a".repeat(64),
+        revision_notes: "اجعل العنوان أكثر جاذبية",
+        idempotency_key: "rw-1",
+      },
+      OWNER,
+    );
+
+    expect(mocks.contentAiClient.reviseV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content_pack_id: "pack-1",
+        content_item_id: "item-1",
+        revision_notes: "اجعل العنوان أكثر جاذبية",
+        base_item_version: expect.objectContaining({ id: "ver-1" }),
+        frozen_input: expect.objectContaining({ week_plan_id: "week-plan-1" }),
+      }),
+    );
+    expect(
+      mocks.versionEditRepository.appendAiRewriteVersion,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentItemId: "item-1",
+        newVersionNumber: 2,
+        versionChecksum: "b".repeat(64),
+      }),
+    );
+    expect(result.item_version).toBeTruthy();
+  });
+});

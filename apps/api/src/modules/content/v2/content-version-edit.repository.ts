@@ -36,6 +36,7 @@ export type OwnerDirectEditInput = {
   readonly assetRequired: boolean;
   readonly assetIds: readonly string[];
   readonly versionChecksum: string;
+  readonly generationProvenance?: Prisma.InputJsonValue;
 };
 
 /**
@@ -135,8 +136,7 @@ export class ContentVersionEditRepository {
     });
   }
 
-  /** Returns the latest immutable version of an owned item. */
-  async getCurrentVersion(
+  /** Returns the latest immutable version of an owned item. */ async getCurrentVersion(
     contentItemId: string,
     ownerUserId: string,
   ): Promise<Prisma.ContentItemVersionGetPayload<
@@ -162,6 +162,92 @@ export class ContentVersionEditRepository {
       return tx.contentItemVersion.findUnique({
         where: { id: item.currentVersionId },
       });
+    });
+  }
+
+  /**
+   * AI rewrite (issue #187): persists an immutable `ai_rewrite` version
+   * gated on the same base id + checksum as owner edits. The AI service
+   * already validated the rewritten content; this write only records it.
+   */
+  async appendAiRewriteVersion(
+    input: OwnerDirectEditInput,
+  ): Promise<Prisma.ContentItemVersionGetPayload<Record<string, never>>> {
+    const editedAt = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.contentItem.findFirst({
+        where: {
+          id: input.contentItemId,
+          contentPackId: input.contentPackId,
+          currentVersionId: input.baseVersionId,
+        },
+        select: { id: true },
+      });
+      if (!item) {
+        throw new ConflictException({
+          code: "CONTENT_VERSION_CONFLICT",
+          message:
+            "The base version is no longer the current version. Refresh and retry.",
+        });
+      }
+      const baseVersion = await tx.contentItemVersion.findUniqueOrThrow({
+        where: { id: input.baseVersionId },
+        select: { versionChecksum: true, version: true },
+      });
+      if (baseVersion.versionChecksum !== input.baseVersionChecksum) {
+        throw new ConflictException({
+          code: "CONTENT_VERSION_CONFLICT",
+          message:
+            "The base version checksum does not match. Refresh and retry.",
+        });
+      }
+      if (input.newVersionNumber !== baseVersion.version + 1) {
+        throw new BadRequestException({
+          code: "CONTENT_VERSION_CONFLICT",
+          message: `Rewrite must target version ${baseVersion.version + 1}, got ${input.newVersionNumber}.`,
+        });
+      }
+      const versionId = randomUUID();
+      const version = await tx.contentItemVersion.create({
+        data: {
+          id: versionId,
+          contractVersion: "content-v2",
+          contentItemId: input.contentItemId,
+          contentPackId: input.contentPackId,
+          version: input.newVersionNumber,
+          channel: input.channel,
+          format: input.format,
+          languageMode: input.languageMode,
+          strategyTrace: input.strategyTrace,
+          captionVariants:
+            input.captionVariants as unknown as Prisma.InputJsonValue,
+          cta: input.cta,
+          hashtags: input.hashtags as unknown as Prisma.InputJsonValue,
+          creativeBrief: input.creativeBrief,
+          altText: input.altText,
+          shortVideoScript: input.shortVideoScript,
+          recommendedPublishWindow: input.recommendedPublishWindow,
+          claimSources: input.claimSources as unknown as Prisma.InputJsonValue,
+          warnings: input.warnings as unknown as Prisma.InputJsonValue,
+          blockers: input.blockers as unknown as Prisma.InputJsonValue,
+          assetRequired: input.assetRequired,
+          assetIds: input.assetIds as unknown as Prisma.InputJsonValue,
+          generationProvenance: input.generationProvenance,
+          versionChecksum: input.versionChecksum,
+          editKind: "ai_rewrite",
+          baseVersionId: input.baseVersionId,
+          baseVersionChecksum: input.baseVersionChecksum,
+          editedByUserId: null,
+          validationState: "validated",
+          editedAt,
+          createdAt: editedAt,
+        },
+      });
+      await tx.contentItem.update({
+        where: { id: input.contentItemId },
+        data: { currentVersionId: versionId, status: "draft" },
+      });
+      return version;
     });
   }
 }

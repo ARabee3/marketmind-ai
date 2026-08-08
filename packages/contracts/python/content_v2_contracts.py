@@ -427,14 +427,12 @@ class AiContentV2GenerateResponse(ContentV2Types):
         return self
 
 
-class AiContentV2ReviseRequest(ContentV2Types):
-    content_pack_id: UUID
+class AiContentV2ReviseRequest(AiContentV2GenerateRequest):
+    """Full-draft context plus the read-only base version and revision notes."""
+
     content_item_id: UUID
     base_item_version: ContentItemVersionV2
-    plan: ContentPostPlanV2
-    editorial_profile: ContentEditorialProfileV2
-    revision_notes: str
-    idempotency_key: str
+    revision_notes: str = Field(min_length=1, max_length=4000)
 
 
 class AiContentV2ReviseResponse(ContentV2Types):

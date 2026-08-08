@@ -2572,6 +2572,46 @@
       "saveFailed": "فشل الحفظ.",
       "refresh": "إعادة التحميل",
       "legacyCycle": "هذه الدورة تستخدم تجربة المحتوى السابقة."
+    },
+    "review": {
+      "title": "مراجعة المسودات",
+      "loading": "جارٍ تحميل مراجعة المسودات…",
+      "empty": "لا توجد مسودات للمراجعة بعد.",
+      "backToStudio": "العودة إلى الاستوديو الأسبوعي",
+      "postTitle": "منشور",
+      "copySection": "التعليق والنص",
+      "ctaTag": "دعوة إجراء",
+      "altText": "النص البديل",
+      "timing": "الفترة المقترحة",
+      "historySection": "سجل الإصدارات",
+      "editKind": {
+        "generated": "مولّد",
+        "owner_direct_edit": "تعديل من المالك",
+        "ai_rewrite": "إعادة كتابة بالذكاء الاصطناعي"
+      },
+      "editInlineCta": "عدّل التعليق",
+      "saveEditCta": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancelCta": "إلغاء",
+      "rewriteCta": "إعادة كتابة بالذكاء الاصطناعي",
+      "rewriteNotesLabel": "ملاحظات المراجعة",
+      "rewriteNotesPlaceholder": "مثال: اجعل العنوان أكثر جاذبية",
+      "rewriteConfirmCta": "أعد الكتابة",
+      "rewriting": "جارٍ إعادة الكتابة…",
+      "approveCta": "اعتمد",
+      "decision": {
+        "approved": "معتمد",
+        "rejected": "مرفوض",
+        "revision_requested": "مطلوب تعديل"
+      },
+      "saved": "تم حفظ نسخة جديدة",
+      "rewritten": "تم حفظ إعادة الكتابة كنسخة جديدة",
+      "approved": "تم الاعتماد",
+      "approvedWithCandidate": "تم الاعتماد — تم إنشاء مرشح للنشر",
+      "approvalFailed": "فشل الاعتماد.",
+      "saveFailed": "فشل الحفظ.",
+      "rewriteFailed": "فشلت إعادة الكتابة.",
+      "conflict": "تغيّرت هذه المسودة على الخادم. حدّث الصفحة وحاول مرة أخرى."
     }
   }
 }

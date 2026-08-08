@@ -7,12 +7,18 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-from content_v2_contracts import AiContentV2GenerateResponse
+from content_v2_contracts import (
+    AiContentV2GenerateResponse,
+    AiContentV2ReviseRequest,
+    AiContentV2ReviseResponse,
+)
 
 from app.content.v2_generator import (
     v2_generate_to_v1_request,
     assemble_v2_generation_prompt,
     validate_plan_alignment,
+    revise_v2_content_item,
+    to_v1_item_version,
     to_v2_item_version,
 )
 from app.content.validators import compute_content_item_checksum
@@ -148,3 +154,67 @@ def test_generate_v2_endpoint_returns_grounded_pack() -> None:
         assert item.channel == plan.channel
         assert item.format == plan.format
         assert item.edit_metadata.edit_kind == "generated"
+
+
+def _v2_revise_request() -> AiContentV2ReviseRequest:
+    request = make_valid_generate_v2_request()
+    provider = MockContentProvider()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    items = asyncio.run(provider.generate_content_pack(prompt))
+    base = to_v2_item_version(items[0])
+    payload = request.model_dump(mode="json")
+    payload["base_item_version"] = base.model_dump(mode="json")
+    payload["revision_notes"] = "اجعل العنوان أكثر جاذبية"
+    payload["content_item_id"] = base.content_item_id
+    return AiContentV2ReviseRequest.model_validate(payload)
+
+
+def test_v2_revise_returns_ai_rewrite_version() -> None:
+    request = _v2_revise_request()
+    provider = MockContentProvider()
+
+    response = asyncio.run(
+        revise_v2_content_item(request, provider, breaker=None)
+    )
+
+    assert response.contract_version == "content-v2"
+    assert response.validation.valid is True
+    item = response.item_version
+    assert item.edit_metadata.edit_kind == "ai_rewrite"
+    assert item.edit_metadata.base_version_id == request.base_item_version.id
+    assert (
+        item.edit_metadata.base_version_checksum
+        == request.base_item_version.version_checksum
+    )
+    assert item.version == request.base_item_version.version + 1
+    # Locked fields stay immutable.
+    assert item.channel == request.base_item_version.channel
+    assert item.format == request.base_item_version.format
+
+
+def test_v2_revise_endpoint_returns_response() -> None:
+    from app.core.config import get_settings
+    from app.main import app as fastapi_app
+
+    def _settings() -> Settings:
+        return Settings(
+            ai_provider_mode="mock",
+            image_provider_mode="mock",
+            content_asset_storage_dir="/tmp/content-assets-test",
+        )
+
+    client = TestClient(fastapi_app)
+    fastapi_app.dependency_overrides[get_settings] = _settings
+    request = _v2_revise_request()
+    try:
+        response = client.post(
+            "/internal/v1/ai/content/v2/revise",
+            json=request.model_dump(mode="json"),
+        )
+    finally:
+        fastapi_app.dependency_overrides.pop(get_settings, None)
+
+    assert response.status_code == 200, response.text
+    body = AiContentV2ReviseResponse.model_validate(response.json())
+    assert body.item_version.edit_metadata.edit_kind == "ai_rewrite"

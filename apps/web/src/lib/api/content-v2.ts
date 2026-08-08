@@ -247,3 +247,23 @@ export function directEditV2(
     { method: "POST", body: JSON.stringify(payload), signal },
   );
 }
+
+export type RewriteItemV2Request = {
+  readonly contract_version: "content-v2";
+  readonly base_version_id: string;
+  readonly base_version_checksum: string;
+  readonly revision_notes: string;
+  readonly idempotency_key: string;
+};
+
+export function rewriteItemV2(
+  packId: string,
+  itemId: string,
+  payload: RewriteItemV2Request,
+  signal?: AbortSignal,
+): Promise<OwnerContentDirectEditResponse> {
+  return request(
+    `/content-packs/${encodeURIComponent(packId)}/items/${encodeURIComponent(itemId)}/rewrite`,
+    { method: "POST", body: JSON.stringify(payload), signal },
+  );
+}
