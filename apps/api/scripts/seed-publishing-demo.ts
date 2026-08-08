@@ -6,27 +6,26 @@
  *
  * Run: `npm run seed:publishing-demo` (from apps/api)
  *
- * Design notes (PLAN.md Phase 2):
- *  - Each run mints FRESH candidate/event/intent/approval ids so re-running never
+ * Design notes (PLAN.md Phase 2 / issue #175):
+ *  - Each run mints FRESH candidate/event/intent ids so re-running never
  *    trips the one-intent-per-candidate partial unique index or any event
- *    fingerprint dedup. The Meta target row is upserted by a FIXED id so the
- *    connected Page target is stable across runs (the same row the intents bind).
+ *    fingerprint dedup.
  *  - The candidate payload is built to satisfy the frozen
  *    `validatePublicationCandidateV1` contract and carries the committed demo
  *    asset (asset_id + real SHA-256) read from the SAME manifest the internal
  *    asset route + dispatch integrity validator use — single source of truth.
- *  - `credential_ref` is an opaque pointer (`env:META_TEST_PAGE_ACCESS_TOKEN`);
- *    the real Meta adapter in n8n resolves the token from its own env (Phase 3),
- *    never from the dispatch body.
- *  - The intent goes DRAFT → schedule (AWAITING_APPROVAL, v2) → approve
- *    (SCHEDULED) and the BullMQ dispatch job is enqueued with ~10s delay, mirroring
- *    `IntentsService.approveIntent`'s enqueue (idempotency key `…::dispatch`,
- *    jobId `publish:<intent>:<version>`). The running API's
- *    `DispatchProcessor` worker consumes it.
+ *  - Issue #175: this seed NEVER creates a real-mode target or credential.
+ *    Real-mode publishing requires the Meta OAuth journey in the UI — the
+ *    API-owned executor resolves the vault credential for the exact target and
+ *    there is NO fallback to an env Page token. This seed drives the
+ *    no-credentials demo (export + simulation) only; export/simulation are
+ *    never labelled as published.
+ *  - The intents stay DRAFT and the owner-driven dispatch-export /
+ *    dispatch-simulation actions complete them synchronously — no provider,
+ *    no BullMQ job, and no approval is fabricated for real mode.
  *
- * This script writes to Postgres and Redis ONLY — it never calls a provider.
- * Idempotent: safe to re-run; each run leaves a fresh terminal intent + a real
- * attempt that the worker drives to SUCCEEDED/FAILED.
+ * This script writes to Postgres ONLY — it never calls a provider and never
+ * enqueues a real-mode dispatch. Idempotent: safe to re-run.
  */
 import * as path from "path";
 import * as fs from "fs";
@@ -34,7 +33,6 @@ import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 
 import { PrismaClient, Prisma } from "@prisma/client";
-import { Queue } from "bullmq";
 import {
   computePublicationCandidateChecksum,
   computePublicationApprovalFingerprint,
@@ -47,8 +45,6 @@ import {
 // ── Load environment (Prisma client + BullMQ need process.env) ──────────────
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
-const QUEUE_NAME = "publishing-dispatch";
-const DEMO_TARGET_ID = "11111111-2222-4111-8111-111111111111";
 const ASSET_MANIFEST_PATH = path.resolve(
   process.cwd(),
   "test-assets/publishing/manifest.json",
@@ -65,24 +61,6 @@ const DEMO_ITEM_ID = crypto.randomUUID();
 const uuid = () => crypto.randomUUID();
 const sha256 = (s: string) =>
   crypto.createHash("sha256").update(s, "utf8").digest("hex");
-
-/** Naive "YYYY-MM-DDTHH:mm:ss" Cairo wall-clock for a UTC instant — mirrors the
- *  dispatch envelope builder's deterministic rendering. */
-function naiveCairoLocal(d: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Cairo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const get = (t: string) => parts.find((p) => p.type === t)!.value;
-  const h = get("hour") === "24" ? "00" : get("hour");
-  return `${get("year")}-${get("month")}-${get("day")}T${h}:${get("minute")}:${get("second")}`;
-}
 
 interface DemoAsset {
   readonly asset_id: string;
@@ -124,19 +102,12 @@ async function main(): Promise<void> {
   const businessId = business.id;
   const ownerId = business.ownerUserId;
 
-  // Zero-credentials mode: when META_TEST_PAGE_ID is empty the demo must stay
-  // fully local — seed a MANUAL_EXPORT + a SIMULATION intent instead of the
-  // real-mode leg (no target row, no approval, no BullMQ job, no provider).
-  const metaPageId = process.env.META_TEST_PAGE_ID ?? "";
-  const zeroCredentials = !metaPageId;
-  if (!zeroCredentials) {
-    console.log(`Real-mode demo target will use Meta Page ${metaPageId}`);
-  }
-
+  // Issue #175: the demo is ALWAYS no-credentials. Real-mode targets can only
+  // come from the Meta OAuth journey (connect → callback → select), which
+  // writes an encrypted vault record behind an opaque credentialRef. A demo
+  // seed must never fabricate a CONNECTED target with an env token.
   const asset = loadDemoAsset();
   const now = new Date();
-  const scheduledUtc = new Date(now.getTime() + 10_000); // now + 10s
-  const scheduledLocal = naiveCairoLocal(scheduledUtc);
 
   const buildCandidate = (): {
     candidate: PublicationCandidateV1;
@@ -257,8 +228,8 @@ async function main(): Promise<void> {
     };
   };
 
-  if (zeroCredentials) {
-    // ── Zero-credentials mode: export + simulation legs, fully local ─────────
+  {
+    // ── No-credentials demo: export + simulation legs, fully local ─────────
     const ids: Record<string, string> = {};
     for (const mode of ["MANUAL_EXPORT", "SIMULATION"] as const) {
       const {
@@ -300,7 +271,7 @@ async function main(): Promise<void> {
         data: {
           id: intentId,
           businessId,
-          candidateId,
+          candidateId: candidateId,
           mode,
           status: "DRAFT",
           createdByUserId: ownerId,
@@ -312,9 +283,9 @@ async function main(): Promise<void> {
         intentId;
     }
     console.log("");
-    console.log("Zero-credentials demo seed complete. With the API running,");
-    console.log("approve-free local actions drive both legs to their terminal");
-    console.log("states — nothing touches a provider or a BullMQ queue:");
+    console.log("Demo seed complete. With the API running, approve-free local");
+    console.log("actions drive both legs to their terminal states — nothing");
+    console.log("touches a provider, a BullMQ queue, or a Meta token:");
     console.log(
       `  POST /api/v1/publication-intents/<id>/dispatch-export     (owner JWT)`,
     );
@@ -323,187 +294,17 @@ async function main(): Promise<void> {
     );
     console.log("");
     console.log(
-      JSON.stringify(
-        { businessId, mode: "zero-credentials", ...ids },
-        null,
-        2,
-      ),
+      "Real-mode publishing is NOT seeded (issue #175): connect a Meta",
+      "account from the Publishing workspace (Meta OAuth journey) to create a",
+      "vault-backed target, then schedule + approve a real item.",
     );
-    return;
+    console.log("");
+    console.log(
+      JSON.stringify({ businessId, mode: "no-credentials-demo", ...ids }, null, 2),
+    );
   }
-
-  const {
-    candidate,
-    sourceStatus,
-    createdEvent,
-    eventFingerprint,
-    eventId,
-    contentItemVersionId,
-    occurredAt,
-    decidedAt,
-    candidateId,
-  } = buildCandidate();
-
-  // ── Persist candidate (direct insert — mirrors CandidatesService.ingest) ──
-  await prisma.publishingCandidate.create({
-    data: {
-      id: candidateId,
-      businessId,
-      externalContentId: contentItemVersionId,
-      candidateChecksum: candidate.candidate_checksum,
-      eventFingerprint,
-      eventId,
-      status: "ACTIVE",
-      sourceStatus: sourceStatus as unknown as Prisma.InputJsonValue,
-      payload: candidate as unknown as Prisma.InputJsonValue,
-      channel: "facebook",
-      format: "static_image_post",
-      locale: "ar",
-      strategyWeekNumber: 1,
-      sourceStateVersion: 1,
-    },
-  });
-  console.log(`✓ Candidate ${candidateId} (checksum=${candidate.candidate_checksum})`);
-
-  // ── Upsert the connected Meta Page target (stable id across runs) ──────────
-  await prisma.publishingTarget.upsert({
-    where: { id: DEMO_TARGET_ID },
-    update: {
-      businessId,
-      provider: "META",
-      channel: "facebook",
-      externalAccountId: metaPageId,
-      displayName: "MarketMind ya 2alby",
-      // Opaque pointer to the secret store — the real Meta adapter in n8n
-      // resolves the token from its OWN env (Phase 3), never from this string.
-      credentialRef: "env:META_TEST_PAGE_ACCESS_TOKEN",
-      connectionState: "CONNECTED",
-      capabilities: ["static_image"],
-      lastVerifiedAt: now,
-      expiresAt: null,
-    },
-    create: {
-      id: DEMO_TARGET_ID,
-      businessId,
-      provider: "META",
-      channel: "facebook",
-      externalAccountId: metaPageId,
-      displayName: "MarketMind ya 2alby",
-      credentialRef: "env:META_TEST_PAGE_ACCESS_TOKEN",
-      connectionState: "CONNECTED",
-      capabilities: ["static_image"],
-      lastVerifiedAt: now,
-      expiresAt: null,
-    },
-  });
-  console.log(`✓ Target ${DEMO_TARGET_ID} (Meta Page ${metaPageId})`);
-
-  // ── Create intent (DRAFT) then schedule (AWAITING_APPROVAL, v2) ────────────
-  const intentId = uuid();
-  const createKey = `seed:create:${intentId}`;
-  const intent = await prisma.publishingIntent.create({
-    data: {
-      id: intentId,
-      businessId,
-      candidateId: candidateId,
-      mode: "REAL",
-      status: "DRAFT",
-      createdByUserId: ownerId,
-      idempotencyKey: createKey,
-    },
-  });
-
-  const scheduleKey = `seed:schedule:${intentId}`;
-  await prisma.publishingIntent.update({
-    where: { id: intentId },
-    data: {
-      targetId: DEMO_TARGET_ID,
-      scheduledLocalAt: new Date(scheduledLocal),
-      timezone: "Africa/Cairo",
-      scheduledUtcAt: scheduledUtc,
-      status: "AWAITING_APPROVAL",
-      version: 2,
-      idempotencyKey: scheduleKey,
-    },
-  });
-
-  // ── Approve (SCHEDULED) + write the approval snapshot row ──────────────────
-  const approveKey = `seed:approve:${intentId}`;
-  const approvalId = uuid();
-  const approvalSnapshotInput = {
-    contract_version: "publication-approval-v1",
-    decision_id: approvalId,
-    intent_id: intentId,
-    intent_version: 2,
-    candidate_id: candidateId,
-    candidate_checksum: candidate.candidate_checksum,
-    mode: "real",
-    target_id: DEMO_TARGET_ID,
-    scheduled_local: scheduledLocal,
-    time_zone: "Africa/Cairo",
-    scheduled_utc: scheduledUtc.toISOString(),
-    decided_by_user_id: ownerId,
-    decided_at: decidedAt,
-  } as const;
-  const approvalFingerprint =
-    computePublicationApprovalFingerprint(approvalSnapshotInput);
-
-  await prisma.publishingApproval.create({
-    data: {
-      id: approvalId,
-      intentId,
-      intentVersionAtDecision: 2,
-      candidateChecksum: candidate.candidate_checksum,
-      decision: "APPROVED",
-      decidedByUserId: ownerId,
-      decidedAt: new Date(decidedAt),
-      notes: "Seeded two-approval (content + publish) simulation for the publishing demo.",
-      approvalFingerprint,
-      idempotencyKey: approveKey,
-    },
-  });
-  await prisma.publishingIntent.update({
-    where: { id: intentId },
-    data: { status: "SCHEDULED" },
-  });
-
-  // ── Enqueue the BullMQ dispatch job (mirrors IntentsService.approveIntent) ──
-  const dispatchKey = `${approveKey}::dispatch`;
-  const jobKey = `publish:${intentId}:2`;
-  const delay = Math.max(0, scheduledUtc.getTime() - Date.now());
-  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-  const queue = new Queue(QUEUE_NAME, { connection: { url: redisUrl } });
-  await queue.add(
-    "dispatch",
-    { intentId, version: 2, idempotencyKey: dispatchKey },
-    { jobId: jobKey, delay },
-  );
-  await queue.close();
-
-  console.log(`✓ Intent ${intentId} SCHEDULED (v2, fires in ~${Math.round(delay / 1000)}s)`);
-  console.log(`✓ Dispatch job ${jobKey} enqueued (key=${dispatchKey})`);
-  console.log("");
-  console.log("Publishing demo seed complete. With the API running and the");
-  console.log("publishing-v1 n8n workflow active, the DispatchProcessor worker");
-  console.log("will pick up the job, dispatch to n8n, and (real mode) post to");
-  console.log("the Meta Page. Watch the API logs or query:");
-  console.log(`  GET /api/v1/publication-intents/${intentId}  (owner JWT)`);
-  console.log("");
-  console.log("IDs for this run:");
-  console.log(JSON.stringify(
-    {
-      businessId,
-      candidateId,
-      intentId,
-      approvalId,
-      targetId: DEMO_TARGET_ID,
-      jobId: jobKey,
-      scheduled_utc: scheduledUtc.toISOString(),
-    },
-    null,
-    2,
-  ));
 }
+
 
 main()
   .catch((e) => {
