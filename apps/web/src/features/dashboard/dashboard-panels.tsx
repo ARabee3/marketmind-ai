@@ -47,7 +47,7 @@ export function NextActionPanel({ journey }: { readonly journey: DashboardJourne
           {journey.primaryHref ? (
             <Link
               href={journey.primaryHref}
-              className={buttonVariants({ size: 'lg', className: 'shadow-tactile' })}
+              className={buttonVariants({ size: 'lg', className: 'shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all' })}
             >
               {t(`actions.${journey.primaryActionType}`)}
             </Link>

@@ -3,7 +3,7 @@ export const authStyles = {
   field: 'flex flex-col gap-2',
   input: 'h-11 rounded-lg bg-background px-3 text-[15px]',
   primaryButton:
-    'mt-2 h-11 w-full border-2 border-navy shadow-tactile transition hover:-translate-y-px hover:shadow-tactile-pressed active:translate-y-px active:shadow-tactile-pressed',
+    'mt-2 h-11 w-full border-2 border-navy shadow-tactile transition-all hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed',
   outlineButton: 'h-11 w-full bg-surface',
   alert:
     'rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-3 text-sm text-destructive',

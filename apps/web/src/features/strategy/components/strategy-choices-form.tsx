@@ -571,7 +571,7 @@ export function StrategyChoicesForm() {
               </Button>
               <Button
                 type="button"
-                className="shadow-tactile"
+                className="shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all"
                 disabled={disabled}
                 onClick={() => persist(true)}
               >
