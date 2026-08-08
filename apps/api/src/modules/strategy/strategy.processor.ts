@@ -30,12 +30,27 @@ interface ReviseJobData {
   correlationId: string;
 }
 
+/**
+ * Total attempts (including the first) for a single AI generation/revise
+ * call. Each attempt already includes the AI service's own bounded
+ * generation retries, so this loop is the outer safety net.
+ */
+const MAX_AI_GENERATION_ATTEMPTS = 3;
+
+/** Base backoff delay between AI generation attempts (doubles per attempt). */
+const DEFAULT_AI_GENERATION_RETRY_DELAY_MS = 1_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 @Processor("strategy-generation")
 @Injectable()
 export class StrategyProcessor extends WorkerHost {
   private readonly logger = new Logger(StrategyProcessor.name);
   private readonly aiUrl: string;
   private readonly aiRequestTimeoutMs: number;
+  private readonly aiGenerationRetryDelayMs: number;
 
   constructor(
     private readonly strategyRepository: StrategyRepository,
@@ -50,6 +65,9 @@ export class StrategyProcessor extends WorkerHost {
     this.aiRequestTimeoutMs =
       this.config.get<number>("aiService.requestTimeoutMs") ??
       DEFAULT_AI_REQUEST_TIMEOUT_MS;
+    this.aiGenerationRetryDelayMs =
+      this.config.get<number>("aiService.generationRetryDelayMs") ??
+      DEFAULT_AI_GENERATION_RETRY_DELAY_MS;
   }
 
   async process(job: Job<unknown, unknown, string>): Promise<unknown> {
@@ -126,32 +144,38 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const response = await firstValueFrom(
-        this.httpService.post(
-          `${this.aiUrl}/internal/v1/ai/strategy/generate`,
-          {
-            contract_version: contractVersion,
-            strategy_id: strategyId,
-            business_profile: businessProfilePayload,
-            brief: contractBrief,
-            retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
-            deterministic_channel_scores: deterministicChannelScores,
-          },
-          { timeout: 45_000 },
-        ),
+      const response = await this.callAiGenerationWithRetry(
+        correlationId,
+        () =>
+          firstValueFrom(
+            this.httpService.post(
+              `${this.aiUrl}/internal/v1/ai/strategy/generate`,
+              {
+                contract_version: contractVersion,
+                strategy_id: strategyId,
+                business_profile: businessProfilePayload,
+                brief: contractBrief,
+                retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+                deterministic_channel_scores: deterministicChannelScores,
+              },
+              { timeout: 45_000 },
+            ),
+          ),
+        (result) => {
+          const planData = result.data?.plan;
+          if (!planData) {
+            throw new Error("AI generation service returned no plan");
+          }
+          // Structural validation gate — catches malformed provider responses
+          // before persisting an immutable version.
+          validatePlanShape(planData);
+          assertStrategyValidationPassed(result.data.validation);
+          assertPlanApprovable(planData);
+        },
       );
 
       const planData = response.data.plan;
       const promptConfig = response.data.prompt_config ?? {};
-
-      if (!planData) {
-        throw new Error("AI generation service returned no plan");
-      }
-
-      // Structural validation gate — catches malformed provider responses
-      // before persisting an immutable version.
-      validatePlanShape(planData);
-      assertStrategyValidationPassed(response.data.validation);
 
       this.logger.log(
         `[Corr: ${correlationId}] Generation complete — validating`,
@@ -415,34 +439,40 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const revisionResponse = await firstValueFrom(
-        this.httpService.post(
-          `${this.aiUrl}/internal/v1/ai/strategy/revise`,
-          {
-            contract_version: strategy.contractVersion,
-            strategy_id: strategyId,
-            business_profile: businessProfilePayload,
-            brief: contractBrief,
-            retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
-            deterministic_channel_scores: deterministicChannelScores,
-            previous_plan: priorVersion.planData,
-            revision_notes: feedback?.trim() || "",
-          },
-          { timeout: 45_000 },
-        ),
+      const revisionResponse = await this.callAiGenerationWithRetry(
+        correlationId,
+        () =>
+          firstValueFrom(
+            this.httpService.post(
+              `${this.aiUrl}/internal/v1/ai/strategy/revise`,
+              {
+                contract_version: strategy.contractVersion,
+                strategy_id: strategyId,
+                business_profile: businessProfilePayload,
+                brief: contractBrief,
+                retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
+                deterministic_channel_scores: deterministicChannelScores,
+                previous_plan: priorVersion.planData,
+                revision_notes: feedback?.trim() || "",
+              },
+              { timeout: 45_000 },
+            ),
+          ),
+        (result) => {
+          const planData = result.data?.plan;
+          if (!planData) {
+            throw new Error("AI revision service returned no plan");
+          }
+          // Structural validation gate — catches malformed provider responses
+          // before persisting an immutable version.
+          validatePlanShape(planData);
+          assertStrategyValidationPassed(result.data.validation);
+          assertPlanApprovable(planData);
+        },
       );
 
       const planData = revisionResponse.data.plan;
       const promptConfig = revisionResponse.data.prompt_config ?? {};
-
-      if (!planData) {
-        throw new Error("AI revision service returned no plan");
-      }
-
-      // Structural validation gate — catches malformed provider responses
-      // before persisting an immutable version.
-      validatePlanShape(planData);
-      assertStrategyValidationPassed(revisionResponse.data.validation);
 
       this.logger.log(
         `[Corr: ${correlationId}] Revision generation complete — validating`,
@@ -536,6 +566,46 @@ export class StrategyProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * Calls the AI generation/revise endpoint with bounded automatic retries.
+   *
+   * Owner-facing rule: a draft is only ever surfaced when it is valid AND
+   * approvable. Transient provider errors, HTTP 422 validation rejections,
+   * malformed responses, and plans that carry blocking blockers are all
+   * retried automatically while the strategy stays in `generating`. The
+   * strategy only moves to `failed` (owner-visible retry) after every attempt
+   * is exhausted.
+   */
+  private async callAiGenerationWithRetry<T>(
+    correlationId: string,
+    attempt: () => Promise<T>,
+    validate: (result: T) => void,
+  ): Promise<T> {
+    let lastError: unknown = new Error("AI generation failed");
+    for (
+      let attemptNumber = 0;
+      attemptNumber < MAX_AI_GENERATION_ATTEMPTS;
+      attemptNumber += 1
+    ) {
+      try {
+        const result = await attempt();
+        validate(result);
+        return result;
+      } catch (error: unknown) {
+        lastError = error;
+        const hasRetriesLeft = attemptNumber < MAX_AI_GENERATION_ATTEMPTS - 1;
+        if (hasRetriesLeft && shouldRetryAiGeneration(error)) {
+          const delay = this.aiGenerationRetryDelayMs * 2 ** attemptNumber;
+          this.logger.warn(
+            `[Corr: ${correlationId}] AI generation attempt ${attemptNumber + 1}/${MAX_AI_GENERATION_ATTEMPTS} failed (${errorMessage(error)}); retrying in ${delay}ms`,
+          );
+          await sleep(delay);
+        }
+      }
+    }
+    throw lastError;
+  }
+
   private async recordProgress(
     strategyId: string,
     event: Parameters<StrategyRepository["appendProgressEvent"]>[1],
@@ -557,6 +627,54 @@ export class StrategyProcessor extends WorkerHost {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+/**
+ * Decides whether an AI generation attempt is worth repeating. Retries are
+ * bounded and safe for transient provider failures, HTTP 422 validation
+ * rejections (the AI service itself re-attempts with repair prompts), and
+ * plans that are structurally invalid or non-approvable. Other HTTP 4xx
+ * responses (e.g. a malformed request body) will not fix themselves and are
+ * surfaced immediately.
+ */
+function shouldRetryAiGeneration(error: unknown): boolean {
+  if (!(error instanceof Error)) return true;
+  const status = (error as Error & { response?: { status?: number } })
+    .response?.status;
+  if (typeof status === "number") {
+    if (status === 400 || status === 401 || status === 403 || status === 404) {
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+/**
+ * Owner-approvability gate. A plan can pass the contract validation pipeline
+ * and still carry `blocking` blockers (e.g. an unresolved capability or a
+ * budget constraint the owner cannot approve past). Such a plan can never be
+ * approved, so it must never be shown to the owner as a ready draft —
+ * regeneration is retried instead.
+ */
+function assertPlanApprovable(planData: unknown): void {
+  if (!planData || typeof planData !== "object" || Array.isArray(planData)) {
+    throw new Error("AI generation service returned no plan");
+  }
+  const blockers = (planData as { blockers?: unknown }).blockers;
+  if (!Array.isArray(blockers)) return;
+  const hasBlockingBlocker = blockers.some(
+    (blocker) =>
+      blocker !== null &&
+      typeof blocker === "object" &&
+      !Array.isArray(blocker) &&
+      (blocker as { severity?: unknown }).severity === "blocking",
+  );
+  if (hasBlockingBlocker) {
+    throw new Error(
+      "AI generation service returned a plan that cannot be approved (blocking blockers present)",
+    );
+  }
 }
 
 function assertStrategyValidationPassed(validation: unknown): void {

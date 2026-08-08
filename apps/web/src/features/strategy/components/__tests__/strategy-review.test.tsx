@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type {
@@ -145,6 +145,11 @@ const retrievalPack = {
   retrieved_at: '2026-07-28T10:00:00.000Z',
 } satisfies RetrievedKnowledgePack
 
+const { pushMock, submitDecisionMock } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  submitDecisionMock: vi.fn(),
+}))
+
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     if (key === 'decision.approve') return 'Approve strategy'
@@ -167,6 +172,11 @@ vi.mock('@/i18n/navigation', () => ({
     children: ReactNode
     href: string
   }) => <a href={href} {...props}>{children}</a>,
+  useRouter: () => ({ push: pushMock }),
+}))
+
+vi.mock('@/lib/api/strategy', () => ({
+  submitDecision: (...args: unknown[]) => submitDecisionMock(...args),
 }))
 
 describe('StrategyReview', () => {
@@ -316,5 +326,45 @@ describe('StrategyReview', () => {
     expect(screen.getByText('decision.rejectedTitle')).toBeTruthy()
     expect(screen.getByText('decision.rejectedBody')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+  })
+
+  it('routes the owner back to the creation wizard after rejecting a plan', async () => {
+    submitDecisionMock.mockResolvedValue({
+      decision: { id: 'dec-1' },
+      nextStatus: 'needs_brief',
+    })
+
+    render(
+      <StrategyReview
+        profile={null}
+        resource={draftResource}
+        currentVersionId="88888888-8888-4888-8888-888888888888"
+        retrieval={null}
+        progress={[]}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject draft' }))
+    fireEvent.change(
+      screen.getByLabelText('decision.feedbackLabel'),
+      { target: { value: 'This plan does not fit our business.' } },
+    )
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'decision.confirm' }))
+      await Promise.resolve()
+    })
+
+    await vi.waitFor(() => {
+      expect(submitDecisionMock).toHaveBeenCalledWith(
+        '11111111-1111-4111-8111-111111111111',
+        {
+          versionId: '88888888-8888-4888-8888-888888888888',
+          action: 'reject',
+          feedback: 'This plan does not fit our business.',
+        },
+      )
+      expect(pushMock).toHaveBeenCalledWith('/strategy/new')
+    })
   })
 })
