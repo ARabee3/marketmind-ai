@@ -1,0 +1,97 @@
+{
+  "week_plan_id": "be000000-0000-4000-8000-00000000be01",
+  "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+  "week_number": 1,
+  "editorial_profile": {
+    "id": "ed000000-0000-4000-8000-00000000ed01",
+    "contract_version": "content-v2",
+    "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+    "audience_nuance": "موظفون في المكاتب القريبة",
+    "voice": "ودي وعملي",
+    "language": "ar-EG",
+    "writing_guardrails": [
+      "لا تذكر أسعاراً غير مؤكدة"
+    ],
+    "default_visual_guidance": null,
+    "created_at": "2026-08-01T09:00:00+03:00",
+    "updated_at": "2026-08-01T09:00:00+03:00"
+  },
+  "cta_entries": [
+    {
+      "id": "ca000000-0000-4000-8000-00000000ca01",
+      "contract_version": "content-v2",
+      "content_cycle_id": "33333333-3333-4333-8333-333333333333",
+      "label": "اطلب بالواتساب",
+      "destination": {
+        "type": "whatsapp",
+        "value": "+201001234567"
+      },
+      "campaign_context": null,
+      "active": true,
+      "created_at": "2026-08-01T09:05:00+03:00",
+      "updated_at": "2026-08-01T09:05:00+03:00"
+    }
+  ],
+  "media_entries": [],
+  "post_plans": [
+    {
+      "id": "be000000-0000-4000-8000-00000000be11",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 1,
+      "purpose": "تقديم طبق الكشري",
+      "intended_audience": "موظفو المكاتب",
+      "channel": "instagram",
+      "format": "static_image_post",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca01",
+      "owner_instructions": null,
+      "visual_direction": null,
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    },
+    {
+      "id": "be000000-0000-4000-8000-00000000be12",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 3,
+      "purpose": "توضيح المكونات",
+      "intended_audience": "عملاء جدد",
+      "channel": "facebook",
+      "format": "carousel_brief",
+      "cta_library_entry_id": null,
+      "owner_instructions": null,
+      "visual_direction": null,
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    },
+    {
+      "id": "be000000-0000-4000-8000-00000000be13",
+      "contract_version": "content-v2",
+      "content_week_plan_id": "be000000-0000-4000-8000-00000000be01",
+      "position": 2,
+      "purpose": "دعوة للتقييم",
+      "intended_audience": "الزبائن الراضون",
+      "channel": "google_business_profile",
+      "format": "text_post",
+      "cta_library_entry_id": null,
+      "owner_instructions": null,
+      "visual_direction": null,
+      "selected_media_ids": [],
+      "plan_state": "planned",
+      "source": "planner",
+      "content_item_id": null,
+      "created_at": "2026-08-02T11:00:00+03:00",
+      "updated_at": "2026-08-02T11:00:00+03:00"
+    }
+  ],
+  "weekly_claim_id": "99999999-9999-4999-8999-999999999999",
+  "frozen_at": "2026-08-02T12:00:00+03:00"
+}

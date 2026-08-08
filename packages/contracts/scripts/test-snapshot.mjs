@@ -17,6 +17,10 @@ const PUBLISHING_SNAPSHOT_PATH = new URL(
   "../schema-snapshots/publishing-v1.snapshot.json",
   import.meta.url,
 );
+const CONTENT_V2_SNAPSHOT_PATH = new URL(
+  "../schema-snapshots/content-v2.snapshot.json",
+  import.meta.url,
+);
 const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
 const WORKFLOW_FIXTURES_DIR = new URL(
   "../../../infra/n8n/fixtures/",
@@ -154,10 +158,130 @@ async function run() {
     }
   }
 
+  // Content v2 owner-first studio surfaces (issue #187).
+  const contentV2Snapshot = JSON.parse(
+    await fs.readFile(CONTENT_V2_SNAPSHOT_PATH, "utf-8"),
+  );
+  const v2EditorialProfile = JSON.parse(
+    await fs.readFile(
+      new URL("content-v2-editorial-profile.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const v2CtaEntry =
+    JSON.parse(
+      await fs.readFile(
+        new URL("content-v2-cta-library.example.json", EXAMPLES_DIR),
+        "utf-8",
+      ),
+    ).entries[0];
+  const v2MediaEntry =
+    JSON.parse(
+      await fs.readFile(
+        new URL("content-v2-media-library.example.json", EXAMPLES_DIR),
+        "utf-8",
+      ),
+    ).entries[0];
+  const v2WeekPlan = JSON.parse(
+    await fs.readFile(
+      new URL("content-v2-week-plan.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const v2FrozenInput = JSON.parse(
+    await fs.readFile(
+      new URL("content-v2-frozen-input.example.json", EXAMPLES_DIR),
+      "utf-8",
+    ),
+  );
+  const v2FixtureFor = {
+    ContentEditorialProfileV2: v2EditorialProfile,
+    ContentCtaLibraryEntryV2: v2CtaEntry,
+    ContentMediaLibraryEntryV2: v2MediaEntry,
+    ContentPostPlanV2: v2WeekPlan.post_plans[0],
+    ContentWeekPlanV2: v2WeekPlan,
+    ContentV2FrozenInput: v2FrozenInput,
+  };
+  for (const [surface, fixture] of Object.entries(v2FixtureFor)) {
+    for (const field of contentV2Snapshot[surface]) {
+      assert(
+        field in fixture,
+        `Backward compatibility failure: ${surface} is missing field '${field}'`,
+      );
+    }
+  }
+  // Optional-field surfaces are asserted against a synthetic object so
+  // optionality never breaks the backward-compatibility check.
+  const syntheticEditMetadata = {
+    edit_kind: "owner_direct_edit",
+    base_version_id: "be000000-0000-4000-8000-00000000be11",
+    base_version_checksum: "0".repeat(64),
+    edited_by_user_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    validation_state: "validated",
+    edited_at: "2026-08-02T12:30:00+03:00",
+  };
+  for (const field of contentV2Snapshot.ContentVersionEditMetadataV2) {
+    assert(
+      field in syntheticEditMetadata,
+      `Backward compatibility failure: ContentVersionEditMetadataV2 is missing field '${field}'`,
+    );
+  }
+  const syntheticCycleWorkspace = {
+    contract_version: "content-v2",
+    cycle: v2EditorialProfile,
+    editorial_profile: v2EditorialProfile,
+    cta_library: [v2CtaEntry],
+    media_library: [v2MediaEntry],
+    current_week: v2WeekPlan,
+    previous_weeks: [],
+    next_week: null,
+    why_this_week: v2WeekPlan,
+    strategy: v2WeekPlan,
+    view_full_strategy_route: "/strategy/example/review",
+  };
+  for (const field of contentV2Snapshot.ContentCycleWorkspaceV2) {
+    assert(
+      field in syntheticCycleWorkspace,
+      `Backward compatibility failure: ContentCycleWorkspaceV2 is missing field '${field}'`,
+    );
+  }
+  const syntheticItemVersionV2 = {
+    id: "be000000-0000-4000-8000-00000000be11",
+    contract_version: "content-v2",
+    content_item_id: "be000000-0000-4000-8000-00000000be11",
+    content_pack_id: "be000000-0000-4000-8000-00000000be11",
+    version: 1,
+    channel: "instagram",
+    format: "static_image_post",
+    language_mode: "ar-EG",
+    strategy_trace: {},
+    caption_variants: [],
+    cta: null,
+    hashtags: [],
+    creative_brief: "",
+    alt_text: "",
+    short_video_script: null,
+    recommended_publish_window: {},
+    claim_sources: [],
+    warnings: [],
+    blockers: [],
+    asset_required: false,
+    asset_ids: [],
+    generation_provenance: {},
+    version_checksum: "0".repeat(64),
+    created_at: "2026-08-02T12:00:00+03:00",
+    edit_metadata: syntheticEditMetadata,
+  };
+  for (const field of contentV2Snapshot.ContentItemVersionV2) {
+    assert(
+      field in syntheticItemVersionV2,
+      `Backward compatibility failure: ContentItemVersionV2 is missing field '${field}'`,
+    );
+  }
+
   const publishingSnapshot = JSON.parse(
     await fs.readFile(PUBLISHING_SNAPSHOT_PATH, "utf-8"),
-  );
-  const publishingCandidate = JSON.parse(
+  );  const publishingCandidate = JSON.parse(
     await fs.readFile(
       new URL("publication-candidate-approved.example.json", EXAMPLES_DIR),
       "utf-8",

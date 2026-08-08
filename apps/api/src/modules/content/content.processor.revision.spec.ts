@@ -43,6 +43,7 @@ describe("ContentProcessor - Revision Flow", () => {
     status: "draft",
     retryEligible: true,
     itemIds: [],
+    weekPlanId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -79,6 +80,12 @@ describe("ContentProcessor - Revision Flow", () => {
     assetIds: [],
     generationProvenance: {},
     versionChecksum: "abc123",
+    editKind: null,
+    baseVersionId: null,
+    baseVersionChecksum: null,
+    editedByUserId: null,
+    validationState: null,
+    editedAt: null,
     createdAt: new Date(),
   };
 

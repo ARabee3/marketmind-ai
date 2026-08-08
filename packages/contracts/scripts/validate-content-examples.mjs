@@ -20,6 +20,11 @@ const validExamples = [
   "publication-candidate-status-active.example.json",
   "publication-candidate-created-event.example.json",
   "publication-candidate-state-changed-event.example.json",
+  "content-v2-editorial-profile.example.json",
+  "content-v2-cta-library.example.json",
+  "content-v2-media-library.example.json",
+  "content-v2-week-plan.example.json",
+  "content-v2-frozen-input.example.json",
 ];
 const invalidExamples = [
   "content-week-13.invalid.json",
@@ -62,6 +67,9 @@ const invalidExamples = [
   "publication-candidate-revoked.invalid.json",
   "publication-candidate-replay-conflict.invalid.json",
   "publication-candidate-replay-identical.invalid.json",
+  "content-v2-planner-two-plans.invalid.json",
+  "content-v2-week-plan-six-plans.invalid.json",
+  "content-v2-frozen-input-unordered.invalid.json",
 ];
 
 const argvFile = process.argv[2];

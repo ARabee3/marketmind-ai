@@ -45,6 +45,7 @@ model User {
   decidedContentDecisions      ContentDecision[]            @relation("ContentDecisionDecidedBy")
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
   contentWeekContextsConfirmed ContentWeekContext[]
+  contentMediaEntries          ContentMediaLibraryEntry[]
   publicationCandidateStatuses PublicationCandidateStatus[]
   orchestrationRuns            OrchestrationRun[]
   billingAccount               BillingAccount?
@@ -137,6 +138,7 @@ model Business {
   strategies              Strategy[]
   contentCycles           ContentCycle[]
   contentPacks            ContentPack[]
+  contentMediaEntries     ContentMediaLibraryEntry[]
   publicationCandidates   PublicationCandidate[]
   orchestrationRuns       OrchestrationRun[]
   billingAccounts         BillingAccount[]
@@ -1085,6 +1087,10 @@ model ContentCycle {
   packs                 ContentPack[]
   generationRuns        ContentGenerationRun[]
   publicationCandidates PublicationCandidate[]
+  editorialProfile      ContentEditorialProfile?
+  ctaLibraryEntries     ContentCtaLibraryEntry[]
+  mediaEntries          ContentMediaLibraryEntry[]
+  weekPlans             ContentWeekPlan[]
 
   @@unique([ownerUserId, idempotencyKey])
   @@index([businessId])
@@ -1137,11 +1143,13 @@ model ContentPack {
   status             String   @default("queued")
   retryEligible      Boolean  @default(true) @map("retry_eligible")
   itemIds            Json     @default("[]") @map("item_ids")
+  weekPlanId         String?  @map("week_plan_id") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   contentCycle           ContentCycle           @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
   weekContext            ContentWeekContext     @relation(fields: [weekContextId], references: [id], onDelete: Cascade)
+  weekPlan               ContentWeekPlan?       @relation(fields: [weekPlanId], references: [id], onDelete: SetNull)
   business               Business               @relation(fields: [businessId], references: [id])
   businessProfileVersion BusinessProfileVersion @relation(fields: [profileVersionId], references: [id])
   items                  ContentItem[]
@@ -1195,6 +1203,12 @@ model ContentItemVersion {
   assetIds                 Json     @map("asset_ids")
   generationProvenance     Json     @map("generation_provenance")
   versionChecksum          String   @map("version_checksum")
+  editKind                 String?  @map("edit_kind")
+  baseVersionId            String?  @map("base_version_id") @db.Uuid
+  baseVersionChecksum      String?  @map("base_version_checksum")
+  editedByUserId           String?  @map("edited_by_user_id") @db.Uuid
+  validationState          String?  @map("validation_state")
+  editedAt                 DateTime? @map("edited_at")
   createdAt                DateTime @default(now()) @map("created_at")
 
   contentItem ContentItem               @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
@@ -1243,6 +1257,118 @@ model ContentItemVersionAsset {
   @@id([contentItemVersionId, assetId])
   @@index([assetId])
   @@map("content_item_version_assets")
+}
+
+// ---------------------------------------------------------------------------
+// Content v2 domain (issue #187) — owner-first weekly studio.
+// New v2 cycles write contract_version "content-v2"; legacy v1 rows keep
+// "content-v1" and are never reinterpreted.
+// ---------------------------------------------------------------------------
+
+model ContentEditorialProfile {
+  id                    String   @id @default(uuid()) @db.Uuid
+  contractVersion       String   @default("content-v2") @map("contract_version")
+  contentCycleId        String   @map("content_cycle_id") @db.Uuid
+  audienceNuance        String   @map("audience_nuance")
+  voice                 String
+  language              String   @default("ar-EG")
+  writingGuardrails     Json     @default("[]") @map("writing_guardrails")
+  defaultVisualGuidance String?  @map("default_visual_guidance")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+
+  @@unique([contentCycleId])
+  @@map("content_editorial_profiles")
+}
+
+model ContentCtaLibraryEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  contractVersion String   @default("content-v2") @map("contract_version")
+  contentCycleId  String   @map("content_cycle_id") @db.Uuid
+  label           String
+  destination     Json
+  campaignContext String?  @map("campaign_context")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+
+  @@index([contentCycleId])
+  @@map("content_cta_library_entries")
+}
+
+model ContentMediaLibraryEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  contractVersion String   @default("content-v2") @map("contract_version")
+  businessId      String   @map("business_id") @db.Uuid
+  contentCycleId  String   @map("content_cycle_id") @db.Uuid
+  ownerUserId     String   @map("owner_user_id") @db.Uuid
+  kind            String
+  status          String
+  mimeType        String?  @map("mime_type")
+  sizeBytes       Int?     @map("size_bytes")
+  width           Int?
+  height          Int?
+  checksum        String?
+  storageKey      String?  @map("storage_key")
+  failureCode     String?  @map("failure_code")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  ownerUser    User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([contentCycleId])
+  @@map("content_media_library_entries")
+}
+
+model ContentWeekPlan {
+  id              String   @id @default(uuid()) @db.Uuid
+  contractVersion String   @default("content-v2") @map("contract_version")
+  contentCycleId  String   @map("content_cycle_id") @db.Uuid
+  weekNumber      Int      @map("week_number")
+  status          String   @default("draft")
+  frozenInput     Json?    @map("frozen_input")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  contentCycle ContentCycle     @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  postPlans    ContentPostPlan[]
+  packs        ContentPack[]
+
+  @@unique([contentCycleId, weekNumber])
+  @@map("content_week_plans")
+}
+
+model ContentPostPlan {
+  id                String   @id @default(uuid()) @db.Uuid
+  contractVersion   String   @default("content-v2") @map("contract_version")
+  contentWeekPlanId String   @map("content_week_plan_id") @db.Uuid
+  position          Int
+  purpose           String
+  intendedAudience  String?  @map("intended_audience")
+  channel           String
+  format            String
+  ctaLibraryEntryId String?  @map("cta_library_entry_id") @db.Uuid
+  ownerInstructions String?  @map("owner_instructions")
+  visualDirection   String?  @map("visual_direction")
+  selectedMediaIds  Json     @default("[]") @map("selected_media_ids")
+  planState         String   @default("planned") @map("plan_state")
+  source            String
+  contentItemId     String?  @map("content_item_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  contentWeekPlan ContentWeekPlan @relation(fields: [contentWeekPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([contentWeekPlanId, position])
+  @@index([contentWeekPlanId])
+  @@map("content_post_plans")
 }
 
 model ContentGenerationRun {

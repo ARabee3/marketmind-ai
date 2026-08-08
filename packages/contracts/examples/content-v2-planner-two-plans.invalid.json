@@ -1,0 +1,37 @@
+{
+  "contract_version": "content-v2",
+  "week_plan_id": "be000000-0000-4000-8000-00000000be01",
+  "post_plans": [
+    {
+      "purpose": "تقديم طبق الكشري لموظفي المكاتب",
+      "intended_audience": "موظفو المكاتب القريبة",
+      "channel": "instagram",
+      "format": "static_image_post",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca01",
+      "owner_instructions": null,
+      "visual_direction": "صورة كشري طازج",
+      "selected_media_ids": []
+    },
+    {
+      "purpose": "دعوة لتقييم التجربة على جوجل",
+      "intended_audience": "الزبائن الراضون",
+      "channel": "google_business_profile",
+      "format": "text_post",
+      "cta_library_entry_id": "ca000000-0000-4000-8000-00000000ca02",
+      "owner_instructions": null,
+      "visual_direction": null,
+      "selected_media_ids": []
+    }
+  ],
+  "validation": {
+    "valid": false,
+    "issues": [
+      {
+        "code": "CONTENT_SCHEMA_FAILURE",
+        "field": "post_plans",
+        "message": "planner must produce between 3 and 5 post plans",
+        "retryable": true
+      }
+    ]
+  }
+}
