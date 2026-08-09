@@ -130,6 +130,14 @@ export class MetaProviderExecutor {
       return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
     }
 
+    const mediaConfigurationError = this.mediaFetch.configurationError();
+    if (mediaConfigurationError) {
+      this.logger.error(
+        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+      );
+      return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, false);
+    }
+
     // ── Resolve the EXACT target's credential from the vault (never env) ──
     let tokenBundle: PageTokenBundle | InstagramTokenBundle;
     try {

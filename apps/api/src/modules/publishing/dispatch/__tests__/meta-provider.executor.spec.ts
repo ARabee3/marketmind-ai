@@ -38,18 +38,24 @@ type GraphLike = {
   publishFacebookPhoto: jest.Mock;
   publishInstagramPhoto: jest.Mock;
 };
-type MediaFetchLike = { buildUrl: jest.Mock };
+type MediaFetchLike = {
+  buildUrl: jest.Mock;
+  isConfigured: jest.Mock;
+  configurationError: jest.Mock;
+  verify: jest.Mock;
+};
 type AssetReaderLike = { readApprovedAsset: jest.Mock };
 
-function makeMediaFetch() {
+function makeMediaFetch(): MediaFetchLike {
   return {
     buildUrl: jest.fn(
       () =>
         "https://fetch.example.com/internal/v1/publishing/media-fetch/a?token=x",
     ),
     isConfigured: jest.fn(() => true),
+    configurationError: jest.fn(() => null),
     verify: jest.fn(() => true),
-  } as never;
+  };
 }
 
 function makeAssetReader(overrides: Partial<AssetReaderLike> = {}) {
@@ -70,6 +76,7 @@ function makeContext(
     credentialRow?: Record<string, unknown> | null;
     candidate?: Record<string, unknown> | null;
     graph?: unknown;
+    mediaFetch?: unknown;
     assetReader?: unknown;
   } = {},
 ) {
@@ -144,13 +151,13 @@ function makeContext(
     },
   };
   const graph = (overrides.graph ?? makeGraph()) as never;
-  const mediaFetch = makeMediaFetch();
+  const mediaFetch = overrides.mediaFetch ?? makeMediaFetch();
   const assetReader = overrides.assetReader ?? makeAssetReader();
   const executor = new MetaProviderExecutor(
     prisma as never,
     makeVault(),
     graph,
-    mediaFetch,
+    mediaFetch as never,
     assetReader as never,
   );
   return {
@@ -328,15 +335,13 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
   it("maps a provider 401 to a non-retryable failed result", async () => {
     const graph = makeGraph({
-      publishFacebookPhoto: jest
-        .fn()
-        .mockRejectedValue(
-          new MetaGraphClientError({
-            status: 401,
-            code: 190,
-            message: "expired",
-          }),
-        ),
+      publishFacebookPhoto: jest.fn().mockRejectedValue(
+        new MetaGraphClientError({
+          status: 401,
+          code: 190,
+          message: "expired",
+        }),
+      ),
     });
     const { executor } = makeContext({ graph });
 
@@ -420,6 +425,30 @@ describe("MetaProviderExecutor (issue #175)", () => {
       targetId: "target-1",
     });
     expect(result.result.error_code).toBe("PUBLISHING_ASSET_UNAVAILABLE");
+  });
+
+  it("fails with a provider configuration error before reading or sending media", async () => {
+    const mediaFetch = {
+      ...makeMediaFetch(),
+      configurationError: jest.fn(
+        () => "PUBLISHING_MEDIA_FETCH_BASE_URL must use HTTPS",
+      ),
+    };
+    const { executor, graph, assetReader } = makeContext({ mediaFetch });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-1",
+    });
+
+    expect(result.result).toMatchObject({
+      outcome: "failed",
+      error_code: "PUBLISHING_PROVIDER_FAILURE",
+      retryable: false,
+    });
+    expect(assetReader.readApprovedAsset).not.toHaveBeenCalled();
+    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
   });
 
   it("blocks a provider call when approved media bytes are unavailable", async () => {

@@ -1,13 +1,19 @@
 import { ConfigService } from "@nestjs/config";
 import { MediaFetchTokenService } from "../media-fetch-token.service";
 
-function makeService(secret = "media-fetch-secret", ttlMs = 900000) {
+function makeService(
+  secret = "media-fetch-secret",
+  ttlMs = 900000,
+  overrides: { baseUrl?: string; nodeEnv?: string } = {},
+) {
   const config = {
     get: jest.fn((key: string, fallback?: string) => {
       const map: Record<string, string> = {
         "publishing.mediaFetchSecret": secret,
-        "publishing.mediaFetchBaseUrl": "https://fetch.example.com",
+        "publishing.mediaFetchBaseUrl":
+          overrides.baseUrl ?? "https://fetch.example.com",
         "publishing.mediaFetchTtlMs": String(ttlMs),
+        "app.nodeEnv": overrides.nodeEnv ?? "development",
       };
       return map[key] ?? fallback;
     }),
@@ -29,26 +35,58 @@ describe("MediaFetchTokenService (issue #175)", () => {
     expect(url).not.toContain("secret");
   });
 
+  it("normalizes a trailing slash without changing the signed route", () => {
+    const service = makeService("media-fetch-secret", 900000, {
+      baseUrl: "https://fetch.example.com/",
+    });
+
+    expect(service.buildUrl({ attemptId: "a1", assetId: "asset-9" })).toMatch(
+      /^https:\/\/fetch\.example\.com\/internal\//,
+    );
+  });
+
   it("verifies a fresh token and rejects tampered/expired ones", () => {
     const service = makeService();
-    const url = new URL(service.buildUrl({ attemptId: "a1", assetId: "asset-9" }));
+    const url = new URL(
+      service.buildUrl({ attemptId: "a1", assetId: "asset-9" }),
+    );
     const token = url.searchParams.get("token")!;
     const exp = Number(url.searchParams.get("exp"));
 
     expect(
-      service.verify({ token, attemptId: "a1", assetId: "asset-9", expMs: exp }),
+      service.verify({
+        token,
+        attemptId: "a1",
+        assetId: "asset-9",
+        expMs: exp,
+      }),
     ).toBe(true);
     // Rebind to another attempt → invalid.
     expect(
-      service.verify({ token, attemptId: "a2", assetId: "asset-9", expMs: exp }),
+      service.verify({
+        token,
+        attemptId: "a2",
+        assetId: "asset-9",
+        expMs: exp,
+      }),
     ).toBe(false);
     // Rebind to another asset → invalid.
     expect(
-      service.verify({ token, attemptId: "a1", assetId: "asset-8", expMs: exp }),
+      service.verify({
+        token,
+        attemptId: "a1",
+        assetId: "asset-8",
+        expMs: exp,
+      }),
     ).toBe(false);
     // Expired window → invalid.
     expect(
-      service.verify({ token, attemptId: "a1", assetId: "asset-9", expMs: exp - 1 }),
+      service.verify({
+        token,
+        attemptId: "a1",
+        assetId: "asset-9",
+        expMs: exp - 1,
+      }),
     ).toBe(false);
   });
 
@@ -59,7 +97,33 @@ describe("MediaFetchTokenService (issue #175)", () => {
       service.buildUrl({ attemptId: "a1", assetId: "asset-9" }),
     ).toThrow(/PUBLISHING_MEDIA_FETCH_SECRET/);
     expect(
-      service.verify({ token: "x", attemptId: "a1", assetId: "asset-9", expMs: Date.now() + 1000 }),
+      service.verify({
+        token: "x",
+        attemptId: "a1",
+        assetId: "asset-9",
+        expMs: Date.now() + 1000,
+      }),
     ).toBe(false);
+  });
+
+  it("rejects a non-HTTPS provider URL outside development and test", () => {
+    const service = makeService("media-fetch-secret", 900000, {
+      baseUrl: "http://api.example.com",
+      nodeEnv: "production",
+    });
+
+    expect(service.isConfigured()).toBe(false);
+    expect(service.configurationError()).toContain("must use HTTPS");
+    expect(() =>
+      service.buildUrl({ attemptId: "a1", assetId: "asset-9" }),
+    ).toThrow(/must use HTTPS/);
+  });
+
+  it("rejects a URL with a path or embedded credentials", () => {
+    expect(
+      makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://user:pass@fetch.example.com/media",
+      }).configurationError(),
+    ).toContain("only an origin");
   });
 });
