@@ -98,6 +98,8 @@ process.env.META_APP_SECRET ??= "publishing-e2e-meta-app-secret";
 process.env.META_REDIRECT_URI ??=
   "http://127.0.0.1:3101/api/v1/publishing-targets/meta/callback";
 process.env.META_GRAPH_BASE_URL ??= "https://graph.facebook.com";
+process.env.TOKEN_ENCRYPTION_KEY ??=
+  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
 
 const API_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(__dirname, "../../..");

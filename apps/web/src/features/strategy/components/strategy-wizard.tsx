@@ -22,6 +22,7 @@ import {
   listPublishingTargets,
   type PublishingApiError,
 } from '@/lib/api/publishing'
+import { connectMeta as connectFacebookPage } from '@/lib/api/facebook'
 import {
   PublishingMetaCallbackResult,
   type MetaConnectionCompleteContext,
@@ -285,6 +286,9 @@ export function StrategyWizard() {
   const [targets, setTargets] = useState<readonly PublishingTargetPublicV1[]>([])
   const [metaPending, setMetaPending] = useState(false)
   const [metaError, setMetaError] = useState<string | null>(null)
+  const [facebookPending, setFacebookPending] = useState(false)
+  const [facebookConnected, setFacebookConnected] = useState<string | null>(null)
+  const [facebookError, setFacebookError] = useState<string | null>(null)
   const metaResumeRef = useRef(false)
 
   const stepIndex = useMemo(() => STEPS.findIndex((entry) => entry.id === step), [step])
@@ -601,6 +605,23 @@ export function StrategyWizard() {
     }
   }
 
+  async function handleConnectFacebookPage() {
+    setFacebookError(null)
+    setFacebookPending(true)
+    try {
+      const payload = await connectFacebookPage()
+      setFacebookConnected(payload.pageName)
+    } catch (caught) {
+      setFacebookError(
+        caught instanceof Error
+          ? caught.message
+          : t('wizard.facebookPage.failed'),
+      )
+    } finally {
+      setFacebookPending(false)
+    }
+  }
+
   async function handleMetaComplete(
     connectionId: string | null,
     selectedTargets: readonly PublishingTargetPublicV1[],
@@ -783,6 +804,10 @@ export function StrategyWizard() {
                 metaPending={metaPending}
                 metaError={metaError}
                 onConnect={connectMeta}
+                facebookPending={facebookPending}
+                facebookConnected={facebookConnected}
+                facebookError={facebookError}
+                onConnectFacebook={handleConnectFacebookPage}
               />
             ) : null}
             {step === 'realistic' ? (
@@ -985,6 +1010,10 @@ function ChannelsStep({
   metaPending,
   metaError,
   onConnect,
+  facebookPending,
+  facebookConnected,
+  facebookError,
+  onConnectFacebook,
 }: {
   readonly choices: readonly WizardChoice[]
   readonly errors?: string
@@ -996,6 +1025,10 @@ function ChannelsStep({
   readonly metaPending: boolean
   readonly metaError: string | null
   readonly onConnect: (channel: 'facebook' | 'instagram') => void
+  readonly facebookPending: boolean
+  readonly facebookConnected: string | null
+  readonly facebookError: string | null
+  readonly onConnectFacebook: () => void
 }) {
   const t = useTranslations('Strategy')
   return (
@@ -1117,6 +1150,42 @@ function ChannelsStep({
                             ? t('wizard.meta.reconnect')
                             : t('wizard.meta.connect')}
                       </Button>
+                    </div>
+                  ) : null}
+                  {meta.meta && choice.channel === 'facebook' ? (
+                    <div className="grid gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-sm font-semibold text-navy">
+                        {t('wizard.facebookPage.label')}
+                      </p>
+                      {facebookConnected ? (
+                        <p className="text-sm font-semibold text-primary">
+                          {t('wizard.facebookPage.connected', {
+                            pageName: facebookConnected,
+                          })}
+                        </p>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit"
+                        disabled={facebookPending}
+                        onClick={onConnectFacebook}
+                      >
+                        <PlugZap className="size-4" aria-hidden="true" />
+                        {facebookPending
+                          ? t('wizard.facebookPage.connecting')
+                          : facebookConnected
+                            ? t('wizard.facebookPage.reconnect')
+                            : t('wizard.facebookPage.connect')}
+                      </Button>
+                      {facebookError ? (
+                        <p
+                          className="text-sm font-semibold text-danger"
+                          role="alert"
+                        >
+                          {facebookError}
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                   <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-navy">

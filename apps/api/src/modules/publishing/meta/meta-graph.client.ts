@@ -4,6 +4,8 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { AxiosError } from "axios";
 
+import { FacebookService } from "../../facebook/facebook.service";
+
 /**
  * Least-privilege Meta permission matrix (issue #175).
  *
@@ -101,6 +103,7 @@ export class MetaGraphClient {
   constructor(
     private readonly http: HttpService,
     private readonly configService: ConfigService,
+    private readonly facebookService: FacebookService,
   ) {
     this.appId = this.configService.get<string>("meta.appId", "");
     this.appSecret = this.configService.get<string>("meta.appSecret", "");
@@ -262,36 +265,19 @@ export class MetaGraphClient {
     return { username: data.username ?? String(igBusinessId) };
   }
 
-  /** Facebook Page static-image publish. `imageUrl` is the short-lived
-   *  provider-fetch URL; the Graph API pulls the bytes server-to-server. */
+  /** Facebook Page static-image publish. Delegates the Graph API transport to
+   *  FacebookService, which owns the canonical Page publish logic. */
   async publishFacebookPhoto(params: {
     pageToken: string;
     pageId: string;
     imageUrl: string;
     caption: string;
   }): Promise<MetaPublishResult> {
-    const data = await this.graphPost<{ id?: string; post_id?: string }>(
-      `/${params.pageId}/photos`,
-      {
-        url: params.imageUrl,
-        caption: params.caption,
-        published: "true",
-        access_token: params.pageToken,
-      },
-    );
-    const remotePublicationId = String(data.post_id || data.id || "");
-    if (!remotePublicationId) {
-      throw new MetaGraphClientError({
-        status: 200,
-        code: 0,
-        message: "page photos response carried no post id",
-      });
+    try {
+      return await this.facebookService.publishPhotoViaPageToken(params);
+    } catch (err) {
+      throw this.normalizeError(err);
     }
-    const remoteUrl = await this.lookupPermalink(
-      remotePublicationId,
-      params.pageToken,
-    );
-    return { remotePublicationId, remoteUrl };
   }
 
   /**
@@ -384,22 +370,6 @@ export class MetaGraphClient {
 
   private config(key: string, fallback: string): string {
     return this.configService.get<string>(key, fallback) ?? fallback;
-  }
-
-  /** Best-effort permalink lookup for a Facebook post id. */
-  private async lookupPermalink(
-    remotePublicationId: string,
-    pageToken: string,
-  ): Promise<string | null> {
-    try {
-      const data = await this.graphGet<{ link?: string }>(
-        `/${remotePublicationId}`,
-        { fields: "link", access_token: pageToken },
-      );
-      return data.link ?? null;
-    } catch {
-      return null; // permalink is best-effort after a confirmed publish
-    }
   }
 
   private async graphGet<T>(

@@ -30,6 +30,10 @@ export interface ResetPasswordTemplateVars {
   appUrl: string;
 }
 
+export interface FacebookExpiredTemplateVars {
+  appUrl: string;
+}
+
 const BRAND_NAME = "MarketMind AI";
 
 const SUBJECTS: Record<string, Record<MailLocale, string>> = {
@@ -40,6 +44,10 @@ const SUBJECTS: Record<string, Record<MailLocale, string>> = {
   "reset-password": {
     en: "Reset your MarketMind AI password",
     ar: "إعادة تعيين كلمة مرور MarketMind AI",
+  },
+  "facebook-expired": {
+    en: "Your Facebook Page connection has expired",
+    ar: "انتهت صلاحية اتصال صفحة فيسبوك",
   },
 };
 
@@ -149,4 +157,18 @@ export function renderResetPassword(
   });
 
   return { subject: subjectFor("reset-password", locale), html };
+}
+
+export function renderFacebookExpired(
+  vars: FacebookExpiredTemplateVars,
+  locale: MailLocale = "en",
+): RenderedMail {
+  const html = render(loadTemplate("facebook-expired", locale), {
+    reconnectUrl: `${vars.appUrl}/connections`,
+    appUrl: vars.appUrl,
+    year: currentYear(),
+    brandName: BRAND_NAME,
+  });
+
+  return { subject: subjectFor("facebook-expired", locale), html };
 }

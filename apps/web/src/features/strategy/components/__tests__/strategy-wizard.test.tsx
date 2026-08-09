@@ -120,6 +120,11 @@ vi.mock('@/lib/api/publishing', () => ({
   selectMetaTargets: vi.fn(),
 }))
 
+const connectMetaMock = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api/facebook', () => ({
+  connectMeta: connectMetaMock,
+}))
+
 vi.mock('../../hooks/use-strategy-actions', () => ({
   useStrategyActions: () => ({
     ...actionMocks,

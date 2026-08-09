@@ -60,7 +60,7 @@ for (const locale of locales) {
       })
     })
 
-    test('renders a scrollable primary nav with all six destinations', async ({ page }) => {
+    test('renders a scrollable primary nav with all seven destinations', async ({ page }) => {
       await mockAuthRefresh(page)
       await mockAuthMe(page)
       await page.addInitScript((userId) => {
@@ -81,6 +81,7 @@ for (const locale of locales) {
         { label: /Strategy|الاستراتيجية/i, href: '/strategy' },
         { label: /Content|المحتوى/i, href: '/content' },
         { label: /Publishing|النشر/i, href: '/publishing' },
+        { label: /Connections|الاتصالات/i, href: '/connections' },
         { label: /Billing|الفوترة/i, href: '/billing' },
       ]
       for (const { label, href } of destinations) {
@@ -99,8 +100,9 @@ for (const locale of locales) {
       expect(
         await ul.evaluate((el) => el.scrollWidth > el.clientWidth),
       ).toBe(true)
-      const items = await ul.locator('li').count()
-      expect(items).toBe(6)
+      await expect(mobileNav.getByRole('link')).toHaveCount(
+        destinations.length,
+      )
     })
   })
 }
