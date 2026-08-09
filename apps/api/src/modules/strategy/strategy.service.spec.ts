@@ -61,6 +61,11 @@ function makeRepository(overrides: Partial<MockedRepo> = {}): MockedRepo {
     upsertBrief: jest.fn(),
     updateStrategyStatus: jest.fn().mockResolvedValue({}),
     getLatestRetrievalRun: jest.fn(),
+    getRetrievalRunById: jest.fn().mockResolvedValue({
+      status: "completed",
+      items: [{}],
+      gaps: [],
+    }),
     getLatestVersion: jest.fn(),
     getVersionByNumber: jest.fn(),
     getVersionById: jest.fn().mockResolvedValue({
@@ -758,8 +763,9 @@ describe("StrategyService", () => {
         repository.updateStrategyStatus as jest.Mock
       ).mock.invocationCallOrder.find(
         (_callOrder: number, index: number) =>
-          (repository.updateStrategyStatus as jest.Mock).mock.calls[index]?.[1] ===
-          "queued",
+          (repository.updateStrategyStatus as jest.Mock).mock.calls[
+            index
+          ]?.[1] === "queued",
       );
       const queueAddCall = queue.add.mock.invocationCallOrder[0];
 
@@ -958,6 +964,8 @@ describe("StrategyService", () => {
       (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
         id: "run-1",
         status: "completed",
+        items: [{}],
+        gaps: [],
       });
       (repository.claimForGeneration as jest.Mock)
         .mockResolvedValueOnce({ claimed: true })
@@ -1019,6 +1027,51 @@ describe("StrategyService", () => {
       expect(result.status).toBe("queued");
       // Two claims: failed → ready, then ready → retrieving
       expect(repository.claimForGeneration).toHaveBeenCalledTimes(2);
+    });
+
+    it("restarts retrieval instead of reusing a completed but empty knowledge pack", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        ...STRATEGY_FIXTURE,
+        status: "failed",
+      });
+      (repository.countRetries as jest.Mock).mockResolvedValue(0);
+      (repository.getLatestVersion as jest.Mock).mockResolvedValue({
+        id: "v-1",
+      });
+      (
+        repository.getActiveConfirmedProfileVersion as jest.Mock
+      ).mockResolvedValue(PROFILE_VERSION_FIXTURE);
+      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+        id: "empty-run",
+        status: "completed",
+        items: [],
+        gaps: [{ severity: "blocking" }],
+      });
+      (repository.claimForGeneration as jest.Mock)
+        .mockResolvedValueOnce({ claimed: true })
+        .mockResolvedValueOnce({ claimed: true });
+      httpService.post.mockReturnValue(
+        of({ data: { retrieval_run_id: "fresh-run" } }),
+      );
+
+      const result = await service.retryGeneration(STRAT_ID, OWNER_ID);
+
+      expect(result.status).toBe("queued");
+      expect(httpService.post).toHaveBeenCalledWith(
+        expect.stringContaining("/internal/v1/ai/strategy/retrieve"),
+        expect.any(Object),
+        expect.any(Object),
+      );
+      expect(queue.add).toHaveBeenCalledWith(
+        "generate-strategy",
+        expect.objectContaining({ retrievalRunId: "fresh-run" }),
+        expect.any(Object),
+      );
+      expect(queue.add).not.toHaveBeenCalledWith(
+        "generate-strategy",
+        expect.objectContaining({ retrievalRunId: "empty-run" }),
+        expect.any(Object),
+      );
     });
   });
 
@@ -1093,7 +1146,7 @@ describe("StrategyService", () => {
       expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
     });
 
-    it("blocks approval when the latest retrieval run is not the version run", async () => {
+    it("approves against the version's run even when a newer retrieval exists", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,
         status: "draft",
@@ -1106,8 +1159,8 @@ describe("StrategyService", () => {
       ).mockResolvedValue({
         id: "prof-1",
       });
-      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
-        id: "run-2",
+      (repository.getRetrievalRunById as jest.Mock).mockResolvedValue({
+        id: "run-1",
         status: "completed",
         items: [
           {
@@ -1120,14 +1173,18 @@ describe("StrategyService", () => {
           },
         ],
       });
+      (repository.recordOwnerDecision as jest.Mock).mockResolvedValue({
+        decision: { id: "dec-1", action: "approve" },
+        nextStatus: "approved",
+      });
 
       await expect(
         service.handleDecision(STRAT_ID, OWNER_ID, {
           versionId: "v-1",
           action: "approve",
         }),
-      ).rejects.toThrow(BadRequestException);
-      expect(repository.recordOwnerDecision).not.toHaveBeenCalled();
+      ).resolves.toMatchObject({ nextStatus: "approved" });
+      expect(repository.getLatestRetrievalRun).not.toHaveBeenCalled();
     });
 
     it("rejects a decision if strategy is not in draft state", async () => {
@@ -1183,7 +1240,7 @@ describe("StrategyService", () => {
       ).mockResolvedValue({
         id: "prof-1",
       });
-      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+      (repository.getRetrievalRunById as jest.Mock).mockResolvedValue({
         id: "run-1",
         status: "completed",
         items: [
@@ -1222,7 +1279,7 @@ describe("StrategyService", () => {
       ).mockResolvedValue({
         id: "prof-1",
       });
-      (repository.getLatestRetrievalRun as jest.Mock).mockResolvedValue({
+      (repository.getRetrievalRunById as jest.Mock).mockResolvedValue({
         id: "run-1",
         status: "completed",
         items: [
@@ -1353,6 +1410,39 @@ describe("StrategyService", () => {
   });
 
   describe("Strategy plan reads", () => {
+    it("loads evidence from the current immutable version instead of a newer run", async () => {
+      (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
+        id: STRAT_ID,
+        currentVersionId: "v-1",
+      });
+      (repository.getVersionById as jest.Mock).mockResolvedValue({
+        id: "v-1",
+        retrievalRunId: "version-run",
+      });
+      (repository.getRetrievalRunById as jest.Mock).mockResolvedValue({
+        id: "version-run",
+        strategyId: STRAT_ID,
+        briefId: "brief-1",
+        profileVersionId: "prof-1",
+        querySummary: "local awareness",
+        queryContext: {},
+        configuration: {},
+        latencyMs: 25,
+        finishedAt: new Date("2026-08-09T00:00:00.000Z"),
+        createdAt: new Date("2026-08-09T00:00:00.000Z"),
+        items: [],
+        gaps: [],
+      });
+
+      await expect(
+        service.getRetrievalPack(STRAT_ID, OWNER_ID),
+      ).resolves.toMatchObject({ retrieval_run_id: "version-run" });
+      expect(repository.getRetrievalRunById).toHaveBeenCalledWith(
+        "version-run",
+      );
+      expect(repository.getLatestRetrievalRun).not.toHaveBeenCalled();
+    });
+
     it("normalizes persisted snake_case channel bindings for the HTTP brief", async () => {
       (repository.getStrategyByIdAndOwner as jest.Mock).mockResolvedValue({
         id: STRAT_ID,

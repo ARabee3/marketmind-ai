@@ -59,38 +59,34 @@ export function StrategyReviewV2({
   const [feedback, setFeedback] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [openDetails, setOpenDetails] = useState<string[]>([])
+  const [evidencePending, setEvidencePending] = useState(false)
 
   const handoffReady = plan?.content_handoff.available === true
-  const blockingItems = plan?.blockers.filter(
-    (blocker) => blocker.severity === 'blocking',
-  ) ?? []
+  const blockingItems =
+    plan?.blockers.filter((blocker) => blocker.severity === 'blocking') ?? []
   const evidenceReady = useMemo(
     () => planEvidenceReady(plan, retrieval),
     [plan, retrieval],
   )
   const profileIsCurrent =
-    readOnly
-    || (
-      Boolean(profile)
-      && Boolean(plan)
-      && profile?.version === plan?.profile_version.version
-      && resource.brief?.business_profile_version
-        .business_profile_version_id
-        === plan?.profile_version.business_profile_version_id
-    )
+    readOnly ||
+    (Boolean(profile) &&
+      Boolean(plan) &&
+      profile?.version === plan?.profile_version.version &&
+      resource.brief?.business_profile_version.business_profile_version_id ===
+        plan?.profile_version.business_profile_version_id)
   const canApprove =
-    !readOnly
-    && resource.status === 'draft'
-    && currentVersionId !== null
-    && blockingItems.length === 0
-    && evidenceReady
-    && profileIsCurrent
+    !readOnly &&
+    resource.status === 'draft' &&
+    currentVersionId !== null &&
+    blockingItems.length === 0 &&
+    evidenceReady &&
+    profileIsCurrent
   const lastFailure = [...progress]
     .reverse()
     .find((event) => event.status === 'failed')
   const canRetry =
-    resource.status === 'failed'
-    && lastFailure?.retryable === true
+    resource.status === 'failed' && lastFailure?.retryable === true
 
   async function submitDecision() {
     if (!decision || !currentVersionId) return
@@ -120,6 +116,15 @@ export function StrategyReviewV2({
     await onRefresh()
   }
 
+  async function reloadEvidence() {
+    setEvidencePending(true)
+    try {
+      await onRefresh()
+    } finally {
+      setEvidencePending(false)
+    }
+  }
+
   function toggleDetails(id: string) {
     setOpenDetails((previous) =>
       previous.includes(id)
@@ -131,7 +136,9 @@ export function StrategyReviewV2({
   if (!plan) {
     return (
       <section className="rounded-xl border border-warning/25 bg-warning/10 p-5">
-        <StrategyBadge tone="warning">{t('review.unavailableBadge')}</StrategyBadge>
+        <StrategyBadge tone="warning">
+          {t('review.unavailableBadge')}
+        </StrategyBadge>
         <h1 className="mt-3 text-2xl font-bold text-navy">
           {t('review.unavailableTitle')}
         </h1>
@@ -157,7 +164,10 @@ export function StrategyReviewV2({
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-3 focus-visible:ring-white/40"
             >
               {t('reviewV2.openAdvice')}
-              <ArrowUpRight className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
+              <ArrowUpRight
+                className="size-4 rtl:scale-x-[-1]"
+                aria-hidden="true"
+              />
             </Link>
             <Link
               href={`/strategy/${resource.strategy_id}/versions`}
@@ -168,7 +178,9 @@ export function StrategyReviewV2({
             </Link>
           </div>
         </div>
-        <h1 className="text-3xl font-bold md:text-4xl">{t('reviewV2.title')}</h1>
+        <h1 className="text-3xl font-bold md:text-4xl">
+          {t('reviewV2.title')}
+        </h1>
         <p className="max-w-2xl text-sm leading-7 text-white/75">
           {t('reviewV2.subtitle')}
         </p>
@@ -181,11 +193,33 @@ export function StrategyReviewV2({
           body={t('review.staleProfileBody')}
         />
       ) : null}
-      {!readOnly && !evidenceReady ? (
+      {!readOnly && retrieval === null ? (
+        <StatusBanner
+          tone="warning"
+          title={t('review.evidenceLoadTitle')}
+          body={t('review.evidenceLoadBody')}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={evidencePending}
+              onClick={reloadEvidence}
+            >
+              {t(
+                evidencePending
+                  ? 'review.reloadingEvidence'
+                  : 'review.reloadEvidence',
+              )}
+            </Button>
+          }
+        />
+      ) : !readOnly && !evidenceReady ? (
         <StatusBanner
           tone="danger"
           title={t('review.invalidEvidenceTitle')}
-          body={t('review.invalidEvidenceBody', { count: plan.citations.length })}
+          body={t('review.invalidEvidenceBody', {
+            count: plan.citations.length,
+          })}
         />
       ) : null}
       {resource.status === 'failed' ? (
@@ -233,7 +267,11 @@ export function StrategyReviewV2({
                         <bdi>{t(`channels.${commitment.channel}`)}</bdi>
                       </span>
                       <span className="flex flex-wrap items-center gap-1">
-                        <StrategyBadge tone={commitment.role === 'primary' ? 'good' : 'neutral'}>
+                        <StrategyBadge
+                          tone={
+                            commitment.role === 'primary' ? 'good' : 'neutral'
+                          }
+                        >
                           {t(`channels.roles.${commitment.role}`)}
                         </StrategyBadge>
                         <StrategyBadge>
@@ -276,10 +314,15 @@ export function StrategyReviewV2({
               {WEEK_GROUPS.map(([start, end], index) => (
                 <div key={index} className="grid content-start gap-3">
                   <h3 className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                    {t(`reviewV2.weeksGroup.${index === 0 ? 'one' : index === 1 ? 'two' : 'three'}`)}
+                    {t(
+                      `reviewV2.weeksGroup.${index === 0 ? 'one' : index === 1 ? 'two' : 'three'}`,
+                    )}
                   </h3>
                   {plan.calendar_weeks
-                    .filter((week) => week.week_number >= start && week.week_number <= end)
+                    .filter(
+                      (week) =>
+                        week.week_number >= start && week.week_number <= end,
+                    )
                     .map((week) => (
                       <WeekCard
                         key={week.week_number}
@@ -294,9 +337,14 @@ export function StrategyReviewV2({
 
             <div className="grid gap-3 lg:hidden">
               {plan.calendar_weeks.map((week) => (
-                <details key={week.week_number} className="group rounded-lg border border-border bg-background">
+                <details
+                  key={week.week_number}
+                  className="group rounded-lg border border-border bg-background"
+                >
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-bold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
-                    <span>{t('reviewV2.week', { week: week.week_number })}</span>
+                    <span>
+                      {t('reviewV2.week', { week: week.week_number })}
+                    </span>
                     <span className="text-xs font-semibold text-primary">
                       {week.focus}
                     </span>
@@ -315,7 +363,9 @@ export function StrategyReviewV2({
           </section>
 
           <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated md:p-6">
-            <h2 className="text-lg font-bold text-navy">{t('reviewV2.detailsTitle')}</h2>
+            <h2 className="text-lg font-bold text-navy">
+              {t('reviewV2.detailsTitle')}
+            </h2>
             <div className="mt-4 grid gap-3">
               <DetailSection
                 id="why"
@@ -340,7 +390,9 @@ export function StrategyReviewV2({
                           <bdi>{t(`channels.${commitment.channel}`)}</bdi>
                         </span>
                         <StrategyBadge>
-                          {t(`channels.capabilities.${commitment.capability_state}`)}
+                          {t(
+                            `channels.capabilities.${commitment.capability_state}`,
+                          )}
                         </StrategyBadge>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -385,7 +437,9 @@ export function StrategyReviewV2({
                 onToggle={() => toggleDetails('evidence')}
               >
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {t('reviewV2.details.evidenceBody', { count: plan.citations.length })}
+                  {t('reviewV2.details.evidenceBody', {
+                    count: plan.citations.length,
+                  })}
                 </p>
                 <div className="mt-3 grid gap-2">
                   {plan.citations.map((citation) => (
@@ -394,8 +448,13 @@ export function StrategyReviewV2({
                       className="group rounded-lg border border-border bg-background"
                     >
                       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
-                        <Link2 className="size-4 text-primary" aria-hidden="true" />
-                        <span className="min-w-0 flex-1 truncate">{citation.title}</span>
+                        <Link2
+                          className="size-4 text-primary"
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {citation.title}
+                        </span>
                         <StrategyBadge tone="neutral">
                           {t(`review.evidenceTiers.${citation.evidence_tier}`)}
                         </StrategyBadge>
@@ -486,7 +545,7 @@ export function StrategyReviewV2({
           ) : resource.status === 'rejected' ? (
             <RejectedDecisionPanel />
           ) : (
-          <>
+            <>
               <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
                   {t('decision.readinessLabel')}
@@ -513,9 +572,13 @@ export function StrategyReviewV2({
               </section>
 
               <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
-                <h2 className="text-lg font-bold text-navy">{t('decision.title')}</h2>
+                <h2 className="text-lg font-bold text-navy">
+                  {t('decision.title')}
+                </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {canApprove ? t('decision.readyBody') : t('decision.blockedBody')}
+                  {canApprove
+                    ? t('decision.readyBody')
+                    : t('decision.blockedBody')}
                 </p>
                 <div className="mt-4 grid gap-2">
                   <Button
@@ -556,9 +619,13 @@ export function StrategyReviewV2({
                   {t('decision.safetyNote')}
                 </p>
                 <div className="mt-3" aria-live="polite">
-                  {error ? <p className="text-sm text-danger">{error}</p> : null}
+                  {error ? (
+                    <p className="text-sm text-danger">{error}</p>
+                  ) : null}
                   {notice ? (
-                    <p className="text-sm font-semibold text-primary">{notice}</p>
+                    <p className="text-sm font-semibold text-primary">
+                      {notice}
+                    </p>
                   ) : null}
                 </div>
               </section>
@@ -604,13 +671,17 @@ function WeekCard({
       <h4 className="mt-2 font-bold text-navy">{week.focus}</h4>
       <dl className="mt-3 grid gap-2 text-sm">
         <div>
-          <dt className="text-xs text-muted-foreground">{t('reviewV2.outcome')}</dt>
+          <dt className="text-xs text-muted-foreground">
+            {t('reviewV2.outcome')}
+          </dt>
           <dd className="mt-1 leading-6 text-navy">
             <bdi>{week.expected_outcome}</bdi>
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-muted-foreground">{t('reviewV2.measurement')}</dt>
+          <dt className="text-xs text-muted-foreground">
+            {t('reviewV2.measurement')}
+          </dt>
           <dd className="mt-1 leading-6 text-navy">
             <bdi>{week.measurement_check}</bdi>
           </dd>
@@ -643,11 +714,15 @@ function WeekFields({
         <dd className="mt-1 font-semibold text-navy">{week.focus}</dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">{t('reviewV2.outcome')}</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t('reviewV2.outcome')}
+        </dt>
         <dd className="mt-1 leading-6 text-navy">{week.expected_outcome}</dd>
       </div>
       <div>
-        <dt className="text-xs text-muted-foreground">{t('reviewV2.measurement')}</dt>
+        <dt className="text-xs text-muted-foreground">
+          {t('reviewV2.measurement')}
+        </dt>
         <dd className="mt-1 leading-6 text-navy">{week.measurement_check}</dd>
       </div>
     </dl>
@@ -701,12 +776,18 @@ function DetailSection({
         className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-3 text-sm font-bold text-navy focus-visible:ring-3 focus-visible:ring-ring/40"
       >
         <span>{title}</span>
-        <span aria-hidden="true" className={cn('text-primary', open && 'rotate-180')}>
+        <span
+          aria-hidden="true"
+          className={cn('text-primary', open && 'rotate-180')}
+        >
           ▾
         </span>
       </button>
       {open ? (
-        <div id={`plan-details-${id}`} className="grid gap-3 border-t border-border p-3">
+        <div
+          id={`plan-details-${id}`}
+          className="grid gap-3 border-t border-border p-3"
+        >
           {children}
         </div>
       ) : null}
@@ -741,7 +822,10 @@ function IssueList({
                   : 'border-warning/25 bg-warning/10 text-warning',
               )}
             >
-              <ShieldAlert className="mt-1 size-4 shrink-0" aria-hidden="true" />
+              <ShieldAlert
+                className="mt-1 size-4 shrink-0"
+                aria-hidden="true"
+              />
               <span>
                 <strong className="block">
                   {item.blocking
@@ -794,10 +878,12 @@ function StatusBanner({
   tone,
   title,
   body,
+  action,
 }: {
   readonly tone: 'danger' | 'warning'
   readonly title: string
   readonly body: string
+  readonly action?: React.ReactNode
 }) {
   return (
     <section
@@ -818,6 +904,11 @@ function StatusBanner({
         {title}
       </h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{body}</p>
+      {action ? (
+        <div className="mt-3" aria-live="polite">
+          {action}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -863,7 +954,13 @@ function RejectedDecisionPanel() {
   )
 }
 
-function Fact({ label, value }: { readonly label: string; readonly value: string }) {
+function Fact({
+  label,
+  value,
+}: {
+  readonly label: string
+  readonly value: string
+}) {
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-2">
       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -880,14 +977,16 @@ function planEvidenceReady(
 ): boolean {
   if (!plan || !retrieval) return false
   if (retrieval.retrieval_run_id !== plan.retrieval_run_id) return false
-  const itemByChunk = new Map(retrieval.items.map((item) => [item.chunk_id, item]))
+  const itemByChunk = new Map(
+    retrieval.items.map((item) => [item.chunk_id, item]),
+  )
   const now = Date.now()
   const invalid = plan.citations.filter((citation) => {
     const item = itemByChunk.get(citation.chunk_id)
     if (!item || item.source_quality.review_status !== 'approved') return true
     if (
-      item.entry_id !== citation.entry_id
-      || item.entry_version !== citation.entry_version
+      item.entry_id !== citation.entry_id ||
+      item.entry_version !== citation.entry_version
     ) {
       return true
     }
@@ -966,7 +1065,9 @@ function DecisionDialog({
           </p>
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Dialog.Close
-              render={<Button type="button" variant="ghost" disabled={pending} />}
+              render={
+                <Button type="button" variant="ghost" disabled={pending} />
+              }
             >
               {t('decision.cancel')}
             </Dialog.Close>

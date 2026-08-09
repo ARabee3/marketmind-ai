@@ -30,6 +30,10 @@ import { buildRetrievalQueryContext } from "./strategy-ai-contract";
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 import { TargetsService } from "../publishing/targets/targets.service";
+import {
+  StrategyKnowledgeUnavailableError,
+  strategyRetrievalRunIsUsable,
+} from "./strategy-retrieval-readiness";
 
 /** Owner-initiated retry limit (distinct from BullMQ queue-level job retries). */
 const MAX_OWNER_RETRIES = 3;
@@ -50,7 +54,8 @@ export class StrategyService {
     private readonly config: ConfigService,
     private readonly progressGateway: StrategyProgressGateway,
     private readonly targetsService: TargetsService,
-    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
+    @Optional()
+    private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     this.aiUrl =
       this.config.get<string>("aiService.url") ?? "http://localhost:8000";
@@ -230,7 +235,8 @@ export class StrategyService {
       const expiryTime =
         target.expiresAt == null ? null : new Date(target.expiresAt).getTime();
       const expired =
-        expiryTime != null && (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
+        expiryTime != null &&
+        (!Number.isFinite(expiryTime) || expiryTime <= Date.now());
       if (state !== "CONNECTED" || expired) {
         throw strategyTargetUnavailable("reconnect");
       }
@@ -261,7 +267,10 @@ export class StrategyService {
       brief.startDate &&
       brief.planLanguage &&
       brief.externalBudgetMode &&
-      (brief.teamCapacity || (brief.weeklyCapacity && Array.isArray(brief.channelChoices) && brief.channelChoices.length > 0))
+      (brief.teamCapacity ||
+        (brief.weeklyCapacity &&
+          Array.isArray(brief.channelChoices) &&
+          brief.channelChoices.length > 0))
     );
   }
 
@@ -363,6 +372,12 @@ export class StrategyService {
         throw new Error("AI retrieval service returned no retrieval_run_id");
       }
 
+      const retrievalRun =
+        await this.strategyRepository.getRetrievalRunById(retrieval_run_id);
+      if (!strategyRetrievalRunIsUsable(retrievalRun)) {
+        throw new StrategyKnowledgeUnavailableError();
+      }
+
       this.logger.log(
         `[Strategy ${id}] [Corr: ${correlationId}] Retrieval complete. Run: ${retrieval_run_id}. Queuing generation.`,
       );
@@ -395,6 +410,8 @@ export class StrategyService {
       return { status: "queued", correlationId };
     } catch (error: unknown) {
       const message = errorMessage(error);
+      const knowledgeUnavailable =
+        error instanceof StrategyKnowledgeUnavailableError;
       this.logger.error(
         `[Strategy ${id}] [Corr: ${correlationId}] Retrieval failed: ${message}`,
       );
@@ -403,13 +420,23 @@ export class StrategyService {
       await this.recordProgress(id, {
         stage: "failed",
         status: "failed",
-        messageKey: "strategy.retrieval.failed",
-        messageText: "Knowledge retrieval failed.",
-        payload: { code: "RETRIEVAL_FAILED", retryable: isRetryable(error) },
+        messageKey: knowledgeUnavailable
+          ? "strategy.retrieval.knowledge_unavailable"
+          : "strategy.retrieval.failed",
+        messageText: knowledgeUnavailable
+          ? "Trusted marketing guidance is temporarily unavailable. Try again without creating a new Strategy."
+          : "Knowledge retrieval failed.",
+        payload: {
+          code: knowledgeUnavailable ? error.code : "RETRIEVAL_FAILED",
+          retryable: isRetryable(error),
+        },
       });
 
       throw new InternalServerErrorException({
-        message: "Failed to retrieve knowledge pack",
+        code: knowledgeUnavailable ? error.code : "RETRIEVAL_FAILED",
+        message: knowledgeUnavailable
+          ? error.message
+          : "Failed to retrieve knowledge pack",
         retryable: isRetryable(error),
       });
     }
@@ -496,7 +523,14 @@ export class StrategyService {
     );
     if (!strategy) throw new NotFoundException("Strategy not found");
 
-    const run = await this.strategyRepository.getLatestRetrievalRun(id);
+    const currentVersion = strategy.currentVersionId
+      ? await this.strategyRepository.getVersionById(strategy.currentVersionId)
+      : null;
+    const run = currentVersion?.retrievalRunId
+      ? await this.strategyRepository.getRetrievalRunById(
+          currentVersion.retrievalRunId,
+        )
+      : await this.strategyRepository.getLatestRetrievalRun(id);
     if (!run)
       throw new NotFoundException("No retrieval pack found for this strategy");
     return toRetrievalPack(run);
@@ -734,7 +768,7 @@ export class StrategyService {
 
     const correlationId = randomUUID();
 
-    if (latestRun && latestRun.status === "completed") {
+    if (strategyRetrievalRunIsUsable(latestRun)) {
       const { claimed: readyClaimed } =
         await this.strategyRepository.claimForGeneration(
           id,
@@ -828,9 +862,11 @@ export class StrategyService {
       });
     }
 
-    const run = await this.strategyRepository.getLatestRetrievalRun(
-      strategy.id,
-    );
+    const run = version.retrievalRunId
+      ? await this.strategyRepository.getRetrievalRunById(
+          version.retrievalRunId,
+        )
+      : null;
     if (
       !run ||
       run.id !== version.retrievalRunId ||
@@ -910,6 +946,7 @@ export class StrategyService {
 }
 
 function isRetryable(error: unknown): boolean {
+  if (error instanceof StrategyKnowledgeUnavailableError) return true;
   if (typeof error === "object" && error !== null) {
     const e = error as { response?: { status?: number }; code?: string };
     return e.response?.status === 503 || e.code === "ECONNABORTED";
@@ -1025,9 +1062,7 @@ function assertValidChannelChoices(
   }
   const channels = choices.map((choice) => choice.channel);
   if (new Set(channels).size !== channels.length) {
-    throw new BadRequestException(
-      "Channel choices must be unique.",
-    );
+    throw new BadRequestException("Channel choices must be unique.");
   }
   const primaryCount = choices.filter(
     (choice) => choice.role === "primary",
@@ -1079,7 +1114,8 @@ function strategyTargetUnavailable(
 ): UnprocessableEntityException {
   return new UnprocessableEntityException({
     code: "STRATEGY_TARGET_UNAVAILABLE",
-    message: "The selected publishing target is not available for this channel.",
+    message:
+      "The selected publishing target is not available for this channel.",
     recovery,
   });
 }

@@ -34,7 +34,10 @@ export default function StrategyWorkspacePage({ params }: Props) {
     error: retryError,
   } = useStrategyActions()
   const [profile, setProfile] = useState<StrategyProfileSummary | null>(null)
-  const [retrieval, setRetrieval] = useState<RetrievedKnowledgePack | null>(null)
+  const [retrieval, setRetrieval] = useState<RetrievedKnowledgePack | null>(
+    null,
+  )
+  const [retrievalLoaded, setRetrievalLoaded] = useState(false)
 
   const resource = strategy ? toStrategyResource(strategy) : null
   const currentStatus = status ?? resource?.status ?? null
@@ -49,7 +52,10 @@ export default function StrategyWorkspacePage({ params }: Props) {
     ])
       .then(([journey, retrievalPack]) => {
         if (cancelled) return
-        if (journey.journey.state === 'discovery_confirmed' && journey.journey.profile) {
+        if (
+          journey.journey.state === 'discovery_confirmed' &&
+          journey.journey.profile
+        ) {
           const p = journey.journey.profile
           setProfile({
             businessName: p.business_name,
@@ -60,12 +66,17 @@ export default function StrategyWorkspacePage({ params }: Props) {
           })
         }
         setRetrieval(retrievalPack)
+        setRetrievalLoaded(true)
       })
-      .catch(() => {})
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setRetrievalLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [isApproved, strategy_id])
 
-  if (loading) {
+  if (loading || (isApproved && !retrievalLoaded)) {
     return (
       <div className="flex min-h-40 items-center justify-center">
         <p className="text-sm text-muted-foreground">{tc('loading')}</p>
@@ -87,13 +98,20 @@ export default function StrategyWorkspacePage({ params }: Props) {
   }
 
   async function refreshApproved() {
-    await Promise.all([
+    const [, , retrievalPack] = await Promise.all([
       refresh(),
-      getStrategyProgress(strategy_id).catch(() => [] as StrategyProgressEvent[]),
+      getStrategyProgress(strategy_id).catch(
+        () => [] as StrategyProgressEvent[],
+      ),
+      getStrategyRetrieval(strategy_id).catch(() => null),
     ])
+    setRetrieval(retrievalPack)
     if (currentStatus === 'approved') {
       const journey = await getCurrentJourney().catch(() => null)
-      if (journey?.journey.state === 'discovery_confirmed' && journey.journey.profile) {
+      if (
+        journey?.journey.state === 'discovery_confirmed' &&
+        journey.journey.profile
+      ) {
         const p = journey.journey.profile
         setProfile({
           businessName: p.business_name,

@@ -824,6 +824,7 @@
       },
       "failureTitle": "Strategy preparation stopped",
       "failureBody": "The last operation failed before a new draft was saved.",
+      "knowledgeUnavailable": "Trusted marketing guidance was temporarily unavailable. Retry this Strategy; you do not need to create a new one.",
       "notRetryable": "This failure needs a changed input or owner action before it can run again.",
       "openReview": "Open Strategy review"
     },
@@ -839,6 +840,10 @@
       "staleProfileBody": "Approval is blocked. Review the newest confirmed profile and prepare a new Strategy version.",
       "invalidEvidenceTitle": "Some evidence is unavailable or no longer eligible",
       "invalidEvidenceBody": "{count, plural, =0 {The persisted retrieval pack is unavailable.} one {One citation cannot be resolved to approved current knowledge.} other {# citations cannot be resolved to approved current knowledge.}}",
+      "evidenceLoadTitle": "The supporting evidence could not be loaded",
+      "evidenceLoadBody": "Your Strategy draft is still saved. Reload its evidence before approving; you do not need to reject or create another draft.",
+      "reloadEvidence": "Reload evidence",
+      "reloadingEvidence": "Reloading evidence…",
       "failedRevisionTitle": "The attempted revision failed",
       "failedRevisionRetryable": "The previous draft is still available. The server marked this failure as safe to retry.",
       "failedRevisionNotRetryable": "The previous draft is still available. Change the blocking input before trying again.",
