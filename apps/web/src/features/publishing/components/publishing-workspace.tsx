@@ -231,8 +231,12 @@ export function PublishingWorkspace({
   function selectCandidate(candidate: PublicationCandidateSummaryV1) {
     setSelectedCandidateId(candidate.candidate.candidate_id);
     setSelectedWeek(candidate.candidate.strategy_week_number);
-    if (candidate.active_intent_id) {
-      router.push(`/publishing/${candidate.active_intent_id}`);
+    const candidateIntent = activeIntentForCandidate(
+      candidate,
+      data?.intents ?? [],
+    );
+    if (candidateIntent) {
+      router.push(`/publishing/${candidateIntent.intent_id}`);
       return;
     }
     if (typeof window !== "undefined") {
