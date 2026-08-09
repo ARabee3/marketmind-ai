@@ -1,11 +1,11 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
-import * as crypto from "crypto";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { EncryptionService } from "./encryption.service";
+import { FacebookOAuthStateStore } from "./facebook-oauth-state.store";
 
 /** Least-privilege Facebook Page permissions (dev milestone). */
 export const FACEBOOK_SCOPES: readonly string[] = [
@@ -61,16 +61,6 @@ export interface FacebookPagePublishInput {
   readonly caption: string;
 }
 
-interface PendingOAuthState {
-  userId: string;
-  expiresAt: number;
-}
-
-interface PendingStartSession {
-  userId: string;
-  expiresAt: number;
-}
-
 /**
  * Facebook Page connection service (one Page per user, dev milestone).
  *
@@ -83,32 +73,22 @@ interface PendingStartSession {
  * user, and redirects to Facebook.
  *
  * The `state` parameter sent to Facebook is a separate cryptographically
- * random token bound to the user and stored briefly in memory; the callback
- * validates and consumes it before any code exchange. Token validity is
- * checked reactively (at publish/test time): Graph error code 190
- * invalidates the connection and triggers the reconnect email.
- *
- * DEV MILESTONE NOTE: Both `oauthStates` and `startSessions` are stored in
- * plain in-memory Maps. This means:
- * - Server restarts lose all in-progress OAuth flows.
- * - Deploying multiple instances breaks OAuth (state created on instance A
- *   is not visible on instance B, where Facebook redirects the callback).
- * Migrate to Redis-backed storage before any multi-instance production
- * deployment.
+ * random token bound to the user and stored as a short-lived, single-use
+ * Redis value; the callback validates and consumes it before any code
+ * exchange. Token validity is checked reactively (at publish/test time):
+ * Graph error code 190 invalidates the connection and triggers the reconnect
+ * email.
  */
 @Injectable()
 export class FacebookService {
-  // DEV MILESTONE: in-memory Maps — migrate to Redis for production.
   private readonly logger = new Logger(FacebookService.name);
-  private readonly stateTtlMs = 10 * 60 * 1000;
-  private readonly oauthStates = new Map<string, PendingOAuthState>();
-  private readonly startSessions = new Map<string, PendingStartSession>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly encryption: EncryptionService,
     private readonly mailer: MailService,
+    private readonly oauthStateStore: FacebookOAuthStateStore,
   ) {}
 
   /**
@@ -116,20 +96,17 @@ export class FacebookService {
    * generated `state` is stored briefly so the callback can verify it and
    * resolve the owning user.
    */
-  buildAuthorizationUrl(userId: string): string {
+  async buildAuthorizationUrl(userId: string): Promise<string> {
     const appId = this.config.get<string>("facebook.appId") ?? "";
     const redirectUri = this.config.get<string>("facebook.redirectUri") ?? "";
-    const graphVersion = this.config.get<string>("facebook.graphVersion") ?? "v20.0";
+    const graphVersion =
+      this.config.get<string>("facebook.graphVersion") ?? "v20.0";
 
     if (!appId || !redirectUri) {
       throw new Error("Facebook app configuration is missing");
     }
 
-    const state = crypto.randomBytes(24).toString("base64url");
-    this.oauthStates.set(state, {
-      userId,
-      expiresAt: Date.now() + this.stateTtlMs,
-    });
+    const state = await this.oauthStateStore.createOAuthState(userId);
 
     const params = new URLSearchParams({
       client_id: appId,
@@ -146,22 +123,13 @@ export class FacebookService {
    * popup's GET /auth/facebook/start can identify the user without carrying
    * an Authorization header.
    */
-  createStartSession(userId: string): string {
-    const token = crypto.randomBytes(32).toString("base64url");
-    this.startSessions.set(token, {
-      userId,
-      expiresAt: Date.now() + this.stateTtlMs,
-    });
-    return token;
+  createStartSession(userId: string): Promise<string> {
+    return this.oauthStateStore.createStartSession(userId);
   }
 
   /** Validates and consumes a start session token; returns the userId. */
-  consumeStartSession(token: string | undefined): string | null {
-    if (!token) return null;
-    const session = this.startSessions.get(token);
-    this.startSessions.delete(token);
-    if (!session || session.expiresAt < Date.now()) return null;
-    return session.userId;
+  consumeStartSession(token: string | undefined): Promise<string | null> {
+    return this.oauthStateStore.consumeStartSession(token);
   }
 
   /**
@@ -173,10 +141,13 @@ export class FacebookService {
     code: string,
     state: string,
   ): Promise<FacebookCallbackResult> {
-    const pending = this.consumeState(state);
-    if (!pending) {
+    const userId = await this.oauthStateStore.consumeOAuthState(state);
+    if (!userId) {
       this.logger.warn("Facebook OAuth callback with invalid or expired state");
-      return { ok: false, error: "The connection request expired. Please try again." };
+      return {
+        ok: false,
+        error: "The connection request expired. Please try again.",
+      };
     }
 
     try {
@@ -185,9 +156,9 @@ export class FacebookService {
 
       const encrypted = this.encryption.encrypt(page.accessToken);
       await this.prisma.socialConnection.upsert({
-        where: { userId: pending.userId },
+        where: { userId },
         create: {
-          userId: pending.userId,
+          userId,
           provider: "facebook",
           pageId: page.id,
           pageName: page.name,
@@ -211,7 +182,7 @@ export class FacebookService {
       });
 
       this.logger.log(
-        `Facebook Page "${page.name}" connected for user ${pending.userId}`,
+        `Facebook Page "${page.name}" connected for user ${userId}`,
       );
       return { ok: true, pageName: page.name };
     } catch (error) {
@@ -308,12 +279,12 @@ export class FacebookService {
     remotePublicationId: string;
     remoteUrl: string | null;
   }> {
-    const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
     try {
-      const response = await axios.post(
-        this.graphUrl(`${input.pageId}/feed`),
-        { message: input.caption, access_token: pageToken },
-      );
+      const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+      const response = await axios.post(this.graphUrl(`${input.pageId}/feed`), {
+        message: input.caption,
+        access_token: pageToken,
+      });
       const remotePublicationId = String(response.data?.id ?? "");
       if (!remotePublicationId) {
         throw new FacebookGraphError(
@@ -343,8 +314,9 @@ export class FacebookService {
     imageUrl: string;
     caption: string;
   }): Promise<FacebookPhotoPublishResult> {
-    const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
     try {
+      const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+
       const result = await this.publishPhotoViaPageToken({
         pageToken,
         pageId: input.pageId,
@@ -412,12 +384,19 @@ export class FacebookService {
   }
 
   /** Resolves a Page token without returning it to a controller or browser. */
-  private async pageTokenForUser(userId: string, pageId: string): Promise<string> {
+  private async pageTokenForUser(
+    userId: string,
+    pageId: string,
+  ): Promise<string> {
     const connection = await this.prisma.socialConnection.findUnique({
       where: { userId },
     });
     if (!connection || connection.provider !== "facebook") {
-      throw new NotFoundException("No Facebook connection for this user");
+      throw new FacebookGraphError(
+        401,
+        FACEBOOK_INVALID_TOKEN_CODE,
+        "Facebook Page connection is not available for this target",
+      );
     }
     if (!connection.isValid || connection.pageId !== pageId) {
       throw new FacebookGraphError(
@@ -457,11 +436,13 @@ export class FacebookService {
         ? error.code === FACEBOOK_INVALID_TOKEN_CODE
         : this.isGraphErrorCode(error, FACEBOOK_INVALID_TOKEN_CODE);
     if (!isExpired) return;
-    await this.prisma.socialConnection.update({
+    const invalidated = await this.prisma.socialConnection.updateMany({
       where: { userId },
       data: { isValid: false },
     });
-    await this.mailer.sendFacebookExpiredEmail(userId);
+    if (invalidated.count > 0) {
+      await this.mailer.sendFacebookExpiredEmail(userId);
+    }
   }
 
   private normalizeGraphError(error: unknown): FacebookGraphError {
@@ -500,14 +481,6 @@ export class FacebookService {
     } catch {
       return null;
     }
-  }
-
-  private consumeState(state: string): PendingOAuthState | null {
-    const pending = this.oauthStates.get(state);
-    if (!pending) return null;
-    this.oauthStates.delete(state);
-    if (pending.expiresAt < Date.now()) return null;
-    return pending;
   }
 
   private async exchangeCodeForLongLivedToken(code: string): Promise<string> {
@@ -574,7 +547,9 @@ export class FacebookService {
   }
 
   private graphUrl(path: string): string {
-    const base = this.config.get<string>("facebook.graphBaseUrl") ?? "https://graph.facebook.com";
+    const base =
+      this.config.get<string>("facebook.graphBaseUrl") ??
+      "https://graph.facebook.com";
     const version = this.config.get<string>("facebook.graphVersion") ?? "v20.0";
     return `${base}/${version}/${path}`;
   }

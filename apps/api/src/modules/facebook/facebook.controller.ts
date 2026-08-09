@@ -77,8 +77,11 @@ export class FacebookController {
    */
   @Post("auth/facebook/start")
   @UseGuards(JwtAuthGuard)
-  startSession(@Req() req: RequestWithUser, @Res() res: Response): void {
-    const token = this.facebookService.createStartSession(req.user.id);
+  async startSession(
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const token = await this.facebookService.createStartSession(req.user.id);
     res.cookie(FB_START_SESSION_COOKIE, token, {
       httpOnly: true,
       secure: this.config.get<boolean>("cookies.secure", false),
@@ -99,8 +102,8 @@ export class FacebookController {
    * fb-connect-error postMessage and closes.
    */
   @Get("auth/facebook/start")
-  start(@Req() req: Request, @Res() res: Response): void {
-    const userId = this.facebookService.consumeStartSession(
+  async start(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const userId = await this.facebookService.consumeStartSession(
       req.cookies?.[FB_START_SESSION_COOKIE],
     );
     if (!userId) {
@@ -120,7 +123,7 @@ export class FacebookController {
       path: "/",
     });
     try {
-      const url = this.facebookService.buildAuthorizationUrl(userId);
+      const url = await this.facebookService.buildAuthorizationUrl(userId);
       res.redirect(302, url);
     } catch (error) {
       this.logger.error(
@@ -142,15 +145,18 @@ export class FacebookController {
     @Res() res: Response,
   ): Promise<void> {
     if (!code || !state) {
-      res.status(400).type("html").send(
-        postMessageHtml(
-          JSON.stringify({
-            type: "fb-connect-error",
-            error: "The connection request is missing required data.",
-          }),
-          this.webOrigin,
-        ),
-      );
+      res
+        .status(400)
+        .type("html")
+        .send(
+          postMessageHtml(
+            JSON.stringify({
+              type: "fb-connect-error",
+              error: "The connection request is missing required data.",
+            }),
+            this.webOrigin,
+          ),
+        );
       return;
     }
 
@@ -192,11 +198,14 @@ export class FacebookController {
   }
 
   private sendConnectError(res: Response, error: string): void {
-    res.status(200).type("html").send(
-      postMessageHtml(
-        JSON.stringify({ type: "fb-connect-error", error }),
-        this.webOrigin,
-      ),
-    );
+    res
+      .status(200)
+      .type("html")
+      .send(
+        postMessageHtml(
+          JSON.stringify({ type: "fb-connect-error", error }),
+          this.webOrigin,
+        ),
+      );
   }
 }

@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
 
 import { MailModule } from "../mail/mail.module";
+import { RedisModule } from "../redis/redis.module";
 import { EncryptionService } from "./encryption.service";
 import { FacebookController } from "./facebook.controller";
+import { FacebookOAuthStateStore } from "./facebook-oauth-state.store";
 import { FacebookService } from "./facebook.service";
 
 /**
@@ -26,9 +28,9 @@ import { FacebookService } from "./facebook.service";
  * OAuth or token source for the Facebook-only publishing path.
  */
 @Module({
-  imports: [MailModule],
+  imports: [MailModule, RedisModule],
   controllers: [FacebookController],
-  providers: [FacebookService, EncryptionService],
+  providers: [FacebookService, FacebookOAuthStateStore, EncryptionService],
   exports: [FacebookService],
 })
 export class FacebookModule {}
