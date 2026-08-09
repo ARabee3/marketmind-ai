@@ -10,6 +10,11 @@ import { MediaFetchTokenService } from "./media-fetch-token.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { ContentAssetReader } from "../assets/content-asset.reader";
 import type { PublishingAssetReference } from "../assets/publishing-asset.types";
+import {
+  FacebookGraphError,
+  FacebookService,
+} from "../../facebook/facebook.service";
+import { socialConnectionIdFromFacebookTargetRef } from "../targets/facebook-target-ref";
 import * as crypto from "crypto";
 
 export interface MetaExecutorResult {
@@ -73,6 +78,7 @@ export class MetaProviderExecutor {
     private readonly graph: MetaGraphClient,
     private readonly mediaFetch: MediaFetchTokenService,
     private readonly assetReader: ContentAssetReader,
+    private readonly facebook: FacebookService,
   ) {}
 
   /** Executes the exact attempt's publish and returns a sanitized result. */
@@ -130,6 +136,31 @@ export class MetaProviderExecutor {
       return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
     }
 
+    // Candidate bytes are immutable and are needed by both the legacy vault
+    // path and the PR #193 SocialConnection path.
+    const candidate = await this.prisma.publishingCandidate.findUnique({
+      where: { id: intent.candidateId },
+    });
+
+    // PR #193's Facebook connection is the canonical owner connection for the
+    // Facebook-only path. The target carries an opaque SocialConnection
+    // reference, so no Page token needs to be copied into the publishing
+    // credential vault or exposed to the runner.
+    const socialConnectionId =
+      target.channel === "facebook"
+        ? socialConnectionIdFromFacebookTargetRef(target.credentialRef)
+        : null;
+    if (socialConnectionId) {
+      return this.executeFacebookSocialConnection({
+        base,
+        target,
+        intent,
+        candidate,
+        socialConnectionId,
+        attemptId: input.attemptId,
+      });
+    }
+
     const mediaConfigurationError = this.mediaFetch.configurationError();
     if (mediaConfigurationError) {
       this.logger.error(
@@ -164,9 +195,6 @@ export class MetaProviderExecutor {
     }
 
     // ── Candidate asset for the provider-fetch URL ────────────────────────
-    const candidate = await this.prisma.publishingCandidate.findUnique({
-      where: { id: intent.candidateId },
-    });
     const asset = this.firstStaticAsset(candidate?.payload);
     if (!asset) {
       return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
@@ -255,6 +283,129 @@ export class MetaProviderExecutor {
         retryable,
       },
     };
+  }
+
+  private async executeFacebookSocialConnection(input: {
+    base: MetaExecutorResult["result"];
+    target: {
+      businessId: string;
+      channel: string;
+      externalAccountId: string;
+      credentialRef: string;
+    };
+    intent: { createdByUserId: string };
+    candidate: { payload: unknown } | null;
+    socialConnectionId: string;
+    attemptId: string;
+  }): Promise<MetaExecutorResult> {
+    if (input.target.channel !== "facebook") {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.TARGET_UNAUTHORIZED,
+        false,
+      );
+    }
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: input.target.businessId },
+      select: { ownerUserId: true },
+    });
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { id: input.socialConnectionId },
+      select: { userId: true, provider: true, pageId: true, isValid: true },
+    });
+    if (
+      !business ||
+      !connection ||
+      connection.userId !== business.ownerUserId ||
+      connection.provider !== "facebook" ||
+      connection.pageId !== input.target.externalAccountId ||
+      !connection.isValid
+    ) {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.TARGET_UNAUTHORIZED,
+        false,
+      );
+    }
+
+    const asset = this.firstStaticAsset(input.candidate?.payload);
+    if (!asset) {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.ASSET_UNAVAILABLE,
+        false,
+      );
+    }
+    const mediaConfigurationError = this.mediaFetch.configurationError();
+    if (mediaConfigurationError) {
+      this.logger.error(
+        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+      );
+      return this.failed(
+        input.base,
+        PublishingErrorCode.PROVIDER_FAILURE,
+        false,
+      );
+    }
+
+    let imageUrl: string;
+    try {
+      const verified = await this.assetReader.readApprovedAsset(asset);
+      if (!verified) {
+        return this.failed(
+          input.base,
+          PublishingErrorCode.ASSET_UNAVAILABLE,
+          false,
+        );
+      }
+      imageUrl = this.mediaFetch.buildUrl({
+        attemptId: input.attemptId,
+        assetId: asset.asset_id,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
+        ? PublishingErrorCode.ASSET_TAMPERED
+        : PublishingErrorCode.ASSET_UNAVAILABLE;
+      return this.failed(input.base, code, false);
+    }
+
+    try {
+      const published = await this.facebook.publishPhotoForUser({
+        userId: business.ownerUserId,
+        pageId: input.target.externalAccountId,
+        imageUrl,
+        caption: this.captionFor(input.candidate?.payload),
+      });
+      return {
+        result: {
+          ...input.base,
+          outcome: "published",
+          remote_publication_id: published.remotePublicationId,
+          remote_url: published.remoteUrl,
+        },
+      };
+    } catch (err) {
+      if (err instanceof FacebookGraphError) {
+        if (err.status === 0) return this.unknown(input.base);
+        const mapped = mapMetaGraphError(
+          new MetaGraphClientError({
+            status: err.status,
+            code: err.code,
+            ...(err.errorSubcode !== undefined
+              ? { errorSubcode: err.errorSubcode }
+              : {}),
+            message: err.message,
+          }),
+        );
+        return this.failed(input.base, mapped.errorCode, mapped.retryable);
+      }
+      this.logger.warn(
+        `Executor: Facebook connection publish failed for attempt=${input.attemptId}: ${(err as Error).message}`,
+      );
+      return this.failed(input.base, PublishingErrorCode.PROVIDER_FAILURE, true);
+    }
   }
 
   private unknown(base: MetaExecutorResult["result"]): MetaExecutorResult {

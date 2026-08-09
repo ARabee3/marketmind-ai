@@ -8,6 +8,7 @@ import { PublishingTarget } from "@prisma/client";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { TargetProjection } from "./targets.dto";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import { FacebookTargetBridgeService } from "./facebook-target-bridge.service";
 
 /**
  * Allow-list projector: the ONLY path through which target data leaves this service.
@@ -38,9 +39,13 @@ export function toTargetProjection(target: PublishingTarget): TargetProjection {
 export class TargetsService {
   private readonly logger = new Logger(TargetsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly facebookBridge: FacebookTargetBridgeService,
+  ) {}
 
   async listTargets(businessId: string): Promise<TargetProjection[]> {
+    await this.facebookBridge.syncForBusiness(businessId);
     const raw = await this.prisma.publishingTarget.findMany({
       where: { businessId },
       orderBy: { createdAt: "desc" },
@@ -52,6 +57,7 @@ export class TargetsService {
     targetId: string,
     businessId: string,
   ): Promise<TargetProjection> {
+    await this.facebookBridge.syncForBusiness(businessId);
     const raw = await this.prisma.publishingTarget.findFirst({
       where: { id: targetId, businessId },
     });
@@ -64,6 +70,7 @@ export class TargetsService {
    * Returns raw entity (includes credentialRef) — never expose to HTTP layer.
    */
   async assertTargetActive(targetId: string): Promise<PublishingTarget> {
+    await this.facebookBridge.syncTarget(targetId);
     const target = await this.prisma.publishingTarget.findUnique({
       where: { id: targetId },
     });

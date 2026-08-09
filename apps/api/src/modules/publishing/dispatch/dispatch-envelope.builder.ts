@@ -124,8 +124,9 @@ export class DispatchEnvelopeBuilder {
     };
 
     // Immutable target snapshot (lowercase connection_state to match the
-    // frozen enum). credentialRef travels in the body so n8n resolves the
-    // secret from its own store — it is never put on the browser.
+    // frozen enum). credentialRef travels in the body as an opaque pointer;
+    // for PR #193 Facebook targets it identifies a SocialConnection row, not
+    // a token. It is never put on the browser.
     const target: PublishingTargetV1 = {
       contract_version: "publishing-target-v1",
       target_id: input.target.id,

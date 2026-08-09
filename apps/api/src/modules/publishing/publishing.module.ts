@@ -15,6 +15,7 @@ import { PUBLICATION_CANDIDATE_SINK } from "./candidates/publication-candidate-s
 // Targets
 import { TargetsController } from "./targets/targets.controller";
 import { TargetsService } from "./targets/targets.service";
+import { FacebookTargetBridgeService } from "./targets/facebook-target-bridge.service";
 import { MetaConnectionService } from "./targets/meta-connection.service";
 import { MetaOAuthCallbackController } from "./targets/meta-oauth-callback.controller";
 
@@ -90,6 +91,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
       useExisting: CandidatesService,
     },
     TargetsService,
+    FacebookTargetBridgeService,
     MetaConnectionService,
     CredentialVaultService,
     MetaGraphClient,

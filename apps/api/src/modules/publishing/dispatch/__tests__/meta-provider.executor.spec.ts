@@ -78,6 +78,7 @@ function makeContext(
     graph?: unknown;
     mediaFetch?: unknown;
     assetReader?: unknown;
+    facebook?: unknown;
   } = {},
 ) {
   const target = overrides.target ?? {
@@ -149,16 +150,36 @@ function makeContext(
           : overrides.candidate,
       ),
     },
+    business: {
+      findUnique: jest.fn(async () => ({ ownerUserId: "owner-1" })),
+    },
+    socialConnection: {
+      findUnique: jest.fn(async () => ({
+        userId: "owner-1",
+        provider: "facebook",
+        pageId: "page-1",
+        isValid: true,
+      })),
+    },
   };
   const graph = (overrides.graph ?? makeGraph()) as never;
   const mediaFetch = overrides.mediaFetch ?? makeMediaFetch();
   const assetReader = overrides.assetReader ?? makeAssetReader();
+  const facebook =
+    overrides.facebook ??
+    ({
+      publishPhotoForUser: jest.fn(async () => ({
+        remotePublicationId: "social-post-1",
+        remoteUrl: "https://facebook.example/social-post-1",
+      })),
+    } as const);
   const executor = new MetaProviderExecutor(
     prisma as never,
     makeVault(),
     graph,
     mediaFetch as never,
     assetReader as never,
+    facebook as never,
   );
   return {
     executor,
@@ -167,10 +188,42 @@ function makeContext(
     mediaFetch: mediaFetch as unknown as MediaFetchLike,
     assetReader: assetReader as unknown as AssetReaderLike,
     target,
+    facebook: facebook as { publishPhotoForUser: jest.Mock },
   };
 }
 
 describe("MetaProviderExecutor (issue #175)", () => {
+  it("publishes through PR #193's encrypted SocialConnection reference", async () => {
+    const { executor, facebook, graph } = makeContext({
+      target: {
+        id: "target-social-1",
+        businessId: "biz-1",
+        provider: "META",
+        channel: "facebook",
+        externalAccountId: "page-1",
+        connectionState: "CONNECTED",
+        credentialRef: "facebook-social-connection:social-1",
+        capabilities: ["static_image"],
+        expiresAt: null,
+      },
+    });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-social-1",
+    });
+
+    expect(facebook.publishPhotoForUser).toHaveBeenCalledWith({
+      userId: "owner-1",
+      pageId: "page-1",
+      imageUrl: expect.stringContaining("fetch.example.com"),
+      caption: "Hello\n#one #two",
+    });
+    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+    expect(result.result.outcome).toBe("published");
+  });
+
   it("resolves the exact target's vault credential and publishes server-side", async () => {
     const { executor, graph, mediaFetch, assetReader } = makeContext();
 

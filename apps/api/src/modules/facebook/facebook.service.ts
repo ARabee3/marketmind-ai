@@ -42,6 +42,25 @@ export type PublishResult =
   | { success: false; reason: "expired" }
   | { success: false; reason: "error"; message: string };
 
+/** Sanitized Graph failure used by the approval/dispatch executor. */
+export class FacebookGraphError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: number,
+    message: string,
+    readonly errorSubcode?: number,
+  ) {
+    super(message.replace(/\s+/g, " ").slice(0, 500));
+    this.name = "FacebookGraphError";
+  }
+}
+
+export interface FacebookPagePublishInput {
+  readonly userId: string;
+  readonly pageId: string;
+  readonly caption: string;
+}
+
 interface PendingOAuthState {
   userId: string;
   expiresAt: number;
@@ -280,6 +299,66 @@ export class FacebookService {
     }
   }
 
+  /**
+   * Provider-facing Facebook text publish. Unlike the owner test route this
+   * method preserves a sanitized Graph error so the publishing executor can
+   * classify it as failed versus unknown without exposing token material.
+   */
+  async publishTextForUser(input: FacebookPagePublishInput): Promise<{
+    remotePublicationId: string;
+    remoteUrl: string | null;
+  }> {
+    const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+    try {
+      const response = await axios.post(
+        this.graphUrl(`${input.pageId}/feed`),
+        { message: input.caption, access_token: pageToken },
+      );
+      const remotePublicationId = String(response.data?.id ?? "");
+      if (!remotePublicationId) {
+        throw new FacebookGraphError(
+          200,
+          0,
+          "page feed response carried no post id",
+        );
+      }
+      await this.markConnectionTested(input.userId);
+      return {
+        remotePublicationId,
+        remoteUrl: await this.permalinkForPagePost(
+          remotePublicationId,
+          pageToken,
+        ),
+      };
+    } catch (error) {
+      await this.invalidateOnExpiredToken(input.userId, error);
+      throw this.normalizeGraphError(error);
+    }
+  }
+
+  /** Provider-facing Facebook image publish using PR #193's connection. */
+  async publishPhotoForUser(input: {
+    userId: string;
+    pageId: string;
+    imageUrl: string;
+    caption: string;
+  }): Promise<FacebookPhotoPublishResult> {
+    const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+    try {
+      const result = await this.publishPhotoViaPageToken({
+        pageToken,
+        pageId: input.pageId,
+        imageUrl: input.imageUrl,
+        caption: input.caption,
+      });
+      await this.markConnectionTested(input.userId);
+      return result;
+    } catch (error) {
+      await this.invalidateOnExpiredToken(input.userId, error);
+      throw this.normalizeGraphError(error);
+    }
+  }
+
   /** Deletes the user's SocialConnection row. */
   async disconnect(userId: string): Promise<void> {
     await this.prisma.socialConnection.deleteMany({
@@ -330,6 +409,97 @@ export class FacebookService {
       // Permalink is best-effort after a confirmed publish.
     }
     return { remotePublicationId, remoteUrl };
+  }
+
+  /** Resolves a Page token without returning it to a controller or browser. */
+  private async pageTokenForUser(userId: string, pageId: string): Promise<string> {
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { userId },
+    });
+    if (!connection || connection.provider !== "facebook") {
+      throw new NotFoundException("No Facebook connection for this user");
+    }
+    if (!connection.isValid || connection.pageId !== pageId) {
+      throw new FacebookGraphError(
+        401,
+        FACEBOOK_INVALID_TOKEN_CODE,
+        "Facebook Page connection is not valid for this target",
+      );
+    }
+    try {
+      return this.encryption.decrypt(
+        connection.encryptedToken,
+        connection.encryptionIv,
+        connection.authTag,
+      );
+    } catch {
+      throw new FacebookGraphError(
+        0,
+        0,
+        "Facebook Page credential could not be read",
+      );
+    }
+  }
+
+  private async markConnectionTested(userId: string): Promise<void> {
+    await this.prisma.socialConnection.update({
+      where: { userId },
+      data: { lastTestedAt: new Date() },
+    });
+  }
+
+  private async invalidateOnExpiredToken(
+    userId: string,
+    error: unknown,
+  ): Promise<void> {
+    const isExpired =
+      error instanceof FacebookGraphError
+        ? error.code === FACEBOOK_INVALID_TOKEN_CODE
+        : this.isGraphErrorCode(error, FACEBOOK_INVALID_TOKEN_CODE);
+    if (!isExpired) return;
+    await this.prisma.socialConnection.update({
+      where: { userId },
+      data: { isValid: false },
+    });
+    await this.mailer.sendFacebookExpiredEmail(userId);
+  }
+
+  private normalizeGraphError(error: unknown): FacebookGraphError {
+    if (error instanceof FacebookGraphError) return error;
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as {
+        error?: { code?: number; error_subcode?: number; message?: string };
+      };
+      return new FacebookGraphError(
+        error.response?.status ?? 0,
+        Number(data?.error?.code ?? 0),
+        data?.error?.message ?? "Facebook Graph request failed",
+        data?.error?.error_subcode
+          ? Number(data.error.error_subcode)
+          : undefined,
+      );
+    }
+    if (error instanceof NotFoundException) throw error;
+    return new FacebookGraphError(
+      0,
+      0,
+      error instanceof Error ? error.message : "Facebook Graph request failed",
+    );
+  }
+
+  private async permalinkForPagePost(
+    postId: string,
+    pageToken: string,
+  ): Promise<string | null> {
+    try {
+      const response = await axios.get<{ link?: string }>(
+        this.graphUrl(postId),
+        { params: { fields: "link", access_token: pageToken } },
+      );
+      return response.data?.link ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private consumeState(state: string): PendingOAuthState | null {
