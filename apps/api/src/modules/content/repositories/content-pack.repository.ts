@@ -5,6 +5,7 @@ import { PrismaService } from "../../../common/persistence/prisma.service";
 import {
   canTransitionContentPack,
   ContentPackStatus,
+  deterministicGeneratedAssetId,
 } from "@marketmind/contracts";
 import { weekCutoffDate } from "../content-schedule";
 
@@ -221,6 +222,7 @@ export class ContentPackRepository {
             version.id,
             draft.assetIds,
             draft.altText,
+            pack.id,
           );
 
           await tx.contentItem.update({
@@ -322,6 +324,8 @@ export class ContentPackRepository {
           },
         });
 
+        // Keep repository-level claim failures machine-readable so the studio
+        // can offer the owner a truthful recovery action for every 400 state.
         if (cycle.status !== "active") {
           throw new BadRequestException(
             `Content cycle ${cycleId} is not active; cannot claim week ${weekNumber}.`,
@@ -501,14 +505,21 @@ export class ContentPackRepository {
           },
         });
         if (cycle.status !== "active") {
-          throw new BadRequestException(
-            `Content cycle ${cycleId} is not active; cannot claim week ${weekNumber}.`,
-          );
+          throw new BadRequestException({
+            code:
+              cycle.status === "paused"
+                ? "CONTENT_CYCLE_PAUSED"
+                : cycle.status === "completed"
+                  ? "CONTENT_CYCLE_COMPLETED"
+                  : "CONTENT_SCHEMA_FAILURE",
+            message: `Content cycle ${cycleId} is not active; cannot claim week ${weekNumber}.`,
+          });
         }
         if (weekNumber !== cycle.currentWeekNumber) {
-          throw new BadRequestException(
-            `Week ${weekNumber} is not the current actionable week for cycle ${cycleId}.`,
-          );
+          throw new BadRequestException({
+            code: "CONTENT_WEEK_ALREADY_CLAIMED",
+            message: `Week ${weekNumber} is not the current actionable week for cycle ${cycleId}.`,
+          });
         }
 
         const weekContext = await tx.contentWeekContext.findUniqueOrThrow({
@@ -524,9 +535,10 @@ export class ContentPackRepository {
           weekContext.contentCycleId !== cycleId ||
           weekContext.weekNumber !== weekNumber
         ) {
-          throw new BadRequestException(
-            `Week context ${weekContextId} does not belong to cycle ${cycleId} week ${weekNumber}.`,
-          );
+          throw new BadRequestException({
+            code: "CONTENT_SCHEMA_FAILURE",
+            message: `Week context ${weekContextId} does not belong to cycle ${cycleId} week ${weekNumber}.`,
+          });
         }
 
         const frozenPlan = await tx.contentWeekPlan.updateMany({
@@ -542,9 +554,10 @@ export class ContentPackRepository {
           },
         });
         if (frozenPlan.count === 0) {
-          throw new BadRequestException(
-            `Week ${weekNumber} plan is already frozen or missing; cannot claim.`,
-          );
+          throw new BadRequestException({
+            code: "CONTENT_WEEK_ALREADY_CLAIMED",
+            message: `Week ${weekNumber} plan is already frozen or missing; cannot claim.`,
+          });
         }
 
         const frozen = await tx.contentWeekContext.updateMany({
@@ -557,9 +570,10 @@ export class ContentPackRepository {
           data: { frozenAt: new Date() },
         });
         if (frozen.count === 0 || weekContext.frozenAt !== null) {
-          throw new BadRequestException(
-            `Week ${weekNumber} context is already frozen or unavailable.`,
-          );
+          throw new BadRequestException({
+            code: "CONTENT_WEEK_ALREADY_CLAIMED",
+            message: `Week ${weekNumber} context is already frozen or unavailable.`,
+          });
         }
 
         const createdPack = await tx.contentPack.create({
@@ -1027,7 +1041,13 @@ export class ContentPackRepository {
             createdAt: draft.createdAt,
           },
         });
-        await linkVersionAssets(tx, version.id, draft.assetIds, draft.altText);
+        await linkVersionAssets(
+          tx,
+          version.id,
+          draft.assetIds,
+          draft.altText,
+          input.packId,
+        );
 
         await tx.contentItem.update({
           where: { id: item.id },
@@ -1172,7 +1192,13 @@ export class ContentPackRepository {
             createdAt: draft.createdAt,
           },
         });
-        await linkVersionAssets(tx, version.id, draft.assetIds, draft.altText);
+        await linkVersionAssets(
+          tx,
+          version.id,
+          draft.assetIds,
+          draft.altText,
+          input.packId,
+        );
 
         await tx.contentItem.update({
           where: { id: item.id },
@@ -1188,6 +1214,10 @@ export class ContentPackRepository {
         throw new BadRequestException(
           `Pack ${input.packId} is no longer in validating status`,
         );
+      }
+
+      for (const assetJob of input.assetJobs ?? []) {
+        await createAssetJobIntent(tx, assetJob);
       }
 
       if (input.weekNumber === 12) {
@@ -1315,7 +1345,13 @@ export class ContentPackRepository {
           createdAt: input.createdAt,
         },
       });
-      await linkVersionAssets(tx, newVersion.id, input.assetIds, input.altText);
+      await linkVersionAssets(
+        tx,
+        newVersion.id,
+        input.assetIds,
+        input.altText,
+        input.packId,
+      );
       if (input.assetJob) {
         await createAssetJobIntent(tx, input.assetJob);
       }
@@ -1401,26 +1437,73 @@ export class ContentPackRepository {
     readonly providerModel: string | null;
     readonly providerRequestId: string | null;
   }): Promise<{ changed: boolean }> {
-    const result = await this.prisma.contentAsset.updateMany({
-      where: {
-        id: input.assetId,
-        contentItemVersionId: input.contentItemVersionId,
-        status: { in: ["generating", "failed", "missing"] },
-      },
-      data: {
-        status: "ready",
-        mimeType: input.mimeType,
-        width: input.width,
-        height: input.height,
-        storageKey: input.storageKey,
-        checksum: input.checksum,
-        providerName: input.providerName,
-        providerModel: input.providerModel,
-        providerRequestId: input.providerRequestId,
-        failureCode: null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.contentAsset.updateMany({
+        where: {
+          id: input.assetId,
+          contentItemVersionId: input.contentItemVersionId,
+          status: { in: ["generating", "failed", "missing"] },
+        },
+        data: {
+          status: "ready",
+          mimeType: input.mimeType,
+          width: input.width,
+          height: input.height,
+          storageKey: input.storageKey,
+          checksum: input.checksum,
+          providerName: input.providerName,
+          providerModel: input.providerModel,
+          providerRequestId: input.providerRequestId,
+          failureCode: null,
+        },
+      });
+      if (result.count === 1) {
+        const context = await tx.contentItemVersion.findUnique({
+          where: { id: input.contentItemVersionId },
+          select: {
+            contentPack: {
+              select: {
+                contractVersion: true,
+                businessId: true,
+                contentCycle: { select: { id: true, ownerUserId: true } },
+              },
+            },
+          },
+        });
+        const pack = context?.contentPack;
+        if (pack?.contractVersion === "content-v2") {
+          await tx.contentMediaLibraryEntry.upsert({
+            where: { id: input.assetId },
+            create: {
+              id: input.assetId,
+              businessId: pack.businessId,
+              contentCycleId: pack.contentCycle.id,
+              ownerUserId: pack.contentCycle.ownerUserId,
+              kind: "generated_static",
+              status: "ready",
+              mimeType: input.mimeType,
+              sizeBytes: null,
+              width: input.width,
+              height: input.height,
+              checksum: input.checksum,
+              storageKey: input.storageKey,
+              failureCode: null,
+            },
+            update: {
+              kind: "generated_static",
+              status: "ready",
+              mimeType: input.mimeType,
+              width: input.width,
+              height: input.height,
+              checksum: input.checksum,
+              storageKey: input.storageKey,
+              failureCode: null,
+            },
+          });
+        }
+      }
+      return { changed: result.count === 1 };
     });
-    return { changed: result.count === 1 };
   }
 
   async markAssetFailed(input: {
@@ -1428,20 +1511,64 @@ export class ContentPackRepository {
     readonly contentItemVersionId: string;
     readonly failureCode: string;
   }): Promise<{ changed: boolean }> {
-    const result = await this.prisma.contentAsset.updateMany({
-      where: {
-        id: input.assetId,
-        contentItemVersionId: input.contentItemVersionId,
-        status: { not: "ready" },
-      },
-      data: {
-        status: "failed",
-        storageKey: null,
-        checksum: null,
-        failureCode: input.failureCode,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.contentAsset.updateMany({
+        where: {
+          id: input.assetId,
+          contentItemVersionId: input.contentItemVersionId,
+          status: { not: "ready" },
+        },
+        data: {
+          status: "failed",
+          storageKey: null,
+          checksum: null,
+          failureCode: input.failureCode,
+        },
+      });
+      if (result.count === 1) {
+        const context = await tx.contentItemVersion.findUnique({
+          where: { id: input.contentItemVersionId },
+          select: {
+            contentPack: {
+              select: {
+                contractVersion: true,
+                businessId: true,
+                contentCycle: { select: { id: true, ownerUserId: true } },
+              },
+            },
+          },
+        });
+        const pack = context?.contentPack;
+        if (pack?.contractVersion === "content-v2") {
+          await tx.contentMediaLibraryEntry.upsert({
+            where: { id: input.assetId },
+            create: {
+              id: input.assetId,
+              businessId: pack.businessId,
+              contentCycleId: pack.contentCycle.id,
+              ownerUserId: pack.contentCycle.ownerUserId,
+              kind: "generated_static",
+              status: "failed",
+              mimeType: null,
+              sizeBytes: null,
+              width: null,
+              height: null,
+              checksum: null,
+              storageKey: null,
+              failureCode: input.failureCode,
+            },
+            update: {
+              kind: "generated_static",
+              status: "failed",
+              storageKey: null,
+              checksum: null,
+              failureCode: input.failureCode,
+            },
+          });
+        }
+      }
+      return { changed: result.count === 1 };
     });
-    return { changed: result.count === 1 };
   }
 }
 
@@ -1473,6 +1600,7 @@ async function linkVersionAssets(
   contentItemVersionId: string,
   assetIdsValue: Prisma.InputJsonValue,
   altText: string,
+  contentPackId?: string,
 ): Promise<void> {
   const assetIds = Array.isArray(assetIdsValue)
     ? assetIdsValue.filter(
@@ -1483,25 +1611,108 @@ async function linkVersionAssets(
     const existing = await tx.contentAsset.findUnique({
       where: { id: assetId },
     });
+    const pack = contentPackId
+      ? await tx.contentPack.findUnique({
+        where: { id: contentPackId },
+        select: { contractVersion: true, contentCycleId: true },
+        })
+      : null;
+    const mediaEntry = pack
+      ? await tx.contentMediaLibraryEntry.findFirst({
+          where: {
+            id: assetId,
+            contentCycleId: pack.contentCycleId,
+            status: "ready",
+          },
+        })
+      : null;
+    if (mediaEntry && !mediaEntry.storageKey) {
+      throw new BadRequestException(
+        `Media ${assetId} is ready but has no stored object.`,
+      );
+    }
     if (!existing) {
-      await tx.contentAsset.create({
-        data: {
-          id: assetId,
-          contentItemVersionId,
-          kind: "generated_static",
-          status: "generating",
-          mimeType: null,
-          width: null,
-          height: null,
-          storageKey: null,
-          checksum: null,
-          altText,
-          providerName: null,
-          providerModel: null,
-          providerRequestId: null,
-          failureCode: null,
-        },
-      });
+      if (mediaEntry) {
+        await tx.contentAsset.create({
+          data: {
+            id: assetId,
+            contentItemVersionId: null,
+            // The media library calls an owner upload `owner_uploaded`, while
+            // the frozen ContentAsset/PublicationCandidate boundary calls it
+            // `owner_supplied`. Normalize at the boundary so uploaded media
+            // remains publishable after it is attached to a post.
+            kind:
+              mediaEntry.kind === "generated_static"
+                ? "generated_static"
+                : "owner_supplied",
+            status: "ready",
+            mimeType: mediaEntry.mimeType,
+            width: mediaEntry.width,
+            height: mediaEntry.height,
+            storageKey: mediaEntry.storageKey,
+            checksum: mediaEntry.checksum,
+            altText,
+            providerName: null,
+            providerModel: null,
+            providerRequestId: null,
+            failureCode: null,
+          },
+        });
+      } else if (
+        !contentPackId ||
+        pack?.contractVersion !== "content-v2" ||
+        assetId === deterministicGeneratedAssetId(contentItemVersionId)
+      ) {
+        await tx.contentAsset.create({
+          data: {
+            id: assetId,
+            contentItemVersionId,
+            kind: "generated_static",
+            status: "generating",
+            mimeType: null,
+            width: null,
+            height: null,
+            storageKey: null,
+            checksum: null,
+            altText,
+            providerName: null,
+            providerModel: null,
+            providerRequestId: null,
+            failureCode: null,
+          },
+        });
+        if (pack?.contractVersion === "content-v2") {
+          const cycle = await tx.contentCycle.findUnique({
+            where: { id: pack.contentCycleId },
+            select: { businessId: true, ownerUserId: true },
+          });
+          if (cycle) {
+            await tx.contentMediaLibraryEntry.upsert({
+              where: { id: assetId },
+              create: {
+                id: assetId,
+                businessId: cycle.businessId,
+                contentCycleId: pack.contentCycleId,
+                ownerUserId: cycle.ownerUserId,
+                kind: "generated_static",
+                status: "queued",
+                mimeType: null,
+                sizeBytes: null,
+                width: null,
+                height: null,
+                checksum: null,
+                storageKey: null,
+                failureCode: null,
+              },
+              update: {},
+            });
+          }
+        }
+      } else {
+        throw new BadRequestException(
+          `Media ${assetId} is not available in this content cycle.`,
+        );
+      }
     }
     await tx.contentItemVersionAsset.upsert({
       where: {

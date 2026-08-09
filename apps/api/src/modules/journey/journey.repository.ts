@@ -242,10 +242,11 @@ export class JourneyRepository implements JourneyRepositoryPort {
 
   async findContentForOwner(ownerUserId: string): Promise<JourneyContentRecord> {
     const cycle = await this.prisma.contentCycle.findFirst({
-      where: { ownerUserId },
+      where: { ownerUserId, contractVersion: "content-v2" },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        contractVersion: true,
         strategyId: true,
         status: true,
         currentWeekNumber: true,
@@ -264,7 +265,7 @@ export class JourneyRepository implements JourneyRepositoryPort {
       },
     });
 
-    if (!cycle) {
+    if (!cycle || cycle.contractVersion !== "content-v2") {
       return { cycle: null, pack: null };
     }
 

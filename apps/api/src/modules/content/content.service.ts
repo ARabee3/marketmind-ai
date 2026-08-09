@@ -7,7 +7,6 @@ import {
   Optional,
 } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import { createHash, randomUUID } from "node:crypto";
@@ -66,7 +65,10 @@ import type {
 } from "./repositories/publication-candidate.repository";
 import { StrategyRepository } from "../strategy/strategy.repository";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { ContentV2Service } from "./v2/content-v2.service";
+import {
+  CONTENT_V2_REQUIRED,
+  ContentV2Service,
+} from "./v2/content-v2.service";
 import { extractSupportedContentChannels } from "./content-strategy.adapter";
 import {
   AssetStorage,
@@ -137,7 +139,6 @@ export class ContentService {
     @Optional()
     private readonly billingEntitlements?: BillingEntitlementsService,
     @Optional() private readonly contentV2Service?: ContentV2Service,
-    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   // ── POST /api/v1/content-cycles ────────────────────────────────────
@@ -235,12 +236,24 @@ export class ContentService {
       });
     }
 
-    // Owner-first v2 plans must expose a usable content-v1 handoff before any
+    // Content now has one active contract: the owner-first content-v2 studio.
+    // A legacy Strategy row is retained for history, but it must never create
+    // a new cycle that can send the owner into the retired Content v1 route.
+    const planData = toPayload(currentVersion.planData);
+    if (planData["contract_version"] !== "strategy-v2") {
+      throw new BadRequestException({
+        code: CONTENT_V2_REQUIRED,
+        retryable: false,
+        message:
+          "The active Content workflow requires an approved Strategy v2 plan. Generate and approve a Strategy v2 plan before starting Content.",
+      });
+    }
+
+    // Strategy-v2 plans must expose a usable deterministic handoff before any
     // Content cycle can start. Website/delivery-only strategies stay
     // owner-managed and fail here with a precise non-retryable compatibility
     // reason instead of creating an empty, partial, or silently re-targeted
     // cycle (issue #135).
-    const planData = toPayload(currentVersion.planData);
     if (
       planData["contract_version"] === "strategy-v2" &&
       extractSupportedContentChannels(planData).length === 0
@@ -253,7 +266,7 @@ export class ContentService {
       throw new BadRequestException({
         code: "CONTENT_SCHEMA_FAILURE",
         retryable: false,
-        message: `The approved Strategy has no usable content-v1 handoff (${reason}). The plan remains owner-managed; a Content cycle cannot start.`,
+        message: `The approved Strategy has no usable Content handoff (${reason}). The plan remains owner-managed; a Content cycle cannot start.`,
       });
     }
 
@@ -285,13 +298,6 @@ export class ContentService {
       3,
     );
 
-    // Content v2 is the default path. Keep v1 available only as an explicit
-    // deployment fallback so a missing ConfigService or missing environment
-    // variable cannot silently send new owners into the legacy workspace.
-    const contentV2DefaultEnabled =
-      this.configService?.get<boolean>("content.v2DefaultEnabled", true) ??
-      true;
-
     const created = await this.cycleRepository.createCycleWithWeekOne(
       {
         businessId: strategy.businessId,
@@ -312,10 +318,9 @@ export class ContentService {
           ? { idempotencyKey: `cycle-creation:${strategy.id}:week:1` }
           : undefined,
         // v2 cycles skip the automatic week-1 claim because the owner must
-        // configure the editorial profile and plan the week first. The
-        // legacy path is selected only by the explicit false override.
-        contractVersion: contentV2DefaultEnabled ? "content-v2" : "content-v1",
-        skipWeekOneClaim: contentV2DefaultEnabled,
+        // configure the editorial profile and plan the week first.
+        contractVersion: "content-v2",
+        skipWeekOneClaim: true,
       },
       ownerUserId,
     );
@@ -324,28 +329,17 @@ export class ContentService {
       `[ContentCycle ${created.cycle.id}] ${created.created ? "Created" : "Replayed"} from approved Strategy ${strategy.id} v${currentVersion.version} for week 1 (cutoff ${nextGenerationAt.toISOString()}).`,
     );
 
-    // v2 cycles do not auto-generate week 1; the weekly studio drives
-    // configuration → planning → explicit generation.
-    if (created.cycle.contractVersion === "content-v2") {
-      return {
-        content_cycle: toContentCycle(created.cycle),
-        initial_week_context: toContentWeekContext(created.weekContext),
-      };
+    // A replay can return a historical v1 row if an old idempotency key is
+    // submitted again. Preserve that row, but never continue it through the
+    // active creation path or route the owner into the retired workspace.
+    if (created.cycle.contractVersion !== "content-v2") {
+      throw new ConflictException({
+        code: CONTENT_V2_REQUIRED,
+        retryable: false,
+        message:
+          "This idempotency key belongs to a legacy Content v1 cycle. Start Content again with a new cycle request for the Strategy v2 studio.",
+      });
     }
-
-    // Issue #110 requires week 1 to be queued immediately when the cycle starts.
-    // generateWeek's idempotent claim ensures a duplicate cycle-creation request
-    // never enqueues two jobs.
-    await this.generateWeek(
-      created.cycle.id,
-      1,
-      {
-        content_cycle_id: created.cycle.id,
-        week_number: 1,
-        idempotency_key: `cycle-creation:${created.cycle.id}:week:1`,
-      },
-      ownerUserId,
-    );
 
     return {
       content_cycle: toContentCycle(created.cycle),
@@ -994,13 +988,14 @@ export class ContentService {
    *    otherwise — arch doc 559-569);
    * 3. the deterministic policy fixture validates
    *    (CONTENT_APPROVAL_BLOCKED on any blocker);
-   * 4. an approval additionally requires ready publishable assets
-   *    (CONTENT_ASSET_REQUIRED).
+   * 4. an approval for a media-required version additionally requires ready
+   *    publishable assets (CONTENT_ASSET_REQUIRED).
    *
-   * The decision and the candidate (on approve) are written atomically, so a
-   * candidate can never reference a decision/version that was not committed
-   * (arch doc 826-828). Reject and revision_requested record the decision only
-   * and return `publication_candidate: null`.
+   * The decision and the candidate (when the approved version has publishable
+   * media) are written atomically, so a candidate can never reference a
+   * decision/version that was not committed (arch doc 826-828). Text-only
+   * approvals do not fabricate an asset to satisfy the frozen
+   * PublicationCandidateV1 boundary; they return `publication_candidate: null`.
    */
   async decide(
     packId: string,
@@ -1084,8 +1079,9 @@ export class ContentService {
       ownerUserId,
     );
 
-    // Approvals additionally require a ready publishable asset before a
-    // candidate can be frozen (CONTENT_ASSET_REQUIRED).
+    // Media-required approvals need a ready publishable asset before the
+    // frozen candidate can be created. Optional-media text posts may still be
+    // approved without inventing an image or weakening PublicationCandidateV1.
     if (
       dto.decision === "approved" &&
       fixture.item_version.asset_required &&
@@ -1158,11 +1154,21 @@ export class ContentService {
           };
         }
 
+        const candidateAssets = readyCandidateAssets(fixture);
+        if (candidateAssets.length === 0) {
+          await this.packRepository.derivePackStatusFromItems(packId, tx);
+          return {
+            decision: recorded,
+            publicationCandidate: null,
+            outboxEventId: null as string | null,
+          };
+        }
+
         const created = await this.candidateRepository.createCandidate(
           {
             approval: recorded,
             itemVersion: this.candidateItemVersionInput(currentVersion),
-            assets: readyCandidateAssets(fixture),
+            assets: candidateAssets,
             ownerUserId,
           },
           tx,
@@ -1633,11 +1639,14 @@ export class ContentService {
           );
         if (existingCandidate) continue;
 
+        const candidateAssets = readyCandidateAssets(entry.fixture);
+        if (candidateAssets.length === 0) continue;
+
         const created = await this.candidateRepository.createCandidate(
           {
             approval: decision,
             itemVersion: this.candidateItemVersionInput(entry.currentVersion),
-            assets: readyCandidateAssets(entry.fixture),
+            assets: candidateAssets,
             ownerUserId,
           },
           tx,

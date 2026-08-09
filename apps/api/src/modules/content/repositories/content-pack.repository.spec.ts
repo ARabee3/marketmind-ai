@@ -323,6 +323,66 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("claimQueuedPackV2", () => {
+    it("returns a stable conflict code when the week context is already frozen", async () => {
+      const transactionClient = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        contentPack: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+        contentCycle: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            businessId: "business-1",
+            strategyId: "strategy-1",
+            strategyVersion: 1,
+            strategyDecisionId: "decision-1",
+            profileVersionId: "profile-1",
+            currentWeekNumber: 1,
+            status: "active",
+            week1StartDate: new Date("2026-08-09T00:00:00.000Z"),
+          }),
+        },
+        contentWeekContext: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            weeklyClaimId: "claim-1",
+            contentCycleId: "cycle-1",
+            weekNumber: 1,
+            frozenAt: new Date("2026-08-09T01:00:00.000Z"),
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        contentWeekPlan: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(transactionClient),
+        ),
+      } as unknown as PrismaService);
+
+      try {
+        await repo.claimQueuedPackV2({
+          cycleId: "cycle-1",
+          weekNumber: 1,
+          weekContextId: "context-1",
+          weekPlanId: "plan-1",
+          frozenInput: {},
+          jobIntent: { idempotencyKey: "idem-1" },
+        });
+        throw new Error("Expected the frozen context claim to fail");
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).getResponse()).toEqual(
+          expect.objectContaining({
+            code: "CONTENT_WEEK_ALREADY_CLAIMED",
+          }),
+        );
+      }
+    });
+  });
+
   describe("getPackByIdAndOwner", () => {
     it("scopes by owner through the cycle", async () => {
       const findFirst = jest.fn().mockResolvedValue(PACK_ROW);
