@@ -11,6 +11,12 @@ const validConfig = (): Record<string, unknown> => ({
   GOOGLE_CLIENT_SECRET: "google-client-secret",
   GOOGLE_CALLBACK_URL: "http://localhost:3001/api/v1/auth/google/callback",
   MAIL_PROVIDER: "mock",
+  FB_APP_ID: "facebook-app-id",
+  FB_APP_SECRET: "facebook-app-secret",
+  FB_REDIRECT_URI:
+    "http://localhost:3001/api/v1/auth/facebook/callback",
+  TOKEN_ENCRYPTION_KEY:
+    "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
 });
 
 describe("envSchema mail configuration", () => {
@@ -155,6 +161,35 @@ describe("envSchema Facebook enrichment configuration", () => {
     expect(() => envSchema({ ...validConfig(), [key]: value })).toThrow(
       message,
     );
+  });
+});
+
+describe("envSchema Facebook connection validation", () => {
+  it("accepts a valid 32-byte hex-encoded token encryption key", () => {
+    expect(envSchema(validConfig())).toBeDefined();
+  });
+
+  it("rejects missing Facebook app credentials", () => {
+    const config = validConfig();
+    delete config.FB_APP_ID;
+    delete config.FB_APP_SECRET;
+
+    expect(() => envSchema(config)).toThrow(
+      "FB_APP_ID is required for the Facebook Page connection",
+    );
+  });
+
+  it("rejects a token encryption key that does not decode to 32 bytes", () => {
+    expect(() =>
+      envSchema({ ...validConfig(), TOKEN_ENCRYPTION_KEY: "not-a-valid-key" }),
+    ).toThrow("TOKEN_ENCRYPTION_KEY must hex-decode to 32 bytes");
+  });
+
+  it("rejects a missing token encryption key", () => {
+    const config = validConfig();
+    delete config.TOKEN_ENCRYPTION_KEY;
+
+    expect(() => envSchema(config)).toThrow("TOKEN_ENCRYPTION_KEY is required");
   });
 });
 

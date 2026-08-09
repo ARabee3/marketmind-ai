@@ -122,11 +122,11 @@ export function envSchema(
   const tokenEncryptionKey = config.TOKEN_ENCRYPTION_KEY as string | undefined;
   if (!tokenEncryptionKey) {
     errors.push(
-      "TOKEN_ENCRYPTION_KEY is required (AES-256-GCM key, 64 hex chars)",
+      "TOKEN_ENCRYPTION_KEY is required (AES-256-GCM key, 32 bytes hex-encoded)",
     );
-  } else if (tokenEncryptionKey.length !== 64) {
+  } else if (Buffer.from(tokenEncryptionKey, "hex").length !== 32) {
     errors.push(
-      "TOKEN_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)",
+      "TOKEN_ENCRYPTION_KEY must hex-decode to 32 bytes (AES-256-GCM key)",
     );
   }
 
