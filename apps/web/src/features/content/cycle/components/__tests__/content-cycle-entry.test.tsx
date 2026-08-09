@@ -7,7 +7,7 @@ import * as contentCycleApi from "@/lib/api/content-cycle";
 import type { CurrentJourneyResponse } from "@marketmind/contracts";
 import {
   mockJourneyNoCycle,
-  mockApprovedStrategyApi,
+  mockApprovedStrategyApiV2,
   mockStrategyVersions,
   mockActiveCycle,
   mockOwnerConfirmedContextWeek1,
@@ -17,12 +17,24 @@ import {
 } from "../../lib/content-cycle-fixtures";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => {
-    if (key === "title") return "Turn the approved Strategy into weekly drafts";
-    if (key === "noProfileTitle") return "Business Profile Required";
-    if (key === "noStrategyTitle") return "Approved Strategy Required";
-    if (key === "approvalRequiredTitle") return "Strategy Approval Needed";
-    if (key === "startCycle") return "Start 12-Week Content Cycle";
+  useTranslations: (namespace: string) => (key: string) => {
+    if (namespace === "ContentCycle.entry") {
+      if (key === "title") return "Turn the approved Strategy into weekly drafts";
+      if (key === "noProfileTitle") return "Business Profile Required";
+      if (key === "noStrategyTitle") return "Approved Strategy Required";
+      if (key === "approvalRequiredTitle") return "Strategy Approval Needed";
+      return key;
+    }
+    if (namespace === "ContentV2.entry") {
+      if (key === "title") return "Your weekly content studio";
+      if (key === "startCta") return "Start 12-Week Content Cycle";
+      if (key === "strategyLabel") return "Approved strategy";
+      if (key === "whatNextLabel") return "What happens next";
+      if (key === "viewStrategyCta") return "View strategy";
+      if (key === "formats.photo") return "Photo";
+      if (key === "formats.reels") return "Reels";
+      return key;
+    }
     return key;
   },
   useLocale: () => "en",
@@ -84,7 +96,7 @@ describe("ContentCycleEntry", () => {
     });
   });
 
-  it("renders ready to start workspace when approved strategy passes all checks", async () => {
+  it("renders the content-v2 start screen when approved strategy passes all checks", async () => {
     const journeyWithStrategy = {
       ...mockJourneyNoCycle,
       journey: {
@@ -105,7 +117,7 @@ describe("ContentCycleEntry", () => {
       journeyWithStrategy as unknown as CurrentJourneyResponse,
     );
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(
-      mockApprovedStrategyApi,
+      mockApprovedStrategyApiV2,
     );
     vi.mocked(strategyApi.getStrategyVersions).mockResolvedValue(
       mockStrategyVersions,
@@ -114,15 +126,16 @@ describe("ContentCycleEntry", () => {
     render(<ContentCycleEntry />);
 
     await waitFor(() => {
-      expect(
-        screen.getAllByText((content) =>
-          content.includes("Turn the approved Strategy"),
-        ).length,
-      ).toBeGreaterThan(0);
+      expect(screen.getByText("Your weekly content studio")).toBeDefined();
     });
+    expect(screen.getByText("Reels · Photo")).toBeDefined();
+
+    // The legacy oversized week-1 context form must not render.
+    expect(screen.queryByRole("radio", { name: "noPromotion" })).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 
-  it("opens the content-v2 studio after creating a cycle", async () => {
+  it("opens the content-v2 studio after creating a cycle with a safe-default week context", async () => {
     const journeyWithStrategy = {
       ...mockJourneyNoCycle,
       journey: {
@@ -143,7 +156,7 @@ describe("ContentCycleEntry", () => {
       journeyWithStrategy as unknown as CurrentJourneyResponse,
     );
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(
-      mockApprovedStrategyApi,
+      mockApprovedStrategyApiV2,
     );
     vi.mocked(strategyApi.getStrategyVersions).mockResolvedValue(
       mockStrategyVersions,
@@ -162,11 +175,7 @@ describe("ContentCycleEntry", () => {
     render(<ContentCycleEntry />);
 
     await waitFor(() => {
-      expect(screen.getByRole("radio", { name: "noPromotion" })).toBeDefined();
-    });
-    fireEvent.click(screen.getByRole("radio", { name: "noPromotion" }));
-    fireEvent.change(screen.getByRole("combobox"), {
-      target: { value: "none" },
+      expect(screen.getByText("Your weekly content studio")).toBeDefined();
     });
     fireEvent.click(
       screen.getByRole("button", { name: "Start 12-Week Content Cycle" }),
@@ -177,5 +186,31 @@ describe("ContentCycleEntry", () => {
         `/content/${mockActiveCycle.id}/studio`,
       );
     });
+
+    const createCall = vi.mocked(contentCycleApi.createContentCycle).mock
+      .calls[0][0] as { initial_week_context: { promotion_mode: string } };
+    expect(createCall.initial_week_context.promotion_mode).toBe("none");
+  });
+
+  it("never routes a legacy cycle to the V1 week workspace", async () => {
+    vi.mocked(journeyApi.getCurrentJourney).mockResolvedValue({
+      ...mockJourneyNoCycle,
+      content: {
+        ...mockJourneyNoCycle.content,
+        cycle: { id: mockActiveCycle.id, current_week: 1 },
+      },
+    } as unknown as CurrentJourneyResponse);
+    vi.mocked(contentCycleApi.getContentCycle).mockResolvedValue(
+      mockActiveCycle,
+    );
+
+    render(<ContentCycleEntry />);
+
+    await waitFor(() => {
+      expect(screen.getByText("contentV2Required")).toBeDefined();
+    });
+    expect(mockReplace).not.toHaveBeenCalledWith(
+      `/content/${mockActiveCycle.id}/weeks/1`,
+    );
   });
 });

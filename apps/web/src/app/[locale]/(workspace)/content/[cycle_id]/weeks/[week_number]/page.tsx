@@ -38,6 +38,10 @@ export default async function ContentWeekPage({ params }: Props) {
   }
 
   return (
-    <ContentCycleWorkspace cycleId={cycle_id} weekNumber={parsedWeek} />
+    <ContentCycleWorkspace
+      cycleId={cycle_id}
+      weekNumber={parsedWeek}
+      redirectV2ToStudio
+    />
   );
 }

@@ -40,6 +40,20 @@ describe("content-cycle-state", () => {
       }
     });
 
+    it("blocks a legacy Strategy plan when the active Content path requires V2", () => {
+      const result = resolveApprovedContentStrategy(
+        mockJourneyNoCycle,
+        mockApprovedStrategyApi,
+        mockStrategyVersions,
+        { requireStrategyV2: true },
+      );
+
+      expect(result).toEqual({
+        blocker: "content_v2_required",
+        destination: `/strategy/${MOCK_STRATEGY_ID}`,
+      });
+    });
+
     it("blocks when no profile is present in journey", () => {
       const journey: CurrentJourneyResponse = {
         ...mockJourneyNoCycle,

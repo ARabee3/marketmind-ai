@@ -17,6 +17,7 @@ export type ContentErrorKey =
   | "rateLimited"
   | "unavailable"
   | "unknown"
+  | "contentV2Required"
   | "provenanceMismatch"
   | "staleRoute"
   | "invalidServerWeek";
@@ -52,6 +53,8 @@ export function contentErrorKey(err: ErrorLike): ContentErrorKey {
       return "retryNotAllowed";
     case "CONTENT_PACK_RETRY_CONFLICT":
       return "retryConflict";
+    case "CONTENT_V2_REQUIRED":
+      return "contentV2Required";
   }
 
   const status = err.status;
