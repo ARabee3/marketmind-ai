@@ -72,6 +72,7 @@ export function StrategyReview({
   const [decision, setDecision] = useState<DecisionAction | null>(null)
   const [feedback, setFeedback] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+  const [evidencePending, setEvidencePending] = useState(false)
 
   // Owner-first strategy-v2 plans render on the calendar-first review.
   // Hooks above stay unconditional; this is a pure render-time dispatch.
@@ -85,38 +86,34 @@ export function StrategyReview({
   const evidenceContext = useMemo(
     () => ({
       citations: new Map(
-        plan?.citations.map((citation) => [citation.citation_id, citation]) ?? [],
+        plan?.citations.map((citation) => [citation.citation_id, citation]) ??
+          [],
       ),
       retrieval,
     }),
     [plan, retrieval],
   )
-  const blockingItems = plan?.blockers.filter(
-    (blocker) => blocker.severity === 'blocking',
-  ) ?? []
+  const blockingItems =
+    plan?.blockers.filter((blocker) => blocker.severity === 'blocking') ?? []
   const profileIsCurrent =
-    readOnly
-    || (
-      Boolean(profile)
-      && Boolean(plan)
-      && profile?.version === plan?.profile_version.version
-      && resource.brief?.business_profile_version
-        .business_profile_version_id
-        === plan?.profile_version.business_profile_version_id
-    )
+    readOnly ||
+    (Boolean(profile) &&
+      Boolean(plan) &&
+      profile?.version === plan?.profile_version.version &&
+      resource.brief?.business_profile_version.business_profile_version_id ===
+        plan?.profile_version.business_profile_version_id)
   const canApprove =
-    !readOnly
-    && resource.status === 'draft'
-    && currentVersionId !== null
-    && blockingItems.length === 0
-    && evidence.ready
-    && profileIsCurrent
+    !readOnly &&
+    resource.status === 'draft' &&
+    currentVersionId !== null &&
+    blockingItems.length === 0 &&
+    evidence.ready &&
+    profileIsCurrent
   const lastFailure = [...progress]
     .reverse()
     .find((event) => event.status === 'failed')
   const canRetry =
-    resource.status === 'failed'
-    && lastFailure?.retryable === true
+    resource.status === 'failed' && lastFailure?.retryable === true
 
   async function submitDecision() {
     if (!decision || !currentVersionId) return
@@ -146,6 +143,15 @@ export function StrategyReview({
     await onRefresh()
   }
 
+  async function reloadEvidence() {
+    setEvidencePending(true)
+    try {
+      await onRefresh()
+    } finally {
+      setEvidencePending(false)
+    }
+  }
+
   if (isV2 && latest) {
     return (
       <StrategyReviewV2
@@ -163,7 +169,9 @@ export function StrategyReview({
   if (!plan) {
     return (
       <section className="rounded-xl border border-warning/25 bg-warning/10 p-5">
-        <StrategyBadge tone="warning">{t('review.unavailableBadge')}</StrategyBadge>
+        <StrategyBadge tone="warning">
+          {t('review.unavailableBadge')}
+        </StrategyBadge>
         <h1 className="mt-3 text-2xl font-bold text-navy">
           {t('review.unavailableTitle')}
         </h1>
@@ -176,430 +184,466 @@ export function StrategyReview({
 
   return (
     <EvidenceContext.Provider value={evidenceContext}>
-    <section className="grid gap-5">
-      <header className="grid gap-3 rounded-xl bg-navy p-5 text-primary-foreground shadow-elevated md:p-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <StrategyBadge tone="good">{t('review.badge')}</StrategyBadge>
-          <Link
-            href={`/strategy/${resource.strategy_id}/versions`}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-3 focus-visible:ring-white/40"
-          >
-            <History className="size-4" aria-hidden="true" />
-            {t('review.openHistory')}
-          </Link>
-        </div>
-        <h1 className="text-3xl font-bold md:text-4xl">{t('review.title')}</h1>
-        <p className="max-w-2xl text-sm leading-7 text-white/75">
-          {t('review.subtitle')}
-        </p>
-      </header>
+      <section className="grid gap-5">
+        <header className="grid gap-3 rounded-xl bg-navy p-5 text-primary-foreground shadow-elevated md:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <StrategyBadge tone="good">{t('review.badge')}</StrategyBadge>
+            <Link
+              href={`/strategy/${resource.strategy_id}/versions`}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-3 focus-visible:ring-white/40"
+            >
+              <History className="size-4" aria-hidden="true" />
+              {t('review.openHistory')}
+            </Link>
+          </div>
+          <h1 className="text-3xl font-bold md:text-4xl">
+            {t('review.title')}
+          </h1>
+          <p className="max-w-2xl text-sm leading-7 text-white/75">
+            {t('review.subtitle')}
+          </p>
+        </header>
 
-      {!profileIsCurrent ? (
-        <StatusBanner
-          tone="danger"
-          title={t('review.staleProfileTitle')}
-          body={t('review.staleProfileBody')}
-        />
-      ) : null}
-      {!readOnly && !evidence.ready ? (
-        <StatusBanner
-          tone="danger"
-          title={t('review.invalidEvidenceTitle')}
-          body={t('review.invalidEvidenceBody', {
-            count: evidence.invalidCitationIds.length,
-          })}
-        />
-      ) : null}
-      {resource.status === 'failed' ? (
-        <StatusBanner
-          tone="danger"
-          title={t('review.failedRevisionTitle')}
-          body={
-            canRetry
-              ? t('review.failedRevisionRetryable')
-              : t('review.failedRevisionNotRetryable')
-          }
-        />
-      ) : null}
-
-      <nav
-        aria-label={t('review.sectionNavigation')}
-        className="overflow-x-auto rounded-xl border border-border bg-surface p-2 shadow-elevated"
-      >
-        <ul className="flex min-w-max gap-1">
-          {SECTION_IDS.map((id) => (
-            <li key={id}>
-              <a
-                href={`#strategy-${id}`}
-                className="inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-navy focus-visible:ring-3 focus-visible:ring-ring/40"
-              >
-                {t(`review.navigation.${id}`)}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-        <div className="grid gap-5">
-          {!readOnly || profile ? (
-            <StrategyProfileSummary profile={profile} />
-          ) : null}
-
-          <ReviewSection
-            id="overview"
-            title={t('review.sections.overview.title')}
-            why={t('review.sections.overview.why')}
-          >
-            <Claim
-              claim={plan.executive_summary}
-              retrieval={retrieval}
-              label={t('review.fields.executiveSummary')}
-            />
-            <Claim
-              claim={plan.situation_diagnosis}
-              retrieval={retrieval}
-              label={t('review.fields.situationDiagnosis')}
-            />
-          </ReviewSection>
-
-          <ReviewSection
-            id="direction"
-            title={t('review.sections.direction.title')}
-            why={t('review.sections.direction.why')}
-          >
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Fact
-                label={t('review.fields.objective')}
-                value={t(`review.objectives.${plan.primary_objective}`)}
-              />
-              <Fact label={t('review.fields.funnelStage')} value={plan.funnel_stage} />
-              <Fact
-                label={t('review.fields.planLanguage')}
-                value={plan.plan_language}
-              />
-              <Fact label={t('review.fields.ruleVersion')} value={plan.channel_score_rule_version} />
-            </dl>
-            <Claim
-              claim={plan.target_audience}
-              retrieval={retrieval}
-              label={t('review.fields.targetAudience')}
-            />
-            <Claim
-              claim={plan.positioning}
-              retrieval={retrieval}
-              label={t('review.fields.positioning')}
-            />
-            <Claim
-              claim={plan.tone}
-              retrieval={retrieval}
-              label={t('review.fields.tone')}
-            />
-          </ReviewSection>
-
-          <ReviewSection
-            id="channels"
-            title={t('review.sections.channels.title')}
-            why={t('review.sections.channels.why')}
-          >
-            {plan.all_channel_scores.length === 0
-              && plan.selected_channels.length === 0 ? (
-              <EmptyState>{t('review.empty.channels')}</EmptyState>
-            ) : (
-              <div className="grid gap-3">
-                {(plan.all_channel_scores.length
-                  ? plan.all_channel_scores
-                  : plan.selected_channels
-                ).map((channel) => (
-                  <ChannelScore
-                    key={channel.channel}
-                    channel={channel}
-                    selected={plan.selected_channels.some(
-                      (selected) => selected.channel === channel.channel,
-                    )}
-                    retrieval={retrieval}
-                  />
-                ))}
-              </div>
-            )}
-          </ReviewSection>
-
-          <ReviewSection
-            id="content"
-            title={t('review.sections.content.title')}
-            why={t('review.sections.content.why')}
-          >
-            <div className="rounded-lg border border-action/20 bg-action/5 p-4">
-              <p className="text-sm font-bold text-navy">
-                {t('review.contentBoundaryTitle')}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {t('review.contentBoundaryBody')}
-              </p>
-            </div>
-            <ClaimList
-              title={t('review.fields.pillars')}
-              claims={plan.content_strategy.pillars}
-              retrieval={retrieval}
-            />
-            <ClaimList
-              title={t('review.fields.formatMix')}
-              claims={plan.content_strategy.format_mix}
-              retrieval={retrieval}
-            />
-            <Fact
-              label={t('review.fields.cadence')}
-              value={plan.content_strategy.weekly_cadence}
-            />
-          </ReviewSection>
-
-          <ReviewSection
-            id="roadmap"
-            title={t('review.sections.roadmap.title')}
-            why={t('review.sections.roadmap.why')}
-          >
-            {plan.content_strategy.weeks.length === 0 ? (
-              <EmptyState>{t('review.empty.roadmap')}</EmptyState>
-            ) : (
-              <ol className="grid gap-3 sm:grid-cols-2">
-                {plan.content_strategy.weeks.map((week) => (
-                  <li
-                    key={week.week_number}
-                    className="rounded-lg border border-border bg-background p-4"
-                  >
-                    <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-                      {t('review.week', { week: week.week_number })}
-                    </p>
-                    <h3 className="mt-2 font-bold text-navy">{week.theme}</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {week.formats.join(' · ')}
-                    </p>
-                    {week.notes ? (
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        {week.notes}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </ReviewSection>
-
-          <ReviewSection
-            id="budget"
-            title={t('review.sections.budget.title')}
-            why={t('review.sections.budget.why')}
-          >
-            <p className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm leading-6 text-warning">
-              {t('review.spendSafety')}
-            </p>
-            {plan.budget_scenarios?.length ? (
-              <div className="grid gap-3">
-                {plan.budget_scenarios.map((scenario) => (
-                  <Budget key={scenario.scenario_type} scenario={scenario} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState>{t('review.empty.budget')}</EmptyState>
-            )}
-          </ReviewSection>
-
-          <ReviewSection
-            id="measurement"
-            title={t('review.sections.measurement.title')}
-            why={t('review.sections.measurement.why')}
-          >
-            {plan.kpi_targets.length ? (
-              <div className="grid gap-3">
-                {plan.kpi_targets.map((target) => (
-                  <Kpi
-                    key={`${target.metric}-${target.funnel_stage}`}
-                    target={target}
-                    retrieval={retrieval}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState>{t('review.empty.measurement')}</EmptyState>
-            )}
-          </ReviewSection>
-
-          <ReviewSection
-            id="risks"
-            title={t('review.sections.risks.title')}
-            why={t('review.sections.risks.why')}
-          >
-            <ClaimList
-              title={t('review.fields.assumptions')}
-              claims={plan.assumptions}
-              retrieval={retrieval}
-            />
-            <ClaimList
-              title={t('review.fields.risks')}
-              claims={plan.risks}
-              retrieval={retrieval}
-            />
-            <IssueList
-              title={t('review.fields.knowledgeGaps')}
-              items={plan.knowledge_gaps.map((gap) => ({
-                id: `${gap.category}-${gap.description}`,
-                message: gap.description,
-                blocking: gap.severity === 'blocking',
-              }))}
-            />
-            <IssueList
-              title={t('review.fields.blockers')}
-              items={plan.blockers.map((blocker) => ({
-                id: `${blocker.code}-${blocker.message}`,
-                message: blocker.message,
-                blocking: blocker.severity === 'blocking',
-              }))}
-            />
-          </ReviewSection>
-
-          <ReviewSection
-            id="evidence"
-            title={t('review.sections.evidence.title')}
-            why={t('review.sections.evidence.why')}
-          >
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Fact
-                label={t('review.fields.retrievalRun')}
-                value={plan.retrieval_run_id}
-              />
-              <Fact
-                label={t('review.fields.profileVersion')}
-                value={String(plan.profile_version.version)}
-              />
-            </dl>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {t('review.evidenceSummary', {
-                count: plan.citations.length,
-              })}
-            </p>
-            <div className="grid gap-3">
-              {plan.citations.map((citation) => (
-                <EvidenceDisclosure
-                  key={citation.citation_id}
-                  citationId={citation.citation_id}
-                  retrieval={retrieval}
-                  fallbackCitation={citation}
-                />
-              ))}
-            </div>
-          </ReviewSection>
-        </div>
-
-        <aside className="grid gap-4 lg:sticky lg:top-24">
-          {readOnly ? (
-            <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
-              <StrategyBadge>{t('history.readOnlyBadge')}</StrategyBadge>
-              <h2 className="mt-3 text-lg font-bold text-navy">
-                {t('history.readOnlyTitle')}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('history.readOnlyBody')}
-              </p>
-            </section>
-          ) : resource.status === 'approved' ? (
-            <ApprovedDecisionPanel />
-          ) : resource.status === 'rejected' ? (
-            <RejectedDecisionPanel />
-          ) : (
-          <>
-          <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
-            <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-              {t('decision.readinessLabel')}
-            </p>
-            <h2 className="mt-2 text-lg font-bold text-navy">
-              {canApprove
-                ? t('decision.readyTitle')
-                : t('decision.blockedTitle')}
-            </h2>
-            <ul className="mt-4 grid gap-2">
-              <ReadinessItem
-                complete={profileIsCurrent}
-                label={t('decision.profileCurrent')}
-              />
-              <ReadinessItem
-                complete={evidence.ready}
-                label={t('decision.evidenceValid')}
-              />
-              <ReadinessItem
-                complete={blockingItems.length === 0}
-                label={t('decision.noBlockers')}
-              />
-            </ul>
-          </section>
-
-          <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
-            <h2 className="text-lg font-bold text-navy">{t('decision.title')}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {canApprove ? t('decision.readyBody') : t('decision.blockedBody')}
-            </p>
-            <div className="mt-4 grid gap-2">
-              <Button
-                type="button"
-                disabled={!canApprove || pending}
-                onClick={() => setDecision('approve')}
-              >
-                {t('decision.approve')}
-              </Button>
+        {!profileIsCurrent ? (
+          <StatusBanner
+            tone="danger"
+            title={t('review.staleProfileTitle')}
+            body={t('review.staleProfileBody')}
+          />
+        ) : null}
+        {!readOnly && retrieval === null ? (
+          <StatusBanner
+            tone="warning"
+            title={t('review.evidenceLoadTitle')}
+            body={t('review.evidenceLoadBody')}
+            action={
               <Button
                 type="button"
                 variant="outline"
-                disabled={resource.status !== 'draft' || pending}
-                onClick={() => setDecision('revision_requested')}
+                disabled={evidencePending}
+                onClick={reloadEvidence}
               >
-                {t('decision.revise')}
+                {t(
+                  evidencePending
+                    ? 'review.reloadingEvidence'
+                    : 'review.reloadEvidence',
+                )}
               </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={resource.status !== 'draft' || pending}
-                onClick={() => setDecision('reject')}
-              >
-                {t('decision.reject')}
-              </Button>
-              {canRetry ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={pending}
-                  onClick={submitRetry}
-                >
-                  {t('decision.retry')}
-                </Button>
-              ) : null}
-            </div>
-            <p className="mt-4 text-xs leading-5 text-muted-foreground">
-              {t('decision.safetyNote')}
-            </p>
-            <div className="mt-3" aria-live="polite">
-              {error ? <p className="text-sm text-danger">{error}</p> : null}
-              {notice ? (
-                <p className="text-sm font-semibold text-primary">{notice}</p>
-              ) : null}
-            </div>
-          </section>
-          </>
-          )}
-        </aside>
-      </div>
+            }
+          />
+        ) : !readOnly && !evidence.ready ? (
+          <StatusBanner
+            tone="danger"
+            title={t('review.invalidEvidenceTitle')}
+            body={t('review.invalidEvidenceBody', {
+              count: evidence.invalidCitationIds.length,
+            })}
+          />
+        ) : null}
+        {resource.status === 'failed' ? (
+          <StatusBanner
+            tone="danger"
+            title={t('review.failedRevisionTitle')}
+            body={
+              canRetry
+                ? t('review.failedRevisionRetryable')
+                : t('review.failedRevisionNotRetryable')
+            }
+          />
+        ) : null}
 
-      {!readOnly ? (
-        <DecisionDialog
-          action={decision}
-          feedback={feedback}
-          pending={pending}
-          onFeedbackChange={setFeedback}
-          onClose={() => {
-            if (!pending) setDecision(null)
-          }}
-          onConfirm={submitDecision}
-        />
-      ) : null}
-    </section>
+        <nav
+          aria-label={t('review.sectionNavigation')}
+          className="overflow-x-auto rounded-xl border border-border bg-surface p-2 shadow-elevated"
+        >
+          <ul className="flex min-w-max gap-1">
+            {SECTION_IDS.map((id) => (
+              <li key={id}>
+                <a
+                  href={`#strategy-${id}`}
+                  className="inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-navy focus-visible:ring-3 focus-visible:ring-ring/40"
+                >
+                  {t(`review.navigation.${id}`)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <div className="grid gap-5">
+            {!readOnly || profile ? (
+              <StrategyProfileSummary profile={profile} />
+            ) : null}
+
+            <ReviewSection
+              id="overview"
+              title={t('review.sections.overview.title')}
+              why={t('review.sections.overview.why')}
+            >
+              <Claim
+                claim={plan.executive_summary}
+                retrieval={retrieval}
+                label={t('review.fields.executiveSummary')}
+              />
+              <Claim
+                claim={plan.situation_diagnosis}
+                retrieval={retrieval}
+                label={t('review.fields.situationDiagnosis')}
+              />
+            </ReviewSection>
+
+            <ReviewSection
+              id="direction"
+              title={t('review.sections.direction.title')}
+              why={t('review.sections.direction.why')}
+            >
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <Fact
+                  label={t('review.fields.objective')}
+                  value={t(`review.objectives.${plan.primary_objective}`)}
+                />
+                <Fact
+                  label={t('review.fields.funnelStage')}
+                  value={plan.funnel_stage}
+                />
+                <Fact
+                  label={t('review.fields.planLanguage')}
+                  value={plan.plan_language}
+                />
+                <Fact
+                  label={t('review.fields.ruleVersion')}
+                  value={plan.channel_score_rule_version}
+                />
+              </dl>
+              <Claim
+                claim={plan.target_audience}
+                retrieval={retrieval}
+                label={t('review.fields.targetAudience')}
+              />
+              <Claim
+                claim={plan.positioning}
+                retrieval={retrieval}
+                label={t('review.fields.positioning')}
+              />
+              <Claim
+                claim={plan.tone}
+                retrieval={retrieval}
+                label={t('review.fields.tone')}
+              />
+            </ReviewSection>
+
+            <ReviewSection
+              id="channels"
+              title={t('review.sections.channels.title')}
+              why={t('review.sections.channels.why')}
+            >
+              {plan.all_channel_scores.length === 0 &&
+              plan.selected_channels.length === 0 ? (
+                <EmptyState>{t('review.empty.channels')}</EmptyState>
+              ) : (
+                <div className="grid gap-3">
+                  {(plan.all_channel_scores.length
+                    ? plan.all_channel_scores
+                    : plan.selected_channels
+                  ).map((channel) => (
+                    <ChannelScore
+                      key={channel.channel}
+                      channel={channel}
+                      selected={plan.selected_channels.some(
+                        (selected) => selected.channel === channel.channel,
+                      )}
+                      retrieval={retrieval}
+                    />
+                  ))}
+                </div>
+              )}
+            </ReviewSection>
+
+            <ReviewSection
+              id="content"
+              title={t('review.sections.content.title')}
+              why={t('review.sections.content.why')}
+            >
+              <div className="rounded-lg border border-action/20 bg-action/5 p-4">
+                <p className="text-sm font-bold text-navy">
+                  {t('review.contentBoundaryTitle')}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {t('review.contentBoundaryBody')}
+                </p>
+              </div>
+              <ClaimList
+                title={t('review.fields.pillars')}
+                claims={plan.content_strategy.pillars}
+                retrieval={retrieval}
+              />
+              <ClaimList
+                title={t('review.fields.formatMix')}
+                claims={plan.content_strategy.format_mix}
+                retrieval={retrieval}
+              />
+              <Fact
+                label={t('review.fields.cadence')}
+                value={plan.content_strategy.weekly_cadence}
+              />
+            </ReviewSection>
+
+            <ReviewSection
+              id="roadmap"
+              title={t('review.sections.roadmap.title')}
+              why={t('review.sections.roadmap.why')}
+            >
+              {plan.content_strategy.weeks.length === 0 ? (
+                <EmptyState>{t('review.empty.roadmap')}</EmptyState>
+              ) : (
+                <ol className="grid gap-3 sm:grid-cols-2">
+                  {plan.content_strategy.weeks.map((week) => (
+                    <li
+                      key={week.week_number}
+                      className="rounded-lg border border-border bg-background p-4"
+                    >
+                      <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
+                        {t('review.week', { week: week.week_number })}
+                      </p>
+                      <h3 className="mt-2 font-bold text-navy">{week.theme}</h3>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {week.formats.join(' · ')}
+                      </p>
+                      {week.notes ? (
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {week.notes}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </ReviewSection>
+
+            <ReviewSection
+              id="budget"
+              title={t('review.sections.budget.title')}
+              why={t('review.sections.budget.why')}
+            >
+              <p className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm leading-6 text-warning">
+                {t('review.spendSafety')}
+              </p>
+              {plan.budget_scenarios?.length ? (
+                <div className="grid gap-3">
+                  {plan.budget_scenarios.map((scenario) => (
+                    <Budget key={scenario.scenario_type} scenario={scenario} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState>{t('review.empty.budget')}</EmptyState>
+              )}
+            </ReviewSection>
+
+            <ReviewSection
+              id="measurement"
+              title={t('review.sections.measurement.title')}
+              why={t('review.sections.measurement.why')}
+            >
+              {plan.kpi_targets.length ? (
+                <div className="grid gap-3">
+                  {plan.kpi_targets.map((target) => (
+                    <Kpi
+                      key={`${target.metric}-${target.funnel_stage}`}
+                      target={target}
+                      retrieval={retrieval}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState>{t('review.empty.measurement')}</EmptyState>
+              )}
+            </ReviewSection>
+
+            <ReviewSection
+              id="risks"
+              title={t('review.sections.risks.title')}
+              why={t('review.sections.risks.why')}
+            >
+              <ClaimList
+                title={t('review.fields.assumptions')}
+                claims={plan.assumptions}
+                retrieval={retrieval}
+              />
+              <ClaimList
+                title={t('review.fields.risks')}
+                claims={plan.risks}
+                retrieval={retrieval}
+              />
+              <IssueList
+                title={t('review.fields.knowledgeGaps')}
+                items={plan.knowledge_gaps.map((gap) => ({
+                  id: `${gap.category}-${gap.description}`,
+                  message: gap.description,
+                  blocking: gap.severity === 'blocking',
+                }))}
+              />
+              <IssueList
+                title={t('review.fields.blockers')}
+                items={plan.blockers.map((blocker) => ({
+                  id: `${blocker.code}-${blocker.message}`,
+                  message: blocker.message,
+                  blocking: blocker.severity === 'blocking',
+                }))}
+              />
+            </ReviewSection>
+
+            <ReviewSection
+              id="evidence"
+              title={t('review.sections.evidence.title')}
+              why={t('review.sections.evidence.why')}
+            >
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <Fact
+                  label={t('review.fields.retrievalRun')}
+                  value={plan.retrieval_run_id}
+                />
+                <Fact
+                  label={t('review.fields.profileVersion')}
+                  value={String(plan.profile_version.version)}
+                />
+              </dl>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {t('review.evidenceSummary', {
+                  count: plan.citations.length,
+                })}
+              </p>
+              <div className="grid gap-3">
+                {plan.citations.map((citation) => (
+                  <EvidenceDisclosure
+                    key={citation.citation_id}
+                    citationId={citation.citation_id}
+                    retrieval={retrieval}
+                    fallbackCitation={citation}
+                  />
+                ))}
+              </div>
+            </ReviewSection>
+          </div>
+
+          <aside className="grid gap-4 lg:sticky lg:top-24">
+            {readOnly ? (
+              <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+                <StrategyBadge>{t('history.readOnlyBadge')}</StrategyBadge>
+                <h2 className="mt-3 text-lg font-bold text-navy">
+                  {t('history.readOnlyTitle')}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {t('history.readOnlyBody')}
+                </p>
+              </section>
+            ) : resource.status === 'approved' ? (
+              <ApprovedDecisionPanel />
+            ) : resource.status === 'rejected' ? (
+              <RejectedDecisionPanel />
+            ) : (
+              <>
+                <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+                  <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
+                    {t('decision.readinessLabel')}
+                  </p>
+                  <h2 className="mt-2 text-lg font-bold text-navy">
+                    {canApprove
+                      ? t('decision.readyTitle')
+                      : t('decision.blockedTitle')}
+                  </h2>
+                  <ul className="mt-4 grid gap-2">
+                    <ReadinessItem
+                      complete={profileIsCurrent}
+                      label={t('decision.profileCurrent')}
+                    />
+                    <ReadinessItem
+                      complete={evidence.ready}
+                      label={t('decision.evidenceValid')}
+                    />
+                    <ReadinessItem
+                      complete={blockingItems.length === 0}
+                      label={t('decision.noBlockers')}
+                    />
+                  </ul>
+                </section>
+
+                <section className="rounded-xl border border-border bg-surface p-4 shadow-elevated">
+                  <h2 className="text-lg font-bold text-navy">
+                    {t('decision.title')}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {canApprove
+                      ? t('decision.readyBody')
+                      : t('decision.blockedBody')}
+                  </p>
+                  <div className="mt-4 grid gap-2">
+                    <Button
+                      type="button"
+                      disabled={!canApprove || pending}
+                      onClick={() => setDecision('approve')}
+                    >
+                      {t('decision.approve')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={resource.status !== 'draft' || pending}
+                      onClick={() => setDecision('revision_requested')}
+                    >
+                      {t('decision.revise')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={resource.status !== 'draft' || pending}
+                      onClick={() => setDecision('reject')}
+                    >
+                      {t('decision.reject')}
+                    </Button>
+                    {canRetry ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={submitRetry}
+                      >
+                        {t('decision.retry')}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                    {t('decision.safetyNote')}
+                  </p>
+                  <div className="mt-3" aria-live="polite">
+                    {error ? (
+                      <p className="text-sm text-danger">{error}</p>
+                    ) : null}
+                    {notice ? (
+                      <p className="text-sm font-semibold text-primary">
+                        {notice}
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+              </>
+            )}
+          </aside>
+        </div>
+
+        {!readOnly ? (
+          <DecisionDialog
+            action={decision}
+            feedback={feedback}
+            pending={pending}
+            onFeedbackChange={setFeedback}
+            onClose={() => {
+              if (!pending) setDecision(null)
+            }}
+            onConfirm={submitDecision}
+          />
+        ) : null}
+      </section>
     </EvidenceContext.Provider>
   )
 }
@@ -631,10 +675,15 @@ function inspectEvidence(
   plan: StrategyPlan | null,
   retrieval: RetrievedKnowledgePack | null,
 ): { ready: boolean; invalidCitationIds: string[] } {
-  if (!plan || !retrieval || retrieval.retrieval_run_id !== plan.retrieval_run_id) {
+  if (
+    !plan ||
+    !retrieval ||
+    retrieval.retrieval_run_id !== plan.retrieval_run_id
+  ) {
     return {
       ready: false,
-      invalidCitationIds: plan?.citations.map((citation) => citation.citation_id) ?? [],
+      invalidCitationIds:
+        plan?.citations.map((citation) => citation.citation_id) ?? [],
     }
   }
 
@@ -647,8 +696,8 @@ function inspectEvidence(
       const item = itemByChunk.get(citation.chunk_id)
       if (!item || item.source_quality.review_status !== 'approved') return true
       if (
-        item.entry_id !== citation.entry_id
-        || item.entry_version !== citation.entry_version
+        item.entry_id !== citation.entry_id ||
+        item.entry_version !== citation.entry_version
       ) {
         return true
       }
@@ -706,7 +755,9 @@ function Claim({
     <section className="rounded-lg border border-border bg-background p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-bold text-navy">{label}</h3>
-        <StrategyBadge tone={claim.source === 'model_synthesis' ? 'warning' : 'neutral'}>
+        <StrategyBadge
+          tone={claim.source === 'model_synthesis' ? 'warning' : 'neutral'}
+        >
           {t(`review.claimSources.${claim.source}`)}
         </StrategyBadge>
       </div>
@@ -779,13 +830,8 @@ function EvidenceDisclosure({
   const format = useFormatter()
   const [renderedAt] = useState(Date.now)
   const context = useContext(EvidenceContext)
-  const fallback = fallbackCitation
-    ?? context.citations.get(citationId)
-    ?? null
-  const item = findEvidenceItem(
-    retrieval ?? context.retrieval,
-    fallback,
-  )
+  const fallback = fallbackCitation ?? context.citations.get(citationId) ?? null
+  const item = findEvidenceItem(retrieval ?? context.retrieval, fallback)
 
   if (!item) {
     if (fallback) {
@@ -821,8 +867,8 @@ function EvidenceDisclosure({
   }
 
   const expired =
-    item.source_quality.expires_at !== null
-    && new Date(item.source_quality.expires_at).getTime() <= renderedAt
+    item.source_quality.expires_at !== null &&
+    new Date(item.source_quality.expires_at).getTime() <= renderedAt
 
   return (
     <details className="group rounded-lg border border-border bg-surface">
@@ -901,10 +947,12 @@ function findEvidenceItem(
   fallback: StrategyPlan['citations'][number] | null,
 ): RetrievedKnowledgeItem | null {
   if (retrieval) {
-    const citation = fallback
-      ?? null
+    const citation = fallback ?? null
     if (citation) {
-      return retrieval.items.find((item) => item.chunk_id === citation.chunk_id) ?? null
+      return (
+        retrieval.items.find((item) => item.chunk_id === citation.chunk_id) ??
+        null
+      )
     }
   }
   return null
@@ -1000,7 +1048,9 @@ function Budget({ scenario }: { readonly scenario: BudgetScenario }) {
       <p
         className={cn(
           'mt-3 text-xs font-semibold',
-          allocationTotal === scenario.total_egp ? 'text-primary' : 'text-danger',
+          allocationTotal === scenario.total_egp
+            ? 'text-primary'
+            : 'text-danger',
         )}
       >
         {t('review.allocationCheck', {
@@ -1074,7 +1124,10 @@ function IssueList({
                   : 'border-warning/25 bg-warning/10 text-warning',
               )}
             >
-              <ShieldAlert className="mt-1 size-4 shrink-0" aria-hidden="true" />
+              <ShieldAlert
+                className="mt-1 size-4 shrink-0"
+                aria-hidden="true"
+              />
               <span>
                 <strong className="block">
                   {item.blocking
@@ -1144,10 +1197,12 @@ function StatusBanner({
   tone,
   title,
   body,
+  action,
 }: {
   readonly tone: 'danger' | 'warning'
   readonly title: string
   readonly body: string
+  readonly action?: React.ReactNode
 }) {
   return (
     <section
@@ -1168,6 +1223,11 @@ function StatusBanner({
         {title}
       </h2>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{body}</p>
+      {action ? (
+        <div className="mt-3" aria-live="polite">
+          {action}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -1286,7 +1346,9 @@ function DecisionDialog({
           </p>
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Dialog.Close
-              render={<Button type="button" variant="ghost" disabled={pending} />}
+              render={
+                <Button type="button" variant="ghost" disabled={pending} />
+              }
             >
               {t('decision.cancel')}
             </Dialog.Close>

@@ -26,7 +26,9 @@ export default function StrategyReviewPage({ params }: Props) {
   const tc = useTranslations('Common')
   const { strategy, loading, error, refresh } = useStrategy(strategy_id)
   const [profile, setProfile] = useState<StrategyProfileSummary | null>(null)
-  const [retrieval, setRetrieval] = useState<RetrievedKnowledgePack | null>(null)
+  const [retrieval, setRetrieval] = useState<RetrievedKnowledgePack | null>(
+    null,
+  )
   const [progress, setProgress] = useState<readonly StrategyProgressEvent[]>([])
   const [profileLoaded, setProfileLoaded] = useState(false)
 
@@ -39,7 +41,10 @@ export default function StrategyReviewPage({ params }: Props) {
     ])
       .then(([journey, retrievalPack, progressEvents]) => {
         if (cancelled) return
-        if (journey.journey.state === 'discovery_confirmed' && journey.journey.profile) {
+        if (
+          journey.journey.state === 'discovery_confirmed' &&
+          journey.journey.profile
+        ) {
           const p = journey.journey.profile
           setProfile({
             businessName: p.business_name,
@@ -53,16 +58,22 @@ export default function StrategyReviewPage({ params }: Props) {
         setProgress(progressEvents)
         setProfileLoaded(true)
       })
-      .catch(() => { if (!cancelled) setProfileLoaded(true) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setProfileLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [strategy_id])
 
   async function refreshReview() {
-    const [, progressEvents] = await Promise.all([
+    const [, progressEvents, retrievalPack] = await Promise.all([
       refresh(),
       getStrategyProgress(strategy_id).catch(() => []),
+      getStrategyRetrieval(strategy_id).catch(() => null),
     ])
     setProgress(progressEvents)
+    setRetrieval(retrievalPack)
   }
 
   if (loading || !profileLoaded) {

@@ -110,7 +110,8 @@ const retrievalPack = {
     budget_mode: 'monthly_amount',
     industry: 'hospitality',
   },
-  profile_version_id: brief.business_profile_version.business_profile_version_id,
+  profile_version_id:
+    brief.business_profile_version.business_profile_version_id,
   brief_id: brief.id,
   items: [
     {
@@ -151,13 +152,16 @@ const { pushMock, submitDecisionMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, values?: Record<string, string | number>) => {
-    if (key === 'decision.approve') return 'Approve strategy'
-    if (key === 'decision.revise') return 'Request revision'
-    if (key === 'decision.reject') return 'Reject draft'
-    if (key === 'profile.versionValue') return `Version ${values?.version}`
-    return key
-  },
+  useTranslations:
+    () => (key: string, values?: Record<string, string | number>) => {
+      if (key === 'decision.approve') return 'Approve strategy'
+      if (key === 'decision.revise') return 'Request revision'
+      if (key === 'decision.reject') return 'Reject draft'
+      if (key === 'review.reloadEvidence') return 'Reload evidence'
+      if (key === 'review.reloadingEvidence') return 'Reloading evidence…'
+      if (key === 'profile.versionValue') return `Version ${values?.version}`
+      return key
+    },
   useFormatter: () => ({
     dateTime: () => 'Jul 17, 2026',
   }),
@@ -171,7 +175,11 @@ vi.mock('@/i18n/navigation', () => ({
   }: {
     children: ReactNode
     href: string
-  }) => <a href={href} {...props}>{children}</a>,
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
   useRouter: () => ({ push: pushMock }),
 }))
 
@@ -193,10 +201,12 @@ describe('StrategyReview', () => {
     )
 
     expect(screen.getByText('review.unavailableTitle')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Approve strategy' }),
+    ).toBeNull()
   })
 
-  it('dispatches owner-first strategy-v2 plans to the calendar review', () => {
+  it('dispatches owner-first strategy-v2 plans and offers evidence recovery', async () => {
     const v2Brief = {
       ...brief,
       weekly_capacity: 'three_to_five_hours',
@@ -228,6 +238,7 @@ describe('StrategyReview', () => {
       },
     } satisfies StrategyResource
 
+    const onRefresh = vi.fn().mockResolvedValue(undefined)
     render(
       <StrategyReview
         profile={null}
@@ -235,14 +246,19 @@ describe('StrategyReview', () => {
         currentVersionId="88888888-8888-4888-8888-888888888888"
         retrieval={null}
         progress={[]}
-        onRefresh={vi.fn()}
+        onRefresh={onRefresh}
       />,
     )
 
     // The v2 review shows the calendar-first reading order, not v1 chapters.
     expect(screen.getByText('reviewV2.badge')).toBeTruthy()
     expect(screen.getByText('reviewV2.openAdvice')).toBeTruthy()
+    expect(screen.getByText('review.evidenceLoadTitle')).toBeTruthy()
     expect(screen.queryByText('review.sections.overview.title')).toBeNull()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Reload evidence' }))
+    })
+    expect(onRefresh).toHaveBeenCalledOnce()
   })
 
   it('renders the latest strategy plan instead of static demo copy', () => {
@@ -258,11 +274,18 @@ describe('StrategyReview', () => {
     )
 
     expect(
-      screen.getAllByText('Focus repeat orders before expanding paid ads.').length,
+      screen.getAllByText('Focus repeat orders before expanding paid ads.')
+        .length,
     ).toBeGreaterThan(0)
-    expect(screen.getByText('Best fit for existing local audience conversations.')).toBeTruthy()
+    expect(
+      screen.getByText('Best fit for existing local audience conversations.'),
+    ).toBeTruthy()
     expect(screen.getByText('+15%')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Approve strategy' }).hasAttribute('disabled')).toBe(true)
+    expect(
+      screen
+        .getByRole('button', { name: 'Approve strategy' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
   })
 
   it('enables approval only when profile, blockers, and persisted evidence are valid', () => {
@@ -284,7 +307,9 @@ describe('StrategyReview', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: 'Approve strategy' }).hasAttribute('disabled'),
+      screen
+        .getByRole('button', { name: 'Approve strategy' })
+        .hasAttribute('disabled'),
     ).toBe(false)
     expect(screen.queryByText('review.invalidEvidenceTitle')).toBeNull()
   })
@@ -304,10 +329,16 @@ describe('StrategyReview', () => {
     expect(screen.getByText('decision.approvedTitle')).toBeTruthy()
     expect(screen.getByText('decision.approvedBody')).toBeTruthy()
     expect(
-      screen.getByRole('link', { name: 'decision.approvedAction' }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: 'decision.approvedAction' })
+        .getAttribute('href'),
     ).toBe('/content')
-    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Request revision' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Approve strategy' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Request revision' }),
+    ).toBeNull()
     expect(screen.queryByRole('button', { name: 'Reject draft' })).toBeNull()
   })
 
@@ -325,7 +356,9 @@ describe('StrategyReview', () => {
 
     expect(screen.getByText('decision.rejectedTitle')).toBeTruthy()
     expect(screen.getByText('decision.rejectedBody')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Approve strategy' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Approve strategy' }),
+    ).toBeNull()
   })
 
   it('routes the owner back to the creation wizard after rejecting a plan', async () => {
@@ -346,10 +379,9 @@ describe('StrategyReview', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Reject draft' }))
-    fireEvent.change(
-      screen.getByLabelText('decision.feedbackLabel'),
-      { target: { value: 'This plan does not fit our business.' } },
-    )
+    fireEvent.change(screen.getByLabelText('decision.feedbackLabel'), {
+      target: { value: 'This plan does not fit our business.' },
+    })
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'decision.confirm' }))
       await Promise.resolve()
