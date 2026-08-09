@@ -6,7 +6,7 @@ import type {
   PublicationIntentV1,
   PublishingTargetPublicV1,
 } from "@marketmind/contracts";
-import { Check, CircleAlert, Link2, RefreshCw } from "lucide-react";
+import { Check, CircleAlert, Link2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,14 +18,12 @@ export function PublicationReadiness({
   targets,
   intent,
   onConnect,
-  onVerify,
 }: {
   readonly readiness: CurrentJourneyContentReadiness | null;
   readonly candidate: PublicationCandidateSummaryV1 | null;
   readonly targets: readonly PublishingTargetPublicV1[];
   readonly intent: PublicationIntentV1 | null;
   readonly onConnect: () => void;
-  readonly onVerify: (target: PublishingTargetPublicV1) => void;
 }) {
   const t = useTranslations("Publishing");
   const format = useFormatter();
@@ -138,15 +136,6 @@ export function PublicationReadiness({
                   : t("target.connected")}
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => onVerify(connectedTarget)}
-            >
-              <RefreshCw className="me-1.5 size-3.5" aria-hidden="true" />
-              {t("target.verify")}
-            </Button>
           </div>
         ) : (
           <div className="grid gap-2">

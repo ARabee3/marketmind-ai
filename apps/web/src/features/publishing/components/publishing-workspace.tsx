@@ -26,7 +26,6 @@ import {
   reschedulePublishingIntent,
   retryPublishingIntent,
   schedulePublishingIntent,
-  verifyPublishingTarget,
   type PublishingExportState,
   type PublishingIntentDetailView,
 } from "@/lib/api/publishing";
@@ -314,15 +313,6 @@ export function PublishingWorkspace({
     router.push("/publishing/meta/connect");
   }
 
-  async function verifyTarget(target: PublishingTargetPublicV1) {
-    try {
-      await verifyPublishingTarget(target);
-      await refresh();
-    } catch {
-      setNotice(t("error.unknown"));
-    }
-  }
-
   if (state.phase === "loading") {
     return (
       <section className="flex min-h-56 items-center justify-center">
@@ -461,7 +451,6 @@ export function PublishingWorkspace({
             targets={data.targets}
             intent={intent}
             onConnect={() => connectTarget()}
-            onVerify={(target) => void verifyTarget(target)}
           />
           <section className="grid gap-3 rounded-xl border border-border bg-surface p-5 shadow-elevated">
             <PublishingBadge tone="neutral">
