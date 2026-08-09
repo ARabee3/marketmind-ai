@@ -218,8 +218,14 @@ export function PublishingWorkspace({
     if (mode !== "real") {
       try {
         await dispatchPublishingLocalAction(created);
-      } finally {
         router.push(`/publishing/${created.intent_id}`);
+      } catch (error) {
+        // Keep the owner on the selected candidate when the local action
+        // fails. Refreshing here exposes the created intent so the user can
+        // retry or choose another local action instead of being routed to a
+        // blank/stale detail page by a finally block.
+        await refresh().catch(() => undefined);
+        throw error;
       }
       return created;
     }

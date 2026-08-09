@@ -7,6 +7,7 @@ import {
   toPublishingExportState,
   toPublishingIntent,
   toPublishingResult,
+  toPublishingTarget,
 } from "@/lib/api/publishing";
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
@@ -106,6 +107,26 @@ describe("publishing API view-model adapter", () => {
       error_code: null,
       retryable: false,
     });
+    expect(
+      toPublishingResult({ outcome: "not-a-real-outcome", mode: "REAL" }),
+    ).toMatchObject({
+      outcome: "failed",
+      retryable: false,
+    });
+  });
+
+  it("fails closed when a target does not advertise static-image support", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "CONNECTED",
+        capabilities: [],
+      }),
+    ).toThrow(/static-image support/);
   });
 
   it("normalizes detail arrays without losing the approval snapshot", () => {
@@ -134,6 +155,7 @@ describe("publishing API view-model adapter", () => {
         externalAccountId: "page-1",
         displayName: "Page",
         connectionState: "CONNECTED",
+        capabilities: ["static_image"],
       },
       approvals: [
         {

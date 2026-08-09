@@ -38,11 +38,11 @@ export function activeIntentForCandidate(
   intents: readonly PublicationIntentV1[],
 ): PublicationIntentV1 | null {
   if (candidate.active_intent_id) {
-    return (
+    const active =
       intents.find(
         (intent) => intent.intent_id === candidate.active_intent_id,
-      ) ?? null
-    );
+      ) ?? null;
+    return active && !isTerminalIntent(active) ? active : null;
   }
 
   return (
@@ -105,8 +105,64 @@ export function toDateTimeLocal(value: string | null): string {
 
 export function localCairoToUtc(local: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return null;
-  const date = new Date(`${local}:00+03:00`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+
+  // Treat the input as a wall-clock value first, then resolve the actual
+  // Africa/Cairo offset through the runtime IANA database. Cairo is UTC+02 in
+  // winter and UTC+03 during the current summer-DST period; a fixed offset
+  // silently shifts schedules by an hour for half of the year.
+  const naiveUtcMs = Date.parse(`${local}:00Z`);
+  if (!Number.isFinite(naiveUtcMs)) return null;
+
+  const offsetAt = (guessMs: number): number | null => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date(guessMs));
+    const get = (type: string) => {
+      const value = parts.find((part) => part.type === type)?.value;
+      return value ? Number(value) : NaN;
+    };
+    const year = get("year");
+    const month = get("month");
+    const day = get("day");
+    const hour = get("hour");
+    const minute = get("minute");
+    const second = get("second");
+    if ([year, month, day, hour, minute, second].some(Number.isNaN)) {
+      return null;
+    }
+    const localMs = Date.UTC(
+      year,
+      month - 1,
+      day,
+      hour === 24 ? 0 : hour,
+      minute,
+      second,
+    );
+    return guessMs - localMs;
+  };
+
+  const offset = offsetAt(naiveUtcMs);
+  if (offset === null) return null;
+  const utcMs = naiveUtcMs + offset;
+  if (offsetAt(utcMs) === offset) {
+    return new Date(utcMs).toISOString();
+  }
+
+  // Match the API's deterministic DST policy: choose the earlier valid offset
+  // for an overlap and reject a nonexistent spring-forward wall-clock value.
+  const earlierOffset = offsetAt(naiveUtcMs - 60 * 60 * 1000);
+  if (earlierOffset === null) return null;
+  const earlierUtcMs = naiveUtcMs + earlierOffset;
+  return offsetAt(earlierUtcMs) === earlierOffset
+    ? new Date(earlierUtcMs).toISOString()
+    : null;
 }
 
 export function statusTone(

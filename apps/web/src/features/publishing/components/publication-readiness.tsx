@@ -35,6 +35,15 @@ export function PublicationReadiness({
       target.capabilities.includes("static_image"),
   );
   const hasApproval = Boolean(intent?.approved_decision_id);
+  const needsTarget = !intent || intent.mode === "real";
+  const targetReady = !needsTarget || Boolean(connectedTarget);
+  const approvalLabel = intent
+    ? intent.mode === "real"
+      ? hasApproval
+        ? t("readiness.approval")
+        : t("readiness.approvalMissing")
+      : t("readiness.localAction")
+    : t("readiness.noTarget");
   const rows = [
     {
       ok: Boolean(candidate && candidate.source_state === "active"),
@@ -49,14 +58,18 @@ export function PublicationReadiness({
       ),
     },
     {
-      ok: Boolean(connectedTarget),
+      ok: targetReady,
       label: t(
-        connectedTarget ? "readiness.target" : "readiness.targetMissing",
+        connectedTarget
+          ? "readiness.target"
+          : needsTarget
+            ? "readiness.targetMissing"
+            : "readiness.noTarget",
       ),
     },
     {
-      ok: hasApproval || intent?.mode !== "real",
-      label: t(hasApproval ? "readiness.approval" : "readiness.noTarget"),
+      ok: Boolean(intent?.mode !== "real" || hasApproval),
+      label: approvalLabel,
     },
   ];
   const allReady = rows.every((row) => row.ok);

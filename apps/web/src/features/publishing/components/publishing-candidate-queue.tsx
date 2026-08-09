@@ -7,6 +7,7 @@ import type {
 import { ArrowUpRight, Check, LockKeyhole, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { activeIntentForCandidate } from "../lib/publishing-state";
 import { PublishingBadge } from "./publishing-badge";
 
 function candidateTone(candidate: PublicationCandidateSummaryV1) {
@@ -59,9 +60,7 @@ export function PublishingCandidateQueue({
       ) : (
         <ul className="grid min-w-0 gap-3">
           {items.map((item) => {
-            const intent = intents.find(
-              (entry) => entry.candidate_id === item.candidate.candidate_id,
-            );
+            const intent = activeIntentForCandidate(item, intents);
             const selected =
               selectedCandidateId === item.candidate.candidate_id;
             const readOnly = item.source_state !== "active";

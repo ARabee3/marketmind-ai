@@ -1697,6 +1697,8 @@
       "target": "A compatible Meta target is connected",
       "targetMissing": "Real publishing needs a connected target",
       "approval": "Exact decision details are visible",
+      "approvalMissing": "Exact publication approval is still needed",
+      "localAction": "This local action does not need publication approval",
       "noTarget": "Export and simulation are still available",
       "connectUnavailable": "Account connection is not available in this environment",
       "lastChecked": "Last checked {time}",

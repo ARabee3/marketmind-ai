@@ -151,16 +151,22 @@ function arrayValue(value: unknown, ...keys: string[]): readonly unknown[] {
 
 function normalizeMode(value: unknown): PublishingMode {
   const mode = lower(value);
-  if (mode === "manual_export" || mode === "simulation") return mode;
-  return "real";
+  if (mode === "real" || mode === "manual_export" || mode === "simulation") {
+    return mode;
+  }
+  throw new Error("Publishing response contained an unsupported mode.");
 }
 
 function normalizeCandidateState(
   value: unknown,
 ): "active" | "revoked" | "replaced" {
   const state = lower(value);
-  if (state === "revoked" || state === "replaced") return state;
-  return "active";
+  if (state === "active" || state === "revoked" || state === "replaced") {
+    return state;
+  }
+  throw new Error(
+    "Publishing response contained an unsupported candidate state.",
+  );
 }
 
 function normalizeCandidatePayload(value: unknown): PublicationCandidateV1 {
@@ -238,9 +244,12 @@ function normalizeCapabilities(value: unknown): readonly ["static_image"] {
   const capabilities = Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
-  return capabilities.includes("static_image")
-    ? ["static_image"]
-    : ["static_image"];
+  if (!capabilities.includes("static_image")) {
+    throw new Error(
+      "Publishing target response does not advertise static-image support.",
+    );
+  }
+  return ["static_image"];
 }
 
 export function toPublishingIntent(value: unknown): PublicationIntentV1 {
@@ -306,7 +315,7 @@ function normalizeIntentState(value: unknown): PublicationIntentV1["state"] {
   ) {
     return state;
   }
-  return "draft";
+  throw new Error("Publishing response contained an unsupported intent state.");
 }
 
 export function toPublishingApproval(
@@ -552,7 +561,7 @@ function normalizeOutcome(value: unknown): PublicationResultV1["outcome"] {
   ) {
     return outcome;
   }
-  return "published";
+  return "failed";
 }
 
 export function toPublishingIntentDetail(
