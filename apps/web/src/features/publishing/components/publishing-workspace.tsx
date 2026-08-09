@@ -446,7 +446,6 @@ export function PublishingWorkspace({
             <PublicationOutcomePanel
               detail={detail}
               exportState={data.exportState}
-              onRefresh={() => void refresh()}
             />
           ) : null}
           {detail ? <PublicationAttemptHistory detail={detail} /> : null}

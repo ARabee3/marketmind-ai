@@ -7,7 +7,6 @@ import {
   Download,
   ExternalLink,
   FileArchive,
-  RefreshCw,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -22,11 +21,9 @@ import { PublishingBadge } from "./publishing-badge";
 export function PublicationOutcomePanel({
   detail,
   exportState,
-  onRefresh,
 }: {
   readonly detail: PublishingIntentDetailView;
   readonly exportState: PublishingExportState | null;
-  readonly onRefresh: () => void;
 }) {
   const t = useTranslations("Publishing");
   const format = useFormatter();
@@ -54,18 +51,46 @@ export function PublicationOutcomePanel({
   }
 
   if (!result) {
+    const state = intent.state;
+    const tone =
+      state === "failed" || state === "action_required"
+        ? "danger"
+        : state === "cancelled"
+          ? "neutral"
+          : "warning";
+    const label =
+      state === "failed"
+        ? t("outcome.failed")
+        : state === "action_required"
+          ? t("outcome.actionRequired")
+          : state === "cancelled"
+            ? t("outcome.cancelled")
+            : t("outcome.pending");
+    const message =
+      state === "dispatching"
+        ? t("outcome.dispatching")
+        : state === "failed"
+          ? t("outcome.failedNoResult")
+          : state === "action_required"
+            ? t("outcome.actionRequired")
+            : state === "cancelled"
+              ? t("outcome.cancelled")
+              : t("outcome.notAvailable");
+
     return (
-      <section className="grid gap-3 rounded-xl border border-dashed border-border bg-surface p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <CircleAlert className="size-4" aria-hidden="true" />
-          {t("outcome.notAvailable")}
+      <section
+        role="status"
+        aria-live="polite"
+        className="grid gap-3 rounded-xl border border-dashed border-border bg-surface p-5"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+            <CircleAlert className="size-4" aria-hidden="true" />
+            {t("outcome.title")}
+          </div>
+          <PublishingBadge tone={tone}>{label}</PublishingBadge>
         </div>
-        {intent.state === "dispatching" ? (
-          <Button type="button" variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="me-2 size-4" aria-hidden="true" />
-            {t("decision.refresh")}
-          </Button>
-        ) : null}
+        <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       </section>
     );
   }

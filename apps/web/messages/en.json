@@ -1860,7 +1860,11 @@
       "checksum": "Checksum",
       "generated": "Generated",
       "pendingExport": "Export is being assembled. It is not ready to download yet.",
-      "notAvailable": "No result has been confirmed yet."
+      "notAvailable": "No result has been confirmed yet.",
+      "pending": "Waiting for the publishing result",
+      "dispatching": "The request is being processed. This panel will update automatically.",
+      "failedNoResult": "The request stopped before a provider result was recorded. Review the recovery action above.",
+      "actionRequired": "The request needs attention before it can continue."
     },
     "history": {
       "title": "Decision and result history",
