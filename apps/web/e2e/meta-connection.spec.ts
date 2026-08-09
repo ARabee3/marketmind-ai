@@ -139,20 +139,104 @@ async function mockConnectApi(page: Page, overrides: { configured?: boolean } = 
   });
 }
 
+async function mockFacebookOAuth(
+  page: Page,
+  overrides: { configured?: boolean } = {},
+) {
+  const configured = overrides.configured ?? true;
+
+  await page.route("**/api/v1/auth/facebook/start", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    if (!configured) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          statusCode: 503,
+          code: "FACEBOOK_NOT_CONFIGURED",
+          message: "not configured",
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await page.addInitScript(() => {
+    type TestWindow = Window & { __marketmindPopupHref?: string };
+    const testWindow = window as TestWindow;
+
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: () => {
+        const popup = {
+          closed: false,
+          close() {
+            this.closed = true;
+          },
+          location: {
+            set href(value: string) {
+              testWindow.__marketmindPopupHref = value;
+            },
+          },
+        };
+        return popup as unknown as Window;
+      },
+    });
+  });
+}
+
+async function completeFacebookPopup(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as Window & { __marketmindPopupHref?: string })
+            .__marketmindPopupHref,
+      ),
+    )
+    .toMatch(/\/api\/v1\/auth\/facebook\/start$/);
+
+  await page.evaluate(() => {
+    const testWindow = window as Window & { __marketmindPopupHref?: string };
+    const href = testWindow.__marketmindPopupHref;
+    if (!href) throw new Error("Facebook popup did not receive its start URL");
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: new URL(href).origin,
+        data: {
+          type: "fb-connected",
+          payload: { pageName: "MarketMind Page" },
+        },
+      }),
+    );
+  });
+}
+
 async function authenticate(page: Page) {
   await mockAuthRefresh(page, mockAccessToken);
   await mockAuthMe(page);
 }
-test.describe("Meta connection journey (issue #175)", () => {
-  test("start page explains the journey and redirects to Meta — no token handled", async ({
+test.describe("Facebook connection journey (PR #193)", () => {
+  test("start page opens the Facebook popup — no token handled", async ({
     page,
   }) => {
     await authenticate(page);
-    await mockConnectApi(page);
+    await mockFacebookOAuth(page);
 
     await page.goto("/en/publishing/meta/connect");
     await expect(
-      page.getByRole("heading", { name: "Connect a Meta account" }),
+      page.getByRole("heading", { name: "Connect Facebook" }),
     ).toBeVisible();
     await expect(
       page.getByText("MarketMind never sees your Facebook password", {
@@ -165,23 +249,21 @@ test.describe("Meta connection journey (issue #175)", () => {
       }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Continue with Meta" }).click();
-    await expect(page).toHaveURL(/graph\.facebook\.com\/v21\.0\/dialog\/oauth/);
+    await page.getByRole("button", { name: "Continue with Facebook" }).click();
+    await completeFacebookPopup(page);
+    await expect(page).toHaveURL(/\/en\/publishing$/);
   });
 
-  test("renders the blocked-prerequisites state when Meta config is missing, with recovery", async ({
+  test("renders a truthful error when Facebook config is missing, with recovery", async ({
     page,
   }) => {
     await authenticate(page);
-    await mockConnectApi(page, { configured: false });
+    await mockFacebookOAuth(page, { configured: false });
 
     await page.goto("/en/publishing/meta/connect");
-    await page.getByRole("button", { name: "Continue with Meta" }).click();
+    await page.getByRole("button", { name: "Continue with Facebook" }).click();
     await expect(
-      page.getByRole("heading", { name: "Connection is not available right now" }),
-    ).toBeVisible();
-    await expect(
-      page.getByText("Export and simulation remain available", { exact: false }),
+      page.getByRole("heading", { name: "Something went wrong" }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Back to publishing" }),
@@ -305,9 +387,10 @@ test.describe("Meta connection journey (issue #175)", () => {
   }) => {
     await authenticate(page);
     await mockConnectApi(page);
+    await mockFacebookOAuth(page);
 
     await page.goto("/en/publishing/meta/connect");
-    const startButton = page.getByRole("button", { name: "Continue with Meta" });
+    const startButton = page.getByRole("button", { name: "Continue with Facebook" });
     await startButton.focus();
     await expect(startButton).toBeFocused();
 
