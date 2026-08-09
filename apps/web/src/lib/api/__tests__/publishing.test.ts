@@ -129,6 +129,40 @@ describe("publishing API view-model adapter", () => {
     ).toThrow(/static-image support/);
   });
 
+  it("fails closed when a target omits its channel or connection state", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported channel/);
+
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "UNKNOWN",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported state/);
+  });
+
+  it("does not invent target identity fields from an incomplete response", () => {
+    expect(() =>
+      toPublishingTarget({
+        channel: "FACEBOOK",
+        connectionState: "CONNECTED",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/missing target id/);
+  });
+
   it("normalizes detail arrays without losing the approval snapshot", () => {
     const detail = toPublishingIntentDetail({
       publicationIntent: {

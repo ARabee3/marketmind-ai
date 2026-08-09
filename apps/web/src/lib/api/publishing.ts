@@ -210,17 +210,32 @@ export function toPublishingCandidate(
 
 export function toPublishingTarget(value: unknown): PublishingTargetPublicV1 {
   const raw = asRecord(value);
+  const targetId = requiredTargetString(
+    valueFrom(raw, "target_id", "targetId", "id"),
+    "target id",
+  );
+  const businessId = requiredTargetString(
+    valueFrom(raw, "business_id", "businessId"),
+    "business id",
+  );
+  const channel = normalizeTargetChannel(raw.channel);
+  const externalAccountId = requiredTargetString(
+    valueFrom(raw, "external_account_id", "externalAccountId"),
+    "external account id",
+  );
+  const displayName = requiredTargetString(
+    valueFrom(raw, "display_name", "displayName"),
+    "display name",
+  );
   return {
     contract_version: "publishing-target-v1",
-    target_id: String(valueFrom(raw, "target_id", "targetId", "id") ?? ""),
+    target_id: targetId,
     version: numberValue(raw.version, 1),
-    business_id: String(valueFrom(raw, "business_id", "businessId") ?? ""),
+    business_id: businessId,
     provider: "meta",
-    channel: lower(raw.channel) === "instagram" ? "instagram" : "facebook",
-    external_account_id: String(
-      valueFrom(raw, "external_account_id", "externalAccountId") ?? "",
-    ),
-    display_name: String(valueFrom(raw, "display_name", "displayName") ?? ""),
+    channel,
+    external_account_id: externalAccountId,
+    display_name: displayName,
     connection_state: normalizeTargetState(
       valueFrom(raw, "connection_state", "connectionState"),
     ),
@@ -235,9 +250,30 @@ function normalizeTargetState(
   value: unknown,
 ): "connected" | "expired" | "revoked" | "error" {
   const state = lower(value);
-  if (state === "expired" || state === "revoked" || state === "error")
+  if (
+    state === "connected" ||
+    state === "expired" ||
+    state === "revoked" ||
+    state === "error"
+  ) {
     return state;
-  return "connected";
+  }
+  throw new Error("Publishing target response contained an unsupported state.");
+}
+
+function normalizeTargetChannel(value: unknown): "facebook" | "instagram" {
+  const channel = lower(value);
+  if (channel === "facebook" || channel === "instagram") return channel;
+  throw new Error(
+    "Publishing target response contained an unsupported channel.",
+  );
+}
+
+function requiredTargetString(value: unknown, label: string): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+  throw new Error(`Publishing target response is missing ${label}.`);
 }
 
 function normalizeCapabilities(value: unknown): readonly ["static_image"] {
