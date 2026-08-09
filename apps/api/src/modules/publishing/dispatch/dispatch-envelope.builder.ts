@@ -54,9 +54,9 @@ export interface DispatchAssemblyInput {
   retrievalStartedAt?: Date;
 }
 
-/** Far-future (1h) retrieval expiry used while the signed-URL asset boundary
- *  (#121) lands. The retrieval_url points at the frozen internal asset route,
- *  which #121 serves with provider provenance. */
+/** Far-future (1h) retrieval expiry for the signed internal asset route. The
+ *  route resolves approved Content media through the shared storage port and
+ *  remains bounded by the signed dispatch envelope. */
 const ASSET_RETRIEVAL_TTL_MS = 60 * 60 * 1000;
 
 /**
@@ -147,9 +147,8 @@ export class DispatchEnvelopeBuilder {
         : null,
     };
 
-    // Assets with the frozen internal retrieval route (real signed URLs land
-    // with #121). The retrieval_expires_at is bounded so a stale URL is never
-    // accepted as live.
+    // Assets with the frozen internal retrieval route. The
+    // retrieval_expires_at is bounded so a stale URL is never accepted as live.
     const retrievalExpiresAt = new Date(
       (input.retrievalStartedAt ?? new Date()).getTime() +
         ASSET_RETRIEVAL_TTL_MS,

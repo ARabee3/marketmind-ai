@@ -40,9 +40,10 @@ import {
 
 // Assets (#121)
 import { AssetsController } from "./assets/assets.controller";
-import { PublishingAssetStore } from "./assets/publishing-asset.store";
-import { LocalFilesystemAssetByteRetriever } from "./assets/asset-byte-retriever";
+import { ContentAssetReader } from "./assets/content-asset.reader";
+import { ContentAssetByteRetriever } from "./assets/content-asset-byte-retriever";
 import { ManualExportArchiveService } from "./exports/manual-export-archive.service";
+import { AssetStorageModule } from "../content/assets/asset-storage.module";
 
 // Intents
 import { IntentsController } from "./intents/intents.controller";
@@ -64,6 +65,7 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
 @Module({
   imports: [
     PrismaModule,
+    AssetStorageModule,
     HttpModule,
     FacebookModule,
     ScheduleModule.forRoot(),
@@ -101,19 +103,18 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     ReconciliationService,
     BusinessOwnershipGuard,
     InternalAuthGuard,
-    PublishingAssetStore,
+    ContentAssetReader,
+    ContentAssetByteRetriever,
     ManualExportArchiveService,
-    // Asset integrity boundary (issue #119 G4 / §9.2). #121 supplies the real
-    // byte retrieval via the committed local-filesystem store so dispatch
-    // proves retrieved media bytes against the approved SHA-256 digests before
-    // any provider call. The NullAssetByteRetriever remains available for
-    // tests and environments without a configured asset store.
+    // Asset integrity boundary (issue #119 G4 / §9.2). The production
+    // retriever reads approved Content media through the shared storage port,
+    // so R2/filesystem configuration is owned by Content and bytes are proved
+    // against the approved SHA-256 digest before any provider call. The
+    // committed demo store is test-only.
     AssetIntegrityValidator,
     {
       provide: ASSET_BYTE_RETRIEVER,
-      useFactory: (store: PublishingAssetStore) =>
-        new LocalFilesystemAssetByteRetriever(store),
-      inject: [PublishingAssetStore],
+      useExisting: ContentAssetByteRetriever,
     },
   ],
   exports: [

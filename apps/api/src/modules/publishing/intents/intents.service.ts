@@ -762,7 +762,7 @@ export class IntentsService {
       // A manual export is complete only after the exact approved media and
       // copy have been written to a checksum-addressed downloadable archive.
       if (mode === "MANUAL_EXPORT") {
-        const archive = this.manualExportArchive.createArchive({
+        const archive = await this.manualExportArchive.createArchive({
           artifactId,
           intentId,
           candidate: intent.candidate

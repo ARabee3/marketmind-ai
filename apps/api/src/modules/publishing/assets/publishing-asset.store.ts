@@ -29,17 +29,17 @@ export const PUBLISHING_ASSET_MANIFEST_VERSION =
   "publishing-asset-manifest-v1" as const;
 
 /**
- * `PublishingAssetStore` — the #121 internal asset-serving boundary that backs
- * `GET /internal/v1/publishing/assets/:id` and the dispatch-time
- * {@link AssetByteRetriever}.
+ * `PublishingAssetStore` — a committed demo-only asset store retained for
+ * fixture tests. It is not part of the production module graph. The
+ * `GET /internal/v1/publishing/assets/:id` and the demo
+ * {@link AssetByteRetriever} boundary.
  *
  * It loads a committed manifest (`apps/api/test-assets/publishing/manifest.json`)
  * that binds an `asset_id` to a file, its MIME type, and its real SHA-256
  * digest, then proves every referenced file's on-disk checksum matches the
  * manifest at startup. A drift excludes the asset (fail closed) so dispatch can
- * never proceed against bytes that no longer match the approved digest. This is
- * a local-filesystem store only; object storage is a future concern and the
- * retriever interface is the seam it swaps behind.
+ * never proceed against bytes that no longer match the approved digest. The
+ * production route uses Content's shared object-storage boundary.
  *
  * NOTE: bytes are held in memory for the committed demo assets. These are tiny
  * (one PNG); a real object-store-backed implementation would stream instead.

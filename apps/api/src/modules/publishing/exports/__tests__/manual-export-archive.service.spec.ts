@@ -41,7 +41,7 @@ describe("ManualExportArchiveService", () => {
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
-  it("stores a checksum-addressed archive containing the approved copy and exact media", () => {
+  it("stores a checksum-addressed archive containing the approved copy and exact media", async () => {
     const media = Buffer.from("approved-image-bytes", "utf8");
     const mediaChecksum = crypto
       .createHash("sha256")
@@ -65,6 +65,7 @@ describe("ManualExportArchiveService", () => {
         {
           asset_id: assetId,
           mime_type: "image/png",
+          storage_key: "content/asset.png",
           checksum: mediaChecksum,
         },
       ],
@@ -75,8 +76,8 @@ describe("ManualExportArchiveService", () => {
       },
       candidate_checksum: "a".repeat(64),
     } as unknown as PublicationCandidateV1;
-    const assetStore = {
-      getAsset: jest.fn().mockReturnValue({
+    const assetReader = {
+      readApprovedAsset: jest.fn().mockResolvedValue({
         id: assetId,
         mimeType: "image/png",
         checksum: mediaChecksum,
@@ -85,11 +86,11 @@ describe("ManualExportArchiveService", () => {
     };
     const service = new ManualExportArchiveService(
       { get: jest.fn().mockReturnValue(rootDir) } as any,
-      assetStore as any,
+      assetReader as any,
     );
     const artifactId = "66666666-6666-4666-8666-666666666666";
 
-    const created = service.createArchive({
+    const created = await service.createArchive({
       artifactId,
       intentId: "77777777-7777-4777-8777-777777777777",
       candidate,

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -10,7 +11,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as zlib from "zlib";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
-import { PublishingAssetStore } from "../assets/publishing-asset.store";
+import { ContentAssetReader } from "../assets/content-asset.reader";
+import type { PublishingAssetReader } from "../assets/publishing-asset.types";
 
 export const EXPORT_DESTINATION_PREFIX = "publishing-export:";
 const UUID_PATTERN =
@@ -69,7 +71,8 @@ export class ManualExportArchiveService {
 
   constructor(
     config: ConfigService,
-    private readonly assetStore: PublishingAssetStore,
+    @Inject(ContentAssetReader)
+    private readonly assetReader: PublishingAssetReader,
   ) {
     this.rootDir = path.resolve(
       config.get<string>(
@@ -79,19 +82,24 @@ export class ManualExportArchiveService {
     );
   }
 
-  createArchive(input: {
+  async createArchive(input: {
     artifactId: string;
     intentId: string;
     candidate: PublicationCandidateV1;
     generatedAt: Date;
-  }): CreatedManualExportArchive {
+  }): Promise<CreatedManualExportArchive> {
     const { artifactId, intentId, candidate, generatedAt } = input;
     this.assertArtifactId(artifactId);
 
     const mediaEntries: ArchiveEntry[] = [];
     const manifestAssets: ExportManifestAsset[] = [];
     for (const asset of candidate.assets) {
-      const record = this.assetStore.getAsset(asset.asset_id);
+      const record = await this.assetReader.readApprovedAsset({
+        asset_id: asset.asset_id,
+        mime_type: asset.mime_type,
+        storage_key: asset.storage_key,
+        checksum: asset.checksum,
+      });
       if (!record) {
         throw new UnprocessableEntityException(
           `${PublishingErrorCode.ASSET_UNAVAILABLE}: export asset ${asset.asset_id} is unavailable`,

@@ -4,16 +4,14 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import type { RetrievedPublicationAssetV1 } from "@marketmind/contracts";
-import {
-  type AssetByteRetriever,
-} from "../dispatch/asset-integrity-validator";
+import { type AssetByteRetriever } from "../dispatch/asset-integrity-validator";
 import { PublishingAssetStore } from "./publishing-asset.store";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import type { PublishingAssetReference } from "./publishing-asset.types";
 
 /**
- * `LocalFilesystemAssetByteRetriever` — the real #121 byte-retrieval boundary
- * that the dispatch-time {@link AssetIntegrityValidator} asks for candidate
- * media bytes before any provider call.
+ * `LocalFilesystemAssetByteRetriever` — a committed demo/test adapter retained
+ * for fixture tests. Production dispatch uses `ContentAssetByteRetriever`.
  *
  * It resolves each signed-dispatch `asset_id` through the committed
  * {@link PublishingAssetStore}, returning the immutable bytes + MIME type so
@@ -22,9 +20,8 @@ import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
  * (fail closed) so a dispatch referencing an asset we do not have is blocked
  * honestly rather than faked.
  *
- * TODO(#121-prod): swap this local-filesystem store behind an object-storage /
- * signed-URL retriever without touching the dispatch processor — the
- * `AssetByteRetriever` interface is the seam.
+ * It deliberately remains outside the production module graph so demo assets
+ * cannot be mistaken for a real Content/R2 publication path.
  */
 @Injectable()
 export class LocalFilesystemAssetByteRetriever implements AssetByteRetriever {
@@ -33,15 +30,25 @@ export class LocalFilesystemAssetByteRetriever implements AssetByteRetriever {
   constructor(private readonly store: PublishingAssetStore) {}
 
   async retrieve(
-    assetIds: readonly string[],
+    assets: readonly (PublishingAssetReference | string)[],
   ): Promise<readonly RetrievedPublicationAssetV1[]> {
     const retrieved: RetrievedPublicationAssetV1[] = [];
     const missing: string[] = [];
-    for (const id of assetIds) {
+    for (const asset of assets) {
+      const id = typeof asset === "string" ? asset : asset.asset_id;
       const record = this.store.getAsset(id);
       if (!record) {
         missing.push(id);
         continue;
+      }
+      if (
+        typeof asset !== "string" &&
+        (record.mimeType !== asset.mime_type ||
+          record.checksum !== asset.checksum)
+      ) {
+        throw new UnprocessableEntityException(
+          `${PublishingErrorCode.ASSET_TAMPERED}: demo asset ${id} does not match the approved candidate`,
+        );
       }
       retrieved.push({
         asset_id: record.id,
