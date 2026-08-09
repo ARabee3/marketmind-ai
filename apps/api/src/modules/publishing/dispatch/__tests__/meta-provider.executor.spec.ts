@@ -34,23 +34,45 @@ function makeGraph(overrides: Partial<Record<string, jest.Mock>> = {}) {
   } as never;
 }
 
-type GraphLike = { publishFacebookPhoto: jest.Mock; publishInstagramPhoto: jest.Mock };
+type GraphLike = {
+  publishFacebookPhoto: jest.Mock;
+  publishInstagramPhoto: jest.Mock;
+};
 type MediaFetchLike = { buildUrl: jest.Mock };
+type AssetReaderLike = { readApprovedAsset: jest.Mock };
 
 function makeMediaFetch() {
   return {
-    buildUrl: jest.fn(() => "https://fetch.example.com/internal/v1/publishing/media-fetch/a?token=x"),
+    buildUrl: jest.fn(
+      () =>
+        "https://fetch.example.com/internal/v1/publishing/media-fetch/a?token=x",
+    ),
     isConfigured: jest.fn(() => true),
     verify: jest.fn(() => true),
   } as never;
 }
 
-function makeContext(overrides: {
-  target?: Record<string, unknown>;
-  credentialRow?: Record<string, unknown> | null;
-  candidate?: Record<string, unknown> | null;
-  graph?: unknown;
-} = {}) {
+function makeAssetReader(overrides: Partial<AssetReaderLike> = {}) {
+  return {
+    readApprovedAsset: jest.fn(async (reference) => ({
+      id: reference.asset_id,
+      mimeType: reference.mime_type,
+      checksum: reference.checksum,
+      bytes: Buffer.from("verified-asset"),
+    })),
+    ...overrides,
+  } as never;
+}
+
+function makeContext(
+  overrides: {
+    target?: Record<string, unknown>;
+    credentialRow?: Record<string, unknown> | null;
+    candidate?: Record<string, unknown> | null;
+    graph?: unknown;
+    assetReader?: unknown;
+  } = {},
+) {
   const target = overrides.target ?? {
     id: "target-1",
     businessId: "biz-1",
@@ -62,24 +84,36 @@ function makeContext(overrides: {
     capabilities: ["static_image"],
     expiresAt: null,
   };
-  const credential = "credentialRow" in overrides ? overrides.credentialRow : {
-    id: "vault-1",
-    businessId: "biz-1",
-    provider: "META",
-    kind: "page",
-    revokedAt: null,
-    ciphertext: makeVault().encrypt(
-      JSON.stringify({ type: "page", token: "EAA-page-token", pageId: "page-1" }),
-    ).ciphertext,
-    keyVersion: "v1",
-  };
+  const credential =
+    "credentialRow" in overrides
+      ? overrides.credentialRow
+      : {
+          id: "vault-1",
+          businessId: "biz-1",
+          provider: "META",
+          kind: "page",
+          revokedAt: null,
+          ciphertext: makeVault().encrypt(
+            JSON.stringify({
+              type: "page",
+              token: "EAA-page-token",
+              pageId: "page-1",
+            }),
+          ).ciphertext,
+          keyVersion: "v1",
+        };
   const attemptTargetId = overrides.target?.id ?? "target-1";
   const prisma = {
     publishingAttempt: {
       findUnique: jest.fn(async () => ({
         id: "attempt-1",
         intentId: "intent-1",
-        intent: { id: "intent-1", targetId: attemptTargetId, version: 3, candidateId: "candidate-1" },
+        intent: {
+          id: "intent-1",
+          targetId: attemptTargetId,
+          version: 3,
+          candidateId: "candidate-1",
+        },
       })),
     },
     publishingTarget: {
@@ -95,7 +129,14 @@ function makeContext(overrides: {
               payload: {
                 caption: "Hello",
                 hashtags: ["#one", "#two"],
-                assets: [{ asset_id: "asset-9", checksum: "abc" }],
+                assets: [
+                  {
+                    asset_id: "asset-9",
+                    mime_type: "image/png",
+                    storage_key: "content/asset-9.png",
+                    checksum: "abc",
+                  },
+                ],
               },
             }
           : overrides.candidate,
@@ -104,24 +145,27 @@ function makeContext(overrides: {
   };
   const graph = (overrides.graph ?? makeGraph()) as never;
   const mediaFetch = makeMediaFetch();
+  const assetReader = overrides.assetReader ?? makeAssetReader();
   const executor = new MetaProviderExecutor(
     prisma as never,
     makeVault(),
     graph,
     mediaFetch,
+    assetReader as never,
   );
   return {
     executor,
     prisma,
     graph: graph as unknown as GraphLike,
     mediaFetch: mediaFetch as unknown as MediaFetchLike,
+    assetReader: assetReader as unknown as AssetReaderLike,
     target,
   };
 }
 
 describe("MetaProviderExecutor (issue #175)", () => {
   it("resolves the exact target's vault credential and publishes server-side", async () => {
-    const { executor, graph, mediaFetch } = makeContext();
+    const { executor, graph, mediaFetch, assetReader } = makeContext();
 
     const result = await executor.execute({
       attemptId: "attempt-1",
@@ -129,16 +173,26 @@ describe("MetaProviderExecutor (issue #175)", () => {
       targetId: "target-1",
     });
 
-    expect((graph as unknown as GraphLike).publishFacebookPhoto).toHaveBeenCalledWith(
+    expect(
+      (graph as unknown as GraphLike).publishFacebookPhoto,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         pageToken: "EAA-page-token",
         pageId: "page-1",
         caption: "Hello\n#one #two",
       }),
     );
-    expect((mediaFetch as unknown as MediaFetchLike).buildUrl).toHaveBeenCalledWith({
+    expect(
+      (mediaFetch as unknown as MediaFetchLike).buildUrl,
+    ).toHaveBeenCalledWith({
       attemptId: "attempt-1",
       assetId: "asset-9",
+    });
+    expect(assetReader.readApprovedAsset).toHaveBeenCalledWith({
+      asset_id: "asset-9",
+      mime_type: "image/png",
+      storage_key: "content/asset-9.png",
+      checksum: "abc",
     });
     expect(result.result).toMatchObject({
       contract_version: "publication-result-v1",
@@ -175,7 +229,11 @@ describe("MetaProviderExecutor (issue #175)", () => {
         kind: "instagram",
         revokedAt: null,
         ciphertext: makeVault().encrypt(
-          JSON.stringify({ type: "instagram", token: "EAA-ig-token", igBusinessId: "ig-1" }),
+          JSON.stringify({
+            type: "instagram",
+            token: "EAA-ig-token",
+            igBusinessId: "ig-1",
+          }),
         ).ciphertext,
         keyVersion: "v1",
       },
@@ -187,8 +245,13 @@ describe("MetaProviderExecutor (issue #175)", () => {
       targetId: "target-2",
     });
 
-    expect((graph as unknown as GraphLike).publishInstagramPhoto).toHaveBeenCalledWith(
-      expect.objectContaining({ pageToken: "EAA-ig-token", igBusinessId: "ig-1" }),
+    expect(
+      (graph as unknown as GraphLike).publishInstagramPhoto,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageToken: "EAA-ig-token",
+        igBusinessId: "ig-1",
+      }),
     );
     expect(result.result.outcome).toBe("published");
     expect(result.result.remote_publication_id).toBe("ig-media-1");
@@ -208,7 +271,9 @@ describe("MetaProviderExecutor (issue #175)", () => {
       error_code: "PUBLISHING_TARGET_UNAUTHORIZED",
       retryable: false,
     });
-    expect((graph as unknown as GraphLike).publishFacebookPhoto).not.toHaveBeenCalled();
+    expect(
+      (graph as unknown as GraphLike).publishFacebookPhoto,
+    ).not.toHaveBeenCalled();
   });
 
   it("fails truthfully on a revoked vault record", async () => {
@@ -263,9 +328,15 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
   it("maps a provider 401 to a non-retryable failed result", async () => {
     const graph = makeGraph({
-      publishFacebookPhoto: jest.fn().mockRejectedValue(
-        new MetaGraphClientError({ status: 401, code: 190, message: "expired" }),
-      ),
+      publishFacebookPhoto: jest
+        .fn()
+        .mockRejectedValue(
+          new MetaGraphClientError({
+            status: 401,
+            code: 190,
+            message: "expired",
+          }),
+        ),
     });
     const { executor } = makeContext({ graph });
 
@@ -284,9 +355,11 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
   it("maps a rate limit to a retryable failed result", async () => {
     const graph = makeGraph({
-      publishFacebookPhoto: jest.fn().mockRejectedValue(
-        new MetaGraphClientError({ status: 429, code: 4, message: "rate" }),
-      ),
+      publishFacebookPhoto: jest
+        .fn()
+        .mockRejectedValue(
+          new MetaGraphClientError({ status: 429, code: 4, message: "rate" }),
+        ),
     });
     const { executor } = makeContext({ graph });
 
@@ -304,9 +377,11 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
   it("reports UNKNOWN (reconciliation required) on an unconfirmed provider send", async () => {
     const graph = makeGraph({
-      publishFacebookPhoto: jest.fn().mockRejectedValue(
-        new MetaGraphClientError({ status: 0, code: 0, message: "reset" }),
-      ),
+      publishFacebookPhoto: jest
+        .fn()
+        .mockRejectedValue(
+          new MetaGraphClientError({ status: 0, code: 0, message: "reset" }),
+        ),
     });
     const { executor } = makeContext({ graph });
 
@@ -330,7 +405,9 @@ describe("MetaProviderExecutor (issue #175)", () => {
       intentId: "intent-1",
       targetId: "target-1",
     });
-    expect(JSON.stringify(result)).not.toMatch(/EAA-page-token|credentialRef|ciphertext/);
+    expect(JSON.stringify(result)).not.toMatch(
+      /EAA-page-token|credentialRef|ciphertext/,
+    );
   });
 
   it("fails when the candidate has no publishable asset", async () => {
@@ -343,5 +420,41 @@ describe("MetaProviderExecutor (issue #175)", () => {
       targetId: "target-1",
     });
     expect(result.result.error_code).toBe("PUBLISHING_ASSET_UNAVAILABLE");
+  });
+
+  it("blocks a provider call when approved media bytes are unavailable", async () => {
+    const assetReader = makeAssetReader({
+      readApprovedAsset: jest.fn().mockResolvedValue(null),
+    });
+    const { executor, graph } = makeContext({ assetReader });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-1",
+    });
+
+    expect(result.result.error_code).toBe("PUBLISHING_ASSET_UNAVAILABLE");
+    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+  });
+
+  it("preserves an asset tamper failure and never calls Meta", async () => {
+    const assetReader = makeAssetReader({
+      readApprovedAsset: jest
+        .fn()
+        .mockRejectedValue(
+          new Error("PUBLISHING_ASSET_TAMPERED: approved bytes changed"),
+        ),
+    });
+    const { executor, graph } = makeContext({ assetReader });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-1",
+    });
+
+    expect(result.result.error_code).toBe("PUBLISHING_ASSET_TAMPERED");
+    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
   });
 });

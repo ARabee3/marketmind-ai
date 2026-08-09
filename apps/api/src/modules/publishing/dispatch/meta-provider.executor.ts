@@ -8,6 +8,8 @@ import {
 import { mapMetaGraphError } from "../meta/meta-error.mapper";
 import { MediaFetchTokenService } from "./media-fetch-token.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import { ContentAssetReader } from "../assets/content-asset.reader";
+import type { PublishingAssetReference } from "../assets/publishing-asset.types";
 import * as crypto from "crypto";
 
 export interface MetaExecutorResult {
@@ -70,6 +72,7 @@ export class MetaProviderExecutor {
     private readonly vault: CredentialVaultService,
     private readonly graph: MetaGraphClient,
     private readonly mediaFetch: MediaFetchTokenService,
+    private readonly assetReader: ContentAssetReader,
   ) {}
 
   /** Executes the exact attempt's publish and returns a sanitized result. */
@@ -139,7 +142,8 @@ export class MetaProviderExecutor {
       const parsed = JSON.parse(this.vault.decrypt(record)) as
         | PageTokenBundle
         | InstagramTokenBundle;
-      const expectedType = target.channel === "instagram" ? "instagram" : "page";
+      const expectedType =
+        target.channel === "instagram" ? "instagram" : "page";
       if (parsed.type !== expectedType || !parsed.token) {
         throw new Error("credential bundle mismatch for channel");
       }
@@ -161,12 +165,20 @@ export class MetaProviderExecutor {
     }
     let imageUrl: string;
     try {
+      const verified = await this.assetReader.readApprovedAsset(asset);
+      if (!verified) {
+        return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
+      }
       imageUrl = this.mediaFetch.buildUrl({
         attemptId: input.attemptId,
         assetId: asset.asset_id,
       });
-    } catch {
-      return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
+        ? PublishingErrorCode.ASSET_TAMPERED
+        : PublishingErrorCode.ASSET_UNAVAILABLE;
+      return this.failed(base, code, false);
     }
 
     const caption = this.captionFor(candidate?.payload);
@@ -248,16 +260,36 @@ export class MetaProviderExecutor {
     };
   }
 
-  private firstStaticAsset(payload: unknown): {
-    asset_id: string;
-    checksum: string;
-  } | null {
+  private firstStaticAsset(payload: unknown): PublishingAssetReference | null {
     const candidate = payload as {
-      assets?: Array<{ asset_id?: string; checksum?: string }>;
+      assets?: Array<{
+        asset_id?: string;
+        mime_type?: string;
+        storage_key?: string;
+        checksum?: string;
+      }>;
     };
-    const asset = candidate?.assets?.[0];
-    if (!asset?.asset_id) return null;
-    return { asset_id: asset.asset_id, checksum: asset.checksum ?? "" };
+    const asset = candidate?.assets?.find(
+      (entry) =>
+        typeof entry.asset_id === "string" &&
+        entry.asset_id.length > 0 &&
+        typeof entry.mime_type === "string" &&
+        entry.mime_type.startsWith("image/"),
+    );
+    if (
+      !asset?.asset_id ||
+      !asset.mime_type ||
+      !asset.storage_key ||
+      !asset.checksum
+    ) {
+      return null;
+    }
+    return {
+      asset_id: asset.asset_id,
+      mime_type: asset.mime_type,
+      storage_key: asset.storage_key,
+      checksum: asset.checksum,
+    };
   }
 
   private captionFor(payload: unknown): string {
