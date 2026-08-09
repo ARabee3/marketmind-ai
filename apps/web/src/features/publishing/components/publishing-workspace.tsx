@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, RefreshCw, ShieldCheck } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type {
@@ -76,6 +76,7 @@ export function PublishingWorkspace({
     null,
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
 
   const load = useCallback(async () => {
     const [journey, candidates, intents, targets] = await Promise.all([
@@ -178,6 +179,39 @@ export function PublishingWorkspace({
     (selectedCandidate && data
       ? activeIntentForCandidate(selectedCandidate, data.intents)
       : null);
+
+  useEffect(() => {
+    if (!intentId || intent?.state !== "dispatching") return;
+
+    let cancelled = false;
+
+    const poll = () => {
+      if (
+        cancelled ||
+        document.visibilityState === "hidden" ||
+        refreshInFlight.current
+      ) {
+        return;
+      }
+
+      refreshInFlight.current = true;
+      void refresh().finally(() => {
+        refreshInFlight.current = false;
+      });
+    };
+
+    const interval = window.setInterval(poll, 4_000);
+    window.addEventListener("focus", poll);
+    document.addEventListener("visibilitychange", poll);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", poll);
+      document.removeEventListener("visibilitychange", poll);
+    };
+  }, [intentId, intent?.state, refresh]);
+
   const detail = data?.detail ?? null;
   const currentWeek =
     data?.journey.content?.cycle?.current_week ?? selectedWeek;
