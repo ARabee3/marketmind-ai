@@ -1,6 +1,11 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { Injectable, Logger, BadRequestException, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  Optional,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
@@ -16,6 +21,10 @@ import {
 import { DEFAULT_AI_REQUEST_TIMEOUT_MS } from "../../common/config/external-provider.config";
 import { BillingEntitlementsService } from "../billing/billing-entitlements.service";
 import { StrategyProgressGateway } from "./strategy-progress.gateway";
+import {
+  StrategyKnowledgeUnavailableError,
+  strategyRetrievalRunIsUsable,
+} from "./strategy-retrieval-readiness";
 
 interface GenerateJobData {
   strategyId: string;
@@ -40,6 +49,11 @@ const MAX_AI_GENERATION_ATTEMPTS = 3;
 /** Base backoff delay between AI generation attempts (doubles per attempt). */
 const DEFAULT_AI_GENERATION_RETRY_DELAY_MS = 1_000;
 
+// FastAPI can perform up to three provider/repair attempts inside one Strategy
+// request. This timeout covers that whole bounded loop; a shorter timeout can
+// abort a healthy repair and start duplicate provider work.
+const STRATEGY_AI_GENERATION_TIMEOUT_MS = 150_000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -57,7 +71,8 @@ export class StrategyProcessor extends WorkerHost {
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
     private readonly progressGateway: StrategyProgressGateway,
-    @Optional() private readonly billingEntitlements?: BillingEntitlementsService,
+    @Optional()
+    private readonly billingEntitlements?: BillingEntitlementsService,
   ) {
     super();
     this.aiUrl =
@@ -156,7 +171,7 @@ export class StrategyProcessor extends WorkerHost {
               retrieved_knowledge_pack: toContractRetrievalPack(retrievalRun),
               deterministic_channel_scores: deterministicChannelScores,
             },
-            45_000,
+            STRATEGY_AI_GENERATION_TIMEOUT_MS,
             correlationId,
           ),
         (result) => {
@@ -264,6 +279,9 @@ export class StrategyProcessor extends WorkerHost {
     if (!retrievalRun) {
       throw new Error("Retrieval run missing during generation");
     }
+    if (!strategyRetrievalRunIsUsable(retrievalRun)) {
+      throw new StrategyKnowledgeUnavailableError();
+    }
 
     return { strategy, businessProfile, brief, retrievalRun };
   }
@@ -274,7 +292,8 @@ export class StrategyProcessor extends WorkerHost {
       `[Corr: ${correlationId}] Revising strategy ${strategyId} (prior: ${priorVersionId})`,
     );
 
-    const ownerStrategy = await this.strategyRepository.readStrategy(strategyId);
+    const ownerStrategy =
+      await this.strategyRepository.readStrategy(strategyId);
     if (ownerStrategy) {
       await this.billingEntitlements?.assertAllowed(
         ownerStrategy.ownerUserId,
@@ -336,6 +355,12 @@ export class StrategyProcessor extends WorkerHost {
       retrievalRunId = retrievalResponse.data.retrieval_run_id;
       if (!retrievalRunId) {
         throw new Error("AI retrieval service returned no retrieval_run_id");
+      }
+
+      const retrievalRun =
+        await this.strategyRepository.getRetrievalRunById(retrievalRunId);
+      if (!strategyRetrievalRunIsUsable(retrievalRun)) {
+        throw new StrategyKnowledgeUnavailableError();
       }
 
       this.logger.log(
@@ -450,7 +475,7 @@ export class StrategyProcessor extends WorkerHost {
               previous_plan: priorVersion.planData,
               revision_notes: feedback?.trim() || "",
             },
-            45_000,
+            STRATEGY_AI_GENERATION_TIMEOUT_MS,
             correlationId,
           ),
         (result) => {
@@ -565,11 +590,12 @@ export class StrategyProcessor extends WorkerHost {
    * Calls the AI generation/revise endpoint with bounded automatic retries.
    *
    * Owner-facing rule: a draft is only ever surfaced when it is valid AND
-   * approvable. Transient provider errors, HTTP 422 validation rejections,
-   * malformed responses, and plans that carry blocking blockers are all
-   * retried automatically while the strategy stays in `generating`. The
-   * strategy only moves to `failed` (owner-visible retry) after every attempt
-   * is exhausted.
+   * approvable. Transient provider errors, malformed responses, and plans that
+   * carry blocking blockers are retried automatically while the strategy stays
+   * in `generating`. HTTP 422 means the AI service already exhausted its own
+   * bounded repair loop, so repeating the same request only wastes provider
+   * calls. The strategy only moves to `failed` (owner-visible retry) after
+   * every useful attempt is exhausted.
    */
   private async callAiGenerationWithRetry<T>(
     correlationId: string,
@@ -589,13 +615,14 @@ export class StrategyProcessor extends WorkerHost {
       } catch (error: unknown) {
         lastError = error;
         const hasRetriesLeft = attemptNumber < MAX_AI_GENERATION_ATTEMPTS - 1;
-        if (hasRetriesLeft && shouldRetryAiGeneration(error)) {
-          const delay = this.aiGenerationRetryDelayMs * 2 ** attemptNumber;
-          this.logger.warn(
-            `[Corr: ${correlationId}] AI generation attempt ${attemptNumber + 1}/${MAX_AI_GENERATION_ATTEMPTS} failed (${errorMessage(error)}); retrying in ${delay}ms`,
-          );
-          await sleep(delay);
+        if (!hasRetriesLeft || !shouldRetryAiGeneration(error)) {
+          throw error;
         }
+        const delay = this.aiGenerationRetryDelayMs * 2 ** attemptNumber;
+        this.logger.warn(
+          `[Corr: ${correlationId}] AI generation attempt ${attemptNumber + 1}/${MAX_AI_GENERATION_ATTEMPTS} failed (${errorMessage(error)}); retrying in ${delay}ms`,
+        );
+        await sleep(delay);
       }
     }
     throw lastError;
@@ -643,9 +670,11 @@ export class StrategyProcessor extends WorkerHost {
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
-    const response = (error as Error & {
-      response?: { status?: unknown; data?: unknown };
-    }).response;
+    const response = (
+      error as Error & {
+        response?: { status?: unknown; data?: unknown };
+      }
+    ).response;
     if (response?.status !== undefined) {
       const detail = formatResponseData(response.data);
       return `${error.message} (status=${String(response.status)}${detail ? `, response=${detail}` : ""})`;
@@ -666,18 +695,24 @@ function formatResponseData(data: unknown): string {
 
 /**
  * Decides whether an AI generation attempt is worth repeating. Retries are
- * bounded and safe for transient provider failures, HTTP 422 validation
- * rejections (the AI service itself re-attempts with repair prompts), and
- * plans that are structurally invalid or non-approvable. Other HTTP 4xx
- * responses (e.g. a malformed request body) will not fix themselves and are
+ * bounded and safe for transient provider failures and plans that are
+ * structurally invalid or non-approvable. HTTP 422 validation failures are
+ * terminal for this job because the AI service already re-attempted them with
+ * repair prompts. Other HTTP 4xx responses will not fix themselves and are
  * surfaced immediately.
  */
 function shouldRetryAiGeneration(error: unknown): boolean {
   if (!(error instanceof Error)) return true;
-  const status = (error as Error & { response?: { status?: number } })
-    .response?.status;
+  const code = (error as Error & { code?: string }).code;
+  if (code === "ECONNABORTED") {
+    // The upstream request may still be running. Repeating it can create a
+    // duplicate provider call without improving the result.
+    return false;
+  }
+  const status = (error as Error & { response?: { status?: number } }).response
+    ?.status;
   if (typeof status === "number") {
-    if (status === 400 || status === 401 || status === 403 || status === 404) {
+    if (status >= 400 && status < 500) {
       return false;
     }
     return true;

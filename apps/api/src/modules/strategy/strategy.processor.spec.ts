@@ -9,6 +9,12 @@ import { StrategyProgressGateway } from "./strategy-progress.gateway";
 
 type MockedRepo = jest.Mocked<Partial<StrategyRepository>>;
 
+function httpStatusError(status: number): Error {
+  return Object.assign(new Error(`Request failed with status code ${status}`), {
+    response: { status },
+  });
+}
+
 const PROFILE_VERSION_FIXTURE = {
   id: "prof-1",
   businessId: "biz-1",
@@ -58,6 +64,7 @@ const STRATEGY_FIXTURE = {
 
 const RETRIEVAL_RUN_FIXTURE = {
   id: "run-1",
+  status: "completed",
   strategyId: "strat-1",
   briefId: "brief-1",
   profileVersionId: "prof-1",
@@ -610,40 +617,52 @@ describe("StrategyProcessor", () => {
       created_at: "2026-07-28T10:00:00.000Z",
     };
 
-    it("retries a 422 validation rejection and persists the later valid plan", async () => {
-      (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
-        id: "ver-1",
-        version: 1,
-      });
+    it("does not repeat a 422 after the AI service exhausts its repair loop", async () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValueOnce(
-          throwError(() => new Error("Request failed with status code 422")),
-        )
-        .mockReturnValueOnce(
-          of({
-            data: {
-              plan: validPlan,
-              validation: { valid: true, issues: [] },
-              prompt_config: { model: "gpt-4o" },
-            },
-          }),
-        );
+        .mockReturnValueOnce(throwError(() => httpStatusError(422)));
 
-      const result = await processor.process({
-        id: "job-1",
-        name: "generate-strategy",
-        data: baseJob,
-      } as never);
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("Request failed with status code 422");
 
-      expect(result).toEqual({ success: true, versionId: "ver-1" });
-      // Score + two generate attempts (failed 422 then success).
-      expect(httpService.post).toHaveBeenCalledTimes(3);
-      // The strategy never moved to failed — the owner never saw a retry UI.
-      expect(repository.updateStrategyStatus).not.toHaveBeenCalledWith(
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
         "strat-1",
         "failed",
       );
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+
+    it("allows the AI service repair loop enough time and does not duplicate a timed-out request", async () => {
+      const timeoutError = Object.assign(
+        new Error("timeout of 150000ms exceeded"),
+        { code: "ECONNABORTED" },
+      );
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(throwError(() => timeoutError));
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("timeout of 150000ms exceeded");
+
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+      expect(httpService.post).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining("/internal/v1/ai/strategy/generate"),
+        expect.any(Object),
+        expect.objectContaining({ timeout: 150_000 }),
+      );
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
     it("rejects a plan carrying blocking blockers and regenerates until approvable", async () => {
@@ -659,7 +678,11 @@ describe("StrategyProcessor", () => {
               plan: {
                 ...validPlan,
                 blockers: [
-                  { severity: "blocking", code: "BUDGET", message: "No budget" },
+                  {
+                    severity: "blocking",
+                    code: "BUDGET",
+                    message: "No budget",
+                  },
                 ],
               },
               validation: { valid: true, issues: [] },
@@ -695,9 +718,7 @@ describe("StrategyProcessor", () => {
     it("fails to failed only after every automatic attempt is exhausted", async () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
-        .mockReturnValue(
-          throwError(() => new Error("Request failed with status code 422")),
-        );
+        .mockReturnValue(throwError(() => httpStatusError(422)));
 
       await expect(
         processor.process({
@@ -707,8 +728,9 @@ describe("StrategyProcessor", () => {
         } as never),
       ).rejects.toThrow("Request failed with status code 422");
 
-      // Score + MAX_AI_GENERATION_ATTEMPTS generate attempts.
-      expect(httpService.post).toHaveBeenCalledTimes(4);
+      // Score + one terminal generate attempt. The AI service already repaired
+      // the provider output before returning HTTP 422.
+      expect(httpService.post).toHaveBeenCalledTimes(2);
       expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
         "strat-1",
         "failed",
