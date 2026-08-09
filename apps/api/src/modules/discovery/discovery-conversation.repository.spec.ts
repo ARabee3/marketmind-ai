@@ -123,6 +123,112 @@ describe("DiscoveryConversationRepository", () => {
     expect(prisma.tx.discoveryMessage.create).not.toHaveBeenCalled();
   });
 
+  it("stores the owner answer and assistant question in the same transaction", async () => {
+    const create = jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve({
+        ...data,
+        id: data.id ?? "assistant-message-id",
+        createdAt: data.createdAt ?? new Date("2026-06-29T10:02:00.000Z"),
+      }),
+    );
+    const prisma = transactionPrisma({
+      discoverySession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      discoveryMessage: {
+        create,
+        findFirst: jest.fn().mockResolvedValue({
+          createdAt: new Date("2026-06-29T10:00:00.000Z"),
+        }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    });
+    const repository = new DiscoveryConversationRepository(prisma as never);
+
+    await repository.completeConversationTurn(
+      "session-id",
+      ["in_progress"],
+      "in_progress",
+      "What happens next?",
+      undefined,
+      {
+        role: "assistant",
+        content: "What happens next?",
+        language: LanguageModeDto.Mixed,
+        source: "chat",
+      },
+      emptyDiscoveryProfileState(),
+      true,
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "owner",
+        content: "Families buy most often.",
+        language: LanguageModeDto.Mixed,
+        source: "chat",
+        created_at: "2026-06-29T10:01:00.000Z",
+      },
+    );
+
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(prisma.tx.discoveryMessage.deleteMany).toHaveBeenCalledWith({
+      where: {
+        sessionId: "session-id",
+        role: "owner",
+        createdAt: { gt: new Date("2026-06-29T10:00:00.000Z") },
+      },
+    });
+    expect(create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: "11111111-1111-4111-8111-111111111111",
+          role: "owner",
+        }),
+      }),
+    );
+    expect(create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({ role: "assistant" }),
+      }),
+    );
+  });
+
+  it("does not send orphan owner answers from failed turns back to AI", async () => {
+    const prisma = {
+      discoveryMessage: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            persistedMessage(
+              "assistant",
+              "Question",
+              "2026-06-29T10:00:00.000Z",
+            ),
+            persistedMessage(
+              "owner",
+              "Failed answer",
+              "2026-06-29T10:01:00.000Z",
+            ),
+            persistedMessage(
+              "owner",
+              "Failed answer",
+              "2026-06-29T10:02:00.000Z",
+            ),
+          ]),
+      },
+    };
+    const repository = new DiscoveryConversationRepository(prisma as never);
+
+    const messages = await repository.listMessages("session-id");
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      role: "assistant",
+      content: "Question",
+    });
+  });
+
   it("reloads owner-submitted social links with the discovery intake", async () => {
     const prisma = {
       preparedDiscoveryIntake: {
@@ -561,5 +667,21 @@ function intake() {
     business_type: "restaurant",
     city: "Cairo",
     area: "Nasr City",
+  };
+}
+
+function persistedMessage(
+  role: "owner" | "assistant",
+  content: string,
+  createdAt: string,
+) {
+  return {
+    id: `${role}-${createdAt}`,
+    role,
+    content,
+    language: "mixed",
+    source: "chat",
+    metadata: {},
+    createdAt: new Date(createdAt),
   };
 }

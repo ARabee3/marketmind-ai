@@ -26,11 +26,13 @@ import {
 } from "./dto/start-discovery.dto";
 
 type MessageInput = {
+  readonly id?: string;
   readonly role: DiscoveryMessage["role"];
   readonly content: string;
   readonly language: DiscoveryMessage["language"];
   readonly source: DiscoveryMessage["source"];
   readonly metadata?: Record<string, unknown>;
+  readonly created_at?: string;
 };
 
 type ConfirmationCorrections = {
@@ -67,7 +69,12 @@ export class DiscoveryConversationRepository {
       orderBy: { createdAt: "asc" },
     });
 
-    return messages.map(messageFromPersistence);
+    const committedMessages = [...messages];
+    while (committedMessages.at(-1)?.role === "owner") {
+      committedMessages.pop();
+    }
+
+    return committedMessages.map(messageFromPersistence);
   }
 
   async latestProfileDraft(
@@ -136,6 +143,7 @@ export class DiscoveryConversationRepository {
     assistantMessage?: MessageInput,
     profileState?: DiscoveryProfileState,
     incrementOwnerTurn = false,
+    ownerMessage?: MessageInput,
   ): Promise<DiscoveryMessage | undefined> {
     const savedMessage = await this.prisma.$transaction(async (tx) => {
       const transition = await tx.discoverySession.updateMany({
@@ -162,15 +170,15 @@ export class DiscoveryConversationRepository {
         return undefined;
       }
 
+      if (ownerMessage) {
+        await deleteTrailingOwnerMessages(tx, sessionId);
+        await tx.discoveryMessage.create({
+          data: messageCreateData(sessionId, ownerMessage),
+        });
+      }
+
       return tx.discoveryMessage.create({
-        data: {
-          sessionId,
-          role: assistantMessage.role,
-          content: assistantMessage.content,
-          language: assistantMessage.language,
-          source: assistantMessage.source,
-          metadata: jsonForPrisma(assistantMessage.metadata ?? {}),
-        },
+        data: messageCreateData(sessionId, assistantMessage),
       });
     });
 
@@ -185,6 +193,7 @@ export class DiscoveryConversationRepository {
     completionReason: DiscoveryCompletionReason,
     assistantMessage: MessageInput,
     incrementOwnerTurn: boolean,
+    ownerMessage?: MessageInput,
   ): Promise<{
     draft: BusinessProfileDraft;
     assistantMessage: DiscoveryMessage;
@@ -208,6 +217,13 @@ export class DiscoveryConversationRepository {
         throw invalidDiscoveryState();
       }
 
+      if (ownerMessage) {
+        await deleteTrailingOwnerMessages(tx, sessionId);
+        await tx.discoveryMessage.create({
+          data: messageCreateData(sessionId, ownerMessage),
+        });
+      }
+
       const savedDraft = await tx.businessProfileDraft.upsert({
         where: {
           sessionId_version: {
@@ -219,14 +235,7 @@ export class DiscoveryConversationRepository {
         update: profileDraftUpdateData(draft),
       });
       const savedMessage = await tx.discoveryMessage.create({
-        data: {
-          sessionId,
-          role: assistantMessage.role,
-          content: assistantMessage.content,
-          language: assistantMessage.language,
-          source: assistantMessage.source,
-          metadata: jsonForPrisma(assistantMessage.metadata ?? {}),
-        },
+        data: messageCreateData(sessionId, assistantMessage),
       });
 
       return { savedDraft, savedMessage };
@@ -534,6 +543,39 @@ function profileDraftUpdateData(draft: BusinessProfileDraft) {
   };
 }
 
+function messageCreateData(sessionId: string, message: MessageInput) {
+  return {
+    ...(message.id ? { id: message.id } : {}),
+    sessionId,
+    role: message.role,
+    content: message.content,
+    language: message.language,
+    source: message.source,
+    metadata: jsonForPrisma(message.metadata ?? {}),
+    ...(message.created_at ? { createdAt: new Date(message.created_at) } : {}),
+  };
+}
+
+async function deleteTrailingOwnerMessages(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+): Promise<void> {
+  const latestAssistant = await tx.discoveryMessage.findFirst({
+    where: { sessionId, role: "assistant" },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  await tx.discoveryMessage.deleteMany({
+    where: {
+      sessionId,
+      role: "owner",
+      ...(latestAssistant
+        ? { createdAt: { gt: latestAssistant.createdAt } }
+        : {}),
+    },
+  });
+}
+
 function jsonForPrisma(value: object): Prisma.InputJsonObject {
   return value as Prisma.InputJsonObject;
 }
@@ -561,7 +603,8 @@ function confirmedIdentity(
   const identity = confirmedFacts.identity;
   return {
     business_name:
-      pick(identity.business_name, intake.business_name) ?? intake.business_name,
+      pick(identity.business_name, intake.business_name) ??
+      intake.business_name,
     business_type:
       pick(identity.business_type, intake.business_type) ??
       intake.business_type,

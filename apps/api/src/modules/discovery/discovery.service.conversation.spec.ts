@@ -134,7 +134,7 @@ describe("DiscoveryService conversation", () => {
       [assistantMessage()],
       expect.objectContaining({ role: "owner" }),
     );
-    expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(1);
+    expect(conversationRepository.appendMessage).not.toHaveBeenCalled();
     expect(
       conversationRepository.completeConversationTurn,
     ).toHaveBeenCalledWith(
@@ -151,6 +151,10 @@ describe("DiscoveryService conversation", () => {
         readiness: expect.objectContaining({ owner_turn_count: 1 }),
       }),
       true,
+      expect.objectContaining({
+        role: "owner",
+        content: "Families buy most often.",
+      }),
     );
     expect(response.status).toBe("in_progress");
     expect(response.assistant_message?.content).toBe(
@@ -162,11 +166,7 @@ describe("DiscoveryService conversation", () => {
     aiDiscoveryClient.respond.mockResolvedValue({
       ...aiResult(),
       next_question: "What usually makes customers choose you?",
-      suggested_answers: [
-        "Fresh products",
-        "Close to home",
-        "Good prices",
-      ],
+      suggested_answers: ["Fresh products", "Close to home", "Good prices"],
     });
 
     const response = await service.respondToDiscovery(
@@ -185,15 +185,12 @@ describe("DiscoveryService conversation", () => {
       undefined,
       expect.objectContaining({
         metadata: {
-          suggested_answers: [
-            "Fresh products",
-            "Close to home",
-            "Good prices",
-          ],
+          suggested_answers: ["Fresh products", "Close to home", "Good prices"],
         },
       }),
       expect.any(Object),
       true,
+      expect.objectContaining({ role: "owner" }),
     );
     expect(response.assistant_message?.suggested_answers).toEqual([
       "Fresh products",
@@ -223,7 +220,7 @@ describe("DiscoveryService conversation", () => {
         },
       ),
     ).rejects.toBeInstanceOf(ProviderError);
-    expect(conversationRepository.appendMessage).toHaveBeenCalledTimes(1);
+    expect(conversationRepository.appendMessage).not.toHaveBeenCalled();
     expect(
       conversationRepository.completeConversationTurn,
     ).not.toHaveBeenCalled();
@@ -367,6 +364,7 @@ describe("DiscoveryService conversation", () => {
         source: "summary",
       }),
       false,
+      undefined,
     );
     expect(response.profile_draft.id).toBe(draft.id);
   });
@@ -534,7 +532,9 @@ describe("DiscoveryService conversation", () => {
     );
 
     expect(conversationRepository.latestProfileDraft).not.toHaveBeenCalled();
-    expect(conversationRepository.confirmProfile.mock.calls[0][5]).toBeUndefined();
+    expect(
+      conversationRepository.confirmProfile.mock.calls[0][5],
+    ).toBeUndefined();
   });
 });
 
