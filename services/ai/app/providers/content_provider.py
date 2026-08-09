@@ -569,6 +569,7 @@ class MockContentProvider(ContentLLMProvider):
                     strategy_week=strategy_week,
                     week_context=week_context,
                     identity=identity,
+                    post_plan=post_plan,
                 )
                 for index, post_plan in enumerate(post_plans)
             ]
@@ -626,18 +627,28 @@ class MockContentProvider(ContentLLMProvider):
         formats = grounding["allowed_formats"]
         cta_entries = grounding["cta_library"]
         media_entries = grounding["media_library"]
-        focus = grounding["strategy_week"]["focus"]
-        language = identity["language_mode"]
+        strategy_week = grounding["strategy_week"]
+        focus = str(strategy_week.get("focus") or "").strip()
+        owner_advice = [
+            str(advice).strip()
+            for advice in strategy_week.get("owner_advice", [])
+            if str(advice).strip()
+        ]
+        editorial_profile = grounding.get("editorial_profile") or {}
+        audience_nuance = str(editorial_profile.get("audience_nuance") or "").strip()
+        visual_guidance = str(
+            editorial_profile.get("default_visual_guidance") or ""
+        ).strip() or None
+        language = str(identity["language_mode"])
         item_count = 3
-        suffix = "الغداء السريع" if language != "en" else "fast lunch"
         return [
             ContentPostPlanDraftV2(
                 purpose=(
-                    f"{focus} — منشور {index + 1} يستهدف {suffix}."
+                    f"{focus} — زاوية محتوى {index + 1}"
                     if language != "en"
-                    else f"{focus} — post {index + 1} targeting {suffix}."
+                    else f"{focus} — content angle {index + 1}"
                 ),
-                intended_audience="موظفو المكاتب القريبة" if language != "en" else "nearby office workers",
+                intended_audience=audience_nuance or None,
                 channel=channels[index % len(channels)],
                 format=formats[index % len(formats)],
                 cta_library_entry_id=(
@@ -645,12 +656,12 @@ class MockContentProvider(ContentLLMProvider):
                     if index == 0 and cta_entries
                     else None
                 ),
-                owner_instructions=None,
-                visual_direction=(
-                    grounding["editorial_profile"]["default_visual_guidance"]
-                    if index == 0
+                owner_instructions=(
+                    owner_advice[index % len(owner_advice)]
+                    if owner_advice
                     else None
                 ),
+                visual_direction=visual_guidance,
                 selected_media_ids=(
                     [media_entries[0]["id"]]
                     if index == 0 and media_entries
@@ -671,6 +682,7 @@ class MockContentProvider(ContentLLMProvider):
         strategy_week: dict[str, Any],
         week_context: dict[str, Any],
         identity: dict[str, Any],
+        post_plan: dict[str, Any] | None = None,
     ) -> ContentItemVersion:
         """Produce a ContentItemVersion with index-driven distinctiveness."""
         content_item_id = str(
@@ -685,6 +697,35 @@ class MockContentProvider(ContentLLMProvider):
         promotion = week_context.get("promotion")
         language_mode = context["generation_identity"]["language_mode"]
         must_include = week_context.get("must_include", [])
+        card_purpose = str((post_plan or {}).get("purpose") or "").strip() or None
+        card_audience = str(
+            (post_plan or {}).get("intended_audience") or ""
+        ).strip() or None
+        card_instruction = str(
+            (post_plan or {}).get("owner_instructions") or ""
+        ).strip() or None
+        card_visual_direction = str(
+            (post_plan or {}).get("visual_direction") or ""
+        ).strip() or None
+        selected_media_ids = [
+            str(media_id)
+            for media_id in ((post_plan or {}).get("selected_media_ids") or [])
+        ]
+        cta_entry_id = (post_plan or {}).get("cta_library_entry_id")
+        cta_entry = next(
+            (
+                entry
+                for entry in context["grounding_inputs"].get("cta_library", [])
+                if entry.get("id") == cta_entry_id
+            ),
+            None,
+        )
+        card_week_context = week_context
+        if cta_entry is not None:
+            card_week_context = {
+                **week_context,
+                "cta_destination": cta_entry.get("destination") or {},
+            }
         hooks_ar = [
             "هل تعلم أن",
             "اكتشف السر وراء",
@@ -700,9 +741,9 @@ class MockContentProvider(ContentLLMProvider):
             "The key to success in",
         ]
         hooks = hooks_en if language_mode == "en" else hooks_ar
-        hook = hooks[index % len(hooks)]
+        hook = "" if post_plan is not None else hooks[index % len(hooks)]
         if language_mode == "en":
-            cta = _cta_text(week_context, "en")
+            cta = _cta_text(card_week_context, "en")
             caption_variants = [
                 ContentCaptionVariant(
                     locale="en",
@@ -714,14 +755,15 @@ class MockContentProvider(ContentLLMProvider):
                         cta,
                         "en",
                         hook=hook,
+                        content_purpose=card_purpose,
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#SmallBusiness"],
                 )
             ]
         elif language_mode == "mixed":
-            cta = _cta_text(week_context, "ar-EG")
-            english_cta = _cta_text(week_context, "en")
+            cta = _cta_text(card_week_context, "ar-EG")
+            english_cta = _cta_text(card_week_context, "en")
             caption_variants = [
                 ContentCaptionVariant(
                     locale="ar",
@@ -732,7 +774,8 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         cta,
                         "ar-EG",
-                        hook=hooks_ar[index % len(hooks_ar)],
+                        hook="" if post_plan is not None else hooks_ar[index % len(hooks_ar)],
+                        content_purpose=card_purpose,
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#مشروعك"],
@@ -746,14 +789,15 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         english_cta,
                         "en",
-                        hook=hooks_en[index % len(hooks_en)],
+                        hook="" if post_plan is not None else hooks_en[index % len(hooks_en)],
+                        content_purpose=card_purpose,
                     ),
                     cta=english_cta,
                     hashtags=["#MarketMind", "#SmallBusiness"],
                 ),
             ]
         else:
-            cta = _cta_text(week_context, "ar-EG")
+            cta = _cta_text(card_week_context, "ar-EG")
             caption_variants = [
                 ContentCaptionVariant(
                     locale="ar",
@@ -764,7 +808,8 @@ class MockContentProvider(ContentLLMProvider):
                         must_include,
                         cta,
                         "ar-EG",
-                        hook=hooks_ar[index % len(hooks_ar)],
+                        hook="" if post_plan is not None else hooks_ar[index % len(hooks_ar)],
+                        content_purpose=card_purpose,
                     ),
                     cta=cta,
                     hashtags=["#MarketMind", "#مشروعك"],
@@ -789,19 +834,36 @@ class MockContentProvider(ContentLLMProvider):
             ]
         caption = caption_variants[0].caption
         asset_required = content_format in {"static_image_post", "carousel_brief"}
-        asset_ids = week_context.get("approved_asset_ids", []) if asset_required else []
+        asset_ids = (
+            selected_media_ids
+            if post_plan is not None
+            else (week_context.get("approved_asset_ids", []) if asset_required else [])
+        )
         script = None
         if content_format == "short_video_script":
-            visual_direction = (
-                "وجّه الصورة وفق الموجز الإبداعي المعتمد."
-                if language_mode == "ar-EG"
-                else "Show the visual direction from the approved creative brief."
+            if card_visual_direction:
+                visual_direction = card_visual_direction
+            elif language_mode == "ar-EG":
+                visual_direction = "وجّه الصورة وفق الموجز الإبداعي المعتمد."
+            else:
+                visual_direction = "Show the visual direction from the approved creative brief."
+            video_hook = (
+                f"زاوية المحتوى: {card_purpose or strategy_week['theme']}"
+                if post_plan is not None and language_mode != "en"
+                else (
+                    f"Content angle: {card_purpose or strategy_week['theme']}"
+                    if post_plan is not None
+                    else hook
+                )
             )
             script = ContentShortVideoScript(
                 hook=(
-                    f"{hook} {strategy_week['theme']}"
+                    f"{video_hook}"
                     if language_mode != "en"
-                    else f"{strategy_week['theme']}: {hook.lower()} a practical idea"
+                    else (
+                        video_hook
+                        or f"{strategy_week['theme']}: {hook.lower()} a practical idea"
+                    )
                 ),
                 scenes=[
                     ContentShortVideoScene(
@@ -834,19 +896,26 @@ class MockContentProvider(ContentLLMProvider):
                 ],
                 "objective": strategy_week["objective"],
                 "channel": channel,
+                "content_purpose": card_purpose or strategy_week.get("theme", ""),
             },
             "caption_variants": [variant.model_dump(mode="json") for variant in caption_variants],
             "cta": cta,
             "hashtags": caption_variants[0].hashtags,
-            "creative_brief": (
-                f"أنشئ محتوى {content_format} للفكرة {index + 1} بزاوية '{hook}' لموضوع الاستراتيجية: {strategy_week['theme']}."
-                if language_mode == "ar-EG"
-                else f"Create {content_format} idea {index + 1} with angle '{hook}' for the Strategy theme: {strategy_week['theme']}."
+            "creative_brief": _creative_brief(
+                content_format=content_format,
+                index=index,
+                language_mode=language_mode,
+                strategy_theme=strategy_week["theme"],
+                purpose=card_purpose,
+                intended_audience=card_audience,
+                owner_instruction=card_instruction,
+                visual_direction=card_visual_direction,
+                hook=hook,
             ),
             "alt_text": (
-                f"مرئي للفكرة {index + 1} بزاوية '{hook}' عن {strategy_week['theme']}"
+                f"مرئي لفكرة: {card_purpose or strategy_week['theme']}"
                 if language_mode == "ar-EG"
-                else f"Visual for idea {index + 1} with angle '{hook}': {strategy_week['theme']}"
+                else f"Visual for: {card_purpose or strategy_week['theme']}"
             )[:100],
             "short_video_script": script.model_dump(mode="json") if script else None,
             "recommended_publish_window": _publish_window(
@@ -884,6 +953,50 @@ def _cta_text(week_context: dict[str, Any], language_mode: str) -> str | None:
     return f"Contact us via {destination.get('type')}: {value}"
 
 
+def _creative_brief(
+    *,
+    content_format: str,
+    index: int,
+    language_mode: str,
+    strategy_theme: str,
+    purpose: str | None,
+    intended_audience: str | None,
+    owner_instruction: str | None,
+    visual_direction: str | None,
+    hook: str,
+) -> str:
+    """Build a deterministic brief without adding unsupplied business facts."""
+    if purpose is None:
+        if language_mode == "ar-EG":
+            return (
+                f"أنشئ محتوى {content_format} للفكرة {index + 1} بزاوية "
+                f"'{hook}' لموضوع الاستراتيجية: {strategy_theme}."
+            )
+        return (
+            f"Create {content_format} idea {index + 1} with angle '{hook}' "
+            f"for the Strategy theme: {strategy_theme}."
+        )
+
+    parts = []
+    if language_mode == "en":
+        parts.append(f"Create {content_format} for this approved content angle: {purpose}.")
+        if intended_audience:
+            parts.append(f"Intended audience: {intended_audience}.")
+        if owner_instruction:
+            parts.append(f"Owner-provided note: {owner_instruction}.")
+        if visual_direction:
+            parts.append(f"Visual direction: {visual_direction}.")
+    else:
+        parts.append(f"أنشئ محتوى {content_format} لزاوية المحتوى المعتمدة: {purpose}.")
+        if intended_audience:
+            parts.append(f"الجمهور المقصود: {intended_audience}.")
+        if owner_instruction:
+            parts.append(f"ملاحظة المالك: {owner_instruction}.")
+        if visual_direction:
+            parts.append(f"التوجيه البصري: {visual_direction}.")
+    return " ".join(parts)
+
+
 def _caption_text(
     theme: str,
     promotion_text: str | None,
@@ -893,13 +1006,19 @@ def _caption_text(
     language_mode: str,
     *,
     hook: str = "",
+    content_purpose: str | None = None,
 ) -> str:
     owner_requirements = [
         _owner_requirement_copy(requirement) for requirement in must_include
     ]
     hook_prefix = f"{hook} " if hook else ""
     if language_mode == "en":
-        parts = [f"{hook_prefix}Explore this week's focus: {theme}."]
+        lead = (
+            f"{hook_prefix}{content_purpose}."
+            if content_purpose
+            else f"{hook_prefix}Explore this week's focus: {theme}."
+        )
+        parts = [lead]
         if promotion_text:
             parts.append(promotion_text)
         if promotion_terms:
@@ -908,7 +1027,12 @@ def _caption_text(
         if cta:
             parts.append(cta)
         return " ".join(parts)
-    parts = [f"{hook_prefix}اكتشف موضوع هذا الأسبوع: {theme}."]
+    lead = (
+        f"{hook_prefix}{content_purpose}."
+        if content_purpose
+        else f"{hook_prefix}اكتشف موضوع هذا الأسبوع: {theme}."
+    )
+    parts = [lead]
     if promotion_text:
         parts.append(promotion_text)
     if promotion_terms:

@@ -270,12 +270,30 @@ async def generate_content_pack_with_repair(
     extra_validator: Callable[
         [list[ContentItemVersion]], ContentValidationResult
     ] | None = None,
+    request_validator: Callable[
+        [AiContentGenerateRequest, list[ContentItemVersion]], ContentValidationResult
+    ]
+    | None = None,
+    output_normalizer: Callable[
+        [list[ContentItemVersion]], list[ContentItemVersion]
+    ]
+    | None = None,
+    final_output_normalizer: Callable[
+        [list[ContentItemVersion]], list[ContentItemVersion]
+    ]
+    | None = None,
 ) -> list[ContentItemVersion]:
     """Generate a complete pack with bounded schema repair and safe retry.
 
-    ``extra_validator`` (content-v2) runs after the standard pack validation
-    on every attempt; its first issue becomes a repairable ProviderError so
-    plan-alignment failures repair like any other schema failure.
+    ``extra_validator`` (content-v2) runs after request validation on every
+    attempt; its first issue becomes a repairable ProviderError. A v2 caller
+    may supply ``request_validator`` when each frozen card has its own CTA or
+    media boundary that cannot be represented by one v1 week context.
+    ``output_normalizer`` may apply deterministic, grounding-preserving shape
+    fixes before server-owned identity and checksums are finalized.
+    ``final_output_normalizer`` runs after server-owned identity and checksum
+    finalization. It is reserved for contract-specific references that must
+    use the final immutable version id (for example v2 generated media).
     """
     _ensure_provider_allowed(breaker)
     current_prompt = prompt
@@ -288,13 +306,23 @@ async def generate_content_pack_with_repair(
                 max_output_tokens=max_output_tokens,
             )
             _validate_pack_shape(items)
+            if output_normalizer is not None:
+                items = output_normalizer(items)
+                _validate_pack_shape(items)
             if request is not None:
                 items = _finalize_generated_items(request, items, provider, current_prompt)
+                if final_output_normalizer is not None:
+                    items = final_output_normalizer(items)
+                    _validate_pack_shape(items)
             if request is not None:
-                validation = validate_generated_content_pack(
-                    request,
-                    items,
-                    enforce_asset_readiness=False,
+                validation = (
+                    request_validator(request, items)
+                    if request_validator is not None
+                    else validate_generated_content_pack(
+                        request,
+                        items,
+                        enforce_asset_readiness=False,
+                    )
                 )
                 if not validation.valid:
                     issue = validation.issues[0]

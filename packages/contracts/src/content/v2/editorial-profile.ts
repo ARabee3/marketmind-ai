@@ -1,5 +1,24 @@
 import type { IsoDateTime, LanguageMode, UUID } from "../content-types";
 
+export const CONTENT_EDITORIAL_TONE_PRESETS = [
+  "recommended",
+  "friendly_local",
+  "clear_professional",
+  "warm_reassuring",
+  "direct_confident",
+  "custom",
+] as const;
+export type ContentEditorialTonePreset =
+  (typeof CONTENT_EDITORIAL_TONE_PRESETS)[number];
+
+export const CONTENT_EDITORIAL_LENGTH_PRESETS = [
+  "concise",
+  "balanced",
+  "detailed",
+] as const;
+export type ContentEditorialLengthPreset =
+  (typeof CONTENT_EDITORIAL_LENGTH_PRESETS)[number];
+
 /**
  * Cycle-wide editorial profile (content-v2, issue #187).
  *
@@ -21,14 +40,19 @@ export type ContentEditorialProfileV2 = {
   readonly writing_guardrails: readonly string[];
   /** Optional default visual direction used when a post has no own one. */
   readonly default_visual_guidance: string | null;
+  /** Lightweight owner preference; optional for compatibility with old v2 rows. */
+  readonly tone_preset?: ContentEditorialTonePreset;
+  readonly length_preset?: ContentEditorialLengthPreset;
   readonly created_at: IsoDateTime;
   readonly updated_at: IsoDateTime;
 };
 
 export type ContentEditorialProfileUpsertRequest = {
-  readonly audience_nuance: string;
-  readonly voice: string;
+  readonly audience_nuance?: string;
+  readonly voice?: string;
   readonly language: LanguageMode;
   readonly writing_guardrails: readonly string[];
   readonly default_visual_guidance: string | null;
+  readonly tone_preset?: ContentEditorialTonePreset;
+  readonly length_preset?: ContentEditorialLengthPreset;
 };
