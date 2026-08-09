@@ -92,6 +92,27 @@ describe("publishing API view-model adapter", () => {
     });
   });
 
+  it("keeps newly created draft intents actionable", () => {
+    expect(
+      toPublishingIntent({
+        id: "intent-draft",
+        version: 1,
+        businessId: "business-1",
+        candidateId: "candidate-1",
+        candidateChecksum: "checksum",
+        mode: "SIMULATION",
+        status: "DRAFT",
+        createdByUserId: "owner-1",
+        createdAt: "2026-08-01T10:00:00Z",
+        updatedAt: "2026-08-01T10:00:00Z",
+      }),
+    ).toMatchObject({
+      intent_id: "intent-draft",
+      mode: "simulation",
+      state: "draft",
+    });
+  });
+
   it("keeps unknown provider outcomes refresh-only and models cancelled results", () => {
     expect(
       toPublishingResult({ outcome: "UNKNOWN", mode: "REAL" }),

@@ -346,6 +346,7 @@ function normalizeTimeZone(value: unknown): "Africa/Cairo" | null {
 function normalizeIntentState(value: unknown): PublicationIntentV1["state"] {
   const state = lower(value);
   if (
+    state === "draft" ||
     state === "awaiting_approval" ||
     state === "scheduled" ||
     state === "dispatching" ||

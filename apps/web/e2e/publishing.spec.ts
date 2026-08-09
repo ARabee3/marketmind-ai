@@ -246,7 +246,7 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       page.getByText(
         "MarketMind is checking whether the provider received the request.",
         { exact: false },
-      ),
+      ).first(),
     ).toBeVisible();
   });
 
@@ -673,6 +673,7 @@ function detailRow(intent: PublicationIntentV1) {
           id: targetFixture.target_id,
           version: targetFixture.version,
           businessId: targetFixture.business_id,
+          provider: "META",
           channel: targetFixture.channel,
           externalAccountId: targetFixture.external_account_id,
           displayName: targetFixture.display_name,
