@@ -31,6 +31,7 @@ export function PublicationReadiness({
   const format = useFormatter();
   const connectedTarget = targets.find(
     (target) =>
+      target.channel === "facebook" &&
       target.connection_state === "connected" &&
       target.capabilities.includes("static_image"),
   );

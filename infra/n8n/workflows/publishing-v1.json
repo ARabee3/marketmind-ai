@@ -526,7 +526,7 @@
         ]
       ]
     },
-    "Real Meta Adapter (static image)": {
+    "Meta Provider Executor (server-side)": {
       "main": [
         [
           {

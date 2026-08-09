@@ -89,6 +89,7 @@ export function PublishingDecisionBuilder({
 
   const connectedTargets = targets.filter(
     (target) =>
+      target.channel === "facebook" &&
       target.connection_state === "connected" &&
       target.capabilities.includes("static_image"),
   );

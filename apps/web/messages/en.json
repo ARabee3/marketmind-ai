@@ -1890,8 +1890,8 @@
       "unknown": "Something changed while you were reviewing. Refresh the latest state before trying again."
     },
     "meta": {
-      "connectTitle": "Connect a Meta account",
-      "connectBody": "Connect the Facebook Page you own, and optionally its linked Instagram Professional account, so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
+      "connectTitle": "Connect Facebook",
+      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
       "connectListTitle": "What gets connected",
       "connectItemPage": "One Facebook Page you manage",
       "connectItemInstagram": "The Page's linked Instagram Professional account (optional)",
@@ -1901,7 +1901,7 @@
       "prereqPage": "You must be an admin of the Facebook Page",
       "prereqInstagram": "The Instagram account must be a Professional account linked to the Page",
       "prereqPermissions": "Grant only the publishing permissions MarketMind requests",
-      "startButton": "Continue with Meta",
+      "startButton": "Continue with Facebook",
       "backButton": "Back to publishing",
       "unavailableTitle": "Connection is not available right now",
       "unavailableBody": "The Meta connection configuration is not set up in this environment yet. Export and simulation remain available — real publishing is blocked until the connection works.",
