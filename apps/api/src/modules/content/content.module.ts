@@ -32,6 +32,7 @@ import { PrismaModule } from '../../common/persistence/prisma.module';
 import { AssetStorageModule } from './assets/asset-storage.module';
 import { BillingModule } from '../billing/billing.module';
 import { StrategyModule } from '../strategy/strategy.module';
+import { PublishingModule } from '../publishing/publishing.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { StrategyModule } from '../strategy/strategy.module';
     HttpModule,
     AssetStorageModule,
     StrategyModule,
+    PublishingModule,
     ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: 'content-generation' }),
     BullModule.registerQueue({ name: 'content-outbox' }),

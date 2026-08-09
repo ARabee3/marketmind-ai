@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectQueue, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { ConfigService } from "@nestjs/config";
@@ -9,6 +9,10 @@ import { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
 import { toBullMqJobId } from "../../common/queues/bullmq-job-id";
+import {
+  PUBLICATION_CANDIDATE_SINK,
+  PublicationCandidateSink,
+} from "../publishing/candidates/publication-candidate-sink";
 
 interface OutboxJobData {
   eventId: string;
@@ -26,6 +30,9 @@ export class OutboxDispatcher extends WorkerHost {
     @Optional()
     @InjectQueue("content-outbox")
     private readonly outboxQueue?: Queue,
+    @Optional()
+    @Inject(PUBLICATION_CANDIDATE_SINK)
+    private readonly publicationCandidateSink?: PublicationCandidateSink,
   ) {
     super();
   }
@@ -43,17 +50,15 @@ export class OutboxDispatcher extends WorkerHost {
 
     const expectedState = claimedWithLease ? "processing" : "pending";
     if (!event || event.state !== expectedState) {
-      this.logger.warn(
-        `Event ${eventId} not found or not ${expectedState}`,
-      );
+      this.logger.warn(`Event ${eventId} not found or not ${expectedState}`);
       return;
     }
 
     const webhookUrl = this.configService.get<string>("AUTOMATION_WEBHOOK_URL");
 
-    if (!webhookUrl) {
+    if (!this.publicationCandidateSink && !webhookUrl) {
       this.logger.log(
-        `No AUTOMATION_WEBHOOK_URL configured for event ${eventId}; leaving pending`,
+        `No local publication sink or AUTOMATION_WEBHOOK_URL configured for event ${eventId}; leaving pending`,
       );
       if (this.candidateRepo.releaseOutboxClaim) {
         await this.candidateRepo.releaseOutboxClaim(eventId, leaseOwner);
@@ -62,16 +67,25 @@ export class OutboxDispatcher extends WorkerHost {
     }
 
     try {
-      await firstValueFrom(
-        this.httpService.post(webhookUrl, event.payload, {
-          timeout: 10000,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Event-Id": event.eventId,
-            "X-Event-Type": event.eventType,
-          },
-        }),
-      );
+      if (this.publicationCandidateSink) {
+        const result = await this.publicationCandidateSink.ingestEvent(
+          event.payload,
+        );
+        this.logger.debug(
+          `Event ${eventId} accepted by local publication sink (disposition=${result.disposition})`,
+        );
+      } else if (webhookUrl) {
+        await firstValueFrom(
+          this.httpService.post(webhookUrl, event.payload, {
+            timeout: 10000,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Event-Id": event.eventId,
+              "X-Event-Type": event.eventType,
+            },
+          }),
+        );
+      }
 
       if (claimedWithLease) {
         await this.candidateRepo.markOutboxDispatched(eventId, leaseOwner);

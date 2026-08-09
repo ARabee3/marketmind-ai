@@ -10,6 +10,7 @@ import { FacebookModule } from "../facebook/facebook.module";
 import { CandidatesController } from "./candidates/candidates.controller";
 import { InternalCandidatesController } from "./candidates/candidates.internal.controller";
 import { CandidatesService } from "./candidates/candidates.service";
+import { PUBLICATION_CANDIDATE_SINK } from "./candidates/publication-candidate-sink";
 
 // Targets
 import { TargetsController } from "./targets/targets.controller";
@@ -82,6 +83,10 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
   ],
   providers: [
     CandidatesService,
+    {
+      provide: PUBLICATION_CANDIDATE_SINK,
+      useExisting: CandidatesService,
+    },
     TargetsService,
     MetaConnectionService,
     CredentialVaultService,
@@ -111,6 +116,11 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
       inject: [PublishingAssetStore],
     },
   ],
-  exports: [CandidatesService, TargetsService, IntentsService],
+  exports: [
+    CandidatesService,
+    TargetsService,
+    IntentsService,
+    PUBLICATION_CANDIDATE_SINK,
+  ],
 })
 export class PublishingModule {}
