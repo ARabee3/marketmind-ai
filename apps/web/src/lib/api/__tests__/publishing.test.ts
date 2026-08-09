@@ -120,6 +120,7 @@ describe("publishing API view-model adapter", () => {
       toPublishingTarget({
         id: "target-1",
         businessId: "business-1",
+        provider: "META",
         channel: "FACEBOOK",
         externalAccountId: "page-1",
         displayName: "Page",
@@ -134,6 +135,7 @@ describe("publishing API view-model adapter", () => {
       toPublishingTarget({
         id: "target-1",
         businessId: "business-1",
+        provider: "META",
         externalAccountId: "page-1",
         displayName: "Page",
         capabilities: ["static_image"],
@@ -144,6 +146,7 @@ describe("publishing API view-model adapter", () => {
       toPublishingTarget({
         id: "target-1",
         businessId: "business-1",
+        provider: "META",
         channel: "FACEBOOK",
         externalAccountId: "page-1",
         displayName: "Page",
@@ -161,6 +164,21 @@ describe("publishing API view-model adapter", () => {
         capabilities: ["static_image"],
       }),
     ).toThrow(/missing target id/);
+  });
+
+  it("rejects a provider outside the frozen Meta target boundary", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "OTHER",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "CONNECTED",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported provider/);
   });
 
   it("normalizes detail arrays without losing the approval snapshot", () => {
@@ -185,6 +203,7 @@ describe("publishing API view-model adapter", () => {
       target: {
         id: "target-1",
         businessId: "business-1",
+        provider: "META",
         channel: "FACEBOOK",
         externalAccountId: "page-1",
         displayName: "Page",

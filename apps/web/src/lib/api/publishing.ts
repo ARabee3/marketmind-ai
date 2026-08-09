@@ -214,6 +214,11 @@ export function toPublishingTarget(value: unknown): PublishingTargetPublicV1 {
     valueFrom(raw, "target_id", "targetId", "id"),
     "target id",
   );
+  if (lower(raw.provider) !== "meta") {
+    throw new Error(
+      "Publishing target response contained an unsupported provider.",
+    );
+  }
   const businessId = requiredTargetString(
     valueFrom(raw, "business_id", "businessId"),
     "business id",
