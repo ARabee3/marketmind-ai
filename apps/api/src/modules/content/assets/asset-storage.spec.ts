@@ -1,14 +1,13 @@
 import { ConfigService } from "@nestjs/config";
+import { S3Client } from "@aws-sdk/client-s3";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NotFoundException } from "@nestjs/common";
-import {
-  AssetStorage,
-  buildAssetStorageKey,
-} from "./asset-storage.port";
+import { AssetStorage, buildAssetStorageKey } from "./asset-storage.port";
 import { LocalFilesystemAssetStorage } from "./local-filesystem-asset-storage";
+import { R2AssetStorage } from "./r2-asset-storage";
 
 describe("AssetStorage", () => {
   let root: string;
@@ -27,21 +26,21 @@ describe("AssetStorage", () => {
 
   describe("buildAssetStorageKey", () => {
     it("builds a key from version, asset id and extension", () => {
-      expect(
-        buildAssetStorageKey("ver-1", "asset-42", "png"),
-      ).toBe("ver-1/asset-42.png");
+      expect(buildAssetStorageKey("ver-1", "asset-42", "png")).toBe(
+        "ver-1/asset-42.png",
+      );
     });
 
     it("normalizes a leading dot on the extension", () => {
-      expect(
-        buildAssetStorageKey("ver-1", "asset-42", ".jpg"),
-      ).toBe("ver-1/asset-42.jpg");
+      expect(buildAssetStorageKey("ver-1", "asset-42", ".jpg")).toBe(
+        "ver-1/asset-42.jpg",
+      );
     });
 
     it("falls back to .bin for unsafe extensions", () => {
-      expect(
-        buildAssetStorageKey("ver-1", "asset-42", "../evil"),
-      ).toBe("ver-1/asset-42.bin");
+      expect(buildAssetStorageKey("ver-1", "asset-42", "../evil")).toBe(
+        "ver-1/asset-42.bin",
+      );
     });
   });
 
@@ -119,5 +118,70 @@ describe("AssetStorage", () => {
       const entries = await readdir(root);
       expect(entries).not.toContain("escape");
     });
+  });
+});
+
+describe("R2AssetStorage", () => {
+  const config = {
+    endpoint: "https://account.r2.cloudflarestorage.com",
+    accessKeyId: "access-key",
+    secretAccessKey: "secret-key",
+    bucket: "marketmind-ai",
+  };
+
+  it("stores and retrieves bytes through the S3-compatible client", async () => {
+    const send = jest.fn();
+    const client = { send } as unknown as S3Client;
+    const storage = new R2AssetStorage(config, client);
+    const buffer = Buffer.from("r2-round-trip", "utf8");
+    const key = "content/generated/asset-1.jpg";
+
+    send.mockResolvedValueOnce({});
+    const stored = await storage.store(buffer, key);
+
+    expect(stored).toEqual({
+      storageKey: key,
+      checksum: createHash("sha256").update(buffer).digest("hex"),
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+
+    send.mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: async () => new Uint8Array(buffer),
+      },
+    });
+    await expect(storage.retrieve(key)).resolves.toEqual(buffer);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns false for a missing object and rejects unsafe keys", async () => {
+    const send = jest.fn();
+    const client = { send } as unknown as S3Client;
+    const storage = new R2AssetStorage(config, client);
+    const missing = Object.assign(new Error("missing"), { name: "NotFound" });
+
+    send.mockRejectedValueOnce(missing);
+    await expect(storage.exists("media/cycle/missing.jpg")).resolves.toBe(
+      false,
+    );
+    await expect(storage.retrieve("../outside.jpg")).rejects.toThrow(
+      "outside the configured bucket",
+    );
+  });
+
+  it("deletes an existing object and preserves the missing-object contract", async () => {
+    const send = jest.fn();
+    const client = { send } as unknown as S3Client;
+    const storage = new R2AssetStorage(config, client);
+    const key = "media/cycle/media-1.jpg";
+
+    send.mockResolvedValueOnce({});
+    send.mockResolvedValueOnce({});
+    await expect(storage.delete(key)).resolves.toBeUndefined();
+    expect(send).toHaveBeenCalledTimes(2);
+
+    const missing = Object.assign(new Error("missing"), { name: "NoSuchKey" });
+    send.mockRejectedValueOnce(missing);
+    await expect(storage.delete(key)).rejects.toThrow("Asset not found");
   });
 });

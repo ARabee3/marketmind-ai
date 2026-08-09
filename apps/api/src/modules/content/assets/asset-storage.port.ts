@@ -2,8 +2,8 @@
  * Asset storage port.
  *
  * Content asset bytes are never stored in JSON columns (arch doc 831); they
- * live behind this port so the persistence layer can be swapped (local
- * filesystem today, object storage later) without touching content code.
+ * live behind this port so the persistence layer can be swapped between the
+ * local filesystem and Cloudflare R2 without touching content code.
  */
 
 export const CONTENT_ASSET_STORAGE = Symbol("CONTENT_ASSET_STORAGE");

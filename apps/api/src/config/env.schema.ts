@@ -44,6 +44,45 @@ export function envSchema(
     errors.push("REDIS_URL is required (e.g. redis://localhost:6379)");
   }
 
+  const assetStorageProvider =
+    (config.ASSET_STORAGE_PROVIDER as string | undefined) || "filesystem";
+  if (!["filesystem", "r2"].includes(assetStorageProvider)) {
+    errors.push("ASSET_STORAGE_PROVIDER must be one of: filesystem, r2");
+  }
+
+  const r2PathStyle = config.CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT;
+  if (
+    r2PathStyle !== undefined &&
+    r2PathStyle !== "" &&
+    r2PathStyle !== "true" &&
+    r2PathStyle !== "false"
+  ) {
+    errors.push("CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT must be true or false");
+  }
+
+  if (assetStorageProvider === "r2") {
+    if (!config.CLOUDFLARE_R2_ENDPOINT) {
+      errors.push(
+        "CLOUDFLARE_R2_ENDPOINT is required when ASSET_STORAGE_PROVIDER=r2",
+      );
+    }
+    if (!config.CLOUDFLARE_R2_ACCESS_KEY_ID) {
+      errors.push(
+        "CLOUDFLARE_R2_ACCESS_KEY_ID is required when ASSET_STORAGE_PROVIDER=r2",
+      );
+    }
+    if (!config.CLOUDFLARE_R2_SECRET_ACCESS_KEY) {
+      errors.push(
+        "CLOUDFLARE_R2_SECRET_ACCESS_KEY is required when ASSET_STORAGE_PROVIDER=r2",
+      );
+    }
+    if (!config.CLOUDFLARE_R2_BUCKET) {
+      errors.push(
+        "CLOUDFLARE_R2_BUCKET is required when ASSET_STORAGE_PROVIDER=r2",
+      );
+    }
+  }
+
   const orchestrationEnabled = config.AI_ORCHESTRATION_ENABLED;
   if (
     orchestrationEnabled !== undefined &&
@@ -52,16 +91,6 @@ export function envSchema(
     orchestrationEnabled !== "false"
   ) {
     errors.push("AI_ORCHESTRATION_ENABLED must be true or false");
-  }
-
-  const contentV2DefaultEnabled = config.CONTENT_V2_DEFAULT_ENABLED;
-  if (
-    contentV2DefaultEnabled !== undefined &&
-    contentV2DefaultEnabled !== "" &&
-    contentV2DefaultEnabled !== "true" &&
-    contentV2DefaultEnabled !== "false"
-  ) {
-    errors.push("CONTENT_V2_DEFAULT_ENABLED must be true or false");
   }
 
   // Google OAuth — required for federated sign-in (Issue #48)

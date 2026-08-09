@@ -74,20 +74,46 @@ describe("envSchema orchestration feature flag", () => {
   });
 });
 
-describe("envSchema Content v2 default feature flag", () => {
-  it("allows the flag to be omitted because v2 is the application default", () => {
+describe("envSchema content asset storage configuration", () => {
+  it("keeps filesystem storage as the default", () => {
     expect(envSchema(validConfig())).toBeDefined();
   });
 
-  it.each(["true", "false"])("accepts an explicit %s value", (value) => {
-    const config = { ...validConfig(), CONTENT_V2_DEFAULT_ENABLED: value };
+  it("accepts a complete R2 configuration", () => {
+    const config = {
+      ...validConfig(),
+      ASSET_STORAGE_PROVIDER: "r2",
+      CLOUDFLARE_R2_ENDPOINT: "https://account.r2.cloudflarestorage.com",
+      CLOUDFLARE_R2_ACCESS_KEY_ID: "access-key",
+      CLOUDFLARE_R2_SECRET_ACCESS_KEY: "secret-key",
+      CLOUDFLARE_R2_BUCKET: "marketmind-ai",
+      CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT: "true",
+    };
+
     expect(envSchema(config)).toBe(config);
   });
 
-  it("rejects an ambiguous content v2 default flag", () => {
+  it("rejects an unknown content asset storage provider", () => {
     expect(() =>
-      envSchema({ ...validConfig(), CONTENT_V2_DEFAULT_ENABLED: "yes" }),
-    ).toThrow("CONTENT_V2_DEFAULT_ENABLED must be true or false");
+      envSchema({ ...validConfig(), ASSET_STORAGE_PROVIDER: "s3" }),
+    ).toThrow("ASSET_STORAGE_PROVIDER must be one of: filesystem, r2");
+  });
+
+  it("rejects incomplete R2 configuration", () => {
+    expect(() =>
+      envSchema({ ...validConfig(), ASSET_STORAGE_PROVIDER: "r2" }),
+    ).toThrow(
+      "CLOUDFLARE_R2_ENDPOINT is required when ASSET_STORAGE_PROVIDER=r2",
+    );
+  });
+
+  it("rejects an ambiguous R2 path-style flag", () => {
+    expect(() =>
+      envSchema({
+        ...validConfig(),
+        CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT: "yes",
+      }),
+    ).toThrow("CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT must be true or false");
   });
 });
 
