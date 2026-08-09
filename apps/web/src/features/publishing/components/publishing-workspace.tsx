@@ -310,7 +310,19 @@ export function PublishingWorkspace({
     // Issue #175: the guided Meta connection journey (explain → Meta OAuth →
     // choose accounts → ready) lives on its own page; the workspace never
     // handles an authorization code or token.
-    router.push("/publishing/meta/connect");
+    const returnPath = intentId
+      ? `/publishing/${intentId}`
+      : (() => {
+          const params = new URLSearchParams();
+          params.set("week", String(selectedWeek));
+          if (selectedCandidateId) {
+            params.set("candidate", selectedCandidateId);
+          }
+          return `/publishing?${params.toString()}`;
+        })();
+    router.push(
+      `/publishing/meta/connect?return=${encodeURIComponent(returnPath)}`,
+    );
   }
 
   if (state.phase === "loading") {

@@ -65,20 +65,13 @@ export async function disconnectFacebookConnection(): Promise<void> {
 const POPUP_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 
 export async function connectMeta(): Promise<{ pageName: string }> {
-  const session = await apiRequest('/auth/facebook/start', {
-    method: 'POST',
-  })
-  if (!session.ok) {
-    throw new Error('We could not start the Facebook connection. Try again.')
-  }
-
   const width = 600
   const height = 700
   const left = window.screenX + (window.outerWidth - width) / 2
   const top = window.screenY + (window.outerHeight - height) / 2
 
   const popup = window.open(
-    `${API_BASE_URL}/auth/facebook/start`,
+    'about:blank',
     'fb-connect',
     `width=${width},height=${height},left=${left},top=${top}`,
   )
@@ -130,5 +123,25 @@ export async function connectMeta(): Promise<{ pageName: string }> {
       }
     }
     window.addEventListener('message', handler)
+
+    // Open the window synchronously from the click handler above, then start
+    // the authenticated session bootstrap. Awaiting the bootstrap before
+    // calling window.open makes browsers treat the OAuth popup as an
+    // unsolicited window and block it intermittently.
+    void apiRequest('/auth/facebook/start', { method: 'POST' })
+      .then((session) => {
+        if (!session.ok) {
+          throw new Error('We could not start the Facebook connection. Try again.')
+        }
+        popupRef.location.href = `${API_BASE_URL}/auth/facebook/start`
+      })
+      .catch((error: unknown) => {
+        done(
+          "rejected",
+          error instanceof Error
+            ? error.message
+            : 'We could not start the Facebook connection. Try again.',
+        )
+      })
   })
 }

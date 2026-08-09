@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Link2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Link, useRouter } from "@/i18n/navigation";
 import { connectMeta } from "@/lib/api/facebook";
+
+function safeReturnPath(value: string | null): string {
+  if (
+    value === "/publishing" ||
+    value?.startsWith("/publishing/") ||
+    value?.startsWith("/publishing?")
+  ) {
+    return value;
+  }
+  return "/publishing";
+}
 
 /**
  * Facebook-only publishing connection entry point. PR #193 owns the OAuth
@@ -21,6 +33,11 @@ export function MetaConnectionStart() {
   const t = useTranslations("Publishing.meta");
   const tc = useTranslations("Common");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = useMemo(
+    () => safeReturnPath(searchParams.get("return")),
+    [searchParams],
+  );
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<boolean>(false);
 
@@ -29,7 +46,7 @@ export function MetaConnectionStart() {
     setError(false);
     try {
       await connectMeta();
-      router.replace("/publishing");
+      router.replace(returnPath);
     } catch {
       setError(true);
       setStarting(false);
@@ -123,7 +140,7 @@ export function MetaConnectionStart() {
           {starting ? tc("loading") : t("startButton")}
         </Button>
         <Link
-          href="/publishing"
+          href={returnPath}
           className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
         >
           <ArrowLeft className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
