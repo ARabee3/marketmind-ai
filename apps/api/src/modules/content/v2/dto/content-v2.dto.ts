@@ -53,6 +53,12 @@ class ContentCtaDestinationConstraint implements ValidatorConstraintInterface {
     ) {
       return false;
     }
+    if (
+      destination.type !== "none" &&
+      (typeof destination.value !== "string" || destination.value.trim().length === 0)
+    ) {
+      return false;
+    }
     return true;
   }
 }
@@ -65,15 +71,15 @@ function IsObjectDestination(): PropertyDecorator {
 }
 
 export class UpsertEditorialProfileDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(2000)
-  audience_nuance: string;
+  audience_nuance?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(2000)
-  voice: string;
+  voice?: string;
 
   @IsString()
   @IsIn(["ar-EG", "en", "mixed"])
@@ -89,6 +95,21 @@ export class UpsertEditorialProfileDto {
   @IsString()
   @MaxLength(2000)
   default_visual_guidance: string | null;
+
+  @IsOptional()
+  @IsIn([
+    "recommended",
+    "friendly_local",
+    "clear_professional",
+    "warm_reassuring",
+    "direct_confident",
+    "custom",
+  ])
+  tone_preset?: string;
+
+  @IsOptional()
+  @IsIn(["concise", "balanced", "detailed"])
+  length_preset?: string;
 }
 
 export class CreateCtaEntryDto {
@@ -170,8 +191,50 @@ export class PostPlanDto {
   visual_direction: string | null;
 
   @IsArray()
-  @IsUUID("4", { each: true })
+  @IsUUID(undefined, { each: true })
   selected_media_ids: string[];
+}
+
+export class GenerateMediaDto {
+  @IsString()
+  contract_version: "content-v2";
+
+  @IsUUID()
+  base_version_id: string;
+
+  @IsString()
+  @MinLength(64)
+  @MaxLength(64)
+  base_version_checksum: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  visual_instruction?: string;
+
+  @IsString()
+  @MinLength(1)
+  idempotency_key: string;
+}
+
+export class AttachMediaDto {
+  @IsString()
+  contract_version: "content-v2";
+
+  @IsUUID()
+  base_version_id: string;
+
+  @IsString()
+  @MinLength(64)
+  @MaxLength(64)
+  base_version_checksum: string;
+
+  @IsUUID()
+  media_id: string;
+
+  @IsString()
+  @MinLength(1)
+  idempotency_key: string;
 }
 
 export class CreateOrReplaceWeekPlanDto {

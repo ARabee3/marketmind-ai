@@ -219,6 +219,26 @@ export class ContentWeekPlanRepository {
     });
   }
 
+  async markPlansGenerating(contentWeekPlanId: string): Promise<void> {
+    await this.prisma.contentPostPlan.updateMany({
+      where: {
+        contentWeekPlanId,
+        planState: { in: ["planned", "generating", "failed"] },
+      },
+      data: { planState: "generating" },
+    });
+  }
+
+  async markPlansFailed(contentWeekPlanId: string): Promise<void> {
+    await this.prisma.contentPostPlan.updateMany({
+      where: {
+        contentWeekPlanId,
+        planState: { in: ["planned", "generating"] },
+      },
+      data: { planState: "failed" },
+    });
+  }
+
   async assertWeekPlanFrozenFor(weekPlanId: string): Promise<boolean> {
     const plan = await this.prisma.contentWeekPlan.findUnique({
       where: { id: weekPlanId },
