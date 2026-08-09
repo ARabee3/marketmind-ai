@@ -94,14 +94,21 @@ export const configuration = () => ({
   },
 
   content: {
-    // Root directory for content asset blobs written through the
-    // AssetStorage port (arch doc 831). Defaults to a repo-local directory;
-    // deployments override via CONTENT_ASSET_ROOT.
+    // Storage backend for Content media. `filesystem` preserves the local
+    // development default; `r2` must point at the same bucket as FastAPI.
+    assetStorageProvider: process.env.ASSET_STORAGE_PROVIDER || "filesystem",
+    // Root directory for content asset blobs when the filesystem backend is
+    // selected (arch doc 831). Deployments override via CONTENT_ASSET_ROOT.
     assetRoot: process.env.CONTENT_ASSET_ROOT || "./.content-assets",
-    // Content v2 is the default owner-first studio path (issue #187). Set
-    // CONTENT_V2_DEFAULT_ENABLED=false only when an explicit legacy v1
-    // fallback is required for a deployment or migration window.
-    v2DefaultEnabled: process.env.CONTENT_V2_DEFAULT_ENABLED !== "false",
+    r2: {
+      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT || "",
+      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "",
+      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "",
+      bucket: process.env.CLOUDFLARE_R2_BUCKET || "",
+      region: process.env.CLOUDFLARE_R2_REGION || "auto",
+      usePathStyleEndpoint:
+        process.env.CLOUDFLARE_R2_USE_PATH_STYLE_ENDPOINT !== "false",
+    },
   },
 
   publishing: {
