@@ -11,7 +11,12 @@ from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
 from app.discovery.question_language import question_matches_language
 from app.discovery.schemas import AiDiscoveryRespondRequest, AiDiscoveryStartRequest, AiDiscoverySummarizeRequest
 from app.discovery.service import DiscoveryService
-from app.providers.base import DiscoveryProvider, DiscoveryProviderRequest, ProviderError
+from app.providers.base import (
+    DiscoveryProvider,
+    DiscoveryProviderRequest,
+    ProviderError,
+    discovery_output_model,
+)
 from app.providers.factory import create_provider
 from app.providers.gemini_provider import GeminiDiscoveryProvider
 from app.providers.mock_provider import MockDiscoveryProvider
@@ -139,6 +144,18 @@ def test_prompt_keeps_internal_marketing_fields_out_of_the_interview() -> None:
     context = build_user_context("summarize", base_payload("en"))
     assert "End the interview now" in context
     assert '"business_name":"Koshary Corner"' in context
+
+
+def test_provider_schema_restricts_actions_for_each_turn() -> None:
+    question_schema = discovery_output_model("respond").model_json_schema()
+    summary_schema = discovery_output_model("summarize").model_json_schema()
+
+    assert question_schema["properties"]["action"]["enum"] == [
+        "ask_next_question",
+        "ask_clarification",
+    ]
+    assert "next_question" in question_schema["required"]
+    assert summary_schema["properties"]["action"]["const"] == "produce_profile_draft"
 
 
 def test_mock_start_supports_mixed_language() -> None:

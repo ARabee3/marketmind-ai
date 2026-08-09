@@ -8,6 +8,7 @@ from app.providers.base import (
     DiscoveryProviderRequest,
     ProviderConfigError,
     ProviderError,
+    discovery_output_model,
     normalize_provider_output,
 )
 
@@ -49,7 +50,7 @@ class OpenAIDiscoveryProvider(DiscoveryProvider):
                 response = client.responses.parse(
                     model=self.model,
                     input=messages,
-                    text_format=DiscoveryModelOutput,
+                    text_format=discovery_output_model(request.turn_kind),
                 )
                 return normalize_provider_output(response.output_parsed)
             except ValidationError as exc:
