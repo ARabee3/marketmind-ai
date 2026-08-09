@@ -33,6 +33,7 @@ export type ContentEntryBlocker =
   | "missing_approval_receipt"
   | "stale_profile"
   | "malformed_plan"
+  | "content_v2_required"
   | "provenance_mismatch";
 
 export type ContentEntryState =
@@ -92,6 +93,7 @@ export type ApprovedContentStrategyResolutionOptions = {
   readonly strategyDecisionId?: string;
   readonly profileVersionId?: string;
   readonly plan?: StrategyPlan | StrategyPlanV2 | null;
+  readonly requireStrategyV2?: boolean;
 };
 
 /**
@@ -130,10 +132,16 @@ export function resolveApprovedContentStrategy(
     return { blocker: "missing_approval_receipt", destination: `/strategy/${strategyId}/review` };
   }
 
-  // Content cycles run from content-v1 plans and from owner-first v2 plans
-  // that expose a usable deterministic content-v1 handoff. The API blocks
-  // v2 plans without one (CONTENT_SCHEMA_FAILURE), so this read model must
-  // mirror that gate instead of assuming every approved plan is v1.
+  if (options.requireStrategyV2 && !isStrategyPlanV2(rawPlan)) {
+    return {
+      blocker: "content_v2_required",
+      destination: `/strategy/${strategyId}`,
+    };
+  }
+
+  // Content-v2 plans must expose a usable deterministic handoff. The API
+  // blocks plans without one (CONTENT_SCHEMA_FAILURE), so this read model
+  // mirrors that gate instead of allowing an incomplete plan to start.
   const plan = isStrategyPlanV2(rawPlan) ? rawPlan : (rawPlan as StrategyPlan);
 
   // For a fresh entry (no explicit version), resolve by the currently approved

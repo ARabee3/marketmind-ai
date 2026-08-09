@@ -4,7 +4,11 @@ import { emptyDiscoveryProfileState } from "../discovery/market-profile";
 import { JourneyRepository } from "./journey.repository";
 
 function contentCycleDelegate(cycle: unknown) {
-  return { findFirst: jest.fn().mockResolvedValue(cycle) };
+  const row =
+    cycle && typeof cycle === "object"
+      ? { contractVersion: "content-v2", ...(cycle as object) }
+      : cycle;
+  return { findFirst: jest.fn().mockResolvedValue(row) };
 }
 
 function strategyDelegate(strategy: unknown) {
@@ -64,6 +68,26 @@ describe("JourneyRepository", () => {
         orderBy: { createdAt: "desc" },
       }),
     );
+  });
+
+  it("does not surface a legacy content-v1 cycle in the active Journey", async () => {
+    const prisma = {
+      contentCycle: contentCycleDelegate({
+        id: "legacy-cycle",
+        contractVersion: "content-v1",
+        strategyId: "strategy-1",
+        status: "active",
+        currentWeekNumber: 1,
+        packs: [],
+      }),
+      strategy: strategyDelegate({ ownerUserId: "owner-id" }),
+    };
+    const repository = new JourneyRepository(prisma as never);
+
+    const response = await repository.findContentForOwner("owner-id");
+
+    expect(response).toEqual({ cycle: null, pack: null });
+    expect(prisma.strategy.findUnique).not.toHaveBeenCalled();
   });
 
   it("returns no journey when the owner has no discovery sessions", async () => {
@@ -226,7 +250,7 @@ describe("JourneyRepository", () => {
     expect(response).toEqual({ cycle: null, pack: null });
     expect(prisma.contentCycle.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { ownerUserId: "owner-id" },
+        where: { ownerUserId: "owner-id", contractVersion: "content-v2" },
         orderBy: { createdAt: "desc" },
       }),
     );

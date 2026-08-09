@@ -83,6 +83,16 @@ export function upsertEditorialProfileV2(
   );
 }
 
+export function resetEditorialProfileV2(
+  cycleId: string,
+  signal?: AbortSignal,
+): Promise<{ reset: boolean }> {
+  return request(
+    `/content-cycles/${encodeURIComponent(cycleId)}/editorial-profile/reset`,
+    { method: "POST", signal },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // CTA library
 // ---------------------------------------------------------------------------
@@ -160,6 +170,32 @@ export function uploadMediaV2(
     body: form,
     signal,
   });
+}
+
+export async function getMediaFileV2(
+  cycleId: string,
+  mediaId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const response = await apiRequest(
+    `/content-cycles/${encodeURIComponent(cycleId)}/media/${encodeURIComponent(mediaId)}/file`,
+    { signal },
+  );
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const body = await response.json();
+      message = body?.message ?? body?.error?.message ?? message;
+    } catch {
+      // ignore non-json error bodies
+    }
+    throw {
+      status: response.status,
+      code: "api_error",
+      message,
+    } satisfies ContentV2ApiError;
+  }
+  return response.blob();
 }
 
 export function revokeMediaV2(
@@ -264,6 +300,46 @@ export function rewriteItemV2(
 ): Promise<OwnerContentDirectEditResponse> {
   return request(
     `/content-packs/${encodeURIComponent(packId)}/items/${encodeURIComponent(itemId)}/rewrite`,
+    { method: "POST", body: JSON.stringify(payload), signal },
+  );
+}
+
+export type GenerateMediaV2Request = {
+  readonly contract_version: "content-v2";
+  readonly base_version_id: string;
+  readonly base_version_checksum: string;
+  readonly visual_instruction?: string;
+  readonly idempotency_key: string;
+};
+
+export type AttachMediaV2Request = {
+  readonly contract_version: "content-v2";
+  readonly base_version_id: string;
+  readonly base_version_checksum: string;
+  readonly media_id: string;
+  readonly idempotency_key: string;
+};
+
+export function generateMediaV2(
+  packId: string,
+  itemId: string,
+  payload: GenerateMediaV2Request,
+  signal?: AbortSignal,
+): Promise<{ item_version: ContentPackWorkspaceV2["items"][number]["current_version"]; status: "queued" }> {
+  return request(
+    `/content-packs/${encodeURIComponent(packId)}/items/${encodeURIComponent(itemId)}/media/generate`,
+    { method: "POST", body: JSON.stringify(payload), signal },
+  );
+}
+
+export function attachMediaV2(
+  packId: string,
+  itemId: string,
+  payload: AttachMediaV2Request,
+  signal?: AbortSignal,
+): Promise<{ item_version: ContentPackWorkspaceV2["items"][number]["current_version"] }> {
+  return request(
+    `/content-packs/${encodeURIComponent(packId)}/items/${encodeURIComponent(itemId)}/media/attach`,
     { method: "POST", body: JSON.stringify(payload), signal },
   );
 }

@@ -87,6 +87,11 @@ interface ContentGenerateStaticAssetJobData {
   correlationId: string;
 }
 
+// Gemini/OpenRouter and the configured OpenAI square-image models share a
+// native 1024px square size. Requesting 1080px caused the provider adapter to
+// reject every job before generation with CONTENT_SCHEMA_FAILURE.
+const STATIC_IMAGE_SIZE_PX = 1024;
+
 @Processor("content-generation")
 @Injectable()
 export class ContentProcessor extends WorkerHost {
@@ -412,6 +417,13 @@ export class ContentProcessor extends WorkerHost {
     });
 
     try {
+      if (
+        pack.contractVersion === "content-v2" &&
+        pack.weekPlanId &&
+        typeof this.weekPlanRepo.markPlansGenerating === "function"
+      ) {
+        await this.weekPlanRepo.markPlansGenerating(pack.weekPlanId);
+      }
       const [cycle, strategy, strategyVersion, strategyDecision, weekPlan] =
         await Promise.all([
           this.cycleRepo.getCycleById(contentCycleId),
@@ -426,15 +438,17 @@ export class ContentProcessor extends WorkerHost {
             include: { postPlans: true },
           }),
         ]);
-      const profileVersion =
-        await this.strategyRepo.getActiveConfirmedProfileVersion(
-          pack.businessId,
-        );
+      const profileVersion = await this.strategyRepo.getProfileVersionById(
+        pack.profileVersionId,
+      );
       if (
         !cycle ||
         !strategy ||
         !strategyVersion ||
         !profileVersion ||
+        profileVersion.businessId !== pack.businessId ||
+        !profileVersion.confirmedAt ||
+        !profileVersion.confirmedByUserId ||
         !weekPlan
       ) {
         throw new ProviderError(
@@ -541,6 +555,9 @@ export class ContentProcessor extends WorkerHost {
           versionChecksum: iv.version_checksum,
           createdAt: new Date(iv.created_at),
         })),
+        assetJobs: assetJobsForVersions(
+          response.item_versions as unknown as ContentItemVersion[],
+        ),
         progressEvent: {
           stage: "ready",
           status: "complete",
@@ -555,6 +572,19 @@ export class ContentProcessor extends WorkerHost {
         startedAt,
         finishedAt,
       });
+
+      try {
+        await this.queuePlannedAssetJobs(
+          response.item_versions as unknown as ContentItemVersion[],
+          correlationId,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Asset work for v2 pack ${pack.id} could not be enqueued: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
 
       for (const [index, plan] of frozenInput.post_plans
         .slice()
@@ -606,6 +636,23 @@ export class ContentProcessor extends WorkerHost {
           correlation_id: correlationId,
         },
       );
+      if (
+        pack.contractVersion === "content-v2" &&
+        pack.weekPlanId &&
+        typeof this.weekPlanRepo.markPlansFailed === "function"
+      ) {
+        try {
+          await this.weekPlanRepo.markPlansFailed(pack.weekPlanId);
+        } catch (planStateError) {
+          this.logger.warn(
+            `Could not mark frozen v2 post plans failed for pack ${pack.id}: ${
+              planStateError instanceof Error
+                ? planStateError.message
+                : "Unknown error"
+            }`,
+          );
+        }
+      }
 
       if (retryable) {
         throw error;
@@ -1138,7 +1185,6 @@ export class ContentProcessor extends WorkerHost {
     correlationId: string,
   ): Promise<void> {
     for (const item of itemVersions) {
-      if (!item.asset_required) continue;
       for (const assetId of item.asset_ids) {
         const asset = await this.packRepo.getAssetById(assetId);
         if (
@@ -1154,8 +1200,8 @@ export class ContentProcessor extends WorkerHost {
           contentItemVersionId: item.id,
           creativeBrief: item.creative_brief,
           altText: item.alt_text,
-          width: 1080,
-          height: 1080,
+          width: STATIC_IMAGE_SIZE_PX,
+          height: STATIC_IMAGE_SIZE_PX,
           idempotencyKey: `asset:${assetId}`,
           correlationId: `asset:${assetId}`,
         };
@@ -1212,7 +1258,6 @@ function assetJobsForVersions(
 function assetJobForVersion(
   item: ContentItemVersion,
 ): ContentAssetJobIntent | null {
-  if (!item.asset_required) return null;
   const generatedAssetId = deterministicGeneratedAssetId(item.id);
   if (!item.asset_ids.includes(generatedAssetId)) return null;
   return {
@@ -1220,8 +1265,8 @@ function assetJobForVersion(
     contentItemVersionId: item.id,
     creativeBrief: item.creative_brief,
     altText: item.alt_text,
-    width: 1080,
-    height: 1080,
+    width: STATIC_IMAGE_SIZE_PX,
+    height: STATIC_IMAGE_SIZE_PX,
   };
 }
 

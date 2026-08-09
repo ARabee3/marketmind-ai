@@ -41,16 +41,27 @@ class ContentEditorialProfileV2(ContentV2Types):
     language: LanguageMode
     writing_guardrails: list[str]
     default_visual_guidance: str | None = None
+    tone_preset: Literal[
+        "recommended",
+        "friendly_local",
+        "clear_professional",
+        "warm_reassuring",
+        "direct_confident",
+        "custom",
+    ] = "recommended"
+    length_preset: Literal["concise", "balanced", "detailed"] = "balanced"
     created_at: datetime
     updated_at: datetime
 
 
 class ContentEditorialProfileUpsertRequest(FrozenModel):
-    audience_nuance: str = Field(min_length=1)
-    voice: str = Field(min_length=1)
+    audience_nuance: str = ""
+    voice: str = ""
     language: LanguageMode
     writing_guardrails: list[str]
     default_visual_guidance: str | None = None
+    tone_preset: str = "recommended"
+    length_preset: str = "balanced"
 
 
 class ContentCtaLibraryEntryV2(ContentV2Types):
@@ -184,7 +195,9 @@ class ContentWeekPlanListResponse(FrozenModel):
     week_plans: list[ContentWeekPlanV2]
 
 
-ContentV2EditKind = Literal["generated", "owner_direct_edit", "ai_rewrite"]
+ContentV2EditKind = Literal[
+    "generated", "owner_direct_edit", "ai_rewrite", "media_update"
+]
 
 
 class ContentVersionEditMetadataV2(FrozenModel):
@@ -281,7 +294,7 @@ class ContentWeekSummaryV2(FrozenModel):
     week_number: int = Field(ge=1, le=12)
     week_start_date: str
     status: Literal[
-        "not_started", "planned", "generating", "ready", "completed"
+        "not_started", "planned", "generating", "failed", "ready", "completed"
     ]
     plan_id: UUID | None = None
     pack_id: UUID | None = None
@@ -305,8 +318,32 @@ class ContentStrategyReferenceV2(FrozenModel):
     plan_language: str
 
 
+class ContentV2WorkspaceAsset(FrozenModel):
+    id: UUID
+    kind: Literal["owner_supplied", "generated_static"]
+    status: Literal["generating", "ready", "failed", "missing", "blocked"]
+    mime_type: str | None = None
+    width: int | None = None
+    height: int | None = None
+    alt_text: str
+    failure_code: str | None = None
+    review_required: bool = False
+    created_at: datetime
+
+
+ContentV2ApprovalState = Literal[
+    "ready",
+    "needs_media",
+    "media_generating",
+    "media_failed",
+    "blocked",
+    "approved",
+]
+
+
 class ContentCurrentWeekWorkspaceV2(FrozenModel):
     week_number: int = Field(ge=1, le=12)
+    week_start_date: str
     goal: str
     generation_state: Literal[
         "not_started", "planned", "queued", "generating", "ready", "failed"
@@ -315,9 +352,7 @@ class ContentCurrentWeekWorkspaceV2(FrozenModel):
     pack: ContentPackV2 | None = None
     next_generation_at: datetime | None = None
     primary_action: Literal[
-        "configure_editorial_profile",
         "plan_week",
-        "refine_plan",
         "generate",
         "review_pack",
         "retry",
@@ -328,6 +363,7 @@ class ContentCurrentWeekWorkspaceV2(FrozenModel):
 class ContentCycleWorkspaceV2(ContentV2Types):
     cycle: ContentCycleV2
     editorial_profile: ContentEditorialProfileV2 | None = None
+    editorial_suggestion: ContentEditorialProfileV2 | None = None
     cta_library: list[ContentCtaLibraryEntryV2]
     media_library: list[ContentMediaLibraryEntryV2]
     current_week: ContentCurrentWeekWorkspaceV2
@@ -344,6 +380,8 @@ class ContentPackItemWorkspaceV2(FrozenModel):
     current_version: ContentItemVersionV2
     versions: list[ContentItemVersionV2]
     decision: ContentDecision | None = None
+    assets: list[ContentV2WorkspaceAsset] = []
+    approval_state: ContentV2ApprovalState | None = None
 
 
 class ContentPackWorkspaceV2(ContentV2Types):
@@ -351,6 +389,8 @@ class ContentPackWorkspaceV2(ContentV2Types):
     week_number: int = Field(ge=1, le=12)
     week_start_date: str
     editorial_profile: ContentEditorialProfileV2 | None = None
+    editorial_suggestion: ContentEditorialProfileV2 | None = None
+    media_library: list[ContentMediaLibraryEntryV2] = []
     items: list[ContentPackItemWorkspaceV2]
     publication_candidate: Any | None = None
 

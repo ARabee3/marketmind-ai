@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ContentPostPlanV2 } from "@marketmind/contracts";
 import { ContentV2PostCard } from "../content-v2-post-card";
 
@@ -13,9 +13,25 @@ vi.mock("next-intl", () => ({
       ctaLabel: "Primary CTA",
       noCta: "No CTA",
       mediaLabel: "Selected media",
+      mediaSelectedCount: "{count} visual(s) selected",
+      mediaUnavailableSelection: "Selected visual is unavailable",
+      noVisualNeeded: "No photo required",
       visualLabel: "Visual direction",
+      purposeLabel: "Purpose",
+      instructionsLabel: "Owner instructions",
       editCta: "Edit card",
-      planned: "Planned",
+      photoRequired: "Photo for this post",
+      photoOptional: "Optional photo",
+      photoRequiredHelp: "Upload yours or generate one.",
+      photoOptionalHelp: "No photo is required.",
+      uploadPhoto: "Upload photo",
+      uploadingPhoto: "Uploading…",
+      chooseSavedPhoto: "Choose saved photo",
+      photoSaveFailed: "The photo could not be added.",
+      "state.planned": "Planned",
+      "source.planner": "Suggested",
+      "channels.instagram": "Instagram",
+      "formats.static_image_post": "Static image post",
     };
     const template = map[key] ?? key;
     return values
@@ -67,6 +83,18 @@ describe("ContentV2PostCard", () => {
     expect(screen.getByText("اطلب بالواتساب")).toBeTruthy();
   });
 
+  it("does not describe a revoked selection as an automatic visual", () => {
+    render(
+      <ContentV2PostCard
+        plan={PLAN}
+        ctaLabel={null}
+        mediaCount={0}
+        unavailableMediaCount={1}
+      />,
+    );
+    expect(screen.getByText("Selected visual is unavailable")).toBeTruthy();
+  });
+
   it("renders the edit action only when a handler is provided", () => {
     const { rerender } = render(
       <ContentV2PostCard plan={PLAN} ctaLabel={null} mediaCount={1} />,
@@ -88,5 +116,43 @@ describe("ContentV2PostCard", () => {
     render(<ContentV2PostCard plan={PLAN} ctaLabel={null} mediaCount={1} />);
     const article = screen.getByRole("article");
     expect(article.getAttribute("aria-label")).toBe("Post 1");
+  });
+
+  it("describes a text post as reviewable without a photo", () => {
+    render(
+      <ContentV2PostCard
+        plan={{ ...PLAN, format: "text_post", selected_media_ids: [] }}
+        ctaLabel={null}
+        mediaCount={0}
+      />,
+    );
+
+    expect(screen.getByText("No photo required")).toBeTruthy();
+  });
+
+  it("uploads and selects an owner photo directly from the planned card", async () => {
+    const onMediaChange = vi.fn().mockResolvedValue(undefined);
+    const onUploadMedia = vi.fn().mockResolvedValue({
+      id: "media-new",
+      status: "ready",
+    });
+    render(
+      <ContentV2PostCard
+        cycleId="cycle-1"
+        plan={{ ...PLAN, selected_media_ids: [] }}
+        ctaLabel={null}
+        mediaCount={0}
+        onMediaChange={onMediaChange}
+        onUploadMedia={onUploadMedia}
+      />,
+    );
+
+    const file = new File(["image"], "shop.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Upload photo"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(onUploadMedia).toHaveBeenCalledWith(file));
+    expect(onMediaChange).toHaveBeenCalledWith(["media-new"]);
   });
 });

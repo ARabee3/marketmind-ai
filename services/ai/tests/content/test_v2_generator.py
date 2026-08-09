@@ -7,6 +7,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
+from content_contracts import ContentClaimSource, ContentItemVersion
 from content_v2_contracts import (
     AiContentV2GenerateResponse,
     AiContentV2ReviseRequest,
@@ -14,6 +15,8 @@ from content_v2_contracts import (
 )
 
 from app.content.v2_generator import (
+    _normalize_v2_finalized_items,
+    generate_v2_content_pack,
     v2_generate_to_v1_request,
     assemble_v2_generation_prompt,
     validate_plan_alignment,
@@ -125,6 +128,27 @@ def test_v2_item_version_carries_generated_edit_metadata() -> None:
     )
 
 
+def test_text_post_does_not_acquire_an_automatic_image_dependency() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    item = asyncio.run(MockContentProvider().generate_content_pack(prompt))[0]
+    text_item = item.model_copy(
+        update={
+            "format": "text_post",
+            "asset_required": False,
+            "asset_ids": [],
+            "blockers": [],
+        }
+    )
+
+    normalized = _normalize_v2_finalized_items([text_item])[0]
+
+    assert normalized.asset_required is False
+    assert normalized.asset_ids == []
+    assert "CONTENT_ASSET_REQUIRED" not in normalized.blockers
+
+
 def test_generate_v2_endpoint_returns_grounded_pack() -> None:
     def _settings() -> Settings:
         return Settings(
@@ -154,6 +178,146 @@ def test_generate_v2_endpoint_returns_grounded_pack() -> None:
         assert item.channel == plan.channel
         assert item.format == plan.format
         assert item.edit_metadata.edit_kind == "generated"
+
+
+@pytest.mark.asyncio
+async def test_v2_generation_normalizes_frozen_ctas_and_hashtag_shape() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+
+    first = raw_items[0]
+    invalid_claim = ContentClaimSource(
+        claim_type="business_fact",
+        source_type="strategy",
+        source_path="strategy_plan.not_a_real_field",
+        approved=True,
+    )
+    raw_items[0] = first.model_copy(
+        update={
+            "cta": "اطلب الآن",
+            "claim_sources": [invalid_claim],
+            "caption_variants": [
+                variant.model_copy(update={"cta": "اطلب الآن"})
+                for variant in first.caption_variants
+            ],
+        }
+    )
+    second = raw_items[1]
+    raw_items[1] = second.model_copy(
+        update={
+            "hashtags": ["MarketMind مشروعك"],
+            "caption_variants": [
+                variant.model_copy(update={"hashtags": ["MarketMind مشروعك"]})
+                for variant in second.caption_variants
+            ],
+        }
+    )
+    no_cta = raw_items[3]
+    assert no_cta.short_video_script is not None
+    raw_items[3] = no_cta.model_copy(
+        update={
+            "cta": "اشتر الآن",
+            "caption_variants": [
+                variant.model_copy(update={"cta": "اشتر الآن"})
+                for variant in no_cta.caption_variants
+            ],
+            "short_video_script": no_cta.short_video_script.model_copy(
+                update={"closing_cta": "اشتر الآن"}
+            ),
+        }
+    )
+
+    class OneShotProvider(MockContentProvider):
+        name = "one-shot"
+        model = "one-shot-model"
+
+        def __init__(self, items: list[ContentItemVersion]) -> None:
+            self.items = items
+            self.calls = 0
+
+        async def generate_content_pack(
+            self,
+            _prompt,
+            *,
+            max_output_tokens: int | None = None,
+        ) -> list[ContentItemVersion]:
+            del max_output_tokens
+            self.calls += 1
+            return self.items
+
+    provider = OneShotProvider(raw_items)
+    response = await generate_v2_content_pack(request, provider, breaker=None)
+
+    destination = request.frozen_input.cta_entries[0].destination.value
+    assert destination is not None
+    assert provider.calls == 1
+    assert destination in (response.item_versions[0].cta or "")
+    assert (response.item_versions[0].cta or "").startswith("اطلب بالواتساب:")
+    assert all(
+        claim["source_path"] != "strategy_plan.not_a_real_field"
+        for claim in response.item_versions[0].claim_sources
+    )
+    assert {
+        claim["source_path"] for claim in response.item_versions[0].claim_sources
+    } >= {"business_profile.profile", "strategy_plan.goal.text"}
+    assert response.item_versions[1].hashtags == ["#MarketMind", "#مشروعك"]
+    assert response.item_versions[1].caption_variants[0]["hashtags"] == [
+        "#MarketMind",
+        "#مشروعك",
+    ]
+    assert response.item_versions[2].hashtags == []
+    assert response.item_versions[3].cta is None
+    assert all(
+        variant["cta"] is None
+        for variant in response.item_versions[3].caption_variants
+    )
+    assert response.item_versions[3].short_video_script is not None
+    assert response.item_versions[3].short_video_script["closing_cta"] is None
+
+
+@pytest.mark.asyncio
+async def test_v2_generation_derives_media_requirement_from_frozen_format() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+    first = raw_items[0]
+    raw_items[0] = first.model_copy(
+        update={
+            "asset_required": False,
+            "asset_ids": [],
+            "blockers": ["CONTENT_ASSET_REQUIRED"],
+        }
+    )
+
+    class OneShotProvider(MockContentProvider):
+        name = "one-shot-media"
+        model = "one-shot-model"
+
+        def __init__(self, items: list[ContentItemVersion]) -> None:
+            self.items = items
+            self.calls = 0
+
+        async def generate_content_pack(
+            self,
+            _prompt,
+            *,
+            max_output_tokens: int | None = None,
+        ) -> list[ContentItemVersion]:
+            del max_output_tokens
+            self.calls += 1
+            return self.items
+
+    provider = OneShotProvider(raw_items)
+    response = await generate_v2_content_pack(request, provider, breaker=None)
+
+    selected_media = request.frozen_input.post_plans[0].selected_media_ids
+    assert provider.calls == 1
+    assert response.item_versions[0].asset_required is True
+    assert response.item_versions[0].asset_ids == selected_media
+    assert "CONTENT_ASSET_REQUIRED" not in response.item_versions[0].blockers
 
 
 def _v2_revise_request() -> AiContentV2ReviseRequest:

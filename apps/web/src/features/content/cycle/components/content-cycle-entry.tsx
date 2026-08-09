@@ -10,6 +10,7 @@ import {
   getStrategyVersions,
 } from "@/lib/api/strategy";
 import { createContentCycle, getContentCycle } from "@/lib/api/content-cycle";
+import { isStrategyPlanV2 } from "@/features/strategy/lib/strategy-v2";
 import {
   type ContentEntryState,
   resolveApprovedContentStrategy,
@@ -20,28 +21,20 @@ import {
   clearIdempotencyKey,
 } from "../lib/content-cycle-idempotency";
 import {
-  type WeekContextDraft,
   createEmptyWeekContextDraft,
   serializeWeekContext,
-  validateWeekContextDraft,
 } from "../lib/content-cycle-form";
 import { cairoDateFromStrategyStart } from "../lib/content-cycle-schedule";
 import { contentErrorKey } from "../lib/content-cycle-errors";
-import { CycleThesisHeader } from "./cycle-thesis-header";
-import { ApprovedStrategyHandoff } from "./approved-strategy-handoff";
-import { WeekContextForm } from "./week-context-form";
-import { ContentReadiness } from "./content-readiness";
 
 export function ContentCycleEntry() {
-  const t = useTranslations("ContentCycle.entry");
+  const t = useTranslations("ContentV2.entry");
+  const tEntry = useTranslations("ContentCycle.entry");
   const tActions = useTranslations("ContentCycle.actions");
   const tErrors = useTranslations("ContentCycle.errors");
   const router = useRouter();
 
   const [state, setState] = useState<ContentEntryState>({ phase: "loading" });
-  const [week1Draft, setWeek1Draft] = useState<WeekContextDraft>(
-    createEmptyWeekContextDraft(),
-  );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -57,20 +50,18 @@ export function ContentCycleEntry() {
         if (cycle) {
           const currentWeek = cycle.current_week;
           if (currentWeek >= 1 && currentWeek <= 12) {
-            // Content v2 cycles open the weekly studio; v1 cycles keep the
-            // legacy week workspace (issue #187).
-            let destination: string;
             try {
               const cycleRow = await getContentCycle(cycle.id);
-              destination =
-                (cycleRow as { contract_version?: string }).contract_version ===
+              if (
+                (cycleRow as { contract_version?: string }).contract_version !==
                 "content-v2"
-                  ? `/content/${cycle.id}/studio`
-                  : `/content/${cycle.id}/weeks/${currentWeek}`;
+              ) {
+                if (!isSubscribed) return;
+                setState({ phase: "load_error", errorKey: "contentV2Required" });
+                return;
+              }
             } catch {
-              // The contract version is the only safe source of truth for
-              // choosing a workspace. Do not guess v1 when the cycle read
-              // fails; surface a retryable load error instead.
+              // Do not guess a legacy route when the cycle read fails.
               if (!isSubscribed) return;
               setState({ phase: "load_error", errorKey: "unknown" });
               return;
@@ -80,7 +71,7 @@ export function ContentCycleEntry() {
               cycleId: cycle.id,
               week: currentWeek,
             });
-            router.replace(destination as never);
+            router.replace(`/content/${cycle.id}/studio`);
             return;
           }
           setState({ phase: "load_error", errorKey: "invalidServerWeek" });
@@ -142,13 +133,16 @@ export function ContentCycleEntry() {
           journeyRes,
           stratApi,
           versions,
-          currentSummary && lockedPlan
-            ? {
-                strategyVersion: currentSummary.version,
-                strategyDecisionId: currentSummary.decision?.id,
-                plan: lockedPlan,
-              }
-            : {},
+          {
+            ...(currentSummary && lockedPlan
+              ? {
+                  strategyVersion: currentSummary.version,
+                  strategyDecisionId: currentSummary.decision?.id,
+                  plan: lockedPlan,
+                }
+              : {}),
+            requireStrategyV2: true,
+          },
         );
         if ("blocker" in resolution) {
           setState({
@@ -181,23 +175,27 @@ export function ContentCycleEntry() {
   const handleStartCycle = async () => {
     if (state.phase !== "ready_to_start" || isStarting) return;
 
-    const validation = validateWeekContextDraft(week1Draft);
-    if (!validation.isValid) {
-      setStartError(t("contextRequired"));
-      return;
-    }
-
     setIsStarting(true);
     setStartError(null);
 
+    let idempotencyScope: string | null = null;
     try {
       const approved = state.approved;
       const startDate = cairoDateFromStrategyStart(approved.brief.start_date);
-      const initialWeekContext = serializeWeekContext(week1Draft, {
-        weekNumber: 1,
-        weekStartDate: startDate,
-      });
+      // Content v2 replaces the oversized week-1 context form: the owner can
+      // refine the editorial profile, CTA library, and media in the studio
+      // after planning the week. The cycle is created with a safe-default
+      // context that the v2 generation claim freezes together with the week
+      // plan snapshot (issue #187).
+      const initialWeekContext = serializeWeekContext(
+        createEmptyWeekContextDraft(),
+        {
+          weekNumber: 1,
+          weekStartDate: startDate,
+        },
+      );
       const scope = `content-cycle:create:${approved.strategyId}:${approved.strategyVersion}:${approved.strategyDecisionId}`;
+      idempotencyScope = scope;
       const payloadRaw = JSON.stringify({
         business_id: approved.businessId,
         strategy_id: approved.strategyId,
@@ -216,17 +214,24 @@ export function ContentCycleEntry() {
         initial_week_context: initialWeekContext,
       });
 
-      clearIdempotencyKey(scope);
       const createdCycle = response.content_cycle as {
         id: string;
         contract_version?: string;
       };
-      router.replace(
-        createdCycle.contract_version === "content-v2"
-          ? `/content/${createdCycle.id}/studio`
-          : `/content/${createdCycle.id}/weeks/1`,
-      );
+      if (createdCycle.contract_version !== "content-v2") {
+        throw {
+          status: 409,
+          code: "CONTENT_V2_REQUIRED",
+          message: "The Content cycle is not a content-v2 cycle.",
+        };
+      }
+      clearIdempotencyKey(scope);
+      router.replace(`/content/${createdCycle.id}/studio`);
     } catch (err: unknown) {
+      const errorCode = (err as { code?: string } | null)?.code;
+      if (errorCode === "CONTENT_V2_REQUIRED" && idempotencyScope) {
+        clearIdempotencyKey(idempotencyScope);
+      }
       setStartError(
         tErrors(
           contentErrorKey(
@@ -242,7 +247,7 @@ export function ContentCycleEntry() {
   if (state.phase === "loading" || state.phase === "redirecting") {
     return (
       <div className="py-12 text-center text-sm font-semibold text-muted-foreground">
-        {t("loading")}
+        {tEntry("loading")}
       </div>
     );
   }
@@ -264,37 +269,41 @@ export function ContentCycleEntry() {
 
   if (state.phase === "blocked") {
     const blockerKey = state.reason;
-    let title = t("loadError");
-    let body = t("loadError");
-    let actionLabel = t("noProfileStartAction");
+    let title = tEntry("loadError");
+    let body = tEntry("loadError");
+    let actionLabel = tEntry("noProfileStartAction");
 
     if (blockerKey === "no_profile") {
-      title = t("noProfileTitle");
-      body = t("noProfileBody");
+      title = tEntry("noProfileTitle");
+      body = tEntry("noProfileBody");
     } else if (blockerKey === "no_strategy") {
-      title = t("noStrategyTitle");
-      body = t("noStrategyBody");
-      actionLabel = t("noStrategyStartAction");
+      title = tEntry("noStrategyTitle");
+      body = tEntry("noStrategyBody");
+      actionLabel = tEntry("noStrategyStartAction");
     } else if (blockerKey === "strategy_not_approved") {
-      title = t("approvalRequiredTitle");
-      body = t("approvalRequiredBody");
-      actionLabel = t("approvalRequiredAction");
+      title = tEntry("approvalRequiredTitle");
+      body = tEntry("approvalRequiredBody");
+      actionLabel = tEntry("approvalRequiredAction");
     } else if (blockerKey === "missing_approval_receipt") {
-      title = t("approvalRequiredTitle");
-      body = t("approvalRequiredBody");
-      actionLabel = t("approvalRequiredAction");
+      title = tEntry("approvalRequiredTitle");
+      body = tEntry("approvalRequiredBody");
+      actionLabel = tEntry("approvalRequiredAction");
     } else if (blockerKey === "stale_profile") {
-      title = t("staleProfileTitle");
-      body = t("staleProfileBody");
-      actionLabel = t("staleProfileAction");
+      title = tEntry("staleProfileTitle");
+      body = tEntry("staleProfileBody");
+      actionLabel = tEntry("staleProfileAction");
     } else if (blockerKey === "malformed_plan") {
-      title = t("malformedPlanTitle");
-      body = t("malformedPlanBody");
-      actionLabel = t("noStrategyStartAction");
+      title = tEntry("malformedPlanTitle");
+      body = tEntry("malformedPlanBody");
+      actionLabel = tEntry("noStrategyStartAction");
+    } else if (blockerKey === "content_v2_required") {
+      title = tEntry("contentV2RequiredTitle");
+      body = tEntry("contentV2RequiredBody");
+      actionLabel = tEntry("noStrategyStartAction");
     } else if (blockerKey === "provenance_mismatch") {
-      title = t("staleProfileTitle");
-      body = t("staleProfileBody");
-      actionLabel = t("staleProfileAction");
+      title = tEntry("staleProfileTitle");
+      body = tEntry("staleProfileBody");
+      actionLabel = tEntry("staleProfileAction");
     }
 
     return (
@@ -321,11 +330,25 @@ export function ContentCycleEntry() {
   }
 
   const approved = state.approved;
-  const isFormValid = validateWeekContextDraft(week1Draft).isValid;
+
+  const plan = approved.plan;
+  const isV2 = isStrategyPlanV2(plan);
+  const weekOne = isV2
+    ? plan.calendar_weeks.find((week) => week.week_number === 1)
+    : null;
+  const channels =
+    isV2 && plan.content_handoff.available ? plan.content_handoff.channels : [];
+  const weekOneFormats = weekOne?.formats ?? [];
 
   return (
     <div className="space-y-6">
-      <CycleThesisHeader selectedWeek={1} approved={approved} />
+      <header className="space-y-1">
+        <p className="text-xs font-bold uppercase tracking-wide text-primary">
+          {t("eyebrow")}
+        </p>
+        <h1 className="text-xl font-bold text-navy">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+      </header>
 
       {startError && (
         <div
@@ -337,33 +360,80 @@ export function ContentCycleEntry() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-6">
-          <ApprovedStrategyHandoff selectedWeek={1} approved={approved} />
-
-          <WeekContextForm
-            initialContext={null}
-            isSubmitting={isStarting}
-            onDraftChange={setWeek1Draft}
-            showSave={false}
-            onSave={async (draft) => {
-              setWeek1Draft(draft);
-            }}
-          />
+      <section
+        aria-labelledby="entry-strategy"
+        className="rounded-xl border border-border bg-surface p-4 shadow-sm space-y-3"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="entry-strategy" className="text-sm font-bold text-navy">
+            {t("strategyLabel")}
+          </h2>
+          <Link
+            href={`/strategy/${approved.strategyId}` as never}
+            className="text-xs font-bold text-action hover:underline"
+          >
+            {t("viewStrategyCta")}
+          </Link>
         </div>
+        {weekOne && (
+          <dl className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+            <div>
+              <dt className="font-semibold text-muted-foreground">
+                {t("weekOneFocusLabel")}
+              </dt>
+              <dd className="mt-0.5 text-navy">{weekOne.focus}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-muted-foreground">
+                {t("channelsLabel")}
+              </dt>
+              <dd className="mt-0.5 text-navy">
+                {channels.length > 0
+                  ? channels.map((channel) => t(`channels.${channel}`)).join(" · ")
+                  : t("notAvailable")}
+              </dd>
+            </div>
+            {weekOneFormats.length > 0 && (
+              <div>
+                <dt className="font-semibold text-muted-foreground">
+                  {t("formatsLabel")}
+                </dt>
+                <dd className="mt-0.5 text-navy">
+                    {weekOneFormats
+                      .map((format) => t(`formats.${format}` as never))
+                      .join(" · ")}
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </section>
 
-        <div>
-          <ContentReadiness
-            approved={approved}
-            selectedWeek={1}
-            contextCutoffIso={null}
-            hasContext={isFormValid}
-            primaryAction={isFormValid ? "start_cycle" : "none"}
-            isMutating={isStarting}
-            onStartCycle={handleStartCycle}
-          />
-        </div>
-      </div>
+      <section
+        aria-labelledby="entry-next"
+        className="rounded-xl border border-border bg-surface p-4 shadow-sm space-y-3"
+      >
+        <h2 id="entry-next" className="text-sm font-bold text-navy">
+          {t("whatNextLabel")}
+        </h2>
+        <ol className="list-decimal ps-5 space-y-1.5 text-xs leading-relaxed text-navy">
+          <li>{t("step1")}</li>
+          <li>{t("step2")}</li>
+          <li>{t("step3")}</li>
+        </ol>
+        <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          {t("noPublishNote")}
+        </p>
+      </section>
+
+      <button
+        type="button"
+        onClick={handleStartCycle}
+        disabled={isStarting}
+        className="rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90 disabled:opacity-60"
+      >
+        {isStarting ? t("startingCta") : t("startCta")}
+      </button>
     </div>
   );
 }

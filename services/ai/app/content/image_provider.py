@@ -225,6 +225,14 @@ _GEMINI_SUPPORTED_SIZES: dict[tuple[int, int], str] = {
 
 def _gemini_safety_block_reason(response: Any) -> str | None:
     """Return a short safety reason if Gemini blocked the request or image, else None."""
+    prompt_feedback = getattr(response, "prompt_feedback", None)
+    prompt_block_reason = getattr(prompt_feedback, "block_reason", None)
+    if prompt_block_reason:
+        return f"prompt-block:{prompt_block_reason}"
+    for candidate in getattr(response, "candidates", None) or []:
+        finish_reason = getattr(candidate, "finish_reason", None)
+        if finish_reason and "SAFETY" in str(finish_reason).upper():
+            return f"output-block:{finish_reason}"
     safety = getattr(response, "positive_prompt_safety_attributes", None)
     if safety and getattr(safety, "categories", None):
         return "prompt-block:" + ",".join(safety.categories)
@@ -340,6 +348,33 @@ def _parse_image_data_url(url: str) -> tuple[bytes, str]:
     return data, mime_type
 
 
+def _gemini_image_bytes(response: Any) -> tuple[bytes, str] | None:
+    """Extract the first inline image returned by Gemini generateContent."""
+    parts = getattr(response, "parts", None)
+    if parts is None:
+        candidates = getattr(response, "candidates", None) or []
+        content = getattr(candidates[0], "content", None) if candidates else None
+        parts = getattr(content, "parts", None) or []
+    for part in parts:
+        inline_data = getattr(part, "inline_data", None)
+        if inline_data is None:
+            continue
+        data = getattr(inline_data, "data", None)
+        if isinstance(data, str):
+            try:
+                data = base64.b64decode(data, validate=True)
+            except ValueError as exc:
+                raise ProviderError(
+                    "CONTENT_PROVIDER_FAILURE",
+                    "Gemini returned invalid base64 image bytes.",
+                    retryable=False,
+                ) from exc
+        if isinstance(data, bytes) and data:
+            mime_type = getattr(inline_data, "mime_type", None) or "image/png"
+            return data, mime_type
+    return None
+
+
 class GeminiStaticImageProvider(StaticImageProvider):
     """Gemini (Nano Banana) image adapter; bytes pass through AssetStoragePort."""
 
@@ -347,7 +382,9 @@ class GeminiStaticImageProvider(StaticImageProvider):
 
     def __init__(self, api_key: str, model: str, timeout_seconds: float) -> None:
         self.api_key = api_key
-        self.model = model
+        # OpenRouter uses a `google/` model prefix; the direct Gemini API does
+        # not. Normalizing it makes provider switches safe and unsurprising.
+        self.model = model.removeprefix("google/")
         self.timeout_seconds = timeout_seconds
 
     @classmethod
@@ -379,12 +416,17 @@ class GeminiStaticImageProvider(StaticImageProvider):
                 width=request.width,
                 height=request.height,
             )
-            response = client.models.generate_images(
+            response = client.models.generate_content(
                 model=self.model,
-                prompt=provider_prompt,
-                config=types.GenerateImagesConfig(
-                    number_of_images=1,
-                    aspect_ratio=_GEMINI_SUPPORTED_SIZES[(request.width, request.height)],
+                contents=provider_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio=_GEMINI_SUPPORTED_SIZES[
+                            (request.width, request.height)
+                        ],
+                        image_size="1K",
+                    ),
                 ),
             )
             block_reason = _gemini_safety_block_reason(response)
@@ -394,16 +436,17 @@ class GeminiStaticImageProvider(StaticImageProvider):
                     f"Gemini blocked image generation: {block_reason}.",
                     retryable=False,
                 )
-            if not response.generated_images:
+            generated = _gemini_image_bytes(response)
+            if generated is None:
                 raise ProviderError(
                     "CONTENT_PROVIDER_FAILURE",
                     "Gemini returned no image result.",
                     retryable=True,
                 )
-            image = response.generated_images[0].image
+            data, mime_type = generated
             return GeneratedImage(
-                data=image.image_bytes,
-                mime_type="image/png",
+                data=data,
+                mime_type=mime_type,
                 width=request.width,
                 height=request.height,
                 provider_request_id=getattr(response, "request_id", "gemini-image-unknown"),

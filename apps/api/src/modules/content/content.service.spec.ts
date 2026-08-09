@@ -1,5 +1,4 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
 import {
   BadRequestException,
   ConflictException,
@@ -234,6 +233,13 @@ function makeStrategyRepo(
       id: "v-2",
       strategyId: "strat-1",
       version: 2,
+      planData: {
+        contract_version: "strategy-v2",
+        content_handoff: {
+          available: true,
+          channels: ["instagram"],
+        },
+      },
     }),
     getActiveConfirmedProfileVersion: jest
       .fn()
@@ -263,9 +269,9 @@ function makeCycleRepo(
   return {
     createCycle: jest.fn().mockResolvedValue(CYCLE_ROW),
     createCycleWithWeekOne: jest.fn().mockResolvedValue({
-      cycle: CYCLE_ROW,
+      cycle: { ...CYCLE_ROW, contractVersion: "content-v2" },
       weekContext: WEEK_ROW,
-      pack: PACK_ROW,
+      pack: null,
       created: true,
     }),
     getCycleByIdAndOwner: jest.fn().mockResolvedValue(CYCLE_ROW),
@@ -391,10 +397,8 @@ describe("ContentService.createCycle", () => {
   let cycleRepo: MockedCycleRepo;
   let weekRepo: MockedWeekRepo;
   let packRepo: MockedPackRepo;
-  let contentV2DefaultEnabled: boolean | undefined;
 
   beforeEach(async () => {
-    contentV2DefaultEnabled = false;
     strategyRepo = makeStrategyRepo();
     cycleRepo = makeCycleRepo();
     weekRepo = makeWeekRepo();
@@ -422,12 +426,6 @@ describe("ContentService.createCycle", () => {
         },
         { provide: PrismaService, useValue: makePrismaService() },
         { provide: CONTENT_ASSET_STORAGE, useValue: makeAssetStorage() },
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn(() => contentV2DefaultEnabled),
-          },
-        },
       ],
     }).compile();
 
@@ -517,7 +515,25 @@ describe("ContentService.createCycle", () => {
     expect(packRepo.claimQueuedPack).not.toHaveBeenCalled();
   });
 
-  it("creates the cycle and initial owner-confirmed week context for week 1", async () => {
+  it("rejects a legacy Strategy v1 plan before creating a Content cycle", async () => {
+    (strategyRepo.getVersionById as jest.Mock).mockResolvedValue({
+      id: "v-2",
+      strategyId: "strat-1",
+      version: 2,
+      planData: {
+        contract_version: "strategy-v1",
+        selected_channels: [{ channel: "instagram" }],
+      },
+    });
+
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_V2_REQUIRED",
+    );
+    expect(cycleRepo.createCycleWithWeekOne).not.toHaveBeenCalled();
+  });
+
+  it("always creates the content-v2 cycle and initial owner-confirmed week context", async () => {
     const result = await service.createCycle(DTO, OWNER_ID);
 
     expect(result.content_cycle.id).toBe("cycle-1");
@@ -533,8 +549,8 @@ describe("ContentService.createCycle", () => {
         strategyDecisionId: "decision-1",
         profileVersionId: "prof-1",
         idempotencyKey: "idem-1",
-        contractVersion: "content-v1",
-        skipWeekOneClaim: false,
+        contractVersion: "content-v2",
+        skipWeekOneClaim: true,
         week1StartDate: new Date("2026-08-01T00:00:00.000Z"),
         initialWeekContext: expect.objectContaining({
           week_number: 1,
@@ -558,38 +574,15 @@ describe("ContentService.createCycle", () => {
     }).format(cutoff);
     expect(cairoDate).toBe("2026-08-08");
 
-    // Issue #110 requires week 1 to be queued immediately on cycle creation.
-    expect(packRepo.claimQueuedPack).toHaveBeenCalledWith(
-      "cycle-1",
-      1,
-      expect.any(String),
-    );
-  });
-
-  it("defaults new cycles to the content-v2 owner-first studio", async () => {
-    contentV2DefaultEnabled = undefined;
-    (cycleRepo.createCycleWithWeekOne as jest.Mock).mockResolvedValue({
-      cycle: { ...CYCLE_ROW, contractVersion: "content-v2" },
-      weekContext: WEEK_ROW,
-      pack: null,
-      created: true,
-    });
-
-    const result = await service.createCycle(DTO, OWNER_ID);
-
-    expect(result.content_cycle.contract_version).toBe("content-v2");
-    expect(cycleRepo.createCycleWithWeekOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contractVersion: "content-v2",
-        skipWeekOneClaim: true,
-      }),
-      OWNER_ID,
-    );
     expect(packRepo.claimQueuedPack).not.toHaveBeenCalled();
   });
 
   it("returns the same cycle on idempotent replay (repository returns the original row)", async () => {
-    const replayCycle = { ...CYCLE_ROW, id: "cycle-original" };
+    const replayCycle = {
+      ...CYCLE_ROW,
+      id: "cycle-original",
+      contractVersion: "content-v2",
+    };
     (cycleRepo.createCycleWithWeekOne as jest.Mock).mockResolvedValue({
       cycle: replayCycle,
       weekContext: WEEK_ROW,
@@ -601,6 +594,20 @@ describe("ContentService.createCycle", () => {
 
     expect(result.content_cycle.id).toBe("cycle-original");
     expect(cycleRepo.createCycleWithWeekOne).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay a legacy cycle into the active Content workflow", async () => {
+    (cycleRepo.createCycleWithWeekOne as jest.Mock).mockResolvedValue({
+      cycle: { ...CYCLE_ROW, id: "legacy-cycle", contractVersion: "content-v1" },
+      weekContext: WEEK_ROW,
+      pack: PACK_ROW,
+      created: false,
+    });
+
+    await rejectsWithCode(
+      service.createCycle(DTO, OWNER_ID),
+      "CONTENT_V2_REQUIRED",
+    );
   });
 });
 
@@ -1086,6 +1093,24 @@ const ITEM_VERSION_ROW = {
   createdAt: new Date("2026-08-01T00:30:00.000Z"),
 };
 
+const READY_ASSET_ROW = {
+  id: "asset-1",
+  contentItemVersionId: "ver-2",
+  kind: "owner_supplied",
+  status: "ready",
+  mimeType: "image/png",
+  width: 1024,
+  height: 1024,
+  storageKey: "content/ver-2/asset-1.png",
+  checksum: "a".repeat(64),
+  altText: "alt",
+  providerName: null,
+  providerModel: null,
+  providerRequestId: null,
+  failureCode: null,
+  createdAt: new Date("2026-08-01T00:45:00.000Z"),
+};
+
 describe("ContentService.reads", () => {
   let service: ContentService;
   let cycleRepo: MockedCycleRepo;
@@ -1438,7 +1463,7 @@ describe("ContentService.decide", () => {
     );
   });
 
-  it("approves: records the decision and creates a publication candidate", async () => {
+  it("approves a text-only version without inventing a publication asset", async () => {
     const result = await service.decide(
       "pack-1",
       "item-1",
@@ -1458,14 +1483,40 @@ describe("ContentService.decide", () => {
       }),
       expect.anything(),
     );
-    expect(candidateRepo.getCandidateByItemVersionId).toHaveBeenCalledWith(
-      "ver-2",
-      expect.anything(),
-    );
-    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(1);
-    expect(result.publication_candidate).toEqual(CANDIDATE);
+    expect(candidateRepo.getCandidateByItemVersionId).toHaveBeenCalledTimes(1);
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(result.publication_candidate).toBeNull();
     expect(result.decision.decision).toBe("approved");
     expect(result.decision.content_item_version_id).toBe("ver-2");
+  });
+
+  it("creates a publication candidate when optional owner media is ready", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockResolvedValue([
+      { ...ITEM_VERSION_ROW, assetIds: ["asset-1"] },
+    ]);
+    (packRepo.listAssetsForVersion as jest.Mock).mockResolvedValue([
+      READY_ASSET_ROW,
+    ]);
+
+    const result = await service.decide(
+      "pack-1",
+      "item-1",
+      APPROVE_DTO,
+      OWNER_ID,
+    );
+
+    expect(candidateRepo.createCandidate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assets: [
+          expect.objectContaining({
+            assetId: "asset-1",
+            kind: "owner_supplied",
+          }),
+        ],
+      }),
+      expect.anything(),
+    );
+    expect(result.publication_candidate).toEqual(CANDIDATE);
   });
 
   it("rejects: records the decision without creating a candidate", async () => {
@@ -1679,7 +1730,7 @@ describe("ContentService.bulkDecision", () => {
     );
   });
 
-  it("approves all eligible items and creates one candidate per approval", async () => {
+  it("approves eligible text-only items without fabricating candidates", async () => {
     const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
 
     expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
@@ -1700,8 +1751,37 @@ describe("ContentService.bulkDecision", () => {
       OWNER_ID,
       expect.anything(),
     );
-    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(3);
+    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
     expect(result).toHaveLength(3);
+    expect(result.every((entry) => entry.status === "approved")).toBe(true);
+  });
+
+  it("creates a candidate for an optional owner photo selected before approval", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockImplementation(
+      (_packId, itemId) => {
+        if (itemId === "item-1") {
+          return Promise.resolve([
+            { ...ITEM_VERSION_ROW, assetIds: ["asset-1"] },
+          ]);
+        }
+        if (itemId === "item-2") return Promise.resolve([VERSION_2B_ROW]);
+        return Promise.resolve([VERSION_2C_ROW]);
+      },
+    );
+    (packRepo.listAssetsForVersion as jest.Mock).mockImplementation(
+      (versionId) =>
+        Promise.resolve(versionId === "ver-2" ? [READY_ASSET_ROW] : []),
+    );
+
+    const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
+
+    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(1);
+    expect(candidateRepo.createCandidate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assets: [expect.objectContaining({ assetId: "asset-1" })],
+      }),
+      expect.anything(),
+    );
     expect(result.every((entry) => entry.status === "approved")).toBe(true);
   });
 

@@ -1085,7 +1085,7 @@ model StrategyProgressEvent {
 
 model ContentCycle {
   id                     String    @id @default(uuid()) @db.Uuid
-  contractVersion        String    @default("content-v1") @map("contract_version")
+  contractVersion        String    @default("content-v2") @map("contract_version")
   businessId             String    @map("business_id") @db.Uuid
   strategyId             String    @map("strategy_id") @db.Uuid
   strategyVersion        Int       @map("strategy_version")
@@ -1298,6 +1298,8 @@ model ContentEditorialProfile {
   language              String   @default("ar-EG")
   writingGuardrails     Json     @default("[]") @map("writing_guardrails")
   defaultVisualGuidance String?  @map("default_visual_guidance")
+  tonePreset            String   @default("recommended") @map("tone_preset")
+  lengthPreset          String   @default("balanced") @map("length_preset")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 

@@ -403,6 +403,60 @@ def test_gemini_unsupported_size_is_schema_failure() -> None:
     assert exc.value.retryable is False
 
 
+@pytest.mark.asyncio
+async def test_gemini_image_adapter_uses_generate_content_and_inline_bytes(
+    monkeypatch,
+) -> None:
+    from google import genai
+
+    request = _request().model_copy(update={"width": 1024, "height": 1024})
+    prompt = _prompt(request)
+    png = _solid_png(1024, 1024, b"\x10\x20\x30")
+    captured: dict = {}
+
+    class FakeModels:
+        def generate_content(self, **arguments):
+            captured["arguments"] = arguments
+            return SimpleNamespace(
+                request_id="gemini-request-fictional",
+                parts=[
+                    SimpleNamespace(
+                        inline_data=SimpleNamespace(
+                            data=png,
+                            mime_type="image/png",
+                        )
+                    )
+                ],
+                candidates=[],
+                prompt_feedback=None,
+                positive_prompt_safety_attributes=None,
+                generated_images=[],
+            )
+
+    class FakeClient:
+        def __init__(self, **arguments):
+            captured["client"] = arguments
+            self.models = FakeModels()
+
+    monkeypatch.setattr(genai, "Client", FakeClient)
+    provider = GeminiStaticImageProvider(
+        api_key="fictional-key",
+        model="google/gemini-3.1-flash-image",
+        timeout_seconds=10,
+    )
+
+    generated = await provider.generate_static(request, prompt)
+
+    assert generated.data == png
+    assert generated.mime_type == "image/png"
+    assert provider.model == "gemini-3.1-flash-image"
+    assert captured["arguments"]["model"] == "gemini-3.1-flash-image"
+    config = captured["arguments"]["config"]
+    assert config.response_modalities == ["IMAGE"]
+    assert config.image_config.aspect_ratio == "1:1"
+    assert config.image_config.image_size == "1K"
+
+
 def test_gemini_safety_block_reason_reports_prompt_block_categories() -> None:
     response = SimpleNamespace(
         generated_images=[],

@@ -3,6 +3,7 @@ import type { ContentDecision } from "../content-item";
 import type {
   ContentChannel,
   ContentFormat,
+  IsoDate,
   IsoDateTime,
   UUID,
 } from "../content-types";
@@ -12,6 +13,32 @@ import type { ContentEditorialProfileV2 } from "./editorial-profile";
 import type { ContentMediaLibraryEntryV2 } from "./media-library";
 import type { ContentPostPlanV2 } from "./week-plan";
 import type { ContentItemVersionV2 } from "./version-metadata";
+
+export type ContentV2WorkspaceAsset = {
+  readonly id: UUID;
+  readonly kind: "owner_supplied" | "generated_static";
+  readonly status:
+    | "generating"
+    | "ready"
+    | "failed"
+    | "missing"
+    | "blocked";
+  readonly mime_type: string | null;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly alt_text: string;
+  readonly failure_code: string | null;
+  readonly review_required: boolean;
+  readonly created_at: IsoDateTime;
+};
+
+export type ContentV2ApprovalState =
+  | "ready"
+  | "needs_media"
+  | "media_generating"
+  | "media_failed"
+  | "blocked"
+  | "approved";
 
 /** v2 cycle row: same shape as v1, new contract tag. */
 export type ContentCycleV2 = Omit<ContentCycle, "contract_version"> & {
@@ -28,6 +55,7 @@ export type ContentWeekHistoryStatusV2 =
   | "not_started"
   | "planned"
   | "generating"
+  | "failed"
   | "ready"
   | "completed";
 
@@ -72,6 +100,7 @@ export type ContentCycleWorkspaceV2 = {
   readonly contract_version: "content-v2";
   readonly cycle: ContentCycleV2;
   readonly editorial_profile: ContentEditorialProfileV2 | null;
+  readonly editorial_suggestion?: ContentEditorialProfileV2 | null;
   readonly cta_library: readonly ContentCtaLibraryEntryV2[];
   readonly media_library: readonly ContentMediaLibraryEntryV2[];
   readonly current_week: ContentCurrentWeekWorkspaceV2;
@@ -84,6 +113,7 @@ export type ContentCycleWorkspaceV2 = {
 
 export type ContentCurrentWeekWorkspaceV2 = {
   readonly week_number: number;
+  readonly week_start_date: IsoDate;
   readonly goal: string;
   readonly generation_state:
     | "not_started"
@@ -91,6 +121,7 @@ export type ContentCurrentWeekWorkspaceV2 = {
     | "queued"
     | "generating"
     | "ready"
+    | "completed"
     | "failed";
   readonly week_plan: {
     readonly id: UUID;
@@ -100,9 +131,7 @@ export type ContentCurrentWeekWorkspaceV2 = {
   readonly pack: ContentPackV2 | null;
   readonly next_generation_at: IsoDateTime | null;
   readonly primary_action:
-    | "configure_editorial_profile"
     | "plan_week"
-    | "refine_plan"
     | "generate"
     | "review_pack"
     | "retry"
@@ -119,6 +148,8 @@ export type ContentPackWorkspaceV2 = {
   readonly week_number: number;
   readonly week_start_date: string;
   readonly editorial_profile: ContentEditorialProfileV2 | null;
+  readonly editorial_suggestion?: ContentEditorialProfileV2 | null;
+  readonly media_library?: readonly ContentMediaLibraryEntryV2[];
   readonly items: readonly ContentPackItemWorkspaceV2[];
   readonly publication_candidate: PublicationCandidateV1 | null;
 };
@@ -129,6 +160,8 @@ export type ContentPackItemWorkspaceV2 = {
   readonly current_version: ContentItemVersionV2;
   readonly versions: readonly ContentItemVersionV2[];
   readonly decision: ContentDecision | null;
+  readonly assets?: readonly ContentV2WorkspaceAsset[];
+  readonly approval_state?: ContentV2ApprovalState;
 };
 
 export type ContentCycleWorkspaceResponse = {

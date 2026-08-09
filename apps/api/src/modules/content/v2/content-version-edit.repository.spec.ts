@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
+import { computeContentItemVersionChecksum } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { ContentVersionEditRepository } from "./content-version-edit.repository";
 
@@ -11,8 +12,9 @@ const CHECKSUM = "a".repeat(64);
 function mockTx(overrides: Record<string, unknown> = {}): any {
   return {
     contentItem: {
-      findFirst: jest.fn().mockResolvedValue({ id: ITEM }),
-      update: jest.fn().mockResolvedValue({ id: ITEM }),
+      findFirst: jest.fn().mockResolvedValue({ id: ITEM, status: "draft" }),
+      findUnique: jest.fn().mockResolvedValue({ status: "draft" }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     contentItemVersion: {
       findUniqueOrThrow: jest
@@ -72,7 +74,7 @@ describe("ContentVersionEditRepository", () => {
         contentPackId: PACK,
         currentVersionId: BASE,
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     expect(tx.contentItemVersion.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -85,12 +87,50 @@ describe("ContentVersionEditRepository", () => {
         validationState: "validated",
       }),
     });
-    expect(tx.contentItem.update).toHaveBeenCalledWith({
-      where: { id: ITEM },
+    expect(tx.contentItem.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: ITEM,
+        currentVersionId: BASE,
+        status: { not: "approved" },
+      },
       data: expect.objectContaining({ status: "draft" }),
     });
     expect(version).toEqual(
       expect.objectContaining({ editKind: "owner_direct_edit" }),
+    );
+
+    const persisted = tx.contentItemVersion.create.mock.calls[0][0]
+      .data as Record<string, unknown>;
+    expect(persisted.versionChecksum).not.toBe(CHECKSUM);
+    expect(persisted.versionChecksum).toBe(
+      computeContentItemVersionChecksum({
+        id: persisted.id,
+        // v2 rows retain the v1 item checksum surface at the publication
+        // boundary; edit metadata and the v2 tag are separate persistence
+        // fields.
+        contract_version: "content-v1",
+        content_item_id: persisted.contentItemId,
+        content_pack_id: persisted.contentPackId,
+        version: persisted.version,
+        channel: persisted.channel,
+        format: persisted.format,
+        language_mode: persisted.languageMode,
+        strategy_trace: persisted.strategyTrace,
+        caption_variants: persisted.captionVariants,
+        cta: persisted.cta,
+        hashtags: persisted.hashtags,
+        creative_brief: persisted.creativeBrief,
+        alt_text: persisted.altText,
+        short_video_script: persisted.shortVideoScript,
+        recommended_publish_window: persisted.recommendedPublishWindow,
+        claim_sources: persisted.claimSources,
+        warnings: persisted.warnings,
+        blockers: persisted.blockers,
+        asset_required: persisted.assetRequired,
+        asset_ids: persisted.assetIds,
+        generation_provenance: persisted.generationProvenance,
+        created_at: persisted.createdAt,
+      }),
     );
   });
 
@@ -107,6 +147,26 @@ describe("ContentVersionEditRepository", () => {
     ).rejects.toMatchObject({
       response: { code: "CONTENT_VERSION_CONFLICT" },
     });
+  });
+
+  it("blocks edits when the item has already been approved", async () => {
+    const tx = mockTx({
+      contentItem: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: ITEM,
+          status: "approved",
+        }),
+        findUnique: jest.fn().mockResolvedValue({ status: "approved" }),
+        updateMany: jest.fn(),
+      },
+    });
+    const repo = buildRepo({ $transaction: jest.fn(async (cb) => cb(tx)) });
+
+    await expect(
+      repo.appendOwnerEditVersion(editInput()),
+    ).rejects.toMatchObject({ response: { code: "CONTENT_APPROVAL_BLOCKED" } });
+    expect(tx.contentItemVersion.create).not.toHaveBeenCalled();
+    expect(tx.contentItem.updateMany).not.toHaveBeenCalled();
   });
 
   it("conflicts on a stale checksum without overwriting anything", async () => {

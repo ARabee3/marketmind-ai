@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,7 +18,7 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { Request } from "express";
+import { Request, Response } from "express";
 import type {
   ContentCtaDestination,
   OwnerContentDirectEditRequest,
@@ -32,6 +33,8 @@ import { ContentV2Service } from "./content-v2.service";
 import {
   CreateCtaEntryDto,
   CreateOrReplaceWeekPlanDto,
+  AttachMediaDto,
+  GenerateMediaDto,
   OwnerContentDirectEditDto,
   RewriteContentItemDto,
   UpdateCtaEntryDto,
@@ -98,9 +101,20 @@ export class ContentV2Controller {
         language: dto.language,
         writingGuardrails: dto.writing_guardrails,
         defaultVisualGuidance: dto.default_visual_guidance ?? null,
+        tonePreset: dto.tone_preset,
+        lengthPreset: dto.length_preset,
       },
       req.user.id,
     );
+  }
+
+  @Post("content-cycles/:id/editorial-profile/reset")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  resetEditorialProfile(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.contentV2Service.resetEditorialProfile(id, req.user.id);
   }
 
   // -------------------------------------------------------------------------
@@ -211,6 +225,25 @@ export class ContentV2Controller {
     return this.contentV2Service.getMedia(id, mediaId, req.user.id);
   }
 
+  @Get("content-cycles/:id/media/:media_id/file")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  async getMediaFile(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("media_id", ParseUUIDPipe) mediaId: string,
+    @Req() req: RequestWithUser,
+    @Res() response: Response,
+  ) {
+    const file = await this.contentV2Service.getMediaFile(
+      id,
+      mediaId,
+      req.user.id,
+    );
+    response.setHeader("Content-Type", file.mimeType);
+    response.setHeader("Content-Length", file.buffer.byteLength);
+    response.setHeader("Cache-Control", "private, max-age=300");
+    return response.send(file.buffer);
+  }
+
   @Post("content-cycles/:id/media/:media_id/revoke")
   @Permissions(PERMISSIONS.CONTENT_START)
   revokeMedia(
@@ -319,5 +352,37 @@ export class ContentV2Controller {
     @Body() dto: RewriteContentItemDto,
   ) {
     return this.contentV2Service.rewriteItem(id, itemId, dto, req.user.id);
+  }
+
+  @Post("content-packs/:id/items/:item_id/media/generate")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  generateMedia(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("item_id", ParseUUIDPipe) itemId: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: GenerateMediaDto,
+  ) {
+    return this.contentV2Service.generateMediaForItem(
+      id,
+      itemId,
+      dto,
+      req.user.id,
+    );
+  }
+
+  @Post("content-packs/:id/items/:item_id/media/attach")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  attachMedia(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("item_id", ParseUUIDPipe) itemId: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: AttachMediaDto,
+  ) {
+    return this.contentV2Service.attachMediaToItem(
+      id,
+      itemId,
+      dto,
+      req.user.id,
+    );
   }
 }

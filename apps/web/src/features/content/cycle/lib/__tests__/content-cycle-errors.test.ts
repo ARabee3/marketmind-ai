@@ -13,6 +13,7 @@ describe("contentErrorKey", () => {
     expect(contentErrorKey({ code: "CONTENT_PACK_NOT_FAILED" })).toBe("packNotFailed");
     expect(contentErrorKey({ code: "CONTENT_RETRY_NOT_ALLOWED" })).toBe("retryNotAllowed");
     expect(contentErrorKey({ code: "CONTENT_PACK_RETRY_CONFLICT" })).toBe("retryConflict");
+    expect(contentErrorKey({ code: "CONTENT_V2_REQUIRED" })).toBe("contentV2Required");
   });
 
   it("maps HTTP status codes when no explicit business code is present", () => {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { getContentPack } from "@/lib/api/content-cycle";
-import { ContentReviewWorkspace } from "@/features/content/review/components/ContentReviewWorkspace";
 import { ContentV2ReviewWorkspace } from "@/features/content/v2/content-v2-review";
 
 type GateProps = {
@@ -11,13 +12,16 @@ type GateProps = {
 
 /**
  * Routes pack review to the content-v2 post-card workspace for v2 packs and
- * the legacy workspace for content-v1 packs (issue #187). The v2 path reads
- * the real aggregate read model only — no fixture fallback.
+ * a recovery notice for historical content-v1 packs (issue #187). The active
+ * path reads the real v2 aggregate only — no fixture fallback or legacy
+ * workspace routing.
  */
 export function ContentPackReviewGate({ packId }: GateProps) {
+  const tReview = useTranslations("ContentV2.review");
+  const tErrors = useTranslations("ContentV2.errors");
   const [resolution, setResolution] = useState<
     | { phase: "loading" }
-    | { phase: "v1" }
+    | { phase: "legacy" }
     | { phase: "v2" }
     | { phase: "error" }
   >({ phase: "loading" });
@@ -32,7 +36,7 @@ export function ContentPackReviewGate({ packId }: GateProps) {
               (pack as { contract_version?: string }).contract_version ===
               "content-v2"
                 ? "v2"
-                : "v1",
+                : "legacy",
           });
         } catch {
           setResolution({ phase: "error" });
@@ -45,7 +49,7 @@ export function ContentPackReviewGate({ packId }: GateProps) {
   if (resolution.phase === "loading") {
     return (
       <div className="py-12 text-center text-sm font-semibold text-muted-foreground">
-        Loading…
+        {tReview("loading")}
       </div>
     );
   }
@@ -55,10 +59,33 @@ export function ContentPackReviewGate({ packId }: GateProps) {
   }
 
   if (resolution.phase === "error") {
-    // The legacy workspace keeps its clearly-labeled fixture fallback for
-    // the demo pack; a real v2 pack always resolves through the aggregate.
-    return <ContentReviewWorkspace packId={packId} />;
+    return (
+      <div className="mx-auto max-w-xl py-12 text-center space-y-4">
+        <div className="rounded-xl border border-danger/30 bg-danger/10 p-6 text-danger space-y-3">
+          <p className="text-sm font-bold">{tErrors("loadFailed")}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-lg bg-danger px-4 py-2 text-xs font-bold text-white"
+          >
+            {tErrors("refresh")}
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  return <ContentReviewWorkspace packId={packId} />;
+  return (
+    <div className="mx-auto max-w-xl py-12 text-center space-y-4">
+      <div className="rounded-xl border border-warning/30 bg-warning/10 p-6 text-warning space-y-3">
+        <p className="text-sm font-bold">{tErrors("legacyCycle")}</p>
+        <Link
+          href="/content"
+          className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white"
+        >
+          {tErrors("backToContent")}
+        </Link>
+      </div>
+    </div>
+  );
 }

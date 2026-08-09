@@ -847,6 +847,19 @@ def _claim_source_is_eligible(
     return False
 
 
+def is_claim_source_grounded(
+    request: AiContentGenerateRequest,
+    claim: Any,
+) -> bool:
+    """Return whether provider provenance resolves to supplied approved input.
+
+    Content v2 uses this narrow public boundary to discard malformed provider
+    provenance before adding deterministic baseline sources. Risky-copy checks
+    still apply their stricter exact-value matching during pack validation.
+    """
+    return _claim_source_is_eligible(request, claim)
+
+
 def _grounding_leaf_values(
     value: Any,
     path: str,
@@ -1178,6 +1191,17 @@ def _validate_item_against_generation_request(
     protected_language_texts.extend(
         _profile_protected_texts(request.business_profile.profile)
     )
+    destination = request.week_context.cta_destination
+    destination_value = (
+        destination.get("value")
+        if isinstance(destination, dict)
+        else destination.value
+    )
+    if destination_value:
+        # Approved phone numbers, URLs, and handles are protected input, not
+        # owner-facing prose. Exclude them from the script-ratio calculation
+        # while the CTA validator below still requires exact preservation.
+        protected_language_texts.append(destination_value)
     issues.extend(
         _validate_item_language(
             item,

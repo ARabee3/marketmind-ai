@@ -270,9 +270,13 @@ describe("ContentProcessor", () => {
   let packRepo: jest.Mocked<Partial<ContentPackRepository>>;
   let cycleRepo: jest.Mocked<Partial<ContentCycleRepository>>;
   let weekContextRepo: jest.Mocked<Partial<ContentWeekContextRepository>>;
+  let weekPlanRepo: jest.Mocked<Partial<ContentWeekPlanRepository>>;
   let strategyRepo: jest.Mocked<Partial<StrategyRepository>>;
   let client: jest.Mocked<Partial<ContentAiClient>>;
   let assetStorage: { store: jest.Mock };
+  let prisma: {
+    contentWeekPlan: { findUnique: jest.Mock };
+  };
 
   beforeEach(async () => {
     packRepo = {
@@ -288,6 +292,11 @@ describe("ContentProcessor", () => {
     weekContextRepo = {
       getWeekById: jest.fn().mockResolvedValue(WEEK_CONTEXT),
     };
+    weekPlanRepo = {
+      markPlansGenerating: jest.fn().mockResolvedValue(undefined),
+      markPlansFailed: jest.fn().mockResolvedValue(undefined),
+      attachGeneratedItem: jest.fn().mockResolvedValue(undefined),
+    };
     strategyRepo = {
       readStrategy: jest.fn().mockResolvedValue(STRATEGY),
       getVersionByNumber: jest.fn().mockResolvedValue(STRATEGY_VERSION),
@@ -302,6 +311,9 @@ describe("ContentProcessor", () => {
     assetStorage = {
       store: jest.fn(),
     };
+    prisma = {
+      contentWeekPlan: { findUnique: jest.fn() },
+    };
 
     (validateContentPolicyFixture as jest.Mock).mockReturnValue({
       valid: true,
@@ -314,8 +326,8 @@ describe("ContentProcessor", () => {
         { provide: ContentPackRepository, useValue: packRepo },
         { provide: ContentCycleRepository, useValue: cycleRepo },
         { provide: ContentWeekContextRepository, useValue: weekContextRepo },
-        { provide: ContentWeekPlanRepository, useValue: {} },
-        { provide: PrismaService, useValue: {} },
+        { provide: ContentWeekPlanRepository, useValue: weekPlanRepo },
+        { provide: PrismaService, useValue: prisma },
         { provide: StrategyRepository, useValue: strategyRepo },
         { provide: ContentAiClient, useValue: client },
         { provide: CONTENT_ASSET_STORAGE, useValue: assetStorage },
@@ -485,8 +497,8 @@ describe("ContentProcessor", () => {
           mimeType: "image/jpeg",
           storageKey: "asset/key",
           checksum: "a".repeat(64),
-          width: 1080,
-          height: 1080,
+          width: 1024,
+          height: 1024,
           altText: "وصف الصورة",
           providerName: null,
           providerModel: null,
@@ -555,6 +567,66 @@ describe("ContentProcessor", () => {
         .reverse()
         .find((fixture) => fixture.item_version.asset_required);
       expect(assetFixture.assets).toEqual([]);
+    });
+  });
+
+  describe("generate-content-v2", () => {
+    it("omits null asset jobs when generated posts are text-only", async () => {
+      const frozenPostPlans = [1, 2, 3].map((position) => ({
+        content_week_plan_id: "week-plan-1",
+        position,
+      }));
+      const itemVersions = [1, 2, 3].map((position) =>
+        makeItemVersion(String(position), {
+          contract_version: "content-v2",
+          format: "text_post",
+          asset_required: false,
+          asset_ids: [],
+        }),
+      );
+      packRepo.getPackById = jest.fn().mockResolvedValue({
+        ...PACK,
+        contractVersion: "content-v2",
+        weekPlanId: "week-plan-1",
+      });
+      packRepo.claimPackForGeneration = jest
+        .fn()
+        .mockResolvedValue({ changed: true });
+      packRepo.persistGeneratedItemsV2 = jest.fn().mockResolvedValue(PACK);
+      strategyRepo.getProfileVersionById = jest
+        .fn()
+        .mockResolvedValue(PROFILE_VERSION);
+      client.generateV2 = jest.fn().mockResolvedValue({
+        contract_version: "content-v2",
+        content_pack: {
+          ...AI_RESPONSE_3_ITEMS.content_pack,
+          contract_version: "content-v2",
+        },
+        item_versions: itemVersions,
+        validation: { valid: true, issues: [] },
+      });
+      prisma.contentWeekPlan.findUnique.mockResolvedValue({
+        id: "week-plan-1",
+        frozenInput: {
+          contract_version: "content-v2",
+          editorial_profile: null,
+          post_plans: frozenPostPlans,
+        },
+        postPlans: frozenPostPlans,
+      });
+
+      await processor.process({
+        id: "job-v2-1",
+        name: "generate-content-v2",
+        data: JOB_DATA,
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+      } as never);
+
+      expect(packRepo.persistGeneratedItemsV2).toHaveBeenCalledWith(
+        expect.objectContaining({ assetJobs: [] }),
+      );
+      expect(packRepo.safeFail).not.toHaveBeenCalled();
     });
   });
 

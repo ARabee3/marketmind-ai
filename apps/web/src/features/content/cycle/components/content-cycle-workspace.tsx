@@ -49,9 +49,15 @@ import { ContentReadiness } from "./content-readiness";
 type Props = {
   readonly cycleId: string;
   readonly weekNumber: number;
+  /** The legacy week URL passes this flag so v2 always lands in the studio. */
+  readonly redirectV2ToStudio?: boolean;
 };
 
-export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
+export function ContentCycleWorkspace({
+  cycleId,
+  weekNumber,
+  redirectV2ToStudio = false,
+}: Props) {
   const router = useRouter();
   const t = useTranslations("ContentCycle.entry");
   const tErrors = useTranslations("ContentCycle.errors");
@@ -80,21 +86,26 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
 
   const loadData = useCallback(async () => {
     try {
-      const [cycle, weeksRes, journeyRes] = await Promise.all([
-        getContentCycle(cycleId),
-        listContentWeeks(cycleId),
-        getCurrentJourney(),
-      ]);
+      const cycle = await getContentCycle(cycleId);
 
-      // Content v2 cycles own a different route; a direct visit to the
-      // legacy week workspace recovers to the weekly studio (issue #187).
-      if (
+      // Legacy Content v1 cycles remain readable for historical recovery, but
+      // the active UI never opens their retired week workspace.
+      const isV2 =
         (cycle as { contract_version?: string }).contract_version ===
-        "content-v2"
-      ) {
+        "content-v2";
+      if (isV2 && redirectV2ToStudio) {
         router.replace(`/content/${cycleId}/studio`);
         return;
       }
+      if (!isV2) {
+        router.replace("/content");
+        return;
+      }
+
+      const [weeksRes, journeyRes] = await Promise.all([
+        listContentWeeks(cycleId),
+        getCurrentJourney(),
+      ]);
 
       const journeyCycle = journeyRes.content?.cycle;
       if (journeyCycle && journeyCycle.id !== cycleId) {
@@ -140,6 +151,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
           strategyDecisionId: cycle.strategy_decision_id,
           profileVersionId: cycle.profile_version_id,
           plan: lockedPlan,
+          requireStrategyV2: true,
         },
       );
       if ("blocker" in resolution) {
@@ -183,7 +195,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
         ),
       });
     }
-  }, [cycleId, weekNumber, router]);
+  }, [cycleId, redirectV2ToStudio, weekNumber, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -340,7 +352,7 @@ export function ContentCycleWorkspace({ cycleId, weekNumber }: Props) {
           <Link
             href={
               workspaceState.currentCycleId
-                ? `/content/${workspaceState.currentCycleId}/weeks/1`
+                ? `/content/${workspaceState.currentCycleId}/studio`
                 : "/content"
             }
             className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"

@@ -51,6 +51,7 @@ export const CONTENT_V2_EDIT_KINDS = [
   "generated",
   "owner_direct_edit",
   "ai_rewrite",
+  "media_update",
 ] as const;
 /**
  * `generated` — produced by the full-draft worker; `owner_direct_edit` —

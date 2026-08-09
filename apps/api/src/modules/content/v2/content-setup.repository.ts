@@ -8,13 +8,30 @@ import { randomUUID } from "node:crypto";
 import type { ContentCtaDestination } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 
+function defaultVoiceForPreset(preset: string | undefined): string {
+  switch (preset) {
+    case "friendly_local":
+      return "Friendly and local, while staying practical and truthful.";
+    case "clear_professional":
+      return "Clear and professional, with concise grounded language.";
+    case "warm_reassuring":
+      return "Warm and reassuring, without making unsupported promises.";
+    case "direct_confident":
+      return "Direct and confident, while staying grounded in confirmed facts.";
+    default:
+      return "Practical, clear, and trustworthy; use only confirmed business facts.";
+  }
+}
+
 export type UpsertEditorialProfileInput = {
   readonly contentCycleId: string;
-  readonly audienceNuance: string;
-  readonly voice: string;
+  readonly audienceNuance?: string;
+  readonly voice?: string;
   readonly language: string;
   readonly writingGuardrails: readonly string[];
   readonly defaultVisualGuidance: string | null;
+  readonly tonePreset?: string;
+  readonly lengthPreset?: string;
 };
 
 export type CreateCtaEntryInput = {
@@ -67,26 +84,47 @@ export class ContentSetupRepository {
         return tx.contentEditorialProfile.update({
           where: { id: existing.id },
           data: {
-            audienceNuance: input.audienceNuance,
-            voice: input.voice,
+            audienceNuance:
+              input.audienceNuance?.trim() ||
+              "Use the confirmed audience facts from the business profile.",
+            voice: input.voice?.trim() || defaultVoiceForPreset(input.tonePreset),
             language: input.language,
             writingGuardrails:
               input.writingGuardrails as unknown as Prisma.InputJsonValue,
             defaultVisualGuidance: input.defaultVisualGuidance,
+            tonePreset: input.tonePreset ?? "recommended",
+            lengthPreset: input.lengthPreset ?? "balanced",
           },
         });
       }
       return tx.contentEditorialProfile.create({
         data: {
           contentCycleId: input.contentCycleId,
-          audienceNuance: input.audienceNuance,
-          voice: input.voice,
+          audienceNuance:
+            input.audienceNuance?.trim() ||
+            "Use the confirmed audience facts from the business profile.",
+          voice: input.voice?.trim() || defaultVoiceForPreset(input.tonePreset),
           language: input.language,
           writingGuardrails:
             input.writingGuardrails as unknown as Prisma.InputJsonValue,
           defaultVisualGuidance: input.defaultVisualGuidance,
+          tonePreset: input.tonePreset ?? "recommended",
+          lengthPreset: input.lengthPreset ?? "balanced",
         },
       });
+    });
+  }
+
+  async deleteEditorialProfile(
+    contentCycleId: string,
+    ownerUserId: string,
+  ): Promise<{ reset: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.assertCycleOwned(tx, contentCycleId, ownerUserId);
+      const result = await tx.contentEditorialProfile.deleteMany({
+        where: { contentCycleId },
+      });
+      return { reset: result.count === 1 };
     });
   }
 

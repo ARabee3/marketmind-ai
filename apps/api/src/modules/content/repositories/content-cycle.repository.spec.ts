@@ -26,7 +26,7 @@ const CREATE_INPUT: CreateContentCycleInput = {
 
 const CYCLE_ROW = {
   id: "cycle-1",
-  contractVersion: "content-v1",
+  contractVersion: "content-v2",
   businessId: "business-1",
   strategyId: "strategy-1",
   strategyVersion: 3,
@@ -68,6 +68,7 @@ describe("ContentCycleRepository", () => {
           ownerUserId: "owner-1",
           idempotencyKey: "idem-1",
           idempotencyFingerprint: "fingerprint-1",
+          contractVersion: "content-v2",
         },
       });
     });
@@ -347,6 +348,7 @@ describe("ContentCycleRepository", () => {
       expect(findMany).toHaveBeenCalledWith({
         where: {
           status: "active",
+          contractVersion: "content-v2",
           nextGenerationAt: { lte: expect.any(Date) },
           currentWeekNumber: { lt: 12 },
         },
@@ -379,6 +381,30 @@ describe("ContentCycleRepository", () => {
       const result = await repo.listActiveReadyForNextWeek();
 
       expect(result.map((cycle) => cycle.id)).toEqual(["ready"]);
+    });
+
+    it("excludes legacy content-v1 cycles even if a stale read returns one", async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          ...CYCLE_ROW,
+          id: "v2-ready",
+          contractVersion: "content-v2",
+          packs: [{ weekNumber: 1, status: "draft" }],
+        },
+        {
+          ...CYCLE_ROW,
+          id: "v1-legacy",
+          contractVersion: "content-v1",
+          packs: [{ weekNumber: 1, status: "draft" }],
+        },
+      ]);
+      const repo = new ContentCycleRepository({
+        contentCycle: { findMany },
+      } as unknown as PrismaService);
+
+      const result = await repo.listActiveReadyForNextWeek();
+
+      expect(result.map((cycle) => cycle.id)).toEqual(["v2-ready"]);
     });
   });
 

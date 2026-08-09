@@ -17,8 +17,8 @@ export async function generateMetadata({
 export default async function StudioPage({ params }: StudioPageProps) {
   const { cycle_id } = await params;
   return (
-    <main className="mx-auto w-full max-w-[1200px] px-4 py-6">
+    <div className="w-full">
       <ContentV2Studio cycleId={cycle_id} />
-    </main>
+    </div>
   );
 }

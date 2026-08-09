@@ -57,6 +57,9 @@ export function toEditorialProfileV2(
     language: row.language as ContentEditorialProfileV2["language"],
     writing_guardrails: toJsonStringArray(row.writingGuardrails),
     default_visual_guidance: row.defaultVisualGuidance,
+    tone_preset: row.tonePreset as ContentEditorialProfileV2["tone_preset"],
+    length_preset:
+      row.lengthPreset as ContentEditorialProfileV2["length_preset"],
     created_at: toIso(row.createdAt),
     updated_at: toIso(row.updatedAt),
   };
@@ -94,7 +97,9 @@ export function toMediaLibraryEntryV2(
     width: row.width,
     height: row.height,
     checksum: row.checksum,
-    storage_key: row.storageKey,
+    // Storage keys are server-only. The browser uses the scoped media-file
+    // endpoint, which verifies ownership and checksum before streaming bytes.
+    storage_key: null,
     failure_code: row.failureCode as ContentMediaLibraryEntryV2["failure_code"],
     created_at: toIso(row.createdAt),
     updated_at: toIso(row.updatedAt),

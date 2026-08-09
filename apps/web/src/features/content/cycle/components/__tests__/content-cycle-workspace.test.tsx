@@ -28,9 +28,11 @@ vi.mock("next-intl", () => ({
   }),
 }));
 
+const mockReplace = vi.fn();
+
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({
-    replace: vi.fn(),
+    replace: mockReplace,
     push: vi.fn(),
   }),
   Link: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
@@ -50,7 +52,10 @@ describe("ContentCycleWorkspace", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(journeyApi.getCurrentJourney).mockResolvedValue(mockJourneyNoCycle);
-    vi.mocked(contentCycleApi.getContentCycle).mockResolvedValue(mockActiveCycle);
+    vi.mocked(contentCycleApi.getContentCycle).mockResolvedValue({
+      ...mockActiveCycle,
+      contract_version: "content-v2",
+    } as never);
     vi.mocked(contentCycleApi.listContentWeeks).mockResolvedValue({
       weeks: [mockOwnerConfirmedContextWeek1],
     });
@@ -97,5 +102,33 @@ describe("ContentCycleWorkspace", () => {
     });
     expect(screen.queryByText("Content Cycle Unavailable")).toBeNull();
     expect(screen.queryByRole("link", { name: "Go to Content" })).toBeNull();
+  });
+
+  it("redirects direct legacy cycle visits back to the V2 Content entry", async () => {
+    vi.mocked(contentCycleApi.getContentCycle).mockResolvedValue(mockActiveCycle);
+
+    render(<ContentCycleWorkspace cycleId={MOCK_CYCLE_ID} weekNumber={1} />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/content");
+    });
+    expect(contentCycleApi.listContentWeeks).not.toHaveBeenCalled();
+  });
+
+  it("redirects the retired week URL to the canonical V2 studio", async () => {
+    render(
+      <ContentCycleWorkspace
+        cycleId={MOCK_CYCLE_ID}
+        weekNumber={1}
+        redirectV2ToStudio
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        `/content/${MOCK_CYCLE_ID}/studio`,
+      );
+    });
+    expect(contentCycleApi.listContentWeeks).not.toHaveBeenCalled();
   });
 });

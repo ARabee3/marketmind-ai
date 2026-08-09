@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type {
-  ContentDecision,
   ContentItemVersionV2,
   ContentPackWorkspaceV2,
 } from "@marketmind/contracts";
@@ -13,9 +12,15 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     const map: Record<string, string> = {
       title: "Review drafts",
+      approvedTitle: "Approved posts",
+      packApproved: "Approved",
+      approvedReadOnlyTitle: "This pack is approved",
+      approvedReadOnlyBody: "These posts are frozen.",
+      approvedItemReadOnly: "Approved and locked.",
       loading: "Loading…",
       postTitle: "Post",
       historySection: "Version history",
+      historySectionWithCount: "Edit history ({count})",
       editInlineCta: "Edit caption",
       rewriteCta: "AI rewrite",
       approveCta: "Approve",
@@ -24,10 +29,26 @@ vi.mock("next-intl", () => ({
       altText: "Alt text",
       timing: "Recommended window",
       backToStudio: "Back to the weekly studio",
+      legacyCycle: "Legacy Content V1 pack is outside the active workflow.",
+      backToContent: "Go to Content",
       "decision.approved": "Approved",
       "editKind.generated": "Generated",
       "editKind.owner_direct_edit": "Owner edit",
       "editKind.ai_rewrite": "AI rewrite",
+      generatedMedia: "Generated visual",
+      uploadedMedia: "Uploaded image",
+      mediaDimensionsUnknown: "Dimensions unavailable",
+      mediaOptionLabel: "{kind}, {dimensions}",
+      optionLabel: "{kind}, {dimensions}",
+      dimensionsUnknown: "Dimensions unavailable",
+      selected: "Selected",
+      mediaSelected: "Selected",
+      mediaChoose: "Choose from library",
+      mediaSection: "Post visual",
+      mediaRequired: "Photo required",
+      mediaOptional: "Photo optional",
+      mediaOptionalHelp: "No photo is required.",
+      conflict: "This draft changed. Refreshing…",
     };
     const template = map[key] ?? key;
     return values
@@ -52,6 +73,10 @@ vi.mock("@/lib/api/content-v2", () => ({
   getPackWorkspaceV2: vi.fn(),
   directEditV2: vi.fn(),
   rewriteItemV2: vi.fn(),
+  attachMediaV2: vi.fn(),
+  generateMediaV2: vi.fn(),
+  getMediaFileV2: vi.fn().mockResolvedValue(new Blob()),
+  uploadMediaV2: vi.fn(),
 }));
 vi.mock("@/lib/api/content-review", () => ({
   submitItemDecision: vi.fn(),
@@ -124,18 +149,6 @@ const VERSION: ContentItemVersionV2 = {
   },
 };
 
-const DECISION: ContentDecision = {
-  id: "dec-1",
-  content_item_id: "item-1",
-  content_item_version_id: "ver-2",
-  content_item_version: 2,
-  content_item_version_checksum: "a".repeat(64),
-  decision: "approved",
-  revision_notes: null,
-  decided_by_user_id: "owner-1",
-  decided_at: "2026-08-02T13:00:00+03:00",
-};
-
 const WORKSPACE: ContentPackWorkspaceV2 = {
   contract_version: "content-v2",
   pack: {
@@ -186,7 +199,7 @@ describe("ContentPackReviewGate", () => {
     expect(await screen.findByText("جرب الكشري اليوم")).toBeTruthy();
   });
 
-  it("routes v1 packs to the legacy workspace", async () => {
+  it("shows a V2-only recovery notice for legacy packs", async () => {
     vi.mocked(contentCycleApi.getContentPack).mockResolvedValue({
       contract_version: "content-v1",
       id: "pack-1",
@@ -195,14 +208,18 @@ describe("ContentPackReviewGate", () => {
     vi.mocked(getPackWorkspaceV2).mockRejectedValue(new Error("not used"));
 
     render(<ContentPackReviewGate packId="pack-1" />);
-    // The legacy workspace must render — never the v2 aggregate review.
-    expect(screen.queryByText("جرب الكشري اليوم")).toBeNull();
+    expect(
+      await screen.findByText(
+        "Legacy Content V1 pack is outside the active workflow.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Go to Content" })).toBeTruthy();
     expect(screen.queryByText("Review drafts")).toBeNull();
   });
 });
 
 describe("ContentV2ReviewWorkspace", () => {
-  it("renders the caption, version history, and approval action from real aggregate data", async () => {
+  it("renders the caption and approval action without technical history for a first draft", async () => {
     const { getPackWorkspaceV2 } = await import("@/lib/api/content-v2");
     vi.mocked(getPackWorkspaceV2).mockResolvedValue(WORKSPACE);
     const { submitItemDecision } = await import("@/lib/api/content-review");
@@ -214,7 +231,140 @@ describe("ContentV2ReviewWorkspace", () => {
     render(<ContentV2ReviewWorkspace packId="pack-1" />);
 
     expect(await screen.findByText("جرب الكشري اليوم")).toBeTruthy();
-    expect(screen.getByText("Version history")).toBeTruthy();
+    expect(screen.queryByText(/history/i)).toBeNull();
+    expect(screen.queryByText(/alt text/i)).toBeNull();
+    expect(screen.queryByText(/version 2/i)).toBeNull();
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+  });
+
+  it("places ready library visuals inside the post media chooser", async () => {
+    const { getPackWorkspaceV2 } = await import("@/lib/api/content-v2");
+    vi.mocked(getPackWorkspaceV2).mockResolvedValue({
+      ...WORKSPACE,
+      media_library: [
+        {
+          id: "media-1",
+          contract_version: "content-v2",
+          business_id: "biz-1",
+          content_cycle_id: "cycle-1",
+          owner_user_id: "owner-1",
+          kind: "owner_uploaded",
+          status: "ready",
+          mime_type: "image/png",
+          size_bytes: 100,
+          width: 1080,
+          height: 1080,
+          checksum: "c".repeat(64),
+          storage_key: null,
+          failure_code: null,
+          created_at: VERSION.created_at,
+          updated_at: VERSION.created_at,
+        },
+      ],
+    });
+
+    render(<ContentV2ReviewWorkspace packId="pack-1" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose from library" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: /Uploaded image/ }),
+    ).toBeTruthy();
+  });
+
+  it("does not offer edit controls for a candidate-frozen approved item", async () => {
+    const { getPackWorkspaceV2 } = await import("@/lib/api/content-v2");
+    vi.mocked(getPackWorkspaceV2).mockResolvedValue({
+      ...WORKSPACE,
+      pack: { ...WORKSPACE.pack, status: "approved" },
+      items: [
+        {
+          ...WORKSPACE.items[0],
+          decision: {
+            id: "decision-1",
+            content_item_id: "item-1",
+            content_item_version_id: VERSION.id,
+            content_item_version: VERSION.version,
+            content_item_version_checksum: VERSION.version_checksum,
+            decision: "approved",
+            revision_notes: null,
+            decided_by_user_id: "owner-1",
+            decided_at: VERSION.created_at,
+          },
+        },
+      ],
+    });
+
+    render(<ContentV2ReviewWorkspace packId="pack-1" />);
+
+    expect(await screen.findByText("جرب الكشري اليوم")).toBeTruthy();
+    expect(await screen.findByText("This pack is approved")).toBeTruthy();
+    expect(await screen.findByText("Approved and locked.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit caption" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "AI rewrite" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose from library" }),
+    ).toBeNull();
+  });
+
+  it("reloads the approved item before finishing the approval action", async () => {
+    vi.clearAllMocks();
+    const { getPackWorkspaceV2 } = await import("@/lib/api/content-v2");
+    const approvedWorkspace = {
+      ...WORKSPACE,
+      pack: { ...WORKSPACE.pack, status: "approved" as const },
+      items: [
+        {
+          ...WORKSPACE.items[0],
+          decision: {
+            id: "decision-1",
+            content_item_id: "item-1",
+            content_item_version_id: VERSION.id,
+            content_item_version: VERSION.version,
+            content_item_version_checksum: VERSION.version_checksum,
+            decision: "approved" as const,
+            revision_notes: null,
+            decided_by_user_id: "owner-1",
+            decided_at: VERSION.created_at,
+          },
+        },
+      ],
+    } satisfies ContentPackWorkspaceV2;
+    vi.mocked(getPackWorkspaceV2)
+      .mockResolvedValueOnce(WORKSPACE)
+      .mockResolvedValueOnce(approvedWorkspace);
+    const { submitItemDecision } = await import("@/lib/api/content-review");
+    vi.mocked(submitItemDecision).mockResolvedValue({
+      decision: approvedWorkspace.items[0].decision,
+      publication_candidate: null,
+    } as never);
+
+    render(<ContentV2ReviewWorkspace packId="pack-1" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(await screen.findByText("This pack is approved")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(getPackWorkspaceV2).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads the authoritative workspace after a version conflict", async () => {
+    vi.clearAllMocks();
+    const { getPackWorkspaceV2 } = await import("@/lib/api/content-v2");
+    vi.mocked(getPackWorkspaceV2).mockResolvedValue(WORKSPACE);
+    const { submitItemDecision } = await import("@/lib/api/content-review");
+    vi.mocked(submitItemDecision).mockRejectedValue({
+      code: "CONTENT_VERSION_CONFLICT",
+    });
+
+    render(<ContentV2ReviewWorkspace packId="pack-1" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(
+      await screen.findByText("This draft changed. Refreshing…"),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(getPackWorkspaceV2).toHaveBeenCalledTimes(2);
+    });
   });
 });

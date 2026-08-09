@@ -26,12 +26,10 @@ export type CreateCycleWithWeekOneInput = CreateContentCycleInput & {
   readonly initialWeekContext: ContentWeekContextOwnerInput;
   readonly generationJob?: { readonly idempotencyKey: string };
   /**
-   * New cycles use `content-v2` by default. The service passes
-   * `content-v1` explicitly for the legacy fallback; v2 cycles skip the
-   * automatic week-1 claim/queue because the owner must configure the
-   * editorial profile and plan the week first.
+   * New cycles are content-v2 only. Historical content-v1 cycles remain
+   * readable through compatibility paths but cannot be created here.
    */
-  readonly contractVersion?: "content-v1" | "content-v2";
+  readonly contractVersion?: "content-v2";
   readonly skipWeekOneClaim?: boolean;
 };
 
@@ -70,6 +68,7 @@ export class ContentCycleRepository {
           ...(input.nextGenerationAt !== undefined
             ? { nextGenerationAt: input.nextGenerationAt }
             : {}),
+          contractVersion: "content-v2",
         },
       });
     } catch (error) {
@@ -126,9 +125,7 @@ export class ContentCycleRepository {
             idempotencyKey: input.idempotencyKey ?? null,
             idempotencyFingerprint: input.requestFingerprint ?? null,
             nextGenerationAt: input.nextGenerationAt,
-            ...(input.contractVersion
-              ? { contractVersion: input.contractVersion }
-              : {}),
+            contractVersion: "content-v2",
           },
         });
         const weekContext = await tx.contentWeekContext.create({
@@ -181,9 +178,7 @@ export class ContentCycleRepository {
                 status: "queued",
                 retryEligible: true,
                 itemIds: [],
-                ...(input.contractVersion
-                  ? { contractVersion: input.contractVersion }
-                  : {}),
+                contractVersion: "content-v2",
               },
             });
         if (input.generationJob && pack) {
@@ -348,6 +343,7 @@ export class ContentCycleRepository {
     const cycles = await this.prisma.contentCycle.findMany({
       where: {
         status: "active",
+        contractVersion: "content-v2",
         nextGenerationAt: { lte: new Date() },
         currentWeekNumber: { lt: 12 },
       },
@@ -359,6 +355,7 @@ export class ContentCycleRepository {
     });
 
     return cycles
+      .filter((cycle) => cycle.contractVersion === "content-v2")
       .filter((cycle) =>
         cycle.packs.some(
           (pack) =>
