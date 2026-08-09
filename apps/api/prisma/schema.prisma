@@ -1664,9 +1664,10 @@ model PublishingTarget {
   externalAccountId String                          @map("external_account_id")
   displayName       String                          @map("display_name")
   connectionState   PublishingTargetConnectionState @default(CONNECTED) @map("connection_state")
-  /// Opaque pointer to the credential vault (PublishingCredential.id) — NEVER
-  /// the raw token value. Issue #175: no env / fixture / seed path may stand in
-  /// for a vault record on a real dispatch path.
+  /// Opaque pointer to a server-side credential source — either a
+  /// PublishingCredential.id or the PR #193 Facebook SocialConnection marker;
+  /// NEVER the raw token value. No env / fixture / seed path may stand in for
+  /// a server-side credential on a real dispatch path.
   credentialRef     String                          @map("credential_ref")
   /// JSON array of capability strings, e.g. ["static_image"]
   capabilities      Json                            @default("[]")

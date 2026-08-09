@@ -38,8 +38,9 @@ export class ExecuteMetaDto {
  * Internal runner boundary — private API-owned Meta provider executor.
  *
  * The n8n workflow's real-mode adapter calls this endpoint instead of reading
- * a token from its environment. The executor resolves the exact target's vault
- * credential, performs the provider publish, and returns a sanitized
+ * a token from its environment. The executor resolves the exact target's
+ * server-side credential source (the PR #193 Facebook SocialConnection or a
+ * legacy vault record), performs the provider publish, and returns a sanitized
  * `publication-result-v1`. Authenticated with the shared internal service
  * token (never an owner JWT, never a customer credential).
  */
