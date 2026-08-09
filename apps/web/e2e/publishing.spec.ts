@@ -243,7 +243,10 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       page.getByRole("button", { name: "Retry proven failure" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Refresh status" }),
+      page.getByText(
+        "MarketMind is checking whether the provider received the request.",
+        { exact: false },
+      ),
     ).toBeVisible();
   });
 
