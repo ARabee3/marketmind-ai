@@ -7,6 +7,7 @@ export type FacebookConnectionView = {
   isValid: boolean
   connectedAt: string
   lastTestedAt: string | null
+  expiresAt: string | null
 }
 
 export type FacebookTestResult =

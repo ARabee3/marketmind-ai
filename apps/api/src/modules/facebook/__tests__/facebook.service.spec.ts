@@ -15,7 +15,7 @@ const TEST_KEY =
   "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
 
 const CONFIG_MAP: Record<string, string> = {
-  "facebook.appId": "4446203915630413",
+  "facebook.appId": "test-facebook-app-id",
   "facebook.appSecret": "app-secret",
   "facebook.redirectUri": "http://localhost:3001/api/v1/auth/facebook/callback",
   "facebook.graphVersion": "v20.0",
@@ -39,6 +39,9 @@ function createService(
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       deleteMany: jest.fn(),
+    },
+    publishingTarget: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     ...overrides.prisma,
   } as unknown as PrismaService;
@@ -130,7 +133,9 @@ describe("FacebookService", () => {
       const parsed = new URL(url);
       expect(parsed.origin).toBe("https://www.facebook.com");
       expect(parsed.pathname).toBe("/v20.0/dialog/oauth");
-      expect(parsed.searchParams.get("client_id")).toBe("4446203915630413");
+      expect(parsed.searchParams.get("client_id")).toBe(
+        "test-facebook-app-id",
+      );
       expect(parsed.searchParams.get("redirect_uri")).toBe(
         "http://localhost:3001/api/v1/auth/facebook/callback",
       );
@@ -250,6 +255,62 @@ describe("FacebookService", () => {
       expect(upsertArgs[0].update.isValid).toBe(true);
     });
 
+    it("stores the long-lived token expiry from the exchange response", async () => {
+      const service = createService({
+        prisma: {
+          socialConnection: {
+            findUnique: jest.fn(),
+            upsert: jest.fn().mockResolvedValue({ id: "conn-1" }),
+            update: jest.fn(),
+            deleteMany: jest.fn(),
+          },
+        },
+      });
+      const url = await service.buildAuthorizationUrl("user-1");
+      const state = stateFromUrl(url);
+
+      axiosGetSpy
+        .mockResolvedValueOnce({ data: { access_token: "short-token" } })
+        .mockResolvedValueOnce({
+          data: { access_token: "long-token", expires_in: 5_184_000 },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            data: [
+              {
+                id: "page-42",
+                name: "Koshary Corner",
+                access_token: "EAA-page-token",
+              },
+            ],
+          },
+        });
+
+      await service.handleCallback("auth-code", state);
+
+      const upsert = (
+        service as unknown as {
+          prisma: { socialConnection: { upsert: jest.Mock } };
+        }
+      ).prisma.socialConnection.upsert;
+      const upsertArgs = upsert.mock.calls[0] as [
+        {
+          where: { userId: string };
+          create: Record<string, unknown>;
+          update: Record<string, unknown>;
+        },
+      ];
+      expect(upsertArgs[0].create.expiresAt).toBeInstanceOf(Date);
+      expect(upsertArgs[0].update.expiresAt).toBeInstanceOf(Date);
+      const expected = Date.now() + 5_184_000 * 1000;
+      expect((upsertArgs[0].create.expiresAt as Date).getTime()).toBeGreaterThan(
+        expected - 5_000,
+      );
+      expect((upsertArgs[0].create.expiresAt as Date).getTime()).toBeLessThanOrEqual(
+        expected,
+      );
+    });
+
     it("returns an error when no page is available", async () => {
       const service = createService();
       const url = await service.buildAuthorizationUrl("user-1");
@@ -279,6 +340,7 @@ describe("FacebookService", () => {
             isValid: true,
             connectedAt: new Date("2026-08-01T12:00:00Z"),
             lastTestedAt: new Date("2026-08-05T09:00:00Z"),
+            expiresAt: new Date("2026-10-31T12:00:00Z"),
           }),
           upsert: jest.fn(),
           update: jest.fn(),
@@ -295,6 +357,7 @@ describe("FacebookService", () => {
         isValid: true,
         connectedAt: new Date("2026-08-01T12:00:00Z"),
         lastTestedAt: new Date("2026-08-05T09:00:00Z"),
+        expiresAt: new Date("2026-10-31T12:00:00Z"),
       });
     });
 
@@ -473,10 +536,15 @@ describe("FacebookService", () => {
     it("deletes the user's connection row", async () => {
       const prisma = {
         socialConnection: {
-          findUnique: jest.fn(),
+          findUnique: jest.fn().mockResolvedValue({
+            id: "connection-1",
+          }),
           upsert: jest.fn(),
           update: jest.fn(),
           deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        publishingTarget: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       };
       const service = createService({ prisma });
@@ -489,6 +557,40 @@ describe("FacebookService", () => {
         }
       ).prisma.socialConnection.deleteMany;
       expect(deleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+    });
+
+    it("expires bridged publishing targets before deleting the connection", async () => {
+      const prisma = {
+        socialConnection: {
+          findUnique: jest.fn().mockResolvedValue({ id: "connection-1" }),
+          upsert: jest.fn(),
+          update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        publishingTarget: {
+          updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+      const service = createService({ prisma });
+
+      await service.disconnect("user-1");
+
+      const targetUpdateMany = (
+        service as unknown as {
+          prisma: { publishingTarget: { updateMany: jest.Mock } };
+        }
+      ).prisma.publishingTarget.updateMany;
+      expect(targetUpdateMany).toHaveBeenCalledWith({
+        where: {
+          credentialRef: "facebook-social-connection:connection-1",
+          connectionState: "CONNECTED",
+        },
+        data: {
+          connectionState: "EXPIRED",
+          version: { increment: 1 },
+        },
+      });
     });
   });
 

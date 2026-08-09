@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Throttle } from "@nestjs/throttler";
 import { Request, Response } from "express";
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -77,6 +78,7 @@ export class FacebookController {
    */
   @Post("auth/facebook/start")
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async startSession(
     @Req() req: RequestWithUser,
     @Res() res: Response,
@@ -183,12 +185,14 @@ export class FacebookController {
 
   @Post("connections/facebook/test")
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   testConnection(@Req() req: RequestWithUser) {
     return this.facebookService.testConnection(req.user.id);
   }
 
   @Delete("connections/facebook")
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   disconnect(@Req() req: RequestWithUser) {
     return this.facebookService.disconnect(req.user.id);
   }

@@ -2899,6 +2899,8 @@
     "connectedAt": "تاريخ الربط",
     "lastTestedAt": "آخر اختبار",
     "neverTested": "لم يُختبر بعد",
+    "expiresAt": "انتهاء صلاحية رمز الوصول",
+    "expiryUnknown": "غير معروف",
     "expiredTitle": "انتهت صلاحية الاتصال",
     "expiredBody": "لم يعد رمز الوصول لصفحة فيسبوك صالحًا. أعد الربط لاستعادة النشر.",
     "reconnectButton": "إعادة الربط",

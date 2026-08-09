@@ -458,6 +458,7 @@ model SocialConnection {
   isValid        Boolean   @default(true) @map("is_valid")
   connectedAt    DateTime  @default(now()) @map("connected_at")
   lastTestedAt   DateTime? @map("last_tested_at")
+  expiresAt      DateTime? @map("expires_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 

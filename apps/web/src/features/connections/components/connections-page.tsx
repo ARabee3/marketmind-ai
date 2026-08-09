@@ -277,6 +277,16 @@ function ConnectedState({
               : t('neverTested')}
           </dd>
         </div>
+        <div className="rounded-lg border border-border bg-background p-3">
+          <dt className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+            {t('expiresAt')}
+          </dt>
+          <dd className="mt-1 font-semibold text-navy">
+            {connection.expiresAt
+              ? formatDate(connection.expiresAt)
+              : t('expiryUnknown')}
+          </dd>
+        </div>
       </dl>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="button" className="shadow-tactile" disabled={busy} onClick={onTest}>

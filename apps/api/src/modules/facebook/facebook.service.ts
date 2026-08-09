@@ -4,6 +4,7 @@ import axios from "axios";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { facebookSocialConnectionRef } from "../publishing/targets/facebook-target-ref";
 import { EncryptionService } from "./encryption.service";
 import { FacebookOAuthStateStore } from "./facebook-oauth-state.store";
 
@@ -26,6 +27,7 @@ export interface FacebookConnectionView {
   isValid: boolean;
   connectedAt: Date;
   lastTestedAt: Date | null;
+  expiresAt: Date | null;
 }
 
 export type FacebookCallbackResult =
@@ -151,8 +153,8 @@ export class FacebookService {
     }
 
     try {
-      const longLivedToken = await this.exchangeCodeForLongLivedToken(code);
-      const page = await this.fetchFirstPage(longLivedToken);
+      const exchange = await this.exchangeCodeForLongLivedToken(code);
+      const page = await this.fetchFirstPage(exchange.token);
 
       const encrypted = this.encryption.encrypt(page.accessToken);
       await this.prisma.socialConnection.upsert({
@@ -167,6 +169,7 @@ export class FacebookService {
           authTag: encrypted.authTag,
           isValid: true,
           connectedAt: new Date(),
+          expiresAt: exchange.expiresAt,
         },
         update: {
           provider: "facebook",
@@ -178,6 +181,7 @@ export class FacebookService {
           isValid: true,
           connectedAt: new Date(),
           lastTestedAt: null,
+          expiresAt: exchange.expiresAt,
         },
       });
 
@@ -210,6 +214,7 @@ export class FacebookService {
       isValid: connection.isValid,
       connectedAt: connection.connectedAt,
       lastTestedAt: connection.lastTestedAt,
+      expiresAt: connection.expiresAt,
     };
   }
 
@@ -331,8 +336,36 @@ export class FacebookService {
     }
   }
 
-  /** Deletes the user's SocialConnection row. */
+  /**
+   * Deletes the user's SocialConnection row and expires any bridged publishing
+   * target that still references it, so a stale target can never remain
+   * selectable or approvable after the owner disconnects.
+   */
   async disconnect(userId: string): Promise<void> {
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (connection) {
+      const reference = facebookSocialConnectionRef(connection.id);
+      const expired = await this.prisma.publishingTarget.updateMany({
+        where: {
+          credentialRef: reference,
+          connectionState: "CONNECTED",
+        },
+        data: {
+          connectionState: "EXPIRED",
+          version: { increment: 1 },
+        },
+      });
+      if (expired.count > 0) {
+        this.logger.log(
+          `Expired ${expired.count} bridged Facebook publishing target(s) on disconnect`,
+        );
+      }
+    }
+
     await this.prisma.socialConnection.deleteMany({
       where: { userId },
     });
@@ -377,8 +410,13 @@ export class FacebookService {
         { params: { fields: "link", access_token: params.pageToken } },
       );
       remoteUrl = linkResponse.data?.link ?? null;
-    } catch {
+    } catch (error) {
       // Permalink is best-effort after a confirmed publish.
+      this.logger.warn(
+        `Facebook permalink lookup failed for ${remotePublicationId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
     return { remotePublicationId, remoteUrl };
   }
@@ -478,12 +516,20 @@ export class FacebookService {
         { params: { fields: "link", access_token: pageToken } },
       );
       return response.data?.link ?? null;
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        `Facebook permalink lookup failed for ${postId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       return null;
     }
   }
 
-  private async exchangeCodeForLongLivedToken(code: string): Promise<string> {
+  private async exchangeCodeForLongLivedToken(code: string): Promise<{
+    token: string;
+    expiresAt: Date | null;
+  }> {
     const appId = this.config.get<string>("facebook.appId") ?? "";
     const appSecret = this.config.get<string>("facebook.appSecret") ?? "";
     const redirectUri = this.config.get<string>("facebook.redirectUri") ?? "";
@@ -504,22 +550,27 @@ export class FacebookService {
       throw new Error("No access_token returned for the authorization code");
     }
 
-    const longLived = await axios.get<{ access_token?: string }>(
-      this.graphUrl("oauth/access_token"),
-      {
-        params: {
-          grant_type: "fb_exchange_token",
-          client_id: appId,
-          client_secret: appSecret,
-          fb_exchange_token: shortToken,
-        },
+    const longLived = await axios.get<{
+      access_token?: string;
+      expires_in?: number;
+    }>(this.graphUrl("oauth/access_token"), {
+      params: {
+        grant_type: "fb_exchange_token",
+        client_id: appId,
+        client_secret: appSecret,
+        fb_exchange_token: shortToken,
       },
-    );
+    });
     const longToken = longLived.data?.access_token;
     if (!longToken) {
       throw new Error("No access_token returned from token exchange");
     }
-    return longToken;
+    const expiresInSeconds = longLived.data?.expires_in;
+    const expiresAt =
+      Number.isFinite(expiresInSeconds) && (expiresInSeconds as number) > 0
+        ? new Date(Date.now() + (expiresInSeconds as number) * 1000)
+        : null;
+    return { token: longToken, expiresAt };
   }
 
   private async fetchFirstPage(longLivedToken: string): Promise<{

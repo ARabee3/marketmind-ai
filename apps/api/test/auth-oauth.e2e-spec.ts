@@ -32,6 +32,15 @@ process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
 process.env.GOOGLE_CALLBACK_URL =
   "http://localhost:3001/api/v1/auth/google/callback";
 
+// Facebook Page connection env vars are required by env.schema.ts even
+// though the Facebook OAuth flow is not exercised in this spec.
+process.env.FB_APP_ID = "test-facebook-app-id";
+process.env.FB_APP_SECRET = "test-facebook-app-secret";
+process.env.FB_REDIRECT_URI =
+  "http://localhost:3001/api/v1/auth/facebook/callback";
+process.env.TOKEN_ENCRYPTION_KEY =
+  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+
 // Infrastructure required by AuthModule.
 process.env.DATABASE_URL =
   process.env.DATABASE_URL ||

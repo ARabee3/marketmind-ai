@@ -2899,6 +2899,8 @@
     "connectedAt": "Connected on",
     "lastTestedAt": "Last tested",
     "neverTested": "Not tested yet",
+    "expiresAt": "Access token expires",
+    "expiryUnknown": "Unknown",
     "expiredTitle": "Connection expired",
     "expiredBody": "The access token for your Facebook Page is no longer valid. Reconnect to restore publishing.",
     "reconnectButton": "Reconnect",

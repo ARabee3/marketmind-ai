@@ -22,7 +22,10 @@ import {
   listPublishingTargets,
   type PublishingApiError,
 } from '@/lib/api/publishing'
-import { connectMeta as connectFacebookPage } from '@/lib/api/facebook'
+import {
+  connectMeta as connectFacebookPage,
+  getFacebookConnection,
+} from '@/lib/api/facebook'
 import {
   PublishingMetaCallbackResult,
   type MetaConnectionCompleteContext,
@@ -299,11 +302,15 @@ export function StrategyWizard() {
 
     async function load() {
       try {
-        const [journey, availableTargets] = await Promise.all([
+        const [journey, availableTargets, facebookConnection] = await Promise.all([
           getCurrentJourney(),
           listPublishingTargets().catch(() => []),
+          getFacebookConnection().catch(() => null),
         ])
         if (!cancelled) setTargets(availableTargets)
+        if (!cancelled && facebookConnection?.isValid && facebookConnection.pageName) {
+          setFacebookConnected(facebookConnection.pageName)
+        }
         if (
           cancelled
           || journey.journey.state !== 'discovery_confirmed'
