@@ -12,6 +12,7 @@ from app.providers.base import (
     DiscoveryProviderRequest,
     ProviderConfigError,
     ProviderError,
+    discovery_output_model,
     normalize_provider_output,
 )
 
@@ -70,7 +71,7 @@ class OpenRouterDiscoveryProvider(DiscoveryProvider):
                     messages=messages,
                     response_format=_json_schema_response_format(
                         "discovery_model_output",
-                        DiscoveryModelOutput.model_json_schema(),
+                        discovery_output_model(request.turn_kind).model_json_schema(),
                     ),
                 )
                 return _normalize_openrouter_output(_message_content(response))

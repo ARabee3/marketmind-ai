@@ -342,6 +342,16 @@ class DiscoveryModelOutput(StrictModel):
         return self
 
 
+class DiscoveryQuestionModelOutput(DiscoveryModelOutput):
+    action: Literal["ask_next_question", "ask_clarification"]
+    next_question: str
+
+
+class DiscoverySummaryModelOutput(DiscoveryModelOutput):
+    action: Literal["produce_profile_draft"]
+    next_question: None = None
+
+
 class AiDiscoveryResult(StrictModel):
     action: AiDiscoveryAction
     next_question: str | None = None

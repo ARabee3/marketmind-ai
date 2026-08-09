@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { ProviderError } from "../../common/errors/provider-error";
 import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
@@ -71,15 +72,14 @@ export class DiscoveryConversationService {
     const languageMode = languageModeFromSession(session.languageMode);
     const intake = await this.conversationRepository.getIntake(sessionId);
     const messages = await this.conversationRepository.listMessages(sessionId);
-    const ownerMessage = await this.conversationRepository.appendMessage(
-      sessionId,
-      {
-        role: "owner",
-        content: dto.message,
-        language: dto.language ?? languageMode,
-        source: "chat",
-      },
-    );
+    const ownerMessage: DiscoveryMessage = {
+      id: randomUUID(),
+      role: "owner",
+      content: dto.message,
+      language: dto.language ?? languageMode,
+      source: "chat",
+      created_at: new Date().toISOString(),
+    };
 
     let result;
     try {
@@ -149,6 +149,7 @@ export class DiscoveryConversationService {
         profileState,
         completionReason,
         true,
+        ownerMessage,
       );
 
       return {
@@ -179,6 +180,7 @@ export class DiscoveryConversationService {
         },
         profileState,
         true,
+        ownerMessage,
       );
 
     return {
@@ -281,7 +283,8 @@ export class DiscoveryConversationService {
     readiness: DiscoveryReadiness;
     completeness: BusinessProfileDraft["completeness"];
   }> {
-    const draft = await this.conversationRepository.latestProfileDraft(sessionId);
+    const draft =
+      await this.conversationRepository.latestProfileDraft(sessionId);
     if (!draft || draft.id !== profileDraftId) {
       throw new NotFoundException("Profile draft not found");
     }
@@ -322,6 +325,7 @@ export class DiscoveryConversationService {
     profileState: DiscoveryProfileState,
     reason: DiscoveryCompletionReason,
     incrementOwnerTurn: boolean,
+    ownerMessage?: DiscoveryMessage,
   ): Promise<{
     profileDraft: BusinessProfileDraft;
     profileState: DiscoveryProfileState;
@@ -397,6 +401,7 @@ export class DiscoveryConversationService {
           source: "summary",
         },
         incrementOwnerTurn,
+        ownerMessage,
       );
 
     return {

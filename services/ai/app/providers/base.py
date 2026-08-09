@@ -3,10 +3,23 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from app.discovery.schemas import DiscoveryModelOutput, LanguageMode
+from app.discovery.schemas import (
+    DiscoveryModelOutput,
+    DiscoveryQuestionModelOutput,
+    DiscoverySummaryModelOutput,
+    LanguageMode,
+)
 
 
 TurnKind = Literal["start", "respond", "summarize"]
+
+
+def discovery_output_model(
+    turn_kind: TurnKind,
+) -> type[DiscoveryQuestionModelOutput] | type[DiscoverySummaryModelOutput]:
+    if turn_kind == "summarize":
+        return DiscoverySummaryModelOutput
+    return DiscoveryQuestionModelOutput
 
 
 class DiscoveryProviderRequest(BaseModel):

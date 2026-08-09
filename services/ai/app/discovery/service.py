@@ -34,6 +34,7 @@ def _repair_hint(
     turn_kind: TurnKind,
     language_mode: LanguageMode,
     validation_errors: list[dict[str, Any]] | None = None,
+    turn_violation: str | None = None,
 ) -> str:
     parts = ["Repair the previous Discovery response. Return only valid JSON for the schema."]
     if validation_errors:
@@ -42,6 +43,8 @@ def _repair_hint(
             for error in validation_errors[:3]
         )
         parts.append(f"Validation errors: {locations}.")
+    if turn_violation:
+        parts.append(f"Turn rule violated: {turn_violation}.")
     if turn_kind == "summarize":
         parts.append(
             "For summarize turns, return action produce_profile_draft with next_question null."
@@ -134,9 +137,27 @@ class DiscoveryService:
                     provider_error(exc.code, str(exc), retryable=exc.retryable),
                 )
 
-            if not self._valid_turn_output(turn_kind, model_output, request.language_mode):
+            turn_violation = self._turn_output_violation(
+                turn_kind,
+                model_output,
+                request.language_mode,
+            )
+            if turn_violation:
+                logger.warning(
+                    "discovery_turn_output_rejected mode=%s turn=%s attempt=%s "
+                    "action=%s violation=%s",
+                    self.provider.name,
+                    turn_kind,
+                    attempt + 1,
+                    model_output.action,
+                    turn_violation,
+                )
                 if attempt < DISCOVERY_MAX_ATTEMPTS - 1:
-                    repair_hint = _repair_hint(turn_kind, request.language_mode)
+                    repair_hint = _repair_hint(
+                        turn_kind,
+                        request.language_mode,
+                        turn_violation=turn_violation,
+                    )
                     continue
                 return self._safe_failure(
                     request,
@@ -371,16 +392,27 @@ class DiscoveryService:
         output: DiscoveryModelOutput,
         language_mode: LanguageMode,
     ) -> bool:
+        return self._turn_output_violation(turn_kind, output, language_mode) is None
+
+    def _turn_output_violation(
+        self,
+        turn_kind: TurnKind,
+        output: DiscoveryModelOutput,
+        language_mode: LanguageMode,
+    ) -> str | None:
         if turn_kind == "summarize":
-            return (
-                output.action == "produce_profile_draft"
-                and output.next_question is None
-            )
+            if output.action != "produce_profile_draft":
+                return "summarize_action_must_produce_profile_draft"
+            if output.next_question is not None:
+                return "summarize_must_not_include_question"
+            return None
         if output.action not in {"ask_next_question", "ask_clarification"}:
-            return False
+            return "conversation_turn_requires_question_action"
         if not output.next_question or not output.next_question.strip():
-            return False
-        return question_matches_language(output.next_question, language_mode)
+            return "conversation_turn_requires_non_blank_question"
+        if not question_matches_language(output.next_question, language_mode):
+            return "question_language_mismatch"
+        return None
 
     def _completion_uncertainties(
         self,

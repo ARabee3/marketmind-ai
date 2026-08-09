@@ -12,6 +12,7 @@ from app.providers.base import (
     DiscoveryProviderRequest,
     ProviderConfigError,
     ProviderError,
+    discovery_output_model,
     normalize_provider_output,
 )
 
@@ -49,7 +50,8 @@ class GeminiDiscoveryProvider(DiscoveryProvider):
             except ImportError as exc:
                 raise ProviderConfigError("The google-genai package is not installed.") from exc
 
-            schema = _strip_additional_properties(DiscoveryModelOutput.model_json_schema())
+            output_model = discovery_output_model(request.turn_kind)
+            schema = _strip_additional_properties(output_model.model_json_schema())
             client = genai.Client(api_key=self.api_key)
             user_prompt = build_user_context(request.turn_kind, request.payload)
             if request.repair_hint:
