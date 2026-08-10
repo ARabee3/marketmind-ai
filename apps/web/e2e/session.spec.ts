@@ -24,6 +24,25 @@ for (const locale of locales) {
       expect(rotation.calls).toBe(1)
     })
 
+    test('redirects an active session away from guest-only entry routes', async ({ page }) => {
+      await mockAuthRefresh(page)
+      await mockAuthMe(page)
+
+      for (const route of ['login', 'register', 'forgot-password', 'resend-verification', 'auth']) {
+        await page.goto(`/${locale}/${route}`)
+        await expect(page).toHaveURL(`/${locale}/dashboard`)
+      }
+    })
+
+    test('preserves a safe workspace return path for an active session', async ({ page }) => {
+      await mockAuthRefresh(page)
+      await mockAuthMe(page)
+
+      await page.goto(`/${locale}/login?from=${encodeURIComponent(`/${locale}/billing`)}`)
+
+      await expect(page).toHaveURL(`/${locale}/billing`)
+    })
+
     test('rotates the access token when a protected request returns 401', async ({ page }) => {
       const rotatedToken = 'rotated-access-token'
       // First refresh fails so the session starts unauthenticated; the second
@@ -58,6 +77,16 @@ for (const locale of locales) {
       await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
     })
 
+    test('protects every workspace route at the server boundary', async ({ page }) => {
+      await mockAuthRefresh(page, null)
+
+      for (const route of ['billing', 'connections']) {
+        await page.goto(`/${locale}/${route}`)
+        await expect(page).toHaveURL(new RegExp(`/${locale}/login`))
+        expect(new URL(page.url()).searchParams.get('from')).toBe(`/${locale}/${route}`)
+      }
+    })
+
     test('preserves return path when redirecting to login', async ({ page }) => {
       await mockAuthRefresh(page, null)
       await page.goto(`/${locale}/dashboard`)
@@ -71,7 +100,7 @@ for (const locale of locales) {
 
     test('logs out, clears session, and redirects to login', async ({ page }) => {
       await mockAuthLogin(page)
-      await mockAuthRefresh(page)
+      await mockAuthRefresh(page, null)
       await mockAuthMe(page)
       await mockAuthLogout(page)
       await page.goto(`/${locale}/login`)
