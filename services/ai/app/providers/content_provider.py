@@ -101,6 +101,20 @@ def _parse_provider_output(
     model: type[ContentPackProviderOutput]
     | type[ContentPlanProviderOutput] = ContentPackProviderOutput,
 ) -> ContentPackProviderOutput | ContentPlanProviderOutput:
+    if model is ContentPackProviderOutput and isinstance(raw_output, dict):
+        # The provider generates draft prose, not the wire-contract identity.
+        # Content v2 deliberately stages generated items through the proven v1
+        # validator and promotes them to content-v2 only after validation. Some
+        # structured-output providers still echo the endpoint's v2 identity in
+        # this literal despite the response schema. Canonicalize this
+        # server-owned staging literal before strict validation; every other
+        # provider field remains fail-closed.
+        raw_output = copy.deepcopy(raw_output)
+        item_versions = raw_output.get("item_versions")
+        if isinstance(item_versions, list):
+            for item in item_versions:
+                if isinstance(item, dict):
+                    item["contract_version"] = "content-v1"
     try:
         return model.model_validate(raw_output)
     except ValidationError as exc:

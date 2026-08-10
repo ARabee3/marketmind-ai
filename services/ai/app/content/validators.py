@@ -1037,7 +1037,11 @@ def _validate_risky_claim_text(
                 issues,
                 code,
                 "item.claim_sources",
-                "A material risky claim has no matching approved grounding source.",
+                (
+                    f"A material {claim_type} claim has no matching approved "
+                    "grounding source; remove it or cite the exact approved "
+                    "value and source path."
+                ),
             )
     return issues
 

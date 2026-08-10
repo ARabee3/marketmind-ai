@@ -173,7 +173,33 @@ describe("ContentAiClient", () => {
       });
     });
 
-    it("maps an HTTP 422 to a non-retryable CONTENT_PROVIDER_FAILURE", async () => {
+    it("preserves a safe non-retryable Content error returned by FastAPI", async () => {
+      httpService.post.mockReturnValue(
+        throwError(() => ({
+          response: {
+            status: 422,
+            data: {
+              detail: {
+                error_type: "CONTENT_UNSUPPORTED_CLAIM",
+                message: "Content provider output remained unsafe after bounded repair.",
+                retryable: false,
+              },
+            },
+          },
+        })),
+      );
+
+      await expect(
+        client.generate(makeGenerateRequest()),
+      ).rejects.toMatchObject({
+        code: "CONTENT_UNSUPPORTED_CLAIM",
+        message:
+          "Content provider output remained unsafe after bounded repair.",
+        retryable: false,
+      });
+    });
+
+    it("keeps an unstructured HTTP 422 non-retryable and generic", async () => {
       httpService.post.mockReturnValue(
         throwError(() => ({ response: { status: 422 } })),
       );

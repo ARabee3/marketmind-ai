@@ -211,14 +211,37 @@ export class ContentAiClient {
 function toContentProviderError(error: unknown): ProviderError {
   if (error instanceof ProviderError) return error;
 
-  const candidate = error as { response?: { status?: number }; code?: string };
+  const candidate = error as {
+    response?: {
+      status?: number;
+      data?: {
+        detail?: {
+          error_type?: unknown;
+          message?: unknown;
+          retryable?: unknown;
+        };
+      };
+    };
+    code?: string;
+  };
   const status = candidate.response?.status;
 
   if (typeof status === "number") {
-    const retryable = status >= 500 || status === 429;
+    const detail = candidate.response?.data?.detail;
+    const safeContentCode =
+      typeof detail?.error_type === "string" &&
+      detail.error_type.startsWith("CONTENT_")
+        ? detail.error_type
+        : null;
+    const retryable =
+      typeof detail?.retryable === "boolean"
+        ? detail.retryable
+        : status >= 500 || status === 429;
     return new ProviderError(
-      "CONTENT_PROVIDER_FAILURE",
-      `AI content service returned HTTP ${status}.`,
+      safeContentCode ?? "CONTENT_PROVIDER_FAILURE",
+      safeContentCode && typeof detail?.message === "string"
+        ? detail.message
+        : `AI content service returned HTTP ${status}.`,
       retryable,
     );
   }

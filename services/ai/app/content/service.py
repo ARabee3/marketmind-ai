@@ -68,6 +68,20 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
     )
 
 
+def _validation_error(validation: ContentValidationResult) -> ProviderError:
+    """Return bounded, safe, multi-issue feedback for the next repair pass."""
+    first = validation.issues[0]
+    summaries = [
+        f"{issue.field}: {issue.message}"
+        for issue in validation.issues[:5]
+    ]
+    return ProviderError(
+        first.code,
+        "Validation issues: " + " | ".join(summaries),
+        retryable=first.retryable,
+    )
+
+
 def _validate_pack_shape(items: object) -> None:
     if not isinstance(items, list) or not all(
         isinstance(item, ContentItemVersion) for item in items
@@ -325,21 +339,11 @@ async def generate_content_pack_with_repair(
                     )
                 )
                 if not validation.valid:
-                    issue = validation.issues[0]
-                    raise ProviderError(
-                        issue.code,
-                        f"{issue.field}: {issue.message}",
-                        retryable=False,
-                    )
+                    raise _validation_error(validation)
             if extra_validator is not None:
                 extra_validation = extra_validator(items)
                 if not extra_validation.valid:
-                    issue = extra_validation.issues[0]
-                    raise ProviderError(
-                        issue.code,
-                        f"{issue.field}: {issue.message}",
-                        retryable=issue.retryable,
-                    )
+                    raise _validation_error(extra_validation)
             if breaker is not None:
                 breaker.record_success()
             return items
@@ -356,7 +360,7 @@ async def generate_content_pack_with_repair(
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
-                current_prompt = _repair_prompt(prompt, error, attempt)
+                current_prompt = _repair_prompt(current_prompt, error, attempt)
             elif error.retryable:
                 await sleep(retry_delay_seconds * (2 ** (attempt - 1)))
             else:
@@ -426,12 +430,7 @@ async def revise_content_item_with_repair(
                     generation_request,
                 )
                 if not validation.valid:
-                    issue = validation.issues[0]
-                    raise ProviderError(
-                        issue.code,
-                        f"{issue.field}: {issue.message}",
-                        retryable=False,
-                    )
+                    raise _validation_error(validation)
             if breaker is not None:
                 breaker.record_success()
             return item
@@ -448,7 +447,7 @@ async def revise_content_item_with_repair(
             if attempt == max_attempts:
                 break
             if error.code in _REPAIRABLE_OUTPUT_CODES:
-                current_prompt = _repair_prompt(prompt, error, attempt)
+                current_prompt = _repair_prompt(current_prompt, error, attempt)
             elif error.retryable:
                 await sleep(retry_delay_seconds * (2 ** (attempt - 1)))
             else:
