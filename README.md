@@ -66,9 +66,14 @@ Both commands:
    - **web** (blue): Next.js dev server on http://localhost:3000
 3. Kill all three app processes cleanly with `Ctrl+C`.
 
-`npm run dev:full` additionally runs `prisma migrate deploy` after docker is
-ready and before the apps start, so the database schema is always in sync. It
-is safe to run repeatedly — Prisma skips already-applied migrations.
+`npm run dev:full` additionally runs `prisma migrate deploy` and synchronizes
+the reviewed Strategy knowledge corpus after docker is ready and before the
+apps start. Local startup skips live source-URL reachability so a temporary
+external outage cannot prevent development; schema, checksum, taxonomy, and
+review-state validation still run. `npm run strategy:knowledge:sync` remains
+the strict source-resolution command for deliberate CI/production readiness
+checks. The local command is safe to run repeatedly — unchanged knowledge is
+skipped and Prisma skips already-applied migrations.
 
 ```bash
 # First time / after pulling new migrations:

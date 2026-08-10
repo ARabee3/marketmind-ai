@@ -34,7 +34,10 @@ npm run strategy:dev
 
 It starts PostgreSQL on port 5433, Redis on 6379, Qdrant on 6333/6334, NestJS
 on 3001, FastAPI on 8000, and Next.js on 3000. Stop the foreground app
-processes with `Ctrl+C`; Docker data is retained for the next run.
+processes with `Ctrl+C`; Docker data is retained for the next run. The local
+knowledge bootstrap does not block on live source-URL outages. Run
+`npm run strategy:knowledge:sync` separately when strict external source
+resolution is required for readiness evidence.
 
 ## Fictional demo data
 

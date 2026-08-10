@@ -258,12 +258,14 @@ async def test_pipeline_dry_run_does_not_write_to_db_or_qdrant(
     slug = f"dry-run-{uuid.uuid4().hex[:8]}"
     _write_corpus(tmp_path, {f"{slug}.md": _SAMPLE_ENTRY.format(slug=slug)})
     settings = _make_settings_with_root(pipeline_test_settings, tmp_path)
+    settings.knowledge_strict_sources = True
 
     report = await run_ingestion_pipeline(
         cli_token="test-token",
         actor="tester",
         dry_run=True,
         repo_root=str(tmp_path),
+        strict_sources=False,
         settings=settings,
     )
 
@@ -271,6 +273,7 @@ async def test_pipeline_dry_run_does_not_write_to_db_or_qdrant(
     assert report.entered_count == 1
     assert report.entries[0].slug == slug
     assert report.entries[0].chunk_count > 0
+    assert report.configuration["strict_sources"] is False
 
     # No DB rows should have been written.
     from sqlalchemy import text
