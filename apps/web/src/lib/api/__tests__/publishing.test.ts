@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  approvePublishingIntent,
   getPublishingExport,
   listPublishingCandidates,
   toPublishingIntentDetail,
@@ -7,6 +8,7 @@ import {
   toPublishingExportState,
   toPublishingIntent,
   toPublishingResult,
+  toPublishingTarget,
 } from "@/lib/api/publishing";
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
@@ -91,6 +93,79 @@ describe("publishing API view-model adapter", () => {
     });
   });
 
+  it("keeps newly created draft intents actionable", () => {
+    expect(
+      toPublishingIntent({
+        id: "intent-draft",
+        version: 1,
+        businessId: "business-1",
+        candidateId: "candidate-1",
+        candidateChecksum: "checksum",
+        mode: "SIMULATION",
+        status: "DRAFT",
+        createdByUserId: "owner-1",
+        createdAt: "2026-08-01T10:00:00Z",
+        updatedAt: "2026-08-01T10:00:00Z",
+      }),
+    ).toMatchObject({
+      intent_id: "intent-draft",
+      mode: "simulation",
+      state: "draft",
+    });
+  });
+
+  it("preserves a nested API candidate checksum in the approval request", async () => {
+    const intent = toPublishingIntent({
+      id: "intent-approval",
+      version: 2,
+      businessId: "business-1",
+      candidateId: "candidate-1",
+      candidate: { candidateChecksum: "a".repeat(64) },
+      mode: "REAL",
+      status: "AWAITING_APPROVAL",
+      targetId: "target-1",
+      scheduledLocalDisplay: "2099-08-12T17:00:00",
+      scheduledUtcAt: "2099-08-12T14:00:00Z",
+      timezone: "Africa/Cairo",
+      createdByUserId: "owner-1",
+      createdAt: "2026-08-01T10:00:00Z",
+      updatedAt: "2026-08-01T10:00:00Z",
+    });
+    apiRequest.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          intent: {
+            id: "intent-approval",
+            version: 2,
+            businessId: "business-1",
+            candidateId: "candidate-1",
+            candidateChecksum: "a".repeat(64),
+            mode: "REAL",
+            status: "SCHEDULED",
+            createdByUserId: "owner-1",
+            createdAt: "2026-08-01T10:00:00Z",
+            updatedAt: "2026-08-01T10:00:00Z",
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await approvePublishingIntent(intent);
+
+    expect(intent.candidate_checksum).toBe("a".repeat(64));
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/publication-intents/intent-approval/decisions",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({
+          currentVersion: 2,
+          candidateChecksum: "a".repeat(64),
+        }),
+      }),
+    );
+  });
+
   it("keeps unknown provider outcomes refresh-only and models cancelled results", () => {
     expect(
       toPublishingResult({ outcome: "UNKNOWN", mode: "REAL" }),
@@ -106,6 +181,109 @@ describe("publishing API view-model adapter", () => {
       error_code: null,
       retryable: false,
     });
+    expect(
+      toPublishingResult({ outcome: "not-a-real-outcome", mode: "REAL" }),
+    ).toMatchObject({
+      outcome: "failed",
+      retryable: false,
+    });
+  });
+
+  it("preserves a confirmed published provider outcome", () => {
+    expect(
+      toPublishingResult({
+        outcome: "PUBLISHED",
+        mode: "REAL",
+        remotePublicationId: "page-1_post-1",
+        occurredAt: "2026-08-09T13:03:00.179Z",
+      }),
+    ).toMatchObject({
+      outcome: "published",
+      remote_publication_id: "page-1_post-1",
+      error_code: null,
+      retryable: false,
+    });
+  });
+
+  it("fails closed when a target does not advertise a supported capability", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "META",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "CONNECTED",
+        capabilities: [],
+      }),
+    ).toThrow(/supported capability/);
+  });
+
+  it("keeps both Facebook text and image publishing capabilities", () => {
+    expect(
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "META",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "CONNECTED",
+        capabilities: ["static_image", "text", "text"],
+      }).capabilities,
+    ).toEqual(["static_image", "text"]);
+  });
+
+  it("fails closed when a target omits its channel or connection state", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "META",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported channel/);
+
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "META",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "UNKNOWN",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported state/);
+  });
+
+  it("does not invent target identity fields from an incomplete response", () => {
+    expect(() =>
+      toPublishingTarget({
+        channel: "FACEBOOK",
+        connectionState: "CONNECTED",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/missing target id/);
+  });
+
+  it("rejects a provider outside the frozen Meta target boundary", () => {
+    expect(() =>
+      toPublishingTarget({
+        id: "target-1",
+        businessId: "business-1",
+        provider: "OTHER",
+        channel: "FACEBOOK",
+        externalAccountId: "page-1",
+        displayName: "Page",
+        connectionState: "CONNECTED",
+        capabilities: ["static_image"],
+      }),
+    ).toThrow(/unsupported provider/);
   });
 
   it("normalizes detail arrays without losing the approval snapshot", () => {
@@ -130,10 +308,12 @@ describe("publishing API view-model adapter", () => {
       target: {
         id: "target-1",
         businessId: "business-1",
+        provider: "META",
         channel: "FACEBOOK",
         externalAccountId: "page-1",
         displayName: "Page",
         connectionState: "CONNECTED",
+        capabilities: ["static_image"],
       },
       approvals: [
         {

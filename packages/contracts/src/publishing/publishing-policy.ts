@@ -28,6 +28,7 @@ import type { PublicationCandidateRecordV1 } from "./publishing-interfaces";
 import {
   PUBLICATION_ATTEMPT_STATES,
   PUBLICATION_INTENT_STATES,
+  PUBLISHING_CAPABILITIES,
   PUBLISHING_ERROR_CODES,
   PUBLISHING_MODES,
   PUBLISHING_SIGNATURE_TOLERANCE_SECONDS,
@@ -473,14 +474,18 @@ export function validatePublishingTargetV1(
   }
   if (
     !Array.isArray(value.capabilities) ||
-    value.capabilities.length !== 1 ||
-    value.capabilities[0] !== "static_image"
+    value.capabilities.length === 0 ||
+    value.capabilities.some(
+      (capability) =>
+        !(PUBLISHING_CAPABILITIES as readonly unknown[]).includes(capability),
+    ) ||
+    new Set(value.capabilities).size !== value.capabilities.length
   ) {
     addIssue(
       issues,
       "PUBLISHING_FORMAT_UNSUPPORTED",
       "target.capabilities",
-      "Sprint 5 target must expose only the static_image capability.",
+      "Publishing target capabilities must be unique supported values.",
     );
   }
   if (
@@ -826,14 +831,20 @@ export function validateExactPublicationApproval(input: {
       "Real publication requires a currently connected target.",
     );
   }
+  const requiredCapability =
+    candidate.content_format === "static_image_post"
+      ? "static_image"
+      : candidate.content_format === "text_post"
+        ? "text"
+        : null;
   if (
-    candidate.content_format !== "static_image_post" ||
-    !target.capabilities.includes("static_image")
+    !requiredCapability ||
+    !target.capabilities.includes(requiredCapability)
   ) {
     return firstIssue(
       "PUBLISHING_FORMAT_UNSUPPORTED",
       "candidate.content_format",
-      "Real Sprint 5 publishing supports a ready static image only.",
+      "Real publishing requires a target capability matching the approved post format.",
     );
   }
   return { valid: true, issues: [] };
@@ -1285,12 +1296,12 @@ function validateDispatchBody(value: unknown): PublishingValidationResult {
       "Dispatch identities must bind the active immutable candidate.",
     );
   }
-  if (!Array.isArray(value.assets) || value.assets.length === 0) {
+  if (!Array.isArray(value.assets)) {
     addIssue(
       issues,
       "PUBLISHING_ASSET_UNAVAILABLE",
       "dispatch.body.assets",
-      "Dispatch requires short-lived retrieval data for every candidate asset.",
+      "Dispatch assets must be an array.",
     );
   } else {
     const candidateAssets = new Map(
@@ -1303,6 +1314,14 @@ function validateDispatchBody(value: unknown): PublishingValidationResult {
         "PUBLISHING_ASSET_TAMPERED",
         "dispatch.body.assets",
         "Dispatch asset count must match the immutable candidate.",
+      );
+    }
+    if (candidate.content_format !== "text_post" && value.assets.length === 0) {
+      addIssue(
+        issues,
+        "PUBLISHING_ASSET_UNAVAILABLE",
+        "dispatch.body.assets",
+        "Media publishing requires short-lived retrieval data for every candidate asset.",
       );
     }
     for (const [index, rawAsset] of value.assets.entries()) {
@@ -1355,8 +1374,12 @@ function validateDispatchBody(value: unknown): PublishingValidationResult {
   }
 
   if (value.mode === "real") {
+    const expectedOperation =
+      candidate.content_format === "text_post"
+        ? "meta.publish_text"
+        : "meta.publish_static_image";
     if (
-      value.operation !== "meta.publish_static_image" ||
+      value.operation !== expectedOperation ||
       value.scheduled_utc === null ||
       value.target === null ||
       value.approval === null
@@ -1411,15 +1434,21 @@ function validateDispatchBody(value: unknown): PublishingValidationResult {
           "Real dispatch requires a currently connected target.",
         );
       }
+      const requiredCapability =
+        candidate.content_format === "static_image_post"
+          ? "static_image"
+          : candidate.content_format === "text_post"
+            ? "text"
+            : null;
       if (
-        candidate.content_format !== "static_image_post" ||
-        !target.capabilities.includes("static_image")
+        !requiredCapability ||
+        !target.capabilities.includes(requiredCapability)
       ) {
         addIssue(
           issues,
           "PUBLISHING_FORMAT_UNSUPPORTED",
           "dispatch.body.candidate.content_format",
-          "Real Sprint 5 dispatch supports a ready static image only.",
+          "Real dispatch requires a target capability matching the approved post format.",
         );
       }
     }

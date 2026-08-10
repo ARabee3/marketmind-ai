@@ -16,14 +16,18 @@ export class MediaFetchTokenService {
   private readonly logger = new Logger(MediaFetchTokenService.name);
   private readonly secret: string;
   private readonly baseUrl: string;
+  private readonly baseUrlValue: URL | null;
+  private readonly nodeEnv: string;
   private readonly ttlMs: number;
 
   constructor(config: ConfigService) {
     this.secret = config.get<string>("publishing.mediaFetchSecret", "");
-    this.baseUrl = config.get<string>(
-      "publishing.mediaFetchBaseUrl",
-      "http://localhost:3001",
-    );
+    this.baseUrl = config
+      .get<string>("publishing.mediaFetchBaseUrl", "")
+      .trim()
+      .replace(/\/+$/, "");
+    this.baseUrlValue = this.parseBaseUrl(this.baseUrl);
+    this.nodeEnv = config.get<string>("app.nodeEnv", "development");
     this.ttlMs =
       parseInt(
         config.get<string>("publishing.mediaFetchTtlMs", "900000"),
@@ -32,13 +36,42 @@ export class MediaFetchTokenService {
   }
 
   isConfigured(): boolean {
-    return Boolean(this.secret);
+    return this.configurationError() === null;
+  }
+
+  /**
+   * Returns a deployment-safe explanation without including the HMAC secret.
+   * Production real publishing requires an HTTPS URL that Meta can fetch;
+   * local HTTP URLs remain valid for development and integration tests.
+   */
+  configurationError(): string | null {
+    if (!this.secret) return "PUBLISHING_MEDIA_FETCH_SECRET is not configured";
+    if (!this.baseUrlValue) {
+      return "PUBLISHING_MEDIA_FETCH_BASE_URL must be an absolute HTTP(S) URL";
+    }
+    if (
+      this.baseUrlValue.username ||
+      this.baseUrlValue.password ||
+      this.baseUrlValue.pathname !== "/" ||
+      this.baseUrlValue.search ||
+      this.baseUrlValue.hash
+    ) {
+      return "PUBLISHING_MEDIA_FETCH_BASE_URL must contain only an origin";
+    }
+    if (
+      !["development", "test"].includes(this.nodeEnv) &&
+      this.baseUrlValue.protocol !== "https:"
+    ) {
+      return "PUBLISHING_MEDIA_FETCH_BASE_URL must use HTTPS outside development and test";
+    }
+    return null;
   }
 
   /** Publicly reachable, short-lived media URL for the exact attempt + asset. */
   buildUrl(input: { attemptId: string; assetId: string }): string {
-    if (!this.secret) {
-      throw new Error("PUBLISHING_MEDIA_FETCH_SECRET is not configured");
+    const configurationError = this.configurationError();
+    if (configurationError) {
+      throw new Error(configurationError);
     }
     const exp = Date.now() + this.ttlMs;
     const token = this.sign(input, exp);
@@ -80,5 +113,17 @@ export class MediaFetchTokenService {
       .update(payload, "utf8")
       .digest("base64url");
     return `${expMs}.${sig}`;
+  }
+
+  private parseBaseUrl(value: string): URL | null {
+    if (!value) return null;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:"
+        ? parsed
+        : null;
+    } catch {
+      return null;
+    }
   }
 }

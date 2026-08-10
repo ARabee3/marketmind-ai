@@ -27,6 +27,7 @@ const CONNECTED = {
   isValid: true,
   connectedAt: '2026-08-01T12:00:00Z',
   lastTestedAt: null,
+  expiresAt: '2026-10-31T12:00:00Z',
 }
 
 describe('ConnectionsPage', () => {

@@ -29,6 +29,7 @@ import {
   latestAttempt,
   latestResult,
   localCairoToUtc,
+  targetSupportsCandidate,
   toDateTimeLocal,
 } from "../lib/publishing-state";
 import { PublishingBadge } from "./publishing-badge";
@@ -56,6 +57,8 @@ export function PublishingDecisionBuilder({
   onRetry,
   onRefresh,
   onConnect,
+  onContinue,
+  realIntentExists,
 }: {
   readonly candidate: PublicationCandidateSummaryV1 | null;
   readonly intent: PublicationIntentV1 | null;
@@ -74,13 +77,28 @@ export function PublishingDecisionBuilder({
   readonly onRetry: () => Promise<void>;
   readonly onRefresh: () => Promise<void>;
   readonly onConnect: () => void;
+  readonly onContinue: () => void;
+  readonly realIntentExists: boolean;
 }) {
   const t = useTranslations("Publishing");
   const format = useFormatter();
   const [mode, setMode] = useState<PublishingMode | null>(intent?.mode ?? null);
-  const [targetId, setTargetId] = useState(intent?.target_id ?? "");
+  const [targetId, setTargetId] = useState(
+    intent?.target_id ??
+      targets.find(
+        (target) =>
+          target.channel === "facebook" &&
+          target.connection_state === "connected" &&
+          targetSupportsCandidate(target, candidate),
+      )?.target_id ??
+      "",
+  );
   const [scheduleValue, setScheduleValue] = useState(
-    toDateTimeLocal(intent?.scheduled_local ?? null),
+    toDateTimeLocal(
+      intent?.scheduled_local ??
+        candidate?.candidate.recommended_publish_window.starts_at ??
+        null,
+    ),
   );
   const [action, setAction] = useState<Action>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,15 +107,16 @@ export function PublishingDecisionBuilder({
 
   const connectedTargets = targets.filter(
     (target) =>
+      target.channel === "facebook" &&
       target.connection_state === "connected" &&
-      target.capabilities.includes("static_image"),
+      targetSupportsCandidate(target, candidate),
   );
   const selectedTarget =
     targets.find((target) => target.target_id === targetId) ?? null;
   const lastResult = latestResult(detail);
   const lastAttempt = latestAttempt(detail);
   const readOnly = candidate?.source_state !== "active";
-  const realDisabled = connectedTargets.length === 0;
+  const realDisabled = connectedTargets.length === 0 || realIntentExists;
   const scheduleChanged = Boolean(
     intent &&
     (targetId !== (intent.target_id ?? "") ||
@@ -213,26 +232,32 @@ export function PublishingDecisionBuilder({
         ) : null}
       </header>
 
+      <DecisionScope candidate={candidate} t={t} />
+
       {!intent ? (
         <div className="grid gap-4">
           <fieldset className="grid gap-3">
             <legend className="text-sm font-bold text-navy">
               {t("mode.label")}
             </legend>
-            <div className="grid gap-2 md:grid-cols-3">
-              <ModeChoice
-                mode="real"
-                value={mode}
-                disabled={realDisabled}
-                onChange={setMode}
-                title={t("mode.real")}
-                description={
-                  realDisabled
-                    ? t("mode.realUnavailable")
-                    : t("mode.realDescription")
-                }
-                icon={<Send className="size-4" aria-hidden="true" />}
-              />
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <ModeChoice
+                  mode="real"
+                  value={mode}
+                  disabled={realDisabled}
+                  onChange={setMode}
+                  title={t("mode.real")}
+                  description={
+                    realDisabled
+                      ? realIntentExists
+                        ? t("mode.realAlreadyExists")
+                        : t("mode.realUnavailable")
+                      : t("mode.realDescription")
+                  }
+                  icon={<Send className="size-4" aria-hidden="true" />}
+                />
+              </div>
               <ModeChoice
                 mode="manual_export"
                 value={mode}
@@ -310,6 +335,7 @@ export function PublishingDecisionBuilder({
           onRetry={() => void run("retry", onRetry)}
           onRefresh={() => void run("refresh", onRefresh)}
           onConnect={onConnect}
+          onContinue={onContinue}
           t={t}
           format={format}
           canRetry={canRetryIntent(intent, detail)}
@@ -389,6 +415,45 @@ function ModeChoice({
   );
 }
 
+function DecisionScope({
+  candidate,
+  t,
+}: {
+  readonly candidate: PublicationCandidateSummaryV1;
+  readonly t: ReturnType<typeof useTranslations<"Publishing">>;
+}) {
+  return (
+    <section
+      aria-label={t("decision.scopeLabel")}
+      className="grid gap-3 rounded-lg border border-border border-s-4 border-s-primary bg-soft-teal/35 p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
+            {t("decision.scopeLabel")}
+          </p>
+          <p className="mt-1 text-sm font-semibold text-navy">
+            {t("decision.scopeHelp")}
+          </p>
+        </div>
+        <PublishingBadge tone="good">{t("decision.scopeOnly")}</PublishingBadge>
+      </div>
+      <p
+        className="line-clamp-2 break-words text-sm leading-6 font-bold text-navy"
+        dir="auto"
+      >
+        {candidate.candidate.caption}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {t("decision.scopeMeta", {
+          channel: candidate.candidate.target_channel,
+          week: candidate.candidate.strategy_week_number,
+        })}
+      </p>
+    </section>
+  );
+}
+
 function ExistingIntentActions({
   intent,
   selectedTarget,
@@ -408,6 +473,7 @@ function ExistingIntentActions({
   onRetry,
   onRefresh,
   onConnect,
+  onContinue,
   t,
   format,
   canRetry,
@@ -432,6 +498,7 @@ function ExistingIntentActions({
   readonly onRetry: () => void;
   readonly onRefresh: () => void;
   readonly onConnect: () => void;
+  readonly onContinue: () => void;
   readonly t: ReturnType<typeof useTranslations<"Publishing">>;
   readonly format: ReturnType<typeof useFormatter>;
   readonly canRetry: boolean;
@@ -452,7 +519,11 @@ function ExistingIntentActions({
         <PublishingBadge tone="neutral">
           {modeLabel(intent.mode, t)}
         </PublishingBadge>
-        <p className="text-sm text-muted-foreground">{t("mode.changeMode")}</p>
+        <p className="text-sm text-muted-foreground">
+          {intent.state === "succeeded" || intent.state === "cancelled"
+            ? t("mode.actionComplete")
+            : t("mode.changeMode")}
+        </p>
       </div>
 
       {canSchedule ? (
@@ -559,30 +630,56 @@ function ExistingIntentActions({
           <p className="text-sm leading-6 text-warning">
             {t("decision.realConsequence")}
           </p>
-          <dl className="grid gap-2 text-xs sm:grid-cols-2">
-            <dt>{t("schedule.local")}</dt>
-            <dd className="font-semibold">
-              {intent.scheduled_local ?? t("schedule.notConfirmed")}
-            </dd>
-            <dt>{t("schedule.utc")}</dt>
-            <dd className="font-semibold">
-              {intent.scheduled_utc
-                ? format.dateTime(new Date(intent.scheduled_utc), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: "UTC",
-                  })
-                : t("schedule.notConfirmed")}
-            </dd>
+          <dl className="mx-auto grid w-full max-w-2xl gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+            <div className="grid min-w-0 gap-1">
+              <dt className="text-xs text-muted-foreground">
+                {t("schedule.local")}
+              </dt>
+              <dd
+                className="break-words font-semibold text-navy"
+                dir="auto"
+                translate="no"
+              >
+                {intent.scheduled_local ?? t("schedule.notConfirmed")}
+              </dd>
+            </div>
+            <div className="grid min-w-0 gap-1">
+              <dt className="text-xs text-muted-foreground">
+                {t("schedule.utc")}
+              </dt>
+              <dd
+                className="break-words font-semibold text-navy"
+                dir="auto"
+                translate="no"
+              >
+                {intent.scheduled_utc
+                  ? format.dateTime(new Date(intent.scheduled_utc), {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                      timeZone: "UTC",
+                    })
+                  : t("schedule.notConfirmed")}
+              </dd>
+            </div>
           </dl>
-          <Button
-            type="button"
-            disabled={isBusy || !approvalReady}
-            onClick={onApprove}
-          >
-            <Check className="me-2 size-4" aria-hidden="true" />
-            {t("decision.approve")}
-          </Button>
+          <div className="flex flex-col gap-3 border-t border-warning/20 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p
+              id="publishing-one-post-approval-note"
+              className="text-xs leading-5 text-warning"
+            >
+              {t("decision.approvalScope")}
+            </p>
+            <Button
+              type="button"
+              className="shrink-0"
+              aria-describedby="publishing-one-post-approval-note"
+              disabled={isBusy || !approvalReady}
+              onClick={onApprove}
+            >
+              <Check className="me-2 size-4" aria-hidden="true" />
+              {t("decision.approve")}
+            </Button>
+          </div>
         </div>
       ) : null}
 
@@ -622,7 +719,9 @@ function ExistingIntentActions({
       {intent.state === "failed" ? (
         <div className="grid gap-3 rounded-lg border border-danger/25 bg-danger/10 p-4">
           <p className="text-sm leading-6 text-danger">
-            {lastResult?.error_code ?? t("outcome.failed")}
+            {lastResult?.retryable
+              ? t("decision.retryableFailure")
+              : t("decision.nonRetryableFailure")}
           </p>
           {canRetry ? (
             <Button
@@ -669,21 +768,39 @@ function ExistingIntentActions({
       {intent.state === "draft" ||
       intent.state === "awaiting_approval" ||
       intent.state === "scheduled" ? (
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={isBusy}
-          onClick={onCancel}
-        >
-          <X className="me-2 size-4" aria-hidden="true" />
-          {t("decision.cancel")}
-        </Button>
+        <div className="flex flex-col gap-3 rounded-lg border border-danger/20 bg-danger/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-navy">
+              {t("decision.cancelTitle")}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {t("decision.cancelHelp")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 border-danger/35 text-danger hover:bg-danger/10 hover:text-danger"
+            disabled={isBusy}
+            onClick={onCancel}
+          >
+            <X className="me-2 size-4" aria-hidden="true" />
+            {t("decision.cancel")}
+          </Button>
+        </div>
       ) : null}
 
       {intent.state === "cancelled" || intent.state === "succeeded" ? (
-        <p className="text-sm text-muted-foreground">
-          {t("decision.cancelled")}
-        </p>
+        <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-soft-teal/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-navy">
+            {intent.state === "succeeded"
+              ? t("decision.completed")
+              : t("decision.cancelled")}
+          </p>
+          <Button type="button" variant="outline" onClick={onContinue}>
+            {t("decision.continue")}
+          </Button>
+        </div>
       ) : null}
       {localError ? <ErrorLine>{localError}</ErrorLine> : null}
     </div>
@@ -726,7 +843,7 @@ function ApprovalDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-navy/45" />
-        <Dialog.Popup className="fixed top-1/2 start-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6">
+        <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6">
           <Dialog.Title className="text-xl font-bold text-navy">
             {t("dialog.title")}
           </Dialog.Title>
@@ -735,8 +852,8 @@ function ApprovalDialog({
           </Dialog.Description>
           <div className="mt-4 grid gap-2 rounded-lg border border-border bg-background p-3 text-sm">
             <Fact
-              label={t("dialog.candidate")}
-              value={candidate.candidate.candidate_id}
+              label={t("dialog.post")}
+              value={candidate.candidate.caption}
             />
             <Fact
               label={t("dialog.target")}
@@ -808,7 +925,7 @@ function CancellationDialog({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-navy/45" />
-        <Dialog.Popup className="fixed top-1/2 start-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6">
+        <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6">
           <Dialog.Title className="text-xl font-bold text-navy">
             {t("cancelDialog.title")}
           </Dialog.Title>
@@ -817,8 +934,8 @@ function CancellationDialog({
           </Dialog.Description>
           <dl className="mt-4 grid gap-2 rounded-lg border border-border bg-background p-3 text-sm">
             <Fact
-              label={t("dialog.candidate")}
-              value={candidate.candidate.candidate_id}
+              label={t("dialog.post")}
+              value={candidate.candidate.caption}
             />
             <Fact
               label={t("dialog.mode")}
@@ -870,7 +987,13 @@ function Fact({
   return (
     <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-semibold text-navy">{value}</dd>
+      <dd
+        className="line-clamp-2 break-words font-semibold text-navy"
+        dir="auto"
+        translate="no"
+      >
+        {value}
+      </dd>
     </div>
   );
 }

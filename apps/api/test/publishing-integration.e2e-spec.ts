@@ -43,6 +43,10 @@ import { Redis } from "ioredis";
 import * as jwt from "jsonwebtoken";
 import { PrismaService } from "../src/common/persistence/prisma.service";
 import {
+  CONTENT_ASSET_STORAGE,
+  type AssetStorage,
+} from "../src/modules/content/assets/asset-storage.port";
+import {
   computePublicationCandidateChecksum,
   signPublicationCallbackEnvelope,
   validatePublicationCandidateV1,
@@ -82,24 +86,30 @@ process.env.GOOGLE_CALLBACK_URL ??=
   "http://localhost:3001/api/v1/auth/google/callback";
 // Shared signing material: the API and the fake-n8n harness must agree on
 // these exactly, or every signed dispatch/callback would be rejected.
-process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN ??= "publishing-e2e-internal-token";
+process.env.PUBLISHING_INTERNAL_SERVICE_TOKEN ??=
+  "publishing-e2e-internal-token";
 process.env.PUBLISHING_N8N_SIGNING_SECRET ??= "publishing-e2e-signing-secret";
 process.env.PUBLISHING_N8N_SIGNING_KID ??= "publishing-e2e-signing-kid";
 process.env.PUBLISHING_N8N_AUTH_TOKEN ??= "publishing-e2e-n8n-auth-token";
 // Issue #175 credential vault + Meta app configuration (static deployment
 // secrets — never a per-business Page token).
 process.env.PUBLISHING_VAULT_KEY ??=
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 process.env.PUBLISHING_VAULT_KEY_VERSION ??= "v1";
-process.env.PUBLISHING_MEDIA_FETCH_SECRET ??= "publishing-e2e-media-fetch-secret";
+process.env.PUBLISHING_MEDIA_FETCH_SECRET ??=
+  "publishing-e2e-media-fetch-secret";
 process.env.PUBLISHING_MEDIA_FETCH_BASE_URL ??= "http://127.0.0.1:3101";
 process.env.META_APP_ID ??= "publishing-e2e-meta-app-id";
 process.env.META_APP_SECRET ??= "publishing-e2e-meta-app-secret";
 process.env.META_REDIRECT_URI ??=
   "http://127.0.0.1:3101/api/v1/publishing-targets/meta/callback";
 process.env.META_GRAPH_BASE_URL ??= "https://graph.facebook.com";
+process.env.FB_APP_ID ??= "publishing-e2e-facebook-app-id";
+process.env.FB_APP_SECRET ??= "publishing-e2e-facebook-app-secret";
+process.env.FB_REDIRECT_URI ??=
+  "http://127.0.0.1:3101/api/v1/auth/facebook/callback";
 process.env.TOKEN_ENCRYPTION_KEY ??=
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 const API_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(__dirname, "../../..");
@@ -286,6 +296,7 @@ function requireSafeTestUrl(name: "DATABASE_URL" | "REDIS_URL"): string {
 const DEMO_ASSET_ID = "11111111-1111-4111-8111-111111111111";
 const DEMO_ASSET_CHECKSUM =
   "2420878df7d5b8397e29c46a9ae69067b7dc45c358c23ecc55fb676d6ce3fd0a";
+const DEMO_ASSET_STORAGE_KEY = "content/demo/demo-static-image.png";
 
 const uuid = () => crypto.randomUUID();
 
@@ -381,15 +392,16 @@ function buildCandidatePayload(
   payload.content_item_id = uuid();
   payload.content_item_version_id = uuid();
   payload.content_item_version_checksum = `item-checksum-${uuid()}`;
-  // The dispatch-time integrity validator resolves asset bytes from the
-  // committed demo manifest (test-assets/publishing/manifest.json), so the
-  // candidate must reference the manifest's asset id + checksum.
+  // The dispatch-time integrity validator resolves asset metadata from the
+  // approved ContentAsset row and bytes from the configured content storage.
+  // The E2E fixture seeds both in beforeAll, so this candidate exercises the
+  // same production asset boundary rather than the retired demo store.
   payload.assets = [
     {
       asset_id: DEMO_ASSET_ID,
       kind: "generated_static",
       mime_type: "image/png",
-      storage_key: "content/demo/demo-static-image.png",
+      storage_key: DEMO_ASSET_STORAGE_KEY,
       checksum: DEMO_ASSET_CHECKSUM,
     },
   ];
@@ -422,7 +434,8 @@ function ingestEvent(
 ) {
   return {
     event_id: uuid(),
-    event_type: overrides.eventType ?? "content.publication_candidate.created.v1",
+    event_type:
+      overrides.eventType ?? "content.publication_candidate.created.v1",
     occurred_at: overrides.occurredAt ?? new Date().toISOString(),
     correlation_id: uuid(),
     payload,
@@ -436,7 +449,9 @@ function ingestEvent(
  * dispatch-time asset integrity validator must reject it with
  * PUBLISHING_ASSET_TAMPERED BEFORE any n8n call.
  */
-function buildCandidateWithAssetMismatch(businessId: string): PublicationCandidateV1 {
+function buildCandidateWithAssetMismatch(
+  businessId: string,
+): PublicationCandidateV1 {
   const candidate = buildCandidatePayload(businessId) as any;
   candidate.assets[0].checksum =
     "0000000000000000000000000000000000000000000000000000000000000000";
@@ -499,7 +514,9 @@ function signingKeyIdFor(): string {
  * when no app answers) and the app's fake Meta Graph client (the real path in
  * these E2Es, since the executor runs server-side).
  */
-function setProviderMode(mode: "success" | "rate-limit" | "auth-expired" | "network-error"): void {
+function setProviderMode(
+  mode: "success" | "rate-limit" | "auth-expired" | "network-error",
+): void {
   fakeMetaClient.setMode(mode);
 }
 
@@ -567,9 +584,8 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     // fake (graph.facebook.com never resolves). The n8n workflow + executor
     // boundary remain REAL; only the provider network is stubbed.
     const { AppModule } = await import("../src/app.module");
-    const { MetaGraphClient } = await import(
-      "../src/modules/publishing/meta/meta-graph.client"
-    );
+    const { MetaGraphClient } =
+      await import("../src/modules/publishing/meta/meta-graph.client");
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -588,9 +604,38 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     );
     await app.init();
     await app.listen(APP_PORT, "127.0.0.1");
+    prisma = app.get(PrismaService);
+
+    // Seed the same approved asset metadata and bytes that production
+    // dispatch reads.  The committed image is intentionally tiny and
+    // deterministic so checksum validation can detect tampering without
+    // depending on a local manifest or a fake publishing asset store.
+    const assetStorage = app.get<AssetStorage>(CONTENT_ASSET_STORAGE);
+    const demoAssetBytes = fs.readFileSync(
+      path.join(API_DIR, "test-assets/publishing/demo-static-image.png"),
+    );
+    const storedAsset = await assetStorage.store(
+      demoAssetBytes,
+      DEMO_ASSET_STORAGE_KEY,
+    );
+    if (storedAsset.checksum !== DEMO_ASSET_CHECKSUM) {
+      throw new Error(
+        `E2E demo asset checksum changed: expected ${DEMO_ASSET_CHECKSUM}, got ${storedAsset.checksum}`,
+      );
+    }
+    await prisma.contentAsset.create({
+      data: {
+        id: DEMO_ASSET_ID,
+        kind: "generated_static",
+        status: "ready",
+        mimeType: "image/png",
+        storageKey: DEMO_ASSET_STORAGE_KEY,
+        checksum: DEMO_ASSET_CHECKSUM,
+        altText: "E2E demo asset",
+      },
+    });
 
     // 6) Seed owner + business + connected Meta target via Prisma.
-    prisma = app.get(PrismaService);
     const owner = await prisma.user.create({
       data: {
         email: OWNER_EMAIL,
@@ -613,9 +658,8 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     // Issue #175: a real-mode target's credentialRef MUST point at an
     // encrypted vault record — never an env var. Seed one through the app's
     // own vault service so the executor path is exactly the production one.
-    const { CredentialVaultService } = await import(
-      "../src/modules/publishing/credentials/credential-vault.service"
-    );
+    const { CredentialVaultService } =
+      await import("../src/modules/publishing/credentials/credential-vault.service");
     const vault = app.get(CredentialVaultService);
     const encrypted = vault.encrypt(
       JSON.stringify({
@@ -683,7 +727,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
    */
   async function publishJourney(
     candidate: PublicationCandidateV1,
-    opts: { mode: "REAL" | "MANUAL_EXPORT" | "SIMULATION"; scheduleAheadSeconds: number },
+    opts: {
+      mode: "REAL" | "MANUAL_EXPORT" | "SIMULATION";
+      scheduleAheadSeconds: number;
+    },
   ): Promise<{
     intentId: string;
     attempt: PublishingAttempt & {
@@ -691,10 +738,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       callbacks: PublishingCallbackIdentity[];
     };
   }> {
-    const ingest = await api(
-      "/internal/v1/publishing/candidates/ingest",
-      { method: "POST", body: ingestEvent(candidate), internalToken },
-    );
+    const ingest = await api("/internal/v1/publishing/candidates/ingest", {
+      method: "POST",
+      body: ingestEvent(candidate),
+      internalToken,
+    });
     expect(ingest.status).toBe(200);
     expect(ingest.body).toMatchObject({ disposition: "applied" });
 
@@ -714,33 +762,39 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     const intentId = create.body.id;
     const createVersion = create.body.version as number;
 
-    const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-      method: "PUT",
-      token: ownerToken,
-      body: {
-        scheduledLocalAt: cairoLocalIn(opts.scheduleAheadSeconds),
-        timezone: "Africa/Cairo",
-        targetId: TARGET_ID,
-        currentVersion: createVersion,
-        idempotencyKey: `schedule-${uuid()}`,
+    const schedule = await api(
+      `/api/v1/publication-intents/${intentId}/schedule`,
+      {
+        method: "PUT",
+        token: ownerToken,
+        body: {
+          scheduledLocalAt: cairoLocalIn(opts.scheduleAheadSeconds),
+          timezone: "Africa/Cairo",
+          targetId: TARGET_ID,
+          currentVersion: createVersion,
+          idempotencyKey: `schedule-${uuid()}`,
+        },
       },
-    });
+    );
     if (schedule.status !== 200) {
       console.log("schedule response:", JSON.stringify(schedule, null, 2));
     }
     expect(schedule.status).toBe(200);
     const scheduledVersion = schedule.body.version as number;
 
-    const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-      method: "POST",
-      token: ownerToken,
-      body: {
-        decision: "APPROVED",
-        currentVersion: scheduledVersion,
-        candidateChecksum: candidate.candidate_checksum,
-        idempotencyKey: `approve-${uuid()}`,
+    const approve = await api(
+      `/api/v1/publication-intents/${intentId}/decisions`,
+      {
+        method: "POST",
+        token: ownerToken,
+        body: {
+          decision: "APPROVED",
+          currentVersion: scheduledVersion,
+          candidateChecksum: candidate.candidate_checksum,
+          idempotencyKey: `approve-${uuid()}`,
+        },
       },
-    });
+    );
     expect(approve.status).toBe(201);
 
     // The real BullMQ worker dispatches to the harness, the REAL adapter runs,
@@ -831,7 +885,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         .envelope as SignedPublicationCallbackEnvelopeV1;
       const validation = validateSignedPublicationCallbackEnvelopeV1(
         callbackEnvelope,
-        { secret: signingSecret, expected_key_id: signingKeyId, now: new Date().toISOString() },
+        {
+          secret: signingSecret,
+          expected_key_id: signingKeyId,
+          now: new Date().toISOString(),
+        },
       );
       expect(validation.valid).toBe(true);
       expect(callbackEnvelope.body.attempt_id).toBe(attempt.id);
@@ -904,7 +962,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       );
 
       const envelope = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope;
       const callbackPath = `/internal/v1/publishing/dispatch/${attempt.id}/callback`;
       const [first, second] = await Promise.all([
@@ -928,10 +988,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   describe("Suite C: manual export archive", () => {
     it("builds the checksum-addressed archive, records EXPORTED, and serves the download", async () => {
       const candidate = buildCandidatePayload(businessId);
-      const ingest = await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      const ingest = await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       expect(ingest.status).toBe(200);
 
       const create = await api("/api/v1/publication-intents", {
@@ -946,11 +1007,14 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       expect(create.status).toBe(201);
       const intentId = create.body.id;
 
-      const exported = await api(`/api/v1/publication-intents/${intentId}/dispatch-export`, {
-        method: "POST",
-        token: ownerToken,
-        body: { idempotencyKey: `export-${uuid()}` },
-      });
+      const exported = await api(
+        `/api/v1/publication-intents/${intentId}/dispatch-export`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: { idempotencyKey: `export-${uuid()}` },
+        },
+      );
       expect(exported.status).toBe(201);
 
       const intent = await prisma.publishingIntent.findUniqueOrThrow({
@@ -990,9 +1054,7 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         content_format: candidate.content_format,
         selected_locale: candidate.selected_locale,
       });
-      expect(meta.body.manifest.assets[0].checksum).toBe(
-        DEMO_ASSET_CHECKSUM,
-      );
+      expect(meta.body.manifest.assets[0].checksum).toBe(DEMO_ASSET_CHECKSUM);
 
       // Raw fetch: the archive is binary, and we need the checksum header.
       const downloadResponse = await fetch(
@@ -1008,11 +1070,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // Evidence (plan §4.4 D1 + §6.1 #3): run the COMMITTED
       // verify-export-archive script against the produced manifest and assert
       // exit 0 + OK — not just the in-memory API shape.
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mm-export-verify-"));
-      const archivePath = path.join(
-        tmpDir,
-        `${meta.body.artifact_id}.tar.gz`,
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), "mm-export-verify-"),
       );
+      const archivePath = path.join(tmpDir, `${meta.body.artifact_id}.tar.gz`);
       fs.writeFileSync(archivePath, archiveBytes);
       execSync(`tar -xzf ${archivePath} -C ${tmpDir} manifest.json`, {
         cwd: API_DIR,
@@ -1026,7 +1087,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       );
       expect(verify).toMatch(/verify-export-archive: OK/);
       const rawManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-      expect(rawManifest.contract_version).toBe("publishing-export-manifest-v1");
+      expect(rawManifest.contract_version).toBe(
+        "publishing-export-manifest-v1",
+      );
       expect(rawManifest.assets[0].checksum).toBe(DEMO_ASSET_CHECKSUM);
     }, 60_000);
   });
@@ -1035,10 +1098,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   describe("Suite D: simulation keeps the SIMULATION label", () => {
     it("dispatches a simulation with no external request and stores the label", async () => {
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
 
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
@@ -1054,11 +1118,14 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
 
       // No-provider spy: the simulation path must never reach the webhook.
       const dispatchBefore = harness.dispatchCount;
-      const simulated = await api(`/api/v1/publication-intents/${intentId}/dispatch-simulation`, {
-        method: "POST",
-        token: ownerToken,
-        body: { idempotencyKey: `sim-${uuid()}` },
-      });
+      const simulated = await api(
+        `/api/v1/publication-intents/${intentId}/dispatch-simulation`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: { idempotencyKey: `sim-${uuid()}` },
+        },
+      );
       expect(simulated.status).toBe(201);
       expect(harness.dispatchCount).toBe(dispatchBefore);
 
@@ -1082,10 +1149,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
   describe("Suite E: rejected and blocked journeys", () => {
     it("never dispatches an intent that is scheduled but not approved", async () => {
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1096,17 +1164,20 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         },
       });
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
 
       const intent = await prisma.publishingIntent.findUniqueOrThrow({
@@ -1123,10 +1194,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // longer covers the payload → PUBLISHING_CANDIDATE_TAMPERED.
       candidate.caption = `${candidate.caption} — tampered after signing`;
 
-      const ingest = await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      const ingest = await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       expect(ingest.status).toBe(422);
       expect(ingest.body.message).toContain("TAMPERED");
       const row = await prisma.publishingCandidate.findUnique({
@@ -1138,32 +1210,30 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("blocks publication of a revoked candidate (CANDIDATE_REVOKED)", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       // Revoke it BEFORE the intent journey.
-      const revoked = await api(
-        "/internal/v1/publishing/candidates/ingest",
-        {
-          method: "POST",
-          internalToken,
-          body: ingestEvent(
-            {
-              contract_version: "publication-candidate-status-v1",
-              candidate_id: candidate.candidate_id,
-              business_id: businessId,
-              candidate_checksum: candidate.candidate_checksum,
-              state_version: 2,
-              candidate_state: "revoked",
-              replacement_candidate_id: null,
-              changed_by_user_id: uuid(),
-              changed_at: new Date().toISOString(),
-            } as any,
-            { eventType: "content.publication_candidate.state_changed.v1" },
-          ),
-        },
-      );
+      const revoked = await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        internalToken,
+        body: ingestEvent(
+          {
+            contract_version: "publication-candidate-status-v1",
+            candidate_id: candidate.candidate_id,
+            business_id: businessId,
+            candidate_checksum: candidate.candidate_checksum,
+            state_version: 2,
+            candidate_state: "revoked",
+            replacement_candidate_id: null,
+            changed_by_user_id: uuid(),
+            changed_at: new Date().toISOString(),
+          } as any,
+          { eventType: "content.publication_candidate.state_changed.v1" },
+        ),
+      });
       expect(revoked.status).toBe(200);
       expect(revoked.body.disposition).toBe("applied");
 
@@ -1186,10 +1256,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
 
     it("rejects scheduling against an expired target", async () => {
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1206,19 +1277,24 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         data: { connectionState: "EXPIRED" },
       });
       try {
-        const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-          method: "PUT",
-          token: ownerToken,
-          body: {
-            scheduledLocalAt: cairoLocalIn(10),
-            timezone: "Africa/Cairo",
-            targetId: TARGET_ID,
-            currentVersion: create.body.version,
-            idempotencyKey: `schedule-${uuid()}`,
+        const schedule = await api(
+          `/api/v1/publication-intents/${intentId}/schedule`,
+          {
+            method: "PUT",
+            token: ownerToken,
+            body: {
+              scheduledLocalAt: cairoLocalIn(10),
+              timezone: "Africa/Cairo",
+              targetId: TARGET_ID,
+              currentVersion: create.body.version,
+              idempotencyKey: `schedule-${uuid()}`,
+            },
           },
-        });
+        );
         expect(schedule.status).toBe(400);
-        expect(schedule.body.message).toContain("PUBLISHING_TARGET_NOT_CONNECTED");
+        expect(schedule.body.message).toContain(
+          "PUBLISHING_TARGET_NOT_CONNECTED",
+        );
       } finally {
         await prisma.publishingTarget.update({
           where: { id: TARGET_ID },
@@ -1262,10 +1338,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("C1: duplicate BullMQ job resolves to the same attempt with one n8n call", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1277,36 +1354,44 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const version = schedule.body.version as number;
       const approveKey = `approve-dup-${uuid()}`;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: version,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: approveKey,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: version,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: approveKey,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
 
       // Force a SECOND BullMQ delivery of the same job data (different jobId
       // so both execute). The processor's per-key replay must resolve it to the
       // existing attempt as a recorded no-op.
-      const dispatchQueue = app.get<Queue>(getQueueToken("publishing-dispatch"));
+      const dispatchQueue = app.get<Queue>(
+        getQueueToken("publishing-dispatch"),
+      );
       const dispatchBefore = harness.dispatchCount;
       await dispatchQueue.add(
         "dispatch",
@@ -1315,7 +1400,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
           version,
           idempotencyKey: `${approveKey}::dispatch`,
         },
-        { jobId: `publish-${intentId}-v${version}-stale-replay`, delay: 10_000 },
+        {
+          jobId: `publish-${intentId}-v${version}-stale-replay`,
+          delay: 10_000,
+        },
       );
 
       await waitFor(
@@ -1350,7 +1438,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       expect(attempt.result).toMatchObject({ outcome: "PUBLISHED" });
 
       const captured = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope as SignedPublicationCallbackEnvelopeV1;
 
       // A FAILED callback for the SAME attempt, new callback_id, still
@@ -1395,7 +1485,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         { mode: "REAL", scheduleAheadSeconds: 10 },
       );
       const captured = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope;
 
       const otherAttemptId = uuid();
@@ -1404,7 +1496,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         { method: "POST", body: captured },
       );
       expect(response.status).toBe(401);
-      expect(response.body.message).toContain("PUBLISHING_WEBHOOK_UNAUTHORIZED");
+      expect(response.body.message).toContain(
+        "PUBLISHING_WEBHOOK_UNAUTHORIZED",
+      );
     }, 120_000);
 
     it("C5: a callback with an out-of-window timestamp is rejected", async () => {
@@ -1414,7 +1508,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         { mode: "REAL", scheduleAheadSeconds: 10 },
       );
       const captured = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope as SignedPublicationCallbackEnvelopeV1;
 
       const stale = resignCallback(captured, () => {}, {
@@ -1437,18 +1533,23 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         { mode: "REAL", scheduleAheadSeconds: 10 },
       );
       const captured = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope as SignedPublicationCallbackEnvelopeV1;
 
       const corrupted = structuredClone(captured) as any;
       corrupted.signature =
-        (corrupted.signature[0] === "0" ? "1" : "0") + corrupted.signature.slice(1);
+        (corrupted.signature[0] === "0" ? "1" : "0") +
+        corrupted.signature.slice(1);
       const response = await api(
         `/internal/v1/publishing/dispatch/${attempt.id}/callback`,
         { method: "POST", body: corrupted },
       );
       expect(response.status).toBe(401);
-      expect(response.body.message).toContain("PUBLISHING_WEBHOOK_UNAUTHORIZED");
+      expect(response.body.message).toContain(
+        "PUBLISHING_WEBHOOK_UNAUTHORIZED",
+      );
     }, 120_000);
 
     it("C7: the partial unique index enforces one PUBLISHED result per intent", async () => {
@@ -1471,8 +1572,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
           startedAt: new Date(),
         },
       });
-      let createError: { message?: string; meta?: { constraint?: string } } | null =
-        null;
+      let createError: {
+        message?: string;
+        meta?: { constraint?: string };
+      } | null = null;
       try {
         // Raw insert so the Postgres violation surfaces (Prisma model P2002
         // meta only carries the target field list).
@@ -1487,7 +1590,10 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
           )
         `;
       } catch (err) {
-        createError = err as { message?: string; meta?: { constraint?: string } };
+        createError = err as {
+          message?: string;
+          meta?: { constraint?: string };
+        };
       }
       // The second PUBLISHED result for the SAME intent must violate the
       // partial unique index: PG reports 23505 on (intent_id) — the only
@@ -1511,10 +1617,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("H1: reschedule invalidates the prior approval and a stale v1 job cannot dispatch", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1526,30 +1633,36 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const v1 = schedule.body.version as number;
       const approveKey = `approve-v1-${uuid()}`;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: v1,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: approveKey,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: v1,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: approveKey,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
 
       // Reschedule BEFORE the v1 due-time: version bumps to v2, status returns
@@ -1574,7 +1687,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // Simulate a STALE v1 BullMQ delivery that survived the job removal
       // (stalled redelivery): the atomic intent claim WHERE id, v1 must abort
       // it before any n8n call.
-      const dispatchQueue = app.get<Queue>(getQueueToken("publishing-dispatch"));
+      const dispatchQueue = app.get<Queue>(
+        getQueueToken("publishing-dispatch"),
+      );
       const dispatchBefore = harness.dispatchCount;
       await dispatchQueue.add(
         "dispatch",
@@ -1598,16 +1713,19 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       expect(harness.dispatchCount).toBe(dispatchBefore);
 
       // Approve v2 → dispatches normally; exactly one attempt reaches success.
-      const approveV2 = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: v1 + 1,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: `approve-v2-${uuid()}`,
+      const approveV2 = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: v1 + 1,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: `approve-v2-${uuid()}`,
+          },
         },
-      });
+      );
       expect(approveV2.status).toBe(201);
       await waitFor(
         async () => {
@@ -1620,8 +1738,12 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         750,
         `intent ${intentId} SUCCEEDED after reschedule`,
       );
-      const attempts = await prisma.publishingAttempt.count({ where: { intentId } });
-      const results = await prisma.publishingResult.count({ where: { intentId } });
+      const attempts = await prisma.publishingAttempt.count({
+        where: { intentId },
+      });
+      const results = await prisma.publishingResult.count({
+        where: { intentId },
+      });
       expect(attempts).toBe(1);
       expect(results).toBe(1);
       expect(harness.dispatchCount).toBe(dispatchBefore + 1);
@@ -1630,10 +1752,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("H2: expired target discovered at dispatch blocks the provider call", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1645,29 +1768,35 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const version = schedule.body.version as number;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: version,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: `approve-${uuid()}`,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: version,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: `approve-${uuid()}`,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
 
       // Flip the target EXPIRED between approval and the due-time job firing.
@@ -1707,10 +1836,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("H3: asset mismatch fails the attempt BEFORE any provider call", async () => {
       setProviderMode("success");
       const candidate = buildCandidateWithAssetMismatch(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1722,29 +1852,35 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const version = schedule.body.version as number;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: version,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: `approve-${uuid()}`,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: version,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: `approve-${uuid()}`,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
 
       const dispatchBefore = harness.dispatchCount;
@@ -1775,10 +1911,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("H4: candidate revoked after approval cascade-cancels the intent before dispatch", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1790,29 +1927,35 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const version = schedule.body.version as number;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: version,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: `approve-${uuid()}`,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: version,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: `approve-${uuid()}`,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
       expect(
         (
@@ -1825,27 +1968,24 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       // Revoke AFTER the approval. The ingest cascade (candidates.service.ts)
       // cancels every non-dispatched intent for the candidate, so the due-time
       // job is dead before it can fire.
-      const revoked = await api(
-        "/internal/v1/publishing/candidates/ingest",
-        {
-          method: "POST",
-          internalToken,
-          body: ingestEvent(
-            {
-              contract_version: "publication-candidate-status-v1",
-              candidate_id: candidate.candidate_id,
-              business_id: businessId,
-              candidate_checksum: candidate.candidate_checksum,
-              state_version: 2,
-              candidate_state: "revoked",
-              replacement_candidate_id: null,
-              changed_by_user_id: uuid(),
-              changed_at: new Date().toISOString(),
-            } as any,
-            { eventType: "content.publication_candidate.state_changed.v1" },
-          ),
-        },
-      );
+      const revoked = await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        internalToken,
+        body: ingestEvent(
+          {
+            contract_version: "publication-candidate-status-v1",
+            candidate_id: candidate.candidate_id,
+            business_id: businessId,
+            candidate_checksum: candidate.candidate_checksum,
+            state_version: 2,
+            candidate_state: "revoked",
+            replacement_candidate_id: null,
+            changed_by_user_id: uuid(),
+            changed_at: new Date().toISOString(),
+          } as any,
+          { eventType: "content.publication_candidate.state_changed.v1" },
+        ),
+      });
       expect(revoked.status).toBe(200);
       expect(revoked.body.disposition).toBe("applied");
       const intent = await prisma.publishingIntent.findUniqueOrThrow({
@@ -1876,10 +2016,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
     it("H5: a candidate revoked behind the ingest path is still blocked at dispatch", async () => {
       setProviderMode("success");
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -1891,29 +2032,35 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(10),
-          timezone: "Africa/Cairo",
-          targetId: TARGET_ID,
-          currentVersion: create.body.version,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(10),
+            timezone: "Africa/Cairo",
+            targetId: TARGET_ID,
+            currentVersion: create.body.version,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
       const version = schedule.body.version as number;
-      const approve = await api(`/api/v1/publication-intents/${intentId}/decisions`, {
-        method: "POST",
-        token: ownerToken,
-        body: {
-          decision: "APPROVED",
-          currentVersion: version,
-          candidateChecksum: candidate.candidate_checksum,
-          idempotencyKey: `approve-${uuid()}`,
+      const approve = await api(
+        `/api/v1/publication-intents/${intentId}/decisions`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: {
+            decision: "APPROVED",
+            currentVersion: version,
+            candidateChecksum: candidate.candidate_checksum,
+            idempotencyKey: `approve-${uuid()}`,
+          },
         },
-      });
+      );
       expect(approve.status).toBe(201);
 
       // Flip the candidate REVOKED directly in the DB (bypassing the ingest
@@ -1964,7 +2111,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
         { mode: "REAL", scheduleAheadSeconds: 10 },
       );
       const captured = harness.callbacksSent.find(
-        (c) => (c.envelope as { body?: { attempt_id?: string } }).body?.attempt_id === attempt.id,
+        (c) =>
+          (c.envelope as { body?: { attempt_id?: string } }).body
+            ?.attempt_id === attempt.id,
       )!.envelope as SignedPublicationCallbackEnvelopeV1;
 
       const unlabelled = resignCallback(captured, (body) => {
@@ -2020,10 +2169,11 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
 
       // Build an export for the PRIMARY tenant.
       const candidate = buildCandidatePayload(businessId);
-      await api(
-        "/internal/v1/publishing/candidates/ingest",
-        { method: "POST", body: ingestEvent(candidate), internalToken },
-      );
+      await api("/internal/v1/publishing/candidates/ingest", {
+        method: "POST",
+        body: ingestEvent(candidate),
+        internalToken,
+      });
       const create = await api("/api/v1/publication-intents", {
         method: "POST",
         token: ownerToken,
@@ -2035,17 +2185,23 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       });
       expect(create.status).toBe(201);
       const intentId = create.body.id;
-      const exported = await api(`/api/v1/publication-intents/${intentId}/dispatch-export`, {
-        method: "POST",
-        token: ownerToken,
-        body: { idempotencyKey: `export-${uuid()}` },
-      });
+      const exported = await api(
+        `/api/v1/publication-intents/${intentId}/dispatch-export`,
+        {
+          method: "POST",
+          token: ownerToken,
+          body: { idempotencyKey: `export-${uuid()}` },
+        },
+      );
       expect(exported.status).toBe(201);
 
       // Foreign tenant must be denied (no enumeration: 403 fail-closed).
-      const foreignMeta = await api(`/api/v1/publication-intents/${intentId}/export`, {
-        token: foreignToken,
-      });
+      const foreignMeta = await api(
+        `/api/v1/publication-intents/${intentId}/export`,
+        {
+          token: foreignToken,
+        },
+      );
       expect(foreignMeta.status).toBe(403);
       const foreignDownload = await api(
         `/api/v1/publication-intents/${intentId}/export/download`,
@@ -2089,7 +2245,9 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       expect(JSON.stringify(response.body)).not.toMatch(
         /token|secret|credentialRef|ciphertext/i,
       );
-      state = new URL(response.body.authorization_url).searchParams.get("state")!;
+      state = new URL(response.body.authorization_url).searchParams.get(
+        "state",
+      )!;
       stateId = response.body.connection_id;
     });
 
@@ -2234,17 +2392,20 @@ describe("Publishing integration (issue #123, real workflow JS)", () => {
       const igSibling = await prisma.publishingTarget.findFirst({
         where: { businessId, channel: "instagram" },
       });
-      const schedule = await api(`/api/v1/publication-intents/${intentId}/schedule`, {
-        method: "PUT",
-        token: ownerToken,
-        body: {
-          scheduledLocalAt: cairoLocalIn(3600),
-          timezone: "Africa/Cairo",
-          targetId,
-          currentVersion: 1,
-          idempotencyKey: `schedule-${uuid()}`,
+      const schedule = await api(
+        `/api/v1/publication-intents/${intentId}/schedule`,
+        {
+          method: "PUT",
+          token: ownerToken,
+          body: {
+            scheduledLocalAt: cairoLocalIn(3600),
+            timezone: "Africa/Cairo",
+            targetId,
+            currentVersion: 1,
+            idempotencyKey: `schedule-${uuid()}`,
+          },
         },
-      });
+      );
       expect(schedule.status).toBe(200);
 
       const disconnect = await api(

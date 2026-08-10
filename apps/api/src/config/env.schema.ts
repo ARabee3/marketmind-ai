@@ -106,6 +106,30 @@ export function envSchema(
     );
   }
 
+  // Facebook Page connection — required because FacebookModule is always wired
+  // into AppModule, and the popup OAuth flow never surfaces config errors.
+  if (!config.FB_APP_ID) {
+    errors.push("FB_APP_ID is required for the Facebook Page connection");
+  }
+  if (!config.FB_APP_SECRET) {
+    errors.push("FB_APP_SECRET is required for the Facebook Page connection");
+  }
+  if (!config.FB_REDIRECT_URI) {
+    errors.push(
+      "FB_REDIRECT_URI is required (e.g. http://localhost:3001/api/v1/auth/facebook/callback)",
+    );
+  }
+  const tokenEncryptionKey = config.TOKEN_ENCRYPTION_KEY as string | undefined;
+  if (!tokenEncryptionKey) {
+    errors.push(
+      "TOKEN_ENCRYPTION_KEY is required (AES-256-GCM key, 32 bytes hex-encoded)",
+    );
+  } else if (!/^[0-9a-fA-F]{64}$/.test(tokenEncryptionKey)) {
+    errors.push(
+      "TOKEN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters (AES-256-GCM key)",
+    );
+  }
+
   // Mail delivery uses an explicit provider in deployed environments.
   const nodeEnv = (config.NODE_ENV as string | undefined) ?? "development";
   const mailProvider = config.MAIL_PROVIDER as string | undefined;

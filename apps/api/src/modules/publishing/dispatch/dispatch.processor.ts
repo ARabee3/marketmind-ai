@@ -1,11 +1,17 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { ConflictException, Injectable, Logger } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { N8nClientService } from "./n8n-client.service";
 import { AssetIntegrityValidator } from "./asset-integrity-validator";
 import { DispatchEnvelopeBuilder } from "./dispatch-envelope.builder";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import { FacebookTargetBridgeService } from "../targets/facebook-target-bridge.service";
 import {
   classifyAmbiguousDelivery,
   SafeHttpError,
@@ -66,6 +72,8 @@ export class DispatchProcessor extends WorkerHost {
     private readonly n8n: N8nClientService,
     private readonly assetIntegrity: AssetIntegrityValidator,
     private readonly envelopeBuilder: DispatchEnvelopeBuilder,
+    @Optional()
+    private readonly facebookTargetBridge?: FacebookTargetBridgeService,
   ) {
     super();
   }
@@ -81,6 +89,21 @@ export class DispatchProcessor extends WorkerHost {
     this.logger.log(
       `Processing dispatch job for intent=${intentId} v=${version} key=${idempotencyKey}`,
     );
+
+    // PR #193 Facebook targets are projections of SocialConnection. Refresh
+    // that projection before the transactional checks so a disconnect or a
+    // reactive token expiry cannot leave an already-queued intent dispatchable
+    // until a later target listing happens. The transaction still revalidates
+    // the target after this best-effort synchronization.
+    try {
+      await this.syncFacebookTarget(intentId);
+    } catch (err) {
+      this.logger.warn(
+        `Facebook target synchronization failed for intent=${intentId}: ${(err as Error).message}`,
+      );
+      await this.markIntentFailed(intentId, version, this.sanitizeError(err));
+      return;
+    }
 
     // Revalidation transaction + replay resolution + attempt creation happen
     // together: the replay check compares the canonical request fingerprint
@@ -251,10 +274,11 @@ export class DispatchProcessor extends WorkerHost {
               errorCode: ambiguous
                 ? PublishingErrorCode.PROVIDER_OUTCOME_UNKNOWN
                 : PublishingErrorCode.PROVIDER_FAILURE,
-              // A delivery whose outcome is unknown must be reconciled before
-              // another publish can be attempted. The frozen result contract
-              // therefore marks UNKNOWN as non-retryable.
-              retryable: false,
+              // A deterministic pre-send failure is safe to retry after the
+              // infrastructure/configuration problem is repaired because n8n
+              // rejected the request before any provider call. An ambiguous
+              // delivery still requires reconciliation and is never retryable.
+              retryable: !ambiguous,
               rawPayloadHash: null,
               sanitizedError: storedError,
               occurredAt: now,
@@ -271,6 +295,17 @@ export class DispatchProcessor extends WorkerHost {
           data: { status: ambiguous ? "ACTION_REQUIRED" : "FAILED" },
         });
       });
+    }
+  }
+
+  private async syncFacebookTarget(intentId: string): Promise<void> {
+    if (!this.facebookTargetBridge) return;
+    const intent = await this.prisma.publishingIntent.findUnique({
+      where: { id: intentId },
+      select: { targetId: true },
+    });
+    if (intent?.targetId) {
+      await this.facebookTargetBridge.syncTarget(intent.targetId);
     }
   }
 
@@ -309,10 +344,10 @@ export class DispatchProcessor extends WorkerHost {
         });
         const recoveringQueuedAttempt = Boolean(
           existingByKey &&
-            existingByKey.status === "QUEUED" &&
-            existingByKey.intentVersion === version &&
-            intent.version === version &&
-            intent.status === "DISPATCHING",
+          existingByKey.status === "QUEUED" &&
+          existingByKey.intentVersion === version &&
+          intent.version === version &&
+          intent.status === "DISPATCHING",
         );
         if (existingByKey && !recoveringQueuedAttempt) {
           return {
@@ -480,7 +515,9 @@ export class DispatchProcessor extends WorkerHost {
             // index guarantees it is THE attempt for this key). Never fail intent.
             if ((err as { code?: string })?.code === "P2002") {
               const winner = await tx.publishingAttempt.findUnique({
-                where: { intentId_idempotencyKey: { intentId, idempotencyKey } },
+                where: {
+                  intentId_idempotencyKey: { intentId, idempotencyKey },
+                },
               });
               if (winner) {
                 this.logger.warn(

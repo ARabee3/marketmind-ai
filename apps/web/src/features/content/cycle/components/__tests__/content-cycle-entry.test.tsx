@@ -23,6 +23,7 @@ vi.mock("next-intl", () => ({
       if (key === "noProfileTitle") return "Business Profile Required";
       if (key === "noStrategyTitle") return "Approved Strategy Required";
       if (key === "approvalRequiredTitle") return "Strategy Approval Needed";
+      if (key === "provenanceMismatchTitle") return "Strategy Version Mismatch";
       return key;
     }
     if (namespace === "ContentV2.entry") {
@@ -133,6 +134,48 @@ describe("ContentCycleEntry", () => {
     // The legacy oversized week-1 context form must not render.
     expect(screen.queryByRole("radio", { name: "noPromotion" })).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("reports inconsistent Strategy provenance without blaming the profile", async () => {
+    const journeyWithStrategy = {
+      ...mockJourneyNoCycle,
+      journey: {
+        ...mockJourneyNoCycle.journey,
+        strategy: {
+          id: MOCK_STRATEGY_ID,
+          status: "approved" as const,
+        },
+        strategy_decision: {
+          decision: "approved" as const,
+          decision_id: MOCK_DECISION_ID,
+          approved_version_id: MOCK_STRATEGY_VERSION_ID,
+        },
+      },
+    };
+    const mismatchedPlan = {
+      ...mockApprovedStrategyApiV2.latestPlan!,
+      version: 2,
+    };
+
+    vi.mocked(journeyApi.getCurrentJourney).mockResolvedValue(
+      journeyWithStrategy as unknown as CurrentJourneyResponse,
+    );
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      mockApprovedStrategyApiV2,
+    );
+    vi.mocked(strategyApi.getStrategyVersions).mockResolvedValue(
+      mockStrategyVersions,
+    );
+    vi.mocked(strategyApi.getStrategyVersion).mockResolvedValue(
+      mismatchedPlan as never,
+    );
+
+    render(<ContentCycleEntry />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Strategy Version Mismatch")).toBeDefined();
+    });
+    expect(screen.queryByText("Strategy Profile Mismatch")).toBeNull();
   });
 
   it("opens the content-v2 studio after creating a cycle with a safe-default week context", async () => {

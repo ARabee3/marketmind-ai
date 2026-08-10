@@ -1,11 +1,12 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
-import * as crypto from "crypto";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { MailService } from "../mail/mail.service";
+import { facebookSocialConnectionRef } from "../publishing/targets/facebook-target-ref";
 import { EncryptionService } from "./encryption.service";
+import { FacebookOAuthStateStore } from "./facebook-oauth-state.store";
 
 /** Least-privilege Facebook Page permissions (dev milestone). */
 export const FACEBOOK_SCOPES: readonly string[] = [
@@ -26,6 +27,7 @@ export interface FacebookConnectionView {
   isValid: boolean;
   connectedAt: Date;
   lastTestedAt: Date | null;
+  expiresAt: Date | null;
 }
 
 export type FacebookCallbackResult =
@@ -42,14 +44,23 @@ export type PublishResult =
   | { success: false; reason: "expired" }
   | { success: false; reason: "error"; message: string };
 
-interface PendingOAuthState {
-  userId: string;
-  expiresAt: number;
+/** Sanitized Graph failure used by the approval/dispatch executor. */
+export class FacebookGraphError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: number,
+    message: string,
+    readonly errorSubcode?: number,
+  ) {
+    super(message.replace(/\s+/g, " ").slice(0, 500));
+    this.name = "FacebookGraphError";
+  }
 }
 
-interface PendingStartSession {
-  userId: string;
-  expiresAt: number;
+export interface FacebookPagePublishInput {
+  readonly userId: string;
+  readonly pageId: string;
+  readonly caption: string;
 }
 
 /**
@@ -64,32 +75,22 @@ interface PendingStartSession {
  * user, and redirects to Facebook.
  *
  * The `state` parameter sent to Facebook is a separate cryptographically
- * random token bound to the user and stored briefly in memory; the callback
- * validates and consumes it before any code exchange. Token validity is
- * checked reactively (at publish/test time): Graph error code 190
- * invalidates the connection and triggers the reconnect email.
- *
- * DEV MILESTONE NOTE: Both `oauthStates` and `startSessions` are stored in
- * plain in-memory Maps. This means:
- * - Server restarts lose all in-progress OAuth flows.
- * - Deploying multiple instances breaks OAuth (state created on instance A
- *   is not visible on instance B, where Facebook redirects the callback).
- * Migrate to Redis-backed storage before any multi-instance production
- * deployment.
+ * random token bound to the user and stored as a short-lived, single-use
+ * Redis value; the callback validates and consumes it before any code
+ * exchange. Token validity is checked reactively (at publish/test time):
+ * Graph error code 190 invalidates the connection and triggers the reconnect
+ * email.
  */
 @Injectable()
 export class FacebookService {
-  // DEV MILESTONE: in-memory Maps — migrate to Redis for production.
   private readonly logger = new Logger(FacebookService.name);
-  private readonly stateTtlMs = 10 * 60 * 1000;
-  private readonly oauthStates = new Map<string, PendingOAuthState>();
-  private readonly startSessions = new Map<string, PendingStartSession>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly encryption: EncryptionService,
     private readonly mailer: MailService,
+    private readonly oauthStateStore: FacebookOAuthStateStore,
   ) {}
 
   /**
@@ -97,20 +98,17 @@ export class FacebookService {
    * generated `state` is stored briefly so the callback can verify it and
    * resolve the owning user.
    */
-  buildAuthorizationUrl(userId: string): string {
+  async buildAuthorizationUrl(userId: string): Promise<string> {
     const appId = this.config.get<string>("facebook.appId") ?? "";
     const redirectUri = this.config.get<string>("facebook.redirectUri") ?? "";
-    const graphVersion = this.config.get<string>("facebook.graphVersion") ?? "v20.0";
+    const graphVersion =
+      this.config.get<string>("facebook.graphVersion") ?? "v20.0";
 
     if (!appId || !redirectUri) {
       throw new Error("Facebook app configuration is missing");
     }
 
-    const state = crypto.randomBytes(24).toString("base64url");
-    this.oauthStates.set(state, {
-      userId,
-      expiresAt: Date.now() + this.stateTtlMs,
-    });
+    const state = await this.oauthStateStore.createOAuthState(userId);
 
     const params = new URLSearchParams({
       client_id: appId,
@@ -127,22 +125,13 @@ export class FacebookService {
    * popup's GET /auth/facebook/start can identify the user without carrying
    * an Authorization header.
    */
-  createStartSession(userId: string): string {
-    const token = crypto.randomBytes(32).toString("base64url");
-    this.startSessions.set(token, {
-      userId,
-      expiresAt: Date.now() + this.stateTtlMs,
-    });
-    return token;
+  createStartSession(userId: string): Promise<string> {
+    return this.oauthStateStore.createStartSession(userId);
   }
 
   /** Validates and consumes a start session token; returns the userId. */
-  consumeStartSession(token: string | undefined): string | null {
-    if (!token) return null;
-    const session = this.startSessions.get(token);
-    this.startSessions.delete(token);
-    if (!session || session.expiresAt < Date.now()) return null;
-    return session.userId;
+  consumeStartSession(token: string | undefined): Promise<string | null> {
+    return this.oauthStateStore.consumeStartSession(token);
   }
 
   /**
@@ -154,21 +143,24 @@ export class FacebookService {
     code: string,
     state: string,
   ): Promise<FacebookCallbackResult> {
-    const pending = this.consumeState(state);
-    if (!pending) {
+    const userId = await this.oauthStateStore.consumeOAuthState(state);
+    if (!userId) {
       this.logger.warn("Facebook OAuth callback with invalid or expired state");
-      return { ok: false, error: "The connection request expired. Please try again." };
+      return {
+        ok: false,
+        error: "The connection request expired. Please try again.",
+      };
     }
 
     try {
-      const longLivedToken = await this.exchangeCodeForLongLivedToken(code);
-      const page = await this.fetchFirstPage(longLivedToken);
+      const exchange = await this.exchangeCodeForLongLivedToken(code);
+      const page = await this.fetchFirstPage(exchange.token);
 
       const encrypted = this.encryption.encrypt(page.accessToken);
       await this.prisma.socialConnection.upsert({
-        where: { userId: pending.userId },
+        where: { userId },
         create: {
-          userId: pending.userId,
+          userId,
           provider: "facebook",
           pageId: page.id,
           pageName: page.name,
@@ -177,6 +169,7 @@ export class FacebookService {
           authTag: encrypted.authTag,
           isValid: true,
           connectedAt: new Date(),
+          expiresAt: exchange.expiresAt,
         },
         update: {
           provider: "facebook",
@@ -188,11 +181,12 @@ export class FacebookService {
           isValid: true,
           connectedAt: new Date(),
           lastTestedAt: null,
+          expiresAt: exchange.expiresAt,
         },
       });
 
       this.logger.log(
-        `Facebook Page "${page.name}" connected for user ${pending.userId}`,
+        `Facebook Page "${page.name}" connected for user ${userId}`,
       );
       return { ok: true, pageName: page.name };
     } catch (error) {
@@ -220,6 +214,7 @@ export class FacebookService {
       isValid: connection.isValid,
       connectedAt: connection.connectedAt,
       lastTestedAt: connection.lastTestedAt,
+      expiresAt: connection.expiresAt,
     };
   }
 
@@ -280,8 +275,97 @@ export class FacebookService {
     }
   }
 
-  /** Deletes the user's SocialConnection row. */
+  /**
+   * Provider-facing Facebook text publish. Unlike the owner test route this
+   * method preserves a sanitized Graph error so the publishing executor can
+   * classify it as failed versus unknown without exposing token material.
+   */
+  async publishTextForUser(input: FacebookPagePublishInput): Promise<{
+    remotePublicationId: string;
+    remoteUrl: string | null;
+  }> {
+    try {
+      const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+      const response = await axios.post(this.graphUrl(`${input.pageId}/feed`), {
+        message: input.caption,
+        access_token: pageToken,
+      });
+      const remotePublicationId = String(response.data?.id ?? "");
+      if (!remotePublicationId) {
+        throw new FacebookGraphError(
+          200,
+          0,
+          "page feed response carried no post id",
+        );
+      }
+      await this.markConnectionTested(input.userId);
+      return {
+        remotePublicationId,
+        remoteUrl: await this.permalinkForPagePost(
+          remotePublicationId,
+          pageToken,
+        ),
+      };
+    } catch (error) {
+      await this.invalidateOnExpiredToken(input.userId, error);
+      throw this.normalizeGraphError(error);
+    }
+  }
+
+  /** Provider-facing Facebook image publish using PR #193's connection. */
+  async publishPhotoForUser(input: {
+    userId: string;
+    pageId: string;
+    imageUrl: string;
+    caption: string;
+  }): Promise<FacebookPhotoPublishResult> {
+    try {
+      const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+
+      const result = await this.publishPhotoViaPageToken({
+        pageToken,
+        pageId: input.pageId,
+        imageUrl: input.imageUrl,
+        caption: input.caption,
+      });
+      await this.markConnectionTested(input.userId);
+      return result;
+    } catch (error) {
+      await this.invalidateOnExpiredToken(input.userId, error);
+      throw this.normalizeGraphError(error);
+    }
+  }
+
+  /**
+   * Deletes the user's SocialConnection row and expires any bridged publishing
+   * target that still references it, so a stale target can never remain
+   * selectable or approvable after the owner disconnects.
+   */
   async disconnect(userId: string): Promise<void> {
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (connection) {
+      const reference = facebookSocialConnectionRef(connection.id);
+      const expired = await this.prisma.publishingTarget.updateMany({
+        where: {
+          credentialRef: reference,
+          connectionState: "CONNECTED",
+        },
+        data: {
+          connectionState: "EXPIRED",
+          version: { increment: 1 },
+        },
+      });
+      if (expired.count > 0) {
+        this.logger.log(
+          `Expired ${expired.count} bridged Facebook publishing target(s) on disconnect`,
+        );
+      }
+    }
+
     await this.prisma.socialConnection.deleteMany({
       where: { userId },
     });
@@ -321,26 +405,142 @@ export class FacebookService {
     }
     let remoteUrl: string | null = null;
     try {
-      const linkResponse = await axios.get<{ link?: string }>(
-        this.graphUrl(String(remotePublicationId)),
-        { params: { fields: "link", access_token: params.pageToken } },
-      );
-      remoteUrl = linkResponse.data?.link ?? null;
-    } catch {
+      const linkResponse = await axios.get<{
+        permalink_url?: string;
+        link?: string;
+      }>(this.graphUrl(String(remotePublicationId)), {
+        params: {
+          fields: "permalink_url,link",
+          access_token: params.pageToken,
+        },
+      });
+      remoteUrl =
+        linkResponse.data?.permalink_url ?? linkResponse.data?.link ?? null;
+    } catch (error) {
       // Permalink is best-effort after a confirmed publish.
+      this.logger.warn(
+        `Facebook permalink lookup failed for ${remotePublicationId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
     return { remotePublicationId, remoteUrl };
   }
 
-  private consumeState(state: string): PendingOAuthState | null {
-    const pending = this.oauthStates.get(state);
-    if (!pending) return null;
-    this.oauthStates.delete(state);
-    if (pending.expiresAt < Date.now()) return null;
-    return pending;
+  /** Resolves a Page token without returning it to a controller or browser. */
+  private async pageTokenForUser(
+    userId: string,
+    pageId: string,
+  ): Promise<string> {
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { userId },
+    });
+    if (!connection || connection.provider !== "facebook") {
+      throw new FacebookGraphError(
+        401,
+        FACEBOOK_INVALID_TOKEN_CODE,
+        "Facebook Page connection is not available for this target",
+      );
+    }
+    if (!connection.isValid || connection.pageId !== pageId) {
+      throw new FacebookGraphError(
+        401,
+        FACEBOOK_INVALID_TOKEN_CODE,
+        "Facebook Page connection is not valid for this target",
+      );
+    }
+    try {
+      return this.encryption.decrypt(
+        connection.encryptedToken,
+        connection.encryptionIv,
+        connection.authTag,
+      );
+    } catch {
+      throw new FacebookGraphError(
+        0,
+        0,
+        "Facebook Page credential could not be read",
+      );
+    }
   }
 
-  private async exchangeCodeForLongLivedToken(code: string): Promise<string> {
+  private async markConnectionTested(userId: string): Promise<void> {
+    await this.prisma.socialConnection.update({
+      where: { userId },
+      data: { lastTestedAt: new Date() },
+    });
+  }
+
+  private async invalidateOnExpiredToken(
+    userId: string,
+    error: unknown,
+  ): Promise<void> {
+    const isExpired =
+      error instanceof FacebookGraphError
+        ? error.code === FACEBOOK_INVALID_TOKEN_CODE
+        : this.isGraphErrorCode(error, FACEBOOK_INVALID_TOKEN_CODE);
+    if (!isExpired) return;
+    const invalidated = await this.prisma.socialConnection.updateMany({
+      where: { userId },
+      data: { isValid: false },
+    });
+    if (invalidated.count > 0) {
+      await this.mailer.sendFacebookExpiredEmail(userId);
+    }
+  }
+
+  private normalizeGraphError(error: unknown): FacebookGraphError {
+    if (error instanceof FacebookGraphError) return error;
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as {
+        error?: { code?: number; error_subcode?: number; message?: string };
+      };
+      return new FacebookGraphError(
+        error.response?.status ?? 0,
+        Number(data?.error?.code ?? 0),
+        data?.error?.message ?? "Facebook Graph request failed",
+        data?.error?.error_subcode
+          ? Number(data.error.error_subcode)
+          : undefined,
+      );
+    }
+    if (error instanceof NotFoundException) throw error;
+    return new FacebookGraphError(
+      0,
+      0,
+      error instanceof Error ? error.message : "Facebook Graph request failed",
+    );
+  }
+
+  private async permalinkForPagePost(
+    postId: string,
+    pageToken: string,
+  ): Promise<string | null> {
+    try {
+      const response = await axios.get<{
+        permalink_url?: string;
+        link?: string;
+      }>(this.graphUrl(postId), {
+        params: {
+          fields: "permalink_url,link",
+          access_token: pageToken,
+        },
+      });
+      return response.data?.permalink_url ?? response.data?.link ?? null;
+    } catch (error) {
+      this.logger.warn(
+        `Facebook permalink lookup failed for ${postId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private async exchangeCodeForLongLivedToken(code: string): Promise<{
+    token: string;
+    expiresAt: Date | null;
+  }> {
     const appId = this.config.get<string>("facebook.appId") ?? "";
     const appSecret = this.config.get<string>("facebook.appSecret") ?? "";
     const redirectUri = this.config.get<string>("facebook.redirectUri") ?? "";
@@ -361,22 +561,27 @@ export class FacebookService {
       throw new Error("No access_token returned for the authorization code");
     }
 
-    const longLived = await axios.get<{ access_token?: string }>(
-      this.graphUrl("oauth/access_token"),
-      {
-        params: {
-          grant_type: "fb_exchange_token",
-          client_id: appId,
-          client_secret: appSecret,
-          fb_exchange_token: shortToken,
-        },
+    const longLived = await axios.get<{
+      access_token?: string;
+      expires_in?: number;
+    }>(this.graphUrl("oauth/access_token"), {
+      params: {
+        grant_type: "fb_exchange_token",
+        client_id: appId,
+        client_secret: appSecret,
+        fb_exchange_token: shortToken,
       },
-    );
+    });
     const longToken = longLived.data?.access_token;
     if (!longToken) {
       throw new Error("No access_token returned from token exchange");
     }
-    return longToken;
+    const expiresInSeconds = longLived.data?.expires_in;
+    const expiresAt =
+      Number.isFinite(expiresInSeconds) && (expiresInSeconds as number) > 0
+        ? new Date(Date.now() + (expiresInSeconds as number) * 1000)
+        : null;
+    return { token: longToken, expiresAt };
   }
 
   private async fetchFirstPage(longLivedToken: string): Promise<{
@@ -404,7 +609,9 @@ export class FacebookService {
   }
 
   private graphUrl(path: string): string {
-    const base = this.config.get<string>("facebook.graphBaseUrl") ?? "https://graph.facebook.com";
+    const base =
+      this.config.get<string>("facebook.graphBaseUrl") ??
+      "https://graph.facebook.com";
     const version = this.config.get<string>("facebook.graphVersion") ?? "v20.0";
     return `${base}/${version}/${path}`;
   }

@@ -135,6 +135,7 @@ export type ContentCurrentWeekWorkspaceV2 = {
     | "generate"
     | "review_pack"
     | "retry"
+    | "regenerate"
     | "none";
 };
 

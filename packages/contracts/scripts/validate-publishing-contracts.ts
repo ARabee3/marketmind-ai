@@ -332,6 +332,15 @@ async function run(): Promise<void> {
     null,
   );
   assert.equal(firstCode(validatePublishingTargetV1(target)), null);
+  const facebookTextTarget = structuredClone(target) as PublishingTargetV1 & {
+    capabilities: Array<"static_image" | "text">;
+  };
+  facebookTextTarget.capabilities = ["static_image", "text"];
+  assert.equal(
+    firstCode(validatePublishingTargetV1(facebookTextTarget)),
+    null,
+    "Facebook target may advertise both image and text publishing",
+  );
   assert.equal(firstCode(validatePublicationIntentV1(intent)), null);
   assert.equal(
     firstCode(validatePublicationApprovalSnapshotV1(approval)),

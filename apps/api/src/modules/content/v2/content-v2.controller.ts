@@ -295,6 +295,15 @@ export class ContentV2Controller {
     );
   }
 
+  @Post("content-packs/:id/regenerate")
+  @Permissions(PERMISSIONS.CONTENT_START)
+  regenerateFailedPack(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.contentV2Service.regenerateFailedPack(id, req.user.id);
+  }
+
   @Get("content-cycles/:id/week-plans")
   @Permissions(PERMISSIONS.CONTENT_START)
   listWeekPlans(

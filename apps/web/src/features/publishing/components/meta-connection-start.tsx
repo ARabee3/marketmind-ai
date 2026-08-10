@@ -1,60 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
 import { ArrowLeft, Link2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Link } from "@/i18n/navigation";
-import {
-  connectMetaPublishingTarget,
-  type PublishingApiError,
-} from "@/lib/api/publishing";
-import { getConnectionFingerprint } from "../lib/publishing-state";
+import { Link, useRouter } from "@/i18n/navigation";
+import { connectMeta } from "@/lib/api/facebook";
+
+function safeReturnPath(value: string | null): string {
+  if (
+    value === "/publishing" ||
+    value?.startsWith("/publishing/") ||
+    value?.startsWith("/publishing?")
+  ) {
+    return value;
+  }
+  return "/publishing";
+}
 
 /**
- * Issue #175 — step 1 of the guided Meta connection journey.
+ * Facebook-only publishing connection entry point. PR #193 owns the OAuth
+ * popup and persists the encrypted Page connection; this page only starts it
+ * and returns the owner to the publishing workspace.
  *
  * Explains what gets connected (and that MarketMind never sees a Facebook
- * password), then POSTs the initiation boundary. The API returns only a
- * connection id + authorization URL; this page redirects the browser to Meta
- * and NEVER handles an authorization code, token, or credential reference.
+ * password), then opens the PR #193 popup flow. The page never handles an
+ * authorization code, token, or credential reference.
  */
 export function MetaConnectionStart() {
   const t = useTranslations("Publishing.meta");
   const tc = useTranslations("Common");
-  const locale = useLocale();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = useMemo(
+    () => safeReturnPath(searchParams.get("return")),
+    [searchParams],
+  );
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<"unavailable" | "unknown" | null>(null);
+  const [error, setError] = useState<boolean>(false);
 
   async function start() {
     setStarting(true);
-    setError(null);
+    setError(false);
     try {
-      const response = await connectMetaPublishingTarget({
-        channel: "facebook",
-        locale,
-        returnPath: "/publishing",
-        fingerprint: getConnectionFingerprint(),
-      });
-      window.location.assign(response.authorization_url);
-    } catch (err) {
-      const code = (err as PublishingApiError)?.code ?? "";
-      setError(
-        code === "PUBLISHING_META_NOT_CONFIGURED" ? "unavailable" : "unknown",
-      );
+      await connectMeta();
+      router.replace(returnPath);
+    } catch {
+      setError(true);
       setStarting(false);
     }
   }
 
   const errorTone: {
-    title: "unavailableTitle" | "resultUnknownTitle";
-    body: "unavailableBody" | "resultUnknownBody";
+    title: "resultUnknownTitle";
+    body: "resultUnknownBody";
   } | null = error
-    ? error === "unavailable"
-      ? { title: "unavailableTitle", body: "unavailableBody" }
-      : { title: "resultUnknownTitle", body: "resultUnknownBody" }
+    ? { title: "resultUnknownTitle", body: "resultUnknownBody" }
     : null;
 
   return (
@@ -75,7 +78,6 @@ export function MetaConnectionStart() {
           {(
             [
               "connectItemPage",
-              "connectItemInstagram",
               "connectItemFormats",
               "connectItemToken",
             ] as const
@@ -100,10 +102,6 @@ export function MetaConnectionStart() {
           <li className="flex items-start gap-2">
             <span className="mt-2 size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
             {t("prereqPage")}
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
-            {t("prereqInstagram")}
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-2 size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
@@ -142,7 +140,7 @@ export function MetaConnectionStart() {
           {starting ? tc("loading") : t("startButton")}
         </Button>
         <Link
-          href="/publishing"
+          href={returnPath}
           className={cn(buttonVariants({ variant: "outline" }), "gap-2")}
         >
           <ArrowLeft className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />

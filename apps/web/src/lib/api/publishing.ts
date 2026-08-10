@@ -151,16 +151,22 @@ function arrayValue(value: unknown, ...keys: string[]): readonly unknown[] {
 
 function normalizeMode(value: unknown): PublishingMode {
   const mode = lower(value);
-  if (mode === "manual_export" || mode === "simulation") return mode;
-  return "real";
+  if (mode === "real" || mode === "manual_export" || mode === "simulation") {
+    return mode;
+  }
+  throw new Error("Publishing response contained an unsupported mode.");
 }
 
 function normalizeCandidateState(
   value: unknown,
 ): "active" | "revoked" | "replaced" {
   const state = lower(value);
-  if (state === "revoked" || state === "replaced") return state;
-  return "active";
+  if (state === "active" || state === "revoked" || state === "replaced") {
+    return state;
+  }
+  throw new Error(
+    "Publishing response contained an unsupported candidate state.",
+  );
 }
 
 function normalizeCandidatePayload(value: unknown): PublicationCandidateV1 {
@@ -204,17 +210,37 @@ export function toPublishingCandidate(
 
 export function toPublishingTarget(value: unknown): PublishingTargetPublicV1 {
   const raw = asRecord(value);
+  const targetId = requiredTargetString(
+    valueFrom(raw, "target_id", "targetId", "id"),
+    "target id",
+  );
+  if (lower(raw.provider) !== "meta") {
+    throw new Error(
+      "Publishing target response contained an unsupported provider.",
+    );
+  }
+  const businessId = requiredTargetString(
+    valueFrom(raw, "business_id", "businessId"),
+    "business id",
+  );
+  const channel = normalizeTargetChannel(raw.channel);
+  const externalAccountId = requiredTargetString(
+    valueFrom(raw, "external_account_id", "externalAccountId"),
+    "external account id",
+  );
+  const displayName = requiredTargetString(
+    valueFrom(raw, "display_name", "displayName"),
+    "display name",
+  );
   return {
     contract_version: "publishing-target-v1",
-    target_id: String(valueFrom(raw, "target_id", "targetId", "id") ?? ""),
+    target_id: targetId,
     version: numberValue(raw.version, 1),
-    business_id: String(valueFrom(raw, "business_id", "businessId") ?? ""),
+    business_id: businessId,
     provider: "meta",
-    channel: lower(raw.channel) === "instagram" ? "instagram" : "facebook",
-    external_account_id: String(
-      valueFrom(raw, "external_account_id", "externalAccountId") ?? "",
-    ),
-    display_name: String(valueFrom(raw, "display_name", "displayName") ?? ""),
+    channel,
+    external_account_id: externalAccountId,
+    display_name: displayName,
     connection_state: normalizeTargetState(
       valueFrom(raw, "connection_state", "connectionState"),
     ),
@@ -229,24 +255,54 @@ function normalizeTargetState(
   value: unknown,
 ): "connected" | "expired" | "revoked" | "error" {
   const state = lower(value);
-  if (state === "expired" || state === "revoked" || state === "error")
+  if (
+    state === "connected" ||
+    state === "expired" ||
+    state === "revoked" ||
+    state === "error"
+  ) {
     return state;
-  return "connected";
+  }
+  throw new Error("Publishing target response contained an unsupported state.");
 }
 
-function normalizeCapabilities(value: unknown): readonly ["static_image"] {
+function normalizeTargetChannel(value: unknown): "facebook" | "instagram" {
+  const channel = lower(value);
+  if (channel === "facebook" || channel === "instagram") return channel;
+  throw new Error(
+    "Publishing target response contained an unsupported channel.",
+  );
+}
+
+function requiredTargetString(value: unknown, label: string): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+  throw new Error(`Publishing target response is missing ${label}.`);
+}
+
+function normalizeCapabilities(
+  value: unknown,
+): PublishingTargetPublicV1["capabilities"] {
   const capabilities = Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
+    ? value.filter(
+        (entry): entry is "static_image" | "text" =>
+          entry === "static_image" || entry === "text",
+      )
     : [];
-  return capabilities.includes("static_image")
-    ? ["static_image"]
-    : ["static_image"];
+  if (capabilities.length === 0) {
+    throw new Error(
+      "Publishing target response does not advertise a supported capability.",
+    );
+  }
+  return [...new Set(capabilities)];
 }
 
 export function toPublishingIntent(value: unknown): PublicationIntentV1 {
   const raw = asRecord(
     unwrap(value, "publication_intent", "publicationIntent"),
   );
+  const candidate = asRecord(valueFrom(raw, "candidate"));
   const scheduledUtc = dateValue(
     valueFrom(raw, "scheduled_utc", "scheduledUtcAt"),
   );
@@ -266,7 +322,9 @@ export function toPublishingIntent(value: unknown): PublicationIntentV1 {
     business_id: String(valueFrom(raw, "business_id", "businessId") ?? ""),
     candidate_id: String(valueFrom(raw, "candidate_id", "candidateId") ?? ""),
     candidate_checksum: String(
-      valueFrom(raw, "candidate_checksum", "candidateChecksum") ?? "",
+      valueFrom(raw, "candidate_checksum", "candidateChecksum") ??
+        valueFrom(candidate, "candidate_checksum", "candidateChecksum") ??
+        "",
     ),
     mode: normalizeMode(raw.mode),
     target_id: nullableString(valueFrom(raw, "target_id", "targetId")),
@@ -296,6 +354,7 @@ function normalizeTimeZone(value: unknown): "Africa/Cairo" | null {
 function normalizeIntentState(value: unknown): PublicationIntentV1["state"] {
   const state = lower(value);
   if (
+    state === "draft" ||
     state === "awaiting_approval" ||
     state === "scheduled" ||
     state === "dispatching" ||
@@ -306,7 +365,7 @@ function normalizeIntentState(value: unknown): PublicationIntentV1["state"] {
   ) {
     return state;
   }
-  return "draft";
+  throw new Error("Publishing response contained an unsupported intent state.");
 }
 
 export function toPublishingApproval(
@@ -544,6 +603,7 @@ export function toPublishingResult(value: unknown): PublicationResultV1 {
 function normalizeOutcome(value: unknown): PublicationResultV1["outcome"] {
   const outcome = lower(value);
   if (
+    outcome === "published" ||
     outcome === "exported" ||
     outcome === "simulated" ||
     outcome === "failed" ||
@@ -552,7 +612,7 @@ function normalizeOutcome(value: unknown): PublicationResultV1["outcome"] {
   ) {
     return outcome;
   }
-  return "published";
+  return "failed";
 }
 
 export function toPublishingIntentDetail(

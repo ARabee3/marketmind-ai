@@ -65,6 +65,8 @@ PLAN_ALIGNMENT_RULES = """
 - Ground each item in its card's purpose, owner_instructions, visual_direction, CTA, and selected media.
 - When a card selects a CTA, preserve its destination value byte-for-byte in every non-null CTA field. When it does not select a CTA, return null CTA fields.
 - Return each hashtag as one array element beginning with # and containing no whitespace. Google Business Profile cards must use an empty hashtag array.
+- Include short_video_script only when the card format is short_video_script. Return null for every other format.
+- Before returning, remove price, availability, superiority, testimonial, and competitor-comparison wording unless an exact approved grounding value supports it and claim_sources identifies that matching type and source path.
 - Do not add, drop, reorder, or merge cards. Do not change a card's channel or format.
 """
 
@@ -548,7 +550,14 @@ def _normalize_v2_generated_items(
             if normalized_variants
             else _normalize_hashtags(item.channel, item.hashtags)
         )
-        short_video_script = item.short_video_script
+        # The frozen card owns the format. A provider-added script on a
+        # non-video card is inert shape noise and can be discarded safely;
+        # missing scripts on actual video cards still fail closed below.
+        short_video_script = (
+            item.short_video_script
+            if plan.format == "short_video_script"
+            else None
+        )
         if short_video_script is not None:
             script_locale = (
                 normalized_variants[0].locale

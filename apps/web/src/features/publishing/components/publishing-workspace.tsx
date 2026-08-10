@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, RefreshCw, ShieldCheck } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type {
@@ -26,11 +26,14 @@ import {
   reschedulePublishingIntent,
   retryPublishingIntent,
   schedulePublishingIntent,
-  verifyPublishingTarget,
   type PublishingExportState,
   type PublishingIntentDetailView,
 } from "@/lib/api/publishing";
-import { activeIntentForCandidate } from "../lib/publishing-state";
+import {
+  activeIntentForCandidate,
+  publishingStatusRefreshDelay,
+  realIntentForCandidate,
+} from "../lib/publishing-state";
 import { ImmutableCandidatePreview } from "./immutable-candidate-preview";
 import { PublicationAttemptHistory } from "./publication-attempt-history";
 import { PublishingCandidateQueue } from "./publishing-candidate-queue";
@@ -76,6 +79,7 @@ export function PublishingWorkspace({
     null,
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
 
   const load = useCallback(async () => {
     const [journey, candidates, intents, targets] = await Promise.all([
@@ -178,6 +182,66 @@ export function PublishingWorkspace({
     (selectedCandidate && data
       ? activeIntentForCandidate(selectedCandidate, data.intents)
       : null);
+  const realIntent =
+    selectedCandidate && data
+      ? realIntentForCandidate(selectedCandidate, data.intents)
+      : null;
+  const intentState = intent?.state ?? null;
+  const intentScheduledUtc = intent?.scheduled_utc ?? null;
+
+  useEffect(() => {
+    const statusSnapshot = intentState
+      ? { state: intentState, scheduled_utc: intentScheduledUtc }
+      : null;
+    if (
+      !intentId ||
+      publishingStatusRefreshDelay(statusSnapshot) === null
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | undefined;
+
+    const poll = async () => {
+      if (
+        cancelled ||
+        document.visibilityState === "hidden" ||
+        refreshInFlight.current
+      ) {
+        return;
+      }
+
+      refreshInFlight.current = true;
+      try {
+        await refresh();
+      } finally {
+        refreshInFlight.current = false;
+      }
+    };
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = publishingStatusRefreshDelay(statusSnapshot);
+      if (delay === null) return;
+      timeoutId = window.setTimeout(() => {
+        void poll().finally(scheduleNext);
+      }, delay);
+    };
+
+    const refreshOnReturn = () => void poll();
+    scheduleNext();
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
+  }, [intentId, intentScheduledUtc, intentState, refresh]);
+
   const detail = data?.detail ?? null;
   const currentWeek =
     data?.journey.content?.cycle?.current_week ?? selectedWeek;
@@ -197,8 +261,12 @@ export function PublishingWorkspace({
   function selectCandidate(candidate: PublicationCandidateSummaryV1) {
     setSelectedCandidateId(candidate.candidate.candidate_id);
     setSelectedWeek(candidate.candidate.strategy_week_number);
-    if (candidate.active_intent_id) {
-      router.push(`/publishing/${candidate.active_intent_id}`);
+    const candidateIntent = activeIntentForCandidate(
+      candidate,
+      data?.intents ?? [],
+    );
+    if (candidateIntent) {
+      router.push(`/publishing/${candidateIntent.intent_id}`);
       return;
     }
     if (typeof window !== "undefined") {
@@ -218,8 +286,14 @@ export function PublishingWorkspace({
     if (mode !== "real") {
       try {
         await dispatchPublishingLocalAction(created);
-      } finally {
         router.push(`/publishing/${created.intent_id}`);
+      } catch (error) {
+        // Keep the owner on the selected candidate when the local action
+        // fails. Refreshing here exposes the created intent so the user can
+        // retry or choose another local action instead of being routed to a
+        // blank/stale detail page by a finally block.
+        await refresh().catch(() => undefined);
+        throw error;
       }
       return created;
     }
@@ -267,16 +341,26 @@ export function PublishingWorkspace({
     // Issue #175: the guided Meta connection journey (explain → Meta OAuth →
     // choose accounts → ready) lives on its own page; the workspace never
     // handles an authorization code or token.
-    router.push("/publishing/meta/connect");
+    const returnPath = intentId
+      ? `/publishing/${intentId}`
+      : (() => {
+          const params = new URLSearchParams();
+          params.set("week", String(selectedWeek));
+          if (selectedCandidateId) {
+            params.set("candidate", selectedCandidateId);
+          }
+          return `/publishing?${params.toString()}`;
+        })();
+    router.push(
+      `/publishing/meta/connect?return=${encodeURIComponent(returnPath)}`,
+    );
   }
 
-  async function verifyTarget(target: PublishingTargetPublicV1) {
-    try {
-      await verifyPublishingTarget(target);
-      await refresh();
-    } catch {
-      setNotice(t("error.unknown"));
-    }
+  function continueWithCandidate() {
+    if (!selectedCandidate) return;
+    router.push(
+      `/publishing?week=${selectedCandidate.candidate.strategy_week_number}&candidate=${selectedCandidate.candidate.candidate_id}`,
+    );
   }
 
   if (state.phase === "loading") {
@@ -401,15 +485,25 @@ export function PublishingWorkspace({
             onRetry={retryIntent}
             onRefresh={refresh}
             onConnect={() => connectTarget()}
+            onContinue={continueWithCandidate}
+            realIntentExists={Boolean(realIntent)}
           />
           {detail ? (
             <PublicationOutcomePanel
               detail={detail}
               exportState={data.exportState}
-              onRefresh={() => void refresh()}
             />
           ) : null}
-          {detail ? <PublicationAttemptHistory detail={detail} /> : null}
+          {detail ? (
+            <details className="rounded-xl border border-border bg-surface p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
+                {t("history.showDetails")}
+              </summary>
+              <div className="mt-4">
+                <PublicationAttemptHistory detail={detail} />
+              </div>
+            </details>
+          ) : null}
         </div>
         <aside className="grid gap-5 lg:sticky lg:top-24">
           <PublicationReadiness
@@ -418,26 +512,7 @@ export function PublishingWorkspace({
             targets={data.targets}
             intent={intent}
             onConnect={() => connectTarget()}
-            onVerify={(target) => void verifyTarget(target)}
           />
-          <section className="grid gap-3 rounded-xl border border-border bg-surface p-5 shadow-elevated">
-            <PublishingBadge tone="neutral">
-              {t("header.badge")}
-            </PublishingBadge>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {t("header.subtitle")}
-            </p>
-            {data.journey.generated_at ? (
-              <p className="text-xs text-muted-foreground">
-                {t("readiness.lastChecked", {
-                  time: format.dateTime(new Date(data.journey.generated_at), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }),
-                })}
-              </p>
-            ) : null}
-          </section>
         </aside>
       </div>
     </section>

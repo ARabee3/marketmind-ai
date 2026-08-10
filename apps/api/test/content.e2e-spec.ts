@@ -51,6 +51,12 @@ process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
 process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
 process.env.GOOGLE_CALLBACK_URL =
   "http://localhost:3001/api/v1/auth/google/callback";
+process.env.FB_APP_ID = "test-facebook-app-id";
+process.env.FB_APP_SECRET = "test-facebook-app-secret";
+process.env.FB_REDIRECT_URI =
+  "http://localhost:3001/api/v1/auth/facebook/callback";
+process.env.TOKEN_ENCRYPTION_KEY =
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 process.env.DATABASE_URL =
   process.env.DATABASE_URL ||
   "postgresql://marketmind:marketmind_dev@localhost:5432/marketmind_dev?schema=public";

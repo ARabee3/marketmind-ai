@@ -301,9 +301,9 @@ export function ContentCycleEntry() {
       body = tEntry("contentV2RequiredBody");
       actionLabel = tEntry("noStrategyStartAction");
     } else if (blockerKey === "provenance_mismatch") {
-      title = tEntry("staleProfileTitle");
-      body = tEntry("staleProfileBody");
-      actionLabel = tEntry("staleProfileAction");
+      title = tEntry("provenanceMismatchTitle");
+      body = tEntry("provenanceMismatchBody");
+      actionLabel = tEntry("provenanceMismatchAction");
     }
 
     return (

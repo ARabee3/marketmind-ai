@@ -12,7 +12,7 @@ import { MetaGraphClient } from "../../meta/meta-graph.client";
 import { MetaOAuthStateStore } from "../../meta/meta-oauth-state.store";
 
 const VAULT_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 function makeConfig(overrides: Record<string, string> = {}) {
   const map: Record<string, string> = {

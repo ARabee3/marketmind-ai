@@ -67,13 +67,10 @@ services:
       PUBLISHING_N8N_SIGNING_SECRET: ${PUBLISHING_N8N_SIGNING_SECRET:-}
       PUBLISHING_N8N_SIGNING_KID: ${PUBLISHING_N8N_SIGNING_KID:-}
       # Token the workflow sends as `x-publishing-internal-token` when
-      # fetching dispatch asset bytes from the API's internal route. Must
-      # match apps/api/.env PUBLISHING_INTERNAL_SERVICE_TOKEN.
+      # calling the API-owned Meta executor. Must match apps/api/.env.
       PUBLISHING_INTERNAL_SERVICE_TOKEN: ${PUBLISHING_INTERNAL_SERVICE_TOKEN:-}
-      # Real Meta adapter test-page identity + access token. Must match
-      # apps/api/.env META_TEST_* values for the live publish verification.
-      META_TEST_PAGE_ID: ${META_TEST_PAGE_ID:-}
-      META_TEST_PAGE_ACCESS_TOKEN: ${META_TEST_PAGE_ACCESS_TOKEN:-}
+      # Host API base URL used by the server-side Meta executor and callback.
+      PUBLISHING_CALLBACK_BASE_URL: ${PUBLISHING_CALLBACK_BASE_URL:-}
       # The workflow reads `$env` in Code nodes (Check Auth, Sign Callback,
       # Verify Signature, Real Meta Adapter). n8n blocks $env by default.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
@@ -84,6 +81,9 @@ services:
       NODE_FUNCTION_ALLOW_BUILTIN: "crypto,http,https"
     volumes:
       - marketmind_n8n_data:/home/node/.n8n
+      - ../n8n/bootstrap.sh:/opt/marketmind/bootstrap.sh:ro
+      - ../n8n/workflows:/opt/marketmind/workflows:ro
+    entrypoint: ["/bin/sh", "/opt/marketmind/bootstrap.sh"]
 
 volumes:
   marketmind_pgdata:

@@ -1,4 +1,108 @@
 import { IntentsService } from "../intents.service";
+import { PublishingMode } from "../intents.dto";
+
+describe("IntentsService.createIntent", () => {
+  const candidateId = "22222222-2222-4222-8222-222222222222";
+  const businessId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  function context(existingReal: unknown = null) {
+    const created = {
+      id: "11111111-1111-4111-8111-111111111111",
+      candidateId,
+      businessId,
+      mode: "REAL",
+      status: "DRAFT",
+    };
+    const tx = {
+      publishingCandidate: {
+        findUnique: jest.fn().mockResolvedValue({
+          businessId,
+          status: "ACTIVE",
+        }),
+      },
+      publishingIntent: {
+        findFirst: jest.fn().mockResolvedValue(existingReal),
+        create: jest.fn().mockResolvedValue(created),
+      },
+    };
+    const prisma = {
+      publishingIntent: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(async (cb: (client: typeof tx) => unknown) =>
+        cb(tx),
+      ),
+    } as any;
+    return {
+      service: new IntentsService(prisma, {} as any, {} as any),
+      tx,
+    };
+  }
+
+  it("allows local export and simulation intents without consuming the real slot", async () => {
+    for (const mode of [
+      PublishingMode.MANUAL_EXPORT,
+      PublishingMode.SIMULATION,
+    ]) {
+      const { service, tx } = context();
+      await service.createIntent(businessId, "owner-1", {
+        candidateId,
+        mode,
+        idempotencyKey: `create-${mode}`,
+      });
+      expect(tx.publishingIntent.findFirst).not.toHaveBeenCalled();
+      expect(tx.publishingIntent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ candidateId, mode }),
+      });
+    }
+  });
+
+  it("checks only existing REAL lifecycles before creating a real intent", async () => {
+    const { service, tx } = context();
+    await service.createIntent(businessId, "owner-1", {
+      candidateId,
+      mode: PublishingMode.REAL,
+      idempotencyKey: "create-real",
+    });
+    expect(tx.publishingIntent.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        businessId,
+        candidateId,
+        mode: "REAL",
+      }),
+    });
+  });
+});
+
+describe("IntentsService.getIntent", () => {
+  it("projects the candidate checksum required by the approval contract", async () => {
+    const prisma = {
+      publishingIntent: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "11111111-1111-4111-8111-111111111111",
+          businessId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          candidateId: "22222222-2222-4222-8222-222222222222",
+          version: 2,
+          mode: "REAL",
+          status: "AWAITING_APPROVAL",
+          candidate: {
+            candidateChecksum: "a".repeat(64),
+            payload: { caption: "private candidate relation" },
+          },
+          target: null,
+          approvals: [],
+        }),
+      },
+    } as any;
+    const service = new IntentsService(prisma, {} as any, {} as any);
+
+    const result = await service.getIntent(
+      "11111111-1111-4111-8111-111111111111",
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+
+    expect(result.candidateChecksum).toBe("a".repeat(64));
+    expect(result.candidate).toBeUndefined();
+  });
+});
 
 describe("IntentsService.retryIntent", () => {
   it("uses a new stable BullMQ job id instead of the retained original job id", async () => {

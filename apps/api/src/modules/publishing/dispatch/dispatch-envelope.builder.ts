@@ -11,6 +11,7 @@ import {
   type PublicationCandidateV1,
   type PublicationDispatchAssetV1,
   type PublicationDispatchBodyV1,
+  type PublishingCapability,
   type PublishingTargetV1,
   type SignedPublicationDispatchEnvelopeV1,
 } from "@marketmind/contracts";
@@ -54,9 +55,9 @@ export interface DispatchAssemblyInput {
   retrievalStartedAt?: Date;
 }
 
-/** Far-future (1h) retrieval expiry used while the signed-URL asset boundary
- *  (#121) lands. The retrieval_url points at the frozen internal asset route,
- *  which #121 serves with provider provenance. */
+/** Far-future (1h) retrieval expiry for the signed internal asset route. The
+ *  route resolves approved Content media through the shared storage port and
+ *  remains bounded by the signed dispatch envelope. */
 const ASSET_RETRIEVAL_TTL_MS = 60 * 60 * 1000;
 
 /**
@@ -93,7 +94,8 @@ export class DispatchEnvelopeBuilder {
   } {
     const operation = publicationOperationForMode(
       "real",
-    ) as "meta.publish_static_image";
+      input.candidate.content_format,
+    ) as "meta.publish_static_image" | "meta.publish_text";
 
     // Approval snapshot — canonical fingerprint over every material field
     // (mirrors publication-approval-v1). Computed by the frozen contract helper
@@ -124,8 +126,9 @@ export class DispatchEnvelopeBuilder {
     };
 
     // Immutable target snapshot (lowercase connection_state to match the
-    // frozen enum). credentialRef travels in the body so n8n resolves the
-    // secret from its own store — it is never put on the browser.
+    // frozen enum). credentialRef travels in the body as an opaque pointer;
+    // for PR #193 Facebook targets it identifies a SocialConnection row, not
+    // a token. It is never put on the browser.
     const target: PublishingTargetV1 = {
       contract_version: "publishing-target-v1",
       target_id: input.target.id,
@@ -147,9 +150,8 @@ export class DispatchEnvelopeBuilder {
         : null,
     };
 
-    // Assets with the frozen internal retrieval route (real signed URLs land
-    // with #121). The retrieval_expires_at is bounded so a stale URL is never
-    // accepted as live.
+    // Assets with the frozen internal retrieval route. The
+    // retrieval_expires_at is bounded so a stale URL is never accepted as live.
     const retrievalExpiresAt = new Date(
       (input.retrievalStartedAt ?? new Date()).getTime() +
         ASSET_RETRIEVAL_TTL_MS,
@@ -243,9 +245,12 @@ export class DispatchEnvelopeBuilder {
     return "facebook"; // default;META channel is facebook in the frozen contract
   }
 
-  private frozenCapabilities(raw: unknown): readonly ["static_image"] {
-    // The dispatch body's PublishingTargetV1.capabilities is the frozen
-    // readonly ["static_image"] tuple for this MVP contract version.
-    return ["static_image"] as const;
+  private frozenCapabilities(raw: unknown): readonly PublishingCapability[] {
+    const source = Array.isArray(raw) ? raw : [];
+    const capabilities: PublishingCapability[] = [];
+    for (const capability of ["static_image", "text"] as const) {
+      if (source.includes(capability)) capabilities.push(capability);
+    }
+    return capabilities.length > 0 ? capabilities : ["static_image"];
   }
 }

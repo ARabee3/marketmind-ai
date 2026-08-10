@@ -10,6 +10,7 @@ import {
   type PublishingValidationResult,
 } from "@marketmind/contracts";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import type { PublishingAssetReference } from "../assets/publishing-asset.types";
 
 /**
  * Contract shape of the asset metadata embedded in a frozen
@@ -17,54 +18,49 @@ import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
  * expected asset_id / mime_type / checksum from here and proves the retrieved
  * bytes match the approved SHA-256 digests before any provider call.
  */
-export interface CandidateAssetMetadata {
-  readonly asset_id: string;
-  readonly mime_type: string;
-  readonly checksum: string;
-}
+export type CandidateAssetMetadata = PublishingAssetReference;
 
 /**
  * Pluggable retrieval boundary for the immutable candidate media bytes.
  *
- * Real byte retrieval (object storage / signed URL fetch) is owned by
- * Publishing issue #121 (adapters and fallbacks). This interface is the seam
- * #119 depends on: the dispatch processor asks the retriever for the bytes
- * matching the approved asset ids, then proves them against the candidate
- * checksums via the frozen {@link validateRetrievedPublicationAssetsV1}.
+ * Production byte retrieval is supplied by the Content-backed adapter. This
+ * interface remains the seam for object-storage and test implementations: the
+ * dispatch processor asks for bytes matching the approved references, then
+ * proves them against the candidate checksums via the frozen
+ * {@link validateRetrievedPublicationAssetsV1}.
  *
- * The default implementation below throws `PUBLISHING_ASSET_UNAVAILABLE`,
- * which is the HONEST behaviour until #121 supplies real retrieval: per
- * PUBLISHING_AUTOMATION_ARCHITECTURE.md §10.1, "the issue does not fake a
- * real success" when media retrieval is not ready, so real dispatch is blocked
- * rather than circumvented. Export and simulation modes never call this
- * retriever. Tests inject a fake retriever to prove the tamper/match paths.
+ * The default implementation below throws `PUBLISHING_ASSET_UNAVAILABLE` so
+ * real dispatch is blocked rather than faked when a deployment has no storage
+ * adapter. Export and simulation modes never call this retriever. Tests inject
+ * a fake retriever to prove the tamper/match paths.
  */
 export interface AssetByteRetriever {
   retrieve(
-    assetIds: readonly string[],
+    assets: readonly (PublishingAssetReference | string)[],
   ): Promise<readonly RetrievedPublicationAssetV1[]>;
 }
 
 /**
  * DI token for the pluggable {@link AssetByteRetriever}. Interfaces are erased
  * at runtime, so NestJS resolves this injection by a stable symbol token rather
- * than by type. #121 binds a real S3/object-storage retriever to this token.
+ * than by type. The Publishing module binds the Content-backed retriever to
+ * this token.
  */
 export const ASSET_BYTE_RETRIEVER = Symbol("ASSET_BYTE_RETRIEVER");
 
 /**
- * Default retriever: real byte retrieval is not available until #121 lands.
- * Throws `PUBLISHING_ASSET_UNAVAILABLE` so real dispatch is blocked honestly
+ * Default retriever for tests or explicitly unconfigured environments. It
+ * throws `PUBLISHING_ASSET_UNAVAILABLE` so real dispatch is blocked honestly
  * (never faked) when no retriever has been configured.
  */
 @Injectable()
 export class NullAssetByteRetriever implements AssetByteRetriever {
   private readonly logger = new Logger(NullAssetByteRetriever.name);
   async retrieve(
-    assetIds: readonly string[],
+    assets: readonly (PublishingAssetReference | string)[],
   ): Promise<readonly RetrievedPublicationAssetV1[]> {
     this.logger.warn(
-      `Asset byte retrieval requested for ${assetIds.length} asset(s) but no retriever is configured (#121 pending) — real dispatch blocked`,
+      `Asset byte retrieval requested for ${assets.length} asset(s) but no retriever is configured (#121 pending) — real dispatch blocked`,
     );
     throw new UnprocessableEntityException(
       `${PublishingErrorCode.ASSET_UNAVAILABLE}: asset byte retrieval is not configured for this environment`,
@@ -117,15 +113,17 @@ export class AssetIntegrityValidator {
       if (
         typeof a["asset_id"] !== "string" ||
         typeof a["mime_type"] !== "string" ||
+        typeof a["storage_key"] !== "string" ||
         typeof a["checksum"] !== "string"
       ) {
         throw new UnprocessableEntityException(
-          `${PublishingErrorCode.ASSET_TAMPERED}: candidate payload.assets[${index}] is missing asset_id/mime_type/checksum`,
+          `${PublishingErrorCode.ASSET_TAMPERED}: candidate payload.assets[${index}] is missing asset_id/mime_type/storage_key/checksum`,
         );
       }
       return {
         asset_id: a["asset_id"] as string,
         mime_type: a["mime_type"] as string,
+        storage_key: a["storage_key"] as string,
         checksum: a["checksum"] as string,
       };
     });
@@ -142,9 +140,7 @@ export class AssetIntegrityValidator {
     // Text-only posts carry no media — nothing to retrieve or hash.
     if (expected.length === 0) return;
 
-    const retrieved = await this.retriever.retrieve(
-      expected.map((a) => a.asset_id),
-    );
+    const retrieved = await this.retriever.retrieve(expected);
 
     const result: PublishingValidationResult =
       validateRetrievedPublicationAssetsV1({

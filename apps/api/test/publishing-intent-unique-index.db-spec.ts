@@ -3,18 +3,19 @@ import { join } from "path";
 import { PrismaClient } from "@prisma/client";
 
 /**
- * DB-level verification of the partial unique index added in
- * `20260803130842_add_publishing_automation` (Issue #119 Blocker 4).
+ * DB-level verification of the effective partial unique index refined in
+ * `20260809153000_scope_publication_lock_to_real_intents`.
  *
  * Prisma's schema DSL cannot express a *filtered* unique index, so the
- * authoritative "at most one ACTIVE intent per candidate" constraint lives as
+ * authoritative "at most one REAL publication lifecycle per candidate"
+ * constraint lives as
  * raw SQL in the migration. These tests prove the index behaves correctly
  * against the real PostgreSQL:
- *   1. two concurrent "active" intents for one candidate are both rejected
+ *   1. two concurrent REAL intents for one candidate are rejected
  *      by the index (the second insert raises SQL state 23505);
- *   2. a CANCELLED intent + a new ACTIVE intent for the same candidate coexist
+ *   2. a CANCELLED real intent + a new real intent coexist
  *      (the partial WHERE clause frees the slot);
- *   3. transitioning an existing ACTIVE intent to CANCELLED frees the slot
+ *   3. local export/simulation intents coexist with a real intent
  *      so a new ACTIVE intent can be created afterward;
  *   4. the migration.sql actually contains the expected index DDL (guards
  *      against silent edits that would drop the guarantee).
@@ -26,10 +27,8 @@ import { PrismaClient } from "@prisma/client";
  */
 const prisma = new PrismaClient();
 const SUITE_SCHEMA = `_pub_idx_verify_${Date.now()}`;
-// P1 (#119 review): the one-intent-per-candidate slot is occupied across
-// active, terminal, AND ambiguous outcomes — only CANCELLED frees it. This
-// prevents a second intent after a succeeded/failed/action-required outcome
-// that could duplicate or republish a confirmed candidate.
+// The one-real-intent-per-candidate slot is occupied across active, terminal,
+// and ambiguous remote outcomes. Local actions never consume this slot.
 const ACTIVE_STATUSES = [
   "DRAFT",
   "AWAITING_APPROVAL",
@@ -64,9 +63,10 @@ async function insertIntentRaw(
   id: string,
   candidateId: string,
   status: string,
+  mode = "REAL",
 ): Promise<void> {
   await prisma.$executeRawUnsafe(
-    `INSERT INTO ${SUITE_SCHEMA}.publishing_intents (id, candidate_id, status) VALUES ('${id}', '${candidateId}', '${status}')`,
+    `INSERT INTO ${SUITE_SCHEMA}.publishing_intents (id, candidate_id, status, mode) VALUES ('${id}', '${candidateId}', '${status}', '${mode}')`,
   );
 }
 
@@ -93,14 +93,14 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
     // only the columns the partial unique index references.
     await prisma.$executeRawUnsafe(`CREATE SCHEMA ${SUITE_SCHEMA}`);
     await prisma.$executeRawUnsafe(
-      `CREATE TABLE ${SUITE_SCHEMA}.publishing_intents (id uuid primary key, candidate_id uuid not null, status text not null)`,
+      `CREATE TABLE ${SUITE_SCHEMA}.publishing_intents (id uuid primary key, candidate_id uuid not null, status text not null, mode text not null)`,
     );
     // Apply the EXACT index DDL shape from the migration (with the WHERE clause).
-    // Mirrors the migration: only CANCELLED frees the candidate slot.
+    // Mirrors the effective migration: local modes do not consume the slot.
     await prisma.$executeRawUnsafe(
       `CREATE UNIQUE INDEX publishing_intents_candidate_id_active_uniq
            ON ${SUITE_SCHEMA}.publishing_intents (candidate_id)
-           WHERE status IN ('DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING', 'SUCCEEDED', 'FAILED', 'ACTION_REQUIRED')`,
+           WHERE mode = 'REAL' AND status IN ('DRAFT', 'AWAITING_APPROVAL', 'SCHEDULED', 'DISPATCHING', 'SUCCEEDED', 'FAILED', 'ACTION_REQUIRED')`,
     );
   });
 
@@ -139,6 +139,28 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
     );
   });
 
+  it("allows export, simulation, and one REAL intent for the same candidate", async () => {
+    const cand = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await insertIntentRaw(
+      "11111111-aaaa-4111-8111-111111111111",
+      cand,
+      "SUCCEEDED",
+      "MANUAL_EXPORT",
+    );
+    await insertIntentRaw(
+      "22222222-aaaa-4222-8222-222222222222",
+      cand,
+      "SUCCEEDED",
+      "SIMULATION",
+    );
+    await insertIntentRaw(
+      "33333333-aaaa-4333-8333-333333333333",
+      cand,
+      "SCHEDULED",
+      "REAL",
+    );
+  });
+
   it("rejects a second intent per EACH active status (every active status occupies the slot)", async () => {
     const cand = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     // Insert one anchor ACTIVE intent in SCHEDULED, then assert every other
@@ -158,7 +180,7 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
     // Sanity: a distinct candidate is allowed its own active intent.
     await insertIntentRaw(
       "66666666-6666-4666-8666-666666666666",
-      "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      "ffffffff-ffff-4fff-8fff-ffffffffffff",
       "SCHEDULED",
     );
   });
@@ -190,14 +212,15 @@ describe("publishing_intents partial unique index (Issue #119 blocker 4)", () =>
         "..",
         "prisma",
         "migrations",
-        "20260803130842_add_publishing_automation",
+        "20260809153000_scope_publication_lock_to_real_intents",
         "migration.sql",
       ),
       "utf8",
     );
     expect(migration).toContain("publishing_intents_candidate_id_active_uniq");
     expect(migration).toMatch(/CREATE\s+UNIQUE\s+INDEX/i);
-    expect(migration).toMatch(/WHERE\s+"?status"?\s+IN\s*\(/i);
+    expect(migration).toMatch(/"?mode"?\s*=\s*'REAL'/i);
+    expect(migration).toMatch(/"?status"?\s+IN\s*\(/i);
     // P1: the slot covers active + terminal + ambiguous outcomes (only CANCELLED
     // frees it), so the migration WHERE must list these statuses explicitly.
     for (const s of ["SUCCEEDED", "FAILED", "ACTION_REQUIRED"]) {

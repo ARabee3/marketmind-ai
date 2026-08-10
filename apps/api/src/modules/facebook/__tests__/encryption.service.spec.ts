@@ -2,11 +2,13 @@ import { ConfigService } from "@nestjs/config";
 import { EncryptionService } from "../encryption.service";
 
 const TEST_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 function encryption(key: string = TEST_KEY): EncryptionService {
   const configService = {
-    get: jest.fn((path: string) => (path === "facebook.tokenEncryptionKey" ? key : undefined)),
+    get: jest.fn((path: string) =>
+      path === "facebook.tokenEncryptionKey" ? key : undefined,
+    ),
   } as unknown as ConfigService;
   return new EncryptionService(configService);
 }
@@ -21,7 +23,9 @@ describe("EncryptionService (facebook Page tokens)", () => {
     expect(encrypted.ciphertext).not.toContain(token);
     expect(encrypted.iv.length).toBeGreaterThan(0);
     expect(encrypted.authTag.length).toBeGreaterThan(0);
-    expect(service.decrypt(encrypted.ciphertext, encrypted.iv, encrypted.authTag)).toBe(token);
+    expect(
+      service.decrypt(encrypted.ciphertext, encrypted.iv, encrypted.authTag),
+    ).toBe(token);
   });
 
   it("uses a fresh random IV per encryption (unique ciphertexts)", () => {
@@ -42,6 +46,12 @@ describe("EncryptionService (facebook Page tokens)", () => {
     } as unknown as ConfigService;
 
     expect(() => new EncryptionService(configService)).toThrow(
+      "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars",
+    );
+  });
+
+  it("rejects trailing data that Node's hex decoder would otherwise ignore", () => {
+    expect(() => encryption(`${TEST_KEY}zz`)).toThrow(
       "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars",
     );
   });

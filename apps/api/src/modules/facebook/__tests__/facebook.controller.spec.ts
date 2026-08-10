@@ -4,9 +4,11 @@ import type { Response } from "express";
 import { FacebookService } from "../facebook.service";
 import { FacebookController } from "../facebook.controller";
 
-function createController(overrides: {
-  service?: Partial<FacebookService>;
-} = {}): FacebookController {
+function createController(
+  overrides: {
+    service?: Partial<FacebookService>;
+  } = {},
+): FacebookController {
   const service = {
     buildAuthorizationUrl: jest.fn(),
     createStartSession: jest.fn(),
@@ -44,15 +46,15 @@ function mockResponse(): Response {
 
 describe("FacebookController", () => {
   describe("POST /auth/facebook/start", () => {
-    it("issues a start session cookie for the authenticated user", () => {
+    it("issues a start session cookie for the authenticated user", async () => {
       const service = {
-        createStartSession: jest.fn().mockReturnValue("start-token-1"),
+        createStartSession: jest.fn().mockResolvedValue("start-token-1"),
       };
       const controller = createController({ service });
       const res = mockResponse();
       const req = { user: { id: "user-1" } };
 
-      controller.startSession(req as never, res);
+      await controller.startSession(req as never, res);
 
       expect(service.createStartSession).toHaveBeenCalledWith("user-1");
       expect(res.cookie).toHaveBeenCalledWith(
@@ -69,12 +71,12 @@ describe("FacebookController", () => {
   });
 
   describe("GET /auth/facebook/start", () => {
-    it("redirects the popup to the Facebook dialog for a valid start session", () => {
+    it("redirects the popup to the Facebook dialog for a valid start session", async () => {
       const service = {
-        consumeStartSession: jest.fn().mockReturnValue("user-1"),
+        consumeStartSession: jest.fn().mockResolvedValue("user-1"),
         buildAuthorizationUrl: jest
           .fn()
-          .mockReturnValue(
+          .mockResolvedValue(
             "https://www.facebook.com/v20.0/dialog/oauth?state=abc",
           ),
       };
@@ -82,7 +84,7 @@ describe("FacebookController", () => {
       const res = mockResponse();
       const req = { cookies: { fb_connect_start: "start-token-1" } };
 
-      controller.start(req as never, res);
+      await controller.start(req as never, res);
 
       expect(service.consumeStartSession).toHaveBeenCalledWith("start-token-1");
       expect(service.buildAuthorizationUrl).toHaveBeenCalledWith("user-1");
@@ -96,15 +98,15 @@ describe("FacebookController", () => {
       );
     });
 
-    it("posts an error back to the opener when no valid start session exists", () => {
+    it("posts an error back to the opener when no valid start session exists", async () => {
       const service = {
-        consumeStartSession: jest.fn().mockReturnValue(null),
+        consumeStartSession: jest.fn().mockResolvedValue(null),
         buildAuthorizationUrl: jest.fn(),
       };
       const controller = createController({ service });
       const res = mockResponse();
 
-      controller.start({ cookies: {} } as never, res);
+      await controller.start({ cookies: {} } as never, res);
 
       expect(res.send).toHaveBeenCalledWith(
         expect.stringContaining("fb-connect-error"),
@@ -115,17 +117,19 @@ describe("FacebookController", () => {
       expect(service.buildAuthorizationUrl).not.toHaveBeenCalled();
     });
 
-    it("posts an error back to the opener when the app is not configured", () => {
+    it("posts an error back to the opener when the app is not configured", async () => {
       const service = {
-        consumeStartSession: jest.fn().mockReturnValue("user-1"),
-        buildAuthorizationUrl: jest.fn().mockImplementation(() => {
-          throw new Error("Facebook app configuration is missing");
-        }),
+        consumeStartSession: jest.fn().mockResolvedValue("user-1"),
+        buildAuthorizationUrl: jest
+          .fn()
+          .mockRejectedValue(
+            new Error("Facebook app configuration is missing"),
+          ),
       };
       const controller = createController({ service });
       const res = mockResponse();
 
-      controller.start(
+      await controller.start(
         { cookies: { fb_connect_start: "start-token-1" } } as never,
         res,
       );

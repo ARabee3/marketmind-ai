@@ -240,7 +240,7 @@ describe("DispatchProcessor — real safeHttp → ambiguous delivery (P1 #119)",
     );
     expect(resultCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ outcome: "FAILED", retryable: false }),
+        data: expect.objectContaining({ outcome: "FAILED", retryable: true }),
       }),
     );
   });

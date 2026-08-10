@@ -332,13 +332,26 @@ export class StrategyRepository {
         orderBy: { version: "desc" },
       });
       const nextVersion = latest ? latest.version + 1 : 1;
+      const plan = planData as Prisma.InputJsonObject;
+      const canonicalPlanData: Prisma.InputJsonObject = {
+        ...plan,
+        // The database sequence is authoritative. AI providers may return a
+        // structurally valid but incorrect version (for example, version=2
+        // for the first strategy-v2 plan), so never persist model-owned
+        // immutable identity.
+        strategy_id: strategyId,
+        version: nextVersion,
+        ...(retrievalRunId === null
+          ? {}
+          : { retrieval_run_id: retrievalRunId }),
+      };
 
       const version = await tx.strategyVersion.create({
         data: {
           strategyId,
           version: nextVersion,
           retrievalRunId,
-          planData,
+          planData: canonicalPlanData,
           promptConfig,
         },
       });

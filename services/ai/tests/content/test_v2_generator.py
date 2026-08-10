@@ -320,6 +320,107 @@ async def test_v2_generation_derives_media_requirement_from_frozen_format() -> N
     assert "CONTENT_ASSET_REQUIRED" not in response.item_versions[0].blockers
 
 
+@pytest.mark.asyncio
+async def test_v2_generation_discards_script_from_non_video_card() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+    video_script = next(
+        item.short_video_script
+        for item in raw_items
+        if item.short_video_script is not None
+    )
+    non_video_index = next(
+        index
+        for index, plan in enumerate(request.frozen_input.post_plans)
+        if plan.format != "short_video_script"
+    )
+    raw_items[non_video_index] = raw_items[non_video_index].model_copy(
+        update={"short_video_script": video_script}
+    )
+
+    class OneShotProvider(MockContentProvider):
+        name = "one-shot-script-shape"
+        model = "one-shot-model"
+
+        def __init__(self, items: list[ContentItemVersion]) -> None:
+            self.items = items
+            self.calls = 0
+
+        async def generate_content_pack(
+            self,
+            _prompt,
+            *,
+            max_output_tokens: int | None = None,
+        ) -> list[ContentItemVersion]:
+            del max_output_tokens
+            self.calls += 1
+            return self.items
+
+    provider = OneShotProvider(raw_items)
+    response = await generate_v2_content_pack(request, provider, breaker=None)
+
+    assert provider.calls == 1
+    assert response.item_versions[non_video_index].short_video_script is None
+
+
+@pytest.mark.asyncio
+async def test_v2_generation_spends_repair_on_unsafe_copy_not_shape_noise() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    invalid_items = list(valid_items)
+    video_script = next(
+        item.short_video_script
+        for item in valid_items
+        if item.short_video_script is not None
+    )
+    non_video_index = next(
+        index
+        for index, plan in enumerate(request.frozen_input.post_plans)
+        if plan.format != "short_video_script"
+    )
+    invalid_item = invalid_items[non_video_index]
+    invalid_variant = invalid_item.caption_variants[0].model_copy(
+        update={"caption": "نحن الأفضل في السوق."}
+    )
+    invalid_items[non_video_index] = invalid_item.model_copy(
+        update={
+            "caption_variants": [invalid_variant],
+            "short_video_script": video_script,
+        }
+    )
+
+    class RepairOnceProvider(MockContentProvider):
+        name = "repair-once"
+        model = "repair-once-model"
+
+        def __init__(self) -> None:
+            self.calls = 0
+            self.prompts = []
+
+        async def generate_content_pack(
+            self,
+            current_prompt,
+            *,
+            max_output_tokens: int | None = None,
+        ) -> list[ContentItemVersion]:
+            del max_output_tokens
+            self.calls += 1
+            self.prompts.append(current_prompt)
+            return invalid_items if self.calls == 1 else valid_items
+
+    provider = RepairOnceProvider()
+    response = await generate_v2_content_pack(request, provider, breaker=None)
+
+    assert provider.calls == 2
+    assert response.validation.valid is True
+    assert "material superiority claim" in provider.prompts[1].user_prompt
+    assert "short-video" not in provider.prompts[1].user_prompt
+
+
 def _v2_revise_request() -> AiContentV2ReviseRequest:
     request = make_valid_generate_v2_request()
     provider = MockContentProvider()

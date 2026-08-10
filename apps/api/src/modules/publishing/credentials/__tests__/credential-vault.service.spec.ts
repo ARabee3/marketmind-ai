@@ -6,7 +6,7 @@ import {
 } from "../credential-vault.service";
 
 const TEST_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 const TEST_KEY_V2 =
   "301597e64747303ac000bdba1db18719e8da91b4037ef00517b67330e5e4b1ff";
 

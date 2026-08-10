@@ -4,6 +4,7 @@ import { HttpService } from "@nestjs/axios";
 import { of, throwError } from "rxjs";
 import { OutboxDispatcher } from "./outbox-dispatcher";
 import { PublicationCandidateRepository } from "./repositories/publication-candidate.repository";
+import type { PublicationCandidateSink } from "../publishing/candidates/publication-candidate-sink";
 
 describe("OutboxDispatcher", () => {
   let dispatcher: OutboxDispatcher;
@@ -113,6 +114,65 @@ describe("OutboxDispatcher", () => {
         "test-event-id",
       );
       expect(candidateRepo.markOutboxFailed).not.toHaveBeenCalled();
+    });
+
+    it("should use the local publication sink when it is available", async () => {
+      const sink: jest.Mocked<PublicationCandidateSink> = {
+        ingestEvent: jest.fn().mockResolvedValue({
+          disposition: "applied",
+          candidate: null,
+        }),
+      };
+      configService.get.mockReturnValue("https://webhook.example.com");
+      candidateRepo.getOutboxEventById.mockResolvedValue(mockEvent);
+      candidateRepo.markOutboxDispatched.mockResolvedValue(undefined);
+      const localDispatcher = new OutboxDispatcher(
+        candidateRepo,
+        httpService,
+        configService,
+        undefined,
+        sink,
+      );
+
+      await localDispatcher.process({
+        data: { eventId: "test-event-id" },
+      } as any);
+
+      expect(sink.ingestEvent).toHaveBeenCalledWith(mockEvent.payload);
+      expect(httpService.post).not.toHaveBeenCalled();
+      expect(candidateRepo.markOutboxDispatched).toHaveBeenCalledWith(
+        "test-event-id",
+      );
+    });
+
+    it("should retry through the outbox when the local sink rejects an event", async () => {
+      const sink: jest.Mocked<PublicationCandidateSink> = {
+        ingestEvent: jest
+          .fn()
+          .mockRejectedValue(new Error("Database unavailable")),
+      };
+      configService.get.mockReturnValue(undefined);
+      candidateRepo.getOutboxEventById.mockResolvedValue(mockEvent);
+      candidateRepo.markOutboxFailed.mockResolvedValue(undefined);
+      const localDispatcher = new OutboxDispatcher(
+        candidateRepo,
+        httpService,
+        configService,
+        undefined,
+        sink,
+      );
+
+      await expect(
+        localDispatcher.process({
+          data: { eventId: "test-event-id" },
+        } as any),
+      ).rejects.toThrow("Database unavailable");
+
+      expect(candidateRepo.markOutboxFailed).toHaveBeenCalledWith(
+        "test-event-id",
+        "Database unavailable",
+      );
+      expect(httpService.post).not.toHaveBeenCalled();
     });
 
     it("dispatches a claimed processing event and completes its lease", async () => {

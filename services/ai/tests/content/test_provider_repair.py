@@ -97,6 +97,15 @@ def test_schema_failure_does_not_echo_private_provider_output() -> None:
     assert private_value not in str(error.value)
 
 
+def test_provider_parser_canonicalizes_server_owned_staging_contract() -> None:
+    raw_item = _base_item().model_dump(mode="json")
+    raw_item["contract_version"] = "content-v2"
+
+    output = _parse_provider_output({"item_versions": [raw_item]})
+
+    assert output.item_versions[0].contract_version == "content-v1"
+
+
 @pytest.mark.asyncio
 async def test_openai_content_adapter_disables_sdk_retries_and_storage(
     monkeypatch,
@@ -221,6 +230,31 @@ async def test_generation_repairs_schema_failure_once() -> None:
     assert provider.pack_calls == 2
     assert provider.prompts[1].metadata["repair_attempt"] == 1
     assert "STRUCTURED OUTPUT REPAIR" in provider.prompts[1].system_prompt
+
+
+@pytest.mark.asyncio
+async def test_generation_repair_prompt_retains_prior_validation_failures() -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    provider = SequenceProvider(
+        [
+            ProviderError("CONTENT_SCHEMA_FAILURE", "first-shape-error", False),
+            ProviderError("CONTENT_UNSUPPORTED_CLAIM", "second-claim-error", False),
+            valid_items,
+        ]
+    )
+
+    items = await generate_content_pack_with_repair(
+        provider,
+        prompt,
+        sleep=no_sleep,
+    )
+
+    assert len(items) == 3
+    assert provider.pack_calls == 3
+    assert "first-shape-error" in provider.prompts[2].user_prompt
+    assert "second-claim-error" in provider.prompts[2].user_prompt
 
 
 @pytest.mark.asyncio

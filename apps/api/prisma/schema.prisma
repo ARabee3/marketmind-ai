@@ -458,6 +458,7 @@ model SocialConnection {
   isValid        Boolean   @default(true) @map("is_valid")
   connectedAt    DateTime  @default(now()) @map("connected_at")
   lastTestedAt   DateTime? @map("last_tested_at")
+  expiresAt      DateTime? @map("expires_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
@@ -1664,9 +1665,10 @@ model PublishingTarget {
   externalAccountId String                          @map("external_account_id")
   displayName       String                          @map("display_name")
   connectionState   PublishingTargetConnectionState @default(CONNECTED) @map("connection_state")
-  /// Opaque pointer to the credential vault (PublishingCredential.id) — NEVER
-  /// the raw token value. Issue #175: no env / fixture / seed path may stand in
-  /// for a vault record on a real dispatch path.
+  /// Opaque pointer to a server-side credential source — either a
+  /// PublishingCredential.id or the PR #193 Facebook SocialConnection marker;
+  /// NEVER the raw token value. No env / fixture / seed path may stand in for
+  /// a server-side credential on a real dispatch path.
   credentialRef     String                          @map("credential_ref")
   /// JSON array of capability strings, e.g. ["static_image"]
   capabilities      Json                            @default("[]")
@@ -1809,16 +1811,16 @@ model MetaOAuthState {
 }
 
 /// One intent = the owner's plan for one candidate on one target.
-/// Partial unique index enforces ONE logical publication intent per candidate
+/// Partial unique index enforces ONE REAL publication intent per candidate
 /// across active, terminal, AND ambiguous outcomes (only CANCELLED frees the
-/// slot) — see P1 (#119 review): a second intent after a succeeded/failed/
-/// action-required outcome could duplicate or republish a confirmed candidate.
+/// slot). Manual export and simulation are local actions and do not consume
+/// the remote publication slot.
 ///
 /// NOTE: Prisma's schema DSL cannot express a *filtered* unique index, so the
 /// authoritative constraint lives as raw SQL in the migration
 /// (publishing_intents_candidate_id_active_uniq): a partial UNIQUE index on
-/// (candidate_id) WHERE status IN (DRAFT, AWAITING_APPROVAL, SCHEDULED,
-/// DISPATCHING, SUCCEEDED, FAILED, ACTION_REQUIRED). The app-layer check in
+/// (candidate_id) WHERE mode = REAL AND status IN (DRAFT, AWAITING_APPROVAL,
+/// SCHEDULED, DISPATCHING, SUCCEEDED, FAILED, ACTION_REQUIRED). The app-layer check in
 /// IntentsService.createIntent is a friendly fast-path only; the DB index is
 /// the race-proof guarantee and the duplicate-insert is mapped to
 /// PUBLISHING_STATE_CONFLICT.

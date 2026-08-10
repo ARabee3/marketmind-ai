@@ -384,24 +384,31 @@ export function validatePublicationCandidateV1(
       "Publication candidate hashtags must be an array of strings.",
     );
   }
+  const textOnlyCandidate = candidate.content_format === "text_post";
   if (
-    !isNonEmptyString(candidate.alt_text) ||
-    candidate.alt_text.length > CONTENT_ALT_TEXT_MAX_LENGTH
+    typeof candidate.alt_text !== "string" ||
+    candidate.alt_text.length > CONTENT_ALT_TEXT_MAX_LENGTH ||
+    (!textOnlyCandidate && candidate.alt_text.trim().length === 0)
   ) {
     addCandidateIssue(
       issues,
       "CONTENT_ASSET_REQUIRED",
       "alt_text",
-      `Publication candidate alt text must contain 1-${CONTENT_ALT_TEXT_MAX_LENGTH} characters.`,
+      textOnlyCandidate
+        ? `Text-only candidate alt text must contain at most ${CONTENT_ALT_TEXT_MAX_LENGTH} characters.`
+        : `Publication candidate alt text must contain 1-${CONTENT_ALT_TEXT_MAX_LENGTH} characters.`,
     );
   }
 
-  if (!Array.isArray(candidate.assets) || candidate.assets.length === 0) {
+  if (
+    !Array.isArray(candidate.assets) ||
+    (!textOnlyCandidate && candidate.assets.length === 0)
+  ) {
     addCandidateIssue(
       issues,
       "CONTENT_ASSET_REQUIRED",
       "assets",
-      "Publication candidate requires at least one ready immutable asset.",
+      "Publication candidate requires at least one ready immutable asset unless it is a text-only post.",
     );
   } else {
     for (const [index, asset] of candidate.assets.entries()) {

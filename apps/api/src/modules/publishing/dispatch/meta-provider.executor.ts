@@ -8,6 +8,13 @@ import {
 import { mapMetaGraphError } from "../meta/meta-error.mapper";
 import { MediaFetchTokenService } from "./media-fetch-token.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
+import { ContentAssetReader } from "../assets/content-asset.reader";
+import type { PublishingAssetReference } from "../assets/publishing-asset.types";
+import {
+  FacebookGraphError,
+  FacebookService,
+} from "../../facebook/facebook.service";
+import { socialConnectionIdFromFacebookTargetRef } from "../targets/facebook-target-ref";
 import * as crypto from "crypto";
 
 export interface MetaExecutorResult {
@@ -70,6 +77,8 @@ export class MetaProviderExecutor {
     private readonly vault: CredentialVaultService,
     private readonly graph: MetaGraphClient,
     private readonly mediaFetch: MediaFetchTokenService,
+    private readonly assetReader: ContentAssetReader,
+    private readonly facebook: FacebookService,
   ) {}
 
   /** Executes the exact attempt's publish and returns a sanitized result. */
@@ -120,11 +129,42 @@ export class MetaProviderExecutor {
     if (target.expiresAt && target.expiresAt < new Date()) {
       return this.failed(base, PublishingErrorCode.TARGET_UNAUTHORIZED, false);
     }
+    // Candidate bytes are immutable and are needed by both the legacy vault
+    // path and the PR #193 SocialConnection path.
+    const candidate = await this.prisma.publishingCandidate.findUnique({
+      where: { id: intent.candidateId },
+    });
+    const contentFormat = this.contentFormatFor(candidate?.payload);
     const capabilities = Array.isArray(target.capabilities)
       ? (target.capabilities as string[])
       : [];
-    if (!capabilities.includes("static_image")) {
+    const requiredCapability =
+      contentFormat === "text_post"
+        ? "text"
+        : contentFormat === "static_image_post"
+          ? "static_image"
+          : null;
+    if (!requiredCapability || !capabilities.includes(requiredCapability)) {
       return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
+    }
+
+    // PR #193's Facebook connection is the canonical owner connection for the
+    // Facebook-only path. The target carries an opaque SocialConnection
+    // reference, so no Page token needs to be copied into the publishing
+    // credential vault or exposed to the runner.
+    const socialConnectionId =
+      target.channel === "facebook"
+        ? socialConnectionIdFromFacebookTargetRef(target.credentialRef)
+        : null;
+    if (socialConnectionId) {
+      return this.executeFacebookSocialConnection({
+        base,
+        target,
+        intent,
+        candidate,
+        socialConnectionId,
+        attemptId: input.attemptId,
+      });
     }
 
     // ── Resolve the EXACT target's credential from the vault (never env) ──
@@ -139,7 +179,8 @@ export class MetaProviderExecutor {
       const parsed = JSON.parse(this.vault.decrypt(record)) as
         | PageTokenBundle
         | InstagramTokenBundle;
-      const expectedType = target.channel === "instagram" ? "instagram" : "page";
+      const expectedType =
+        target.channel === "instagram" ? "instagram" : "page";
       if (parsed.type !== expectedType || !parsed.token) {
         throw new Error("credential bundle mismatch for channel");
       }
@@ -151,25 +192,66 @@ export class MetaProviderExecutor {
       return this.failed(base, PublishingErrorCode.TARGET_UNAUTHORIZED, false);
     }
 
+    const caption = this.captionFor(candidate?.payload);
+    if (contentFormat === "text_post") {
+      if (target.channel !== "facebook") {
+        return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
+      }
+      try {
+        const page = tokenBundle as PageTokenBundle;
+        const published = await this.graph.publishFacebookText({
+          pageToken: page.token,
+          pageId: target.externalAccountId,
+          caption,
+        });
+        return {
+          result: {
+            ...base,
+            outcome: "published",
+            remote_publication_id: published.remotePublicationId,
+            remote_url: published.remoteUrl,
+          },
+        };
+      } catch (err) {
+        if (err instanceof MetaGraphClientError) {
+          if (err.info.status === 0) return this.unknown(base);
+          const mapped = mapMetaGraphError(err);
+          return this.failed(base, mapped.errorCode, mapped.retryable);
+        }
+        return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, true);
+      }
+    }
+
+    const mediaConfigurationError = this.mediaFetch.configurationError();
+    if (mediaConfigurationError) {
+      this.logger.error(
+        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+      );
+      return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, false);
+    }
+
     // ── Candidate asset for the provider-fetch URL ────────────────────────
-    const candidate = await this.prisma.publishingCandidate.findUnique({
-      where: { id: intent.candidateId },
-    });
     const asset = this.firstStaticAsset(candidate?.payload);
     if (!asset) {
       return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
     }
     let imageUrl: string;
     try {
+      const verified = await this.assetReader.readApprovedAsset(asset);
+      if (!verified) {
+        return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
+      }
       imageUrl = this.mediaFetch.buildUrl({
         attemptId: input.attemptId,
         assetId: asset.asset_id,
       });
-    } catch {
-      return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
+        ? PublishingErrorCode.ASSET_TAMPERED
+        : PublishingErrorCode.ASSET_UNAVAILABLE;
+      return this.failed(base, code, false);
     }
-
-    const caption = this.captionFor(candidate?.payload);
 
     // ── Provider call (server-side, bounded timeout, sanitized errors) ────
     try {
@@ -237,6 +319,175 @@ export class MetaProviderExecutor {
     };
   }
 
+  private async executeFacebookSocialConnection(input: {
+    base: MetaExecutorResult["result"];
+    target: {
+      businessId: string;
+      channel: string;
+      externalAccountId: string;
+      credentialRef: string;
+    };
+    intent: { createdByUserId: string };
+    candidate: { payload: unknown } | null;
+    socialConnectionId: string;
+    attemptId: string;
+  }): Promise<MetaExecutorResult> {
+    if (input.target.channel !== "facebook") {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.TARGET_UNAUTHORIZED,
+        false,
+      );
+    }
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: input.target.businessId },
+      select: { ownerUserId: true },
+    });
+    const connection = await this.prisma.socialConnection.findUnique({
+      where: { id: input.socialConnectionId },
+      select: { userId: true, provider: true, pageId: true, isValid: true },
+    });
+    if (
+      !business ||
+      !connection ||
+      connection.userId !== business.ownerUserId ||
+      connection.provider !== "facebook" ||
+      connection.pageId !== input.target.externalAccountId ||
+      !connection.isValid
+    ) {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.TARGET_UNAUTHORIZED,
+        false,
+      );
+    }
+
+    const contentFormat = this.contentFormatFor(input.candidate?.payload);
+    if (contentFormat === "text_post") {
+      try {
+        const published = await this.facebook.publishTextForUser({
+          userId: business.ownerUserId,
+          pageId: input.target.externalAccountId,
+          caption: this.captionFor(input.candidate?.payload),
+        });
+        return {
+          result: {
+            ...input.base,
+            outcome: "published",
+            remote_publication_id: published.remotePublicationId,
+            remote_url: published.remoteUrl,
+          },
+        };
+      } catch (err) {
+        if (err instanceof FacebookGraphError) {
+          if (err.status === 0) return this.unknown(input.base);
+          const mapped = mapMetaGraphError(
+            new MetaGraphClientError({
+              status: err.status,
+              code: err.code,
+              ...(err.errorSubcode !== undefined
+                ? { errorSubcode: err.errorSubcode }
+                : {}),
+              message: err.message,
+            }),
+          );
+          return this.failed(input.base, mapped.errorCode, mapped.retryable);
+        }
+        return this.failed(
+          input.base,
+          PublishingErrorCode.PROVIDER_FAILURE,
+          true,
+        );
+      }
+    }
+    if (contentFormat !== "static_image_post") {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.FORMAT_UNSUPPORTED,
+        false,
+      );
+    }
+
+    const asset = this.firstStaticAsset(input.candidate?.payload);
+    if (!asset) {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.ASSET_UNAVAILABLE,
+        false,
+      );
+    }
+    const mediaConfigurationError = this.mediaFetch.configurationError();
+    if (mediaConfigurationError) {
+      this.logger.error(
+        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+      );
+      return this.failed(
+        input.base,
+        PublishingErrorCode.PROVIDER_FAILURE,
+        false,
+      );
+    }
+
+    let imageUrl: string;
+    try {
+      const verified = await this.assetReader.readApprovedAsset(asset);
+      if (!verified) {
+        return this.failed(
+          input.base,
+          PublishingErrorCode.ASSET_UNAVAILABLE,
+          false,
+        );
+      }
+      imageUrl = this.mediaFetch.buildUrl({
+        attemptId: input.attemptId,
+        assetId: asset.asset_id,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
+        ? PublishingErrorCode.ASSET_TAMPERED
+        : PublishingErrorCode.ASSET_UNAVAILABLE;
+      return this.failed(input.base, code, false);
+    }
+
+    try {
+      const published = await this.facebook.publishPhotoForUser({
+        userId: business.ownerUserId,
+        pageId: input.target.externalAccountId,
+        imageUrl,
+        caption: this.captionFor(input.candidate?.payload),
+      });
+      return {
+        result: {
+          ...input.base,
+          outcome: "published",
+          remote_publication_id: published.remotePublicationId,
+          remote_url: published.remoteUrl,
+        },
+      };
+    } catch (err) {
+      if (err instanceof FacebookGraphError) {
+        if (err.status === 0) return this.unknown(input.base);
+        const mapped = mapMetaGraphError(
+          new MetaGraphClientError({
+            status: err.status,
+            code: err.code,
+            ...(err.errorSubcode !== undefined
+              ? { errorSubcode: err.errorSubcode }
+              : {}),
+            message: err.message,
+          }),
+        );
+        return this.failed(input.base, mapped.errorCode, mapped.retryable);
+      }
+      this.logger.warn(
+        `Executor: Facebook connection publish failed for attempt=${input.attemptId}: ${(err as Error).message}`,
+      );
+      return this.failed(input.base, PublishingErrorCode.PROVIDER_FAILURE, true);
+    }
+  }
+
   private unknown(base: MetaExecutorResult["result"]): MetaExecutorResult {
     return {
       result: {
@@ -248,16 +499,46 @@ export class MetaProviderExecutor {
     };
   }
 
-  private firstStaticAsset(payload: unknown): {
-    asset_id: string;
-    checksum: string;
-  } | null {
+  private firstStaticAsset(payload: unknown): PublishingAssetReference | null {
     const candidate = payload as {
-      assets?: Array<{ asset_id?: string; checksum?: string }>;
+      assets?: Array<{
+        asset_id?: string;
+        mime_type?: string;
+        storage_key?: string;
+        checksum?: string;
+      }>;
     };
-    const asset = candidate?.assets?.[0];
-    if (!asset?.asset_id) return null;
-    return { asset_id: asset.asset_id, checksum: asset.checksum ?? "" };
+    const asset = candidate?.assets?.find(
+      (entry) =>
+        typeof entry.asset_id === "string" &&
+        entry.asset_id.length > 0 &&
+        typeof entry.mime_type === "string" &&
+        entry.mime_type.startsWith("image/"),
+    );
+    if (
+      !asset?.asset_id ||
+      !asset.mime_type ||
+      !asset.storage_key ||
+      !asset.checksum
+    ) {
+      return null;
+    }
+    return {
+      asset_id: asset.asset_id,
+      mime_type: asset.mime_type,
+      storage_key: asset.storage_key,
+      checksum: asset.checksum,
+    };
+  }
+
+  private contentFormatFor(
+    payload: unknown,
+  ): "static_image_post" | "text_post" | null {
+    const format = (payload as { content_format?: unknown } | null)
+      ?.content_format;
+    return format === "static_image_post" || format === "text_post"
+      ? format
+      : null;
   }
 
   private captionFor(payload: unknown): string {

@@ -121,8 +121,10 @@ vi.mock('@/lib/api/publishing', () => ({
 }))
 
 const connectMetaMock = vi.hoisted(() => vi.fn())
+const getFacebookConnectionMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/api/facebook', () => ({
   connectMeta: connectMetaMock,
+  getFacebookConnection: getFacebookConnectionMock,
 }))
 
 vi.mock('../../hooks/use-strategy-actions', () => ({
@@ -137,6 +139,7 @@ describe('StrategyWizard', () => {
   beforeEach(() => {
     getStrategyMock.mockReset().mockResolvedValue({ brief: null })
     listTargetsMock.mockReset().mockResolvedValue([])
+    getFacebookConnectionMock.mockReset().mockResolvedValue(null)
     journeyMock.mockReset()
     journeyMock.mockResolvedValue({
       journey: {

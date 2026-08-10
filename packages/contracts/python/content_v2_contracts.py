@@ -356,6 +356,7 @@ class ContentCurrentWeekWorkspaceV2(FrozenModel):
         "generate",
         "review_pack",
         "retry",
+        "regenerate",
         "none",
     ]
 

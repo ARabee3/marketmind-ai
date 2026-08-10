@@ -187,6 +187,41 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     expect(assetIntegrity.validateForDispatch).toHaveBeenCalled();
   });
 
+  it("synchronizes a Facebook target before transactional dispatch revalidation", async () => {
+    const findIntent = jest
+      .fn()
+      .mockResolvedValue({ targetId: "facebook-target-1" });
+    const bridge = {
+      syncTarget: jest.fn().mockResolvedValue(undefined),
+    };
+    const bridgePrisma = {
+      ...prisma,
+      publishingIntent: {
+        ...(prisma.publishingIntent as any),
+        findUnique: findIntent,
+      },
+    } as any;
+    (bridgePrisma.publishingAttempt.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+    const bridgedProcessor = new DispatchProcessor(
+      bridgePrisma,
+      n8n as any,
+      assetIntegrity as any,
+      new DispatchEnvelopeBuilder({ get: () => "" } as any),
+      bridge as any,
+    );
+
+    await bridgedProcessor.process(job);
+
+    expect(findIntent).toHaveBeenCalledWith({
+      where: { id: "i-1" },
+      select: { targetId: true },
+    });
+    expect(bridge.syncTarget).toHaveBeenCalledWith("facebook-target-1");
+    expect(n8n.dispatch).toHaveBeenCalledTimes(1);
+  });
+
   it("does not regress a fast callback when recording the n8n acknowledgement", async () => {
     const attemptAcknowledgement = jest.fn().mockResolvedValue({ count: 0 });
     const intentAcknowledgement = jest.fn().mockResolvedValue({ count: 0 });
@@ -242,7 +277,9 @@ describe("DispatchProcessor — race protection (frozen envelope P1)", () => {
     jest
       .spyOn(processor as never, "runRevalidationAndCreateAttempt" as never)
       .mockRejectedValue(
-        new DispatchClaimLostError("intent i-1 is already DISPATCHING") as never,
+        new DispatchClaimLostError(
+          "intent i-1 is already DISPATCHING",
+        ) as never,
       );
 
     await processor.process(job);

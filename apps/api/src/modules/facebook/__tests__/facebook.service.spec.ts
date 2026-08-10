@@ -5,26 +5,29 @@ import axios from "axios";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { MailService } from "../../mail/mail.service";
 import { EncryptionService } from "../encryption.service";
+import { FacebookOAuthStateStore } from "../facebook-oauth-state.store";
 import {
   FACEBOOK_INVALID_TOKEN_CODE,
   FacebookService,
 } from "../facebook.service";
 
 const TEST_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 const CONFIG_MAP: Record<string, string> = {
-  "facebook.appId": "4446203915630413",
+  "facebook.appId": "test-facebook-app-id",
   "facebook.appSecret": "app-secret",
   "facebook.redirectUri": "http://localhost:3001/api/v1/auth/facebook/callback",
   "facebook.graphVersion": "v20.0",
   "facebook.tokenEncryptionKey": TEST_KEY,
 };
 
-function createService(overrides: {
-  prisma?: Record<string, unknown>;
-  mailer?: Partial<MailService>;
-} = {}): FacebookService {
+function createService(
+  overrides: {
+    prisma?: Record<string, unknown>;
+    mailer?: Partial<MailService>;
+  } = {},
+): FacebookService {
   const configService = {
     get: jest.fn((path: string) => CONFIG_MAP[path]),
   } as unknown as ConfigService;
@@ -34,7 +37,11 @@ function createService(overrides: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       deleteMany: jest.fn(),
+    },
+    publishingTarget: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     ...overrides.prisma,
   } as unknown as PrismaService;
@@ -42,7 +49,37 @@ function createService(overrides: {
     sendFacebookExpiredEmail: jest.fn(),
     ...overrides.mailer,
   } as unknown as MailService;
-  return new FacebookService(prisma, configService, encryption, mailer);
+  return new FacebookService(
+    prisma,
+    configService,
+    encryption,
+    mailer,
+    createStateStore(),
+  );
+}
+
+function createStateStore(): FacebookOAuthStateStore {
+  const starts = new Map<string, string>();
+  const states = new Map<string, string>();
+  let sequence = 0;
+  const create = (store: Map<string, string>, userId: string) => {
+    const token = `facebook-test-token-${++sequence}`;
+    store.set(token, userId);
+    return Promise.resolve(token);
+  };
+  const consume = (store: Map<string, string>, token: string | undefined) =>
+    Promise.resolve(token ? (store.get(token) ?? null) : null).then(
+      (userId) => {
+        if (token) store.delete(token);
+        return userId;
+      },
+    );
+  return {
+    createStartSession: (userId) => create(starts, userId),
+    consumeStartSession: (token) => consume(starts, token),
+    createOAuthState: (userId) => create(states, userId),
+    consumeOAuthState: (token) => consume(states, token),
+  } as unknown as FacebookOAuthStateStore;
 }
 
 function stateFromUrl(url: string): string {
@@ -64,39 +101,39 @@ describe("FacebookService", () => {
   });
 
   describe("start sessions (popup identity without Bearer header)", () => {
-    it("creates a one-time token and consumes it back to the user", () => {
+    it("creates a one-time token and consumes it back to the user", async () => {
       const service = createService();
-      const token = service.createStartSession("user-1");
+      const token = await service.createStartSession("user-1");
 
       expect(token).toBeTruthy();
-      expect(service.consumeStartSession(token)).toBe("user-1");
+      await expect(service.consumeStartSession(token)).resolves.toBe("user-1");
     });
 
-    it("is single-use: a consumed token cannot be replayed", () => {
+    it("is single-use: a consumed token cannot be replayed", async () => {
       const service = createService();
-      const token = service.createStartSession("user-1");
+      const token = await service.createStartSession("user-1");
 
-      expect(service.consumeStartSession(token)).toBe("user-1");
-      expect(service.consumeStartSession(token)).toBeNull();
+      await expect(service.consumeStartSession(token)).resolves.toBe("user-1");
+      await expect(service.consumeStartSession(token)).resolves.toBeNull();
     });
 
-    it("rejects an unknown or empty token", () => {
+    it("rejects an unknown or empty token", async () => {
       const service = createService();
 
-      expect(service.consumeStartSession("bogus")).toBeNull();
-      expect(service.consumeStartSession(undefined)).toBeNull();
+      await expect(service.consumeStartSession("bogus")).resolves.toBeNull();
+      await expect(service.consumeStartSession(undefined)).resolves.toBeNull();
     });
   });
 
   describe("buildAuthorizationUrl", () => {
-    it("builds the Facebook dialog URL with required scopes and a state", () => {
+    it("builds the Facebook dialog URL with required scopes and a state", async () => {
       const service = createService();
-      const url = service.buildAuthorizationUrl("user-1");
+      const url = await service.buildAuthorizationUrl("user-1");
 
       const parsed = new URL(url);
       expect(parsed.origin).toBe("https://www.facebook.com");
       expect(parsed.pathname).toBe("/v20.0/dialog/oauth");
-      expect(parsed.searchParams.get("client_id")).toBe("4446203915630413");
+      expect(parsed.searchParams.get("client_id")).toBe("test-facebook-app-id");
       expect(parsed.searchParams.get("redirect_uri")).toBe(
         "http://localhost:3001/api/v1/auth/facebook/callback",
       );
@@ -106,7 +143,7 @@ describe("FacebookService", () => {
       expect(parsed.searchParams.get("state")).toBeTruthy();
     });
 
-    it("throws when the app is not configured", () => {
+    it("throws when the app is not configured", async () => {
       const service = createService();
       const config = {
         get: jest.fn((path: string) => {
@@ -119,9 +156,10 @@ describe("FacebookService", () => {
         config,
         new EncryptionService(config),
         {} as MailService,
+        createStateStore(),
       );
 
-      expect(() => bare.buildAuthorizationUrl("user-1")).toThrow(
+      await expect(bare.buildAuthorizationUrl("user-1")).rejects.toThrow(
         "Facebook app configuration is missing",
       );
     });
@@ -150,7 +188,7 @@ describe("FacebookService", () => {
           },
         },
       });
-      const url = service.buildAuthorizationUrl("user-1");
+      const url = await service.buildAuthorizationUrl("user-1");
       const state = stateFromUrl(url);
 
       axiosGetSpy
@@ -215,9 +253,65 @@ describe("FacebookService", () => {
       expect(upsertArgs[0].update.isValid).toBe(true);
     });
 
+    it("stores the long-lived token expiry from the exchange response", async () => {
+      const service = createService({
+        prisma: {
+          socialConnection: {
+            findUnique: jest.fn(),
+            upsert: jest.fn().mockResolvedValue({ id: "conn-1" }),
+            update: jest.fn(),
+            deleteMany: jest.fn(),
+          },
+        },
+      });
+      const url = await service.buildAuthorizationUrl("user-1");
+      const state = stateFromUrl(url);
+
+      axiosGetSpy
+        .mockResolvedValueOnce({ data: { access_token: "short-token" } })
+        .mockResolvedValueOnce({
+          data: { access_token: "long-token", expires_in: 5_184_000 },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            data: [
+              {
+                id: "page-42",
+                name: "Koshary Corner",
+                access_token: "EAA-page-token",
+              },
+            ],
+          },
+        });
+
+      await service.handleCallback("auth-code", state);
+
+      const upsert = (
+        service as unknown as {
+          prisma: { socialConnection: { upsert: jest.Mock } };
+        }
+      ).prisma.socialConnection.upsert;
+      const upsertArgs = upsert.mock.calls[0] as [
+        {
+          where: { userId: string };
+          create: Record<string, unknown>;
+          update: Record<string, unknown>;
+        },
+      ];
+      expect(upsertArgs[0].create.expiresAt).toBeInstanceOf(Date);
+      expect(upsertArgs[0].update.expiresAt).toBeInstanceOf(Date);
+      const expected = Date.now() + 5_184_000 * 1000;
+      expect(
+        (upsertArgs[0].create.expiresAt as Date).getTime(),
+      ).toBeGreaterThan(expected - 5_000);
+      expect(
+        (upsertArgs[0].create.expiresAt as Date).getTime(),
+      ).toBeLessThanOrEqual(expected);
+    });
+
     it("returns an error when no page is available", async () => {
       const service = createService();
-      const url = service.buildAuthorizationUrl("user-1");
+      const url = await service.buildAuthorizationUrl("user-1");
       const state = stateFromUrl(url);
 
       axiosGetSpy
@@ -244,9 +338,11 @@ describe("FacebookService", () => {
             isValid: true,
             connectedAt: new Date("2026-08-01T12:00:00Z"),
             lastTestedAt: new Date("2026-08-05T09:00:00Z"),
+            expiresAt: new Date("2026-10-31T12:00:00Z"),
           }),
           upsert: jest.fn(),
           update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           deleteMany: jest.fn(),
         },
       };
@@ -259,6 +355,7 @@ describe("FacebookService", () => {
         isValid: true,
         connectedAt: new Date("2026-08-01T12:00:00Z"),
         lastTestedAt: new Date("2026-08-05T09:00:00Z"),
+        expiresAt: new Date("2026-10-31T12:00:00Z"),
       });
     });
 
@@ -268,6 +365,7 @@ describe("FacebookService", () => {
           findUnique: jest.fn().mockResolvedValue(null),
           upsert: jest.fn(),
           update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           deleteMany: jest.fn(),
         },
       };
@@ -304,6 +402,7 @@ describe("FacebookService", () => {
           }),
           upsert: jest.fn(),
           update: jest.fn().mockResolvedValue(connectionRow),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           deleteMany: jest.fn(),
         },
       } as unknown as PrismaService;
@@ -317,6 +416,7 @@ describe("FacebookService", () => {
         } as unknown as ConfigService,
         encryption,
         mailer,
+        createStateStore(),
       );
     }
 
@@ -331,9 +431,11 @@ describe("FacebookService", () => {
         expect.stringContaining("/v20.0/page-42/feed"),
         { message: "hello", access_token: "EAA-secret-token" },
       );
-      const update = (service as unknown as {
-        prisma: { socialConnection: { update: jest.Mock } };
-      }).prisma.socialConnection.update;
+      const update = (
+        service as unknown as {
+          prisma: { socialConnection: { update: jest.Mock } };
+        }
+      ).prisma.socialConnection.update;
       expect(update).toHaveBeenCalledWith({
         where: { userId: "user-1" },
         data: { lastTestedAt: expect.any(Date) },
@@ -358,16 +460,20 @@ describe("FacebookService", () => {
       const result = await service.publishPost("user-1", "hello");
 
       expect(result).toEqual({ success: false, reason: "expired" });
-      const update = (service as unknown as {
-        prisma: { socialConnection: { update: jest.Mock } };
-      }).prisma.socialConnection.update;
+      const update = (
+        service as unknown as {
+          prisma: { socialConnection: { update: jest.Mock } };
+        }
+      ).prisma.socialConnection.update;
       expect(update).toHaveBeenCalledWith({
         where: { userId: "user-1" },
         data: { isValid: false },
       });
-      const mailer = (service as unknown as {
-        mailer: { sendFacebookExpiredEmail: jest.Mock };
-      }).mailer;
+      const mailer = (
+        service as unknown as {
+          mailer: { sendFacebookExpiredEmail: jest.Mock };
+        }
+      ).mailer;
       expect(mailer.sendFacebookExpiredEmail).toHaveBeenCalledWith("user-1");
     });
 
@@ -428,20 +534,111 @@ describe("FacebookService", () => {
     it("deletes the user's connection row", async () => {
       const prisma = {
         socialConnection: {
-          findUnique: jest.fn(),
+          findUnique: jest.fn().mockResolvedValue({
+            id: "connection-1",
+          }),
           upsert: jest.fn(),
           update: jest.fn(),
           deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        publishingTarget: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       };
       const service = createService({ prisma });
 
       await service.disconnect("user-1");
 
-      const deleteMany = (service as unknown as {
-        prisma: { socialConnection: { deleteMany: jest.Mock } };
-      }).prisma.socialConnection.deleteMany;
+      const deleteMany = (
+        service as unknown as {
+          prisma: { socialConnection: { deleteMany: jest.Mock } };
+        }
+      ).prisma.socialConnection.deleteMany;
       expect(deleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+    });
+
+    it("expires bridged publishing targets before deleting the connection", async () => {
+      const prisma = {
+        socialConnection: {
+          findUnique: jest.fn().mockResolvedValue({ id: "connection-1" }),
+          upsert: jest.fn(),
+          update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        publishingTarget: {
+          updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+      const service = createService({ prisma });
+
+      await service.disconnect("user-1");
+
+      const targetUpdateMany = (
+        service as unknown as {
+          prisma: { publishingTarget: { updateMany: jest.Mock } };
+        }
+      ).prisma.publishingTarget.updateMany;
+      expect(targetUpdateMany).toHaveBeenCalledWith({
+        where: {
+          credentialRef: "facebook-social-connection:connection-1",
+          connectionState: "CONNECTED",
+        },
+        data: {
+          connectionState: "EXPIRED",
+          version: { increment: 1 },
+        },
+      });
+    });
+  });
+
+  describe("publishTextForUser", () => {
+    it("publishes text and resolves Facebook's permalink_url field", async () => {
+      const configService = {
+        get: jest.fn((path: string) => CONFIG_MAP[path]),
+      } as unknown as ConfigService;
+      const encrypted = new EncryptionService(configService).encrypt(
+        "page-token",
+      );
+      const service = createService({
+        prisma: {
+          socialConnection: {
+            findUnique: jest.fn().mockResolvedValue({
+              provider: "facebook",
+              pageId: "page-42",
+              isValid: true,
+              encryptedToken: encrypted.ciphertext,
+              encryptionIv: encrypted.iv,
+              authTag: encrypted.authTag,
+            }),
+            update: jest.fn(),
+          },
+        },
+      });
+      axiosPostSpy.mockResolvedValueOnce({ data: { id: "page-42_post-1" } });
+      axiosGetSpy.mockResolvedValueOnce({
+        data: { permalink_url: "https://facebook.example/post-1" },
+      });
+
+      await expect(
+        service.publishTextForUser({
+          userId: "user-1",
+          pageId: "page-42",
+          caption: "test post",
+        }),
+      ).resolves.toEqual({
+        remotePublicationId: "page-42_post-1",
+        remoteUrl: "https://facebook.example/post-1",
+      });
+      expect(axiosGetSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v20.0/page-42_post-1"),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            fields: "permalink_url,link",
+            access_token: "page-token",
+          }),
+        }),
+      );
     });
   });
 
@@ -452,7 +649,7 @@ describe("FacebookService", () => {
         data: { id: "photo-1", post_id: "post-1" },
       });
       const linkSpy = jest.spyOn(axios, "get").mockResolvedValueOnce({
-        data: { link: "https://facebook.example/post-1" },
+        data: { permalink_url: "https://facebook.example/post-1" },
       });
 
       const result = await service.publishPhotoViaPageToken({
@@ -478,6 +675,15 @@ describe("FacebookService", () => {
           }),
         }),
       );
+      expect(linkSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v20.0/post-1"),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            fields: "permalink_url,link",
+            access_token: "page-token",
+          }),
+        }),
+      );
       linkSpy.mockRestore();
     });
 
@@ -486,7 +692,9 @@ describe("FacebookService", () => {
       axiosPostSpy.mockResolvedValue({
         data: { post_id: "post-2" },
       });
-      const linkSpy = jest.spyOn(axios, "get").mockRejectedValueOnce(new Error("down"));
+      const linkSpy = jest
+        .spyOn(axios, "get")
+        .mockRejectedValueOnce(new Error("down"));
 
       const result = await service.publishPhotoViaPageToken({
         pageToken: "page-token",
@@ -535,6 +743,36 @@ describe("FacebookService", () => {
           caption: "test caption",
         }),
       ).rejects.toThrow("Graph error");
+    });
+  });
+
+  describe("provider-facing publish methods", () => {
+    it("turns a disconnected owner connection into a deterministic Graph auth error", async () => {
+      const service = createService({
+        prisma: {
+          socialConnection: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            upsert: jest.fn(),
+            update: jest.fn(),
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+            deleteMany: jest.fn(),
+          },
+        },
+      });
+
+      await expect(
+        service.publishPhotoForUser({
+          userId: "user-1",
+          pageId: "page-42",
+          imageUrl: "https://cdn.example/asset.png",
+          caption: "hello",
+        }),
+      ).rejects.toMatchObject({
+        name: "FacebookGraphError",
+        status: 401,
+        code: FACEBOOK_INVALID_TOKEN_CODE,
+      });
+      expect(axiosPostSpy).not.toHaveBeenCalled();
     });
   });
 });

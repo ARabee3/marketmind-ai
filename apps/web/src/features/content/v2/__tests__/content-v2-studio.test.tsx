@@ -37,6 +37,13 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.viewApprovedCta": "View approved posts",
       "ContentV2.studio.completedHint": "All posts for this week are approved.",
       "ContentV2.studio.retryCta": "Retry generation",
+      "ContentV2.studio.regenerateCta": "Generate fresh drafts",
+      "ContentV2.studio.regeneratingCta": "Starting fresh generation…",
+      "ContentV2.studio.recoveryTitle": "The drafts could not be created",
+      "ContentV2.studio.recoveryBody":
+        "The generation checks stopped unsafe or invalid drafts before anything was saved.",
+      "ContentV2.studio.recoveryPlanSafe":
+        "Your reviewed post plan is still intact, and nothing was published.",
       "ContentV2.studio.configureProfileCta": "Editorial settings",
       "ContentV2.studio.viewFullStrategy": "View full strategy",
       "ContentV2.studio.generationState.not_started": "Not planned",
@@ -319,6 +326,64 @@ describe("ContentV2Studio", () => {
 
     expect(await screen.findByText(/plan is no longer valid/i)).toBeDefined();
     expect(screen.queryByText("generateFailed")).toBeNull();
+  });
+
+  it("offers an owner-authorized fresh generation after a terminal failure", async () => {
+    const failedWorkspace = draftPlanWorkspace({
+      current_week: {
+        ...draftPlanWorkspace().current_week,
+        generation_state: "failed",
+        week_plan: {
+          ...draftPlanWorkspace().current_week.week_plan!,
+          status: "frozen",
+        },
+        pack: {
+          id: "pack-failed",
+          contract_version: "content-v2",
+          content_cycle_id: "cycle-1",
+          week_number: 1,
+          week_plan_id: "week-plan-1",
+          status: "failed",
+          retry_eligible: false,
+          business_id: "biz-1",
+          strategy_id: "strat-1",
+          strategy_version: 1,
+          strategy_decision_id: "decision-1",
+          profile_version_id: "prof-1",
+          week_context_id: "ctx-1",
+          weekly_claim_id: "claim-1",
+          item_ids: [],
+          created_at: "2026-08-08T00:00:00.000Z",
+          updated_at: "2026-08-08T00:00:00.000Z",
+        },
+        primary_action: "regenerate",
+      },
+    });
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      failedWorkspace,
+    );
+    vi.mocked(contentV2Api.regenerateContentPackV2).mockResolvedValue({
+      content_pack: failedWorkspace.current_week.pack!,
+      status: "queued",
+      correlation_id: "corr-owner-recovery",
+    });
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    expect(
+      await screen.findByText("The drafts could not be created"),
+    ).toBeDefined();
+    expect(screen.getByText(/nothing was published/i)).toBeDefined();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Generate fresh drafts" }),
+    );
+
+    await waitFor(() => {
+      expect(contentV2Api.regenerateContentPackV2).toHaveBeenCalledWith(
+        "pack-failed",
+      );
+    });
+    expect(contentCycleApi.retryContentPack).not.toHaveBeenCalled();
   });
 
   it("navigates to the pack review from the single review primary action", async () => {

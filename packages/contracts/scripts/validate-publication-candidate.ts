@@ -150,6 +150,16 @@ assert.equal(
   null,
   "approved candidate must be valid",
 );
+const approvedTextOnly = structuredClone(approved);
+approvedTextOnly.content_format = "text_post";
+approvedTextOnly.assets = [];
+approvedTextOnly.alt_text = "";
+recomputeChecksum(approvedTextOnly);
+assert.equal(
+  verifyCandidate(approvedTextOnly),
+  null,
+  "approved text-only candidate must be valid without a fabricated asset",
+);
 const activeStatus = (await loadExample(
   "publication-candidate-status-active.example.json",
 )) as PublicationCandidateStatusV1;

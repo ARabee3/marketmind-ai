@@ -29,13 +29,16 @@ test.describe("Publishing owner journey", () => {
       page.getByRole("heading", { name: "Publishing workspace" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Exact content version" }),
+      page.getByRole("heading", { name: "This exact post" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Publishing cannot edit this item."),
+      page.getByText(
+        "The decision below applies only to this approved version.",
+        { exact: false },
+      ),
     ).toBeVisible();
     await expect(
-      page.getByRole("radio", { name: /Real publishing/ }),
+      page.getByRole("radio", { name: /Publish this post/ }),
     ).not.toBeChecked();
     await expect(
       page.getByRole("radio", { name: /Manual export/ }),
@@ -78,14 +81,38 @@ test.describe("Publishing owner journey", () => {
     await expect(
       page.getByRole("heading", { name: "Week 2", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Review exact approval")).toBeVisible();
-    await page.getByRole("button", { name: "Approve and schedule" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Approve this exact publication?" }),
+      page.getByText("1 selected post", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Approval can authorize an external post."),
+      page
+        .getByLabel("Decide what happens to this post")
+        .getByText(PUBLISHING_CANDIDATE_FIXTURES[1].candidate.caption),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Every action in this panel applies only to the selected post below.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Review this post’s publication"),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Approve this post & schedule it" })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Approve and schedule this post?" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Only this post will be authorized for external publication. Other approved posts stay unchanged.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByText(PUBLISHING_CANDIDATE_FIXTURES[1].candidate.caption),
     ).toBeVisible();
   });
 
@@ -105,20 +132,28 @@ test.describe("Publishing owner journey", () => {
       ),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Approve and schedule" }),
+      page.getByRole("button", {
+        name: "Approve this post & schedule it",
+      }),
     ).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Cancel intent" }).click();
+    await page
+      .getByRole("button", { name: "Cancel this post’s decision" })
+      .click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(
       page.getByRole("heading", {
-        name: "Cancel this publishing intent?",
+        name: "Cancel this post’s publishing decision?",
       }),
     ).toBeVisible();
     await expect(
-      page.getByText(PUBLISHING_INTENT_FIXTURE.candidate_id),
+      page
+        .getByRole("dialog")
+        .getByText(PUBLISHING_CANDIDATE_FIXTURES[1].candidate.caption),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Keep intent" }).click();
+    await page
+      .getByRole("button", { name: "Keep this post’s decision" })
+      .click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
@@ -182,15 +217,18 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
     await expect(
       page.getByRole("heading", { name: "الأسبوع 2", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("مراجعة الاعتماد الكامل")).toBeVisible();
+    await expect(page.getByText("منشور واحد محدد")).toBeVisible();
+    await expect(page.getByText("راجع نشر المنشور ده")).toBeVisible();
 
-    await page.getByRole("button", { name: "اعتماد وجدولة" }).click();
+    await page.getByRole("button", { name: "اعتمد المنشور ده وجدوله" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "اعتماد النشر الكامل؟" }),
+      page.getByRole("heading", { name: "تعتمد وتجدول المنشور ده؟" }),
     ).toBeVisible();
     await expect(
-      page.getByText("الاعتماد ممكن يسمح بمنشور خارجي."),
+      page.getByText(
+        "المنشور ده بس هو اللي هيتصرح له بالنشر الخارجي. باقي المنشورات المعتمدة مش هتتغير.",
+      ),
     ).toBeVisible();
   });
 
@@ -213,12 +251,18 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
     await expect(
       page.getByRole("heading", { name: "Publication failed" }),
     ).toBeVisible();
-    await expect(page.getByText("PUBLISHING_PROVIDER_REJECTED")).toBeVisible();
+    await expect(
+      page.getByText(
+        "The publishing provider did not complete this post, and nothing was confirmed as published. It is safe to retry.",
+      ),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Retry proven failure" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Approve and schedule" }),
+      page.getByRole("button", {
+        name: "Approve this post & schedule it",
+      }),
     ).toHaveCount(0);
   });
 
@@ -243,7 +287,12 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       page.getByRole("button", { name: "Retry proven failure" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Refresh status" }),
+      page
+        .getByText(
+          "MarketMind is checking whether the provider received the request.",
+          { exact: false },
+        )
+        .first(),
     ).toBeVisible();
   });
 
@@ -311,7 +360,10 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       page.getByRole("button", { name: "Download archive" }),
     ).toBeVisible();
 
-    await page.locator("summary").filter({ hasText: "Archive manifest" }).click();
+    await page
+      .locator("summary")
+      .filter({ hasText: "Archive manifest" })
+      .click();
     await expect(page.getByText(exportChecksum)).toBeVisible();
 
     await page.getByRole("button", { name: "Download archive" }).click();
@@ -364,7 +416,9 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
 
     await page.goto(`/en/publishing/${intentId}/review`);
     await expect(
-      page.getByLabel("Next safe action").getByText("Cancelled", { exact: true }),
+      page
+        .getByLabel("Decide what happens to this post")
+        .getByText("Cancelled", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText(
@@ -372,13 +426,15 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       ),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Approve and schedule" }),
+      page.getByRole("button", {
+        name: "Approve this post & schedule it",
+      }),
     ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Retry proven failure" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Cancel intent" }),
+      page.getByRole("button", { name: "Cancel this post’s decision" }),
     ).toHaveCount(0);
   });
 
@@ -404,7 +460,9 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
       .getByRole("alert")
       .filter({ hasText: "تعذر تحميل النشر" });
     await expect(alert).toContainText("الشاشة دي ما نشرتش أي حاجة.");
-    await expect(alert.getByRole("button", { name: "جرّب تاني" })).toBeVisible();
+    await expect(
+      alert.getByRole("button", { name: "جرّب تاني" }),
+    ).toBeVisible();
   });
 });
 
@@ -670,6 +728,7 @@ function detailRow(intent: PublicationIntentV1) {
           id: targetFixture.target_id,
           version: targetFixture.version,
           businessId: targetFixture.business_id,
+          provider: "META",
           channel: targetFixture.channel,
           externalAccountId: targetFixture.external_account_id,
           displayName: targetFixture.display_name,

@@ -991,11 +991,10 @@ export class ContentService {
    * 4. an approval for a media-required version additionally requires ready
    *    publishable assets (CONTENT_ASSET_REQUIRED).
    *
-   * The decision and the candidate (when the approved version has publishable
-   * media) are written atomically, so a candidate can never reference a
-   * decision/version that was not committed (arch doc 826-828). Text-only
-   * approvals do not fabricate an asset to satisfy the frozen
-   * PublicationCandidateV1 boundary; they return `publication_candidate: null`.
+   * The decision and the candidate are written atomically, so a candidate can
+   * never reference a decision/version that was not committed (arch doc
+   * 826-828). Text-only approvals create a candidate with an empty immutable
+   * asset list; media formats still require their approved asset bytes.
    */
   async decide(
     packId: string,
@@ -1155,7 +1154,10 @@ export class ContentService {
         }
 
         const candidateAssets = readyCandidateAssets(fixture);
-        if (candidateAssets.length === 0) {
+        if (
+          candidateAssets.length === 0 &&
+          currentVersion.format !== "text_post"
+        ) {
           await this.packRepository.derivePackStatusFromItems(packId, tx);
           return {
             decision: recorded,
@@ -1640,7 +1642,12 @@ export class ContentService {
         if (existingCandidate) continue;
 
         const candidateAssets = readyCandidateAssets(entry.fixture);
-        if (candidateAssets.length === 0) continue;
+        if (
+          candidateAssets.length === 0 &&
+          entry.currentVersion.format !== "text_post"
+        ) {
+          continue;
+        }
 
         const created = await this.candidateRepository.createCandidate(
           {

@@ -26,13 +26,12 @@ export class EncryptionService {
 
   constructor(config: ConfigService) {
     const rawKey = config.get<string>("facebook.tokenEncryptionKey") ?? "";
-    const key = Buffer.from(rawKey, "hex");
-    if (key.length !== 32) {
+    if (!/^[0-9a-fA-F]{64}$/.test(rawKey)) {
       throw new Error(
         "TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex chars",
       );
     }
-    this.key = key;
+    this.key = Buffer.from(rawKey, "hex");
   }
 
   encrypt(plaintext: string): EncryptedPayload {

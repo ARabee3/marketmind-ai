@@ -147,9 +147,9 @@ test.describe('Strategy owner journey', () => {
       versionId: VERSION_ID,
       action: 'approve',
     })
-    await expect(page.getByText('Strategy approved by the owner.')).toBeVisible()
     // After approval the owner sees the approved panel instead of a blocked
-    // decision rail, and the decision buttons disappear.
+    // decision rail, and the decision buttons disappear. The transient success
+    // notice is replaced by the authoritative approved panel after refresh.
     await expect(
       page.getByRole('heading', { name: 'This strategy is approved' }),
     ).toBeVisible()

@@ -6,10 +6,11 @@ import type {
   PublicationIntentV1,
   PublishingTargetPublicV1,
 } from "@marketmind/contracts";
-import { Check, CircleAlert, Link2, RefreshCw } from "lucide-react";
+import { Check, CircleAlert, Link2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { targetSupportsCandidate } from "../lib/publishing-state";
 import { PublishingBadge } from "./publishing-badge";
 
 export function PublicationReadiness({
@@ -18,23 +19,31 @@ export function PublicationReadiness({
   targets,
   intent,
   onConnect,
-  onVerify,
 }: {
   readonly readiness: CurrentJourneyContentReadiness | null;
   readonly candidate: PublicationCandidateSummaryV1 | null;
   readonly targets: readonly PublishingTargetPublicV1[];
   readonly intent: PublicationIntentV1 | null;
   readonly onConnect: () => void;
-  readonly onVerify: (target: PublishingTargetPublicV1) => void;
 }) {
   const t = useTranslations("Publishing");
   const format = useFormatter();
   const connectedTarget = targets.find(
     (target) =>
+      target.channel === "facebook" &&
       target.connection_state === "connected" &&
-      target.capabilities.includes("static_image"),
+      targetSupportsCandidate(target, candidate),
   );
   const hasApproval = Boolean(intent?.approved_decision_id);
+  const needsTarget = !intent || intent.mode === "real";
+  const targetReady = !needsTarget || Boolean(connectedTarget);
+  const approvalLabel = intent
+    ? intent.mode === "real"
+      ? hasApproval
+        ? t("readiness.approval")
+        : t("readiness.approvalMissing")
+      : t("readiness.localAction")
+    : t("readiness.noTarget");
   const rows = [
     {
       ok: Boolean(candidate && candidate.source_state === "active"),
@@ -49,14 +58,18 @@ export function PublicationReadiness({
       ),
     },
     {
-      ok: Boolean(connectedTarget),
+      ok: targetReady,
       label: t(
-        connectedTarget ? "readiness.target" : "readiness.targetMissing",
+        connectedTarget
+          ? "readiness.target"
+          : needsTarget
+            ? "readiness.targetMissing"
+            : "readiness.noTarget",
       ),
     },
     {
-      ok: hasApproval || intent?.mode !== "real",
-      label: t(hasApproval ? "readiness.approval" : "readiness.noTarget"),
+      ok: Boolean(intent?.mode !== "real" || hasApproval),
+      label: approvalLabel,
     },
   ];
   const allReady = rows.every((row) => row.ok);
@@ -124,15 +137,6 @@ export function PublicationReadiness({
                   : t("target.connected")}
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => onVerify(connectedTarget)}
-            >
-              <RefreshCw className="me-1.5 size-3.5" aria-hidden="true" />
-              {t("target.verify")}
-            </Button>
           </div>
         ) : (
           <div className="grid gap-2">

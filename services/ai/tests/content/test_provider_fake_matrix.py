@@ -98,6 +98,30 @@ def test_provider_output_blocks_every_unsafe_claim_class(
     assert expected_code in {issue.code for issue in result.issues}
 
 
+def test_risky_copy_feedback_names_the_claim_class() -> None:
+    request = _text_request()
+    items = _generate(request)
+    first = items[0]
+    variant = first.caption_variants[0]
+    items[0] = first.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(update={"caption": "نحن الأفضل في السوق."})
+            ]
+        }
+    )
+
+    result = validate_generated_content_pack(request, items)
+
+    issue = next(
+        issue
+        for issue in result.issues
+        if issue.code == "CONTENT_UNSUPPORTED_CLAIM"
+    )
+    assert "superiority" in issue.message
+    assert "exact approved value and source path" in issue.message
+
+
 def test_expired_promotion_is_rejected() -> None:
     request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
     items = _generate(request)

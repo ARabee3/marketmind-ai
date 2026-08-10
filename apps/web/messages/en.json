@@ -1508,48 +1508,31 @@
           "no": "01",
           "label": "Receive business data",
           "desc": "You enter your business name, category, and location — the starting point for research.",
-          "chips": [
-            "Name",
-            "Category",
-            "Location"
-          ]
+          "chips": ["Name", "Category", "Location"]
         },
         {
           "no": "02",
           "label": "Plan and run research",
           "desc": "We turn your intake into search queries and run them against real sources.",
-          "chips": [
-            "Search sources",
-            "Local directories",
-            "Fallbacks"
-          ]
+          "chips": ["Search sources", "Local directories", "Fallbacks"]
         },
         {
           "no": "03",
           "label": "Filter evidence",
           "desc": "We remove unrelated results and keep relevant findings with their sources.",
-          "chips": [
-            "Filtering",
-            "Source mapping"
-          ]
+          "chips": ["Filtering", "Source mapping"]
         },
         {
           "no": "04",
           "label": "First research-backed question",
           "desc": "We ask a question that completes the picture, based on what was found.",
-          "chips": [
-            "Smart question",
-            "Research context"
-          ]
+          "chips": ["Smart question", "Research context"]
         },
         {
           "no": "05",
           "label": "Confirmed profile",
           "desc": "Every fact you confirm is saved as a trusted business profile fact.",
-          "chips": [
-            "Owner confirmation",
-            "Evidence saved"
-          ]
+          "chips": ["Owner confirmation", "Evidence saved"]
         }
       ]
     },
@@ -1697,6 +1680,8 @@
       "target": "A compatible Meta target is connected",
       "targetMissing": "Real publishing needs a connected target",
       "approval": "Exact decision details are visible",
+      "approvalMissing": "Exact publication approval is still needed",
+      "localAction": "This local action does not need publication approval",
       "noTarget": "Export and simulation are still available",
       "connectUnavailable": "Account connection is not available in this environment",
       "lastChecked": "Last checked {time}",
@@ -1720,22 +1705,23 @@
       "cancelled": "Cancelled"
     },
     "queue": {
-      "label": "Approved candidates",
+      "label": "Approved posts",
       "weekLabel": "Week {week}",
-      "selected": "Selected",
-      "active": "Ready",
+      "selected": "Selected post",
+      "active": "Ready for decision",
       "waiting": "Waiting",
       "scheduled": "Already scheduled",
+      "published": "Published",
       "revoked": "Withdrawn",
       "replaced": "Replaced",
       "emptyTitle": "No approved candidates for this week",
       "emptyBody": "Approved Content items will appear here when the Content cycle is ready.",
-      "choose": "Review candidate"
+      "choose": "Decide on this post"
     },
     "preview": {
-      "eyebrow": "Immutable candidate",
-      "title": "Exact content version",
-      "body": "Publishing cannot edit this item. A change must create a new Content version.",
+      "eyebrow": "Selected approved post",
+      "title": "This exact post",
+      "body": "The decision below applies only to this approved version. Editing it requires a new Content version.",
       "channel": "Channel",
       "format": "Format",
       "locale": "Locale",
@@ -1751,12 +1737,13 @@
       "copyChecksum": "Copy checksum",
       "copied": "Checksum copied",
       "window": "Recommended Cairo window",
+      "details": "Post details and publishing proof",
       "noCta": "No CTA supplied"
     },
     "mode": {
       "label": "What should happen?",
-      "real": "Real publishing",
-      "realDescription": "Post this exact item to a connected Meta account at the approved time.",
+      "real": "Publish this post",
+      "realDescription": "Choose the Facebook Page and Cairo time before you confirm publishing.",
       "export": "Manual export",
       "exportDescription": "Build a downloadable archive. Nothing will be posted.",
       "simulation": "Simulation",
@@ -1766,7 +1753,9 @@
       "exportLabel": "Manual export",
       "simulationLabel": "SIMULATION",
       "realUnavailable": "Real publishing is unavailable until an authorized target is connected.",
-      "changeMode": "To change mode, cancel this intent and start a new one."
+      "realAlreadyExists": "This post already has a protected real-publication decision.",
+      "changeMode": "To change this active decision, cancel it and choose again.",
+      "actionComplete": "This action is complete. You can continue with the same post."
     },
     "target": {
       "label": "Connected account",
@@ -1776,7 +1765,7 @@
       "revoked": "Connection revoked",
       "error": "Connection needs attention",
       "lastVerified": "Verified {date}",
-      "capability": "Static image supported",
+      "capability": "This post format is supported",
       "noConnected": "No connected Meta target is available.",
       "connect": "Connect an account",
       "connectUnavailable": "Connection setup is not available yet. Export or simulate this item instead.",
@@ -1786,7 +1775,7 @@
     "schedule": {
       "label": "Cairo schedule",
       "dateLabel": "Date and time",
-      "helper": "The API confirms the exact local time before approval.",
+      "helper": "The recommended Cairo time is prefilled. You can change it before approval.",
       "local": "Local time",
       "zone": "IANA zone",
       "utc": "Normalized UTC",
@@ -1799,32 +1788,44 @@
       "cairo": "Africa/Cairo"
     },
     "decision": {
-      "label": "Owner decision",
-      "next": "Next safe action",
-      "createReal": "Set up real publishing",
+      "label": "One-post decision",
+      "next": "Decide what happens to this post",
+      "scopeLabel": "Post affected by this decision",
+      "scopeHelp": "Every action in this panel applies only to the selected post below.",
+      "scopeOnly": "1 selected post",
+      "scopeMeta": "{channel} · Strategy week {week}",
+      "createReal": "Choose account and time",
       "createExport": "Create export",
       "runSimulation": "Run simulation",
       "working": "Saving the decision…",
-      "reviewApproval": "Review exact approval",
-      "approve": "Approve and schedule",
-      "cancel": "Cancel intent",
+      "reviewApproval": "Review this post’s publication",
+      "approve": "Approve this post & schedule it",
+      "approvalScope": "This approval covers the 1 selected post shown above—nothing else in the week.",
+      "cancelTitle": "Don’t continue with this post?",
+      "cancelHelp": "Cancel only this post’s current publishing decision. Other posts stay unchanged.",
+      "cancel": "Cancel this post’s decision",
       "retry": "Retry proven failure",
       "refresh": "Refresh status",
       "noAction": "No action is available yet",
-      "realConsequence": "Approval will authorize external publication at the exact time shown.",
+      "realConsequence": "Approval authorizes only this selected post for external publication at the exact time shown.",
       "exportConsequence": "This creates files only. It does not publish or change a social account.",
       "simulationConsequence": "No social account will change. The result will be labeled SIMULATION.",
       "scheduledConsequence": "This item is scheduled for the connected account shown above.",
       "unknownConsequence": "Do not repost or retry. MarketMind is checking whether the provider received the request.",
+      "retryableFailure": "The publishing provider did not complete this post, and nothing was confirmed as published. It is safe to retry.",
+      "nonRetryableFailure": "The publishing provider did not complete this post. Refresh the status before choosing another action.",
       "dispatching": "Working through the publishing boundary…",
       "cancelled": "This intent is read-only. Start a new decision if the candidate is still active.",
+      "completed": "This action is complete. Export and simulation do not block publishing.",
+      "continue": "Continue with this post",
       "stale": "The state changed elsewhere. Review the latest version before acting."
     },
     "dialog": {
-      "title": "Approve this exact publication?",
-      "body": "This records your approval for one immutable intent and one schedule.",
-      "warning": "Approval can authorize an external post. It does not edit Content or change the confirmed business profile.",
+      "title": "Approve and schedule this post?",
+      "body": "You’re approving the single post shown below for one account and one schedule.",
+      "warning": "Only this post will be authorized for external publication. Other approved posts stay unchanged.",
       "candidate": "Candidate",
+      "post": "Post",
       "target": "Target",
       "mode": "Mode",
       "real": "Real publishing",
@@ -1833,14 +1834,14 @@
       "local": "Cairo local",
       "utc": "UTC",
       "cancel": "Keep reviewing",
-      "confirm": "Confirm decision"
+      "confirm": "Approve this post"
     },
     "cancelDialog": {
-      "title": "Cancel this publishing intent?",
-      "body": "This stops the current decision. Nothing new will be published, exported, or simulated from this intent.",
-      "warning": "If this item is scheduled, its delayed job will be cancelled. You can start a new decision from the active candidate.",
-      "keep": "Keep intent",
-      "confirm": "Cancel intent"
+      "title": "Cancel this post’s publishing decision?",
+      "body": "This stops only the current decision for the post shown below.",
+      "warning": "If this post is scheduled, its delayed job will be cancelled. Other posts and their decisions stay unchanged.",
+      "keep": "Keep this post’s decision",
+      "confirm": "Cancel this post’s decision"
     },
     "outcome": {
       "title": "Latest outcome",
@@ -1858,10 +1859,15 @@
       "checksum": "Checksum",
       "generated": "Generated",
       "pendingExport": "Export is being assembled. It is not ready to download yet.",
-      "notAvailable": "No result has been confirmed yet."
+      "notAvailable": "No result has been confirmed yet.",
+      "pending": "Waiting for the publishing result",
+      "dispatching": "The request is being processed. This panel will update automatically.",
+      "failedNoResult": "The request stopped before a provider result was recorded. Review the recovery action above.",
+      "actionRequired": "The request needs attention before it can continue."
     },
     "history": {
       "title": "Decision and result history",
+      "showDetails": "Show technical activity",
       "approval": "Approval",
       "attempt": "Attempt {number}",
       "created": "Intent created",
@@ -1884,8 +1890,8 @@
       "unknown": "Something changed while you were reviewing. Refresh the latest state before trying again."
     },
     "meta": {
-      "connectTitle": "Connect a Meta account",
-      "connectBody": "Connect the Facebook Page you own, and optionally its linked Instagram Professional account, so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
+      "connectTitle": "Connect Facebook",
+      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
       "connectListTitle": "What gets connected",
       "connectItemPage": "One Facebook Page you manage",
       "connectItemInstagram": "The Page's linked Instagram Professional account (optional)",
@@ -1895,7 +1901,7 @@
       "prereqPage": "You must be an admin of the Facebook Page",
       "prereqInstagram": "The Instagram account must be a Professional account linked to the Page",
       "prereqPermissions": "Grant only the publishing permissions MarketMind requests",
-      "startButton": "Continue with Meta",
+      "startButton": "Continue with Facebook",
       "backButton": "Back to publishing",
       "unavailableTitle": "Connection is not available right now",
       "unavailableBody": "The Meta connection configuration is not set up in this environment yet. Export and simulation remain available — real publishing is blocked until the connection works.",
@@ -2047,6 +2053,9 @@
       "staleProfileTitle": "Strategy Profile Mismatch",
       "staleProfileBody": "Your active confirmed profile has changed since this Strategy was created. Please update or generate a new Strategy.",
       "staleProfileAction": "Go to Strategy",
+      "provenanceMismatchTitle": "Strategy Version Mismatch",
+      "provenanceMismatchBody": "Content stopped because the approved Strategy's saved version details do not agree. Return to Strategy before generating content.",
+      "provenanceMismatchAction": "Review Strategy",
       "staleRouteTitle": "Another Content Cycle Is Active",
       "staleRouteBody": "A different content cycle is already in progress. Open that cycle to continue.",
       "staleRouteAction": "Go to Current Cycle",
@@ -2590,6 +2599,11 @@
       "completedHint": "All posts for this week are approved. They are ready for the publishing step.",
       "retryCta": "Retry generation",
       "retryingCta": "Retrying generation…",
+      "regenerateCta": "Generate fresh drafts",
+      "regeneratingCta": "Starting fresh generation…",
+      "recoveryTitle": "The drafts could not be created",
+      "recoveryBody": "The generation checks stopped unsafe or invalid drafts before anything was saved. Start a fresh controlled attempt when you are ready.",
+      "recoveryPlanSafe": "Your reviewed post plan is still intact, and nothing was published.",
       "notAvailable": "Not available",
       "nextWeekStatus": "Week {week}: {status}",
       "configureProfileCta": "Editorial settings",
@@ -2893,6 +2907,8 @@
     "connectedAt": "Connected on",
     "lastTestedAt": "Last tested",
     "neverTested": "Not tested yet",
+    "expiresAt": "Access token expires",
+    "expiryUnknown": "Unknown",
     "expiredTitle": "Connection expired",
     "expiredBody": "The access token for your Facebook Page is no longer valid. Reconnect to restore publishing.",
     "reconnectButton": "Reconnect",

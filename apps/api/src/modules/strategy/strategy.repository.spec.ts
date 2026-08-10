@@ -377,3 +377,64 @@ describe("Strategy lifecycle transition matrix", () => {
     });
   });
 });
+
+describe("StrategyRepository.appendStrategyVersion", () => {
+  it("stamps the database-owned version and provenance over model output", async () => {
+    const create = jest.fn().mockImplementation(({ data }) => ({
+      id: "ver-1",
+      ...data,
+    }));
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      strategy: {
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ status: "validating" }),
+        updateMany,
+      },
+      strategyVersion: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create,
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const repository = new StrategyRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    await repository.appendStrategyVersion(
+      "strat-1",
+      "run-1",
+      {
+        strategy_id: "model-strategy",
+        version: 2,
+        retrieval_run_id: "model-run",
+        contract_version: "strategy-v2",
+      },
+      {},
+    );
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        strategyId: "strat-1",
+        version: 1,
+        retrievalRunId: "run-1",
+        planData: expect.objectContaining({
+          strategy_id: "strat-1",
+          version: 1,
+          retrieval_run_id: "run-1",
+          contract_version: "strategy-v2",
+        }),
+      }),
+    });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "strat-1", status: "validating" },
+      data: { currentVersionId: "ver-1", status: "draft" },
+    });
+  });
+});
