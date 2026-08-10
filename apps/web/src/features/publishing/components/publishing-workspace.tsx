@@ -29,7 +29,11 @@ import {
   type PublishingExportState,
   type PublishingIntentDetailView,
 } from "@/lib/api/publishing";
-import { activeIntentForCandidate } from "../lib/publishing-state";
+import {
+  activeIntentForCandidate,
+  publishingStatusRefreshDelay,
+  realIntentForCandidate,
+} from "../lib/publishing-state";
 import { ImmutableCandidatePreview } from "./immutable-candidate-preview";
 import { PublicationAttemptHistory } from "./publication-attempt-history";
 import { PublishingCandidateQueue } from "./publishing-candidate-queue";
@@ -178,13 +182,28 @@ export function PublishingWorkspace({
     (selectedCandidate && data
       ? activeIntentForCandidate(selectedCandidate, data.intents)
       : null);
+  const realIntent =
+    selectedCandidate && data
+      ? realIntentForCandidate(selectedCandidate, data.intents)
+      : null;
+  const intentState = intent?.state ?? null;
+  const intentScheduledUtc = intent?.scheduled_utc ?? null;
 
   useEffect(() => {
-    if (!intentId || intent?.state !== "dispatching") return;
+    const statusSnapshot = intentState
+      ? { state: intentState, scheduled_utc: intentScheduledUtc }
+      : null;
+    if (
+      !intentId ||
+      publishingStatusRefreshDelay(statusSnapshot) === null
+    ) {
+      return;
+    }
 
     let cancelled = false;
+    let timeoutId: number | undefined;
 
-    const poll = () => {
+    const poll = async () => {
       if (
         cancelled ||
         document.visibilityState === "hidden" ||
@@ -194,22 +213,34 @@ export function PublishingWorkspace({
       }
 
       refreshInFlight.current = true;
-      void refresh().finally(() => {
+      try {
+        await refresh();
+      } finally {
         refreshInFlight.current = false;
-      });
+      }
     };
 
-    const interval = window.setInterval(poll, 4_000);
-    window.addEventListener("focus", poll);
-    document.addEventListener("visibilitychange", poll);
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const delay = publishingStatusRefreshDelay(statusSnapshot);
+      if (delay === null) return;
+      timeoutId = window.setTimeout(() => {
+        void poll().finally(scheduleNext);
+      }, delay);
+    };
+
+    const refreshOnReturn = () => void poll();
+    scheduleNext();
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener("focus", poll);
-      document.removeEventListener("visibilitychange", poll);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
     };
-  }, [intentId, intent?.state, refresh]);
+  }, [intentId, intentScheduledUtc, intentState, refresh]);
 
   const detail = data?.detail ?? null;
   const currentWeek =
@@ -322,6 +353,13 @@ export function PublishingWorkspace({
         })();
     router.push(
       `/publishing/meta/connect?return=${encodeURIComponent(returnPath)}`,
+    );
+  }
+
+  function continueWithCandidate() {
+    if (!selectedCandidate) return;
+    router.push(
+      `/publishing?week=${selectedCandidate.candidate.strategy_week_number}&candidate=${selectedCandidate.candidate.candidate_id}`,
     );
   }
 
@@ -447,6 +485,8 @@ export function PublishingWorkspace({
             onRetry={retryIntent}
             onRefresh={refresh}
             onConnect={() => connectTarget()}
+            onContinue={continueWithCandidate}
+            realIntentExists={Boolean(realIntent)}
           />
           {detail ? (
             <PublicationOutcomePanel
@@ -454,7 +494,16 @@ export function PublishingWorkspace({
               exportState={data.exportState}
             />
           ) : null}
-          {detail ? <PublicationAttemptHistory detail={detail} /> : null}
+          {detail ? (
+            <details className="rounded-xl border border-border bg-surface p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
+                {t("history.showDetails")}
+              </summary>
+              <div className="mt-4">
+                <PublicationAttemptHistory detail={detail} />
+              </div>
+            </details>
+          ) : null}
         </div>
         <aside className="grid gap-5 lg:sticky lg:top-24">
           <PublicationReadiness
@@ -464,24 +513,6 @@ export function PublishingWorkspace({
             intent={intent}
             onConnect={() => connectTarget()}
           />
-          <section className="grid gap-3 rounded-xl border border-border bg-surface p-5 shadow-elevated">
-            <PublishingBadge tone="neutral">
-              {t("header.badge")}
-            </PublishingBadge>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {t("header.subtitle")}
-            </p>
-            {data.journey.generated_at ? (
-              <p className="text-xs text-muted-foreground">
-                {t("readiness.lastChecked", {
-                  time: format.dateTime(new Date(data.journey.generated_at), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }),
-                })}
-              </p>
-            ) : null}
-          </section>
         </aside>
       </div>
     </section>

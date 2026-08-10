@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 import type {
   PublicationCandidateSummaryV1,
   PublicationIntentV1,
+  PublishingTargetPublicV1,
 } from "@marketmind/contracts";
-import { activeIntentForCandidate, localCairoToUtc } from "../publishing-state";
+import {
+  activeIntentForCandidate,
+  localCairoToUtc,
+  publishingStatusRefreshDelay,
+  realIntentForCandidate,
+  targetSupportsCandidate,
+} from "../publishing-state";
 
 const candidate = {
   candidate: { candidate_id: "candidate-1" },
@@ -13,6 +20,7 @@ const candidate = {
 function intent(
   state: PublicationIntentV1["state"],
   intentId: string,
+  mode: PublicationIntentV1["mode"] = "real",
 ): PublicationIntentV1 {
   return {
     contract_version: "publication-intent-v1",
@@ -21,7 +29,7 @@ function intent(
     business_id: "business-1",
     candidate_id: "candidate-1",
     candidate_checksum: "checksum",
-    mode: "real",
+    mode,
     target_id: null,
     scheduled_local: null,
     time_zone: null,
@@ -47,12 +55,53 @@ describe("publishing state helpers", () => {
     );
   });
 
+  it("refreshes dispatching intents frequently", () => {
+    expect(
+      publishingStatusRefreshDelay(intent("dispatching", "intent-running")),
+    ).toBe(4_000);
+  });
+
+  it("wakes scheduled intents near their due time without constant polling", () => {
+    const scheduled = {
+      ...intent("scheduled", "intent-scheduled"),
+      scheduled_utc: "2026-08-09T13:03:00.000Z",
+    };
+
+    expect(
+      publishingStatusRefreshDelay(
+        scheduled,
+        Date.parse("2026-08-09T12:53:00.000Z"),
+      ),
+    ).toBe(60_000);
+    expect(
+      publishingStatusRefreshDelay(
+        scheduled,
+        Date.parse("2026-08-09T13:03:01.000Z"),
+      ),
+    ).toBe(4_000);
+  });
+
+  it("stops automatic status refresh after a terminal result", () => {
+    expect(
+      publishingStatusRefreshDelay(intent("succeeded", "intent-done")),
+    ).toBeNull();
+  });
+
   it("does not resurrect a cancelled intent from a stale active-intent id", () => {
     expect(
       activeIntentForCandidate(candidate, [
         intent("cancelled", "intent-cancelled"),
       ]),
     ).toBeNull();
+  });
+
+  it("falls back to the real lifecycle when a local terminal id is stale", () => {
+    expect(
+      activeIntentForCandidate(candidate, [
+        intent("succeeded", "intent-cancelled", "manual_export"),
+        intent("scheduled", "intent-real"),
+      ])?.intent_id,
+    ).toBe("intent-real");
   });
 
   it("selects a non-terminal intent when no active id is supplied", () => {
@@ -63,5 +112,34 @@ describe("publishing state helpers", () => {
         intent("failed", "intent-failed"),
       ])?.intent_id,
     ).toBe("intent-failed");
+  });
+
+  it("keeps a completed export separate from the protected real lifecycle", () => {
+    const exportIntent = intent("succeeded", "intent-export", "manual_export");
+    const realIntent = intent("scheduled", "intent-real");
+
+    expect(
+      realIntentForCandidate(candidate, [exportIntent, realIntent])?.intent_id,
+    ).toBe("intent-real");
+    expect(realIntentForCandidate(candidate, [exportIntent])).toBeNull();
+  });
+
+  it("matches Facebook capabilities to text and static-image posts", () => {
+    const target = {
+      channel: "facebook",
+      capabilities: ["static_image", "text"],
+    } as unknown as PublishingTargetPublicV1;
+    const textCandidate = {
+      candidate: { target_channel: "facebook", content_format: "text_post" },
+    } as PublicationCandidateSummaryV1;
+    const imageCandidate = {
+      candidate: {
+        target_channel: "facebook",
+        content_format: "static_image_post",
+      },
+    } as PublicationCandidateSummaryV1;
+
+    expect(targetSupportsCandidate(target, textCandidate)).toBe(true);
+    expect(targetSupportsCandidate(target, imageCandidate)).toBe(true);
   });
 });

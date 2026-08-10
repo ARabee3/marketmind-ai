@@ -281,22 +281,28 @@ function requiredTargetString(value: unknown, label: string): string {
   throw new Error(`Publishing target response is missing ${label}.`);
 }
 
-function normalizeCapabilities(value: unknown): readonly ["static_image"] {
+function normalizeCapabilities(
+  value: unknown,
+): PublishingTargetPublicV1["capabilities"] {
   const capabilities = Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
+    ? value.filter(
+        (entry): entry is "static_image" | "text" =>
+          entry === "static_image" || entry === "text",
+      )
     : [];
-  if (!capabilities.includes("static_image")) {
+  if (capabilities.length === 0) {
     throw new Error(
-      "Publishing target response does not advertise static-image support.",
+      "Publishing target response does not advertise a supported capability.",
     );
   }
-  return ["static_image"];
+  return [...new Set(capabilities)];
 }
 
 export function toPublishingIntent(value: unknown): PublicationIntentV1 {
   const raw = asRecord(
     unwrap(value, "publication_intent", "publicationIntent"),
   );
+  const candidate = asRecord(valueFrom(raw, "candidate"));
   const scheduledUtc = dateValue(
     valueFrom(raw, "scheduled_utc", "scheduledUtcAt"),
   );
@@ -316,7 +322,9 @@ export function toPublishingIntent(value: unknown): PublicationIntentV1 {
     business_id: String(valueFrom(raw, "business_id", "businessId") ?? ""),
     candidate_id: String(valueFrom(raw, "candidate_id", "candidateId") ?? ""),
     candidate_checksum: String(
-      valueFrom(raw, "candidate_checksum", "candidateChecksum") ?? "",
+      valueFrom(raw, "candidate_checksum", "candidateChecksum") ??
+        valueFrom(candidate, "candidate_checksum", "candidateChecksum") ??
+        "",
     ),
     mode: normalizeMode(raw.mode),
     target_id: nullableString(valueFrom(raw, "target_id", "targetId")),
@@ -595,6 +603,7 @@ export function toPublishingResult(value: unknown): PublicationResultV1 {
 function normalizeOutcome(value: unknown): PublicationResultV1["outcome"] {
   const outcome = lower(value);
   if (
+    outcome === "published" ||
     outcome === "exported" ||
     outcome === "simulated" ||
     outcome === "failed" ||

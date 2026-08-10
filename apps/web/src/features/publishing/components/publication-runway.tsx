@@ -17,7 +17,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { PublishingBadge } from "./publishing-badge";
 
-type RunwayStatus =
+export type RunwayStatus =
   | "empty"
   | "needsDecision"
   | "scheduled"
@@ -28,23 +28,35 @@ type RunwayStatus =
   | "unknown"
   | "cancelled";
 
-function statusFor(
-  candidate: PublicationCandidateSummaryV1 | undefined,
-  intent: PublicationIntentV1 | undefined,
+export function statusForWeek(
+  candidates: readonly PublicationCandidateSummaryV1[],
+  intents: readonly PublicationIntentV1[],
 ): RunwayStatus {
-  if (!candidate) return "empty";
-  if (candidate.source_state === "revoked") return "cancelled";
-  if (candidate.source_state === "replaced") return "cancelled";
-  if (!intent) return "needsDecision";
-  if (intent.state === "succeeded") {
-    if (intent.mode === "manual_export") return "exported";
-    if (intent.mode === "simulation") return "simulation";
+  if (candidates.length === 0) return "empty";
+  const activeCandidates = candidates.filter(
+    (candidate) => candidate.source_state === "active",
+  );
+  if (activeCandidates.length === 0) return "cancelled";
+
+  const realIntents = activeCandidates.map((candidate) =>
+    intents.find(
+      (intent) =>
+        intent.candidate_id === candidate.candidate.candidate_id &&
+        intent.mode === "real" &&
+        intent.state !== "cancelled",
+    ),
+  );
+  if (realIntents.some((intent) => intent?.state === "action_required")) {
+    return "unknown";
+  }
+  if (realIntents.some((intent) => intent?.state === "failed")) return "failed";
+  if (realIntents.every((intent) => intent?.state === "succeeded")) {
     return "published";
   }
-  if (intent.state === "failed") return "failed";
-  if (intent.state === "action_required") return "unknown";
-  if (intent.state === "cancelled") return "cancelled";
-  return intent.state === "scheduled" ? "scheduled" : "needsDecision";
+  if (realIntents.some((intent) => intent?.state === "scheduled")) {
+    return "scheduled";
+  }
+  return "needsDecision";
 }
 
 function StatusIcon({ status }: { readonly status: RunwayStatus }) {
@@ -107,16 +119,10 @@ export function PublicationRunway({
           aria-label={t("runway.label")}
         >
           {weeks.map((week) => {
-            const candidate = candidates.find(
+            const weekCandidates = candidates.filter(
               (item) => item.candidate.strategy_week_number === week,
             );
-            const intent = candidate
-              ? intents.find(
-                  (item) =>
-                    item.candidate_id === candidate.candidate.candidate_id,
-                )
-              : undefined;
-            const status = statusFor(candidate, intent);
+            const status = statusForWeek(weekCandidates, intents);
             const active = selectedWeek === week;
             const isCurrent = currentWeek === week;
 
@@ -154,9 +160,11 @@ export function PublicationRunway({
                     <StatusIcon status={status} />
                     {t(`runway.${status}` as never)}
                   </span>
-                  {candidate ? (
+                  {weekCandidates.length > 0 ? (
                     <span className="text-[11px] text-muted-foreground">
-                      {t("runway.candidateCount", { count: 1 })}
+                      {t("runway.candidateCount", {
+                        count: weekCandidates.length,
+                      })}
                     </span>
                   ) : (
                     <span aria-hidden="true">&nbsp;</span>

@@ -10,6 +10,7 @@ import { Check, CircleAlert, Link2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { targetSupportsCandidate } from "../lib/publishing-state";
 import { PublishingBadge } from "./publishing-badge";
 
 export function PublicationReadiness({
@@ -31,7 +32,7 @@ export function PublicationReadiness({
     (target) =>
       target.channel === "facebook" &&
       target.connection_state === "connected" &&
-      target.capabilities.includes("static_image"),
+      targetSupportsCandidate(target, candidate),
   );
   const hasApproval = Boolean(intent?.approved_decision_id);
   const needsTarget = !intent || intent.mode === "real";

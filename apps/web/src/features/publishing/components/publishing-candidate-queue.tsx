@@ -7,7 +7,10 @@ import type {
 import { ArrowUpRight, Check, LockKeyhole, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { activeIntentForCandidate } from "../lib/publishing-state";
+import {
+  activeIntentForCandidate,
+  realIntentForCandidate,
+} from "../lib/publishing-state";
 import { PublishingBadge } from "./publishing-badge";
 
 function candidateTone(candidate: PublicationCandidateSummaryV1) {
@@ -61,6 +64,7 @@ export function PublishingCandidateQueue({
         <ul className="grid min-w-0 gap-3">
           {items.map((item) => {
             const intent = activeIntentForCandidate(item, intents);
+            const realIntent = realIntentForCandidate(item, intents);
             const selected =
               selectedCandidateId === item.candidate.candidate_id;
             const readOnly = item.source_state !== "active";
@@ -82,11 +86,13 @@ export function PublishingCandidateQueue({
                       <PublishingBadge tone={candidateTone(item)}>
                         {readOnly
                           ? t(`queue.${item.source_state}` as never)
-                          : intent?.state === "scheduled"
-                            ? t("queue.scheduled")
-                            : intent
-                              ? t("queue.waiting")
-                              : t("queue.active")}
+                          : realIntent?.state === "succeeded"
+                            ? t("queue.published")
+                            : intent?.state === "scheduled"
+                              ? t("queue.scheduled")
+                              : intent
+                                ? t("queue.waiting")
+                                : t("queue.active")}
                       </PublishingBadge>
                       {selected ? (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">

@@ -62,26 +62,12 @@ export function ImmutableCandidatePreview({
         <ShieldCheck className="size-6 text-primary" aria-hidden="true" />
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
+      <div
+        className={
+          asset ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]" : "grid gap-4"
+        }
+      >
         <div className="grid gap-4">
-          <dl className="grid gap-3 rounded-lg border border-border bg-background p-4 sm:grid-cols-2">
-            <Fact label={t("preview.channel")} value={payload.target_channel} />
-            <Fact label={t("preview.format")} value={payload.content_format} />
-            <Fact label={t("preview.locale")} value={payload.selected_locale} />
-            <Fact
-              label={t("preview.sourceWeek")}
-              value={String(payload.strategy_week_number)}
-            />
-            <Fact
-              label={t("preview.contentVersion")}
-              value={`v${payload.content_item_version}`}
-            />
-            <Fact
-              label={t("preview.window")}
-              value={`${format.dateTime(new Date(payload.recommended_publish_window.starts_at), { dateStyle: "medium", timeStyle: "short" })} – ${format.dateTime(new Date(payload.recommended_publish_window.ends_at), { timeStyle: "short" })}`}
-            />
-          </dl>
-
           <div className="grid gap-3">
             <CopyBlock label={t("preview.caption")} value={payload.caption} />
             <CopyBlock
@@ -92,45 +78,80 @@ export function ImmutableCandidatePreview({
               label={t("preview.hashtags")}
               value={payload.hashtags.join(" ")}
             />
-            <CopyBlock label={t("preview.altText")} value={payload.alt_text} />
           </div>
         </div>
 
-        <div className="grid content-start gap-3">
-          <div className="overflow-hidden rounded-lg border border-border bg-background">
-            <CandidateAsset
-              key={asset?.asset_id ?? "empty"}
-              asset={asset}
-              alt={payload.alt_text}
-              unavailableLabel={t("preview.assetUnavailable")}
-              readyLabel={t("preview.asset")}
-            />
+        {asset ? (
+          <div className="grid content-start gap-3">
+            <div className="overflow-hidden rounded-lg border border-border bg-background">
+              <CandidateAsset
+                key={asset.asset_id}
+                asset={asset}
+                alt={payload.alt_text}
+                unavailableLabel={t("preview.assetUnavailable")}
+                readyLabel={t("preview.asset")}
+              />
+            </div>
+            <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
+              {t("preview.asset")}
+            </p>
           </div>
-          <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-            {t("preview.asset")}
-          </p>
-        </div>
+        ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-muted-foreground">
-            {t("preview.checksum")}
-          </p>
-          <p className="mt-1 truncate font-mono text-xs text-navy">
-            {payload.candidate_checksum}
-          </p>
+      <details className="rounded-lg border border-border bg-background p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
+          {t("preview.details")}
+        </summary>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Fact label={t("preview.channel")} value={payload.target_channel} />
+          <Fact label={t("preview.format")} value={payload.content_format} />
+          <Fact label={t("preview.locale")} value={payload.selected_locale} />
+          <Fact
+            label={t("preview.sourceWeek")}
+            value={String(payload.strategy_week_number)}
+          />
+          <Fact
+            label={t("preview.contentVersion")}
+            value={`v${payload.content_item_version}`}
+          />
+          <Fact
+            label={t("preview.window")}
+            value={`${format.dateTime(new Date(payload.recommended_publish_window.starts_at), { dateStyle: "medium", timeStyle: "short" })} – ${format.dateTime(new Date(payload.recommended_publish_window.ends_at), { timeStyle: "short" })}`}
+          />
+          {asset ? (
+            <div className="sm:col-span-2">
+              <CopyBlock
+                label={t("preview.altText")}
+                value={payload.alt_text}
+              />
+            </div>
+          ) : null}
+        </dl>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground">
+              {t("preview.checksum")}
+            </p>
+            <p
+              dir="ltr"
+              translate="no"
+              className="mt-1 truncate font-mono text-xs text-navy"
+            >
+              {payload.candidate_checksum}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void copyChecksum()}
+          >
+            <Clipboard className="me-2 size-4" aria-hidden="true" />
+            {copied ? t("preview.copied") : t("preview.copyChecksum")}
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void copyChecksum()}
-        >
-          <Clipboard className="me-2 size-4" aria-hidden="true" />
-          {copied ? t("preview.copied") : t("preview.copyChecksum")}
-        </Button>
-      </div>
+      </details>
     </section>
   );
 }
@@ -222,7 +243,7 @@ function CopyBlock({
   return (
     <div className="rounded-lg border border-border bg-background p-3">
       <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-navy">
+      <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-6 text-navy">
         {value}
       </p>
     </div>

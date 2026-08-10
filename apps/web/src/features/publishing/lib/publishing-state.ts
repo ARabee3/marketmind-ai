@@ -3,6 +3,7 @@ import type {
   PublicationCandidateSummaryV1,
   PublicationIntentV1,
   PublicationResultV1,
+  PublishingTargetPublicV1,
 } from "@marketmind/contracts";
 import type { PublishingIntentDetailView } from "@/lib/api/publishing";
 
@@ -33,6 +34,33 @@ export function latestResult(
   return detail?.results.at(-1) ?? null;
 }
 
+const FAST_STATUS_REFRESH_MS = 4_000;
+const SCHEDULED_STATUS_REFRESH_CEILING_MS = 60_000;
+
+/**
+ * Keep an open publishing detail page synchronized with the server-owned
+ * schedule. A scheduled job can move straight to succeeded while the browser
+ * still holds the old scheduled snapshot, so scheduled intents must wake up
+ * near their due time as well as dispatching intents.
+ */
+export function publishingStatusRefreshDelay(
+  intent: Pick<PublicationIntentV1, "state" | "scheduled_utc"> | null,
+  nowMs = Date.now(),
+): number | null {
+  if (intent?.state === "dispatching") return FAST_STATUS_REFRESH_MS;
+  if (intent?.state !== "scheduled") return null;
+
+  const scheduledAtMs = Date.parse(intent.scheduled_utc ?? "");
+  if (!Number.isFinite(scheduledAtMs)) {
+    return SCHEDULED_STATUS_REFRESH_CEILING_MS;
+  }
+
+  return Math.min(
+    SCHEDULED_STATUS_REFRESH_CEILING_MS,
+    Math.max(FAST_STATUS_REFRESH_MS, scheduledAtMs - nowMs + 1_000),
+  );
+}
+
 export function activeIntentForCandidate(
   candidate: PublicationCandidateSummaryV1,
   intents: readonly PublicationIntentV1[],
@@ -42,15 +70,48 @@ export function activeIntentForCandidate(
       intents.find(
         (intent) => intent.intent_id === candidate.active_intent_id,
       ) ?? null;
-    return active && !isTerminalIntent(active) ? active : null;
+    if (active && !isTerminalIntent(active)) return active;
   }
 
+  const matching = intents.filter(
+    (intent) =>
+      intent.candidate_id === candidate.candidate.candidate_id &&
+      !["cancelled", "succeeded"].includes(intent.state),
+  );
+  return (
+    matching.find((intent) => intent.mode === "real") ?? matching[0] ?? null
+  );
+}
+
+export function realIntentForCandidate(
+  candidate: PublicationCandidateSummaryV1,
+  intents: readonly PublicationIntentV1[],
+): PublicationIntentV1 | null {
   return (
     intents.find(
       (intent) =>
         intent.candidate_id === candidate.candidate.candidate_id &&
-        !["cancelled", "succeeded"].includes(intent.state),
+        intent.mode === "real" &&
+        intent.state !== "cancelled",
     ) ?? null
+  );
+}
+
+export function targetSupportsCandidate(
+  target: PublishingTargetPublicV1,
+  candidate: PublicationCandidateSummaryV1 | null,
+): boolean {
+  if (!candidate || target.channel !== candidate.candidate.target_channel) {
+    return false;
+  }
+  const requiredCapability =
+    candidate.candidate.content_format === "text_post"
+      ? "text"
+      : candidate.candidate.content_format === "static_image_post"
+        ? "static_image"
+        : null;
+  return Boolean(
+    requiredCapability && target.capabilities.includes(requiredCapability),
   );
 }
 
