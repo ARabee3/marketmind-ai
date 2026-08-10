@@ -274,10 +274,11 @@ export class DispatchProcessor extends WorkerHost {
               errorCode: ambiguous
                 ? PublishingErrorCode.PROVIDER_OUTCOME_UNKNOWN
                 : PublishingErrorCode.PROVIDER_FAILURE,
-              // A delivery whose outcome is unknown must be reconciled before
-              // another publish can be attempted. The frozen result contract
-              // therefore marks UNKNOWN as non-retryable.
-              retryable: false,
+              // A deterministic pre-send failure is safe to retry after the
+              // infrastructure/configuration problem is repaired because n8n
+              // rejected the request before any provider call. An ambiguous
+              // delivery still requires reconciliation and is never retryable.
+              retryable: !ambiguous,
               rawPayloadHash: null,
               sanitizedError: storedError,
               occurredAt: now,

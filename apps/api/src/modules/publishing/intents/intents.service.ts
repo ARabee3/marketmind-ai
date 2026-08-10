@@ -47,11 +47,11 @@ import {
 import { PublishingIntentStatus } from "@prisma/client";
 import { toBullMqJobId } from "../../../common/queues/bullmq-job-id";
 
-/** Statuses that occupy the one-intent-per-candidate slot (P1 #119 review):
- *  only CANCELLED frees the candidate, so a succeeded/failed/action-required
- *  outcome cannot be followed by a fresh intent that would duplicate or
- *  republish a confirmed candidate. The DB partial unique index is the
- *  race-proof guarantee; this is the friendly fast-path mirror. */
+/** Statuses that occupy the one-REAL-intent-per-candidate slot.
+ *  Export and simulation are local, side-effect-free actions and never consume
+ *  the remote publication slot. Only a CANCELLED real intent frees it; proven,
+ *  succeeded, failed, and ambiguous real outcomes remain bound to the same
+ *  intent so a second remote post cannot be created accidentally. */
 const INTENT_SLOT_STATUSES: PublishingIntentStatus[] = [
   "DRAFT",
   "AWAITING_APPROVAL",
@@ -192,18 +192,21 @@ export class IntentsService {
         );
       }
 
-      // At most one logical intent per candidate (active, terminal, or ambiguous —
-      // only CANCELLED frees the slot, see P1). Friendly fast-path; the
-      // authoritative partial unique index in the migration is the guarantee.
-      const existing = await tx.publishingIntent.findFirst({
-        where: {
-          businessId,
-          candidateId: dto.candidateId,
-          status: { in: INTENT_SLOT_STATUSES },
-        },
-      });
-      if (existing) {
-        throw new ConflictException(PublishingErrorCode.STATE_CONFLICT);
+      // At most one REAL publication lifecycle per candidate. Local exports
+      // and simulations can coexist as immutable history and must not block a
+      // later real owner decision.
+      if ((dto.mode ?? "REAL") === "REAL") {
+        const existing = await tx.publishingIntent.findFirst({
+          where: {
+            businessId,
+            candidateId: dto.candidateId,
+            mode: "REAL",
+            status: { in: INTENT_SLOT_STATUSES },
+          },
+        });
+        if (existing) {
+          throw new ConflictException(PublishingErrorCode.STATE_CONFLICT);
+        }
       }
 
       try {
@@ -937,7 +940,8 @@ export class IntentsService {
     if (!row) return null;
 
     const artifactId = artifactIdFromDestinationRef(row.destinationRef);
-    const manifest = row.manifest as unknown as PublicationExportManifestV1 | null;
+    const manifest =
+      row.manifest as unknown as PublicationExportManifestV1 | null;
     if (!artifactId || !manifest || manifest.artifact_id !== artifactId) {
       throw new UnprocessableEntityException(
         `${PublishingErrorCode.STATE_CONFLICT}: export metadata is incomplete`,
@@ -965,10 +969,7 @@ export class IntentsService {
       orderBy: { exportedAt: "desc" },
     });
     if (!metadata) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
-    if (
-      Date.now() >=
-      metadata.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS
-    ) {
+    if (Date.now() >= metadata.exportedAt.getTime() + EXPORT_DOWNLOAD_TTL_MS) {
       throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
     }
 
@@ -1084,14 +1085,26 @@ export class IntentsService {
     const rawTarget = intent["target"] as
       | Parameters<typeof toTargetProjection>[0]
       | undefined;
-    const { target: _rawTarget, ...rest } = intent;
+    const rawCandidate = intent["candidate"] as
+      | { candidateChecksum?: unknown }
+      | undefined;
+    const { target: _rawTarget, candidate: _rawCandidate, ...rest } = intent;
     const safeTarget = rawTarget ? toTargetProjection(rawTarget) : undefined;
+    // Approval clients need the frozen checksum at the intent boundary; do
+    // not force the browser to depend on the raw candidate relation shape.
+    const candidateChecksum =
+      typeof rest["candidateChecksum"] === "string"
+        ? rest["candidateChecksum"]
+        : typeof rawCandidate?.candidateChecksum === "string"
+          ? rawCandidate.candidateChecksum
+          : undefined;
 
     // Include both Cairo-local and UTC timestamps on every read
     const scheduledUtcAt = rest["scheduledUtcAt"] as Date | null;
     return {
       ...rest,
       ...(safeTarget ? { target: safeTarget } : {}),
+      ...(candidateChecksum ? { candidateChecksum } : {}),
       scheduledLocalDisplay:
         scheduledUtcAt && rest["timezone"]
           ? utcToCairoLocalIso(scheduledUtcAt, rest["timezone"] as string)
