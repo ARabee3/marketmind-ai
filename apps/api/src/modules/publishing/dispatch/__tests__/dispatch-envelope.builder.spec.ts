@@ -3,11 +3,13 @@ import { ConfigService } from "@nestjs/config";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
+  computePublicationCandidateChecksum,
   validateSignedPublicationDispatchEnvelopeV1,
   computeDispatchRequestFingerprint,
   computePublicationApprovalFingerprint,
   type PublicationDispatchBodyV1,
 } from "@marketmind/contracts";
+import type { PublicationCandidateV1 } from "@marketmind/contracts";
 
 /**
  * P1 (#119 review): the API must send the frozen
@@ -99,6 +101,57 @@ function buildBody(): { body: PublicationDispatchBodyV1; fp: string } {
   return { body, fp: requestFingerprint };
 }
 
+function buildTextBody(): PublicationDispatchBodyV1 {
+  const base = CANDIDATE_PAYLOAD as PublicationCandidateV1;
+  const candidate = {
+    ...base,
+    candidate_id: "11111100-0000-4000-8000-000000000099",
+    content_format: "text_post" as const,
+    alt_text: "",
+    assets: [],
+    candidate_checksum: "",
+  };
+  candidate.candidate_checksum = computePublicationCandidateChecksum(candidate);
+
+  const builder = new DispatchEnvelopeBuilder(makeConfig());
+  return builder.buildDispatchBody({
+    attemptId: "11111100-0000-4000-8000-000000000098",
+    intentId: "11111100-0000-4000-8000-000000000097",
+    intentVersion: 1,
+    businessId: candidate.business_id,
+    idempotencyKey: "text-key-1::dispatch",
+    candidate,
+    candidateStatus: {
+      ...(ACTIVE_STATUS as object),
+      candidate_id: candidate.candidate_id,
+      candidate_checksum: candidate.candidate_checksum,
+    } as never,
+    target: {
+      id: "77777700-0000-4000-8000-000000000001",
+      businessId: candidate.business_id,
+      provider: "META",
+      channel: "facebook",
+      externalAccountId: "fb-acct",
+      displayName: "Acme Page",
+      connectionState: "CONNECTED",
+      credentialRef: "cred-ref",
+      capabilities: ["static_image", "text"],
+      lastVerifiedAt: null,
+      version: 1,
+    },
+    approval: {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      candidateChecksum: candidate.candidate_checksum,
+      decidedByUserId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      decidedAt: new Date("2026-08-01T11:00:00+03:00"),
+    },
+    scheduledUtcAt: new Date("2026-08-03T18:00:00.000Z"),
+    scheduledLocalAt: new Date("2026-08-03T18:00:00.000Z"),
+    timezone: "Africa/Cairo",
+    retrievalStartedAt: new Date("2026-08-03T17:59:00.000Z"),
+  }).body;
+}
+
 describe("DispatchEnvelopeBuilder (frozen contract validators — P1 #119)", () => {
   it("assembles a real-mode PublicationDispatchBodyV1 with the frozen contract shape", () => {
     const { body } = buildBody();
@@ -121,6 +174,15 @@ describe("DispatchEnvelopeBuilder (frozen contract validators — P1 #119)", () 
     expect(body.assets[0].retrieval_url).toBe(
       "http://localhost:3001/internal/v1/publishing/assets/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
+  });
+
+  it("builds a text operation without manufacturing an asset", () => {
+    const body = buildTextBody();
+
+    expect(body.operation).toBe("meta.publish_text");
+    expect(body.candidate.content_format).toBe("text_post");
+    expect(body.assets).toEqual([]);
+    expect(body.target.capabilities).toContain("text");
   });
 
   it("computes the attempt request_fingerprint as the canonical dispatch body hash", () => {

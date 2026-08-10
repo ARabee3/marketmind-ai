@@ -28,6 +28,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed:publishing-demo": "ts-node scripts/seed-publishing-demo.ts",
     "seed:demo-owner": "ts-node scripts/seed-demo-owner.ts",
+    "prebackfill:text-publication-candidates": "npm run build -w @marketmind/contracts",
+    "backfill:text-publication-candidates": "ts-node scripts/backfill-text-publication-candidates.ts",
     "verify:export-archive": "ts-node scripts/verify-export-archive.ts"
   },
   "dependencies": {

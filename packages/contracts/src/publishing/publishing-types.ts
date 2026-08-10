@@ -53,11 +53,12 @@ export const PUBLISHING_TARGET_CONNECTION_STATES = [
 export type PublishingTargetConnectionState =
   (typeof PUBLISHING_TARGET_CONNECTION_STATES)[number];
 
-export const PUBLISHING_CAPABILITIES = ["static_image"] as const;
+export const PUBLISHING_CAPABILITIES = ["static_image", "text"] as const;
 export type PublishingCapability = (typeof PUBLISHING_CAPABILITIES)[number];
 
 export const PUBLISHING_OPERATIONS = [
   "meta.publish_static_image",
+  "meta.publish_text",
   "manual_export.build",
   "simulation.run",
 ] as const;

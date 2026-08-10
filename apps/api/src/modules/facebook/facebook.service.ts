@@ -405,11 +405,17 @@ export class FacebookService {
     }
     let remoteUrl: string | null = null;
     try {
-      const linkResponse = await axios.get<{ link?: string }>(
-        this.graphUrl(String(remotePublicationId)),
-        { params: { fields: "link", access_token: params.pageToken } },
-      );
-      remoteUrl = linkResponse.data?.link ?? null;
+      const linkResponse = await axios.get<{
+        permalink_url?: string;
+        link?: string;
+      }>(this.graphUrl(String(remotePublicationId)), {
+        params: {
+          fields: "permalink_url,link",
+          access_token: params.pageToken,
+        },
+      });
+      remoteUrl =
+        linkResponse.data?.permalink_url ?? linkResponse.data?.link ?? null;
     } catch (error) {
       // Permalink is best-effort after a confirmed publish.
       this.logger.warn(
@@ -511,11 +517,16 @@ export class FacebookService {
     pageToken: string,
   ): Promise<string | null> {
     try {
-      const response = await axios.get<{ link?: string }>(
-        this.graphUrl(postId),
-        { params: { fields: "link", access_token: pageToken } },
-      );
-      return response.data?.link ?? null;
+      const response = await axios.get<{
+        permalink_url?: string;
+        link?: string;
+      }>(this.graphUrl(postId), {
+        params: {
+          fields: "permalink_url,link",
+          access_token: pageToken,
+        },
+      });
+      return response.data?.permalink_url ?? response.data?.link ?? null;
     } catch (error) {
       this.logger.warn(
         `Facebook permalink lookup failed for ${postId}: ${

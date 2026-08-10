@@ -129,18 +129,24 @@ export class MetaProviderExecutor {
     if (target.expiresAt && target.expiresAt < new Date()) {
       return this.failed(base, PublishingErrorCode.TARGET_UNAUTHORIZED, false);
     }
-    const capabilities = Array.isArray(target.capabilities)
-      ? (target.capabilities as string[])
-      : [];
-    if (!capabilities.includes("static_image")) {
-      return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
-    }
-
     // Candidate bytes are immutable and are needed by both the legacy vault
     // path and the PR #193 SocialConnection path.
     const candidate = await this.prisma.publishingCandidate.findUnique({
       where: { id: intent.candidateId },
     });
+    const contentFormat = this.contentFormatFor(candidate?.payload);
+    const capabilities = Array.isArray(target.capabilities)
+      ? (target.capabilities as string[])
+      : [];
+    const requiredCapability =
+      contentFormat === "text_post"
+        ? "text"
+        : contentFormat === "static_image_post"
+          ? "static_image"
+          : null;
+    if (!requiredCapability || !capabilities.includes(requiredCapability)) {
+      return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
+    }
 
     // PR #193's Facebook connection is the canonical owner connection for the
     // Facebook-only path. The target carries an opaque SocialConnection
@@ -159,14 +165,6 @@ export class MetaProviderExecutor {
         socialConnectionId,
         attemptId: input.attemptId,
       });
-    }
-
-    const mediaConfigurationError = this.mediaFetch.configurationError();
-    if (mediaConfigurationError) {
-      this.logger.error(
-        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
-      );
-      return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, false);
     }
 
     // ── Resolve the EXACT target's credential from the vault (never env) ──
@@ -194,6 +192,44 @@ export class MetaProviderExecutor {
       return this.failed(base, PublishingErrorCode.TARGET_UNAUTHORIZED, false);
     }
 
+    const caption = this.captionFor(candidate?.payload);
+    if (contentFormat === "text_post") {
+      if (target.channel !== "facebook") {
+        return this.failed(base, PublishingErrorCode.FORMAT_UNSUPPORTED, false);
+      }
+      try {
+        const page = tokenBundle as PageTokenBundle;
+        const published = await this.graph.publishFacebookText({
+          pageToken: page.token,
+          pageId: target.externalAccountId,
+          caption,
+        });
+        return {
+          result: {
+            ...base,
+            outcome: "published",
+            remote_publication_id: published.remotePublicationId,
+            remote_url: published.remoteUrl,
+          },
+        };
+      } catch (err) {
+        if (err instanceof MetaGraphClientError) {
+          if (err.info.status === 0) return this.unknown(base);
+          const mapped = mapMetaGraphError(err);
+          return this.failed(base, mapped.errorCode, mapped.retryable);
+        }
+        return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, true);
+      }
+    }
+
+    const mediaConfigurationError = this.mediaFetch.configurationError();
+    if (mediaConfigurationError) {
+      this.logger.error(
+        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+      );
+      return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, false);
+    }
+
     // ── Candidate asset for the provider-fetch URL ────────────────────────
     const asset = this.firstStaticAsset(candidate?.payload);
     if (!asset) {
@@ -216,8 +252,6 @@ export class MetaProviderExecutor {
         : PublishingErrorCode.ASSET_UNAVAILABLE;
       return this.failed(base, code, false);
     }
-
-    const caption = this.captionFor(candidate?.payload);
 
     // ── Provider call (server-side, bounded timeout, sanitized errors) ────
     try {
@@ -325,6 +359,52 @@ export class MetaProviderExecutor {
       return this.failed(
         input.base,
         PublishingErrorCode.TARGET_UNAUTHORIZED,
+        false,
+      );
+    }
+
+    const contentFormat = this.contentFormatFor(input.candidate?.payload);
+    if (contentFormat === "text_post") {
+      try {
+        const published = await this.facebook.publishTextForUser({
+          userId: business.ownerUserId,
+          pageId: input.target.externalAccountId,
+          caption: this.captionFor(input.candidate?.payload),
+        });
+        return {
+          result: {
+            ...input.base,
+            outcome: "published",
+            remote_publication_id: published.remotePublicationId,
+            remote_url: published.remoteUrl,
+          },
+        };
+      } catch (err) {
+        if (err instanceof FacebookGraphError) {
+          if (err.status === 0) return this.unknown(input.base);
+          const mapped = mapMetaGraphError(
+            new MetaGraphClientError({
+              status: err.status,
+              code: err.code,
+              ...(err.errorSubcode !== undefined
+                ? { errorSubcode: err.errorSubcode }
+                : {}),
+              message: err.message,
+            }),
+          );
+          return this.failed(input.base, mapped.errorCode, mapped.retryable);
+        }
+        return this.failed(
+          input.base,
+          PublishingErrorCode.PROVIDER_FAILURE,
+          true,
+        );
+      }
+    }
+    if (contentFormat !== "static_image_post") {
+      return this.failed(
+        input.base,
+        PublishingErrorCode.FORMAT_UNSUPPORTED,
         false,
       );
     }
@@ -449,6 +529,16 @@ export class MetaProviderExecutor {
       storage_key: asset.storage_key,
       checksum: asset.checksum,
     };
+  }
+
+  private contentFormatFor(
+    payload: unknown,
+  ): "static_image_post" | "text_post" | null {
+    const format = (payload as { content_format?: unknown } | null)
+      ?.content_format;
+    return format === "static_image_post" || format === "text_post"
+      ? format
+      : null;
   }
 
   private captionFor(payload: unknown): string {

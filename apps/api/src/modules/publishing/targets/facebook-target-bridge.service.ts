@@ -9,7 +9,7 @@ import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { facebookSocialConnectionRef } from "./facebook-target-ref";
 
 const FACEBOOK_CHANNEL = "facebook";
-const FACEBOOK_CAPABILITIES = ["static_image"] as const;
+const FACEBOOK_CAPABILITIES = ["static_image", "text"] as const;
 
 /**
  * Materializes the Facebook Page connection from PR #193 into the existing

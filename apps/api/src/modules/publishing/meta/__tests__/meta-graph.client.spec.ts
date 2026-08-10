@@ -47,6 +47,34 @@ beforeEach(() => {
 });
 
 describe("MetaGraphClient (issue #175)", () => {
+  it("publishes a Facebook text post through the Page feed endpoint", async () => {
+    const { client, http } = makeClient(
+      undefined,
+      () => of({ data: { id: "page-1_post-1" } }),
+    );
+
+    await expect(
+      client.publishFacebookText({
+        pageToken: "page-token",
+        pageId: "page-1",
+        caption: "Approved text",
+      }),
+    ).resolves.toEqual({
+      remotePublicationId: "page-1_post-1",
+      remoteUrl: null,
+    });
+    expect(http.post).toHaveBeenCalledWith(
+      "https://graph.facebook.com/v21.0/page-1/feed",
+      null,
+      expect.objectContaining({
+        params: {
+          message: "Approved text",
+          access_token: "page-token",
+        },
+      }),
+    );
+  });
+
   it("builds an authorization URL carrying state + least-privilege scopes — no token", () => {
     const { client } = makeClient();
     const url = client.buildAuthorizationUrl("state-abc");

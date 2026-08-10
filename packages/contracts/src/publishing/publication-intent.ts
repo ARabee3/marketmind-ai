@@ -1,6 +1,7 @@
 import type {
   IsoDateTime,
   PublishingMode,
+  PublishingCapability,
   PublicationIntentState,
   UUID,
 } from "./publishing-types";
@@ -17,7 +18,7 @@ export type PublishingTargetV1 = {
   readonly display_name: string;
   readonly connection_state: "connected" | "expired" | "revoked" | "error";
   readonly credential_ref: string;
-  readonly capabilities: readonly ["static_image"];
+  readonly capabilities: readonly PublishingCapability[];
   readonly last_verified_at: IsoDateTime | null;
 };
 

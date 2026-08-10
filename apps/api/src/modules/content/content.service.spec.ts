@@ -1463,7 +1463,11 @@ describe("ContentService.decide", () => {
     );
   });
 
-  it("approves a text-only version without inventing a publication asset", async () => {
+  it("creates a publication candidate for an approved text-only version without inventing an asset", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockResolvedValue([
+      { ...ITEM_VERSION_ROW, format: "text_post" },
+    ]);
+
     const result = await service.decide(
       "pack-1",
       "item-1",
@@ -1484,8 +1488,11 @@ describe("ContentService.decide", () => {
       expect.anything(),
     );
     expect(candidateRepo.getCandidateByItemVersionId).toHaveBeenCalledTimes(1);
-    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
-    expect(result.publication_candidate).toBeNull();
+    expect(candidateRepo.createCandidate).toHaveBeenCalledWith(
+      expect.objectContaining({ assets: [] }),
+      expect.anything(),
+    );
+    expect(result.publication_candidate).toEqual(CANDIDATE);
     expect(result.decision.decision).toBe("approved");
     expect(result.decision.content_item_version_id).toBe("ver-2");
   });
@@ -1730,7 +1737,21 @@ describe("ContentService.bulkDecision", () => {
     );
   });
 
-  it("approves eligible text-only items without fabricating candidates", async () => {
+  it("creates candidates for eligible approved text-only items without fabricating assets", async () => {
+    (packRepo.listItemVersions as jest.Mock).mockImplementation(
+      (_packId, itemId) => {
+        if (itemId === "item-1") {
+          return Promise.resolve([
+            { ...ITEM_VERSION_ROW, format: "text_post" },
+          ]);
+        }
+        if (itemId === "item-2") {
+          return Promise.resolve([{ ...VERSION_2B_ROW, format: "text_post" }]);
+        }
+        return Promise.resolve([{ ...VERSION_2C_ROW, format: "text_post" }]);
+      },
+    );
+
     const result = await service.bulkDecide("pack-1", BULK_DTO, OWNER_ID);
 
     expect(decisionRepo.bulkRecordDecisions).toHaveBeenCalledWith(
@@ -1751,7 +1772,11 @@ describe("ContentService.bulkDecision", () => {
       OWNER_ID,
       expect.anything(),
     );
-    expect(candidateRepo.createCandidate).not.toHaveBeenCalled();
+    expect(candidateRepo.createCandidate).toHaveBeenCalledTimes(3);
+    expect(candidateRepo.createCandidate).toHaveBeenCalledWith(
+      expect.objectContaining({ assets: [] }),
+      expect.anything(),
+    );
     expect(result).toHaveLength(3);
     expect(result.every((entry) => entry.status === "approved")).toBe(true);
   });

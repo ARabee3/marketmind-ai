@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { MetaGraphClientError } from "../../meta/meta-graph.client";
 
 const VAULT_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 function makeVault(): CredentialVaultService {
   const config = {
@@ -22,6 +22,10 @@ function makeVault(): CredentialVaultService {
 
 function makeGraph(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
+    publishFacebookText: jest.fn(async () => ({
+      remotePublicationId: "post-text-123",
+      remoteUrl: null,
+    })),
     publishFacebookPhoto: jest.fn(async () => ({
       remotePublicationId: "post-123",
       remoteUrl: "https://facebook.example/post-123",
@@ -35,6 +39,7 @@ function makeGraph(overrides: Partial<Record<string, jest.Mock>> = {}) {
 }
 
 type GraphLike = {
+  publishFacebookText: jest.Mock;
   publishFacebookPhoto: jest.Mock;
   publishInstagramPhoto: jest.Mock;
 };
@@ -137,6 +142,7 @@ function makeContext(
               payload: {
                 caption: "Hello",
                 hashtags: ["#one", "#two"],
+                content_format: "static_image_post",
                 assets: [
                   {
                     asset_id: "asset-9",
@@ -168,6 +174,10 @@ function makeContext(
   const facebook =
     overrides.facebook ??
     ({
+      publishTextForUser: jest.fn(async () => ({
+        remotePublicationId: "social-text-1",
+        remoteUrl: "https://facebook.example/social-text-1",
+      })),
       publishPhotoForUser: jest.fn(async () => ({
         remotePublicationId: "social-post-1",
         remoteUrl: "https://facebook.example/social-post-1",
@@ -188,7 +198,10 @@ function makeContext(
     mediaFetch: mediaFetch as unknown as MediaFetchLike,
     assetReader: assetReader as unknown as AssetReaderLike,
     target,
-    facebook: facebook as { publishPhotoForUser: jest.Mock },
+    facebook: facebook as {
+      publishTextForUser: jest.Mock;
+      publishPhotoForUser: jest.Mock;
+    },
   };
 }
 
@@ -221,6 +234,54 @@ describe("MetaProviderExecutor (issue #175)", () => {
       caption: "Hello\n#one #two",
     });
     expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+    expect(result.result.outcome).toBe("published");
+  });
+
+  it("publishes an approved text post without requiring or fetching media", async () => {
+    const facebook = {
+      publishTextForUser: jest.fn(async () => ({
+        remotePublicationId: "social-text-1",
+        remoteUrl: "https://facebook.example/social-text-1",
+      })),
+      publishPhotoForUser: jest.fn(),
+    };
+    const { executor, mediaFetch, assetReader } = makeContext({
+      target: {
+        id: "target-social-text-1",
+        businessId: "biz-1",
+        provider: "META",
+        channel: "facebook",
+        externalAccountId: "page-1",
+        connectionState: "CONNECTED",
+        credentialRef: "facebook-social-connection:social-1",
+        capabilities: ["static_image", "text"],
+        expiresAt: null,
+      },
+      candidate: {
+        payload: {
+          content_format: "text_post",
+          caption: "Text only",
+          hashtags: ["#one"],
+          assets: [],
+        },
+      },
+      facebook,
+    });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-social-text-1",
+    });
+
+    expect(facebook.publishTextForUser).toHaveBeenCalledWith({
+      userId: "owner-1",
+      pageId: "page-1",
+      caption: "Text only\n#one",
+    });
+    expect(facebook.publishPhotoForUser).not.toHaveBeenCalled();
+    expect(mediaFetch.buildUrl).not.toHaveBeenCalled();
+    expect(assetReader.readApprovedAsset).not.toHaveBeenCalled();
     expect(result.result.outcome).toBe("published");
   });
 
@@ -470,7 +531,14 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
   it("fails when the candidate has no publishable asset", async () => {
     const { executor } = makeContext({
-      candidate: { payload: { caption: "x", hashtags: [], assets: [] } },
+      candidate: {
+        payload: {
+          caption: "x",
+          hashtags: [],
+          content_format: "static_image_post",
+          assets: [],
+        },
+      },
     });
     const result = await executor.execute({
       attemptId: "attempt-1",

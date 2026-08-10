@@ -280,6 +280,30 @@ export class MetaGraphClient {
     }
   }
 
+  /** Facebook Page text-only publish for approved text_post candidates. */
+  async publishFacebookText(params: {
+    pageToken: string;
+    pageId: string;
+    caption: string;
+  }): Promise<MetaPublishResult> {
+    const response = await this.graphPost<{ id?: string }>(
+      `/${params.pageId}/feed`,
+      {
+        message: params.caption,
+        access_token: params.pageToken,
+      },
+    );
+    const remotePublicationId = String(response.id ?? "");
+    if (!remotePublicationId) {
+      throw new MetaGraphClientError({
+        status: 200,
+        code: 0,
+        message: "page feed response carried no post id",
+      });
+    }
+    return { remotePublicationId, remoteUrl: null };
+  }
+
   /**
    * Instagram Professional static-image publish: create media container
    * (image_url = short-lived provider-fetch URL), poll until FINISHED, then

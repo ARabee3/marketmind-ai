@@ -12,7 +12,7 @@ import {
 } from "../facebook.service";
 
 const TEST_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 const CONFIG_MAP: Record<string, string> = {
   "facebook.appId": "test-facebook-app-id",
@@ -133,9 +133,7 @@ describe("FacebookService", () => {
       const parsed = new URL(url);
       expect(parsed.origin).toBe("https://www.facebook.com");
       expect(parsed.pathname).toBe("/v20.0/dialog/oauth");
-      expect(parsed.searchParams.get("client_id")).toBe(
-        "test-facebook-app-id",
-      );
+      expect(parsed.searchParams.get("client_id")).toBe("test-facebook-app-id");
       expect(parsed.searchParams.get("redirect_uri")).toBe(
         "http://localhost:3001/api/v1/auth/facebook/callback",
       );
@@ -303,12 +301,12 @@ describe("FacebookService", () => {
       expect(upsertArgs[0].create.expiresAt).toBeInstanceOf(Date);
       expect(upsertArgs[0].update.expiresAt).toBeInstanceOf(Date);
       const expected = Date.now() + 5_184_000 * 1000;
-      expect((upsertArgs[0].create.expiresAt as Date).getTime()).toBeGreaterThan(
-        expected - 5_000,
-      );
-      expect((upsertArgs[0].create.expiresAt as Date).getTime()).toBeLessThanOrEqual(
-        expected,
-      );
+      expect(
+        (upsertArgs[0].create.expiresAt as Date).getTime(),
+      ).toBeGreaterThan(expected - 5_000);
+      expect(
+        (upsertArgs[0].create.expiresAt as Date).getTime(),
+      ).toBeLessThanOrEqual(expected);
     });
 
     it("returns an error when no page is available", async () => {
@@ -594,6 +592,56 @@ describe("FacebookService", () => {
     });
   });
 
+  describe("publishTextForUser", () => {
+    it("publishes text and resolves Facebook's permalink_url field", async () => {
+      const configService = {
+        get: jest.fn((path: string) => CONFIG_MAP[path]),
+      } as unknown as ConfigService;
+      const encrypted = new EncryptionService(configService).encrypt(
+        "page-token",
+      );
+      const service = createService({
+        prisma: {
+          socialConnection: {
+            findUnique: jest.fn().mockResolvedValue({
+              provider: "facebook",
+              pageId: "page-42",
+              isValid: true,
+              encryptedToken: encrypted.ciphertext,
+              encryptionIv: encrypted.iv,
+              authTag: encrypted.authTag,
+            }),
+            update: jest.fn(),
+          },
+        },
+      });
+      axiosPostSpy.mockResolvedValueOnce({ data: { id: "page-42_post-1" } });
+      axiosGetSpy.mockResolvedValueOnce({
+        data: { permalink_url: "https://facebook.example/post-1" },
+      });
+
+      await expect(
+        service.publishTextForUser({
+          userId: "user-1",
+          pageId: "page-42",
+          caption: "test post",
+        }),
+      ).resolves.toEqual({
+        remotePublicationId: "page-42_post-1",
+        remoteUrl: "https://facebook.example/post-1",
+      });
+      expect(axiosGetSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v20.0/page-42_post-1"),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            fields: "permalink_url,link",
+            access_token: "page-token",
+          }),
+        }),
+      );
+    });
+  });
+
   describe("publishPhotoViaPageToken", () => {
     it("posts a photo to the page and resolves the permalink", async () => {
       const service = createService();
@@ -601,7 +649,7 @@ describe("FacebookService", () => {
         data: { id: "photo-1", post_id: "post-1" },
       });
       const linkSpy = jest.spyOn(axios, "get").mockResolvedValueOnce({
-        data: { link: "https://facebook.example/post-1" },
+        data: { permalink_url: "https://facebook.example/post-1" },
       });
 
       const result = await service.publishPhotoViaPageToken({
@@ -623,6 +671,15 @@ describe("FacebookService", () => {
             url: "https://cdn.example/img.jpg",
             caption: "test caption",
             published: "true",
+            access_token: "page-token",
+          }),
+        }),
+      );
+      expect(linkSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v20.0/post-1"),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            fields: "permalink_url,link",
             access_token: "page-token",
           }),
         }),

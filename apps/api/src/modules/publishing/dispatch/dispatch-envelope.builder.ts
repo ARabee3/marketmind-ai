@@ -11,6 +11,7 @@ import {
   type PublicationCandidateV1,
   type PublicationDispatchAssetV1,
   type PublicationDispatchBodyV1,
+  type PublishingCapability,
   type PublishingTargetV1,
   type SignedPublicationDispatchEnvelopeV1,
 } from "@marketmind/contracts";
@@ -93,7 +94,8 @@ export class DispatchEnvelopeBuilder {
   } {
     const operation = publicationOperationForMode(
       "real",
-    ) as "meta.publish_static_image";
+      input.candidate.content_format,
+    ) as "meta.publish_static_image" | "meta.publish_text";
 
     // Approval snapshot — canonical fingerprint over every material field
     // (mirrors publication-approval-v1). Computed by the frozen contract helper
@@ -243,9 +245,12 @@ export class DispatchEnvelopeBuilder {
     return "facebook"; // default;META channel is facebook in the frozen contract
   }
 
-  private frozenCapabilities(raw: unknown): readonly ["static_image"] {
-    // The dispatch body's PublishingTargetV1.capabilities is the frozen
-    // readonly ["static_image"] tuple for this MVP contract version.
-    return ["static_image"] as const;
+  private frozenCapabilities(raw: unknown): readonly PublishingCapability[] {
+    const source = Array.isArray(raw) ? raw : [];
+    const capabilities: PublishingCapability[] = [];
+    for (const capability of ["static_image", "text"] as const) {
+      if (source.includes(capability)) capabilities.push(capability);
+    }
+    return capabilities.length > 0 ? capabilities : ["static_image"];
   }
 }

@@ -50,7 +50,7 @@ describe("FacebookTargetBridgeService", () => {
           displayName: "MarketMind Page",
           connectionState: "CONNECTED",
           credentialRef: "facebook-social-connection:social-1",
-          capabilities: ["static_image"],
+          capabilities: ["static_image", "text"],
         }),
       }),
     );

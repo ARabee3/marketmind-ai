@@ -48,7 +48,7 @@ export type PublicationDispatchBodyV1 = PublicationDispatchBodyBaseV1 &
   (
     | {
         readonly mode: "real";
-        readonly operation: "meta.publish_static_image";
+        readonly operation: "meta.publish_static_image" | "meta.publish_text";
         readonly target: PublishingTargetV1;
         readonly approval: PublicationApprovalSnapshotV1;
         readonly scheduled_utc: IsoDateTime;
@@ -104,10 +104,13 @@ export type SignedPublicationCallbackEnvelopeV1 =
 
 export function publicationOperationForMode(
   mode: PublishingMode,
+  contentFormat?: PublicationCandidateV1["content_format"],
 ): PublishingOperation {
   switch (mode) {
     case "real":
-      return "meta.publish_static_image";
+      return contentFormat === "text_post"
+        ? "meta.publish_text"
+        : "meta.publish_static_image";
     case "manual_export":
       return "manual_export.build";
     case "simulation":
