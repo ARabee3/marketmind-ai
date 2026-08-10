@@ -649,6 +649,13 @@
     "billingLimitReached": "Your plan limit for this action has been reached for the current period.",
     "serverError": "Server error. Please try again later."
   },
+  "NotFound": {
+    "eyebrow": "Route not found",
+    "title": "This journey stops here.",
+    "description": "The page may have moved or the address may be incorrect. Return to your workspace to continue from a known step.",
+    "dashboardAction": "Go to dashboard",
+    "homeAction": "Back to home"
+  },
   "Strategy": {
     "metadata": {
       "homeTitle": "Strategy | MarketMind AI",

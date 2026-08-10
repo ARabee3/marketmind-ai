@@ -191,7 +191,11 @@ export async function mockAuthRefresh(
     rotation.calls += 1
 
     const index = rotation.calls - 1
-    const nextToken = index < tokens.length ? tokens[index] : tokens[tokens.length - 1]
+    const nextToken = tokens.length === 0
+      ? null
+      : index < tokens.length
+        ? tokens[index]
+        : tokens[tokens.length - 1]
 
     if (nextToken === null) {
       await route.fulfill({

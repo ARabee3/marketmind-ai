@@ -4,6 +4,8 @@ import { LoginForm } from '../login-form'
 import { useSession } from '../session-provider'
 import { useSearchParams } from 'next/navigation'
 
+const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }))
+
 const authMessages: Record<string, string> = {
   loginTitle: 'Sign in to your account',
   loginEmailLabel: 'Email address',
@@ -52,7 +54,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: replaceMock }),
   Link: ({
     href,
     children,
@@ -85,6 +87,7 @@ describe('LoginForm', () => {
       new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>,
     )
     login.mockReset()
+    replaceMock.mockReset()
   })
 
   afterEach(() => {
@@ -177,6 +180,42 @@ describe('LoginForm', () => {
         email: 'ahmed@example.com',
         password: 'password123',
       })
+    })
+  })
+
+  it('returns to a safe workspace route after login', async () => {
+    login.mockResolvedValue(undefined)
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({ from: '/en/billing?period=current' }) as unknown as ReturnType<
+        typeof useSearchParams
+      >,
+    )
+
+    render(<LoginForm />)
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/billing?period=current')
+    })
+  })
+
+  it('falls back to the dashboard for an unsafe post-login route', async () => {
+    login.mockResolvedValue(undefined)
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({ from: 'https://example.com' }) as unknown as ReturnType<
+        typeof useSearchParams
+      >,
+    )
+
+    render(<LoginForm />)
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/dashboard')
     })
   })
 

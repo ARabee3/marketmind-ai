@@ -1,6 +1,11 @@
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
+import {
+  isGuestOnlyPath,
+  isWorkspacePath,
+  safeWorkspaceReturnPath,
+} from "./lib/routing/route-policy";
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -10,28 +15,8 @@ const API_BASE_URL = (
 
 const SESSION_PATH = "/auth/session";
 const LOCALES = routing.locales as readonly string[];
-const WORKSPACE_SEGMENTS = new Set([
-  "dashboard",
-  "discovery",
-  "strategy",
-  "content",
-  "publishing",
-]);
 const REFRESH_COOKIE = "refreshToken";
 const LOCALE_COOKIE = "NEXT_LOCALE";
-
-/**
- * Workspace routes are the `(workspace)` route group under any locale prefix.
- * Route groups are not part of the URL, so we match the resolved path segments.
- */
-function isWorkspacePath(pathname: string): boolean {
-  const segments = pathname.split("/").filter(Boolean);
-  const first = segments[0];
-  if (LOCALES.includes(first)) {
-    return WORKSPACE_SEGMENTS.has(segments[1] ?? "");
-  }
-  return WORKSPACE_SEGMENTS.has(first ?? "");
-}
 
 function localeFor(request: NextRequest, pathname: string): string {
   const segments = pathname.split("/").filter(Boolean);
@@ -49,7 +34,7 @@ function localeFor(request: NextRequest, pathname: string): string {
  * authorization boundary for workspace routes; Nest JWT/RBAC guards remain the
  * data-access boundary.
  */
-async function isWorkspaceAuthorized(request: NextRequest): Promise<boolean> {
+async function hasValidSession(request: NextRequest): Promise<boolean> {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
   if (!refreshToken) return false;
   try {
@@ -68,7 +53,7 @@ export default async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isWorkspacePath(pathname)) {
-    const authorized = await isWorkspaceAuthorized(request);
+    const authorized = await hasValidSession(request);
     if (!authorized) {
       const locale = localeFor(request, pathname);
       const from = encodeURIComponent(pathname + (search || ""));
@@ -78,6 +63,17 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl, 302);
     }
     return intlMiddleware(request);
+  }
+
+  if (isGuestOnlyPath(pathname) && (await hasValidSession(request))) {
+    const locale = localeFor(request, pathname);
+    const returnPath =
+      safeWorkspaceReturnPath(request.nextUrl.searchParams.get("from")) ??
+      "/dashboard";
+    return NextResponse.redirect(
+      new URL(`/${locale}${returnPath}`, request.url),
+      302,
+    );
   }
 
   return intlMiddleware(request);

@@ -16,6 +16,7 @@ import {
 } from './validation'
 import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
 import { authStyles } from './auth-styles'
+import { safeWorkspaceReturnPath } from '@/lib/routing/route-policy'
 
 type LoginFormErrors = {
   email?: ValidationErrorKey
@@ -24,11 +25,6 @@ type LoginFormErrors = {
     | 'errorLoginFailed'
     | 'errorInvalidCredentials'
     | 'errorEmailNotVerified'
-}
-
-function stripLocalePrefix(path: string): string {
-  const match = /^\/(en|ar)(\/|$)/.exec(path)
-  return match ? path.slice(match[0].length - 1) || '/' : path
 }
 
 export function LoginForm() {
@@ -76,8 +72,7 @@ export function LoginForm() {
 
       try {
         await login({ email: email.trim(), password })
-        const returnPath = searchParams.get('from')
-        const target = returnPath ? stripLocalePrefix(returnPath) : '/dashboard'
+        const target = safeWorkspaceReturnPath(searchParams.get('from')) ?? '/dashboard'
         router.replace(target)
       } catch (error) {
         const apiError = error as { response?: Response }
