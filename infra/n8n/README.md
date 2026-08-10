@@ -22,7 +22,7 @@ cp infra/docker/.env.example infra/docker/.env
 # 2. Bring up postgres, redis, and n8n together
 docker compose -f infra/docker/docker-compose.local.yml up -d
 
-# 3. Import the workflow once n8n is up (one-time, see "Import the workflow").
+# 3. The container imports and publishes the checked-in workflow automatically.
 ```
 
 Stop / reset:
@@ -108,23 +108,17 @@ PUBLISHING_CALLBACK_BASE_URL=http://localhost:3001
   envelope as `callback_url` / each asset's `retrieval_url`) works because
   host networking makes `localhost` the host.
 
-## Import the workflow (one-time, manual)
+## Workflow bootstrap
 
-The compose service does **not** auto-import the workflow on start. Import
-it once after the container is up:
+The n8n service mounts the version-controlled workflow read-only and runs
+`bootstrap.sh` before n8n starts. The workflow carries the stable id
+`4wO2sifqyuZMAht9`, so each container start updates that record and publishes
+its current version without creating duplicates. If import or publication
+fails, n8n does not start; a running-but-unregistered production webhook is
+therefore no longer presented as a ready automation service.
 
-1. Open <http://localhost:5678> (set up the initial owner account on first
-   run if prompted).
-2. **Workflows** → **Add workflow** (or open an import target) → menu (⋮) →
-   **Import from File** → select
-   `infra/n8n/workflows/publishing-v1.json`.
-3. **Save**, then toggle the workflow **Active** (top-right).
-
-Auto-import via `n8n import:workflow --input=...` was considered but
-skipped: it is not reliably idempotent across container restarts (re-import
-duplicates unless `--updateId` resolves an existing row), and verifying
-idempotency per n8n version is out of scope here. The manual step above is
-the supported path.
+You can still open <http://localhost:5678> to inspect executions or complete
+the initial local n8n owner setup.
 
 ### Workflows directory layout
 
