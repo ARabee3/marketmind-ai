@@ -34,8 +34,9 @@ process.env.FB_APP_SECRET = "test-facebook-app-secret";
 process.env.FB_REDIRECT_URI =
   "http://localhost:3001/api/v1/auth/facebook/callback";
 process.env.TOKEN_ENCRYPTION_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
-process.env.DATABASE_URL = process.env.DATABASE_URL ||
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL ||
   "postgresql://marketmind:marketmind_dev@localhost:5432/marketmind_dev?schema=public";
 process.env.REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 

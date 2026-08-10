@@ -13,8 +13,7 @@ const validConfig = (): Record<string, unknown> => ({
   MAIL_PROVIDER: "mock",
   FB_APP_ID: "facebook-app-id",
   FB_APP_SECRET: "facebook-app-secret",
-  FB_REDIRECT_URI:
-    "http://localhost:3001/api/v1/auth/facebook/callback",
+  FB_REDIRECT_URI: "http://localhost:3001/api/v1/auth/facebook/callback",
   TOKEN_ENCRYPTION_KEY:
     "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
 });
@@ -182,7 +181,18 @@ describe("envSchema Facebook connection validation", () => {
   it("rejects a token encryption key that does not decode to 32 bytes", () => {
     expect(() =>
       envSchema({ ...validConfig(), TOKEN_ENCRYPTION_KEY: "not-a-valid-key" }),
-    ).toThrow("TOKEN_ENCRYPTION_KEY must hex-decode to 32 bytes");
+    ).toThrow("TOKEN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters");
+  });
+
+  it("rejects trailing non-hex data after an otherwise valid key", () => {
+    const validKey = validConfig().TOKEN_ENCRYPTION_KEY as string;
+
+    expect(() =>
+      envSchema({
+        ...validConfig(),
+        TOKEN_ENCRYPTION_KEY: `${validKey}zz`,
+      }),
+    ).toThrow("TOKEN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters");
   });
 
   it("rejects a missing token encryption key", () => {

@@ -124,9 +124,9 @@ export function envSchema(
     errors.push(
       "TOKEN_ENCRYPTION_KEY is required (AES-256-GCM key, 32 bytes hex-encoded)",
     );
-  } else if (Buffer.from(tokenEncryptionKey, "hex").length !== 32) {
+  } else if (!/^[0-9a-fA-F]{64}$/.test(tokenEncryptionKey)) {
     errors.push(
-      "TOKEN_ENCRYPTION_KEY must hex-decode to 32 bytes (AES-256-GCM key)",
+      "TOKEN_ENCRYPTION_KEY must be exactly 64 hexadecimal characters (AES-256-GCM key)",
     );
   }
 

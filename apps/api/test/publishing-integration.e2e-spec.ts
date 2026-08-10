@@ -94,7 +94,7 @@ process.env.PUBLISHING_N8N_AUTH_TOKEN ??= "publishing-e2e-n8n-auth-token";
 // Issue #175 credential vault + Meta app configuration (static deployment
 // secrets — never a per-business Page token).
 process.env.PUBLISHING_VAULT_KEY ??=
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 process.env.PUBLISHING_VAULT_KEY_VERSION ??= "v1";
 process.env.PUBLISHING_MEDIA_FETCH_SECRET ??=
   "publishing-e2e-media-fetch-secret";
@@ -109,7 +109,7 @@ process.env.FB_APP_SECRET ??= "publishing-e2e-facebook-app-secret";
 process.env.FB_REDIRECT_URI ??=
   "http://127.0.0.1:3101/api/v1/auth/facebook/callback";
 process.env.TOKEN_ENCRYPTION_KEY ??=
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 const API_DIR = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(__dirname, "../../..");

@@ -39,7 +39,7 @@ process.env.FB_APP_SECRET = "test-facebook-app-secret";
 process.env.FB_REDIRECT_URI =
   "http://localhost:3001/api/v1/auth/facebook/callback";
 process.env.TOKEN_ENCRYPTION_KEY =
-  "c3b2e6a9d1f47850a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192";
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 // Infrastructure required by AuthModule.
 process.env.DATABASE_URL =
