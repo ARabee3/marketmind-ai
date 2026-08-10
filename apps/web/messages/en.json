@@ -1212,6 +1212,11 @@
         "two": "Weeks 5–8",
         "three": "Weeks 9–12"
       },
+      "monthGroup": {
+        "one": "Month 1",
+        "two": "Month 2",
+        "three": "Month 3"
+      },
       "week": "Week {week}",
       "focus": "Focus",
       "outcome": "Expected outcome",
