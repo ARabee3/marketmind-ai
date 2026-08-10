@@ -607,4 +607,22 @@ def _normalize_v2_plan(
             metadata={"channel_choices": choices},
         ),
     )
+
+    # Immutable provenance belongs to the application request, never to the
+    # model. In particular, providers can confuse the strategy-v2 contract
+    # label with the plan's database version and return version=2 for the first
+    # generated plan. Normalize every request-owned reference before the plan
+    # reaches validation or persistence.
+    previous_plan = getattr(request, "previous_plan", None)
+    normalized["strategy_id"] = str(request.strategy_id)
+    normalized["version"] = previous_plan.version + 1 if previous_plan else 1
+    normalized["brief_id"] = str(request.brief.id)
+    normalized["profile_version"] = {
+        "business_profile_version_id": str(request.business_profile.id),
+        "confirmed_at": request.business_profile.confirmed_at.isoformat(),
+        "version": request.business_profile.version,
+    }
+    normalized["retrieval_run_id"] = str(
+        request.retrieved_knowledge_pack.retrieval_run_id
+    )
     return StrategyPlanV2.model_validate(normalized)

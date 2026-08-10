@@ -191,10 +191,20 @@ class TestV2GenerateEndpoint:
             provider_name="mock",
             model="mock",
         )
-        # Simulate a model that drifted: the raw plan gained an extra channel.
+        # Simulate a model that drifted: the raw plan gained an extra channel
+        # and confused the strategy-v2 contract label with plan version 2.
         provider = MockStrategyProvider()
 
         raw = provider.fixture_plan_v2.model_dump(mode="json")
+        raw["strategy_id"] = "d0000000-0000-4000-8000-000000000009"
+        raw["version"] = 2
+        raw["brief_id"] = "d0000000-0000-4000-8000-000000000010"
+        raw["profile_version"] = {
+            "business_profile_version_id": "d0000000-0000-4000-8000-000000000011",
+            "confirmed_at": "2026-01-01T00:00:00Z",
+            "version": 99,
+        }
+        raw["retrieval_run_id"] = "d0000000-0000-4000-8000-000000000012"
         raw["channel_commitments"].append(
             {
                 "channel": "tiktok",
@@ -214,6 +224,17 @@ class TestV2GenerateEndpoint:
         assert [c.channel for c in repaired.channel_commitments] == [
             c.channel for c in request.brief.channel_choices
         ]
+        assert repaired.strategy_id == request.strategy_id
+        assert repaired.version == 1
+        assert repaired.brief_id == request.brief.id
+        assert (
+            repaired.profile_version.business_profile_version_id
+            == request.business_profile.id
+        )
+        assert (
+            repaired.retrieval_run_id
+            == request.retrieved_knowledge_pack.retrieval_run_id
+        )
         result = validate_strategy_v2_bundle(
             business_profile=request.business_profile,
             brief=request.brief,
