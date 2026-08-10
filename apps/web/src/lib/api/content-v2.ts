@@ -5,6 +5,7 @@ import type {
   ContentEditorialProfileUpsertRequest,
   ContentEditorialProfileV2,
   ContentMediaLibraryEntryV2,
+  ContentPackV2,
   ContentPackWorkspaceV2,
   ContentWeekPlanV2,
   OwnerContentDirectEditRequest,
@@ -262,6 +263,20 @@ export function createOrReplaceWeekPlanV2(
 // ---------------------------------------------------------------------------
 // Pack workspace + owner direct edit
 // ---------------------------------------------------------------------------
+
+export function regenerateContentPackV2(
+  packId: string,
+  signal?: AbortSignal,
+): Promise<{
+  content_pack: ContentPackV2;
+  status: "queued";
+  correlation_id: string;
+}> {
+  return request(`/content-packs/${encodeURIComponent(packId)}/regenerate`, {
+    method: "POST",
+    signal,
+  });
+}
 
 export function getPackWorkspaceV2(
   packId: string,

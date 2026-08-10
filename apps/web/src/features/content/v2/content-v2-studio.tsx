@@ -13,6 +13,7 @@ import {
   createOrReplaceWeekPlanV2,
   getCycleWorkspaceV2,
   planWeekV2,
+  regenerateContentPackV2,
   uploadMediaV2,
 } from "@/lib/api/content-v2";
 import { generateContentWeek, retryContentPack } from "@/lib/api/content-cycle";
@@ -49,7 +50,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
   const [mode, setMode] = useState<"studio" | "setup">("studio");
   const [isMutating, setIsMutating] = useState(false);
   const [mutatingAction, setMutatingAction] = useState<
-    "plan" | "generate" | "retry" | "savePlan" | null
+    "plan" | "generate" | "retry" | "regenerate" | "savePlan" | null
   >(null);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<MutationErrorKey | null>(
@@ -117,13 +118,17 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
     }
   };
 
-  const handleGenerate = async (retry = false) => {
+  const handleGenerate = async (
+    action: "generate" | "retry" | "regenerate" = "generate",
+  ) => {
     if (!workspace || isMutating) return;
     setIsMutating(true);
-    setMutatingAction(retry ? "retry" : "generate");
+    setMutatingAction(action);
     setMutationError(null);
     try {
-      if (retry && workspace.current_week.pack) {
+      if (action === "regenerate" && workspace.current_week.pack) {
+        await regenerateContentPackV2(workspace.current_week.pack.id);
+      } else if (action === "retry" && workspace.current_week.pack) {
         await retryContentPack(workspace.current_week.pack.id);
       } else {
         await generateContentWeek(cycleId, workspace.current_week.week_number, {
@@ -280,6 +285,8 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
           : null;
       case "retry":
         return t("retryCta");
+      case "regenerate":
+        return t("regenerateCta");
       default:
         return null;
     }
@@ -298,7 +305,10 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
         void handleGenerate();
         return;
       case "retry":
-        void handleGenerate(true);
+        void handleGenerate("retry");
+        return;
+      case "regenerate":
+        void handleGenerate("regenerate");
         return;
       default:
         return;
@@ -392,6 +402,20 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                 </p>
               )}
 
+            {current_week.primary_action === "regenerate" && (
+              <div className="border-s-4 border-danger bg-danger/5 px-4 py-3">
+                <h3 className="text-sm font-bold text-navy">
+                  {t("recoveryTitle")}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {t("recoveryBody")}
+                </p>
+                <p className="mt-2 text-xs font-semibold text-primary">
+                  {t("recoveryPlanSafe")}
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-3">
               {current_week.primary_action === "review_pack" &&
               current_week.pack ? (
@@ -417,6 +441,8 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                       ? t("generatingCta")
                       : mutatingAction === "retry"
                         ? t("retryingCta")
+                        : mutatingAction === "regenerate"
+                          ? t("regeneratingCta")
                         : mutatingAction === "savePlan"
                           ? t("savingPlanCta")
                           : t("planningCta")

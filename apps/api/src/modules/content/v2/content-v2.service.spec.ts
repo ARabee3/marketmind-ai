@@ -930,6 +930,153 @@ describe("ContentV2Service.getPackWorkspace", () => {
   });
 });
 
+describe("ContentV2Service.regenerateFailedPack", () => {
+  function recoveryBuild(itemIds: string[] = []) {
+    const now = new Date("2026-08-09T12:00:00.000Z");
+    const pack = {
+      id: "pack-failed",
+      contractVersion: "content-v2",
+      contentCycleId: CYCLE,
+      weeklyClaimId: "claim-1",
+      weekNumber: 1,
+      businessId: "biz-1",
+      strategyId: "strat-1",
+      strategyVersion: 2,
+      strategyDecisionId: "decision-1",
+      profileVersionId: "prof-1",
+      weekContextId: "ctx-1",
+      status: "failed",
+      retryEligible: false,
+      itemIds,
+      weekPlanId: "week-plan-1",
+      createdAt: now,
+      updatedAt: now,
+      contentCycle: {
+        id: CYCLE,
+        ownerUserId: OWNER,
+        status: "active",
+        currentWeekNumber: 1,
+      },
+      weekContext: {},
+    };
+    const tx = {
+      contentPack: { update: jest.fn().mockResolvedValue(pack) },
+    };
+    const prisma = {
+      contentPack: { findUnique: jest.fn().mockResolvedValue(pack) },
+      contentWeekPlan: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: "frozen",
+          frozenInput: { week_plan_id: "week-plan-1" },
+        }),
+      },
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const packRepository = {
+      markPackStatus: jest.fn().mockResolvedValue({ changed: true }),
+      appendProgressEvent: jest.fn().mockResolvedValue({}),
+    };
+    const jobOutbox = {
+      createIntent: jest.fn().mockResolvedValue({}),
+      markDirectDispatched: jest.fn().mockResolvedValue(true),
+    };
+    const contentQueue = { add: jest.fn().mockResolvedValue({}) };
+    const service = new ContentV2Service(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      packRepository as never,
+      jobOutbox as never,
+      contentQueue as never,
+      {} as never,
+    );
+    return {
+      service,
+      pack,
+      mocks: { packRepository, jobOutbox, contentQueue, tx },
+    };
+  }
+
+  it("queues a new bounded attempt without changing automatic retry eligibility", async () => {
+    const { service, mocks } = recoveryBuild();
+
+    const result = await service.regenerateFailedPack("pack-failed", OWNER);
+
+    expect(mocks.packRepository.markPackStatus).toHaveBeenCalledWith(
+      "pack-failed",
+      "failed",
+      "queued",
+      mocks.tx,
+    );
+    expect(mocks.tx.contentPack.update).toHaveBeenCalledWith({
+      where: { id: "pack-failed" },
+      data: { retryEligible: false },
+    });
+    expect(mocks.jobOutbox.createIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobName: "generate-content-v2",
+        jobId: expect.stringMatching(/^regenerate-content-v2-pack-failed-/),
+      }),
+      mocks.tx,
+    );
+    expect(mocks.contentQueue.add).toHaveBeenCalledWith(
+      "generate-content-v2",
+      expect.objectContaining({ contentPackId: "pack-failed" }),
+      expect.objectContaining({ attempts: 3 }),
+    );
+    expect(mocks.packRepository.appendProgressEvent).toHaveBeenCalledWith(
+      "pack-failed",
+      expect.objectContaining({
+        payload: expect.objectContaining({ owner_recovery: true }),
+      }),
+    );
+    expect(result.status).toBe("queued");
+    expect(result.content_pack.retry_eligible).toBe(false);
+  });
+
+  it("refuses owner regeneration when any draft was already persisted", async () => {
+    const { service, mocks } = recoveryBuild(["item-1"]);
+
+    await expect(
+      service.regenerateFailedPack("pack-failed", OWNER),
+    ).rejects.toMatchObject({
+      response: { code: "CONTENT_APPROVAL_BLOCKED" },
+    });
+    expect(mocks.contentQueue.add).not.toHaveBeenCalled();
+  });
+
+  it("surfaces regenerate as distinct from automatic retry", () => {
+    const { service, pack } = recoveryBuild();
+    const primaryActionFor = (
+      service as unknown as {
+        primaryActionFor: (
+          cycle: unknown,
+          currentPack: unknown,
+          weekPlan: unknown,
+        ) => string;
+      }
+    ).primaryActionFor.bind(service);
+
+    expect(
+      primaryActionFor(pack.contentCycle, pack, { status: "frozen" }),
+    ).toBe("regenerate");
+    expect(
+      primaryActionFor(
+        pack.contentCycle,
+        { ...pack, retryEligible: true },
+        { status: "frozen" },
+      ),
+    ).toBe("retry");
+  });
+});
+
 describe("ContentV2Service.rewriteItem", () => {
   function rewriteBuild() {
     const baseVersion = {

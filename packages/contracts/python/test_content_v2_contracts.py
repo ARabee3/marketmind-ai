@@ -10,13 +10,14 @@ import json
 import unittest
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from content_v2_contracts import (
     AiContentV2PlanRequest,
     AiContentV2PlanResponse,
     ContentCtaLibraryEntryInput,
     ContentCtaLibraryEntryV2,
+    ContentCurrentWeekWorkspaceV2,
     ContentEditorialProfileUpsertRequest,
     ContentEditorialProfileV2,
     ContentItemVersionV2,
@@ -156,6 +157,15 @@ class ContentV2ContractTests(unittest.TestCase):
         payload.pop("base_version_id")
         with self.assertRaises(ValidationError):
             OwnerContentDirectEditRequest.model_validate(payload)
+
+    def test_workspace_accepts_owner_regeneration_action(self) -> None:
+        primary_action = ContentCurrentWeekWorkspaceV2.model_fields[
+            "primary_action"
+        ].annotation
+        self.assertEqual(
+            TypeAdapter(primary_action).validate_python("regenerate"),
+            "regenerate",
+        )
 
 
 if __name__ == "__main__":

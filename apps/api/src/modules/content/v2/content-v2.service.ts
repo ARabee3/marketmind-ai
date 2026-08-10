@@ -816,6 +816,137 @@ export class ContentV2Service {
     };
   }
 
+  /**
+   * Owner-authorized recovery for a terminal v2 generation failure.
+   *
+   * `retryEligible` remains the automatic/BullMQ retry signal. This explicit
+   * action may start one fresh bounded generation job after that signal is
+   * exhausted, while reusing the immutable frozen plan and retaining prior
+   * progress events as the audit trail. No partial or reviewable pack can
+   * enter this path.
+   */
+  async regenerateFailedPack(
+    packId: string,
+    ownerUserId: string,
+  ): Promise<{
+    content_pack: ContentPackV2;
+    status: "queued";
+    correlation_id: string;
+  }> {
+    const pack = await this.getPackOrThrow(packId, ownerUserId);
+    if (pack.status !== "failed") {
+      throw new BadRequestException({
+        code: "CONTENT_PACK_NOT_FAILED",
+        message: "Only a failed Content pack can start a fresh generation.",
+      });
+    }
+    if (
+      pack.contentCycle.status !== "active" ||
+      pack.weekNumber !== pack.contentCycle.currentWeekNumber
+    ) {
+      throw new BadRequestException({
+        code:
+          pack.contentCycle.status === "paused"
+            ? "CONTENT_CYCLE_PAUSED"
+            : pack.contentCycle.status === "completed"
+              ? "CONTENT_CYCLE_COMPLETED"
+              : "CONTENT_WEEK_ALREADY_CLAIMED",
+        message: "This Content week is no longer available for generation.",
+      });
+    }
+    if (Array.isArray(pack.itemIds) && pack.itemIds.length > 0) {
+      throw new BadRequestException({
+        code: "CONTENT_APPROVAL_BLOCKED",
+        message: "A pack containing saved drafts cannot be regenerated.",
+      });
+    }
+    if (!pack.weekPlanId) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: "The failed Content pack has no frozen week plan.",
+      });
+    }
+    const weekPlan = await this.prisma.contentWeekPlan.findUnique({
+      where: { id: pack.weekPlanId },
+      select: { status: true, frozenInput: true },
+    });
+    if (weekPlan?.status !== "frozen" || weekPlan.frozenInput === null) {
+      throw new BadRequestException({
+        code: "CONTENT_SCHEMA_FAILURE",
+        message: "The failed Content pack no longer has a valid frozen input.",
+      });
+    }
+
+    const correlationId = randomUUID();
+    const jobId = `regenerate-content-v2-${pack.id}-${correlationId}`;
+    const jobPayload = {
+      contentCycleId: pack.contentCycleId,
+      weekNumber: pack.weekNumber,
+      contentPackId: pack.id,
+      idempotencyKey: `owner-regenerate:${correlationId}`,
+      correlationId,
+    };
+
+    await this.prisma.$transaction(async (tx) => {
+      const { changed } = await this.packRepository.markPackStatus(
+        pack.id,
+        "failed",
+        "queued",
+        tx,
+      );
+      if (!changed) {
+        throw new ConflictException({
+          code: "CONTENT_PACK_RETRY_CONFLICT",
+          message: "A fresh generation is already in progress.",
+        });
+      }
+      await tx.contentPack.update({
+        where: { id: pack.id },
+        data: { retryEligible: false },
+      });
+      await this.jobOutbox.createIntent(
+        {
+          jobId,
+          queueName: "content-generation",
+          jobName: "generate-content-v2",
+          payload: jobPayload,
+        },
+        tx,
+      );
+    });
+
+    await this.contentQueue.add("generate-content-v2", jobPayload, {
+      jobId: toBullMqJobId(jobId),
+      attempts: 3,
+      backoff: { type: "exponential", delay: 2000 },
+    });
+    await this.jobOutbox.markDirectDispatched(jobId);
+    await this.packRepository.appendProgressEvent(pack.id, {
+      stage: "queued",
+      status: "started",
+      messageKey: "content.owner_regeneration.queued",
+      messageText: "Owner started a fresh bounded generation attempt.",
+      payload: {
+        correlation_id: correlationId,
+        owner_recovery: true,
+      },
+    });
+
+    this.logger.log(
+      `[ContentPack ${pack.id}] [Corr: ${correlationId}] Owner regeneration queued for week ${pack.weekNumber}.`,
+    );
+
+    return {
+      content_pack: toContentPackV2({
+        ...pack,
+        status: "queued",
+        retryEligible: false,
+      }),
+      status: "queued",
+      correlation_id: correlationId,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Owner direct edit (immutable new version)
   // -------------------------------------------------------------------------
@@ -1908,6 +2039,15 @@ export class ContentV2Service {
     }
     if (pack?.status === "failed" && pack.retryEligible) {
       return "retry";
+    }
+    if (
+      pack?.status === "failed" &&
+      pack.contractVersion === "content-v2" &&
+      Array.isArray(pack.itemIds) &&
+      pack.itemIds.length === 0 &&
+      weekPlan?.status === "frozen"
+    ) {
+      return "regenerate";
     }
     if (["queued", "generating", "validating"].includes(pack?.status ?? "")) {
       return "none";

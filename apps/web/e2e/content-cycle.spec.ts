@@ -145,6 +145,43 @@ function reviewableWorkspace(): ContentCycleWorkspaceV2 {
   });
 }
 
+function failedWorkspace(): ContentCycleWorkspaceV2 {
+  return workspace({
+    current_week: {
+      week_number: 1,
+      week_start_date: "2026-08-10",
+      goal: "Build a clear first week of presence",
+      generation_state: "failed",
+      week_plan: {
+        id: "week-plan-1",
+        status: "frozen",
+        post_plans: [{ ...mockPlan, plan_state: "failed" }],
+      },
+      pack: {
+        id: MOCK_PACK_ID,
+        contract_version: "content-v2",
+        content_cycle_id: MOCK_CYCLE_ID,
+        weekly_claim_id: "claim-1",
+        week_number: 1,
+        business_id: mockCycleV2.business_id,
+        strategy_id: MOCK_STRATEGY_ID,
+        strategy_version: 1,
+        strategy_decision_id: MOCK_DECISION_ID,
+        profile_version_id: mockCycleV2.profile_version_id,
+        week_context_id: "context-1",
+        status: "failed",
+        retry_eligible: false,
+        item_ids: [],
+        week_plan_id: "week-plan-1",
+        created_at: "2026-08-08T00:00:00.000Z",
+        updated_at: "2026-08-08T00:00:00.000Z",
+      },
+      next_generation_at: null,
+      primary_action: "regenerate",
+    },
+  });
+}
+
 async function authenticate(page: Page) {
   await mockAuthRefresh(page);
   await mockAuthMe(page);
@@ -335,6 +372,38 @@ test.describe("Content V2 weekly studio", () => {
     );
   });
 
+  test("terminal generation failure offers one owner-authorized fresh attempt", async ({
+    page,
+  }) => {
+    await authenticate(page);
+    await mockStudio(page, failedWorkspace());
+    let regenerationCalls = 0;
+    await page.route(
+      `**/api/v1/content-packs/${MOCK_PACK_ID}/regenerate`,
+      async (route) => {
+        regenerationCalls += 1;
+        expect(route.request().method()).toBe("POST");
+        await json(route, {
+          content_pack: failedWorkspace().current_week.pack,
+          status: "queued",
+          correlation_id: "owner-recovery-1",
+        });
+      },
+    );
+
+    await page.goto(`/en/content/${MOCK_CYCLE_ID}/studio`);
+    await expect(
+      page.getByRole("heading", { name: "The drafts could not be created" }),
+    ).toBeVisible();
+    await expect(page.getByText(/nothing was published/i)).toBeVisible();
+    const regenerate = page.getByRole("button", {
+      name: "Generate fresh drafts",
+    });
+    await expect(regenerate).toHaveCount(1);
+    await regenerate.click();
+    await expect.poll(() => regenerationCalls).toBe(1);
+  });
+
   test("the retired week URL redirects a V2 cycle to studio", async ({
     page,
   }) => {
@@ -358,5 +427,27 @@ test.describe("Content V2 weekly studio", () => {
     await expect(
       page.getByRole("button", { name: /خطّط هذا الأسبوع/ }),
     ).toHaveCount(1);
+  });
+
+  test("Arabic recovery remains readable without mobile overflow", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await authenticate(page);
+    await mockStudio(page, failedWorkspace());
+    await page.goto(`/ar/content/${MOCK_CYCLE_ID}/studio`);
+
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await expect(
+      page.getByRole("heading", { name: "تعذّر إنشاء المسودات" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "أنشئ مسودات جديدة" }),
+    ).toHaveCount(1);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   });
 });
