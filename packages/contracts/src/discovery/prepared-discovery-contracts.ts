@@ -144,12 +144,18 @@ export interface CurrentMarketingFacts {
   available_assets: string[];
 }
 
+export type DiscoveryConstraintContextStatus =
+  | "details_provided"
+  | "none_reported"
+  | "owner_unknown";
+
 export interface GoalsAndConstraintsFacts {
   growth_goals: string[];
   timeframe?: string;
   marketing_budget_range?: string;
   team_capacity?: string;
   operational_constraints: string[];
+  constraint_context_status?: DiscoveryConstraintContextStatus;
 }
 
 export interface MarketAwareBusinessFacts {

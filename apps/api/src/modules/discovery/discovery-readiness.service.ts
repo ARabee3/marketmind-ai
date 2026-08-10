@@ -9,6 +9,7 @@ import {
 import { MAX_DISCOVERY_OWNER_TURNS } from "./market-profile";
 
 const PROFILE_READINESS_THRESHOLD = 0.8;
+const MIN_OWNER_TURNS_FOR_STRUCTURAL_COMPLETION = 5;
 
 @Injectable()
 export class DiscoveryReadinessService {
@@ -45,7 +46,8 @@ export class DiscoveryReadinessService {
     }
     const readiness: DiscoveryReadiness = {
       ready:
-        result.ready_to_summarize &&
+        (result.ready_to_summarize ||
+          ownerTurnCount >= MIN_OWNER_TURNS_FOR_STRUCTURAL_COMPLETION) &&
         result.domain_scores.profile_readiness >= PROFILE_READINESS_THRESHOLD &&
         blockingDomains.length === 0 &&
         !hasCriticalContradiction,
@@ -139,6 +141,8 @@ export class DiscoveryReadinessService {
         !present(constraints.marketing_budget_range) &&
         !present(constraints.team_capacity) &&
         constraints.operational_constraints.length === 0 &&
+        constraints.constraint_context_status !== "none_reported" &&
+        constraints.constraint_context_status !== "owner_unknown" &&
         !explicitUnknown(uncertainties, "goals_and_constraints"))
     ) {
       blocked.push("goals_and_constraints");

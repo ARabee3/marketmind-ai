@@ -19,6 +19,32 @@ describe("DiscoveryReadinessService", () => {
     expect(state.readiness.domain_scores.market_context).toBe(0);
   });
 
+  it("does not let a conservative model recommendation veto the structural gate", () => {
+    const result = readyResult();
+    result.ready_to_summarize = false;
+
+    const state = service.evaluate(result, 7);
+
+    expect(state.readiness).toMatchObject({
+      ready: true,
+      llm_recommended: false,
+      blocking_domains: [],
+    });
+  });
+
+  it("keeps the conservative model veto during the first four owner turns", () => {
+    const result = readyResult();
+    result.ready_to_summarize = false;
+
+    const state = service.evaluate(result, 4);
+
+    expect(state.readiness).toMatchObject({
+      ready: false,
+      llm_recommended: false,
+      blocking_domains: [],
+    });
+  });
+
   it("rejects an overconfident recommendation when structural facts are absent", () => {
     const result = readyResult();
     result.updated_known_facts.offer.core_offerings = [];
@@ -45,6 +71,36 @@ describe("DiscoveryReadinessService", () => {
     expect(state.readiness.ready).toBe(true);
     expect(state.readiness.blocking_domains).not.toContain("differentiation");
     expect(state.readiness.blocking_domains).not.toContain("current_marketing");
+  });
+
+  it("accepts an explicit owner report that there are no current planning constraints", () => {
+    const result = readyResult();
+    result.updated_known_facts.goals_and_constraints = {
+      growth_goals: ["increase weekday lunch orders"],
+      operational_constraints: [],
+      constraint_context_status: "none_reported",
+    };
+
+    const state = service.evaluate(result, 7);
+
+    expect(state.readiness.ready).toBe(true);
+    expect(state.readiness.blocking_domains).not.toContain(
+      "goals_and_constraints",
+    );
+  });
+
+  it("does not let an unsupported details status bypass a missing constraint context", () => {
+    const result = readyResult();
+    result.updated_known_facts.goals_and_constraints = {
+      growth_goals: ["increase weekday lunch orders"],
+      operational_constraints: [],
+      constraint_context_status: "details_provided",
+    };
+
+    const state = service.evaluate(result, 7);
+
+    expect(state.readiness.ready).toBe(false);
+    expect(state.readiness.blocking_domains).toContain("goals_and_constraints");
   });
 
   it("blocks unresolved high-severity contradictions", () => {

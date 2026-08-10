@@ -184,6 +184,9 @@ function marketAwareFacts(value: Prisma.JsonValue): MarketAwareBusinessFacts {
       operational_constraints: stringArray(
         goalsAndConstraints["operational_constraints"],
       ),
+      constraint_context_status: constraintContextStatus(
+        goalsAndConstraints["constraint_context_status"],
+      ),
     },
   };
 }
@@ -428,6 +431,19 @@ function resolutionAction(
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function constraintContextStatus(
+  value: unknown,
+): MarketAwareBusinessFacts["goals_and_constraints"]["constraint_context_status"] {
+  switch (value) {
+    case "details_provided":
+    case "none_reported":
+    case "owner_unknown":
+      return value;
+    default:
+      return undefined;
+  }
 }
 
 function readinessFromJson(value: Prisma.JsonValue): DiscoveryReadiness {

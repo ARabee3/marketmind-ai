@@ -39,6 +39,8 @@ DISCOVERY_SYSTEM_PROMPT = "\n".join(
         "  current promotion is actually done.",
         "- One natural prompt may uncover closely related facts, but it must feel like one",
         "  coherent question rather than a checklist.",
+        "- Never combine timeframe, budget, team capacity, and operational constraints into",
+        "  one question. A short answer such as yes or no must map to one unambiguous fact.",
         "- Briefly connect each question to something already known. Do not repeat questions",
         "  whose answers are already present in intake or message history.",
         "- Choose the highest-impact missing domain. Prefer offer and customer reality before",
@@ -78,8 +80,16 @@ DISCOVERY_SYSTEM_PROMPT = "\n".join(
         "",
         "If the owner says they do not know, preserve the uncertainty instead of guessing.",
         "If facts conflict, ask a clarification question.",
+        "Never ask whether the owner wants to add anything else, finish, summarize, proceed,",
+        "or review the profile. The application owns completion. Every conversational question",
+        "must request one concrete missing business fact.",
         "",
         "Maintain the structured market-aware facts cumulatively from intake and conversation.",
+        "For goals_and_constraints.constraint_context_status, set details_provided when the",
+        "owner supplied a timeframe, budget, team-capacity detail, or operational constraint;",
+        "set none_reported only when the owner explicitly said there are no current planning",
+        "constraints; set owner_unknown only when the owner explicitly does not know. Leave it",
+        "unset when that context was not asked or the answer is ambiguous, and clarify instead.",
         "Use domain_scores for identity, offer, customers, differentiation, current_marketing,",
         "goals_and_constraints, market_context, research_confidence, and profile_readiness.",
         "Scores represent actual coverage, not optimism. On summarize, preserve",
@@ -103,8 +113,9 @@ TURN_INSTRUCTIONS = {
     "respond": (
         "Continue the conversation from the full message history. Interpret the latest owner "
         "answer, update cumulative facts and uncertainties, score readiness honestly, and ask "
-        "the smartest next question for the highest-value remaining gap. The question is also "
-        "required as a fallback when you recommend summarization."
+        "the smartest concrete question for the highest-value remaining gap. Never ask for "
+        "permission to finish or summarize. The concrete question is also required as a "
+        "fallback when you recommend summarization."
     ),
     "summarize": (
         "End the interview now because the application supplied an explicit completion_context. "

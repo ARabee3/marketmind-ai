@@ -221,6 +221,9 @@ class GoalsAndConstraintsFacts(StrictModel):
     marketing_budget_range: str | None = None
     team_capacity: str | None = None
     operational_constraints: list[str] = Field(default_factory=list)
+    constraint_context_status: Literal[
+        "details_provided", "none_reported", "owner_unknown"
+    ] | None = None
 
 
 class MarketAwareBusinessFacts(StrictModel):

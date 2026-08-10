@@ -24,6 +24,18 @@ describe("DiscoveryConversationRepository", () => {
     });
   });
 
+  it("recovers the owner's explicit constraint-context answer", () => {
+    const persisted = emptyDiscoveryProfileState();
+    persisted.known_facts.goals_and_constraints.constraint_context_status =
+      "none_reported";
+
+    const recovered = profileStateFromPersistence(persisted as never, 8, null);
+
+    expect(
+      recovered.known_facts.goals_and_constraints.constraint_context_status,
+    ).toBe("none_reported");
+  });
+
   it("stores the initial assistant question with its state transition", async () => {
     const prisma = transactionPrisma({
       discoverySession: {

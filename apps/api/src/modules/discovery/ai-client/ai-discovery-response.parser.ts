@@ -477,7 +477,19 @@ export function isMarketAwareBusinessFacts(
     optionalString(goalsAndConstraints["timeframe"]) &&
     optionalString(goalsAndConstraints["marketing_budget_range"]) &&
     optionalString(goalsAndConstraints["team_capacity"]) &&
-    isStringArray(goalsAndConstraints["operational_constraints"])
+    isStringArray(goalsAndConstraints["operational_constraints"]) &&
+    optionalConstraintContextStatus(
+      goalsAndConstraints["constraint_context_status"],
+    )
+  );
+}
+
+function optionalConstraintContextStatus(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === "details_provided" ||
+    value === "none_reported" ||
+    value === "owner_unknown"
   );
 }
 

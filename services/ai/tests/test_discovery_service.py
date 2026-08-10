@@ -9,7 +9,12 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.discovery.prompts import DISCOVERY_SYSTEM_PROMPT, build_user_context
 from app.discovery.question_language import question_matches_language
-from app.discovery.schemas import AiDiscoveryRespondRequest, AiDiscoveryStartRequest, AiDiscoverySummarizeRequest
+from app.discovery.schemas import (
+    AiDiscoveryRespondRequest,
+    AiDiscoveryStartRequest,
+    AiDiscoverySummarizeRequest,
+    DiscoveryModelOutput,
+)
 from app.discovery.service import DiscoveryService
 from app.providers.base import (
     DiscoveryProvider,
@@ -144,6 +149,37 @@ def test_prompt_keeps_internal_marketing_fields_out_of_the_interview() -> None:
     context = build_user_context("summarize", base_payload("en"))
     assert "End the interview now" in context
     assert '"business_name":"Koshary Corner"' in context
+
+
+def test_prompt_prevents_meta_completion_loop() -> None:
+    assert "Never ask whether the owner wants to add anything else" in DISCOVERY_SYSTEM_PROMPT
+    assert "constraint_context_status" in DISCOVERY_SYSTEM_PROMPT
+    context = build_user_context("respond", base_payload("en"))
+    assert "Never ask for permission to finish or summarize" in context
+
+
+def test_model_output_preserves_explicit_no_constraints_status() -> None:
+    output = DiscoveryModelOutput.model_validate(
+        {
+            "action": "ask_next_question",
+            "next_question": "What do customers usually buy on busy days?",
+            "updated_known_facts": {
+                "goals_and_constraints": {
+                    "growth_goals": ["Increase weekday orders"],
+                    "operational_constraints": [],
+                    "constraint_context_status": "none_reported",
+                }
+            },
+            "updated_uncertainties": [],
+            "domain_scores": {},
+            "ready_to_summarize": True,
+        }
+    )
+
+    assert (
+        output.updated_known_facts.goals_and_constraints.constraint_context_status
+        == "none_reported"
+    )
 
 
 def test_provider_schema_restricts_actions_for_each_turn() -> None:
