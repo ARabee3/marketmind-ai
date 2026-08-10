@@ -21,6 +21,7 @@ import {
   marketContextFromObservations,
 } from "./market-profile";
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
+import { DiscoveryStreamService } from "./discovery-stream.service";
 
 describe("DiscoveryService conversation", () => {
   const repository = {
@@ -45,6 +46,9 @@ describe("DiscoveryService conversation", () => {
     respond: jest.fn(),
     summarize: jest.fn(),
   } as unknown as jest.Mocked<AiDiscoveryClient>;
+  const streamService = {
+    emitEvent: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryStreamService>;
 
   let service: DiscoveryConversationService;
 
@@ -111,6 +115,7 @@ describe("DiscoveryService conversation", () => {
       conversationRepository,
       aiDiscoveryClient,
       new DiscoveryReadinessService(),
+      streamService,
     );
   });
 
@@ -226,7 +231,7 @@ describe("DiscoveryService conversation", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("automatically summarizes when the hybrid readiness gate passes", async () => {
+  it("automatically summarizes when the structural readiness gate passes", async () => {
     const ready = readyAiResult();
     aiDiscoveryClient.respond.mockResolvedValue(ready);
     aiDiscoveryClient.summarize.mockImplementation(
@@ -260,6 +265,14 @@ describe("DiscoveryService conversation", () => {
     expect(response.status).toBe("summary_ready");
     expect(response.profile_draft?.completeness).toBe("complete");
     expect(response.readiness.ready).toBe(true);
+    expect(streamService.emitEvent).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: "token" }),
+    );
+    expect(streamService.emitEvent).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: "done" }),
+    );
     expect(aiDiscoveryClient.summarize).toHaveBeenCalledWith(
       expect.any(String),
       LanguageModeDto.Mixed,
@@ -270,6 +283,58 @@ describe("DiscoveryService conversation", () => {
         reason: "sufficient",
         completeness: "complete",
       }),
+    );
+  });
+
+  it("automatically summarizes when core readiness passes despite a conservative model flag", async () => {
+    repository.findSessionForOwner.mockResolvedValue({
+      ...session(),
+      ownerTurnCount: 6,
+    } as never);
+    const ready = {
+      ...readyAiResult(),
+      ready_to_summarize: false,
+    };
+    aiDiscoveryClient.respond.mockResolvedValue(ready);
+    aiDiscoveryClient.summarize.mockImplementation(
+      async (
+        _sessionId,
+        _languageMode,
+        _intake,
+        _intelligence,
+        _messages,
+        completionContext,
+      ) => ({
+        ...ready,
+        action: "produce_profile_draft",
+        next_question: undefined,
+        profile_draft: {
+          ...profileDraft(),
+          completeness: completionContext.completeness,
+          completion_reason: completionContext.reason,
+          readiness: completionContext.readiness,
+          confirmed_facts: ready.updated_known_facts,
+        },
+      }),
+    );
+
+    const response = await service.respondToDiscovery(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+      { message: "No, there are no current operational constraints." },
+    );
+
+    expect(response).toMatchObject({
+      status: "summary_ready",
+      readiness: {
+        ready: true,
+        llm_recommended: false,
+        blocking_domains: [],
+      },
+    });
+    expect(streamService.emitEvent).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: "token" }),
     );
   });
 

@@ -113,23 +113,6 @@ export class DiscoveryConversationService {
       );
     }
 
-    if (result.next_question) {
-      const nextQ = result.next_question;
-      const chunkSize = 15;
-      for (let i = 0; i < nextQ.length; i += chunkSize) {
-        this.streamService?.emitEvent(sessionId, {
-          type: "token",
-          session_id: sessionId,
-          delta: nextQ.slice(i, i + chunkSize),
-        });
-      }
-      this.streamService?.emitEvent(sessionId, {
-        type: "done",
-        session_id: sessionId,
-        full_text: nextQ,
-      });
-    }
-
     const ownerTurnCount = session.ownerTurnCount + 1;
     const profileState = this.readinessService.evaluate(result, ownerTurnCount);
 
@@ -162,6 +145,23 @@ export class DiscoveryConversationService {
         profile_draft: completed.profileDraft,
         strategy_locked: true,
       };
+    }
+
+    if (result.next_question) {
+      const nextQ = result.next_question;
+      const chunkSize = 15;
+      for (let i = 0; i < nextQ.length; i += chunkSize) {
+        this.streamService?.emitEvent(sessionId, {
+          type: "token",
+          session_id: sessionId,
+          delta: nextQ.slice(i, i + chunkSize),
+        });
+      }
+      this.streamService?.emitEvent(sessionId, {
+        type: "done",
+        session_id: sessionId,
+        full_text: nextQ,
+      });
     }
 
     const assistantMessage =

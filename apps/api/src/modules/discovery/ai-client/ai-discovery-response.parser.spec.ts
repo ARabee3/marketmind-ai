@@ -32,6 +32,42 @@ describe("parseAiDiscoveryResult", () => {
     });
   });
 
+  it("accepts an explicit owner-reported constraint context", () => {
+    const facts = emptyMarketAwareBusinessFacts();
+    expect(
+      parseAiDiscoveryResult({
+        ...questionResult(),
+        updated_known_facts: {
+          ...facts,
+          goals_and_constraints: {
+            ...facts.goals_and_constraints,
+            constraint_context_status: "none_reported",
+          },
+        },
+      }),
+    ).toMatchObject({
+      updated_known_facts: {
+        goals_and_constraints: {
+          constraint_context_status: "none_reported",
+        },
+      },
+    });
+  });
+
+  it("rejects an unknown constraint-context status", () => {
+    const facts = emptyMarketAwareBusinessFacts();
+    expectInvalid({
+      ...questionResult(),
+      updated_known_facts: {
+        ...facts,
+        goals_and_constraints: {
+          ...facts.goals_and_constraints,
+          constraint_context_status: "probably_none",
+        },
+      },
+    });
+  });
+
   it("rejects malformed suggested answers", () => {
     expectInvalid({
       ...questionResult(),
