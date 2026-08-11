@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   isGuestOnlyPath,
+  isAdminPath,
   isWorkspacePath,
+  safeAdminReturnPath,
   safeWorkspaceReturnPath,
 } from '../route-policy'
 
@@ -42,11 +44,24 @@ describe('route policy', () => {
     },
   )
 
+  it.each(['/admin', '/en/admin/users', '/ar/admin/revenue'])(
+    'classifies %s as an admin route',
+    (pathname) => {
+      expect(isAdminPath(pathname)).toBe(true)
+    },
+  )
+
   it('normalizes safe post-login workspace destinations', () => {
     expect(safeWorkspaceReturnPath('/en/content/cycle-1/studio?week=2')).toBe(
       '/content/cycle-1/studio?week=2',
     )
     expect(safeWorkspaceReturnPath('/ar/dashboard')).toBe('/dashboard')
+  })
+
+  it('normalizes safe post-login admin destinations', () => {
+    expect(safeAdminReturnPath('/ar/admin/users?role=owner')).toBe(
+      '/admin/users?role=owner',
+    )
   })
 
   it.each([
@@ -59,5 +74,6 @@ describe('route policy', () => {
     '/en/not-a-workspace',
   ])('rejects unsafe post-login destination %s', (value) => {
     expect(safeWorkspaceReturnPath(value)).toBeNull()
+    expect(safeAdminReturnPath(value)).toBeNull()
   })
 })

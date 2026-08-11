@@ -5,6 +5,7 @@ import {
   isGuestOnlyPath,
   isWorkspacePath,
   isAdminPath,
+  safeAdminReturnPath,
   safeWorkspaceReturnPath,
 } from "./lib/routing/route-policy";
 
@@ -70,6 +71,7 @@ export default async function proxy(request: NextRequest) {
     const locale = localeFor(request, pathname);
     const returnPath =
       safeWorkspaceReturnPath(request.nextUrl.searchParams.get("from")) ??
+      safeAdminReturnPath(request.nextUrl.searchParams.get("from")) ??
       "/dashboard";
     return NextResponse.redirect(
       new URL(`/${locale}${returnPath}`, request.url),
