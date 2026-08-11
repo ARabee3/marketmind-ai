@@ -11,8 +11,14 @@ import { PrismaClient } from "@prisma/client"
 dotenv.config({ path: path.resolve(process.cwd(), ".env") })
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@marketmind.ai"
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Admin@123!"
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "MarketMind Admin"
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD?.trim()
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    "ADMIN_PASSWORD is required; refusing to seed an admin with a predictable default credential",
+  )
+}
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient()
@@ -22,6 +28,7 @@ async function main(): Promise<void> {
   const user = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
     update: {
+      password: passwordHash,
       fullName: ADMIN_NAME,
       roles: ["ADMIN"],
       isEmailVerified: true,
