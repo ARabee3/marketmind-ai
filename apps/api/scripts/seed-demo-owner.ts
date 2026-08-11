@@ -20,8 +20,8 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const DEMO_OWNER_EMAIL = process.env.DEMO_OWNER_EMAIL ?? "demo-owner@marketmind.test";
 
-/** Issues a REAL refresh token + persists its bcrypt hash, exactly like
- *  `AuthService.updateRefreshTokenHash`, so the Next.js workspace prefilter
+/** Issues a REAL refresh token + persists its bcrypt hash and session row,
+ * exactly like the AuthService session lifecycle, so the Next.js workspace prefilter
  *  (`GET /api/v1/auth/session` → JwtRefreshGuard) authorizes the rehearsal
  *  browser without any live OAuth handshake. */
 async function provisionRefreshToken(
@@ -39,10 +39,24 @@ async function provisionRefreshToken(
     { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "7d" },
   );
   const hashed = await bcrypt.hash(rawRefreshToken, 10);
-  await prisma.user.update({
-    where: { id: userId },
-    data: { refreshToken: hashed },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { refreshToken: hashed },
+    }),
+    prisma.refreshSession.deleteMany({ where: { userId } }),
+    prisma.refreshSession.create({
+      data: {
+        userId,
+        tokenHash: hashed,
+        userAgent: "demo-rehearsal",
+        ipAddress: null,
+        expiresAt: new Date(
+          Date.now() + parseDurationMs(process.env.JWT_REFRESH_EXPIRES_IN ?? "7d"),
+        ),
+      },
+    }),
+  ]);
   return rawRefreshToken;
 }
 
@@ -120,3 +134,21 @@ main()
     await new Promise((r) => setImmediate(r));
     process.exit(0);
   });
+
+function parseDurationMs(value: string): number {
+  const match = /^(\d+)\s*(ms|s|m|h|d|w|y)?$/i.exec(value.trim());
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+
+  const amount = Number.parseInt(match[1], 10);
+  const multipliers: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+    y: 365 * 24 * 60 * 60 * 1000,
+  };
+
+  return amount * (multipliers[(match[2] ?? "ms").toLowerCase()] ?? 1);
+}

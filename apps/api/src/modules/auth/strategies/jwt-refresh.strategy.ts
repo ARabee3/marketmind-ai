@@ -37,29 +37,47 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       throw new UnauthorizedException('Missing refresh token');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        roles: true,
-        refreshToken: true,
-      },
-    });
+    const [user, sessions] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: {
+          id: true,
+          email: true,
+          roles: true,
+          refreshToken: true,
+        },
+      }),
+      this.prisma.refreshSession.findMany({
+        where: {
+          userId: payload.sub,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true, tokenHash: true },
+      }),
+    ]);
 
-    if (!user || !user.refreshToken) {
+    if (!user) {
       throw new UnauthorizedException('Access denied');
     }
 
-    const tokenMatches = await bcrypt.compare(rawRefreshToken, user.refreshToken);
-    if (!tokenMatches) {
-      throw new UnauthorizedException('Access denied');
+    for (const session of sessions) {
+      if (await bcrypt.compare(rawRefreshToken, session.tokenHash)) {
+        return {
+          id: user.id,
+          email: user.email,
+          roles: user.roles,
+          refreshSessionId: session.id,
+        };
+      }
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      roles: user.roles,
-    };
+    // Keep legacy/demo refresh tokens valid until their next login creates a
+    // RefreshSession row. New sessions always take the row-backed path above.
+    if (user.refreshToken && await bcrypt.compare(rawRefreshToken, user.refreshToken)) {
+      return { id: user.id, email: user.email, roles: user.roles };
+    }
+
+    throw new UnauthorizedException('Access denied');
   }
 }

@@ -62,6 +62,9 @@ const createMockPrismaService = () => ({
   },
   refreshSession: {
     deleteMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
   },
   $transaction: jest.fn((arg: any) =>
     Array.isArray(arg) ? Promise.all(arg) : arg({ user: { update: jest.fn() }, refreshSession: { deleteMany: jest.fn() } }),
@@ -369,6 +372,27 @@ describe('AuthService', () => {
       );
       expect(lastLoginUpdateCall).toBeDefined();
     });
+
+    it('should persist refresh-session metadata on successful login', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockVerifiedDbUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      prisma.user.update.mockResolvedValue(mockVerifiedDbUser);
+
+      await service.login(loginDto, {
+        userAgent: 'Mozilla/5.0',
+        ipAddress: '127.0.0.1',
+      });
+
+      expect(prisma.refreshSession.create).toHaveBeenCalledWith({
+        data: {
+          userId: MOCK_USER_ID,
+          tokenHash: expect.any(String),
+          userAgent: 'Mozilla/5.0',
+          ipAddress: '127.0.0.1',
+          expiresAt: expect.any(Date),
+        },
+      });
+    });
   });
 
   // =========================================================================
@@ -417,6 +441,33 @@ describe('AuthService', () => {
         }),
       );
     });
+
+    it('should revoke the previous session when rotating its refresh token', async () => {
+      jwtService.signAsync
+        .mockResolvedValueOnce('new.access.token')
+        .mockResolvedValueOnce('new.refresh.token');
+      prisma.user.update.mockResolvedValue(mockDbUser);
+
+      await service.refresh({
+        ...mockAuthUser,
+        refreshSessionId: 'session-1',
+      }, {
+        userAgent: 'Mozilla/5.0',
+        ipAddress: '127.0.0.1',
+      });
+
+      expect(prisma.refreshSession.update).toHaveBeenCalledWith({
+        where: { id: 'session-1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshSession.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: MOCK_USER_ID,
+          userAgent: 'Mozilla/5.0',
+          ipAddress: '127.0.0.1',
+        }),
+      });
+    });
   });
 
   // =========================================================================
@@ -438,6 +489,10 @@ describe('AuthService', () => {
           refreshToken: { not: null },
         },
         data: { refreshToken: null },
+      });
+      expect(prisma.refreshSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: MOCK_USER_ID, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
       });
     });
 

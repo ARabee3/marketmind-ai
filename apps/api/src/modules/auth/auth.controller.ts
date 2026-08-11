@@ -21,6 +21,7 @@ import {
   LoginResponse,
   RefreshResponse,
   SafeUser,
+  type RefreshSessionMetadata,
 } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -79,6 +80,7 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req?: Request,
   ): Promise<LoginResponse> {
     const allowed = await this.authRateLimiter.checkLimit('login', dto.email);
     if (!allowed) {
@@ -88,7 +90,10 @@ export class AuthController {
       );
     }
 
-    const { accessToken, rawRefreshToken, user } = await this.authService.login(dto);
+    const { accessToken, rawRefreshToken, user } = await this.authService.login(
+      dto,
+      this.refreshSessionMetadata(req),
+    );
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken, user };
   }
@@ -101,7 +106,10 @@ export class AuthController {
     @Req() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshResponse> {
-    const { accessToken, rawRefreshToken } = await this.authService.refresh(req.user);
+    const { accessToken, rawRefreshToken } = await this.authService.refresh(
+      req.user,
+      this.refreshSessionMetadata(req),
+    );
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken };
   }
@@ -212,7 +220,10 @@ export class AuthController {
       }
 
       const profile = await this.googleOAuth.exchangeCode(code);
-      const result = await this.oauthAccountPolicy.signInWithGoogle(profile);
+      const result = await this.oauthAccountPolicy.signInWithGoogle(
+        profile,
+        this.refreshSessionMetadata(req),
+      );
 
       this.setRefreshCookie(res, result.rawRefreshToken);
       this.clearOAuthStateCookie(res);
@@ -309,6 +320,13 @@ export class AuthController {
       path: '/',
       maxAge: this.refreshTokenMaxAge(),
     });
+  }
+
+  private refreshSessionMetadata(req?: Request): RefreshSessionMetadata {
+    return {
+      userAgent: req?.get?.('user-agent') ?? null,
+      ipAddress: req?.ip ?? null,
+    };
   }
 
   private setOAuthStateCookie(res: Response, state: string): void {
