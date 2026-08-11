@@ -350,7 +350,7 @@ export function WeekContextForm({
 
         {/* Conditional Promotion Fields */}
         {draft.promotionMode === "owner_approved" && (
-          <div className="mt-3 space-y-3 border-s-2 border-action/40 ps-3 ms-1 pt-1">
+          <div className="mt-3 space-y-3 border-s-2 border-primary/20 ps-3 ms-1 pt-1">
             {/* Offer Text */}
             <div className="space-y-1">
               <label htmlFor={`${formId}-offer`} className="block text-xs font-semibold text-navy">{t("offer")}</label>
@@ -383,7 +383,7 @@ export function WeekContextForm({
                   <button
                     type="button"
                     onClick={handleAddTerm}
-                    className="rounded px-1 text-xs font-semibold text-action hover:underline focus-visible:ring-2 focus-visible:ring-action"
+                    className="rounded px-1 text-xs font-semibold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-action"
                   >
                     + {t("addTerm")}
                   </button>
@@ -482,7 +482,7 @@ export function WeekContextForm({
               <button
                 type="button"
                 onClick={handleAddMustInclude}
-                className="rounded px-1 text-xs font-semibold text-action hover:underline focus-visible:ring-2 focus-visible:ring-action"
+                className="rounded px-1 text-xs font-semibold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-action"
               >
                 + {t("addInstruction")}
               </button>
@@ -526,7 +526,7 @@ export function WeekContextForm({
               <button
                 type="button"
                 onClick={handleAddMustAvoid}
-                className="rounded px-1 text-xs font-semibold text-action hover:underline focus-visible:ring-2 focus-visible:ring-action"
+                className="rounded px-1 text-xs font-semibold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-action"
               >
                 + {t("addInstruction")}
               </button>
@@ -649,7 +649,7 @@ export function WeekContextForm({
           <button
             type="submit"
             disabled={disabled}
-            className="w-full rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
           >
             {isSubmitting ? t("saving") : t("save")}
           </button>

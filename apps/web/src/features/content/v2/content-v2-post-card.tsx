@@ -505,7 +505,7 @@ export function ContentV2PostCard({
                   )
                 }
                 disabled={isMediaWorking || mediaDisabled}
-                className="rounded-sm text-[11px] font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+                className="rounded-sm text-[11px] font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
               >
                 {t("removeUnavailable")}
               </button>

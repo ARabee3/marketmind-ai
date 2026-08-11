@@ -355,7 +355,7 @@ export function ContentCycleWorkspace({
                 ? `/content/${workspaceState.currentCycleId}/studio`
                 : "/content"
             }
-            className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
+            className="inline-flex rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm"
           >
             {t("staleRouteAction")}
           </Link>
@@ -372,7 +372,7 @@ export function ContentCycleWorkspace({
           <p className="text-xs leading-relaxed">{t("cycleUnavailableBody")}</p>
           <Link
             href="/content"
-            className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm"
+            className="inline-flex rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm"
           >
             {t("cycleUnavailableAction")}
           </Link>

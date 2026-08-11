@@ -147,7 +147,7 @@ export function ContentV2ReviewWorkspace({ packId }: ReviewProps) {
       <header className="space-y-1">
         <Link
           href={`/content/${workspace.pack.content_cycle_id}/studio` as never}
-          className="rounded-sm text-xs font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="rounded-sm text-xs font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
           {t("backToStudio")}
         </Link>
@@ -641,7 +641,7 @@ function MediaWell({
               type="button"
               onClick={() => void generate()}
               disabled={isWorking}
-              className="rounded-lg bg-action px-3 py-2 text-xs font-bold text-white hover:bg-action/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
             >
               {isWorking
                 ? t("generatingMedia")
@@ -930,7 +930,7 @@ function RewriteButton({
         <button
           type="button"
           onClick={() => setNotes("")}
-          className="rounded-lg border border-action/40 px-3 py-2 text-xs font-bold text-action hover:bg-action/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="rounded-lg border border-primary/40 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
           {t("rewriteCta")}
         </button>
@@ -949,7 +949,7 @@ function RewriteButton({
             type="button"
             onClick={() => void handleRewrite()}
             disabled={isRewriting || !notes.trim()}
-            className="rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-action/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
+            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
           >
             {isRewriting ? t("rewriting") : t("rewriteConfirmCta")}
           </button>

@@ -318,7 +318,7 @@ export function ContentCycleEntry() {
             <div className="pt-2">
               <Link
                 href={state.destination as never}
-                className="inline-flex items-center justify-center rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90"
               >
                 {actionLabel}
               </Link>
@@ -370,7 +370,7 @@ export function ContentCycleEntry() {
           </h2>
           <Link
             href={`/strategy/${approved.strategyId}` as never}
-            className="text-xs font-bold text-action hover:underline"
+            className="text-xs font-bold text-primary hover:underline"
           >
             {t("viewStrategyCta")}
           </Link>
@@ -430,7 +430,7 @@ export function ContentCycleEntry() {
         type="button"
         onClick={handleStartCycle}
         disabled={isStarting}
-        className="rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90 disabled:opacity-60"
+        className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 disabled:opacity-60"
       >
         {isStarting ? t("startingCta") : t("startCta")}
       </button>
