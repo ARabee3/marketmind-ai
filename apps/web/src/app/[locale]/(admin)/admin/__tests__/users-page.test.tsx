@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import AdminUsersPage from "../users/page"
 import { getAdminUser, getAdminUsers } from "@/lib/api/admin"
 
@@ -12,6 +12,7 @@ vi.mock("next-intl", () => ({
       previousPage: "Previous page",
       nextPage: "Next page",
       paginationLabel: "Pagination",
+      openUserDetails: "Open details for {name}",
     }
     let message = messages[key] ?? key
     for (const [name, value] of Object.entries(values ?? {})) {
@@ -30,6 +31,7 @@ vi.mock("@/lib/api/admin", () => ({
 }))
 
 const getAdminUsersMock = vi.mocked(getAdminUsers)
+const getAdminUserMock = vi.mocked(getAdminUser)
 
 function makeUser(page: number) {
   return {
@@ -75,5 +77,38 @@ describe("AdminUsersPage pagination", () => {
     })
     expect(await screen.findByText("user-2@example.com")).toBeDefined()
     expect(screen.getByText("Page 2 of 2")).toBeDefined()
+  })
+
+  it("traps focus in user details and restores it to the opening row", async () => {
+    getAdminUserMock.mockResolvedValue({
+      user: {
+        ...makeUser(1),
+        isEmailVerified: true,
+        loginMethod: "password",
+      },
+      federatedIdentities: [],
+      activeSessions: [],
+      businesses: [],
+    })
+
+    render(<AdminUsersPage />)
+
+    const row = await screen.findByRole("button", {
+      name: "Open details for User 1",
+    })
+    row.focus()
+    fireEvent.click(row)
+
+    const dialog = await screen.findByRole("dialog")
+    const close = within(dialog).getByRole("button", { name: "close" })
+    await waitFor(() => expect(document.activeElement).toBe(close))
+
+    fireEvent.keyDown(document, { key: "Tab" })
+    expect(document.activeElement).toBe(close)
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true })
+    expect(document.activeElement).toBe(close)
+
+    fireEvent.click(close)
+    expect(document.activeElement).toBe(row)
   })
 })

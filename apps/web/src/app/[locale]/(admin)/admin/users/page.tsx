@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useFormatter, useTranslations } from "next-intl"
 import { X, Monitor, MapPin, Calendar } from "lucide-react"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -24,6 +24,9 @@ import {
 
 type Phase = "loading" | "error" | "ready"
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export default function AdminUsersPage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
@@ -36,6 +39,9 @@ export default function AdminUsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
   const pageSize = 20
+  const closeUserDetails = useCallback(() => {
+    setSelectedUserId(null)
+  }, [])
 
   const retry = useCallback(() => {
     setDataVersion((v) => v + 1)
@@ -253,7 +259,7 @@ export default function AdminUsersPage() {
       {selectedUserId && (
         <UserDetailPanel
           id={selectedUserId}
-          onClose={() => setSelectedUserId(null)}
+          onClose={closeUserDetails}
         />
       )}
     </div>
@@ -272,6 +278,7 @@ function UserDetailPanel({
   const [phase, setPhase] = useState<Phase>("loading")
   const [detail, setDetail] = useState<AdminUserDetail | null>(null)
   const [version, setVersion] = useState(0)
+  const panelRef = useRef<HTMLElement>(null)
 
   const doRetry = useCallback(() => {
     setVersion((v) => v + 1)
@@ -295,11 +302,67 @@ function UserDetailPanel({
   }, [id, version])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+    const panel = panelRef.current
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+
+    const getFocusableElements = () =>
+      panel
+        ? Array.from(
+            panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+          ).filter(
+            (element) =>
+              element.tabIndex >= 0 &&
+              !element.hidden &&
+              element.getAttribute("aria-hidden") !== "true",
+          )
+        : []
+
+    const firstFocusable = getFocusableElements()[0]
+    if (firstFocusable) {
+      firstFocusable.focus()
+    } else {
+      panel?.focus()
     }
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+        return
+      }
+      if (event.key !== "Tab" || !panel) return
+
+      const focusable = getFocusableElements()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        panel.focus()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const activeElement = document.activeElement
+
+      if (event.shiftKey) {
+        if (activeElement === first || !panel.contains(activeElement)) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (activeElement === last || !panel.contains(activeElement)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
     document.addEventListener("keydown", handler)
-    return () => document.removeEventListener("keydown", handler)
+    return () => {
+      document.removeEventListener("keydown", handler)
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
   }, [onClose])
 
   return (
@@ -312,9 +375,11 @@ function UserDetailPanel({
         onClick={onClose}
       />
       <aside
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-user-detail-title"
+        tabIndex={-1}
         className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto overscroll-contain border-s border-border bg-surface shadow-xl"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-6 py-4">
