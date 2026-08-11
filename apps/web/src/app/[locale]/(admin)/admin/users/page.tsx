@@ -5,7 +5,11 @@ import { useFormatter, useTranslations } from "next-intl"
 import { X, Monitor, MapPin, Calendar } from "lucide-react"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { AdminPageHeader } from "@/components/layout/admin-page-header"
+import { AdminPagination } from "@/components/layout/admin-pagination"
 import {
   getAdminUsers,
   getAdminUser,
@@ -34,7 +38,6 @@ export default function AdminUsersPage() {
 
   const goToPage = useCallback((p: number) => {
     setPage(p)
-    setDataVersion((v) => v + 1)
   }, [])
 
   useEffect(() => {
@@ -61,47 +64,52 @@ export default function AdminUsersPage() {
     setDataVersion((v) => v + 1)
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold text-navy">{t("users")}</h1>
-      </div>
+      <AdminPageHeader
+        eyebrow={t("usersEyebrow")}
+        title={t("users")}
+        description={t("usersDescription")}
+      />
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
           handleSearch()
         }}
-        className="flex gap-2"
+        className="flex flex-col gap-2 sm:flex-row"
       >
-        <input
+        <label htmlFor="admin-user-search" className="sr-only">
+          {t("searchLabel")}
+        </label>
+        <Input
+          id="admin-user-search"
+          name="search"
+          autoComplete="off"
           type="search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("searchUsers")}
-          className="h-10 w-full max-w-sm rounded-lg border border-border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+          className="h-10 w-full sm:max-w-sm"
         />
-        <button
-          type="submit"
-          className="rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-        >
+        <Button type="submit" size="lg" className="h-10">
           {t("search")}
-        </button>
+        </Button>
         {search && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="lg"
+            className="h-10"
             onClick={() => {
               setSearchInput("")
               setSearch("")
               setPage(1)
               setDataVersion((v) => v + 1)
             }}
-            className="rounded-lg border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
           >
             {t("clear")}
-          </button>
+          </Button>
         )}
       </form>
 
@@ -116,12 +124,9 @@ export default function AdminUsersPage() {
       {phase === "error" && (
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
           <p className="text-muted-foreground">{t("loadError")}</p>
-          <button
-            onClick={retry}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-          >
+          <Button type="button" onClick={retry}>
             {t("retry")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -131,85 +136,84 @@ export default function AdminUsersPage() {
 
       {phase === "ready" && users.length > 0 && (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("fullName")}</TableHead>
-                <TableHead>{t("email")}</TableHead>
-                <TableHead>{t("roles")}</TableHead>
-                <TableHead>{t("status")}</TableHead>
-                <TableHead>{t("joined")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => (
-                <TableRow
-                  key={u.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedUserId(u.id)}
-                >
-                  <TableCell className="font-medium text-navy">
-                    {u.fullName || t("none")}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {u.email}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {u.roles.map((r) => (
-                        <Badge
-                          key={r}
-                          variant={
-                            r === "ADMIN"
-                              ? "admin"
-                              : r === "OWNER"
-                                ? "owner"
-                                : "demo"
-                          }
-                        >
-                          {r.toLowerCase()}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={u.status === "active" ? "active" : "draft"}
-                    >
-                      {u.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
-                    {format.dateTime(new Date(u.createdAt), {
-                      dateStyle: "medium",
-                    })}
-                  </TableCell>
+          <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("fullName")}</TableHead>
+                  <TableHead>{t("email")}</TableHead>
+                  <TableHead>{t("roles")}</TableHead>
+                  <TableHead>{t("status")}</TableHead>
+                  <TableHead>{t("joined")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <div className="flex items-center justify-between text-sm">
-            <p className="text-muted-foreground">
-              {t("pageNofM", { page, total })}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => goToPage(Math.max(1, page - 1))}
-                disabled={page <= 1}
-                className="rounded-md border border-border px-3 py-1 text-sm disabled:opacity-40 hover:bg-muted"
-              >
-                {t("previous")}
-              </button>
-              <button
-                onClick={() => goToPage(Math.min(totalPages, page + 1))}
-                disabled={page >= totalPages}
-                className="rounded-md border border-border px-3 py-1 text-sm disabled:opacity-40 hover:bg-muted"
-              >
-                {t("next")}
-              </button>
-            </div>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => {
+                  const displayName = u.fullName || t("none")
+                  return (
+                    <TableRow
+                      key={u.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t("openUserDetails", { name: displayName })}
+                      className="cursor-pointer touch-manipulation focus-visible:bg-soft-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+                      onClick={() => setSelectedUserId(u.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          setSelectedUserId(u.id)
+                        }
+                      }}
+                    >
+                      <TableCell className="font-medium text-navy">
+                        {displayName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {u.email}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {u.roles.map((r) => (
+                            <Badge
+                              key={r}
+                              variant={
+                                r === "ADMIN"
+                                  ? "admin"
+                                  : r === "OWNER"
+                                    ? "owner"
+                                    : "demo"
+                              }
+                            >
+                              {r.toLowerCase()}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={u.status === "active" ? "active" : "draft"}
+                        >
+                          {u.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">
+                        {format.dateTime(new Date(u.createdAt), {
+                          dateStyle: "medium",
+                        })}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </div>
+
+          <AdminPagination
+            page={page}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={goToPage}
+          />
         </>
       )}
 
@@ -267,20 +271,32 @@ function UserDetailPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div
-        className="absolute inset-0 bg-navy/20 backdrop-blur-sm"
+      <button
+        type="button"
+        aria-label={t("close")}
+        tabIndex={-1}
+        className="absolute inset-0 bg-navy/20 backdrop-blur-sm focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
         onClick={onClose}
       />
-      <div className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto bg-surface shadow-xl border-s border-border">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-user-detail-title"
+        className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto overscroll-contain border-s border-border bg-surface shadow-xl"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-6 py-4">
-          <h2 className="text-lg font-bold text-navy">{t("userDetail")}</h2>
-          <button
+          <h2 id="admin-user-detail-title" className="text-lg font-bold text-navy">
+            {t("userDetail")}
+          </h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={t("close")}
           >
             <X className="size-5" />
-          </button>
+          </Button>
         </div>
 
         <div className="p-6">
@@ -296,12 +312,9 @@ function UserDetailPanel({
           {phase === "error" && (
             <div className="flex flex-col items-center gap-4 py-12">
               <p className="text-muted-foreground">{t("loadError")}</p>
-              <button
-                onClick={doRetry}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-              >
+              <Button type="button" onClick={doRetry}>
                 {t("retry")}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -439,7 +452,7 @@ function UserDetailPanel({
             </div>
           )}
         </div>
-      </div>
+      </aside>
     </div>
   )
 }

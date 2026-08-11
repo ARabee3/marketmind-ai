@@ -2921,8 +2921,14 @@
   "Admin": {
     "adminConsole": "لوحة الإدارة",
     "overview": "نظرة عامة",
+    "overviewEyebrow": "نبض المنصة",
+    "overviewDescription": "نظرة واضحة على المستخدمين والأنشطة التجارية والاشتراكات والإيراد المتكرر في MarketMind.",
     "users": "المستخدمين",
+    "usersEyebrow": "المستخدمون والصلاحيات",
+    "usersDescription": "راجع حالة الحسابات والأدوار وسياق النشاط التجاري من مكان واحد.",
     "revenue": "الإيرادات",
+    "revenueEyebrow": "الصحة التجارية",
+    "revenueDescription": "تابع الاشتراكات النشطة والإيراد المتكرر عبر المنصة.",
     "navOverview": "نظرة عامة",
     "navUsers": "المستخدمين",
     "navRevenue": "الإيرادات",
@@ -2935,6 +2941,8 @@
     "recentUsers": "آخر المستخدمين",
     "subscriptions": "الاشتراكات",
     "searchUsers": "ابحث عن مستخدم بالاسم أو البريد…",
+    "searchLabel": "البحث بالاسم أو البريد الإلكتروني",
+    "openUserDetails": "فتح تفاصيل {name}",
     "userDetail": "تفاصيل المستخدم",
     "fullName": "الاسم الكامل",
     "email": "البريد الإلكتروني",
@@ -2970,7 +2978,10 @@
     "clear": "مسح",
     "previous": "السابق",
     "next": "التالي",
-    "pageNofM": "صفحة {page} من {total}",
+    "pageOfPages": "صفحة {page} من {totalPages}",
+    "paginationLabel": "التنقل بين الصفحات",
+    "previousPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
     "close": "إغلاق"
   }
 }

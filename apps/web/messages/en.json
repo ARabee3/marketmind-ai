@@ -2926,8 +2926,14 @@
   "Admin": {
     "adminConsole": "Admin Console",
     "overview": "Overview",
+    "overviewEyebrow": "Platform pulse",
+    "overviewDescription": "A clear view of the people, businesses, subscriptions, and recurring revenue behind MarketMind.",
     "users": "Users",
+    "usersEyebrow": "People & access",
+    "usersDescription": "Review account status, roles, and business context from one place.",
     "revenue": "Revenue",
+    "revenueEyebrow": "Commercial health",
+    "revenueDescription": "Track active subscriptions and recurring revenue across the platform.",
     "navOverview": "Overview",
     "navUsers": "Users",
     "navRevenue": "Revenue",
@@ -2940,6 +2946,8 @@
     "recentUsers": "Recent Users",
     "subscriptions": "Subscriptions",
     "searchUsers": "Search users by name or email…",
+    "searchLabel": "Search by name or email",
+    "openUserDetails": "Open details for {name}",
     "userDetail": "User Detail",
     "fullName": "Full Name",
     "email": "Email",
@@ -2975,7 +2983,10 @@
     "clear": "Clear",
     "previous": "Previous",
     "next": "Next",
-    "pageNofM": "Page {page} of {total}",
+    "pageOfPages": "Page {page} of {totalPages}",
+    "paginationLabel": "Pagination",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
     "close": "Close"
   }
 }

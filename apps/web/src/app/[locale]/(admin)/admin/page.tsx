@@ -6,6 +6,8 @@ import { StatTile } from "@/components/ui/stat-tile"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { Link } from "@/i18n/navigation"
 import {
   getAdminRevenueSummary,
@@ -54,9 +56,11 @@ export default function AdminOverviewPage() {
   if (phase === "loading") {
     return (
       <div className="space-y-8">
-        <div>
-          <h1 className="text-xl font-bold text-navy">{t("overview")}</h1>
-        </div>
+        <AdminPageHeader
+          eyebrow={t("overviewEyebrow")}
+          title={t("overview")}
+          description={t("overviewDescription")}
+        />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
@@ -69,23 +73,29 @@ export default function AdminOverviewPage() {
 
   if (phase === "error") {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">{t("loadError")}</p>
-        <button
-          onClick={retry}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/80"
-        >
-          {t("retry")}
-        </button>
+      <div className="space-y-8">
+        <AdminPageHeader
+          eyebrow={t("overviewEyebrow")}
+          title={t("overview")}
+          description={t("overviewDescription")}
+        />
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+          <p className="text-muted-foreground">{t("loadError")}</p>
+          <Button type="button" onClick={retry}>
+            {t("retry")}
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-navy">{t("overview")}</h1>
-      </div>
+      <AdminPageHeader
+        eyebrow={t("overviewEyebrow")}
+        title={t("overview")}
+        description={t("overviewDescription")}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
@@ -126,56 +136,58 @@ export default function AdminOverviewPage() {
         {recentUsers.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("noUsers")}</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("fullName")}</TableHead>
-                <TableHead>{t("email")}</TableHead>
-                <TableHead>{t("roles")}</TableHead>
-                <TableHead>{t("joined")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentUsers.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>
-                    <Link
-                      href="/admin/users"
-                      className="font-medium text-navy hover:text-primary"
-                    >
-                      {u.fullName || t("none")}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {u.email}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {u.roles.map((r) => (
-                        <Badge
-                          key={r}
-                          variant={
-                            r === "ADMIN"
-                              ? "admin"
-                              : r === "OWNER"
-                                ? "owner"
-                                : "demo"
-                          }
-                        >
-                          {r.toLowerCase()}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {format.dateTime(new Date(u.createdAt), {
-                      dateStyle: "medium",
-                    })}
-                  </TableCell>
+          <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("fullName")}</TableHead>
+                  <TableHead>{t("email")}</TableHead>
+                  <TableHead>{t("roles")}</TableHead>
+                  <TableHead>{t("joined")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recentUsers.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell>
+                      <Link
+                        href="/admin/users"
+                        className="font-medium text-navy hover:text-primary"
+                      >
+                        {u.fullName || t("none")}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {u.email}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {u.roles.map((r) => (
+                          <Badge
+                            key={r}
+                            variant={
+                              r === "ADMIN"
+                                ? "admin"
+                                : r === "OWNER"
+                                  ? "owner"
+                                  : "demo"
+                            }
+                          >
+                            {r.toLowerCase()}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {format.dateTime(new Date(u.createdAt), {
+                        dateStyle: "medium",
+                      })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </section>
     </div>
