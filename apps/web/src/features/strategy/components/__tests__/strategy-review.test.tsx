@@ -253,6 +253,24 @@ describe('StrategyReview', () => {
     // The v2 review shows the calendar-first reading order, not v1 chapters.
     expect(screen.getByText('reviewV2.badge')).toBeTruthy()
     expect(screen.getByText('reviewV2.openAdvice')).toBeTruthy()
+    expect(screen.getByText('reviewV2.monthGroup.one')).toBeTruthy()
+    expect(screen.getByText('reviewV2.weeksGroup.one')).toBeTruthy()
+    expect(screen.getAllByText('reviewV2.week')).toHaveLength(12)
+
+    const monthTwo = screen
+      .getByText('reviewV2.monthGroup.two')
+      .closest('details')
+    if (!monthTwo) throw new Error('Month two disclosure was not rendered')
+    expect(monthTwo.hasAttribute('open')).toBe(false)
+    await act(async () => {
+      fireEvent.click(screen.getByText('reviewV2.monthGroup.two'))
+    })
+    expect(monthTwo.hasAttribute('open')).toBe(true)
+
+    const firstWeek = screen.getAllByText('reviewV2.week')[0].closest('details')
+    if (!firstWeek) throw new Error('Week disclosure was not rendered')
+    expect(firstWeek.className).toContain('open:bg-surface')
+
     expect(screen.getByText('review.evidenceLoadTitle')).toBeTruthy()
     expect(screen.queryByText('review.sections.overview.title')).toBeNull()
     await act(async () => {
