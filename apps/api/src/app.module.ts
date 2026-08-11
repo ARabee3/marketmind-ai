@@ -22,6 +22,7 @@ import { PublishingModule } from './modules/publishing/publishing.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { OrchestrationModule } from './modules/orchestration/orchestration.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { FacebookModule } from './modules/facebook/facebook.module';
     PublishingModule,
     BillingModule,
     FacebookModule,
+    AdminModule,
     // Phase 1 persistence/contracts only; no existing route is wired to it.
     OrchestrationModule,
   ],
