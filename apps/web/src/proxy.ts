@@ -4,6 +4,7 @@ import { routing } from "./i18n/routing";
 import {
   isGuestOnlyPath,
   isWorkspacePath,
+  isAdminPath,
   safeWorkspaceReturnPath,
 } from "./lib/routing/route-policy";
 
@@ -52,7 +53,7 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
 export default async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (isWorkspacePath(pathname)) {
+  if (isWorkspacePath(pathname) || isAdminPath(pathname)) {
     const authorized = await hasValidSession(request);
     if (!authorized) {
       const locale = localeFor(request, pathname);

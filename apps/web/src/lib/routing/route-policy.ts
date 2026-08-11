@@ -20,6 +20,8 @@ const GUEST_ONLY_SEGMENTS = new Set([
   'resend-verification',
 ])
 
+const ADMIN_SEGMENTS = new Set(['admin'])
+
 function pathSegments(pathname: string): string[] {
   const segments = pathname.split('/').filter(Boolean)
   return LOCALES.includes(segments[0] ?? '') ? segments.slice(1) : segments
@@ -31,6 +33,10 @@ export function isWorkspacePath(pathname: string): boolean {
 
 export function isGuestOnlyPath(pathname: string): boolean {
   return GUEST_ONLY_SEGMENTS.has(pathSegments(pathname)[0] ?? '')
+}
+
+export function isAdminPath(pathname: string): boolean {
+  return ADMIN_SEGMENTS.has(pathSegments(pathname)[0] ?? '')
 }
 
 /**
