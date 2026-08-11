@@ -11,7 +11,12 @@ const server = createServer((request, response) => {
   if (request.url === '/api/v1/auth/session' && request.method === 'GET') {
     const refreshToken = parseCookie(request.headers.cookie, 'refreshToken')
     const authorized = refreshToken?.startsWith('e2e-') === true
-    response.writeHead(authorized ? 204 : 401).end()
+    if (!authorized) {
+      response.writeHead(401).end()
+      return
+    }
+    response.writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ roles: ['OWNER'] }))
     return
   }
 

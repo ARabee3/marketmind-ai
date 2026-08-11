@@ -29,25 +29,39 @@ function localeFor(request: NextRequest, pathname: string): string {
   return routing.defaultLocale;
 }
 
+type SessionInfo = {
+  roles: string[];
+};
+
 /**
  * Real server-side session check. Forwards the HttpOnly refresh cookie to the
  * non-rotating `/auth/session` endpoint, which validates it against the stored
- * hash via `JwtRefreshGuard` without issuing or rotating any token. This is the
- * authorization boundary for workspace routes; Nest JWT/RBAC guards remain the
- * data-access boundary.
+ * hash via `JwtRefreshGuard` without issuing or rotating any token. Returning
+ * the current roles lets the proxy enforce the admin route boundary before a
+ * protected page is rendered.
  */
-async function hasValidSession(request: NextRequest): Promise<boolean> {
+async function getSession(request: NextRequest): Promise<SessionInfo | null> {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
-  if (!refreshToken) return false;
+  if (!refreshToken) return null;
   try {
     const response = await fetch(`${API_BASE_URL}${SESSION_PATH}`, {
       method: "GET",
       headers: { cookie: `${REFRESH_COOKIE}=${refreshToken}` },
       cache: "no-store",
     });
-    return response.ok;
+    if (!response.ok) return null;
+
+    const body = (await response.json()) as { roles?: unknown };
+    if (
+      !Array.isArray(body.roles) ||
+      !body.roles.every((role) => typeof role === "string")
+    ) {
+      return null;
+    }
+
+    return { roles: body.roles };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -55,8 +69,8 @@ export default async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isWorkspacePath(pathname) || isAdminPath(pathname)) {
-    const authorized = await hasValidSession(request);
-    if (!authorized) {
+    const session = await getSession(request);
+    if (!session) {
       const locale = localeFor(request, pathname);
       const from = encodeURIComponent(pathname + (search || ""));
       const loginUrl = request.nextUrl.clone();
@@ -64,10 +78,19 @@ export default async function proxy(request: NextRequest) {
       loginUrl.search = `?from=${from}`;
       return NextResponse.redirect(loginUrl, 302);
     }
+
+    if (isAdminPath(pathname) && !session.roles.includes("ADMIN")) {
+      const locale = localeFor(request, pathname);
+      return NextResponse.redirect(
+        new URL(`/${locale}/dashboard`, request.url),
+        302,
+      );
+    }
+
     return intlMiddleware(request);
   }
 
-  if (isGuestOnlyPath(pathname) && (await hasValidSession(request))) {
+  if (isGuestOnlyPath(pathname) && (await getSession(request))) {
     const locale = localeFor(request, pathname);
     const returnPath =
       safeWorkspaceReturnPath(request.nextUrl.searchParams.get("from")) ??
