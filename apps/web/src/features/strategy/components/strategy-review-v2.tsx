@@ -27,11 +27,11 @@ import { StrategyProfileSummary } from './strategy-profile-summary'
 
 type DecisionAction = 'approve' | 'revision_requested' | 'reject'
 
-const MONTH_GROUPS: ReadonlyArray<readonly [number, number]> = [
-  [1, 4],
-  [5, 8],
-  [9, 12],
-]
+const MONTH_GROUPS = [
+  { key: 'one', start: 1, end: 4 },
+  { key: 'two', start: 5, end: 8 },
+  { key: 'three', start: 9, end: 12 },
+] as const
 
 export function StrategyReviewV2({
   profile,
@@ -59,6 +59,7 @@ export function StrategyReviewV2({
   const [feedback, setFeedback] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [openDetails, setOpenDetails] = useState<string[]>([])
+  const [openMonths, setOpenMonths] = useState(() => new Set([1]))
   const [evidencePending, setEvidencePending] = useState(false)
 
   const handoffReady = plan?.content_handoff.available === true
@@ -131,6 +132,18 @@ export function StrategyReviewV2({
         ? previous.filter((entry) => entry !== id)
         : [...previous, id],
     )
+  }
+
+  function toggleMonth(monthStart: number, open: boolean) {
+    setOpenMonths((previous) => {
+      const next = new Set(previous)
+      if (open) {
+        next.add(monthStart)
+      } else {
+        next.delete(monthStart)
+      }
+      return next
+    })
   }
 
   if (!plan) {
@@ -311,23 +324,27 @@ export function StrategyReviewV2({
             aria-label={t('reviewV2.title')}
           >
             <div className="grid gap-3">
-              {MONTH_GROUPS.map(([start, end], index) => (
+              {MONTH_GROUPS.map(({ key, start, end }) => (
                 <details
-                  key={index}
+                  key={start}
                   className="group rounded-lg border border-border bg-background"
-                  open={index === 0}
+                  open={openMonths.has(start)}
+                  onToggle={(event) => toggleMonth(start, event.currentTarget.open)}
                 >
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-xl font-bold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
+                  <summary className="flex min-h-14 cursor-pointer list-none items-start gap-3 px-3 py-3 text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
                     <span
                       aria-hidden="true"
-                      className="text-primary transition-transform group-open:rotate-180"
+                      className="mt-1 shrink-0 text-primary transition-transform group-open:rotate-180"
                     >
                       ▾
                     </span>
-                    <span>
-                      {t(
-                        `reviewV2.monthGroup.${index === 0 ? 'one' : index === 1 ? 'two' : 'three'}`,
-                      )}
+                    <span className="min-w-0">
+                      <span className="block text-base font-bold text-navy md:text-xl">
+                        {t(`reviewV2.monthGroup.${key}`)}
+                      </span>
+                      <span className="mt-1 block text-xs font-semibold text-primary">
+                        {t(`reviewV2.weeksGroup.${key}`)}
+                      </span>
                     </span>
                   </summary>
                   <div className="border-t border-border p-3">
@@ -341,19 +358,19 @@ export function StrategyReviewV2({
                         .map((week) => (
                           <details
                             key={week.week_number}
-                            className="group rounded-lg border border-border bg-background"
+                            className="group overflow-hidden rounded-lg border border-border bg-background open:bg-surface"
                           >
-                            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
-                              <span>
+                            <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-3 px-3 py-2 text-sm font-semibold text-navy focus-visible:ring-3 focus-visible:ring-ring/40">
+                              <span className="shrink-0 pt-0.5">
                                 {t('reviewV2.week', {
                                   week: week.week_number,
                                 })}
                               </span>
-                              <span className="text-xs font-semibold text-primary">
+                              <span className="min-w-0 flex-1 break-words text-end text-xs font-semibold text-primary">
                                 {week.focus}
                               </span>
                             </summary>
-                            <div className="border-t border-border p-3">
+                            <div className="border-t border-border bg-surface p-3">
                               <WeekFields
                                 plan={plan}
                                 weekNumber={week.week_number}
