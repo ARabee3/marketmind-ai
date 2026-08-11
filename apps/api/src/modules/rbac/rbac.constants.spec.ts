@@ -30,4 +30,20 @@ describe("rbac.constants", () => {
   it("includes CONTENT_START in ALL_PERMISSIONS for seeding", () => {
     expect(ALL_PERMISSIONS).toContain(PERMISSIONS.CONTENT_START);
   });
+
+  it("defines ADMIN_PLATFORM as admin:platform", () => {
+    expect(PERMISSIONS.ADMIN_PLATFORM).toBe("admin:platform");
+  });
+
+  it("does NOT grant ADMIN_PLATFORM to the owner role", () => {
+    expect(ROLE_PERMISSIONS[Role.OWNER]).not.toContain(
+      PERMISSIONS.ADMIN_PLATFORM,
+    );
+  });
+
+  it("grants ADMIN_PLATFORM to the admin role", () => {
+    expect(ROLE_PERMISSIONS[Role.ADMIN]).toContain(
+      PERMISSIONS.ADMIN_PLATFORM,
+    );
+  });
 });

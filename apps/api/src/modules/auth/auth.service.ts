@@ -43,6 +43,11 @@ export interface TokenPair {
   rawRefreshToken: string;
 }
 
+export interface RefreshSessionMetadata {
+  userAgent?: string | null;
+  ipAddress?: string | null;
+}
+
 /** Safe user representation — never contains password or refreshToken. */
 export interface SafeUser {
   id: string;
@@ -129,7 +134,10 @@ export class AuthService {
    * Uses a generic "Invalid credentials" error for BOTH "user not found"
    * and "wrong password" cases to prevent user enumeration attacks.
    */
-  async login(dto: LoginDto): Promise<LoginResponse & TokenPair> {
+  async login(
+    dto: LoginDto,
+    sessionMetadata: RefreshSessionMetadata = {},
+  ): Promise<LoginResponse & TokenPair> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -150,7 +158,7 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
-    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
+    await this.persistRefreshSession(user.id, tokens.rawRefreshToken, sessionMetadata, {
       lastLoginAt: new Date(),
     });
 
@@ -163,9 +171,18 @@ export class AuthService {
   }
 
   /** Issues a new token pair using refresh-token rotation. */
-  async refresh(user: AuthenticatedUser): Promise<TokenPair> {
+  async refresh(
+    user: AuthenticatedUser,
+    sessionMetadata: RefreshSessionMetadata = {},
+  ): Promise<TokenPair> {
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
-    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken);
+    await this.persistRefreshSession(
+      user.id,
+      tokens.rawRefreshToken,
+      sessionMetadata,
+      {},
+      user.refreshSessionId,
+    );
     this.logger.log(`Tokens rotated for user: ${user.id}`);
     return tokens;
   }
@@ -183,9 +200,10 @@ export class AuthService {
       | 'createdAt'
       | 'updatedAt'
     >,
+    sessionMetadata: RefreshSessionMetadata = {},
   ): Promise<LoginResponse & TokenPair> {
     const tokens = await this.generateTokens(user.id, user.email, user.roles);
-    await this.updateRefreshTokenHash(user.id, tokens.rawRefreshToken, {
+    await this.persistRefreshSession(user.id, tokens.rawRefreshToken, sessionMetadata, {
       lastLoginAt: new Date(),
     });
 
@@ -198,10 +216,17 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await this.prisma.user.updateMany({
-      where: { id: userId, refreshToken: { not: null } },
-      data: { refreshToken: null },
-    });
+    const revokedAt = new Date();
+    await Promise.all([
+      this.prisma.user.updateMany({
+        where: { id: userId, refreshToken: { not: null } },
+        data: { refreshToken: null },
+      }),
+      this.prisma.refreshSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt },
+      }),
+    ]);
 
     this.logger.log(`User logged out: ${userId}`);
   }
@@ -354,16 +379,45 @@ export class AuthService {
     return { accessToken, rawRefreshToken };
   }
 
-  private async updateRefreshTokenHash(
+  private async persistRefreshSession(
     userId: string,
     rawRefreshToken: string,
+    sessionMetadata: RefreshSessionMetadata = {},
     additionalData: Partial<Pick<Prisma.UserUpdateInput, 'lastLoginAt'>> = {},
+    previousSessionId?: string,
   ): Promise<void> {
-    const hashed = await bcrypt.hash(rawRefreshToken, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: hashed, ...additionalData },
-    });
+    const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
+    const operations: Prisma.PrismaPromise<unknown>[] = [
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { refreshToken: tokenHash, ...additionalData },
+      }),
+      this.prisma.refreshSession.create({
+        data: {
+          userId,
+          tokenHash,
+          userAgent: sessionMetadata.userAgent ?? null,
+          ipAddress: sessionMetadata.ipAddress ?? null,
+          expiresAt: this.refreshSessionExpiresAt(),
+        },
+      }),
+    ];
+
+    if (previousSessionId) {
+      operations.push(
+        this.prisma.refreshSession.update({
+          where: { id: previousSessionId },
+          data: { revokedAt: new Date() },
+        }),
+      );
+    }
+
+    await this.prisma.$transaction(operations);
+  }
+
+  private refreshSessionExpiresAt(): Date {
+    const expiresIn = this.configService.get<string>('jwt.refreshExpiresIn', '7d');
+    return new Date(Date.now() + parseDurationMs(expiresIn));
   }
 
   private toSafeUser(user: {
@@ -381,4 +435,22 @@ export class AuthService {
     const { password: _password, refreshToken: _rt, ...safe } = user;
     return safe;
   }
+}
+
+function parseDurationMs(value: string): number {
+  const match = /^(\d+)\s*(ms|s|m|h|d|w|y)?$/i.exec(value.trim());
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+
+  const amount = Number.parseInt(match[1], 10);
+  const multipliers: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+    y: 365 * 24 * 60 * 60 * 1000,
+  };
+
+  return amount * (multipliers[(match[2] ?? 'ms').toLowerCase()] ?? 1);
 }

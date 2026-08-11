@@ -43,6 +43,8 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   [PERMISSIONS.ADMIN_MANAGE_LIBRARY]: "Manage the admin content library.",
   [PERMISSIONS.PUBLISHING_ADMIN]:
     "Admin publishing reconciliation: trigger sweeps, resolve unknown results, read attempts.",
+  [PERMISSIONS.ADMIN_PLATFORM]:
+    "Access the admin console for platform-wide users, revenue, and subscription data.",
 };
 
 async function main() {
@@ -104,7 +106,7 @@ async function main() {
   });
 
   console.log(
-    "Seeded RBAC: 3 roles, 7 permissions, and role-permission mappings.",
+    "Seeded RBAC: 3 roles, 10 permissions, and role-permission mappings.",
   );
 
   // Marketing knowledge governance fixtures (issue #69). Idempotent.

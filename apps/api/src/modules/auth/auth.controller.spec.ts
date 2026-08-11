@@ -156,10 +156,12 @@ describe('AuthController', () => {
   });
 
   describe('session', () => {
-    it('returns void without rotating the refresh cookie or issuing an access token', async () => {
-      const result = await controller.session();
+    it('returns current roles without rotating the refresh cookie or issuing an access token', async () => {
+      const result = await controller.session({
+        user: { id: 'uuid-1234', email: 'test@marketmind.ai', roles: [Role.ADMIN] },
+      } as never);
 
-      expect(result).toBeUndefined();
+      expect(result).toEqual({ roles: [Role.ADMIN] });
       expect(authService.refresh).not.toHaveBeenCalled();
       expect(cookies[REFRESH_TOKEN_COOKIE]).toBeUndefined();
     });

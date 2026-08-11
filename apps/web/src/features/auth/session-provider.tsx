@@ -24,7 +24,7 @@ export type SessionContextValue = {
   accessToken: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (credentials: LoginCredentials) => Promise<void>
+  login: (credentials: LoginCredentials) => Promise<User>
   logout: () => Promise<void>
   refresh: () => Promise<string | null>
 }
@@ -64,7 +64,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refreshTokenOnly, fetchUser])
 
   const login = useCallback(
-    async (credentials: LoginCredentials): Promise<void> => {
+    async (credentials: LoginCredentials): Promise<User> => {
       const response = await publicRequest('/auth/login', {
         method: 'POST',
         body: credentials,
@@ -84,6 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw error
       }
       setUser(userData)
+      return userData
     },
     [syncToken, fetchUser],
   )

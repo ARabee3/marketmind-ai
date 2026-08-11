@@ -21,6 +21,7 @@ import {
   LoginResponse,
   RefreshResponse,
   SafeUser,
+  type RefreshSessionMetadata,
 } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -79,6 +80,7 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req?: Request,
   ): Promise<LoginResponse> {
     const allowed = await this.authRateLimiter.checkLimit('login', dto.email);
     if (!allowed) {
@@ -88,7 +90,10 @@ export class AuthController {
       );
     }
 
-    const { accessToken, rawRefreshToken, user } = await this.authService.login(dto);
+    const { accessToken, rawRefreshToken, user } = await this.authService.login(
+      dto,
+      this.refreshSessionMetadata(req),
+    );
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken, user };
   }
@@ -101,7 +106,10 @@ export class AuthController {
     @Req() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshResponse> {
-    const { accessToken, rawRefreshToken } = await this.authService.refresh(req.user);
+    const { accessToken, rawRefreshToken } = await this.authService.refresh(
+      req.user,
+      this.refreshSessionMetadata(req),
+    );
     this.setRefreshCookie(res, rawRefreshToken);
     return { accessToken };
   }
@@ -128,17 +136,20 @@ export class AuthController {
   /**
    * Non-rotating session check backed by the HttpOnly refresh cookie.
    *
-   * Returns 204 when the refresh cookie is present, valid, and matches the
-   * stored hash; 401 otherwise. Issues no access token and rotates no cookie,
-   * so it is safe for the Next.js workspace prefilter to call on every
-   * navigation. Nest JWT/RBAC guards remain the data-access boundary.
+   * Returns the current roles when the refresh cookie is present, valid, and
+   * matches the stored hash; 401 otherwise. Issues no access token and
+   * rotates no cookie, so it is safe for the Next.js workspace prefilter to
+   * call on every navigation. Nest JWT/RBAC guards remain the data-access
+   * boundary.
    */
   @Get('session')
   @UseGuards(JwtRefreshGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 300, ttl: 900000 } })
-  async session(): Promise<void> {
-    return;
+  async session(
+    @Req() req: RequestWithUser,
+  ): Promise<{ roles: AuthenticatedUser['roles'] }> {
+    return { roles: req.user.roles };
   }
 
   @Get('google')
@@ -209,7 +220,10 @@ export class AuthController {
       }
 
       const profile = await this.googleOAuth.exchangeCode(code);
-      const result = await this.oauthAccountPolicy.signInWithGoogle(profile);
+      const result = await this.oauthAccountPolicy.signInWithGoogle(
+        profile,
+        this.refreshSessionMetadata(req),
+      );
 
       this.setRefreshCookie(res, result.rawRefreshToken);
       this.clearOAuthStateCookie(res);
@@ -306,6 +320,13 @@ export class AuthController {
       path: '/',
       maxAge: this.refreshTokenMaxAge(),
     });
+  }
+
+  private refreshSessionMetadata(req?: Request): RefreshSessionMetadata {
+    return {
+      userAgent: req?.get?.('user-agent') ?? null,
+      ipAddress: req?.ip ?? null,
+    };
   }
 
   private setOAuthStateCookie(res: Response, state: string): void {

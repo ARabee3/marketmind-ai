@@ -4,7 +4,11 @@ import * as bcrypt from "bcrypt";
 import { Role } from "@prisma/client";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
-import { AuthService, SafeUser } from "./auth.service";
+import {
+  AuthService,
+  SafeUser,
+  type RefreshSessionMetadata,
+} from "./auth.service";
 import {
   FederatedIdentityConflictError,
   FederatedIdentityService,
@@ -49,7 +53,10 @@ export class OAuthAccountPolicyService {
    * @param profile - Normalized Google profile from the ID token.
    * @returns Token pair, safe user, and whether the account is new.
    */
-  async signInWithGoogle(profile: GoogleProfile): Promise<OAuthSignInResult> {
+  async signInWithGoogle(
+    profile: GoogleProfile,
+    sessionMetadata: RefreshSessionMetadata = {},
+  ): Promise<OAuthSignInResult> {
     // 1. Returning identity — sign in directly.
     const existingIdentity = await this.federatedIdentity.findByProvider(
       "google",
@@ -71,7 +78,7 @@ export class OAuthAccountPolicyService {
         );
       }
 
-      return this.issueResult(user, false);
+      return this.issueResult(user, false, sessionMetadata);
     }
 
     // 2. Same-email password account exists — reject without linking.
@@ -125,7 +132,7 @@ export class OAuthAccountPolicyService {
             this.logger.warn(
               `Race condition resolved for Google identity ${profile.providerSubject}; signing in existing user`,
             );
-            return this.issueResult(raceUser, false);
+            return this.issueResult(raceUser, false, sessionMetadata);
           }
         }
       }
@@ -135,7 +142,7 @@ export class OAuthAccountPolicyService {
     }
 
     this.logger.log(`New Google user created: ${newUser.id}`);
-    return this.issueResult(newUser, true);
+    return this.issueResult(newUser, true, sessionMetadata);
   }
 
   private async issueResult(
@@ -150,8 +157,9 @@ export class OAuthAccountPolicyService {
       updatedAt: Date;
     },
     isNew: boolean,
+    sessionMetadata: RefreshSessionMetadata,
   ): Promise<OAuthSignInResult> {
-    const tokens = await this.authService.issueTokensForUser(user);
+    const tokens = await this.authService.issueTokensForUser(user, sessionMetadata);
     return {
       user: tokens.user,
       isNew,

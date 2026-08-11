@@ -53,8 +53,8 @@ export function ContentGenerationProgress({
           </p>
         </div>
         {isPolling && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-action font-medium">
-            <span className="size-2 rounded-full bg-action animate-ping motion-reduce:animate-none" />
+          <span className="inline-flex items-center gap-1.5 text-xs text-primary font-medium">
+            <span className="size-2 rounded-full bg-primary animate-ping motion-reduce:animate-none" />
             {t("stages.generating")}
           </span>
         )}
@@ -136,7 +136,7 @@ export function ContentGenerationProgress({
           {showActions && reviewRouteAvailable && (
             <Link
               href={`/content/packs/${pack.id}`}
-              className="inline-flex items-center justify-center rounded-lg bg-action px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action shrink-0"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action shrink-0"
             >
               {tActions("reviewPack")}
             </Link>

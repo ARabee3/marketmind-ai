@@ -136,7 +136,7 @@ export function ContentReadiness({
             type="button"
             onClick={onStartCycle}
             disabled={isMutating}
-            className="w-full rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
           >
             {isMutating ? tActions("startingCycle") : tActions("startCycle")}
           </button>
@@ -147,7 +147,7 @@ export function ContentReadiness({
             type="button"
             onClick={onSaveContext}
             disabled={isMutating}
-            className="w-full rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
           >
             {tActions("editContext")}
           </button>
@@ -158,7 +158,7 @@ export function ContentReadiness({
             type="button"
             onClick={onGenerateWeek}
             disabled={isMutating}
-            className="w-full rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action disabled:opacity-50"
           >
             {isMutating
               ? tActions("generatingWeek")
@@ -183,7 +183,7 @@ export function ContentReadiness({
           reviewRouteAvailable ? (
             <Link
               href={`/content/packs/${packIdForReview}`}
-              className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-action/90 focus-visible:ring-2 focus-visible:ring-action"
+              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-action"
             >
               {tActions("reviewPack")}
             </Link>
@@ -210,7 +210,7 @@ export function ContentReadiness({
         {primaryAction === "go_to_discovery" && (
           <Link
             href="/discovery/new"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm"
           >
             {tActions("goToDiscovery")}
           </Link>
@@ -219,7 +219,7 @@ export function ContentReadiness({
         {primaryAction === "go_to_strategy" && (
           <Link
             href="/strategy/new"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm"
           >
             {tActions("goToStrategy")}
           </Link>
@@ -228,7 +228,7 @@ export function ContentReadiness({
         {primaryAction === "review_strategy" && approved && (
           <Link
             href={`/strategy/${approved.strategyId}/review`}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 text-xs font-bold text-white shadow-sm"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-xs font-bold text-white shadow-sm"
           >
             {tActions("reviewStrategy")}
           </Link>

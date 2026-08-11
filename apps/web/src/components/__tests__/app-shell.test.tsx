@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { screen } from "@testing-library/dom";
-import { AppShell } from "../layout/app-shell";
+import { AppShell, isAppNavItemActive } from "../layout/app-shell";
 
 const t = (key: string) => {
   const dict: Record<string, string> = {
@@ -75,6 +75,12 @@ vi.mock("@/features/auth/logout-button", () => ({
 }));
 
 describe("AppShell", () => {
+  it("does not keep Dashboard active on a different section", () => {
+    expect(isAppNavItemActive("/dashboard", "/dashboard")).toBe(true);
+    expect(isAppNavItemActive("/strategy", "/dashboard")).toBe(false);
+    expect(isAppNavItemActive("/strategy/review", "/strategy")).toBe(true);
+  });
+
   it("renders brand in both mobile top bar and desktop sidebar", () => {
     render(
       <AppShell brandName="MarketMind AI">

@@ -424,7 +424,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                   className={
                     isWeekCompleted
                       ? "rounded-lg border border-primary px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
-                      : "rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+                      : "rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
                   }
                 >
                   {primaryLabel}
@@ -434,7 +434,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                   type="button"
                   onClick={handlePrimaryAction}
                   disabled={isMutating}
-                  className="rounded-lg bg-action px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-action/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
+                  className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
                 >
                   {isMutating
                     ? mutatingAction === "generate"
@@ -468,7 +468,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
               </button>
               <Link
                 href={workspace.view_full_strategy_route as never}
-                className="rounded-sm text-xs font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+                className="rounded-sm text-xs font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
               >
                 {t("viewFullStrategy")}
               </Link>

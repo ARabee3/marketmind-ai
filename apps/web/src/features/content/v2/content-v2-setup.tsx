@@ -210,7 +210,7 @@ export function ContentV2Setup({
         <button
           type="button"
           onClick={onBack}
-          className="rounded-sm text-xs font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="rounded-sm text-xs font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
           <span aria-hidden="true" className="inline-block rtl:-scale-x-100">
             ←
@@ -343,7 +343,7 @@ export function ContentV2Setup({
             <button
               type="button"
               onClick={() => setShowAdvanced((current) => !current)}
-              className="text-xs font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+              className="text-xs font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
               aria-expanded={showAdvanced}
             >
               {showAdvanced ? "−" : "+"} {t("advancedLabel")}
@@ -433,7 +433,7 @@ export function ContentV2Setup({
                 <button
                   type="button"
                   onClick={() => setGuardrails((current) => [...current, ""])}
-                  className="rounded-sm text-xs font-bold text-action hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+                  className="rounded-sm text-xs font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
                   + {t("guardrailsAdd")}
                 </button>
@@ -591,7 +591,7 @@ export function ContentV2Setup({
                     !newCtaLabel.trim() ||
                     (newCtaType !== "none" && !newCtaValue.trim())
                   }
-                  className="self-end rounded-lg bg-action px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-action/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
+                  className="self-end rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
                 >
                   {t("addCta")}
                 </button>

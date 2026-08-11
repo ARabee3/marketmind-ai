@@ -81,7 +81,7 @@ export function ContentPackReviewGate({ packId }: GateProps) {
         <p className="text-sm font-bold">{tErrors("legacyCycle")}</p>
         <Link
           href="/content"
-          className="inline-flex rounded-lg bg-action px-4 py-2 text-xs font-bold text-white"
+          className="inline-flex rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white"
         >
           {tErrors("backToContent")}
         </Link>

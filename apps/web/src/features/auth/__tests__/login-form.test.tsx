@@ -167,7 +167,7 @@ describe('LoginForm', () => {
   })
 
   it('calls session login with trimmed credentials', async () => {
-    login.mockResolvedValue(undefined)
+    login.mockResolvedValue({ roles: [] })
 
     render(<LoginForm />)
 
@@ -184,7 +184,7 @@ describe('LoginForm', () => {
   })
 
   it('returns to a safe workspace route after login', async () => {
-    login.mockResolvedValue(undefined)
+    login.mockResolvedValue({ roles: [] })
     mockedUseSearchParams.mockReturnValue(
       new URLSearchParams({ from: '/en/billing?period=current' }) as unknown as ReturnType<
         typeof useSearchParams
@@ -202,7 +202,7 @@ describe('LoginForm', () => {
   })
 
   it('falls back to the dashboard for an unsafe post-login route', async () => {
-    login.mockResolvedValue(undefined)
+    login.mockResolvedValue({ roles: [] })
     mockedUseSearchParams.mockReturnValue(
       new URLSearchParams({ from: 'https://example.com' }) as unknown as ReturnType<
         typeof useSearchParams
@@ -216,6 +216,19 @@ describe('LoginForm', () => {
 
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
+  it('takes admins to the admin console after a direct login', async () => {
+    login.mockResolvedValue({ roles: ['ADMIN'] })
+
+    render(<LoginForm />)
+    typeInto(screen.getByLabelText(/email/i), 'admin@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/admin')
     })
   })
 
