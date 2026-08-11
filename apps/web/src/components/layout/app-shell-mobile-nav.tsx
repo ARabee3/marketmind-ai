@@ -6,7 +6,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { AppShellNavIcon, type AppShellIconName } from "./app-shell-icons";
 
-import { BrandLogoMark } from "./app-shell";
+import { BrandLogoMark, isAppNavItemActive } from "./app-shell";
 
 export type AppShellMobileNavItem = {
   readonly href:
@@ -65,8 +65,7 @@ export function AppShellMobileNav({ brandName, navItems, topActions }: Props) {
             className="flex max-w-full items-center gap-1 overflow-x-auto px-2 pt-2 pb-1"
           >
             {navItems.map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active = isAppNavItemActive(pathname, item.href);
 
               return (
                 <li key={item.href} className="w-18 min-w-[4.5rem] flex-none">

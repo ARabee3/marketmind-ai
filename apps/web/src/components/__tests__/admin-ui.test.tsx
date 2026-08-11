@@ -12,6 +12,7 @@ import {
   TableCell,
 } from "../ui/table"
 import { Skeleton } from "../ui/skeleton"
+import { isAdminNavItemActive } from "../layout/admin-shell"
 
 const t = (key: string) => key
 
@@ -55,6 +56,17 @@ describe("StatTile", () => {
     render(<StatTile label="Users" value="42" />)
     expect(screen.getByText("Users")).toBeDefined()
     expect(screen.getByText("42")).toBeDefined()
+  })
+})
+
+describe("admin navigation", () => {
+  it("keeps Overview inactive on admin child routes", () => {
+    expect(isAdminNavItemActive("/admin", "/admin")).toBe(true)
+    expect(isAdminNavItemActive("/admin/users", "/admin")).toBe(false)
+    expect(isAdminNavItemActive("/admin/users/detail", "/admin/users")).toBe(
+      true,
+    )
+    expect(isAdminNavItemActive("/admin/revenue", "/admin/users")).toBe(false)
   })
 })
 

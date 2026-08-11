@@ -6,18 +6,31 @@ import { Link, usePathname } from "@/i18n/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { LogoutButton } from "@/features/auth/logout-button"
 import { cn } from "@/lib/utils"
-import { Shield } from "lucide-react"
+import {
+  LayoutDashboard,
+  Shield,
+  Users,
+  WalletCards,
+  type LucideIcon,
+} from "lucide-react"
 
 type AdminNavItem = {
   href: string
   labelKey: "navOverview" | "navUsers" | "navRevenue"
+  icon: LucideIcon
 }
 
 const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  { href: "/admin", labelKey: "navOverview" },
-  { href: "/admin/users", labelKey: "navUsers" },
-  { href: "/admin/revenue", labelKey: "navRevenue" },
+  { href: "/admin", labelKey: "navOverview", icon: LayoutDashboard },
+  { href: "/admin/users", labelKey: "navUsers", icon: Users },
+  { href: "/admin/revenue", labelKey: "navRevenue", icon: WalletCards },
 ]
+
+export function isAdminNavItemActive(pathname: string, href: string) {
+  return href === "/admin"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`)
+}
 
 export function AdminShell({
   brandName,
@@ -29,9 +42,6 @@ export function AdminShell({
   const t = useTranslations("Admin")
   const tc = useTranslations("Common")
   const pathname = usePathname()
-
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`)
 
   return (
     <div className="relative min-h-dvh overflow-x-clip bg-background text-foreground">
@@ -76,19 +86,28 @@ export function AdminShell({
           </div>
           <ul className="flex flex-col gap-1">
             {ADMIN_NAV_ITEMS.map((item) => {
-              const active = isActive(item.href)
+              const active = isAdminNavItemActive(pathname, item.href)
+              const Icon = item.icon
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-[color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-ring/40",
+                      "relative flex min-h-11 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-semibold transition-[color,background-color,box-shadow] focus-visible:ring-3 focus-visible:ring-ring/40",
                       active
-                        ? "bg-navy text-white shadow-sm"
+                        ? "bg-soft-teal text-primary shadow-sm ring-1 ring-primary/15"
                         : "text-muted-foreground hover:bg-muted hover:text-navy",
                     )}
                   >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute inset-y-2 start-0 w-1 rounded-e-full bg-primary transition-opacity",
+                        active ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    <Icon className="size-4 shrink-0" aria-hidden="true" />
                     {t(item.labelKey)}
                   </Link>
                 </li>
@@ -121,19 +140,21 @@ export function AdminShell({
         className="fixed inset-x-0 bottom-0 z-30 flex justify-center gap-1 border-t border-border/80 bg-surface/95 px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
       >
         {ADMIN_NAV_ITEMS.map((item) => {
-          const active = isActive(item.href)
+          const active = isAdminNavItemActive(pathname, item.href)
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-11 flex-1 items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors",
+                "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-semibold transition-[color,background-color,box-shadow]",
                 active
-                  ? "bg-navy text-white"
+                  ? "bg-soft-teal text-primary shadow-sm ring-1 ring-primary/15"
                   : "text-muted-foreground hover:bg-muted hover:text-navy",
               )}
             >
+              <Icon className="size-4" aria-hidden="true" />
               {t(item.labelKey)}
             </Link>
           )

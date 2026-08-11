@@ -49,8 +49,10 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/billing", labelKey: "navBilling", iconName: "wallet" },
 ];
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+export function isAppNavItemActive(pathname: string, href: string): boolean {
+  return href === "/dashboard"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function AppShell({
@@ -258,7 +260,7 @@ function DesktopSidebar({
       >
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
-            const active = isActive(pathname, item.href);
+            const active = isAppNavItemActive(pathname, item.href);
             return (
               <li key={item.href}>
                 <Link
