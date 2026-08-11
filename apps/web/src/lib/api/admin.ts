@@ -65,6 +65,7 @@ export type AdminSubscriptionRow = {
   ownerEmail: string
   ownerName: string | null
   priceDisplayNameEn: string
+  priceDisplayNameAr: string
   planCode: string
   amountEgp: number
   interval: string

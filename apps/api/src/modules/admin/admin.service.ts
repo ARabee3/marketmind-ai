@@ -88,6 +88,7 @@ export interface SubscriptionRow {
   ownerEmail: string;
   ownerName: string | null;
   priceDisplayNameEn: string;
+  priceDisplayNameAr: string;
   planCode: string;
   amountEgp: number;
   interval: string;
@@ -281,6 +282,7 @@ export class AdminService {
           price: {
             select: {
               displayNameEn: true,
+              displayNameAr: true,
               planCode: true,
               amountEgp: true,
               interval: true,
@@ -299,6 +301,7 @@ export class AdminService {
       ownerEmail: s.billingAccount.ownerUser.email,
       ownerName: s.billingAccount.ownerUser.fullName,
       priceDisplayNameEn: s.price.displayNameEn,
+      priceDisplayNameAr: s.price.displayNameAr,
       planCode: s.price.planCode,
       amountEgp: s.price.amountEgp,
       interval: s.price.interval,

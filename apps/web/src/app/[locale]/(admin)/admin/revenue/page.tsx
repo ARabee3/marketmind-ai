@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useFormatter, useTranslations } from "next-intl"
+import { useFormatter, useLocale, useTranslations } from "next-intl"
 import { StatTile } from "@/components/ui/stat-tile"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -15,12 +15,14 @@ import {
   type AdminRevenueSummary,
   type AdminSubscriptionRow,
 } from "@/lib/api/admin"
+import { adminIntervalLabel, adminStatusLabel } from "@/lib/admin-labels"
 
 type Phase = "loading" | "error" | "ready"
 
 export default function AdminRevenuePage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
+  const locale = useLocale()
   const [phase, setPhase] = useState<Phase>("loading")
   const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null)
   const [subs, setSubs] = useState<AdminSubscriptionRow[]>([])
@@ -166,7 +168,9 @@ export default function AdminRevenuePage() {
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {s.priceDisplayNameEn} ({s.planCode})
+                        {(locale === "ar"
+                          ? s.priceDisplayNameAr
+                          : s.priceDisplayNameEn) + ` (${s.planCode})`}
                       </TableCell>
                       <TableCell className="tabular-nums">
                         {format.number(s.amountEgp, {
@@ -175,7 +179,7 @@ export default function AdminRevenuePage() {
                           maximumFractionDigits: 0,
                         })}
                         <span className="ms-1 text-xs text-muted-foreground">
-                          /{s.interval}
+                          /{adminIntervalLabel(s.interval, t)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -192,7 +196,7 @@ export default function AdminRevenuePage() {
                                     : "default"
                           }
                         >
-                          {s.state}
+                          {adminStatusLabel(s.state, t)}
                         </Badge>
                       </TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">
@@ -200,7 +204,7 @@ export default function AdminRevenuePage() {
                           ? format.dateTime(new Date(s.paidThroughAt), {
                               dateStyle: "medium",
                             })
-                          : "—"}
+                          : t("none")}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -15,6 +15,7 @@ import {
   type AdminRevenueSummary,
   type AdminUserRow,
 } from "@/lib/api/admin"
+import { adminRoleLabel } from "@/lib/admin-labels"
 
 type Phase = "loading" | "error" | "ready"
 
@@ -173,7 +174,7 @@ export default function AdminOverviewPage() {
                                   : "demo"
                             }
                           >
-                            {r.toLowerCase()}
+                            {adminRoleLabel(r, t)}
                           </Badge>
                         ))}
                       </div>

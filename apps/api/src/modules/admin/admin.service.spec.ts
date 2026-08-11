@@ -284,6 +284,7 @@ describe("AdminService", () => {
           },
           price: {
             displayNameEn: "Growth",
+            displayNameAr: "النمو",
             planCode: "growth",
             amountEgp: 299,
             interval: "monthly",
@@ -300,6 +301,7 @@ describe("AdminService", () => {
         ownerEmail: "own@test.com",
         ownerName: "Owner",
         priceDisplayNameEn: "Growth",
+        priceDisplayNameAr: "النمو",
         planCode: "growth",
         amountEgp: 299,
         interval: "monthly",

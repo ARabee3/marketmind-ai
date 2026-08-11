@@ -16,6 +16,11 @@ import {
   type AdminUserRow,
   type AdminUserDetail,
 } from "@/lib/api/admin"
+import {
+  adminLoginMethodLabel,
+  adminRoleLabel,
+  adminStatusLabel,
+} from "@/lib/admin-labels"
 
 type Phase = "loading" | "error" | "ready"
 
@@ -196,19 +201,19 @@ export default function AdminUsersPage() {
                                     : "demo"
                               }
                             >
-                              {r.toLowerCase()}
+                              {adminRoleLabel(r, t)}
                             </Badge>
                           ))}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {u.loginMethod}
+                        {adminLoginMethodLabel(u.loginMethod, t)}
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant={u.status === "active" ? "active" : "draft"}
                         >
-                          {u.status}
+                          {adminStatusLabel(u.status, t)}
                         </Badge>
                       </TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">
@@ -360,7 +365,9 @@ function UserDetailPanel({
               <div className="grid grid-cols-2 gap-3">
                 <StatPill
                   label={t("roles")}
-                  value={detail.user.roles.join(", ")}
+                  value={detail.user.roles
+                    .map((role) => adminRoleLabel(role, t))
+                    .join(", ")}
                 />
                 <StatPill
                   label={t("emailVerified")}
@@ -372,11 +379,11 @@ function UserDetailPanel({
                 />
                 <StatPill
                   label={t("loginMethod")}
-                  value={detail.user.loginMethod}
+                  value={adminLoginMethodLabel(detail.user.loginMethod, t)}
                 />
                 <StatPill
                   label={t("status")}
-                  value={detail.user.status}
+                  value={adminStatusLabel(detail.user.status, t)}
                 />
                 <StatPill
                   label={t("businesses")}
@@ -426,7 +433,7 @@ function UserDetailPanel({
                               b.status === "active" ? "active" : "draft"
                             }
                           >
-                            {b.status}
+                            {adminStatusLabel(b.status, t)}
                           </Badge>
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="size-3" />
@@ -486,7 +493,7 @@ function UserDetailPanel({
                       >
                         <div>
                           <p className="text-sm font-medium text-navy">
-                            {fi.provider}
+                            {adminLoginMethodLabel(fi.provider, t)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {fi.email || fi.displayName || t("none")}
