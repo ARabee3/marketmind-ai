@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   CONTENT_START: "content:start",
   ADMIN_MANAGE_LIBRARY: "admin:manage_library",
   PUBLISHING_ADMIN: "admin:publishing",
+  ADMIN_PLATFORM: "admin:platform",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -59,7 +60,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
  */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   [Role.OWNER]: OWNER_PERMISSIONS,
-  [Role.ADMIN]: [...OWNER_PERMISSIONS, PERMISSIONS.ADMIN_MANAGE_LIBRARY, PERMISSIONS.PUBLISHING_ADMIN],
+  [Role.ADMIN]: [...OWNER_PERMISSIONS, PERMISSIONS.ADMIN_MANAGE_LIBRARY, PERMISSIONS.PUBLISHING_ADMIN, PERMISSIONS.ADMIN_PLATFORM],
   [Role.DEVELOPER_DEMO]: [
     PERMISSIONS.BUSINESS_READ,
     PERMISSIONS.DISCOVERY_START,

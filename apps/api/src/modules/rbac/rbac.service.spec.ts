@@ -34,8 +34,10 @@ describe("RbacService", () => {
           PERMISSIONS.CONTENT_START,
         ].sort(),
       );
-      // owner must NOT have admin library management
+      // owner must NOT have admin permissions
       expect(result).not.toContain(PERMISSIONS.ADMIN_MANAGE_LIBRARY);
+      expect(result).not.toContain(PERMISSIONS.PUBLISHING_ADMIN);
+      expect(result).not.toContain(PERMISSIONS.ADMIN_PLATFORM);
     });
 
     it("should return all permissions for the admin role", () => {
@@ -51,6 +53,7 @@ describe("RbacService", () => {
           PERMISSIONS.STRATEGY_START,
           PERMISSIONS.CONTENT_START,
           PERMISSIONS.ADMIN_MANAGE_LIBRARY,
+          PERMISSIONS.ADMIN_PLATFORM,
           PERMISSIONS.PUBLISHING_ADMIN,
         ].sort(),
       );
