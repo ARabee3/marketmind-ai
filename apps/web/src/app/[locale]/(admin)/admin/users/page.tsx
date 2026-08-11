@@ -137,14 +137,19 @@ export default function AdminUsersPage() {
       {phase === "ready" && users.length > 0 && (
         <>
           <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-            <Table>
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("fullName")}</TableHead>
                   <TableHead>{t("email")}</TableHead>
+                  <TableHead>{t("emailVerified")}</TableHead>
                   <TableHead>{t("roles")}</TableHead>
+                  <TableHead>{t("loginMethod")}</TableHead>
                   <TableHead>{t("status")}</TableHead>
+                  <TableHead>{t("businesses")}</TableHead>
+                  <TableHead>{t("activeSessions")}</TableHead>
                   <TableHead>{t("joined")}</TableHead>
+                  <TableHead>{t("lastLogin")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,6 +177,13 @@ export default function AdminUsersPage() {
                         {u.email}
                       </TableCell>
                       <TableCell>
+                        <Badge
+                          variant={u.isEmailVerified ? "active" : "draft"}
+                        >
+                          {u.isEmailVerified ? t("verified") : t("unverified")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {u.roles.map((r) => (
                             <Badge
@@ -189,6 +201,9 @@ export default function AdminUsersPage() {
                           ))}
                         </div>
                       </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {u.loginMethod}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={u.status === "active" ? "active" : "draft"}
@@ -197,9 +212,22 @@ export default function AdminUsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="tabular-nums text-muted-foreground">
+                        {u.businessCount}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">
+                        {u.activeSessionCount}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">
                         {format.dateTime(new Date(u.createdAt), {
                           dateStyle: "medium",
                         })}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">
+                        {u.lastLoginAt
+                          ? format.dateTime(new Date(u.lastLoginAt), {
+                              dateStyle: "medium",
+                            })
+                          : t("neverLoggedIn")}
                       </TableCell>
                     </TableRow>
                   )
@@ -335,8 +363,28 @@ function UserDetailPanel({
                   value={detail.user.roles.join(", ")}
                 />
                 <StatPill
+                  label={t("emailVerified")}
+                  value={
+                    detail.user.isEmailVerified
+                      ? t("verified")
+                      : t("unverified")
+                  }
+                />
+                <StatPill
+                  label={t("loginMethod")}
+                  value={detail.user.loginMethod}
+                />
+                <StatPill
                   label={t("status")}
                   value={detail.user.status}
+                />
+                <StatPill
+                  label={t("businesses")}
+                  value={String(detail.user.businessCount)}
+                />
+                <StatPill
+                  label={t("activeSessions")}
+                  value={String(detail.user.activeSessionCount)}
                 />
                 <StatPill
                   label={t("joined")}

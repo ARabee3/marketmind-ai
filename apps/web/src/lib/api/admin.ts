@@ -4,7 +4,9 @@ export type AdminUserRow = {
   id: string
   fullName: string | null
   email: string
+  isEmailVerified: boolean
   roles: string[]
+  loginMethod: string
   status: string
   createdAt: string
   lastLoginAt: string | null

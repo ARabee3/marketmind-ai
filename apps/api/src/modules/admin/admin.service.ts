@@ -5,6 +5,10 @@ const ACTIVE_BUSINESS_STATUS = "active";
 const ACTIVE_SUBSCRIPTION_STATE = "active";
 const TRIALING_SUBSCRIPTION_STATE = "trialing";
 
+export function resolveLoginMethod(providers: string[]): string {
+  return providers.length > 0 ? providers.join(", ") : "password";
+}
+
 export interface SubscriptionAggregate {
   amountEgp: number;
   interval: string;
@@ -29,7 +33,9 @@ export interface UserRow {
   id: string;
   fullName: string | null;
   email: string;
+  isEmailVerified: boolean;
   roles: string[];
+  loginMethod: string;
   status: string;
   createdAt: Date;
   lastLoginAt: Date | null;
@@ -120,6 +126,9 @@ export class AdminService {
             },
             select: { id: true },
           },
+          federatedIdentities: {
+            select: { provider: true },
+          },
         },
       }),
       this.prisma.user.count({ where }),
@@ -129,7 +138,11 @@ export class AdminService {
       id: user.id,
       fullName: user.fullName,
       email: user.email,
+      isEmailVerified: user.isEmailVerified,
       roles: user.roles,
+      loginMethod: resolveLoginMethod(
+        user.federatedIdentities.map((identity) => identity.provider),
+      ),
       status: user.status,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
@@ -193,7 +206,11 @@ export class AdminService {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
+        isEmailVerified: user.isEmailVerified,
         roles: user.roles,
+        loginMethod: resolveLoginMethod(
+          federatedIdentities.map((identity) => identity.provider),
+        ),
         status: user.status,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,

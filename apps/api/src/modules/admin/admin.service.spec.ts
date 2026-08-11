@@ -3,6 +3,7 @@ import {
   AdminService,
   computeMrrEgp,
   RevenueSummary,
+  resolveLoginMethod,
 } from "./admin.service";
 import { PrismaService } from "../../common/persistence/prisma.service";
 
@@ -52,6 +53,16 @@ describe("computeMrrEgp", () => {
         { amountEgp: 249, interval: "founding_pilot", periodDays: 30 },
       ]),
     ).toBe(797); // 299 + 249.17 + 249 = 797.17 → rounded to 797
+  });
+});
+
+describe("resolveLoginMethod", () => {
+  it("returns password when no federated identity exists", () => {
+    expect(resolveLoginMethod([])).toBe("password");
+  });
+
+  it("returns the configured provider names", () => {
+    expect(resolveLoginMethod(["google", "facebook"])).toBe("google, facebook");
   });
 });
 
@@ -109,12 +120,14 @@ describe("AdminService", () => {
         id: "u1",
         fullName: "Test User",
         email: "test@example.com",
+        isEmailVerified: true,
         roles: ["OWNER"],
         status: "active",
         createdAt: new Date("2024-01-01"),
         lastLoginAt: new Date("2024-06-01"),
         businesses: [{ id: "b1" }],
         refreshSessions: [{ id: "s1" }],
+        federatedIdentities: [{ provider: "google" }],
       };
       prisma.user.findMany.mockResolvedValue([mockUser]);
       prisma.user.count.mockResolvedValue(1);
@@ -125,7 +138,9 @@ describe("AdminService", () => {
         id: "u1",
         fullName: "Test User",
         email: "test@example.com",
+        isEmailVerified: true,
         roles: ["OWNER"],
+        loginMethod: "google",
         status: "active",
         businessCount: 1,
         activeSessionCount: 1,
@@ -178,6 +193,7 @@ describe("AdminService", () => {
         id: "u1",
         fullName: "Detail User",
         email: "detail@example.com",
+        isEmailVerified: false,
         roles: ["OWNER"],
         status: "active",
         createdAt: new Date("2024-01-01"),
@@ -209,6 +225,8 @@ describe("AdminService", () => {
         expect(result.businesses).toHaveLength(1);
         expect(result.user.businessCount).toBe(1);
         expect(result.user.activeSessionCount).toBe(1);
+        expect(result.user.isEmailVerified).toBe(false);
+        expect(result.user.loginMethod).toBe("google");
       }
     });
   });
