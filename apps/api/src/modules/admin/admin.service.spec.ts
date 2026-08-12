@@ -45,6 +45,23 @@ describe("computeMrrEgp", () => {
     ).toBe(548); // 299 + 249.17 = 548.17 → rounded to 548
   });
 
+  it("contributes 0 for a custom interval with periodDays of 0", () => {
+    expect(
+      computeMrrEgp([
+        { amountEgp: 500, interval: "lifetime", periodDays: 0 },
+      ]),
+    ).toBe(0); // no divide-by-zero → stays finite, not Infinity
+  });
+
+  it("ignores a negative periodDays without corrupting the total", () => {
+    expect(
+      computeMrrEgp([
+        { amountEgp: 299, interval: "monthly", periodDays: 30 },
+        { amountEgp: 500, interval: "lifetime", periodDays: -5 },
+      ]),
+    ).toBe(299); // monthly counted, malformed custom row skipped
+  });
+
   it("handles mixed monthly + yearly + custom intervals", () => {
     expect(
       computeMrrEgp([

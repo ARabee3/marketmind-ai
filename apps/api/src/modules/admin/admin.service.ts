@@ -22,9 +22,12 @@ export function computeMrrEgp(subs: SubscriptionAggregate[]): number {
       total += sub.amountEgp;
     } else if (sub.interval === "yearly") {
       total += sub.amountEgp / 12;
-    } else {
+    } else if (sub.periodDays > 0) {
       total += (sub.amountEgp * 30) / sub.periodDays;
     }
+    // A custom-interval price with a non-positive periodDays cannot be
+    // annualized; contributing 0 keeps the total finite instead of emitting
+    // Infinity/NaN (which JSON-serializes to null and corrupts the summary).
   }
   return Math.round(total);
 }
