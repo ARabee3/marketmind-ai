@@ -157,6 +157,8 @@ describe("Admin (e2e)", () => {
       expect(typeof res.body.activeSubscriptions).toBe("number");
       expect(typeof res.body.trialingCount).toBe("number");
       expect(typeof res.body.mrrEgp).toBe("number");
+      // typeof Infinity === "number"; only Number.isFinite rejects it after JSON round-trip (null).
+      expect(Number.isFinite(res.body.mrrEgp)).toBe(true);
     });
 
     it("allows ADMIN to get subscriptions list", async () => {
