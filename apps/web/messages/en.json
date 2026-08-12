@@ -1,6 +1,6 @@
 {
   "Common": {
-    "appName": "MarketMind AI",
+    "appName": "MarketMind",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -1272,15 +1272,11 @@
   },
   "Landing": {
     "meta": {
-      "title": "MarketMind | Marketing that starts with your business",
-      "description": "Start with your real business context, review the Strategy and weekly Content, and decide what happens next."
+      "title": "MarketMind | Your 12-week marketing plan",
+      "description": "Build a 12-week marketing plan, review weekly posts, and publish when you are ready."
     },
     "nav": {
       "links": [
-        {
-          "href": "#roadmap",
-          "label": "Full journey"
-        },
         {
           "href": "#discovery",
           "label": "How it works"
@@ -1307,41 +1303,66 @@
       "skip": "Skip to content"
     },
     "hero": {
-      "badge": "Built around your business",
-      "title": "Better marketing starts with understanding your business",
-      "body": "MarketMind turns your real business context into a focused Strategy, reviewable weekly Content, and a clear next step.",
-      "note": "You stay the decision-maker: confirm the facts, approve the Strategy, review Content, and choose what happens next.",
-      "noteLink": "See the full journey",
-      "primary": "Start with your business",
-      "secondary": "Explore the full journey",
+      "badge": "12-week plan + weekly content",
+      "title": "Your plan and this week’s content, ready in one place.",
+      "body": "Tell us what you want to achieve. MarketMind maps a 12-week plan and prepares weekly posts for you to review and publish.",
+      "note": "Nothing is published until you approve it.",
+      "primary": "Start my plan",
+      "secondary": "See how it works",
       "preview": {
-        "steps": [
-          {
-            "step": "1",
-            "title": "Business understanding",
-            "mono": "Discovery",
-            "text": "Owner-confirmed context and evidence"
-          },
-          {
-            "step": "2",
-            "title": "Focused strategy",
-            "mono": "Strategy",
-            "text": "A 12-week plan you review before Content starts"
-          },
-          {
-            "step": "3",
-            "title": "Weekly Content",
-            "mono": "Content V2",
-            "text": "Posts prepared from the approved Strategy"
-          },
-          {
-            "step": "4",
-            "title": "Publishing choice",
-            "mono": "Publish / export",
-            "text": "Real, exported, or labeled simulation — your call"
-          }
-        ]
+        "previewLabel": "Workspace example",
+        "status": "Week 04 is ready",
+        "progressLabel": "12-week marketing plan",
+        "progressValue": "04 / 12",
+        "progressAria": "12-week marketing plan progress",
+        "weeks": ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"],
+        "weekCompleteLabel": "Complete",
+        "weekCurrentLabel": "Current week",
+        "weekUpcomingLabel": "Upcoming",
+        "focusLabel": "This week’s focus",
+        "focusText": "Get more WhatsApp orders for the family box",
+        "contentLabel": "3 posts to review",
+        "contentItems": ["Introduce the offer", "Show what the box includes", "Remind customers before Thursday"],
+        "actionLabel": "Your next step",
+        "actionText": "Review the captions and visuals, then approve",
+        "readyLabel": "Ready"
       }
+    },
+    "journey": {
+      "eyebrow": "One complete marketing loop",
+      "title": "From your goal to a ready week in four clear steps.",
+      "body": "Tell us what you want to achieve. Review the plan, approve the week’s posts, then publish or download them. The next week continues from the same plan.",
+      "seal": "A complete loop you can repeat",
+      "aria": "The four steps in a complete MarketMind marketing loop",
+      "steps": [
+        {
+          "no": "01",
+          "title": "Tell us your goal",
+          "body": "Share what you sell, who you want to reach, and what you want marketing to achieve.",
+          "proof": "You finish with · A clear business brief"
+        },
+        {
+          "no": "02",
+          "title": "Review the 12-week plan",
+          "body": "See what each week will focus on. Change what does not fit, then approve the plan.",
+          "proof": "You finish with · An approved plan"
+        },
+        {
+          "no": "03",
+          "title": "Review this week’s posts",
+          "body": "Get captions and visual ideas for the week. Edit them or ask for a different version.",
+          "proof": "You finish with · A ready week"
+        },
+        {
+          "no": "04",
+          "title": "Publish or download",
+          "body": "Publish to a connected account, or download the content and post it yourself.",
+          "proof": "You finish with · A completed week"
+        }
+      ],
+      "completeLabel": "Loop complete",
+      "footnote": "Once you approve this week’s content, move to the next week without starting over.",
+      "cta": "Build my first week"
     },
     "capability": {
       "eyebrow": "What MarketMind keeps visible",
@@ -1442,79 +1463,6 @@
       "after": "After confirmation",
       "afterText": "Owner-confirmed: opens 10 AM to midnight"
     },
-    "roadmap": {
-      "eyebrow": "Full journey",
-      "title": "From understanding to an approved week",
-      "body": "The journey shows what you can use today, what depends on setup, and what stays planned.",
-      "hint": "Available now · Requires connection · Planned",
-      "aria": "MarketMind journey phases",
-      "liveCta": "Start with your business",
-      "cards": [
-        {
-          "no": "01",
-          "title": "Discover",
-          "en": "Discover",
-          "output": "BusinessProfile",
-          "desc": "Start with your business name, category, location, and the context only you know.",
-          "status": "live",
-          "statusLabel": "Available now"
-        },
-        {
-          "no": "02",
-          "title": "Strategy",
-          "en": "Strategy",
-          "output": "StrategyPlan",
-          "desc": "Turn confirmed context into a focused 12-week plan with goals and channels you approve.",
-          "status": "live",
-          "statusLabel": "Available now"
-        },
-        {
-          "no": "03",
-          "title": "Create weekly content",
-          "en": "Content V2",
-          "output": "ContentPack",
-          "desc": "Prepare weekly posts from the approved Strategy; review, edit, or request a revision.",
-          "status": "live",
-          "statusLabel": "Available now"
-        },
-        {
-          "no": "04",
-          "title": "Publish or export",
-          "en": "Publish / export",
-          "output": "PublicationResult",
-          "desc": "Choose real publishing when a supported Meta target is connected; otherwise export or run a labeled simulation.",
-          "status": "setup",
-          "statusLabel": "Needs connection"
-        },
-        {
-          "no": "05",
-          "title": "Monitor",
-          "en": "Monitor",
-          "output": "MetricSnapshot",
-          "desc": "See performance only when connected data is available—never invented metrics.",
-          "status": "planned",
-          "statusLabel": "Planned"
-        },
-        {
-          "no": "06",
-          "title": "Improve",
-          "en": "Improve",
-          "output": "OptimizationProposal",
-          "desc": "Use reviewed results to suggest the next change before anything is updated.",
-          "status": "planned",
-          "statusLabel": "Planned"
-        },
-        {
-          "no": "07",
-          "title": "Keep learning",
-          "en": "Keep learning",
-          "output": "NextOwnerAction",
-          "desc": "Keep the profile, plan, and decisions available as your business changes.",
-          "status": "planned",
-          "statusLabel": "Planned"
-        }
-      ]
-    },
     "discovery": {
       "eyebrow": "Discovery — the first owner-led step",
       "title": "Start with what only you know",
@@ -1595,76 +1543,73 @@
       ]
     },
     "sample": {
-      "sourceNotes": [
-        "Public search source",
-        "Local directory",
-        "Official link",
-        "Review question"
-      ],
-      "eyebrow": "Illustrative owner review",
+      "eyebrow": "A clear example",
+      "title": "See what you receive in one week.",
+      "body": "A fictional example for a sweets shop that wants more weekend orders.",
+      "caseLabel": "Example business",
       "name": "Rose & Sugar Sweets",
-      "meta": "A fictional business profile and review flow —",
-      "metaEmphasis": "example only",
-      "fileLabel": "Sample evidence file",
+      "exampleLabel": "Fictional example",
       "imageAlt": "Fictional sweets shop storefront with a dessert display",
-      "sourceNote": "Research can reach public sources, but final truth stays with the business owner.",
-      "acceptedTitle": "Accepted result",
-      "acceptedText": "The shop appears in a public local directory with reviews, customer photos, and clear opening hours.",
-      "discardedTitle": "Discarded result",
-      "discardedText": "A result with a similar name in another city was discarded because the activity and location are different.",
-      "chatTitle": "Owner review conversation",
-      "aiQuestion": "I found public hours from 9 AM to 11 PM. Is that correct?",
-      "suggested": [
-        "Yes, correct",
-        "I want to edit the hours",
-        "Hours change in Ramadan"
-      ],
-      "inputLabel": "Write your answer",
-      "inputValue": "No, we open at 10 AM and close at midnight.",
-      "inputPlaceholder": "Or write your answer here…",
-      "send": "Send"
+      "sourceType": "This week’s goal",
+      "sourceCaption": "Get more WhatsApp orders for the family dessert box before the weekend.",
+      "aria": "Example weekly content plan and owner review",
+      "sourceTitle": "The goal",
+      "sourceText": "Increase family-box orders through WhatsApp.",
+      "researchTransition": "MarketMind turns the goal into a weekly focus",
+      "suggestionTitle": "The weekly focus",
+      "suggestionText": "Explain what is inside the box, the price, and the order deadline.",
+      "ownerTransition": "You review the idea before posts are prepared",
+      "ownerTitle": "Your direction",
+      "ownerBadge": "Approved",
+      "ownerText": "Keep the offer, use Egyptian Arabic, and ask customers to order by Thursday.",
+      "resultTransition": "After your approval",
+      "outcomeTitle": "Three posts ready to review",
+      "outcomeText": "Introduce the offer · Show what is inside · Last day to order.",
+      "outcomeNote": "Every post includes a caption, visual direction, and a clear WhatsApp call to action. Nothing publishes before your approval."
     },
     "faq": {
       "eyebrow": "FAQ",
-      "title": "Everything is clear before you start",
+      "title": "Quick answers before you start",
+      "body": "What you need, what you can change, and how publishing works.",
       "items": [
         {
-          "q": "What do I need before I start?",
-          "a": "Start with your business name, category, location, and the context you already know. You can add more detail as Discovery continues."
+          "q": "What do I start with?",
+          "a": "Your business name, what you sell, where you operate, who you want to reach, and your main goal. You can fill in missing details later."
         },
         {
-          "q": "Where does the information come from?",
-          "a": "From public sources and official links for your business. Every result stays attached to its source, and nothing becomes a business fact until you confirm it."
+          "q": "How is the plan created?",
+          "a": "From your goal and the information you share about your business. You review and change the 12-week plan before approving it."
         },
         {
-          "q": "Can I edit the Strategy and posts?",
-          "a": "Yes. You can review the Strategy, request a revision, edit Content where the workspace allows it, and approve items individually."
+          "q": "Can I change the plan and posts?",
+          "a": "Yes. You can request changes to the plan, edit the weekly posts, and approve each post separately."
         },
         {
-          "q": "What can MarketMind publish today?",
-          "a": "Real publishing depends on an authorized supported Meta target. Manual export and a clearly labeled simulation remain available when real publishing is not ready."
+          "q": "How do I publish?",
+          "a": "Connect a supported Meta account to publish from MarketMind, or download the captions and visuals and post them yourself."
         },
         {
           "q": "Can I stop and continue later?",
-          "a": "Yes. Confirmed business facts, Strategy progress, and Content work are saved so you can return to the same journey."
+          "a": "Yes. Your plan and weekly content are saved, so you can return and continue where you stopped."
         }
       ]
     },
     "finalCta": {
-      "title": "Start with the part only you know: your business.",
-      "body": "Create an account, share the real context, and review what MarketMind prepares next.",
-      "primary": "Start with your business",
-      "secondary": "See the sample"
+      "eyebrow": "Start your first week",
+      "title": "Get next week ready today.",
+      "body": "Share your business goal and start a 12-week plan with weekly content you review yourself.",
+      "primary": "Start my plan",
+      "secondary": "See the example"
     },
     "footer": {
-      "body": "Marketing work that starts with the reality of your business.",
+      "body": "A clear plan and ready-to-review content for every week.",
       "navAria": "Site links",
       "linksTitle": "Links",
       "contactTitle": "Contact",
       "email": "hello@marketmind.ai",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "sourceLine": "MarketMind — start with what is true.",
+      "sourceLine": "MarketMind — plan the week, review it, then publish.",
       "privacy": "Privacy",
       "terms": "Terms"
     },
@@ -1672,7 +1617,7 @@
       "accepted": "Confirmed",
       "review": "Needs review",
       "discard": "Discarded",
-      "inference": "Research suggestion"
+      "inference": "Draft idea"
     }
   },
   "Publishing": {

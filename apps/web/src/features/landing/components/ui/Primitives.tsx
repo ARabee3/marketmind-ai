@@ -83,14 +83,14 @@ export function Eyebrow({
 }: {children: ReactNode;inverse?: boolean;}) {
   return (
     <span
-      className={`inline-block text-[12px] font-bold tracking-[0.12em] ${inverse ? 'text-journey-mint' : 'text-primary'}`}>
+      className={`inline-block text-[12px] font-bold tracking-[0.12em] rtl:tracking-normal ${inverse ? 'text-journey-mint' : 'text-primary'}`}>
 
       {children}
     </span>);
 
 }
 export function Latin({ children }: {children: ReactNode;}) {
-  return <span className="bidi-iso font-latin">{children}</span>;
+  return <span translate="no" className="bidi-iso font-latin">{children}</span>;
 }
 type SectionTone = 'base' | 'surface' | 'soft' | 'journey';
 const SECTION_BG: Record<SectionTone, string> = {

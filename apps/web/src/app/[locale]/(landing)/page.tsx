@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: t('description'),
       locale: locale === 'ar' ? 'ar_EG' : 'en_US',
       type: 'website',
-      siteName: 'MarketMind AI',
+      siteName: 'MarketMind',
     },
     twitter: {
       card: 'summary_large_image',

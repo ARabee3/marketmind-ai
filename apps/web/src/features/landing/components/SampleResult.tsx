@@ -1,148 +1,146 @@
-import { CheckIcon, TargetIcon, XIcon } from 'lucide-react'
+import { ArrowDownIcon, FileTextIcon, Layers3Icon, TargetIcon, UserRoundCheckIcon } from 'lucide-react'
 import Image from 'next/image'
 import { getTranslations } from 'next-intl/server'
-import { Eyebrow, Section, StatusBadge } from './ui/Primitives'
-import { Reveal } from './Reveal'
+import { Eyebrow, StatusBadge } from './ui/Primitives'
 
 const SHOP_IMG = '/63d36b5c-0e3c-405d-a588-dfb4af2f657c.jpg'
 
 export async function SampleResult() {
   const t = await getTranslations('Landing.sample')
   const status = await getTranslations('Landing.status')
-  const sourceNotes = t.raw('sourceNotes') as string[]
-  const suggested = t.raw('suggested') as string[]
 
   return (
-    <Section id="sample" tone="base">
-      <div className="mb-8 text-center">
-        <Eyebrow>{t('eyebrow')}</Eyebrow>
-        <h2 className="mt-3 text-[clamp(2.3rem,6vw,4.6rem)] font-bold text-navy">{t('name')}</h2>
-        <p className="mt-2 text-[15px] text-ink-soft">
-          {t('meta')} <span className="font-semibold text-warning">{t('metaEmphasis')}</span>
-        </p>
-      </div>
+    <section id="sample" className="relative overflow-hidden bg-bg px-4 py-[84px] scroll-mt-24 sm:px-6 md:py-[118px]">
+      <div className="mx-auto w-full max-w-content">
+        <div className="grid items-end gap-6 md:grid-cols-[1fr_auto]">
+          <div className="max-w-[760px]">
+            <Eyebrow>{t('eyebrow')}</Eyebrow>
+            <h2 className="mt-4 text-balance text-[clamp(2.5rem,6vw,5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-navy rtl:leading-[1.18] rtl:tracking-normal">
+              {t('title')}
+            </h2>
+          </div>
+          <p className="max-w-[390px] text-[14px] leading-[1.8] text-ink-soft md:text-end">{t('body')}</p>
+        </div>
 
-      <Reveal className="sample-board overflow-hidden rounded-card border border-border shadow-elevated">
-        <div className="grid md:grid-cols-[0.92fr,1.28fr]">
-          <div className="bg-primary p-6 text-white md:p-8">
-            <span className="rounded-full border border-white/35 bg-white/10 px-3 py-1 text-[12px] font-bold">
-              {t('fileLabel')}
+        <div className="sample-board mt-10 overflow-hidden rounded-[1.35rem] border border-border bg-surface shadow-elevated">
+          <header className="flex flex-col gap-3 border-b border-border bg-surface/95 px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-7">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-soft-teal text-primary">
+                <FileTextIcon className="h-[18px] w-[18px]" aria-hidden />
+              </span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-muted rtl:tracking-normal">{t('caseLabel')}</p>
+                <p className="mt-0.5 text-[14px] font-bold text-navy">{t('name')}</p>
+              </div>
+            </div>
+            <span className="w-fit rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-bold text-warning">
+              {t('exampleLabel')}
             </span>
-            <div className="relative mt-6 aspect-[5/2] overflow-hidden rounded-card">
+          </header>
+
+          <div className="grid lg:grid-cols-[0.76fr_1.24fr]">
+            <div className="relative min-h-[300px] overflow-hidden border-b border-border lg:min-h-[620px] lg:border-b-0 lg:border-e">
               <Image
                 src={SHOP_IMG}
                 alt={t('imageAlt')}
                 fill
                 loading="lazy"
-                sizes="(max-width: 768px) 100vw, 40vw"
+                sizes="(max-width: 1024px) 100vw, 38vw"
                 className="object-cover"
               />
-            </div>
-            <p className="mt-5 text-[15px] leading-[1.8] text-white/85">{t('sourceNote')}</p>
-          </div>
-          <div className="p-5 md:p-8">
-            <div className="rounded-card border border-primary/20 bg-soft-teal p-4 shadow-sticker">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[13px] font-bold text-navy">{t('acceptedTitle')}</span>
-                <StatusBadge kind="accepted" label={status('accepted')} />
-              </div>
-              <p className="flex items-start gap-2 text-[14px] leading-relaxed text-ink-soft">
-                <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                {t('acceptedText')}
-              </p>
-            </div>
-            <div className="mt-5 rounded-card border border-warning/25 bg-warning/10 p-4 shadow-sticker-warning">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[13px] font-bold text-navy">{t('discardedTitle')}</span>
-                <StatusBadge kind="discard" label={status('discard')} />
-              </div>
-              <p className="flex items-start gap-2 text-[14px] leading-relaxed text-ink-soft">
-                <XIcon className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
-                {t('discardedText')}
-              </p>
-            </div>
-            <div className="mt-5 rounded-card border border-border bg-surface p-4">
-              <p className="mb-3 text-[12px] font-bold text-muted">{t('chatTitle')}</p>
-              <div className="space-y-3">
-                <ChatBubble side="ai">{t('aiQuestion')}</ChatBubble>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {suggested.map((answer) => (
-                    <AssistedReply key={answer}>{answer}</AssistedReply>
-                  ))}
-                </div>
-                <AnswerComposer
-                  label={t('inputLabel')}
-                  value={t('inputValue')}
-                  placeholder={t('inputPlaceholder')}
-                  send={t('send')}
-                />
+              <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/10 to-transparent" aria-hidden />
+              <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8">
+                <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-journey-mint rtl:tracking-normal">{t('sourceType')}</p>
+                <p className="mt-2 max-w-[430px] text-[15px] font-medium leading-[1.75] text-white/90">{t('sourceCaption')}</p>
               </div>
             </div>
-            <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-              <TargetIcon className="h-4 w-4 text-muted" aria-hidden />
-              {sourceNotes.map((note) => (
-                <span key={note} className="rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-ink-soft">
-                  {note}
-                </span>
-              ))}
+
+            <div className="bg-surface p-5 md:p-8 lg:p-10">
+              <ol aria-label={t('aria')} className="grid list-none gap-3 p-0">
+                <DecisionStep icon={TargetIcon} label={t('sourceTitle')} tone="neutral">
+                  {t('sourceText')}
+                </DecisionStep>
+                <FlowArrow label={t('researchTransition')} />
+                <DecisionStep
+                  icon={Layers3Icon}
+                  label={t('suggestionTitle')}
+                  tone="action"
+                  badge={<StatusBadge kind="inference" label={status('inference')} />}
+                >
+                  {t('suggestionText')}
+                </DecisionStep>
+                <FlowArrow label={t('ownerTransition')} />
+                <DecisionStep
+                  icon={UserRoundCheckIcon}
+                  label={t('ownerTitle')}
+                  tone="owner"
+                  badge={<span className="rounded-full border border-primary/30 bg-surface px-2.5 py-1 text-[10px] font-bold text-primary">{t('ownerBadge')}</span>}
+                >
+                  {t('ownerText')}
+                </DecisionStep>
+                <FlowArrow label={t('resultTransition')} />
+                <DecisionStep
+                  icon={FileTextIcon}
+                  label={t('outcomeTitle')}
+                  tone="confirmed"
+                  badge={<StatusBadge kind="accepted" label={status('accepted')} />}
+                >
+                  {t('outcomeText')}
+                </DecisionStep>
+              </ol>
+
+              <p className="mt-7 border-t border-border pt-5 text-[12px] leading-[1.7] text-muted">{t('outcomeNote')}</p>
             </div>
           </div>
         </div>
-      </Reveal>
-    </Section>
-  )
-}
-
-function ChatBubble({ side, children }: { side: 'ai' | 'owner'; children: React.ReactNode }) {
-  const ai = side === 'ai'
-  return (
-    <div className={`flex ${ai ? 'justify-start' : 'justify-end'}`}>
-      <div className={`max-w-[85%] rounded-card px-3 py-2 text-[13px] leading-relaxed ${ai ? 'bg-action-soft text-action' : 'bg-soft-teal text-primary'}`}>
-        {children}
       </div>
-    </div>
+    </section>
   )
 }
 
-function AssistedReply({ children }: { children: React.ReactNode }) {
+function FlowArrow({ label }: { readonly label: string }) {
   return (
-    <span className="rounded-full border border-primary/25 bg-soft-teal px-3 py-1.5 text-[12px] font-semibold text-primary">
-      {children}
-    </span>
+    <li className="flex items-center gap-3 px-4 text-[11px] font-semibold text-muted">
+      <ArrowDownIcon className="h-4 w-4 text-primary" aria-hidden />
+      <span>{label}</span>
+    </li>
   )
 }
 
-function AnswerComposer({
+function DecisionStep({
+  icon: Icon,
   label,
-  value,
-  placeholder,
-  send,
+  tone,
+  badge,
+  children,
 }: {
-  label: string
-  value: string
-  placeholder: string
-  send: string
+  readonly icon: typeof FileTextIcon
+  readonly label: string
+  readonly tone: 'neutral' | 'action' | 'owner' | 'confirmed'
+  readonly badge?: React.ReactNode
+  readonly children: React.ReactNode
 }) {
+  const classes = {
+    neutral: 'border-border bg-bg',
+    action: 'border-action/25 bg-action-soft',
+    owner: 'border-2 border-primary bg-soft-teal shadow-[0_5px_0_var(--navy)]',
+    confirmed: 'border-primary/25 bg-surface',
+  }
+
   return (
-    <div className="rounded-card border border-border bg-bg p-2">
-      <label className="sr-only" htmlFor="sample-answer">
-        {label}
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id="sample-answer"
-          name="sample-answer"
-          type="text"
-          readOnly
-          value={value}
-          placeholder={placeholder}
-          autoComplete="off"
-          className="min-h-10 flex-1 rounded-card border border-border bg-surface px-3 text-[12px] text-ink-soft outline-none placeholder:text-muted focus:ring-2 focus:ring-action"
-        />
-        <span className="rounded-full bg-primary px-4 py-2 text-center text-[12px] font-bold text-white">
-          {send}
-        </span>
+    <li className={`rounded-xl border p-4 md:p-5 ${classes[tone]}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-primary shadow-[0_0_0_1px_var(--border)]">
+            <Icon className="h-4 w-4" aria-hidden />
+          </span>
+          <div>
+            <h3 className="text-[13px] font-bold text-navy">{label}</h3>
+            <p className="mt-1 text-[13px] leading-[1.7] text-ink-soft">{children}</p>
+          </div>
+        </div>
+        {badge ? <div className="shrink-0">{badge}</div> : null}
       </div>
-    </div>
+    </li>
   )
 }

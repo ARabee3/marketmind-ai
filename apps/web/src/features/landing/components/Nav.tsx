@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { MenuIcon, XIcon } from 'lucide-react'
+import { BrandLockup } from '@/components/brand/brand-lockup'
 import { useSession } from '@/features/auth/session-provider'
 import { Link } from '@/i18n/navigation'
 import { inertOutside } from '@/lib/a11y/inert-outside'
@@ -21,6 +22,7 @@ function getFocusable(root: HTMLElement | null): HTMLElement[] {
 
 export function Nav() {
   const t = useTranslations('Landing.nav')
+  const common = useTranslations('Common')
   const locale = useLocale()
   const isRtl = locale === 'ar'
   const targetLocale = isRtl ? 'en' : 'ar'
@@ -104,12 +106,10 @@ export function Nav() {
       >
         <a
           href="#top"
-          translate="no"
           onClick={() => setDrawerOpen(false)}
-          className="flex items-center gap-2 rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
-          <span className="h-3 w-3 rounded-full border-[3px] border-soft-teal bg-primary" aria-hidden />
-          <span className="font-latin text-[17px] font-bold text-navy">MarketMind</span>
+          <BrandLockup label={common('appName')} markClassName="size-7" />
         </a>
 
         <ul className="hidden flex-1 items-center justify-center gap-[5px] md:flex">
@@ -167,9 +167,15 @@ export function Nav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE.micro }}
-            className="fixed inset-0 z-10 bg-navy/45 md:hidden"
-            onClick={() => setDrawerOpen(false)}
+            className="fixed inset-0 z-10 md:hidden"
           >
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={t('closeMenu')}
+              onClick={() => setDrawerOpen(false)}
+              className="absolute inset-0 cursor-default bg-navy/45"
+            />
             <motion.div
               ref={drawerRef}
               role="dialog"
@@ -180,7 +186,6 @@ export function Nav() {
               exit={reduced ? { opacity: 0 } : { opacity: 0, x: slideFrom }}
               transition={{ duration: 0.24, ease: EASE.decel }}
               className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(82vw,336px)] overscroll-contain border-e border-border bg-surface px-8 pb-8 pt-28 text-navy shadow-elevated"
-              onClick={(event) => event.stopPropagation()}
             >
               <ul className="space-y-0 text-start">
                 {links.map((link) => (

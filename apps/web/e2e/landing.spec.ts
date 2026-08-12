@@ -3,15 +3,19 @@ import { expect, test } from '@playwright/test'
 const landingLocales = [
   {
     locale: 'en',
-    title: 'Better marketing starts with understanding your business',
-    discoveryCta: 'Start with your business',
-    liveStatus: 'Available now',
+    title: 'Your plan and this week’s content, ready in one place.',
+    discoveryCta: 'Start my plan',
+    completedLoop: 'Loop complete',
+    plannedLabel: 'Planned next',
+    sampleOutcome: 'Three posts ready to review',
   },
   {
     locale: 'ar',
-    title: 'التسويق الأفضل بيبدأ بفهم نشاطك',
-    discoveryCta: 'ابدأ من نشاطك',
-    liveStatus: 'متاح الآن',
+    title: 'خطتك ومحتوى الأسبوع، جاهزين في مكان واحد.',
+    discoveryCta: 'ابدأ خطتي',
+    completedLoop: 'الدورة كملت',
+    plannedLabel: 'مخطط بعد كده',
+    sampleOutcome: '٣ منشورات جاهزة للمراجعة',
   },
 ] as const
 
@@ -20,20 +24,39 @@ for (const landing of landingLocales) {
     await page.goto(`/${landing.locale}`)
 
     await expect(page.getByRole('heading', { level: 1, name: landing.title })).toBeVisible()
+    const brandLockup = page.getByRole('img', { name: 'MarketMind' }).first()
+    await expect(brandLockup).toBeVisible()
+
+    const brandAlignment = await brandLockup.evaluate((element) => {
+      const mark = element.querySelector('svg')?.getBoundingClientRect()
+      const wordmark = element
+        .querySelector('span[aria-hidden="true"]')
+        ?.getBoundingClientRect()
+
+      if (!mark || !wordmark) return null
+
+      return {
+        horizontalGap: wordmark.x - (mark.x + mark.width),
+        centerDelta: Math.abs(mark.y + mark.height / 2 - (wordmark.y + wordmark.height / 2)),
+      }
+    })
+
+    expect(brandAlignment).not.toBeNull()
+    expect(brandAlignment?.horizontalGap).toBeGreaterThanOrEqual(3.5)
+    expect(brandAlignment?.horizontalGap).toBeLessThanOrEqual(4.5)
+    expect(brandAlignment?.centerDelta).toBeLessThanOrEqual(0.5)
     await expect(page.getByRole('link', { name: landing.discoveryCta }).first()).toHaveAttribute(
       'href',
       `/${landing.locale}/register`,
     )
 
-    const roadmap = page.locator('#roadmap')
-    await roadmap.scrollIntoViewIfNeeded()
-    await expect(roadmap.locator('article')).toHaveCount(7)
-    await expect(roadmap.getByText(landing.liveStatus, { exact: true })).toHaveCount(3)
-    await expect(roadmap.getByText(landing.locale === 'en' ? 'Needs connection' : 'محتاج ربط', { exact: true })).toBeVisible()
-
     await expect(page.locator('#main-content')).toBeVisible()
-    await expect(page.locator('#discovery article')).toHaveCount(5)
+    const journey = page.locator('#discovery')
+    await expect(journey.locator('article')).toHaveCount(4)
+    await expect(journey.getByText(landing.completedLoop, { exact: true })).toBeVisible()
+    await expect(page.getByText(landing.plannedLabel, { exact: true })).toHaveCount(0)
     await expect(page.locator('#sample .sample-board')).toBeVisible()
+    await expect(page.locator('#sample').getByText(landing.sampleOutcome, { exact: true })).toBeVisible()
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
@@ -82,24 +105,21 @@ test('desktop authentication actions share the same visual bounds', async ({ pag
 })
 
 test.describe('Reduced motion', () => {
-  test('shows one static, readable capability list', async ({ page }) => {
+  test('keeps the marketing runway static and readable', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/en')
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(
       true,
     )
 
-    const clones = page.locator('.capability-marquee-clone')
-    await expect(clones).toHaveCount(12)
-    expect(
-      await clones.evaluateAll((elements) =>
-        elements.every((element) => getComputedStyle(element).display === 'none'),
-      ),
-    ).toBe(true)
-    expect(
-      await page.locator('.capability-marquee-track').evaluateAll((elements) =>
-        elements.every((element) => getComputedStyle(element).animationName === 'none'),
-      ),
-    ).toBe(true)
+    const activeWeek = page.locator('.marketing-week-active')
+    await expect(activeWeek).toBeVisible()
+    const motion = await activeWeek.evaluate((element) => {
+      const style = getComputedStyle(element, '::after')
+      return {
+        name: style.animationName,
+      }
+    })
+    expect(['none', '']).toContain(motion.name)
   })
 })

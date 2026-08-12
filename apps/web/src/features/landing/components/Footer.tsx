@@ -1,5 +1,6 @@
 import { MailIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
+import { BrandLockup } from '@/components/brand/brand-lockup'
 import { FooterLocaleSwitch } from './FooterLocaleSwitch'
 
 type NavLink = { href: string; label: string }
@@ -7,18 +8,18 @@ type NavLink = { href: string; label: string }
 export async function Footer() {
   const footer = await getTranslations('Landing.footer')
   const nav = await getTranslations('Landing.nav')
+  const common = await getTranslations('Common')
   const links = nav.raw('links') as NavLink[]
 
   return (
     <footer className="w-full bg-soft-teal px-4 py-16 sm:px-6">
       <div className="mx-auto grid max-w-content gap-10 md:grid-cols-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full border-[3px] border-surface bg-primary" aria-hidden />
-            <span translate="no" className="font-latin text-[18px] font-bold text-navy">
-              MarketMind
-            </span>
-          </div>
+          <BrandLockup
+            label={common('appName')}
+            markClassName="size-8"
+            wordmarkClassName="text-[18px]"
+          />
           <p className="mt-3 max-w-xs text-[14px] leading-relaxed text-ink-soft">{footer('body')}</p>
         </div>
         <nav aria-label={footer('navAria')}>
