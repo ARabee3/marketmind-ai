@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { BrandLockup } from "@/components/brand/brand-lockup";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { useSession } from "@/features/auth/session-provider";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { cn } from "@/lib/utils";
@@ -167,34 +169,6 @@ export function getInitials(name?: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function BrandLogoMark({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "grid size-10 shrink-0 place-items-center rounded-lg border-2 border-navy bg-primary text-primary-foreground shadow-tactile",
-        className,
-      )}
-    >
-      <svg
-        className="size-5.5 text-primary-foreground"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          d="M4 18V6L12 13L20 6V18"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="12" cy="5" r="1.75" fill="currentColor" />
-      </svg>
-    </span>
-  );
-}
-
 function DesktopSidebar({
   brandName,
   collapsed,
@@ -231,15 +205,22 @@ function DesktopSidebar({
           )}
           aria-label={brandName}
         >
-          <BrandLogoMark />
-          <span className={cn("min-w-0", collapsed && "sr-only")}>
-            <span className="block truncate text-base font-bold tracking-tight">
-              {brandName}
+          {collapsed ? (
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-soft-teal shadow-sm">
+              <BrandMark className="size-7" />
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {t("tagline")}
+          ) : (
+            <span className="min-w-0">
+              <BrandLockup
+                label={brandName}
+                markClassName="size-9"
+                wordmarkClassName="text-base"
+              />
+              <span className="block truncate ps-10 text-xs text-muted-foreground">
+                {t("tagline")}
+              </span>
             </span>
-          </span>
+          )}
         </Link>
         <button
           type="button"

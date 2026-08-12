@@ -4,11 +4,11 @@ import type { ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname } from "@/i18n/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { BrandLockup } from "@/components/brand/brand-lockup"
 import { LogoutButton } from "@/features/auth/logout-button"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
-  Shield,
   Users,
   WalletCards,
   type LucideIcon,
@@ -61,14 +61,13 @@ export function AdminShell({
             className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-navy outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40"
             aria-label={brandName}
           >
-            <span className="grid size-10 shrink-0 place-items-center rounded-lg border-2 border-navy bg-navy text-white">
-              <Shield className="size-5" />
-            </span>
             <span className="min-w-0">
-              <span className="block truncate text-base font-bold tracking-tight">
-                {brandName}
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
+              <BrandLockup
+                label={brandName}
+                markClassName="size-9"
+                wordmarkClassName="text-base"
+              />
+              <span className="block truncate ps-10 text-xs text-muted-foreground">
                 {tc("tagline")}
               </span>
             </span>
@@ -126,8 +125,11 @@ export function AdminShell({
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border/70 bg-background/85 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-3">
-          <Shield className="size-5 text-navy" />
-          <span className="text-sm font-bold text-navy">{brandName}</span>
+          <BrandLockup
+            label={brandName}
+            markClassName="size-7"
+            wordmarkClassName="text-sm"
+          />
         </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
