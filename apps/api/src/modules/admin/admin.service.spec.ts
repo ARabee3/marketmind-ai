@@ -256,7 +256,33 @@ describe("AdminService", () => {
         activeSubscriptions: 0,
         trialingCount: 0,
         mrrEgp: 0,
+        pastDueSubscriptions: 0,
+        expiredSubscriptions: 0,
+        unverifiedUsers: 0,
       });
+    });
+
+    it("surfaces needs-attention counts (past-due, expired, unverified)", async () => {
+      prisma.billingSubscription.count.mockImplementation((args?: {
+        where?: { state?: string };
+      }) => {
+        const state = args?.where?.state;
+        if (state === "trialing") return Promise.resolve(3);
+        if (state === "past_due") return Promise.resolve(2);
+        if (state === "expired") return Promise.resolve(1);
+        return Promise.resolve(0);
+      });
+      prisma.user.count.mockImplementation((args?: {
+        where?: { isEmailVerified?: boolean };
+      }) =>
+        Promise.resolve(args?.where?.isEmailVerified === false ? 5 : 0),
+      );
+
+      const result = await service.getRevenueSummary();
+      expect(result.pastDueSubscriptions).toBe(2);
+      expect(result.expiredSubscriptions).toBe(1);
+      expect(result.unverifiedUsers).toBe(5);
+      expect(result.trialingCount).toBe(3);
     });
 
     it("computes MRR from active subscriptions", async () => {

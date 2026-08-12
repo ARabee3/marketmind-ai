@@ -4,6 +4,8 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 const ACTIVE_BUSINESS_STATUS = "active";
 const ACTIVE_SUBSCRIPTION_STATE = "active";
 const TRIALING_SUBSCRIPTION_STATE = "trialing";
+const PAST_DUE_SUBSCRIPTION_STATE = "past_due";
+const EXPIRED_SUBSCRIPTION_STATE = "expired";
 
 export function resolveLoginMethod(providers: string[]): string {
   return providers.length > 0 ? providers.join(", ") : "password";
@@ -81,6 +83,9 @@ export interface RevenueSummary {
   activeSubscriptions: number;
   trialingCount: number;
   mrrEgp: number;
+  pastDueSubscriptions: number;
+  expiredSubscriptions: number;
+  unverifiedUsers: number;
 }
 
 export interface SubscriptionRow {
@@ -228,7 +233,14 @@ export class AdminService {
   }
 
   async getRevenueSummary(): Promise<RevenueSummary> {
-    const [activeBusinesses, activeSubs, trialingCount] = await Promise.all([
+    const [
+      activeBusinesses,
+      activeSubs,
+      trialingCount,
+      pastDueCount,
+      expiredCount,
+      unverifiedUsers,
+    ] = await Promise.all([
       this.prisma.business.count({
         where: { status: ACTIVE_BUSINESS_STATUS },
       }),
@@ -247,6 +259,15 @@ export class AdminService {
       this.prisma.billingSubscription.count({
         where: { state: TRIALING_SUBSCRIPTION_STATE },
       }),
+      this.prisma.billingSubscription.count({
+        where: { state: PAST_DUE_SUBSCRIPTION_STATE },
+      }),
+      this.prisma.billingSubscription.count({
+        where: { state: EXPIRED_SUBSCRIPTION_STATE },
+      }),
+      this.prisma.user.count({
+        where: { isEmailVerified: false },
+      }),
     ]);
 
     const mrrEgp = computeMrrEgp(
@@ -262,6 +283,9 @@ export class AdminService {
       activeSubscriptions: activeSubs.length,
       trialingCount,
       mrrEgp,
+      pastDueSubscriptions: pastDueCount,
+      expiredSubscriptions: expiredCount,
+      unverifiedUsers,
     };
   }
 

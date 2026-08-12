@@ -153,12 +153,18 @@ describe("Admin (e2e)", () => {
       expect(res.body).toHaveProperty("activeSubscriptions");
       expect(res.body).toHaveProperty("trialingCount");
       expect(res.body).toHaveProperty("mrrEgp");
+      expect(res.body).toHaveProperty("pastDueSubscriptions");
+      expect(res.body).toHaveProperty("expiredSubscriptions");
+      expect(res.body).toHaveProperty("unverifiedUsers");
       expect(typeof res.body.activeBusinesses).toBe("number");
       expect(typeof res.body.activeSubscriptions).toBe("number");
       expect(typeof res.body.trialingCount).toBe("number");
       expect(typeof res.body.mrrEgp).toBe("number");
       // typeof Infinity === "number"; only Number.isFinite rejects it after JSON round-trip (null).
       expect(Number.isFinite(res.body.mrrEgp)).toBe(true);
+      expect(typeof res.body.pastDueSubscriptions).toBe("number");
+      expect(typeof res.body.expiredSubscriptions).toBe("number");
+      expect(typeof res.body.unverifiedUsers).toBe("number");
     });
 
     it("allows ADMIN to get subscriptions list", async () => {
