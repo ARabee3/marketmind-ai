@@ -3008,6 +3008,17 @@
     "paginationLabel": "Pagination",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "close": "Close"
+    "close": "Close",
+    "needsAttention": "Needs attention",
+    "needsAttentionDescription": "Actionable states across subscriptions and accounts.",
+    "pastDueSubscriptions": "Past-due subscriptions",
+    "expiredSubscriptions": "Expired subscriptions",
+    "unverifiedUsers": "Unverified users",
+    "allClear": "Nothing needs attention right now.",
+    "viewDetails": "View",
+    "lastRefreshed": "Last refreshed {time}",
+    "refresh": "Refresh",
+    "totalUsersAria": "View all users",
+    "activeSubscriptionsAria": "View subscriptions"
   }
 }

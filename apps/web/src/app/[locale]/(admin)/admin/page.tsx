@@ -26,6 +26,7 @@ export default function AdminOverviewPage() {
   const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null)
   const [recentUsers, setRecentUsers] = useState<AdminUserRow[]>([])
   const [userTotal, setUserTotal] = useState(0)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
 
   const retry = useCallback(() => {
@@ -45,6 +46,7 @@ export default function AdminOverviewPage() {
         setRevenue(rev)
         setRecentUsers(users.items)
         setUserTotal(users.total)
+        setLastRefreshedAt(new Date())
         setPhase("ready")
       } catch {
         if (!cancelled) setPhase("error")
@@ -90,6 +92,11 @@ export default function AdminOverviewPage() {
     )
   }
 
+  const pastDue = revenue?.pastDueSubscriptions ?? 0
+  const expired = revenue?.expiredSubscriptions ?? 0
+  const unverified = revenue?.unverifiedUsers ?? 0
+  const needsAttentionTotal = pastDue + expired + unverified
+
   return (
     <div className="space-y-8">
       <AdminPageHeader
@@ -102,6 +109,8 @@ export default function AdminOverviewPage() {
         <StatTile
           label={t("totalUsers")}
           value={String(userTotal)}
+          href="/admin/users"
+          ariaLabel={t("totalUsersAria")}
         />
         <StatTile
           label={t("activeBusinesses")}
@@ -115,6 +124,8 @@ export default function AdminOverviewPage() {
               ? `${t("trialing")}: ${revenue.trialingCount}`
               : undefined
           }
+          href="/admin/revenue"
+          ariaLabel={t("activeSubscriptionsAria")}
         />
         <StatTile
           label={t("mrr")}
@@ -129,6 +140,53 @@ export default function AdminOverviewPage() {
           }
         />
       </div>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+          {t("needsAttention")}
+        </h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {t("needsAttentionDescription")}
+        </p>
+        {needsAttentionTotal === 0 ? (
+          <div className="rounded-xl border border-border bg-surface px-5 py-6 shadow-sm">
+            <Badge variant="active">{t("allClear")}</Badge>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {pastDue > 0 && (
+              <NeedsAttentionRow
+                label={t("pastDueSubscriptions")}
+                count={pastDue}
+                variant="past_due"
+                href="/admin/revenue"
+                ariaLabel={`${t("pastDueSubscriptions")} — ${t("viewDetails")}`}
+                viewLabel={t("viewDetails")}
+              />
+            )}
+            {expired > 0 && (
+              <NeedsAttentionRow
+                label={t("expiredSubscriptions")}
+                count={expired}
+                variant="expired"
+                href="/admin/revenue"
+                ariaLabel={`${t("expiredSubscriptions")} — ${t("viewDetails")}`}
+                viewLabel={t("viewDetails")}
+              />
+            )}
+            {unverified > 0 && (
+              <NeedsAttentionRow
+                label={t("unverifiedUsers")}
+                count={unverified}
+                variant="draft"
+                href="/admin/users"
+                ariaLabel={`${t("unverifiedUsers")} — ${t("viewDetails")}`}
+                viewLabel={t("viewDetails")}
+              />
+            )}
+          </ul>
+        )}
+      </section>
 
       <section>
         <h2 className="mb-4 text-sm font-semibold text-muted-foreground uppercase tracking-[0.12em]">
@@ -191,6 +249,56 @@ export default function AdminOverviewPage() {
           </div>
         )}
       </section>
+
+      {lastRefreshedAt && (
+        <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {t("lastRefreshed", {
+              time: format.dateTime(lastRefreshedAt, { timeStyle: "short" }),
+            })}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={retry}
+          >
+            {t("refresh")}
+          </Button>
+        </div>
+      )}
     </div>
+  )
+}
+
+function NeedsAttentionRow({
+  label,
+  count,
+  variant,
+  href,
+  ariaLabel,
+  viewLabel,
+}: {
+  label: string
+  count: number
+  variant: "past_due" | "expired" | "draft"
+  href: string
+  ariaLabel: string
+  viewLabel: string
+}) {
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        <Badge variant={variant}>{count}</Badge>
+        <span className="text-sm font-medium text-navy">{label}</span>
+      </div>
+      <Link
+        href={href}
+        aria-label={ariaLabel}
+        className="text-sm font-medium text-primary hover:text-primary/80 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 rounded"
+      >
+        {viewLabel}
+      </Link>
+    </li>
   )
 }

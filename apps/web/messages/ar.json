@@ -3003,6 +3003,17 @@
     "paginationLabel": "التنقل بين الصفحات",
     "previousPage": "الصفحة السابقة",
     "nextPage": "الصفحة التالية",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "needsAttention": "يحتاج انتباه",
+    "needsAttentionDescription": "الحالات التي تتطلب إجراءً عبر الاشتراكات والحسابات.",
+    "pastDueSubscriptions": "اشتراكات متأخرة",
+    "expiredSubscriptions": "اشتراكات منتهية",
+    "unverifiedUsers": "مستخدمون غير موثقون",
+    "allClear": "لا يوجد ما يستدعي الانتباه حالياً.",
+    "viewDetails": "عرض",
+    "lastRefreshed": "آخر تحديث {time}",
+    "refresh": "تحديث",
+    "totalUsersAria": "عرض جميع المستخدمين",
+    "activeSubscriptionsAria": "عرض الاشتراكات"
   }
 }

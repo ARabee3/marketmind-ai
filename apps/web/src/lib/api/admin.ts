@@ -55,6 +55,9 @@ export type AdminRevenueSummary = {
   activeSubscriptions: number
   trialingCount: number
   mrrEgp: number
+  pastDueSubscriptions: number
+  expiredSubscriptions: number
+  unverifiedUsers: number
 }
 
 export type AdminSubscriptionRow = {

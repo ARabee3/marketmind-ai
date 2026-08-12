@@ -1,19 +1,32 @@
 import { Card, CardContent } from "@/components/ui/card"
+import { Link } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
 
 export function StatTile({
   label,
   value,
   subtext,
+  href,
+  ariaLabel,
   className,
 }: {
   label: string
   value: string
   subtext?: string
+  href?: string
+  ariaLabel?: string
   className?: string
 }) {
-  return (
-    <Card className={cn("border-t-2 border-t-primary/40 shadow-sm", className)} size="sm">
+  const card = (
+    <Card
+      className={cn(
+        "border-t-2 border-t-primary/40 shadow-sm",
+        href &&
+          "transition-colors hover:bg-soft-teal focus-visible:bg-soft-teal",
+        className,
+      )}
+      size="sm"
+    >
       <CardContent>
         <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
           {label}
@@ -27,4 +40,18 @@ export function StatTile({
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-label={ariaLabel}
+        className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+      >
+        {card}
+      </Link>
+    )
+  }
+
+  return card
 }
