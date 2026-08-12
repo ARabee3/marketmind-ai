@@ -84,9 +84,9 @@ export async function ResearchTimeline() {
                 >
                   <Icon className={`h-2.5 w-2.5 ${state.spin ? 'animate-spin' : ''}`} aria-hidden />
                 </span>
-                <Reveal delay={index * 0.04} y={12} viewportMargin="-15%" className={`rounded-card border p-3 ${state.rowClassName}`}>
+                <Reveal delay={index * 0.04} viewportMargin="-15%" className={`rounded-card border p-3 ${state.rowClassName}`}>
                 <details>
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-journey-mint">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-journey-mint">
                     <span className="text-[14px] font-semibold text-white">{stage.label}</span>
                     <span className="shrink-0 rounded-full border border-journey-mint/35 bg-navy/35 px-2 py-0.5 text-[11px] font-bold text-journey-mint">
                       {t(`stageStatus.${state.labelKey}`)}

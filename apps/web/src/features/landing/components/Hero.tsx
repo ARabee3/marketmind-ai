@@ -13,7 +13,7 @@ const STEP_STYLES: Record<PreviewStepKind, string> = {
   question: 'border-action/15 bg-action-soft text-action',
 }
 
-const STEP_KINDS: PreviewStepKind[] = ['source', 'source', 'result', 'question']
+const STEP_KINDS: PreviewStepKind[] = ['source', 'result', 'result', 'question']
 
 export async function Hero() {
   const t = await getTranslations('Landing.hero')
@@ -52,7 +52,7 @@ export async function Hero() {
           </a>
         </Reveal>
 
-        <Reveal delay={0.32} y={24} className="relative mx-auto mt-[38px] max-w-[720px]">
+        <Reveal delay={0.32} className="relative mx-auto mt-[38px] max-w-[720px]">
           <div className="pointer-events-none absolute -end-3 -top-7 z-20 hidden md:block">
             <div className="relative h-14 w-14">
               <div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/35" />

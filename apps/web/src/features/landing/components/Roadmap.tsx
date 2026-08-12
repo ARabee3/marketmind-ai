@@ -10,21 +10,25 @@ type RoadmapCard = {
   en: string
   output: string
   desc: string
-  status: 'live' | 'planned'
+  status: 'live' | 'setup' | 'planned'
   statusLabel: string
 }
 
 function PhaseCard({ card, liveCta }: { readonly card: RoadmapCard; readonly liveCta: string }) {
   const live = card.status === 'live'
+  const setup = card.status === 'setup'
+  const showCta = live && card.output === 'BusinessProfile'
   return (
     <article
       className={`grid gap-5 rounded-card border p-5 md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center md:p-6 ${
         live
           ? 'border-primary/40 bg-soft-teal shadow-[0_14px_34px_rgb(16_42_67_/_10%)]'
-          : 'border-border bg-bg'
+          : setup
+            ? 'border-warning/35 bg-warning/10'
+            : 'border-border bg-bg'
       }`}
     >
-      <span className={`text-[38px] font-bold leading-none ${live ? 'text-primary' : 'text-navy/25'}`}>
+      <span className={`text-[38px] font-bold leading-none ${live ? 'text-primary' : setup ? 'text-warning' : 'text-navy/25'}`}>
         {card.no}
       </span>
 
@@ -37,14 +41,12 @@ function PhaseCard({ card, liveCta }: { readonly card: RoadmapCard; readonly liv
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold ${
               live
                 ? 'border-primary/30 bg-surface text-primary'
-                : 'border-border bg-surface text-muted'
+                : setup
+                  ? 'border-warning/30 bg-surface text-warning'
+                  : 'border-border bg-surface text-muted'
             }`}
           >
-            {live ? (
-              <CheckCircle2Icon className="h-3.5 w-3.5" aria-hidden />
-            ) : (
-              <CircleIcon className="h-3.5 w-3.5" aria-hidden />
-            )}
+            {live ? <CheckCircle2Icon className="h-3.5 w-3.5" aria-hidden /> : <CircleIcon className="h-3.5 w-3.5" aria-hidden />}
             {card.statusLabel}
           </span>
         </div>
@@ -63,7 +65,7 @@ function PhaseCard({ card, liveCta }: { readonly card: RoadmapCard; readonly liv
         </p>
       </div>
 
-      {live && (
+      {showCta && (
         <Link
           href="/register"
           className="cta-solid w-full gap-2 self-start px-4 py-2 text-[13px] font-bold md:w-auto md:self-center"
@@ -99,7 +101,7 @@ export async function Roadmap() {
       >
         {cards.map((card, index) => (
           <li key={card.no}>
-            <Reveal y={12} delay={index * 0.04} viewportMargin="-12%">
+            <Reveal delay={index * 0.04} viewportMargin="-12%">
               <PhaseCard card={card} liveCta={liveCta} />
             </Reveal>
           </li>

@@ -4,13 +4,13 @@ const landingLocales = [
   {
     locale: 'en',
     title: 'Better marketing starts with understanding your business',
-    discoveryCta: 'Start business discovery',
+    discoveryCta: 'Start with your business',
     liveStatus: 'Available now',
   },
   {
     locale: 'ar',
     title: 'التسويق الأفضل بيبدأ بفهم نشاطك',
-    discoveryCta: 'ابدأ اكتشاف نشاطك',
+    discoveryCta: 'ابدأ من نشاطك',
     liveStatus: 'متاح الآن',
   },
 ] as const
@@ -28,7 +28,12 @@ for (const landing of landingLocales) {
     const roadmap = page.locator('#roadmap')
     await roadmap.scrollIntoViewIfNeeded()
     await expect(roadmap.locator('article')).toHaveCount(7)
-    await expect(roadmap.getByText(landing.liveStatus, { exact: true })).toBeVisible()
+    await expect(roadmap.getByText(landing.liveStatus, { exact: true })).toHaveCount(3)
+    await expect(roadmap.getByText(landing.locale === 'en' ? 'Needs connection' : 'محتاج ربط', { exact: true })).toBeVisible()
+
+    await expect(page.locator('#main-content')).toBeVisible()
+    await expect(page.locator('#discovery article')).toHaveCount(5)
+    await expect(page.locator('#sample .sample-board')).toBeVisible()
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,

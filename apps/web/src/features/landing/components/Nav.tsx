@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { MenuIcon, XIcon } from 'lucide-react'
+import { useSession } from '@/features/auth/session-provider'
 import { Link } from '@/i18n/navigation'
 import { inertOutside } from '@/lib/a11y/inert-outside'
 import { EASE, useReducedMotion } from '../lib/motion'
@@ -24,6 +25,7 @@ export function Nav() {
   const isRtl = locale === 'ar'
   const targetLocale = isRtl ? 'en' : 'ar'
   const links = t.raw('links') as NavLink[]
+  const { isAuthenticated } = useSession()
 
   const reduced = useReducedMotion()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -86,9 +88,12 @@ export function Nav() {
   // is the left in LTR and the right in RTL.
   const slideFrom = isRtl ? '100%' : '-100%'
 
+  const primaryHref = isAuthenticated ? '/dashboard' : '/register'
+  const primaryLabel = isAuthenticated ? t('continueWork') : t('signup')
+
   return (
     <motion.header
-      initial={reduced ? false : { y: -32, opacity: 0 }}
+      initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: EASE.decel }}
       className="fixed inset-x-0 top-3 z-50 flex justify-center px-3 sm:top-4 sm:px-4"
@@ -135,10 +140,10 @@ export function Nav() {
             {t('login')}
           </Link>
           <Link
-            href="/register"
+            href={primaryHref}
             className="cta-solid cta-solid--nav px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
-            {t('signup')}
+            {primaryLabel}
           </Link>
         </div>
 
@@ -192,11 +197,11 @@ export function Nav() {
               </ul>
               <div className="mt-7 grid gap-3">
                 <Link
-                  href="/register"
+                  href={primaryHref}
                   onClick={() => setDrawerOpen(false)}
                   className="cta-solid min-h-[42px] px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
-                  {t('signup')}
+                  {primaryLabel}
                 </Link>
                 <Link
                   href="/login"

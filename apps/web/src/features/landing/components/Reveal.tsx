@@ -8,7 +8,6 @@ type RevealProps = {
   readonly children: ReactNode
   readonly className?: string
   readonly delay?: number
-  readonly y?: number
   readonly viewportMargin?: string
   readonly once?: boolean
 }
@@ -23,7 +22,6 @@ export function Reveal({
   children,
   className = '',
   delay = 0,
-  y = 24,
   viewportMargin = '-15%',
   once = true,
 }: RevealProps) {
@@ -36,7 +34,7 @@ export function Reveal({
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y }}
+      initial={false}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once, margin: viewportMargin }}
       transition={{ duration: 0.42, ease: EASE.decel, delay }}

@@ -32,7 +32,6 @@ export async function DiscoveryJourney() {
             <Reveal
               key={step.no}
               delay={index * 0.08}
-              y={18}
               viewportMargin="-15%"
               className={`discovery-step-wrapper ${index % 2 === 0 ? 'discovery-step-wrapper--start' : 'discovery-step-wrapper--end'}`}
             >

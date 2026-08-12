@@ -39,11 +39,11 @@ export async function Footer() {
         <div>
           <h3 className="text-[13px] font-bold text-muted">{footer('contactTitle')}</h3>
           <a
-            href="mailto:hello@marketmind.ai"
+            href={`mailto:${footer('email')}`}
             className="mt-3 inline-flex items-center gap-2 rounded text-[14px] text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
             <MailIcon className="h-4 w-4" aria-hidden />
-            <span className="bidi-iso font-latin">hello@marketmind.ai</span>
+            <span className="bidi-iso font-latin">{footer('email')}</span>
           </a>
         </div>
       </div>
