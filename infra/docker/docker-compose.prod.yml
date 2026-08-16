@@ -1,0 +1,185 @@
+# MarketMind AI — Production/Hosted Demo
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.prod.yml up -d --build
+#
+# Architecture (single-origin cookie constraint):
+#   - web and api share ONE public origin; Caddy terminates TLS and routes
+#     /api/*, /internal/*, /socket.io/* -> api:3001 and everything else ->
+#     web:3000. The refresh-token cookie is host-scoped + SameSite=lax, so
+#     web+api MUST share the origin (see apps/web/src/proxy.ts:20 and
+#     apps/api auth controller).
+#   - postgres/redis/qdrant are internal-only (no published ports).
+#   - Only caddy publishes 80/443.
+#
+# Environment:
+#   - Real values live in a gitignored `infra/docker/.env.prod` (see
+#     infra/docker/.env.prod.example) — POSTGRES_PASSWORD and the Caddy
+#     hostname.
+#   - App secrets are reused from the gitignored `apps/api/.env` and
+#     `services/ai/.env` via `env_file`; host-dependent vars are overridden in
+#     `environment:` below.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketmind-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: marketmind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: marketmind_prod
+    volumes:
+      - marketmind_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketmind -d marketmind_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: marketmind-prod-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    container_name: marketmind-prod-qdrant
+    restart: unless-stopped
+    volumes:
+      - marketmind_prod_qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && echo ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  ai:
+    build:
+      context: ../..
+      dockerfile: services/ai/Dockerfile
+    container_name: marketmind-prod-ai
+    restart: unless-stopped
+    env_file:
+      - ../../services/ai/.env
+    environment:
+      AI_SERVICE_BASE_URL: http://ai:8000
+      AI_ORCHESTRATION_ENABLED: "true"
+      DATABASE_URL: postgresql://marketmind:${POSTGRES_PASSWORD}@postgres:5432/marketmind_prod?schema=public
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_GRPC_PORT: "6334"
+      CONTENT_ASSET_STORAGE_DIR: /data/content-assets
+    volumes:
+      - marketmind_prod_content_assets:/data/content-assets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    container_name: marketmind-prod-api
+    restart: unless-stopped
+    env_file:
+      - ../../apps/api/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgresql://marketmind:${POSTGRES_PASSWORD}@postgres:5432/marketmind_prod?schema=public
+      REDIS_URL: redis://redis:6379
+      AI_SERVICE_BASE_URL: http://ai:8000
+      AI_ORCHESTRATION_ENABLED: "true"
+      WEB_ORIGIN: https://${CADDY_HOSTNAME}
+      APP_URL: https://${CADDY_HOSTNAME}
+      COOKIE_SECURE: "true"
+      COOKIE_SAME_SITE: lax
+      BILLING_PROVIDER: fake
+      PUBLISHING_WEB_BASE_URL: https://${CADDY_HOSTNAME}
+      PUBLISHING_MEDIA_FETCH_BASE_URL: https://${CADDY_HOSTNAME}
+      PUBLISHING_CALLBACK_BASE_URL: https://${CADDY_HOSTNAME}
+      ASSET_STORAGE_PROVIDER: r2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/v1/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${CADDY_HOSTNAME}/api/v1
+    container_name: marketmind-prod-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://${CADDY_HOSTNAME}/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: marketmind-prod-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CADDY_HOSTNAME: ${CADDY_HOSTNAME}
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - marketmind_prod_caddy_data:/data
+      - marketmind_prod_caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  marketmind_prod_pgdata:
+  marketmind_prod_qdrant_storage:
+  marketmind_prod_content_assets:
+  marketmind_prod_caddy_data:
+  marketmind_prod_caddy_config:
