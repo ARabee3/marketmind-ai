@@ -249,7 +249,16 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
         parsed = null;
       }
       if (!response.ok) {
-        throw new Error(`Paymob intention request failed with HTTP ${response.status}.`);
+        // Surface Paymob's error detail (field errors, rate-limit info) so a
+        // 503 on checkout is diagnosable from logs. The response body contains
+        // request field echoes, never credentials.
+        const detail =
+          parsed && typeof parsed === "object"
+            ? `: ${JSON.stringify(parsed).slice(0, 300)}`
+            : "";
+        throw new Error(
+          `Paymob intention request failed with HTTP ${response.status}${detail}.`,
+        );
       }
       if (!isRecord(parsed)) {
         throw new Error("Paymob intention response was not JSON.");

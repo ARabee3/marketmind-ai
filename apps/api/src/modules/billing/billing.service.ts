@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -86,6 +87,8 @@ export type ProviderCostRecord = {
  */
 @Injectable()
 export class BillingService {
+  private readonly logger = new Logger(BillingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_PROVIDER)
@@ -483,6 +486,11 @@ export class BillingService {
         where: { id: attempt.id },
         data: { status: "failed" },
       });
+      this.logger.warn(
+        `Checkout ${attempt.id} failed at the payment provider: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       throw new ServiceUnavailableException(
         "The payment provider is temporarily unavailable.",
       );
