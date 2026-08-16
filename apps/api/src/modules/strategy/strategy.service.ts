@@ -378,6 +378,20 @@ export class StrategyService {
         throw new StrategyKnowledgeUnavailableError();
       }
 
+      // Prepaid points: the strategy phase is the thin-margin action and its
+      // third-party research cost is front-loaded, so the 50-point reserve is
+      // taken when the owner commits to the phase — right after retrieval,
+      // before any generation cost is incurred. The worker re-records the same
+      // claim key (idempotent no-op) and refunds it on failure; an owner
+      // rejection refunds it via releaseStrategyCycle.
+      await this.billingEntitlements?.record(
+        ownerUserId,
+        "strategy_cycle",
+        1,
+        `strategy-cycle:${id}:${retrieval_run_id}`,
+        strategy.businessId,
+      );
+
       this.logger.log(
         `[Strategy ${id}] [Corr: ${correlationId}] Retrieval complete. Run: ${retrieval_run_id}. Queuing generation.`,
       );
