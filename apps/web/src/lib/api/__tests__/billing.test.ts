@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  cancelBillingSubscription,
-  createBillingCheckout,
-  getBillingPrices,
-} from '@/lib/api/billing'
+import { createBillingCheckout, getBillingBundles } from '@/lib/api/billing'
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }))
 
@@ -16,23 +12,23 @@ describe('billing API client', () => {
     apiRequest.mockReset()
   })
 
-  it('reads the server-controlled EGP catalog', async () => {
+  it('reads the server-controlled bundle catalog', async () => {
     apiRequest.mockResolvedValue(
       new Response(
-        JSON.stringify({ version: 'billing-v1', currency: 'EGP', prices: [] }),
+        JSON.stringify({ version: 'billing-bundles-v1', currency: 'EGP', bundles: [] }),
         { status: 200 },
       ),
     )
 
-    await expect(getBillingPrices()).resolves.toEqual({
-      version: 'billing-v1',
+    await expect(getBillingBundles()).resolves.toEqual({
+      version: 'billing-bundles-v1',
       currency: 'EGP',
-      prices: [],
+      bundles: [],
     })
-    expect(apiRequest).toHaveBeenCalledWith('/billing/prices', undefined)
+    expect(apiRequest).toHaveBeenCalledWith('/billing/bundles', undefined)
   })
 
-  it('sends the same idempotency key in the header and request body', async () => {
+  it('sends the bundle code and the same idempotency key in header and body', async () => {
     apiRequest.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -41,7 +37,7 @@ describe('billing API client', () => {
           checkout_url: 'http://sandbox.test/checkout',
           provider: 'fake',
           provider_checkout_ref: 'fake_checkout_1',
-          amount_egp: 299,
+          amount_egp: 200,
           currency: 'EGP',
           expires_at: new Date().toISOString(),
           sandbox: true,
@@ -50,13 +46,13 @@ describe('billing API client', () => {
       ),
     )
 
-    await createBillingCheckout('growth_monthly_v1', 'one_time_card', 'checkout-key-123456')
+    await createBillingCheckout('growth_300', 'one_time_card', 'checkout-key-123456')
 
     expect(apiRequest).toHaveBeenCalledWith('/billing/checkouts', {
       method: 'POST',
       headers: { 'Idempotency-Key': 'checkout-key-123456' },
       body: {
-        price_code: 'growth_monthly_v1',
+        bundle_code: 'growth_300',
         payment_mode: 'one_time_card',
         idempotency_key: 'checkout-key-123456',
       },
@@ -65,16 +61,18 @@ describe('billing API client', () => {
 
   it('surfaces stable API errors for owner actions', async () => {
     apiRequest.mockResolvedValue(
-      new Response(JSON.stringify({ code: 'BILLING_SUBSCRIPTION_NOT_ACTIVE', message: 'No access' }), {
-        status: 409,
-        statusText: 'Conflict',
+      new Response(JSON.stringify({ code: 'BILLING_BUNDLE_NOT_FOUND', message: 'Unknown bundle' }), {
+        status: 404,
+        statusText: 'Not Found',
       }),
     )
 
-    await expect(cancelBillingSubscription()).rejects.toMatchObject({
-      status: 409,
-      code: 'BILLING_SUBSCRIPTION_NOT_ACTIVE',
-      message: 'No access',
+    await expect(
+      createBillingCheckout('phantom_999', 'one_time_card', 'checkout-key-123456'),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'BILLING_BUNDLE_NOT_FOUND',
+      message: 'Unknown bundle',
     })
   })
 })

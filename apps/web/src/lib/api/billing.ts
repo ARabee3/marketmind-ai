@@ -1,10 +1,10 @@
 import type {
-  BillingCatalogResponse,
+  BillingBundlesResponse,
   BillingCheckoutResponse,
   BillingPaymentMode,
-  BillingSubscriptionResponse,
+  BillingPointLedgerResponse,
   BillingTransactionsResponse,
-  BillingUsageResponse,
+  BillingWalletResponse,
 } from '@marketmind/contracts'
 import { apiRequest, type ApiRequestOptions } from '@/lib/api/client'
 
@@ -35,16 +35,16 @@ async function parseError(response: Response): Promise<BillingApiError> {
   return { status: response.status, code, message }
 }
 
-export function getBillingPrices(): Promise<BillingCatalogResponse> {
-  return request<BillingCatalogResponse>('/billing/prices')
+export function getBillingBundles(): Promise<BillingBundlesResponse> {
+  return request<BillingBundlesResponse>('/billing/bundles')
 }
 
-export function getBillingSubscription(): Promise<BillingSubscriptionResponse> {
-  return request<BillingSubscriptionResponse>('/billing/subscription')
+export function getBillingWallet(): Promise<BillingWalletResponse> {
+  return request<BillingWalletResponse>('/billing/wallet')
 }
 
-export function getBillingUsage(): Promise<BillingUsageResponse> {
-  return request<BillingUsageResponse>('/billing/usage')
+export function getBillingLedger(): Promise<BillingPointLedgerResponse> {
+  return request<BillingPointLedgerResponse>('/billing/wallet/ledger')
 }
 
 export function getBillingTransactions(): Promise<BillingTransactionsResponse> {
@@ -52,7 +52,7 @@ export function getBillingTransactions(): Promise<BillingTransactionsResponse> {
 }
 
 export function createBillingCheckout(
-  priceCode: string,
+  bundleCode: string,
   paymentMode: BillingPaymentMode,
   idempotencyKey: string,
 ): Promise<BillingCheckoutResponse> {
@@ -60,7 +60,7 @@ export function createBillingCheckout(
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
     body: {
-      price_code: priceCode,
+      bundle_code: bundleCode,
       payment_mode: paymentMode,
       idempotency_key: idempotencyKey,
     },
@@ -77,19 +77,5 @@ export function confirmSandboxCheckout(
       provider_checkout_ref: providerCheckoutRef,
       outcome,
     },
-  })
-}
-
-export function cancelBillingSubscription(): Promise<BillingSubscriptionResponse> {
-  return request<BillingSubscriptionResponse>('/billing/subscription/cancel', {
-    method: 'POST',
-    body: {},
-  })
-}
-
-export function resumeBillingSubscription(): Promise<BillingSubscriptionResponse> {
-  return request<BillingSubscriptionResponse>('/billing/subscription/resume', {
-    method: 'POST',
-    body: {},
   })
 }
