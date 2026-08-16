@@ -14,28 +14,62 @@ import {
 
 export const PAYMOB_PAYMENT_PROVIDER = "paymob";
 
-const PAYMOB_HMAC_FIELDS = [
-  "amount",
-  "created_at",
-  "currency",
-  "error_occured",
-  "has_parent_transaction",
-  "id",
-  "integration_id",
-  "is_3d_secure",
-  "is_auth",
-  "is_capture",
-  "is_refunded",
-  "is_standalone_payment",
-  "is_voided",
-  "order",
-  "owner",
-  "pending",
-  "source_data_pan",
-  "source_data_sub_type",
-  "source_data_type",
-  "success",
-] as const;
+/**
+ * The 20 transaction fields Paymob includes in webhook HMAC validation,
+ * sorted lexicographically by field name. The canonical string concatenates
+ * the field values in this order (no separators), hashed with HMAC-SHA512 and
+ * the merchant HMAC secret. Note `error_occured` (one "r") is Paymob's own
+ * spelling and `order.id` / `source_data.*` are nested values.
+ */
+const PAYMOB_HMAC_FIELDS: ReadonlyArray<{
+  readonly name: string;
+  readonly value: (transaction: Record<string, unknown>) => unknown;
+}> = [
+  { name: "amount_cents", value: (t) => t.amount_cents },
+  { name: "created_at", value: (t) => t.created_at },
+  { name: "currency", value: (t) => t.currency },
+  { name: "error_occured", value: (t) => t.error_occured },
+  { name: "has_parent_transaction", value: (t) => t.has_parent_transaction },
+  { name: "id", value: (t) => t.id },
+  { name: "integration_id", value: (t) => t.integration_id },
+  { name: "is_3d_secure", value: (t) => t.is_3d_secure },
+  { name: "is_auth", value: (t) => t.is_auth },
+  { name: "is_capture", value: (t) => t.is_capture },
+  { name: "is_refund", value: (t) => t.is_refund },
+  { name: "is_refunded", value: (t) => t.is_refunded },
+  { name: "is_standalone_payment", value: (t) => t.is_standalone_payment },
+  { name: "is_voided", value: (t) => t.is_voided },
+  {
+    name: "order.id",
+    value: (t) =>
+      t.order && typeof t.order === "object"
+        ? (t.order as Record<string, unknown>).id
+        : undefined,
+  },
+  { name: "owner", value: (t) => t.owner },
+  { name: "pending", value: (t) => t.pending },
+  {
+    name: "source_data.pan",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).pan
+        : undefined,
+  },
+  {
+    name: "source_data.sub_type",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).sub_type
+        : undefined,
+  },
+  {
+    name: "source_data.type",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).type
+        : undefined,
+  },
+];
 
 type PaymobConfig = {
   readonly baseUrl: string;
@@ -176,7 +210,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       throw new BillingProviderSignatureError();
     }
 
-    const amountMinor = readInteger(transaction.amount, "amount");
+    const amountMinor = readInteger(transaction.amount_cents, "amount_cents");
     const amountEgp = amountMinor / 100;
     const currency = readString(transaction.currency, "currency").toUpperCase();
     if (currency !== "EGP" || !Number.isSafeInteger(amountEgp)) {
@@ -281,7 +315,9 @@ export function verifyPaymobHmac(
   secret: string,
 ): boolean {
   if (!receivedHmac || !secret) return false;
-  const canonical = PAYMOB_HMAC_FIELDS.map((field) => hmacValue(transaction[field])).join("");
+  const canonical = PAYMOB_HMAC_FIELDS.map((field) =>
+    hmacValue(field.value(transaction)),
+  ).join("");
   const expected = createHmac("sha512", secret).update(canonical).digest("hex");
   const left = Buffer.from(receivedHmac, "hex");
   const right = Buffer.from(expected, "hex");
@@ -358,6 +394,8 @@ export function createPaymobTestHmac(
   transaction: Record<string, unknown>,
   secret: string,
 ): string {
-  const canonical = PAYMOB_HMAC_FIELDS.map((field) => hmacValue(transaction[field])).join("");
+  const canonical = PAYMOB_HMAC_FIELDS.map((field) =>
+    hmacValue(field.value(transaction)),
+  ).join("");
   return createHmac("sha512", secret).update(canonical).digest("hex");
 }

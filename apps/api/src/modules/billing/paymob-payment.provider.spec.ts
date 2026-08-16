@@ -2,7 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { PaymobPaymentProvider, createPaymobTestHmac } from "./paymob-payment.provider";
 
 const transaction = {
-  amount: 29900,
+  amount_cents: 29900,
   created_at: "2026-08-04T20:00:00.000Z",
   currency: "EGP",
   error_occured: false,
@@ -12,15 +12,14 @@ const transaction = {
   is_3d_secure: true,
   is_auth: true,
   is_capture: true,
+  is_refund: false,
   is_refunded: false,
   is_standalone_payment: true,
   is_voided: false,
   order: { id: 55, merchant_order_id: "attempt-1" },
   owner: 246,
   pending: false,
-  source_data_pan: "2346",
-  source_data_sub_type: "MasterCard",
-  source_data_type: "card",
+  source_data: { pan: "2346", sub_type: "MasterCard", type: "card" },
   success: true,
 };
 

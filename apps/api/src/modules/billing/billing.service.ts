@@ -735,7 +735,7 @@ export class BillingService {
       const transactionId =
         Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
       const transaction: Record<string, unknown> = {
-        amount: attempt.amountEgp * 100,
+        amount_cents: attempt.amountEgp * 100,
         created_at: new Date().toISOString(),
         currency: "EGP",
         error_occured: false,
@@ -745,15 +745,14 @@ export class BillingService {
         is_3d_secure: false,
         is_auth: true,
         is_capture: true,
+        is_refund: false,
         is_refunded: false,
         is_standalone_payment: true,
         is_voided: false,
         order: { id: transactionId, merchant_order_id: attempt.id },
         owner: transactionId,
         pending: outcome === "pending",
-        source_data_pan: "0000",
-        source_data_sub_type: "Test",
-        source_data_type: "card",
+        source_data: { pan: "0000", sub_type: "Test", type: "card" },
         success: outcome === "paid",
       };
       const hmac = createPaymobTestHmac(transaction, hmacSecret);
