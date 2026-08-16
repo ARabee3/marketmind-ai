@@ -167,16 +167,62 @@ model BillingAccount {
 
   ownerUser      User                        @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   activeBusiness Business?                   @relation(fields: [activeBusinessId], references: [id], onDelete: SetNull)
-  subscriptions  BillingSubscription[]
+  subscriptions BillingSubscription[]
   checkouts      BillingCheckoutAttempt[]
   transactions   BillingPaymentTransaction[]
   providerEvents BillingProviderEvent[]
   usageLedger    BillingUsageLedger[]
   costLedger     BillingProviderCostLedger[]
+  pointBalances  BillingPointBalance[]
+  pointLedger    BillingPointLedger[]
   outbox         BillingOutbox[]
 
   @@index([activeBusinessId])
   @@map("billing_accounts")
+}
+
+/**
+ * The spendable prepaid points balance for one account. The running sum of
+ * the append-only BillingPointLedger; never modified outside a ledger
+ * transaction.
+ */
+model BillingPointBalance {
+  id               String   @id @default(uuid()) @db.Uuid
+  billingAccountId String   @unique @map("billing_account_id") @db.Uuid
+  balance          Int      @default(0)
+  lifetimeGranted  Int      @default(0) @map("lifetime_granted")
+  lifetimeSpent    Int      @default(0) @map("lifetime_spent")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@map("billing_point_balances")
+}
+
+/**
+ * Append-only points ledger. Balance is the running sum; a claim key makes
+ * debits, credits, and refunds idempotent so queue replays and duplicate
+ * webhooks never double-charge or double-grant.
+ */
+model BillingPointLedger {
+  id               String    @id @default(uuid()) @db.Uuid
+  billingAccountId String    @map("billing_account_id") @db.Uuid
+  direction        String    // "credit" | "debit"
+  reason           String    // "topup" | "trial_grant" | "spend" | "refund"
+  metric           String?   // action metric for spends
+  points           Int       // positive magnitude
+  balanceAfter     Int       @map("balance_after")
+  claimKey         String    @map("claim_key") // idempotency key
+  transactionId    String?   @map("transaction_id") @db.Uuid // for top-ups
+  expiresAt        DateTime? @map("expires_at") // for credits (rollover/expiry)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([billingAccountId, claimKey])
+  @@index([billingAccountId, createdAt])
+  @@map("billing_point_ledger")
 }
 
 model BillingPrice {
@@ -187,6 +233,7 @@ model BillingPrice {
   amountEgp     Int       @map("amount_egp")
   currency      String    @default("EGP")
   periodDays    Int       @map("period_days")
+  pointsGranted Int?      @map("points_granted")
   public        Boolean   @default(true)
   displayNameEn String    @map("display_name_en")
   displayNameAr String    @map("display_name_ar")

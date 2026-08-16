@@ -207,19 +207,32 @@ describe("envSchema billing provider configuration", () => {
   it("requires the Paymob merchant boundary before enabling Paymob", () => {
     expect(() =>
       envSchema({ ...validConfig(), BILLING_PROVIDER: "paymob" }),
-    ).toThrow("PAYMOB_API_KEY is required when BILLING_PROVIDER=paymob");
+    ).toThrow("PAYMOB_SECRET_KEY is required when BILLING_PROVIDER=paymob");
   });
 
   it("accepts a configured Paymob sandbox boundary", () => {
     const config = {
       ...validConfig(),
       BILLING_PROVIDER: "paymob",
-      PAYMOB_API_KEY: "secret",
+      PAYMOB_SECRET_KEY: "secret",
       PAYMOB_PUBLIC_KEY: "pk_test_123",
       PAYMOB_INTEGRATION_IDS: "987",
       PAYMOB_HMAC_SECRET: "hmac",
     };
 
     expect(envSchema(config)).toBe(config);
+  });
+
+  it("does not accept the legacy API Key in place of the Secret Key", () => {
+    expect(() =>
+      envSchema({
+        ...validConfig(),
+        BILLING_PROVIDER: "paymob",
+        PAYMOB_API_KEY: "legacy",
+        PAYMOB_PUBLIC_KEY: "pk_test_123",
+        PAYMOB_INTEGRATION_IDS: "987",
+        PAYMOB_HMAC_SECRET: "hmac",
+      }),
+    ).toThrow("PAYMOB_SECRET_KEY is required when BILLING_PROVIDER=paymob");
   });
 });

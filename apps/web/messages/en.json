@@ -1520,31 +1520,48 @@
           "no": "01",
           "label": "Receive business data",
           "desc": "You enter your business name, category, and location — the starting point for research.",
-          "chips": ["Name", "Category", "Location"]
+          "chips": [
+            "Name",
+            "Category",
+            "Location"
+          ]
         },
         {
           "no": "02",
           "label": "Plan and run research",
           "desc": "We turn your intake into search queries and run them against real sources.",
-          "chips": ["Search sources", "Local directories", "Fallbacks"]
+          "chips": [
+            "Search sources",
+            "Local directories",
+            "Fallbacks"
+          ]
         },
         {
           "no": "03",
           "label": "Filter evidence",
           "desc": "We remove unrelated results and keep relevant findings with their sources.",
-          "chips": ["Filtering", "Source mapping"]
+          "chips": [
+            "Filtering",
+            "Source mapping"
+          ]
         },
         {
           "no": "04",
           "label": "First research-backed question",
           "desc": "We ask a question that completes the picture, based on what was found.",
-          "chips": ["Smart question", "Research context"]
+          "chips": [
+            "Smart question",
+            "Research context"
+          ]
         },
         {
           "no": "05",
           "label": "Confirmed profile",
           "desc": "Every fact you confirm is saved as a trusted business profile fact.",
-          "chips": ["Owner confirmation", "Evidence saved"]
+          "chips": [
+            "Owner confirmation",
+            "Evidence saved"
+          ]
         }
       ]
     },
@@ -1964,73 +1981,52 @@
   },
   "Billing": {
     "eyebrow": "Owner billing",
-    "title": "Keep your growth work moving",
-    "subtitle": "One clear plan in Egyptian pounds, with the renewal date and included work visible before you pay.",
-    "sandboxLabel": "Sandbox payment",
-    "sandboxBody": "This checkout is a local sandbox. A live Paymob or Geidea merchant connection is still a launch gate.",
-    "trialLabel": "Current access",
-    "growthLabel": "Growth",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
-    "perMonth": "/ month",
-    "perYear": "/ year",
-    "saveTwoMonths": "Two months free",
-    "chooseMonthly": "Start monthly checkout",
-    "chooseYearly": "Start yearly checkout",
-    "includedTitle": "Included in Growth",
-    "includedContent": "20 content items in a rolling 30 days",
-    "includedImages": "12 generated static images per period",
-    "includedRevisions": "2 revisions per content item",
-    "metricDiscovery": "Discovery profiles",
-    "metricStrategyCycle": "Strategy cycles",
-    "metricStrategyRevision": "Strategy revisions",
-    "metricContentItems": "Content items",
-    "metricContentRevisions": "Content revisions",
-    "metricStaticImages": "Static images",
-    "metricConnectedTargets": "Connected targets",
-    "paymentMethods": "Eligible cards, local wallets, or reference payments appear only after the merchant account enables and tests them.",
-    "statusLabel": "Subscription status",
-    "status": {
-      "trialing": "Trial is active",
-      "active": "Growth is active",
-      "past_due": "Payment needs attention",
-      "paused": "Billing is paused",
-      "cancel_at_period_end": "Renewal is turned off",
-      "expired": "Access has expired",
-      "refunded": "Payment was refunded",
-      "checkout_pending": "Checkout is waiting"
-    },
-    "renewal": "Renewal",
-    "renewalNone": "No automatic renewal",
-    "paidThrough": "Paid through {date}",
-    "graceEnds": "Grace period ends {date}",
-    "trialEnds": "Trial ends {date}",
-    "cancel": "Stop automatic renewal",
-    "resume": "Resume renewal",
-    "cancelled": "Renewal is off. Access continues through {date}.",
-    "usageTitle": "Included usage",
-    "usageEmpty": "No billable work recorded yet.",
-    "usedOf": "{used} of {limit}",
-    "remaining": "{remaining} remaining",
+    "title": "Points for your growth work",
+    "subtitle": "Buy a bundle of points, and every AI action spends a fixed published amount. Points roll over — only generation spends them.",
+    "loading": "Loading billing…",
+    "loadError": "Could not load billing. Try again.",
+    "retry": "Try again",
+    "error": "We could not complete that billing action. Try again.",
+    "balanceLabel": "Your balance",
+    "balanceCount": "{points, plural, one{You have {points} point} other{You have {points} points}}",
+    "lifetimeGranted": "Total points granted: {points}",
+    "lifetimeSpent": "Points used: {points}",
+    "topUp": "Buy points",
+    "bundlesTitle": "Points bundles",
+    "bundlesBody": "One-time payment in Egyptian pounds. Points appear only after the payment is confirmed.",
+    "bundlePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "bundlePerPoint": "{perPoint} per point",
+    "bundleBuy": "Buy for {amount}",
+    "bestValue": "Best value",
+    "ledgerTitle": "Points history",
+    "ledgerEmpty": "No point activity yet. Your welcome bonus and purchases will show up here.",
+    "ledgerTopup": "Points purchased",
+    "ledgerTrialGrant": "Welcome bonus",
+    "ledgerSpend": "Used for AI work",
+    "ledgerRefund": "Refund",
+    "ledgerBalanceAfter": "Balance after: {points}",
+    "priceMenuTitle": "What actions cost",
+    "priceMenuBody": "One fixed price per successful action. Failed or retried attempts never charge you.",
+    "pricePost": "Generate a post",
+    "pricePostRevision": "Revise a post",
+    "priceImage": "Generate an image",
+    "priceStrategy": "Strategy phase",
+    "priceStrategyRevision": "Strategy revision",
+    "priceDiscovery": "Discovery chat",
+    "priceFree": "Free",
+    "pricePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "lowBalanceTitle": "Balance running low",
+    "lowBalanceBody": "You have {points} points left. Buy a bundle to keep AI work moving.",
+    "lowBalanceCta": "Top up 150 points",
+    "rolloverTitle": "Points roll over",
+    "rolloverBody": "Purchased points roll over across top-ups. Only AI generation spends points — viewing and editing your work stays free.",
     "transactionsTitle": "Payment history",
     "transactionCharge": "Charge",
     "transactionRefund": "Refund",
     "transactionChargeback": "Chargeback",
-    "transactionPending": "Pending",
     "transactionSucceeded": "Confirmed",
     "transactionFailed": "Failed",
-    "checkoutPending": "Checkout created. Confirm the sandbox payment below to test the verified webhook path.",
-    "sandboxConfirm": "Confirm sandbox payment",
-    "sandboxFail": "Mark sandbox payment failed",
-    "checkoutConfirmed": "Payment confirmed. Billing access is now active.",
-    "loadError": "Could not load billing. Try again.",
-    "retry": "Try again",
-    "loading": "Loading billing…",
-    "notAvailable": "Not available",
-    "error": "We could not complete that billing action. Try again.",
-    "finalPriceNote": "Final payable amount is shown in EGP. Advertising spend is separate.",
-    "trialNote": "The trial needs no card and never converts automatically.",
-    "liveGate": "Live payment activation requires merchant approval and signed provider webhooks."
+    "transactionPending": "Pending"
   },
   "ContentCycle": {
     "metadata": {

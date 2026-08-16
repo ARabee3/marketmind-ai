@@ -45,6 +45,7 @@ from app.content.assembler import (
 )
 from app.content.circuit_breaker import CircuitBreaker
 from app.content.service import (
+    MAX_CONTENT_ATTEMPTS,
     generate_content_pack_with_repair,
     revise_content_item_with_repair,
 )
@@ -685,6 +686,7 @@ async def generate_v2_content_pack(
     request: AiContentV2GenerateRequest,
     provider: ContentLLMProvider,
     breaker: CircuitBreaker | None,
+    max_attempts: int = MAX_CONTENT_ATTEMPTS,
 ) -> AiContentV2GenerateResponse:
     """Run the full-draft worker against the frozen snapshot."""
     v1_request = v2_generate_to_v1_request(request)
@@ -710,6 +712,7 @@ async def generate_v2_content_pack(
             generated,
         ),
         final_output_normalizer=_normalize_v2_finalized_items,
+        max_attempts=max_attempts,
     )
     validation = _validate_v2_generated_items(request, v1_request, items)
     if not validation.valid:

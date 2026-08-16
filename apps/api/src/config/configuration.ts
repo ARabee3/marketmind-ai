@@ -222,7 +222,10 @@ export const configuration = () => ({
     provider: process.env.BILLING_PROVIDER || "fake",
     paymob: {
       baseUrl: process.env.PAYMOB_BASE_URL || "https://accept.paymob.com",
-      apiKey: process.env.PAYMOB_API_KEY || "",
+      // The Intention API authenticates with the dashboard "Secret Key"
+      // (PAYMOB_SECRET_KEY), NOT the legacy "API Key" (PAYMOB_API_KEY). The
+      // API Key is intentionally not read here; see .env.example.
+      secretKey: process.env.PAYMOB_SECRET_KEY || "",
       publicKey: process.env.PAYMOB_PUBLIC_KEY || "",
       integrationIds: (process.env.PAYMOB_INTEGRATION_IDS || "")
         .split(",")

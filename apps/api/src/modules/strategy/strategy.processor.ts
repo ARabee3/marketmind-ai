@@ -219,6 +219,18 @@ export class StrategyProcessor extends WorkerHost {
         `strategy-cycle:${strategyId}:${retrievalRunId}`,
         strategy.businessId,
       );
+      await this.billingEntitlements?.recordProviderCost(
+        strategy.ownerUserId,
+        {
+          metric: "strategy_cycle",
+          logicalArtifactKey: `strategy-cycle:${strategyId}:${retrievalRunId}`,
+          businessId: strategy.businessId,
+          provider: "ai-service",
+          model: null,
+          successfulArtifact: true,
+          retryCount: job.attemptsMade ?? 0,
+        },
+      );
 
       this.logger.log(
         `[Corr: ${correlationId}] Saved StrategyVersion ${version.id} (→ draft)`,
@@ -235,6 +247,22 @@ export class StrategyProcessor extends WorkerHost {
       this.logger.error(
         `[Corr: ${correlationId}] Generation failed: ${errorMessage(error)}`,
       );
+      // The phase reserve (50 pts) was taken when the owner committed; a
+      // terminal failure must not keep the owner's points for work that never
+      // produced a strategy.
+      try {
+        const failedStrategy = await this.strategyRepository.readStrategy(
+          strategyId,
+        );
+        await this.billingEntitlements?.refund(
+          failedStrategy?.ownerUserId ?? "",
+          `strategy-cycle:${strategyId}:${retrievalRunId}`,
+        );
+      } catch (refundError: unknown) {
+        this.logger.warn(
+          `[Corr: ${correlationId}] Could not refund strategy cycle reserve: ${errorMessage(refundError)}`,
+        );
+      }
       await this.safeFail(
         strategyId,
         correlationId,
@@ -523,6 +551,18 @@ export class StrategyProcessor extends WorkerHost {
           1,
           `strategy-revision:${strategyId}:${priorVersionId}:${retrievalRunId}`,
           strategy.businessId,
+        );
+        await this.billingEntitlements?.recordProviderCost(
+          strategy.ownerUserId,
+          {
+            metric: "strategy_revision",
+            logicalArtifactKey: `strategy-revision:${strategyId}:${priorVersionId}:${retrievalRunId}`,
+            businessId: strategy.businessId,
+            provider: "ai-service",
+            model: null,
+            successfulArtifact: true,
+            retryCount: job.attemptsMade ?? 0,
+          },
         );
       }
 

@@ -4,14 +4,16 @@ export type MockUser = {
   id: string
   fullName: string
   email: string
-  role: 'owner'
+  roles: Role[]
 }
+
+export type Role = 'OWNER' | 'ADMIN' | 'DEVELOPER_DEMO'
 
 export const mockUser: MockUser = {
   id: 'user-1',
   fullName: 'Ahmed Hassan',
   email: 'ahmed@example.com',
-  role: 'owner',
+  roles: ['OWNER'],
 }
 
 export const mockAccessToken = 'mock-access-token'

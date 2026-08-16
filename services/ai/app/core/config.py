@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     )
     ai_orchestration_trace_timeout_ms: int = Field(default=500, ge=50, le=10_000)
     ai_request_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
+    # End-to-end provider-call budget for one logical artifact. NestJS retries
+    # the whole request up to 3 times, so the AI service must not multiply
+    # that with its own loop — 3(queue) x 3(service) would hit the provider
+    # up to 9 times. One bounded attempt-set means at most 3 provider calls.
+    ai_generation_attempts: int = Field(default=1, ge=1, le=5)
     discovery_triage_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     openai_api_key: str = ""
     openai_model: str = ""
@@ -43,8 +48,11 @@ class Settings(BaseSettings):
 
     # Static-image provider configuration. The image provider is deliberately
     # separate from text generation so unavailable media remains explicit.
+    # Production runs IMAGE_PROVIDER_MODE=openrouter with the fixed-size
+    # Gemini flash-image model (1024x1024 only) so every image costs the same
+    # flat amount; the mock default is development-only.
     image_provider_mode: ImageProviderMode = "mock"
-    image_model: str = "gpt-image-1"
+    image_model: str = "google/gemini-3.1-flash-image"
     image_request_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     content_asset_storage_dir: str = ""
 

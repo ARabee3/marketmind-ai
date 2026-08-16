@@ -1520,31 +1520,48 @@
           "no": "01",
           "label": "استقبال بيانات النشاط",
           "desc": "بتكتب اسم نشاطك ومجاله وموقعه — دي نقطة البداية للبحث.",
-          "chips": ["الاسم", "المجال", "الموقع"]
+          "chips": [
+            "الاسم",
+            "المجال",
+            "الموقع"
+          ]
         },
         {
           "no": "02",
           "label": "تخطيط البحث وتنفيذه",
           "desc": "بنحوّل بياناتك لاستعلامات بحث ونشغّلها على مصادر حقيقية.",
-          "chips": ["مصادر بحث", "دلائل محلية", "مصادر احتياطية"]
+          "chips": [
+            "مصادر بحث",
+            "دلائل محلية",
+            "مصادر احتياطية"
+          ]
         },
         {
           "no": "03",
           "label": "فلترة الأدلة",
           "desc": "بنشيل النتائج غير المرتبطة ونحتفظ باللي ليه علاقة بنشاطك بمصدره.",
-          "chips": ["تصفية", "ربط بالمصدر"]
+          "chips": [
+            "تصفية",
+            "ربط بالمصدر"
+          ]
         },
         {
           "no": "04",
           "label": "أول سؤال مبني على البحث",
           "desc": "بنسألك سؤال يكمّل الصورة، مش سؤال عام — مبني على اللي لقيناه.",
-          "chips": ["سؤال ذكي", "سياق البحث"]
+          "chips": [
+            "سؤال ذكي",
+            "سياق البحث"
+          ]
         },
         {
           "no": "05",
           "label": "بروفايل مؤكد",
           "desc": "كل معلومة اتأكدت منك بتتحفظ كحقيقة مؤكدة في بروفايل نشاطك.",
-          "chips": ["تأكيد المالك", "حفظ الأدلة"]
+          "chips": [
+            "تأكيد المالك",
+            "حفظ الأدلة"
+          ]
         }
       ]
     },
@@ -1590,7 +1607,12 @@
       ]
     },
     "sample": {
-      "sourceNotes": ["مصدر بحث عام", "دليل محلي", "رابط رسمي", "سؤال مراجعة"],
+      "sourceNotes": [
+        "مصدر بحث عام",
+        "دليل محلي",
+        "رابط رسمي",
+        "سؤال مراجعة"
+      ],
       "eyebrow": "عيّنة توضيحية",
       "name": "حلويات ورد وسكر",
       "meta": "محل حلويات افتراضي في مدينة افتراضية —",
@@ -1959,73 +1981,52 @@
   },
   "Billing": {
     "eyebrow": "فواتير صاحب النشاط",
-    "title": "كمّل شغل النمو بتاعك",
-    "subtitle": "خطة واحدة واضحة بالجنيه المصري، مع تاريخ التجديد والاستخدام المشمول ظاهرين قبل الدفع.",
-    "sandboxLabel": "دفع تجريبي",
-    "sandboxBody": "ده Checkout تجريبي محلي. الربط الحقيقي مع Paymob أو Geidea لسه من شروط الإطلاق.",
-    "trialLabel": "الوصول الحالي",
-    "growthLabel": "نمو",
-    "monthly": "شهري",
-    "yearly": "سنوي",
-    "perMonth": "/ شهر",
-    "perYear": "/ سنة",
-    "saveTwoMonths": "شهرين مجانًا",
-    "chooseMonthly": "ابدأ الدفع الشهري",
-    "chooseYearly": "ابدأ الدفع السنوي",
-    "includedTitle": "المشمول في نمو",
-    "includedContent": "٢٠ قطعة محتوى خلال ٣٠ يوم متحرك",
-    "includedImages": "١٢ صورة ثابتة مولدة في الفترة",
-    "includedRevisions": "تعديلين لكل قطعة محتوى",
-    "metricDiscovery": "ملفات الاستكشاف",
-    "metricStrategyCycle": "دورات الاستراتيجية",
-    "metricStrategyRevision": "تعديلات الاستراتيجية",
-    "metricContentItems": "قطع المحتوى",
-    "metricContentRevisions": "تعديلات المحتوى",
-    "metricStaticImages": "الصور الثابتة",
-    "metricConnectedTargets": "القنوات المتصلة",
-    "paymentMethods": "البطاقات المؤهلة والمحافظ المحلية أو الدفع بمرجع هتظهر بس بعد تفعيلها واختبارها على حساب التاجر.",
-    "statusLabel": "حالة الاشتراك",
-    "status": {
-      "trialing": "التجربة مفعّلة",
-      "active": "خطة نمو مفعّلة",
-      "past_due": "الدفع محتاج متابعة",
-      "paused": "الفوترة متوقفة مؤقتًا",
-      "cancel_at_period_end": "التجديد متوقف",
-      "expired": "الوصول انتهى",
-      "refunded": "تم رد المبلغ",
-      "checkout_pending": "الدفع في الانتظار"
-    },
-    "renewal": "التجديد",
-    "renewalNone": "من غير تجديد تلقائي",
-    "paidThrough": "الوصول مستمر لحد {date}",
-    "graceEnds": "فترة السماح تنتهي {date}",
-    "trialEnds": "التجربة تنتهي {date}",
-    "cancel": "إيقاف التجديد التلقائي",
-    "resume": "استئناف التجديد",
-    "cancelled": "التجديد متوقف. الوصول مستمر لحد {date}.",
-    "usageTitle": "الاستخدام المشمول",
-    "usageEmpty": "مفيش شغل مدفوع متسجل لسه.",
-    "usedOf": "{used} من {limit}",
-    "remaining": "متبقي {remaining}",
-    "transactionsTitle": "سجل المدفوعات",
-    "transactionCharge": "دفع",
-    "transactionRefund": "رد مبلغ",
-    "transactionChargeback": "اعتراض على الدفع",
-    "transactionPending": "في الانتظار",
-    "transactionSucceeded": "تم التأكيد",
-    "transactionFailed": "فشل",
-    "checkoutPending": "تم إنشاء الدفع. أكد الدفع التجريبي تحت عشان نختبر مسار الـ webhook المؤكد.",
-    "sandboxConfirm": "تأكيد الدفع التجريبي",
-    "sandboxFail": "تسجيل فشل الدفع التجريبي",
-    "checkoutConfirmed": "تم تأكيد الدفع. الوصول للفوترة بقى مفعّل.",
+    "title": "نقاط لشغل النمو بتاعك",
+    "subtitle": "اشترِ باقة نقاط، وكل إجراء ذكاء اصطناعي بيصرف عدد نقاط ثابت معلن. النقاط بتراكم — التوليد بس هو اللي بيصرف.",
+    "loading": "جارٍ تحميل الفوترة…",
     "loadError": "تعذر تحميل الفوترة. جرّب مرة تانية.",
     "retry": "جرّب مرة تانية",
-    "loading": "جارٍ تحميل الفوترة…",
-    "notAvailable": "غير متاح",
     "error": "مقدرناش نكمل إجراء الفوترة. جرّب مرة تانية.",
-    "finalPriceNote": "المبلغ النهائي ظاهر بالجنيه المصري. ميزانية الإعلانات منفصلة.",
-    "trialNote": "التجربة مش محتاجة بطاقة ومبتتحولش تلقائيًا لاشتراك مدفوع.",
-    "liveGate": "تفعيل الدفع الحقيقي محتاج موافقة التاجر وwebhooks موقعة من مزود الدفع."
+    "balanceLabel": "رصيدك",
+    "balanceCount": "{points, plural, zero{مفيش نقاط عندك} one{عندك نقطة واحدة} two{عندك نقطتان} few{عندك {points} نقاط} many{عندك {points} نقطة} other{عندك {points} نقطة}}",
+    "lifetimeGranted": "إجمالي النقاط الممنوحة: {points}",
+    "lifetimeSpent": "النقاط المستهلكة: {points}",
+    "topUp": "اشترِ نقاط",
+    "bundlesTitle": "باقات النقاط",
+    "bundlesBody": "دفعة واحدة بالجنيه المصري. النقاط بتتضاف بعد تأكيد الدفع بس.",
+    "bundlePoints": "{points} نقطة",
+    "bundlePerPoint": "{perPoint} للنقطة",
+    "bundleBuy": "اشترِ بـ {amount}",
+    "bestValue": "أفضل قيمة",
+    "ledgerTitle": "سجل النقاط",
+    "ledgerEmpty": "لسه مفيش نشاط نقاط. المكافأة الترحيبية والمشتريات هتظهر هنا.",
+    "ledgerTopup": "شراء نقاط",
+    "ledgerTrialGrant": "مكافأة ترحيبية",
+    "ledgerSpend": "مصروفة في شغل الذكاء الاصطناعي",
+    "ledgerRefund": "استرداد",
+    "ledgerBalanceAfter": "الرصيد بعد: {points}",
+    "priceMenuTitle": "سعر الإجراءات",
+    "priceMenuBody": "سعر ثابت لكل إجراء ناجح. المحاولات الفاشلة أو المعاد إجراؤها لا تُحسب عليك.",
+    "pricePost": "توليد منشور",
+    "pricePostRevision": "مراجعة منشور",
+    "priceImage": "توليد صورة",
+    "priceStrategy": "مرحلة الاستراتيجية",
+    "priceStrategyRevision": "مراجعة الاستراتيجية",
+    "priceDiscovery": "محادثة الاكتشاف",
+    "priceFree": "مجانًا",
+    "pricePoints": "{points} نقطة",
+    "lowBalanceTitle": "الرصيد قرب يخلص",
+    "lowBalanceBody": "فضل عندك {points} نقطة. اشترِ باقة عشان شغل الذكاء الاصطناعي يفضل شغال.",
+    "lowBalanceCta": "اشحن 150 نقطة",
+    "rolloverTitle": "النقاط بتراكم",
+    "rolloverBody": "النقاط المشتراة بتراكم مع كل شحنة. توليد الذكاء الاصطناعي بس هو اللي بيصرف — العرض والتعديل على شغلك مجانًا دائمًا.",
+    "transactionsTitle": "سجل المدفوعات",
+    "transactionCharge": "دفع",
+    "transactionRefund": "استرداد",
+    "transactionChargeback": "استرجاع",
+    "transactionSucceeded": "تم التأكيد",
+    "transactionFailed": "فشل",
+    "transactionPending": "قيد الانتظار"
   },
   "ContentCycle": {
     "metadata": {

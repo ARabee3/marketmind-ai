@@ -413,7 +413,9 @@ async def test_v2_generation_spends_repair_on_unsafe_copy_not_shape_noise() -> N
             return invalid_items if self.calls == 1 else valid_items
 
     provider = RepairOnceProvider()
-    response = await generate_v2_content_pack(request, provider, breaker=None)
+    response = await generate_v2_content_pack(
+        request, provider, breaker=None, max_attempts=3
+    )
 
     assert provider.calls == 2
     assert response.validation.valid is True
