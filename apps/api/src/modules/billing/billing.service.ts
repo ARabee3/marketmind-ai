@@ -10,25 +10,25 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
-  BILLING_CATALOG,
-  billingLimitForMetric,
-  getBillingPrice,
-  getPublicBillingCatalog,
-  type BillingCatalogPrice,
+  BILLING_BUNDLES,
+  LOW_BALANCE_THRESHOLD_POINTS,
+  TRIAL_GRANT_POINTS,
+  getBillingBundle,
+  pointsForMetric,
   type BillingCheckoutRequest,
   type BillingCheckoutResponse,
   type BillingMetric,
   type BillingPaymentMode,
-  type BillingSubscriptionResponse,
-  type BillingTransactionResponse,
+  type BillingPointBundle,
+  type BillingPointLedgerEntry,
+  type BillingPointLedgerResponse,
   type BillingTransactionsResponse,
-  type BillingUsageResponse,
+  type BillingTransactionResponse,
+  type BillingWalletResponse,
 } from "@marketmind/contracts";
 import { createHash, randomUUID } from "node:crypto";
 import { PrismaService } from "../../common/persistence/prisma.service";
-import {
-  FakePaymentProvider,
-} from "./fake-payment.provider";
+import { FakePaymentProvider } from "./fake-payment.provider";
 import { ConfigService } from "@nestjs/config";
 import {
   PAYMENT_PROVIDER,
@@ -37,10 +37,6 @@ import {
   type PaymentProviderEvent,
   type PaymentProviderPort,
 } from "./payment-provider.port";
-
-type SubscriptionWithPrice = Prisma.BillingSubscriptionGetPayload<{
-  include: { price: true };
-}>;
 
 type CheckoutWithPrice = Prisma.BillingCheckoutAttemptGetPayload<{
   include: { price: true };
@@ -64,6 +60,28 @@ export type BillingWebhookResult = {
   readonly duplicate: boolean;
 };
 
+export type ProviderCostRecord = {
+  readonly metric: BillingMetric;
+  readonly logicalArtifactKey: string;
+  readonly businessId?: string;
+  readonly provider: string;
+  readonly model: string | null;
+  readonly inputUnits?: number;
+  readonly outputUnits?: number;
+  readonly nativeCost?: number;
+  readonly nativeCurrency?: string;
+  readonly egpRate?: number;
+  readonly egpCost?: number;
+  readonly successfulArtifact: boolean;
+  readonly retryCount: number;
+};
+
+/**
+ * Prepaid points wallet. The owner buys a fixed EGP bundle via a one-time
+ * hosted checkout; every successful AI action spends a fixed, published
+ * number of points. The ledger is append-only and claim-key idempotent, so
+ * queue replays and duplicate webhooks never double-charge or double-grant.
+ */
 @Injectable()
 export class BillingService {
   constructor(
@@ -74,113 +92,64 @@ export class BillingService {
     private readonly fakePaymentProvider: FakePaymentProvider,
   ) {}
 
-  getPrices() {
-    return getPublicBillingCatalog();
-  }
-
-  async getSubscription(userId: string): Promise<BillingSubscriptionResponse> {
-    const account = await this.ensureBillingAccount(userId);
-    let subscription = await this.findLatestSubscription(account.id);
-
-    if (!subscription) {
-      throw new InternalServerErrorException("Billing trial could not be created");
-    }
-
-    const refreshedState = await this.refreshStateIfExpired(subscription);
-    subscription = refreshedState.subscription;
-    return toSubscriptionResponse(account.id, subscription);
-  }
-
-  async getUsage(userId: string): Promise<BillingUsageResponse> {
-    const account = await this.ensureBillingAccount(userId);
-    const subscription = await this.findLatestSubscription(account.id);
-    if (!subscription) {
-      throw new InternalServerErrorException("Billing trial could not be created");
-    }
-
-    const refreshed = await this.refreshStateIfExpired(subscription);
-    const price = refreshed.subscription.price;
-    const { periodStart, periodEnd } = usagePeriod(refreshed.subscription);
-    const rows = await this.prisma.billingUsageLedger.findMany({
-      where: {
-        billingAccountId: account.id,
-        periodStart,
-        periodEnd,
-      },
-    });
-
-    const metrics: BillingMetric[] = [
-      "discovery",
-      "strategy_cycle",
-      "strategy_revision",
-      "content_item",
-      "content_revision",
-      "static_image",
-      "publication_target",
-    ];
-
+  getBundles() {
     return {
-      state: refreshed.subscription.state as BillingUsageResponse["state"],
-      plan_code: price.planCode as BillingUsageResponse["plan_code"],
-      metrics: metrics.map((metric) => {
-        const used = rows
-          .filter((row) => row.metric === metric)
-          .reduce((total, row) => total + row.units, 0);
-        const limit = billingLimitForMetric(
-          price.entitlements as BillingCatalogPrice["entitlements"],
-          metric,
-        );
-        return {
-          metric,
-          used,
-          limit,
-          remaining: Math.max(0, limit - used),
-          period_start: periodStart.toISOString(),
-          period_end: periodEnd.toISOString(),
-        };
-      }),
+      version: "billing-bundles-v1",
+      currency: "EGP",
+      bundles: BILLING_BUNDLES,
+    };
+  }
+
+  async getWallet(userId: string): Promise<BillingWalletResponse> {
+    const account = await this.ensureBillingAccount(userId);
+    const balance = await this.prisma.billingPointBalance.findUnique({
+      where: { billingAccountId: account.id },
+    });
+    if (!balance) {
+      throw new InternalServerErrorException("Billing wallet could not be created");
+    }
+    return {
+      billing_account_id: account.id,
+      balance: balance.balance,
+      lifetime_granted: balance.lifetimeGranted,
+      lifetime_spent: balance.lifetimeSpent,
+      low_balance: balance.balance < LOW_BALANCE_THRESHOLD_POINTS,
+    };
+  }
+
+  async getLedger(userId: string): Promise<BillingPointLedgerResponse> {
+    const account = await this.ensureBillingAccount(userId);
+    const rows = await this.prisma.billingPointLedger.findMany({
+      where: { billingAccountId: account.id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    return {
+      entries: rows.map(toLedgerEntry),
     };
   }
 
   /**
-   * Records a successful, customer-visible artifact against an idempotent
-   * logical claim. The account row is locked for the short transaction so two
-   * workers cannot both spend the same remaining entitlement. A replay of the
-   * same claim key is a no-op.
+   * Debits points for a successful (or reserved) customer-visible artifact.
+   * The account row is locked for the short transaction so concurrent workers
+   * cannot overspend. A replay of the same claim key is a no-op.
    */
-  async recordUsage(
+  async spendPoints(
     userId: string,
     metric: BillingMetric,
     units: number,
     claimKey: string,
-    businessId?: string,
   ): Promise<void> {
     if (!Number.isSafeInteger(units) || units <= 0) {
       throw new BillingDomainException(
-        "BILLING_ENTITLEMENT_EXHAUSTED",
-        "Usage units must be a positive whole number.",
+        "BILLING_INSUFFICIENT_POINTS",
+        "Points units must be a positive whole number.",
       );
     }
+    const points = pointsForMetric(metric, units);
+    if (points <= 0) return;
 
     const account = await this.ensureBillingAccount(userId);
-    const subscription = await this.findLatestSubscription(account.id);
-    if (!subscription) {
-      throw new InternalServerErrorException("Billing subscription is missing");
-    }
-    const refreshed = await this.refreshStateIfExpired(subscription);
-    if (!isAccessState(refreshed.subscription.state)) {
-      throw new BillingDomainException(
-        refreshed.subscription.state === "expired"
-          ? "BILLING_TRIAL_EXPIRED"
-          : "BILLING_ENTITLEMENT_EXHAUSTED",
-        "Billing access is not active for new work.",
-      );
-    }
-
-    const { periodStart, periodEnd } = usagePeriod(refreshed.subscription);
-    const entitlements = refreshed.subscription.price.entitlements as BillingCatalogPrice["entitlements"];
-    const limit = billingLimitForMetric(entitlements, metric);
-
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`
         SELECT "id"
@@ -189,76 +158,202 @@ export class BillingService {
         FOR UPDATE
       `;
 
-      const existing = await tx.billingUsageLedger.findUnique({
+      const existing = await tx.billingPointLedger.findUnique({
         where: {
-          billingAccountId_metric_periodStart_claimKey: {
+          billingAccountId_claimKey: {
             billingAccountId: account.id,
-            metric,
-            periodStart,
             claimKey,
           },
         },
       });
       if (existing) return;
 
-      const aggregate = await tx.billingUsageLedger.aggregate({
-        where: {
-          billingAccountId: account.id,
-          metric,
-          periodStart,
-          periodEnd,
-        },
-        _sum: { units: true },
+      const balance = await tx.billingPointBalance.findUnique({
+        where: { billingAccountId: account.id },
       });
-      const used = aggregate._sum.units ?? 0;
-      if (used + units > limit) {
+      if (!balance) {
+        throw new InternalServerErrorException("Billing wallet is missing");
+      }
+      if (balance.balance < points) {
         throw new BillingDomainException(
-          "BILLING_ENTITLEMENT_EXHAUSTED",
-          "This plan limit has been reached for the current period.",
+          "BILLING_INSUFFICIENT_POINTS",
+          "Not enough points for this action. Top up to continue.",
         );
       }
 
-      await tx.billingUsageLedger.create({
+      const balanceAfter = balance.balance - points;
+      await tx.billingPointBalance.update({
+        where: { billingAccountId: account.id },
         data: {
-          id: randomUUID(),
-          billingAccountId: account.id,
-          businessId,
-          metric,
-          periodStart,
-          periodEnd,
-          units,
-          claimKey,
+          balance: balanceAfter,
+          lifetimeSpent: { increment: points },
         },
       });
+      try {
+        await tx.billingPointLedger.create({
+          data: {
+            id: randomUUID(),
+            billingAccountId: account.id,
+            direction: "debit",
+            reason: "spend",
+            metric,
+            points,
+            balanceAfter,
+            claimKey,
+          },
+        });
+      } catch (error) {
+        // A concurrent worker may have claimed the same key between the read
+        // and create; treat the replay as a no-op.
+        if (!isPrismaUniqueError(error)) throw error;
+      }
     });
   }
 
   /**
-   * Releases usage ledger rows consumed by a strategy cycle that no longer
-   * exists. An owner rejection deletes the whole cycle, so entitlement
-   * accounting for that deleted work must not block the owner from starting
-   * over with a fresh strategy. Idempotent: cycles that were never recorded
-   * match zero rows.
+   * Reverses a spend by claim key (credit "refund"), idempotent via the
+   * derived `refund:<claimKey>` ledger claim. A claim key with no matching
+   * debit is a no-op.
    */
-  async releaseUsageForStrategy(
-    userId: string,
-    strategyId: string,
-  ): Promise<void> {
+  async refundPoints(userId: string, claimKey: string): Promise<void> {
     const account = await this.ensureBillingAccount(userId);
-    await this.prisma.billingUsageLedger.deleteMany({
+    const refundKey = `refund:${claimKey}`;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "billing_accounts"
+        WHERE "id" = ${account.id}::uuid
+        FOR UPDATE
+      `;
+
+      const existingRefund = await tx.billingPointLedger.findUnique({
+        where: {
+          billingAccountId_claimKey: {
+            billingAccountId: account.id,
+            claimKey: refundKey,
+          },
+        },
+      });
+      if (existingRefund) return;
+
+      const spend = await tx.billingPointLedger.findUnique({
+        where: {
+          billingAccountId_claimKey: {
+            billingAccountId: account.id,
+            claimKey,
+          },
+        },
+      });
+      if (!spend || spend.direction !== "debit") return;
+
+      const balance = await tx.billingPointBalance.findUnique({
+        where: { billingAccountId: account.id },
+      });
+      if (!balance) {
+        throw new InternalServerErrorException("Billing wallet is missing");
+      }
+      const balanceAfter = balance.balance + spend.points;
+      await tx.billingPointBalance.update({
+        where: { billingAccountId: account.id },
+        data: { balance: balanceAfter },
+      });
+      try {
+        await tx.billingPointLedger.create({
+          data: {
+            id: randomUUID(),
+            billingAccountId: account.id,
+            direction: "credit",
+            reason: "refund",
+            metric: spend.metric,
+            points: spend.points,
+            balanceAfter,
+            claimKey: refundKey,
+          },
+        });
+      } catch (error) {
+        if (!isPrismaUniqueError(error)) throw error;
+      }
+    });
+  }
+
+  /**
+   * Refunds the strategy-phase reserve for a deleted/abandoned cycle. The
+   * phase charge claim key embeds the retrieval run, so the latest spend for
+   * the strategy is looked up and reversed.
+   */
+  async releaseStrategyCycle(userId: string, strategyId: string): Promise<void> {
+    const account = await this.ensureBillingAccount(userId);
+    const spend = await this.prisma.billingPointLedger.findFirst({
       where: {
         billingAccountId: account.id,
-        OR: [
-          { claimKey: { startsWith: `strategy-cycle:${strategyId}:` } },
-          { claimKey: { startsWith: `strategy-revision:${strategyId}:` } },
-        ],
+        direction: "debit",
+        reason: "spend",
+        metric: "strategy_cycle",
+        claimKey: { startsWith: `strategy-cycle:${strategyId}:` },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!spend) return;
+    await this.refundPoints(userId, spend.claimKey);
+  }
+
+  /**
+   * Records provider-cost telemetry for a provider-backed run. Margins are
+   * measured against the published point menu, never guessed. Token and cost
+   * fields are populated when the AI service reports usage; the write path
+   * and snapshot version are stable.
+   */
+  async recordProviderCost(ownerUserId: string, input: ProviderCostRecord): Promise<void> {
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { ownerUserId },
+      select: { id: true },
+    });
+    if (!account) return;
+    await this.prisma.billingProviderCostLedger.upsert({
+      where: {
+        billingAccountId_logicalArtifactKey: {
+          billingAccountId: account.id,
+          logicalArtifactKey: input.logicalArtifactKey,
+        },
+      },
+      update: {
+        provider: input.provider,
+        model: input.model,
+        inputUnits: input.inputUnits ?? null,
+        outputUnits: input.outputUnits ?? null,
+        nativeCost: input.nativeCost ?? null,
+        nativeCurrency: input.nativeCurrency ?? null,
+        egpRate: input.egpRate ?? null,
+        egpCost: input.egpCost ?? null,
+        successfulArtifact: input.successfulArtifact,
+        retryCount: input.retryCount,
+      },
+      create: {
+        id: randomUUID(),
+        billingAccountId: account.id,
+        businessId: input.businessId,
+        billingPeriodStart: periodStartForCostLedger(),
+        provider: input.provider,
+        model: input.model,
+        logicalArtifactKey: input.logicalArtifactKey,
+        inputUnits: input.inputUnits ?? null,
+        outputUnits: input.outputUnits ?? null,
+        nativeCost: input.nativeCost ?? null,
+        nativeCurrency: input.nativeCurrency ?? null,
+        egpRate: input.egpRate ?? null,
+        egpCost: input.egpCost ?? null,
+        successfulArtifact: input.successfulArtifact,
+        quotaEffect: 0,
+        retryCount: input.retryCount,
+        snapshotVersion: "points-wallet-v1",
       },
     });
   }
 
   async getTransactions(
     userId: string,
-  ): Promise<BillingTransactionsResponse> {    const account = await this.ensureBillingAccount(userId);
+  ): Promise<BillingTransactionsResponse> {
+    const account = await this.ensureBillingAccount(userId);
     const transactions = await this.prisma.billingPaymentTransaction.findMany({
       where: { billingAccountId: account.id },
       orderBy: { occurredAt: "desc" },
@@ -284,33 +379,23 @@ export class BillingService {
     userId: string,
     input: BillingCheckoutRequest,
   ): Promise<BillingCheckoutResponse> {
-    const price = getBillingPrice(input.price_code);
-    if (!price || price.interval === "trial") {
+    const bundle = getBillingBundle(input.bundle_code);
+    if (!bundle) {
       throw new BillingDomainException(
-        "BILLING_PRICE_NOT_FOUND",
-        "That billing price is not available.",
+        "BILLING_BUNDLE_NOT_FOUND",
+        "That points bundle is not available.",
       );
     }
-    if (!price.public) {
-      throw new BillingDomainException(
-        "BILLING_PRICE_NOT_PUBLIC",
-        "That billing price is reserved for an approved pilot cohort.",
-      );
-    }
-
-    if (
-      input.payment_mode === "recurring_card" &&
-      !["monthly", "yearly"].includes(price.interval)
-    ) {
+    if (input.payment_mode === "recurring_card") {
       throw new BillingDomainException(
         "BILLING_PROVIDER_UNAVAILABLE",
-        "Recurring card renewal is not available for this price.",
+        "Subscriptions are not available; buy a points bundle instead.",
       );
     }
 
     const account = await this.ensureBillingAccount(userId);
-    const storedPrice = await this.ensurePrice(price);
-    const requestFingerprint = fingerprintCheckout(input, price);
+    const storedPrice = await this.ensureBundlePrice(bundle);
+    const requestFingerprint = fingerprintCheckout(input, bundle);
     const existing = await this.findCheckoutByIdempotency(
       account.id,
       input.idempotency_key,
@@ -338,8 +423,8 @@ export class BillingService {
           idempotencyKey: input.idempotency_key,
           requestFingerprint,
           provider: this.paymentProvider.name,
-          amountEgp: price.amount_egp,
-          currency: price.currency,
+          amountEgp: bundle.amount_egp,
+          currency: bundle.currency,
           paymentMode: input.payment_mode,
           sandbox: false,
           status: "pending",
@@ -366,14 +451,14 @@ export class BillingService {
 
     try {
       const providerCheckout = await this.paymentProvider.createCheckout({
-        amountEgp: price.amount_egp,
-        currency: price.currency,
+        amountEgp: bundle.amount_egp,
+        currency: bundle.currency,
         paymentMode: input.payment_mode,
         merchantReference: attempt.id,
         idempotencyKey: input.idempotency_key,
         metadata: {
           billing_account_id: account.id,
-          price_code: price.code,
+          bundle_code: bundle.code,
         },
       });
 
@@ -398,56 +483,6 @@ export class BillingService {
         "The payment provider is temporarily unavailable.",
       );
     }
-  }
-
-  async cancelSubscription(userId: string): Promise<BillingSubscriptionResponse> {
-    const account = await this.ensureBillingAccount(userId);
-    const subscription = await this.findLatestSubscription(account.id);
-    if (!subscription || !isAccessState(subscription.state)) {
-      throw new BillingDomainException(
-        "BILLING_SUBSCRIPTION_NOT_ACTIVE",
-        "There is no active subscription to cancel.",
-      );
-    }
-
-    if (subscription.providerAgreementRef) {
-      await this.paymentProvider.cancelRecurringAgreement(
-        subscription.providerAgreementRef,
-      );
-    }
-
-    const updated = await this.prisma.billingSubscription.update({
-      where: { id: subscription.id },
-      data: {
-        state: "cancel_at_period_end",
-        cancelAtPeriodEnd: true,
-        cancelRequestedAt: new Date(),
-      },
-      include: { price: true },
-    });
-    return toSubscriptionResponse(account.id, updated);
-  }
-
-  async resumeSubscription(userId: string): Promise<BillingSubscriptionResponse> {
-    const account = await this.ensureBillingAccount(userId);
-    const subscription = await this.findLatestSubscription(account.id);
-    if (!subscription || subscription.state !== "cancel_at_period_end") {
-      throw new BillingDomainException(
-        "BILLING_SUBSCRIPTION_NOT_ACTIVE",
-        "There is no pending cancellation to resume.",
-      );
-    }
-
-    const updated = await this.prisma.billingSubscription.update({
-      where: { id: subscription.id },
-      data: {
-        state: "active",
-        cancelAtPeriodEnd: false,
-        cancelRequestedAt: null,
-      },
-      include: { price: true },
-    });
-    return toSubscriptionResponse(account.id, updated);
   }
 
   async handleWebhook(
@@ -689,49 +724,26 @@ export class BillingService {
       return;
     }
 
-    const current = await tx.billingSubscription.findFirst({
-      where: { billingAccountId: attempt.billingAccountId },
-      orderBy: { createdAt: "desc" },
-      include: { price: true },
-    });
-    const now = new Date();
-    const baseDate =
-      current?.paidThroughAt && current.paidThroughAt > now
-        ? current.paidThroughAt
-        : now;
-    const paidThroughAt = addDays(baseDate, attempt.price.periodDays);
-    const renewalMode = event.paymentMode === "recurring_card" ? "recurring_card" : "manual";
-    const subscription = current
-      ? await tx.billingSubscription.update({
-          where: { id: current.id },
-          data: {
-            priceId: attempt.priceId,
-            state: "active",
-            renewalMode,
-            provider: event.provider,
-            paidThroughAt,
-            graceEndsAt: null,
-            trialEndsAt: null,
-            cancelAtPeriodEnd: false,
-          },
-        })
-      : await tx.billingSubscription.create({
-          data: {
-            id: randomUUID(),
-            billingAccountId: attempt.billingAccountId,
-            priceId: attempt.priceId,
-            state: "active",
-            renewalMode,
-            provider: event.provider,
-            paidThroughAt,
-          },
-        });
+    const bundle = getBillingBundle(attempt.price.code);
+    if (!bundle) {
+      throw new BillingDomainException(
+        "BILLING_BUNDLE_NOT_FOUND",
+        "The paid checkout does not map to a points bundle.",
+      );
+    }
 
-    await tx.billingPaymentTransaction.create({
+    // Row-lock the account so concurrent webhook deliveries cannot double-grant.
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "billing_accounts"
+      WHERE "id" = ${attempt.billingAccountId}::uuid
+      FOR UPDATE
+    `;
+
+    const transaction = await tx.billingPaymentTransaction.create({
       data: {
         id: randomUUID(),
         billingAccountId: attempt.billingAccountId,
-        subscriptionId: subscription.id,
         checkoutAttemptId: attempt.id,
         provider: event.provider,
         providerTransactionId: event.transactionRef,
@@ -749,6 +761,35 @@ export class BillingService {
       data: { status: "succeeded", confirmedAt: event.occurredAt },
     });
 
+    const balance = await tx.billingPointBalance.findUnique({
+      where: { billingAccountId: attempt.billingAccountId },
+    });
+    if (!balance) {
+      throw new InternalServerErrorException("Billing wallet is missing");
+    }
+    const balanceAfter = balance.balance + bundle.points;
+    await tx.billingPointBalance.update({
+      where: { billingAccountId: attempt.billingAccountId },
+      data: {
+        balance: balanceAfter,
+        lifetimeGranted: { increment: bundle.points },
+      },
+    });
+    await tx.billingPointLedger.create({
+      data: {
+        id: randomUUID(),
+        billingAccountId: attempt.billingAccountId,
+        direction: "credit",
+        reason: "topup",
+        metric: null,
+        points: bundle.points,
+        balanceAfter,
+        claimKey: `topup:${event.transactionRef}`,
+        transactionId: transaction.id,
+        expiresAt: addDays(new Date(), 365),
+      },
+    });
+
     await tx.billingOutbox.create({
       data: {
         id: randomUUID(),
@@ -757,7 +798,8 @@ export class BillingService {
         dedupeKey: `${event.provider}:${event.externalEventId}`,
         payload: {
           transaction_id: event.transactionRef,
-          subscription_id: subscription.id,
+          bundle_code: bundle.code,
+          points_granted: bundle.points,
           amount_egp: event.amountEgp,
         },
       },
@@ -772,14 +814,11 @@ export class BillingService {
       return existing;
     }
 
-    const trialPrice = await this.ensurePrice(BILLING_CATALOG[0]);
     const business = await this.prisma.business.findFirst({
       where: { ownerUserId: userId },
       orderBy: { createdAt: "asc" },
       select: { id: true },
     });
-    const trialStartedAt = new Date();
-    const trialEndsAt = addDays(trialStartedAt, trialPrice.periodDays);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -790,15 +829,26 @@ export class BillingService {
             activeBusinessId: business?.id,
           },
         });
-        await tx.billingSubscription.create({
+        await tx.billingPointBalance.create({
           data: {
             id: randomUUID(),
             billingAccountId: account.id,
-            priceId: trialPrice.id,
-            state: "trialing",
-            renewalMode: "none",
-            trialStartedAt,
-            trialEndsAt,
+            balance: TRIAL_GRANT_POINTS,
+            lifetimeGranted: TRIAL_GRANT_POINTS,
+            lifetimeSpent: 0,
+          },
+        });
+        await tx.billingPointLedger.create({
+          data: {
+            id: randomUUID(),
+            billingAccountId: account.id,
+            direction: "credit",
+            reason: "trial_grant",
+            metric: null,
+            points: TRIAL_GRANT_POINTS,
+            balanceAfter: TRIAL_GRANT_POINTS,
+            claimKey: `trial-grant:${account.id}`,
+            expiresAt: addDays(new Date(), 365),
           },
         });
         return account;
@@ -814,18 +864,19 @@ export class BillingService {
     }
   }
 
-  private async ensurePrice(price: BillingCatalogPrice) {
+  private async ensureBundlePrice(bundle: BillingPointBundle) {
     const existing = await this.prisma.billingPrice.findUnique({
-      where: { code: price.code },
+      where: { code: bundle.code },
     });
     if (existing) {
       if (
-        existing.amountEgp !== price.amount_egp ||
-        existing.currency !== price.currency ||
-        existing.periodDays !== price.period_days
+        existing.amountEgp !== bundle.amount_egp ||
+        existing.currency !== bundle.currency ||
+        existing.periodDays !== 0 ||
+        existing.pointsGranted !== bundle.points
       ) {
         throw new InternalServerErrorException(
-          "Persisted billing catalog does not match the reviewed launch catalog",
+          "Persisted billing catalog does not match the reviewed bundle catalog",
         );
       }
       return existing;
@@ -835,35 +886,28 @@ export class BillingService {
       return await this.prisma.billingPrice.create({
         data: {
           id: randomUUID(),
-          code: price.code,
-          planCode: price.plan_code,
-          interval: price.interval,
-          amountEgp: price.amount_egp,
-          currency: price.currency,
-          periodDays: price.period_days,
-          public: price.public,
-          displayNameEn: price.display_name_en,
-          displayNameAr: price.display_name_ar,
-          entitlements: price.entitlements as Prisma.InputJsonValue,
+          code: bundle.code,
+          planCode: "points",
+          interval: "one_time",
+          amountEgp: bundle.amount_egp,
+          currency: bundle.currency,
+          periodDays: 0,
+          pointsGranted: bundle.points,
+          public: true,
+          displayNameEn: bundle.display_name_en,
+          displayNameAr: bundle.display_name_ar,
+          entitlements: {},
         },
       });
     } catch (error) {
       if (isPrismaUniqueError(error)) {
         const replay = await this.prisma.billingPrice.findUnique({
-          where: { code: price.code },
+          where: { code: bundle.code },
         });
         if (replay) return replay;
       }
       throw error;
     }
-  }
-
-  private async findLatestSubscription(accountId: string) {
-    return this.prisma.billingSubscription.findFirst({
-      where: { billingAccountId: accountId },
-      orderBy: { createdAt: "desc" },
-      include: { price: true },
-    });
   }
 
   private async findCheckoutByIdempotency(
@@ -879,39 +923,6 @@ export class BillingService {
       },
       include: { price: true },
     });
-  }
-
-  private async refreshStateIfExpired(subscription: SubscriptionWithPrice) {
-    const now = new Date();
-    let nextState: string | null = null;
-    if (
-      subscription.state === "trialing" &&
-      subscription.trialEndsAt &&
-      subscription.trialEndsAt <= now
-    ) {
-      nextState = "expired";
-    } else if (
-      ["active", "cancel_at_period_end"].includes(subscription.state) &&
-      subscription.paidThroughAt &&
-      subscription.paidThroughAt <= now
-    ) {
-      if (!subscription.graceEndsAt) {
-        nextState = "past_due";
-      } else if (subscription.graceEndsAt <= now) {
-        nextState = "expired";
-      }
-    }
-
-    if (!nextState) return { subscription };
-    const updated = await this.prisma.billingSubscription.update({
-      where: { id: subscription.id },
-      data: {
-        state: nextState,
-        graceEndsAt: nextState === "past_due" ? addDays(now, 7) : subscription.graceEndsAt,
-      },
-      include: { price: true },
-    });
-    return { subscription: updated };
   }
 }
 
@@ -935,27 +946,6 @@ function toCheckoutResponse(attempt: CheckoutWithPrice): BillingCheckoutResponse
   };
 }
 
-function toSubscriptionResponse(
-  accountId: string,
-  subscription: SubscriptionWithPrice,
-): BillingSubscriptionResponse {
-  return {
-    billing_account_id: accountId,
-    state: subscription.state as BillingSubscriptionResponse["state"],
-    plan_code: subscription.price.planCode as BillingSubscriptionResponse["plan_code"],
-    price_code: subscription.price.code as BillingSubscriptionResponse["price_code"],
-    amount_egp: subscription.price.amountEgp,
-    currency: "EGP",
-    renewal_mode: subscription.renewalMode as BillingSubscriptionResponse["renewal_mode"],
-    paid_through_at: subscription.paidThroughAt?.toISOString() ?? null,
-    grace_ends_at: subscription.graceEndsAt?.toISOString() ?? null,
-    trial_ends_at: subscription.trialEndsAt?.toISOString() ?? null,
-    cancel_at_period_end: subscription.cancelAtPeriodEnd,
-    payment_provider: subscription.provider,
-    masked_payment_method: subscription.maskedPaymentMethod,
-  };
-}
-
 function toTransactionResponse(
   transaction: TransactionRecord,
 ): BillingTransactionResponse {
@@ -971,17 +961,31 @@ function toTransactionResponse(
   };
 }
 
+function toLedgerEntry(
+  row: Prisma.BillingPointLedgerGetPayload<{}>,
+): BillingPointLedgerEntry {
+  return {
+    id: row.id,
+    direction: row.direction as BillingPointLedgerEntry["direction"],
+    reason: row.reason as BillingPointLedgerEntry["reason"],
+    metric: (row.metric as BillingMetric | null) ?? null,
+    points: row.points,
+    balance_after: row.balanceAfter,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
 function fingerprintCheckout(
   input: BillingCheckoutRequest,
-  price: BillingCatalogPrice,
+  bundle: BillingPointBundle,
 ): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        price_code: price.code,
+        bundle_code: bundle.code,
         payment_mode: input.payment_mode,
-        amount_egp: price.amount_egp,
-        currency: price.currency,
+        amount_egp: bundle.amount_egp,
+        currency: bundle.currency,
       }),
     )
     .digest("hex");
@@ -991,24 +995,9 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-function usagePeriod(subscription: SubscriptionWithPrice): {
-  periodStart: Date;
-  periodEnd: Date;
-} {
-  const price = subscription.price;
-  const periodEnd =
-    price.interval === "trial"
-      ? subscription.trialEndsAt ?? addDays(subscription.createdAt, price.periodDays)
-      : subscription.paidThroughAt ?? addDays(subscription.createdAt, price.periodDays);
-  const periodStart =
-    price.interval === "trial"
-      ? subscription.trialStartedAt ?? addDays(periodEnd, -price.periodDays)
-      : addDays(periodEnd, -price.periodDays);
-  return { periodStart, periodEnd };
-}
-
-function isAccessState(state: string): boolean {
-  return ["trialing", "active", "past_due", "cancel_at_period_end"].includes(state);
+function periodStartForCostLedger(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
 function isPrismaUniqueError(error: unknown): boolean {

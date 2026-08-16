@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { BillingMetric } from "@marketmind/contracts";
-import { BillingDomainException, BillingService } from "./billing.service";
+import { pointsForMetric, type BillingMetric } from "@marketmind/contracts";
+import {
+  BillingDomainException,
+  BillingService,
+  type ProviderCostRecord,
+} from "./billing.service";
 
 export type BillingEntitlementDecision = {
   readonly allowed: boolean;
@@ -16,8 +20,10 @@ export type BillingEntitlementDecision = {
 /**
  * Server-side entitlement boundary for expensive or externally visible work.
  * Consumers call this at request time and again when a queued worker starts.
- * Customer artifact usage is intentionally separate from provider-cost
- * telemetry; this service only decides whether the artifact is allowed.
+ * The interface is unchanged; the internals decide against the prepaid points
+ * balance instead of artifact-count quotas. Customer point spending is
+ * intentionally separate from provider-cost telemetry; this service only
+ * decides whether the artifact is allowed and charges it on success.
  */
 @Injectable()
 export class BillingEntitlementsService {
@@ -28,38 +34,20 @@ export class BillingEntitlementsService {
     metric: BillingMetric,
     requested = 1,
   ): Promise<BillingEntitlementDecision> {
-    const subscription = await this.billingService.getSubscription(userId);
-    const usage = await this.billingService.getUsage(userId);
-    const current = usage.metrics.find((item) => item.metric === metric);
-    const used = current?.used ?? 0;
-    const limit = current?.limit ?? 0;
-    const remaining = Math.max(0, limit - used);
-    const state = subscription.state;
-    const accessState = [
-      "trialing",
-      "active",
-      "past_due",
-      "cancel_at_period_end",
-    ].includes(state);
-    const allowed = accessState && remaining >= requested;
+    const wallet = await this.billingService.getWallet(userId);
+    const cost = pointsForMetric(metric, requested);
+    const remaining = Math.max(0, wallet.balance - cost);
+    const allowed = wallet.balance >= cost;
 
     return {
       allowed,
-      state,
+      state: allowed ? "active" : "expired",
       metric,
       requested,
-      used,
-      limit,
+      used: 0,
+      limit: wallet.balance,
       remaining,
-      reason: !accessState
-        ? "expired"
-        : state === "trialing"
-          ? "trial"
-          : state === "past_due"
-            ? "past_due_grace"
-            : allowed
-              ? "active"
-              : "limit",
+      reason: allowed ? "active" : "limit",
     };
   }
 
@@ -71,12 +59,8 @@ export class BillingEntitlementsService {
     const decision = await this.check(userId, metric, requested);
     if (!decision.allowed) {
       throw new BillingDomainException(
-        decision.reason === "expired"
-          ? "BILLING_TRIAL_EXPIRED"
-          : "BILLING_ENTITLEMENT_EXHAUSTED",
-        decision.reason === "expired"
-          ? "Billing access has expired. Renew to start new AI work."
-          : "This plan limit has been reached for the current period.",
+        "BILLING_INSUFFICIENT_POINTS",
+        "Not enough points for this action. Top up to continue.",
       );
     }
     return decision;
@@ -87,26 +71,39 @@ export class BillingEntitlementsService {
     metric: BillingMetric,
     units: number,
     claimKey: string,
-    businessId?: string,
+    _businessId?: string,
   ): Promise<void> {
-    await this.billingService.recordUsage(
-      userId,
-      metric,
-      units,
-      claimKey,
-      businessId,
-    );
+    await this.billingService.spendPoints(userId, metric, units, claimKey);
   }
 
   /**
-   * Releases the entitlement accounting for a strategy cycle that was deleted
+   * Records provider-cost telemetry for a provider-backed run so margins are
+   * measured against the published point menu.
+   */
+  async recordProviderCost(
+    ownerUserId: string,
+    input: ProviderCostRecord,
+  ): Promise<void> {
+    await this.billingService.recordProviderCost(ownerUserId, input);
+  }
+
+  /**
+   * Reverses a points debit by claim key (used when the strategy phase fails
+   * after its reserve was taken).
+   */
+  async refund(userId: string, claimKey: string): Promise<void> {
+    await this.billingService.refundPoints(userId, claimKey);
+  }
+
+  /**
+   * Refunds the strategy-phase reserve for a strategy cycle that was deleted
    * (owner rejection wipes the whole cycle), so the owner can start over
-   * without being blocked by usage that no longer represents real work.
+   * without being blocked by points that no longer represent real work.
    */
   async releaseStrategyCycle(
     userId: string,
     strategyId: string,
   ): Promise<void> {
-    await this.billingService.releaseUsageForStrategy(userId, strategyId);
+    await this.billingService.releaseStrategyCycle(userId, strategyId);
   }
 }
