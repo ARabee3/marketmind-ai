@@ -30,7 +30,7 @@ function provider(): PaymobPaymentProvider {
       billing: {
         paymob: {
           baseUrl: "https://accept.paymob.com",
-          apiKey: "secret",
+          secretKey: "secret",
           publicKey: "pk_test_123",
           integrationIds: [987],
           hmacSecret: "hmac-secret",

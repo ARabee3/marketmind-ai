@@ -39,7 +39,7 @@ const PAYMOB_HMAC_FIELDS = [
 
 type PaymobConfig = {
   readonly baseUrl: string;
-  readonly apiKey: string;
+  readonly secretKey: string;
   readonly publicKey: string;
   readonly integrationIds: readonly number[];
   readonly hmacSecret: string;
@@ -73,7 +73,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
         configService.get<string>("billing.paymob.baseUrl") ??
           "https://accept.paymob.com",
       ),
-      apiKey: configService.get<string>("billing.paymob.apiKey") ?? "",
+      secretKey: configService.get<string>("billing.paymob.secretKey") ?? "",
       publicKey: configService.get<string>("billing.paymob.publicKey") ?? "",
       integrationIds: configuredIds
         .map((value) => Number(value))
@@ -104,7 +104,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       {
         method: "POST",
         headers: {
-          Authorization: `Token ${this.config.apiKey}`,
+          Authorization: `Token ${this.config.secretKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -122,7 +122,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
           ],
           extras: {
             marketmind_billing_account_id: input.metadata.billing_account_id,
-            marketmind_price_code: input.metadata.price_code,
+            marketmind_bundle_code: input.metadata.bundle_code,
             marketmind_idempotency_key: input.idempotencyKey,
           },
         }),
@@ -201,13 +201,13 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
 
   private assertConfigured(): void {
     if (
-      !this.config.apiKey ||
+      !this.config.secretKey ||
       !this.config.publicKey ||
       !this.config.hmacSecret ||
       this.config.integrationIds.length === 0
     ) {
       throw new Error(
-        "Paymob is not configured. Set PAYMOB_API_KEY, PAYMOB_PUBLIC_KEY, PAYMOB_INTEGRATION_IDS, and PAYMOB_HMAC_SECRET after merchant approval.",
+        "Paymob is not configured. Set PAYMOB_SECRET_KEY, PAYMOB_PUBLIC_KEY, PAYMOB_INTEGRATION_IDS, and PAYMOB_HMAC_SECRET after merchant approval.",
       );
     }
   }
