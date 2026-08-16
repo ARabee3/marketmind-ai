@@ -81,7 +81,7 @@ test.describe('Billing owner journey', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: 'Points history' }),
     ).toBeVisible()
-    await expect(page.getByText('Welcome bonus')).toBeVisible()
+    await expect(page.getByText('Welcome bonus', { exact: true })).toBeVisible()
 
     // Clicking buy creates the checkout and redirects to the hosted page.
     await page.route('https://hosted-checkout.example/**', async (route) => {
