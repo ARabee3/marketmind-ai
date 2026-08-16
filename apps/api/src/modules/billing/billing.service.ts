@@ -29,6 +29,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { FakePaymentProvider } from "./fake-payment.provider";
+import { createPaymobTestHmac } from "./paymob-payment.provider";
 import { ConfigService } from "@nestjs/config";
 import {
   PAYMENT_PROVIDER,
@@ -661,12 +662,6 @@ export class BillingService {
     if (nodeEnv !== "development" && nodeEnv !== "test") {
       throw new NotFoundException();
     }
-    if (this.paymentProvider.name !== "fake") {
-      throw new BillingDomainException(
-        "BILLING_PROVIDER_UNAVAILABLE",
-        "The sandbox confirmation route is disabled for live providers.",
-      );
-    }
 
     const attempt = await this.prisma.billingCheckoutAttempt.findUnique({
       where: { providerCheckoutRef },
@@ -687,27 +682,79 @@ export class BillingService {
       throw new NotFoundException();
     }
 
-    const eventType =
-      outcome === "paid"
-        ? "checkout.paid"
-        : outcome === "pending"
-          ? "checkout.pending"
-          : "checkout.failed";
-    const payload = this.fakePaymentProvider.createWebhookPayload({
-      event_type: eventType,
-      checkout_ref: providerCheckoutRef,
-      transaction_ref: `fake_transaction_${randomUUID()}`,
-      amount_egp: attempt.amountEgp,
-      currency: "EGP",
-      payment_mode: attempt.paymentMode as BillingPaymentMode,
-    });
-    const rawBody = Buffer.from(JSON.stringify(payload));
-    return this.handleWebhook(
-      this.paymentProvider.name,
-      payload,
-      rawBody,
-      this.fakePaymentProvider.signWebhook(payload),
-    );
+    // Dev tooling must never double-credit an already-confirmed checkout.
+    if (attempt.status === "succeeded") {
+      return { accepted: true, duplicate: true };
+    }
+
+    if (this.paymentProvider.name === "fake") {
+      const eventType =
+        outcome === "paid"
+          ? "checkout.paid"
+          : outcome === "pending"
+            ? "checkout.pending"
+            : "checkout.failed";
+      const payload = this.fakePaymentProvider.createWebhookPayload({
+        event_type: eventType,
+        checkout_ref: providerCheckoutRef,
+        transaction_ref: `fake_transaction_${randomUUID()}`,
+        amount_egp: attempt.amountEgp,
+        currency: "EGP",
+        payment_mode: attempt.paymentMode as BillingPaymentMode,
+      });
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      return this.handleWebhook(
+        this.paymentProvider.name,
+        payload,
+        rawBody,
+        this.fakePaymentProvider.signWebhook(payload),
+      );
+    }
+
+    if (this.paymentProvider.name === "paymob") {
+      // Dev/test convenience: complete a Paymob checkout as paid/failed/pending
+      // without a real card. The payload is a real Paymob TRANSACTION object
+      // signed with the configured HMAC secret, so it exercises the exact same
+      // webhook pipeline as a live callback (signature check, event dedupe,
+      // transaction insert, points credit, outbox). Production envs reject
+      // this route entirely.
+      const hmacSecret =
+        this.config.get<string>("billing.paymob.hmacSecret") ?? "";
+      const integrationId =
+        (this.config.get<unknown[]>("billing.paymob.integrationIds") ?? [])
+          .map((value) => Number(value))
+          .find((value) => Number.isSafeInteger(value) && value > 0) ?? 0;
+      const transactionId =
+        Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000;
+      const transaction: Record<string, unknown> = {
+        amount: attempt.amountEgp * 100,
+        created_at: new Date().toISOString(),
+        currency: "EGP",
+        error_occured: false,
+        has_parent_transaction: false,
+        id: transactionId,
+        integration_id: integrationId,
+        is_3d_secure: false,
+        is_auth: true,
+        is_capture: true,
+        is_refunded: false,
+        is_standalone_payment: true,
+        is_voided: false,
+        order: { id: transactionId, merchant_order_id: attempt.id },
+        owner: transactionId,
+        pending: outcome === "pending",
+        source_data_pan: "0000",
+        source_data_sub_type: "Test",
+        source_data_type: "card",
+        success: outcome === "paid",
+      };
+      const hmac = createPaymobTestHmac(transaction, hmacSecret);
+      const payload = { type: "TRANSACTION", obj: transaction, hmac };
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      return this.handleWebhook("paymob", payload, rawBody, hmac);
+    }
+
+    throw new NotFoundException();
   }
 
   private async applyPaidEvent(
