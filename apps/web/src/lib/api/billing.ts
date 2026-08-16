@@ -66,16 +66,3 @@ export function createBillingCheckout(
     },
   })
 }
-
-export function confirmSandboxCheckout(
-  providerCheckoutRef: string,
-  outcome: 'paid' | 'failed' | 'pending',
-): Promise<{ accepted: true; duplicate: boolean }> {
-  return request('/billing/sandbox/confirm', {
-    method: 'POST',
-    body: {
-      provider_checkout_ref: providerCheckoutRef,
-      outcome,
-    },
-  })
-}

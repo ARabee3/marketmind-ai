@@ -45,6 +45,7 @@ type PaymobConfig = {
   readonly hmacSecret: string;
   readonly timeoutMs: number;
   readonly sandbox: boolean;
+  readonly webOrigin: string;
 };
 
 type PaymobTransactionPayload = {
@@ -82,6 +83,8 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       timeoutMs:
         configService.get<number>("billing.paymob.timeoutMs") ?? 15000,
       sandbox: configService.get<boolean>("billing.paymob.sandbox") ?? false,
+      webOrigin:
+        configService.get<string>("cors.origin") ?? "http://localhost:3000",
     };
   }
 
@@ -112,6 +115,10 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
           currency: input.currency,
           payment_methods: this.config.integrationIds,
           special_reference: input.merchantReference,
+          // The hosted checkout returns the owner to the billing page after
+          // payment; the web proxy negotiates the locale from the cookie. The
+          // points themselves are granted by the verified webhook.
+          redirect_url: `${this.config.webOrigin}/billing`,
           billing_data: {
             first_name: input.billingData.firstName,
             last_name: input.billingData.lastName,

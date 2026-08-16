@@ -95,6 +95,12 @@ describe("PaymobPaymentProvider", () => {
         body: expect.stringContaining('"amount":29900'),
       }),
     );
+    const body = JSON.parse(
+      String(fetchMock.mock.calls[0][1].body),
+    );
+    expect(body.redirect_url).toBe("http://localhost:3000/billing");
+    expect(body.payment_methods).toEqual([987]);
+    expect(body.billing_data.email).toBe("billing@example.com");
   });
 
   it("maps a signed Paymob transaction callback to the provider-neutral event", () => {

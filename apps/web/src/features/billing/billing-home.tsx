@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import type {
-  BillingCheckoutResponse,
   BillingPaymentMode,
   BillingPointBundle,
   BillingPointLedgerEntry,
   BillingTransactionResponse,
   BillingWalletResponse,
 } from '@marketmind/contracts'
-import { LoaderCircle, ShieldCheck, WalletCards } from 'lucide-react'
+import { LoaderCircle, WalletCards } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -20,7 +19,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
-  confirmSandboxCheckout,
   createBillingCheckout,
   getBillingBundles,
   getBillingLedger,
@@ -40,17 +38,12 @@ type LoadState =
   | { readonly status: 'ready'; readonly data: BillingData }
   | { readonly status: 'error' }
 
-type ActionState =
-  | { readonly status: 'idle' }
-  | { readonly status: 'working'; readonly kind: 'checkout' | 'confirm' }
-  | { readonly status: 'success'; readonly checkout: BillingCheckoutResponse }
-  | { readonly status: 'error' }
-
 export function BillingHome() {
   const t = useTranslations('Billing')
   const formatter = useFormatter()
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
-  const [action, setAction] = useState<ActionState>({ status: 'idle' })
+  const [workingBundle, setWorkingBundle] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState(false)
 
   const fetchBilling = useCallback(async (): Promise<BillingData> => {
     const [wallet, bundles, ledger, transactions] = await Promise.all([
@@ -90,6 +83,26 @@ export function BillingHome() {
     }
   }, [fetchBilling])
 
+  const runCheckout = async (bundle: BillingPointBundle) => {
+    if (workingBundle) return
+    setCheckoutError(false)
+    setWorkingBundle(bundle.code)
+    try {
+      const paymentMode: BillingPaymentMode = 'one_time_card'
+      const result = await createBillingCheckout(
+        bundle.code,
+        paymentMode,
+        globalThis.crypto.randomUUID(),
+      )
+      // The hosted checkout collects payment details and returns the owner to
+      // the billing page, where the wallet refetches with the new balance.
+      globalThis.location.assign(result.checkout_url)
+    } catch {
+      setWorkingBundle(null)
+      setCheckoutError(true)
+    }
+  }
+
   if (loadState.status === 'loading') {
     return <BillingLoading />
   }
@@ -114,9 +127,9 @@ export function BillingHome() {
   return (
     <BillingReadyView
       data={loadState.data}
-      action={action}
-      setAction={setAction}
-      reload={loadBilling}
+      workingBundle={workingBundle}
+      checkoutError={checkoutError}
+      onBuy={(bundle) => void runCheckout(bundle)}
       formatCurrency={(amount) =>
         formatter.number(amount, {
           style: 'currency',
@@ -135,53 +148,21 @@ export function BillingHome() {
 
 function BillingReadyView({
   data,
-  action,
-  setAction,
-  reload,
+  workingBundle,
+  checkoutError,
+  onBuy,
   formatCurrency,
   formatDate,
 }: {
   readonly data: BillingData
-  readonly action: ActionState
-  readonly setAction: (state: ActionState) => void
-  readonly reload: () => Promise<void>
+  readonly workingBundle: string | null
+  readonly checkoutError: boolean
+  readonly onBuy: (bundle: BillingPointBundle) => void
   readonly formatCurrency: (amount: number) => string
   readonly formatDate: (value: string) => string
 }) {
   const t = useTranslations('Billing')
-  const checkout = action.status === 'success' ? action.checkout : null
-  const working = action.status === 'working'
-
-  const runCheckout = async (bundle: BillingPointBundle) => {
-    setAction({ status: 'working', kind: 'checkout' })
-    try {
-      const paymentMode: BillingPaymentMode = 'one_time_card'
-      const result = await createBillingCheckout(
-        bundle.code,
-        paymentMode,
-        globalThis.crypto.randomUUID(),
-      )
-      if (!result.sandbox) {
-        globalThis.location.assign(result.checkout_url)
-        return
-      }
-      setAction({ status: 'success', checkout: result })
-    } catch {
-      setAction({ status: 'error' })
-    }
-  }
-
-  const confirmCheckout = async (outcome: 'paid' | 'failed') => {
-    if (!checkout?.provider_checkout_ref) return
-    setAction({ status: 'working', kind: 'confirm' })
-    try {
-      await confirmSandboxCheckout(checkout.provider_checkout_ref, outcome)
-      await reload()
-      setAction({ status: 'idle' })
-    } catch {
-      setAction({ status: 'error' })
-    }
-  }
+  const busy = workingBundle !== null
 
   return (
     <section className="grid gap-6">
@@ -189,43 +170,28 @@ function BillingReadyView({
         <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           {t('eyebrow')}
         </p>
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="grid gap-2">
-            <h1 className="max-w-3xl text-3xl leading-tight font-bold text-navy md:text-4xl">
-              {t('title')}
-            </h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-              {t('subtitle')}
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-muted-foreground">
-            <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
-            <span>{t('liveGate')}</span>
-          </div>
+        <div className="grid gap-2">
+          <h1 className="max-w-3xl text-3xl leading-tight font-bold text-navy md:text-4xl">
+            {t('title')}
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+            {t('subtitle')}
+          </p>
         </div>
       </header>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid gap-5">
-          {checkout ? (
-            <SandboxCheckoutNotice
-              action={action}
-              onConfirm={() => void confirmCheckout('paid')}
-              onFail={() => void confirmCheckout('failed')}
-            />
-          ) : null}
-
           <WalletBalancePanel
             wallet={data.wallet}
-            onTopUp={() =>
-              data.bundles[0] && void runCheckout(data.bundles[0])
-            }
+            busy={busy}
+            onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
           />
 
           <BundlesPanel
             bundles={data.bundles}
-            working={working}
-            onBuy={(bundle) => void runCheckout(bundle)}
+            workingBundle={workingBundle}
+            onBuy={onBuy}
             formatCurrency={formatCurrency}
           />
 
@@ -242,17 +208,15 @@ function BillingReadyView({
           {data.wallet.low_balance ? (
             <LowBalanceNudge
               balance={data.wallet.balance}
-              working={working}
-              onTopUp={() =>
-                data.bundles[0] && void runCheckout(data.bundles[0])
-              }
+              busy={busy}
+              onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
             />
           ) : null}
           <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-6 text-muted-foreground">
             <p className="font-semibold text-navy">{t('rolloverTitle')}</p>
             <p>{t('rolloverBody')}</p>
           </div>
-          {action.status === 'error' ? (
+          {checkoutError ? (
             <div
               className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
               role="alert"
@@ -268,9 +232,11 @@ function BillingReadyView({
 
 function WalletBalancePanel({
   wallet,
+  busy,
   onTopUp,
 }: {
   readonly wallet: BillingWalletResponse
+  readonly busy: boolean
   readonly onTopUp: () => void
 }) {
   const t = useTranslations('Billing')
@@ -296,6 +262,7 @@ function WalletBalancePanel({
         <Button
           type="button"
           variant="outline"
+          disabled={busy}
           onClick={onTopUp}
           className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
         >
@@ -309,12 +276,12 @@ function WalletBalancePanel({
 
 function BundlesPanel({
   bundles,
-  working,
+  workingBundle,
   onBuy,
   formatCurrency,
 }: {
   readonly bundles: readonly BillingPointBundle[]
-  readonly working: boolean
+  readonly workingBundle: string | null
   readonly onBuy: (bundle: BillingPointBundle) => void
   readonly formatCurrency: (amount: number) => string
 }) {
@@ -329,45 +296,48 @@ function BundlesPanel({
       </CardHeader>
       <CardContent className="pt-5">
         <ul className="grid gap-3" aria-label={t('bundlesTitle')}>
-          {bundles.map((bundle) => (
-            <li
-              key={bundle.code}
-              className="grid items-center gap-3 rounded-lg border border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"
-            >
-              <div className="grid gap-1">
-                <p className="flex flex-wrap items-center gap-2 font-semibold text-navy">
-                  {bundle.code === 'pro_500' ? (
-                    <span className="rounded-full bg-soft-teal px-2 py-0.5 text-xs font-semibold text-primary">
-                      {t('bestValue')}
-                    </span>
-                  ) : null}
-                  <span>{t('bundlePoints', { points: bundle.points })}</span>
-                </p>
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {formatCurrency(bundle.amount_egp)}
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {t('bundlePerPoint', {
-                  perPoint: formatCurrency(bundle.amount_egp / bundle.points),
-                })}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                disabled={working}
-                onClick={() => onBuy(bundle)}
+          {bundles.map((bundle) => {
+            const loading = workingBundle === bundle.code
+            return (
+              <li
+                key={bundle.code}
+                className="grid items-center gap-3 rounded-lg border border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"
               >
-                {working ? (
-                  <LoaderCircle
-                    className="animate-spin motion-reduce:animate-none"
-                    aria-hidden="true"
-                  />
-                ) : null}
-                {t('bundleBuy', { amount: formatCurrency(bundle.amount_egp) })}
-              </Button>
-            </li>
-          ))}
+                <div className="grid gap-1">
+                  <p className="flex flex-wrap items-center gap-2 font-semibold text-navy">
+                    {bundle.code === 'pro_500' ? (
+                      <span className="rounded-full bg-soft-teal px-2 py-0.5 text-xs font-semibold text-primary">
+                        {t('bestValue')}
+                      </span>
+                    ) : null}
+                    <span>{t('bundlePoints', { points: bundle.points })}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground tabular-nums">
+                    {formatCurrency(bundle.amount_egp)}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {t('bundlePerPoint', {
+                    perPoint: formatCurrency(bundle.amount_egp / bundle.points),
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={loading}
+                  onClick={() => onBuy(bundle)}
+                >
+                  {loading ? (
+                    <LoaderCircle
+                      className="animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  {t('bundleBuy', { amount: formatCurrency(bundle.amount_egp) })}
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       </CardContent>
     </Card>
@@ -418,11 +388,11 @@ function PriceMenu() {
 
 function LowBalanceNudge({
   balance,
-  working,
+  busy,
   onTopUp,
 }: {
   readonly balance: number
-  readonly working: boolean
+  readonly busy: boolean
   readonly onTopUp: () => void
 }) {
   const t = useTranslations('Billing')
@@ -434,8 +404,8 @@ function LowBalanceNudge({
     >
       <p className="font-bold">{t('lowBalanceTitle')}</p>
       <p>{t('lowBalanceBody', { points: balance })}</p>
-      <Button type="button" size="sm" disabled={working} onClick={onTopUp}>
-        {working ? (
+      <Button type="button" size="sm" disabled={busy} onClick={onTopUp}>
+        {busy ? (
           <LoaderCircle
             className="animate-spin motion-reduce:animate-none"
             aria-hidden="true"
@@ -507,49 +477,6 @@ function entryLabel(
   if (reason === 'trial_grant') return t('ledgerTrialGrant')
   if (reason === 'refund') return t('ledgerRefund')
   return t('ledgerSpend', { points })
-}
-
-function SandboxCheckoutNotice({
-  action,
-  onConfirm,
-  onFail,
-}: {
-  readonly action: ActionState
-  readonly onConfirm: () => void
-  readonly onFail: () => void
-}) {
-  const t = useTranslations('Billing')
-  const working = action.status === 'working' && action.kind === 'confirm'
-
-  return (
-    <div
-      className="grid gap-3 rounded-xl border border-action/30 bg-action/5 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-      role="status"
-      aria-live="polite"
-    >
-      <div className="grid gap-1">
-        <p className="text-sm font-bold text-navy">{t('sandboxLabel')}</p>
-        <p className="text-sm leading-6 text-muted-foreground">
-          {t('checkoutPending')}
-        </p>
-        <p className="text-xs text-muted-foreground">{t('sandboxBody')}</p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" disabled={working} onClick={onConfirm}>
-          {working ? (
-            <LoaderCircle
-              className="animate-spin motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-          ) : null}
-          {t('sandboxConfirm')}
-        </Button>
-        <Button type="button" size="sm" variant="outline" disabled={working} onClick={onFail}>
-          {t('sandboxFail')}
-        </Button>
-      </div>
-    </div>
-  )
 }
 
 function TransactionsPanel({

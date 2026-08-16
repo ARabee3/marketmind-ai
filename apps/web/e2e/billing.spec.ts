@@ -54,21 +54,10 @@ const ledger: readonly BillingPointLedgerEntry[] = [
   },
 ]
 
-const transactions: readonly BillingTransactionResponse[] = [
-  {
-    id: 'transaction-1',
-    kind: 'charge',
-    status: 'succeeded',
-    amount_egp: 200,
-    currency: 'EGP',
-    provider: 'fake',
-    payment_mode: 'one_time_card',
-    occurred_at: '2026-08-05T10:00:00.000Z',
-  },
-]
+const transactions: readonly BillingTransactionResponse[] = []
 
 test.describe('Billing owner journey', () => {
-  test('shows the points wallet and confirms a sandbox top-up', async ({
+  test('buys a points bundle and sees the new balance after returning from checkout', async ({
     page,
   }) => {
     await authenticate(page)
@@ -92,12 +81,22 @@ test.describe('Billing owner journey', () => {
     ).toBeVisible()
     await expect(page.getByText('Welcome bonus')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Buy for EGP 200' }).click()
-    await expect(page.getByRole('status')).toContainText('Sandbox payment')
-    await page.getByRole('button', { name: 'Confirm sandbox payment' }).click()
+    // Clicking buy creates the checkout and redirects to the hosted page.
+    await page.route('https://hosted-checkout.example/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<html><body>hosted checkout</body></html>',
+      })
+    })
+    await page.getByRole('button', { name: 'Buy for EGP 200' }).click()
+    await page.waitForURL('**/hosted-checkout.example/**')
+    expect(billing.checkoutBodies).toHaveLength(1)
+    expect(billing.checkoutBodies[0].bundle_code).toBe('growth_300')
 
-    await expect.poll(() => billing.confirmations).toEqual(['paid'])
-    await expect(page.getByText('You have 215 points')).toBeVisible()
+    // Paymob returns the owner to the billing page; the wallet refetches.
+    await page.goto('/en/billing')
+    await expect(page.getByText('You have 365 points')).toBeVisible()
     await expect(page.getByText('Points purchased')).toBeVisible()
   })
 
@@ -137,7 +136,7 @@ async function authenticate(page: Page) {
 
 async function mockBillingApi(page: Page) {
   let paid = false
-  const confirmations: Array<'paid' | 'failed' | 'pending'> = []
+  const checkoutBodies: Array<{ bundle_code: string }> = []
 
   await page.route('**/api/v1/billing/**', async (route, request) => {
     const path = new URL(request.url()).pathname
@@ -152,7 +151,17 @@ async function mockBillingApi(page: Page) {
       return
     }
     if (path.endsWith('/billing/wallet') && method === 'GET') {
-      await json(route, paid ? { ...wallet, balance: 215, lifetime_granted: 215, low_balance: false } : wallet)
+      await json(
+        route,
+        paid
+          ? {
+              ...wallet,
+              balance: 365,
+              lifetime_granted: 365,
+              low_balance: false,
+            }
+          : wallet,
+      )
       return
     }
     if (path.endsWith('/billing/wallet/ledger') && method === 'GET') {
@@ -165,8 +174,8 @@ async function mockBillingApi(page: Page) {
                 direction: 'credit',
                 reason: 'topup',
                 metric: null,
-                points: 150,
-                balance_after: 215,
+                points: 300,
+                balance_after: 365,
                 created_at: '2026-08-05T11:00:00.000Z',
               },
             ]
@@ -179,13 +188,15 @@ async function mockBillingApi(page: Page) {
       return
     }
     if (path.endsWith('/billing/checkouts') && method === 'POST') {
+      checkoutBodies.push((await request.postDataJSON()) as { bundle_code: string })
+      paid = true
       await json(
         route,
         {
           checkout_attempt_id: 'attempt-1',
           status: 'pending',
-          checkout_url: 'http://sandbox.test/checkout',
-          provider: 'fake',
+          checkout_url: 'https://hosted-checkout.example/pay?clientSecret=cs_1',
+          provider: 'paymob',
           provider_checkout_ref: 'fake_checkout_1',
           amount_egp: 200,
           currency: 'EGP',
@@ -196,20 +207,11 @@ async function mockBillingApi(page: Page) {
       )
       return
     }
-    if (path.endsWith('/billing/sandbox/confirm') && method === 'POST') {
-      const body = (await request.postDataJSON()) as {
-        outcome: 'paid' | 'failed' | 'pending'
-      }
-      confirmations.push(body.outcome)
-      paid = body.outcome === 'paid'
-      await json(route, { accepted: true, duplicate: false })
-      return
-    }
 
     await json(route, { code: 'NOT_FOUND' }, 404)
   })
 
-  return { confirmations }
+  return { checkoutBodies }
 }
 
 async function json(route: Route, body: unknown, status = 200) {
