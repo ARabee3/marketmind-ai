@@ -36,6 +36,7 @@ import {
   BillingProviderSignatureError,
   type PaymentProviderEvent,
   type PaymentProviderPort,
+  type ProviderBillingData,
 } from "./payment-provider.port";
 
 type CheckoutWithPrice = Prisma.BillingCheckoutAttemptGetPayload<{
@@ -396,6 +397,7 @@ export class BillingService {
     const account = await this.ensureBillingAccount(userId);
     const storedPrice = await this.ensureBundlePrice(bundle);
     const requestFingerprint = fingerprintCheckout(input, bundle);
+    const billingData = await this.resolveBillingData(userId);
     const existing = await this.findCheckoutByIdempotency(
       account.id,
       input.idempotency_key,
@@ -456,6 +458,7 @@ export class BillingService {
         paymentMode: input.payment_mode,
         merchantReference: attempt.id,
         idempotencyKey: input.idempotency_key,
+        billingData,
         metadata: {
           billing_account_id: account.id,
           bundle_code: bundle.code,
@@ -923,6 +926,39 @@ export class BillingService {
       },
       include: { price: true },
     });
+  }
+
+  /**
+   * Builds the customer billing data Paymob's Intention API requires. The
+   * owner's email and name come from the User record; address and phone are
+   * not yet collected by MarketMind, so neutral placeholders are sent so the
+   * intention can be created while the hosted checkout collects the cardholder
+   * payment details. Collecting real phone/address before live launch is a
+   * tracked follow-up.
+   */
+  private async resolveBillingData(userId: string): Promise<ProviderBillingData> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, fullName: true },
+    });
+    const fullName = user?.fullName?.trim() ?? "";
+    const firstSpace = fullName.indexOf(" ");
+    const firstName = firstSpace > 0 ? fullName.slice(0, firstSpace) : fullName || "MarketMind";
+    const lastName = firstSpace > 0 ? fullName.slice(firstSpace + 1).trim() : "Customer";
+    return {
+      firstName,
+      lastName,
+      email: user?.email ?? "billing@marketmind.example",
+      phone: "01000000000",
+      apartment: "1",
+      building: "1",
+      floor: "1",
+      street: "N/A",
+      city: "Cairo",
+      country: "EG",
+      state: "Cairo",
+      postalCode: "11511",
+    };
   }
 }
 

@@ -112,6 +112,20 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
           currency: input.currency,
           payment_methods: this.config.integrationIds,
           special_reference: input.merchantReference,
+          billing_data: {
+            first_name: input.billingData.firstName,
+            last_name: input.billingData.lastName,
+            email: input.billingData.email,
+            phone_number: input.billingData.phone,
+            apartment: input.billingData.apartment,
+            building: input.billingData.building,
+            floor: input.billingData.floor,
+            street: input.billingData.street,
+            city: input.billingData.city,
+            country: input.billingData.country,
+            state: input.billingData.state,
+            postal_code: input.billingData.postalCode,
+          },
           items: [
             {
               name: "MarketMind Growth",
