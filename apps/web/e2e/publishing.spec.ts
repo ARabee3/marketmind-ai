@@ -8,6 +8,7 @@ import {
   PUBLISHING_INTENT_FIXTURE,
   PUBLISHING_JOURNEY_FIXTURE,
   PUBLISHING_TARGET_FIXTURES,
+  futureSchedulePair,
 } from "../src/features/publishing/lib/publishing-fixtures";
 import { mockAccessToken, mockAuthMe, mockAuthRefresh } from "./fixtures/auth";
 
@@ -65,13 +66,14 @@ test.describe("Publishing owner journey", () => {
   test("opens the exact approval dialog for a real scheduled intent", async ({
     page,
   }) => {
+    const future = futureSchedulePair();
     const state = makeState({
       intent: {
         ...PUBLISHING_INTENT_FIXTURE,
         intent_id: intentId,
         state: "awaiting_approval",
-        scheduled_local: "2026-08-10T18:30:00",
-        scheduled_utc: "2026-08-10T15:30:00Z",
+        scheduled_local: future.scheduled_local,
+        scheduled_utc: future.scheduled_utc,
       },
     });
     await authenticate(page);
