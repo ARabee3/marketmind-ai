@@ -109,6 +109,7 @@ async def test_locked_revision_mutation_gets_only_bounded_repair(field: str) -> 
             provider,
             prompt,
             base_item_version=base_item,
+            max_attempts=3,
         )
 
     assert error.value.code == "CONTENT_VERSION_CONFLICT"
@@ -186,6 +187,7 @@ async def test_revision_cannot_introduce_unsupported_claim_copy() -> None:
             base_item_version=base_item,
             generation_request=generation_request,
             sleep=no_sleep,
+            max_attempts=3,
         )
 
     assert error.value.code == "CONTENT_POLICY_VIOLATION"

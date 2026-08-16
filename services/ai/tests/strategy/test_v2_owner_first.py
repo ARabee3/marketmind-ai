@@ -33,6 +33,9 @@ from tests.strategy.fixtures import (
 def _mock_settings():
     settings = Settings()
     settings.ai_provider_mode = "mock"
+    # Exercise the bounded retry/repair machinery; production caps at 1 with
+    # the NestJS outer retry providing the end-to-end budget of 3.
+    settings.ai_generation_attempts = 3
     return settings
 
 

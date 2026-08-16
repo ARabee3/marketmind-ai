@@ -33,7 +33,10 @@ from tests.strategy.fixtures import (
 
 def _mock_settings():
     from app.core.config import Settings
-    return Settings(ai_provider_mode="mock")
+    # Exercise the bounded retry/repair machinery in these endpoint tests. The
+    # production default (ai_generation_attempts=1) caps provider calls at 3
+    # end-to-end with the NestJS outer retry.
+    return Settings(ai_provider_mode="mock", ai_generation_attempts=3)
 
 
 client = TestClient(app)
