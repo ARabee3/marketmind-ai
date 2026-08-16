@@ -246,7 +246,10 @@ function WalletBalancePanel({
         <CardDescription className="text-primary-foreground/70">
           {t('balanceLabel')}
         </CardDescription>
-        <CardTitle className="text-5xl font-bold text-primary-foreground tabular-nums">
+        <CardTitle
+          className="text-5xl font-bold text-primary-foreground tabular-nums"
+          data-testid="wallet-balance"
+        >
           {t('balanceCount', { points: wallet.balance })}
         </CardTitle>
       </CardHeader>

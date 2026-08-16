@@ -71,7 +71,9 @@ test.describe('Billing owner journey', () => {
         name: 'Points for your growth work',
       }),
     ).toBeVisible()
-    await expect(page.getByText('You have 65 points')).toBeVisible()
+    await expect(
+      page.locator('[data-testid="wallet-balance"]').getByText('You have 65 points'),
+    ).toBeVisible()
     await expect(page.getByRole('status')).toContainText('Balance running low')
     await expect(
       page.getByRole('heading', { level: 2, name: 'Points bundles' }),
@@ -96,7 +98,9 @@ test.describe('Billing owner journey', () => {
 
     // Paymob returns the owner to the billing page; the wallet refetches.
     await page.goto('/en/billing')
-    await expect(page.getByText('You have 365 points')).toBeVisible()
+    await expect(
+      page.locator('[data-testid="wallet-balance"]').getByText('You have 365 points'),
+    ).toBeVisible()
     await expect(page.getByText('Points purchased')).toBeVisible()
   })
 
@@ -112,7 +116,9 @@ test.describe('Billing owner journey', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'نقاط لشغل النمو بتاعك' }),
     ).toBeVisible()
-    await expect(page.getByText('عندك 65 نقطة')).toBeVisible()
+    await expect(
+      page.locator('[data-testid="wallet-balance"]').getByText('عندك 65 نقطة'),
+    ).toBeVisible()
 
     if (testInfo.project.name === 'mobile-chrome') {
       await expect(
