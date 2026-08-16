@@ -16,10 +16,12 @@ export const PAYMOB_PAYMENT_PROVIDER = "paymob";
 
 /**
  * The 20 transaction fields Paymob includes in webhook HMAC validation,
- * sorted lexicographically by field name. The canonical string concatenates
- * the field values in this order (no separators), hashed with HMAC-SHA512 and
- * the merchant HMAC secret. Note `error_occured` (one "r") is Paymob's own
- * spelling and `order.id` / `source_data.*` are nested values.
+ * sorted lexicographically by field name (verified against real callbacks:
+ * `is_refund` is NOT part of the HMAC, `success` IS the final field). The
+ * canonical string concatenates the field values in this order (no
+ * separators), hashed with HMAC-SHA512 and the merchant HMAC secret. Note
+ * `error_occured` (one "r") is Paymob's own spelling and `order.id` /
+ * `source_data.*` are nested values.
  */
 const PAYMOB_HMAC_FIELDS: ReadonlyArray<{
   readonly name: string;
@@ -35,7 +37,6 @@ const PAYMOB_HMAC_FIELDS: ReadonlyArray<{
   { name: "is_3d_secure", value: (t) => t.is_3d_secure },
   { name: "is_auth", value: (t) => t.is_auth },
   { name: "is_capture", value: (t) => t.is_capture },
-  { name: "is_refund", value: (t) => t.is_refund },
   { name: "is_refunded", value: (t) => t.is_refunded },
   { name: "is_standalone_payment", value: (t) => t.is_standalone_payment },
   { name: "is_voided", value: (t) => t.is_voided },
@@ -69,6 +70,7 @@ const PAYMOB_HMAC_FIELDS: ReadonlyArray<{
         ? (t.source_data as Record<string, unknown>).type
         : undefined,
   },
+  { name: "success", value: (t) => t.success },
 ];
 
 type PaymobConfig = {
