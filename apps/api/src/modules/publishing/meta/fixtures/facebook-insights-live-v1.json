@@ -1,0 +1,62 @@
+{
+  "fixture_version": "facebook-insights-live-v1",
+  "captured_on": "2026-08-18",
+  "scope": "Facebook Page post Insights only",
+  "graph_version": "v21.0",
+  "comparison_graph_version": "v26.0",
+  "version_decision": "retain-v21.0",
+  "comparison_shape": "identical",
+  "observed_eligible_published_posts": 2,
+  "raw_ids_included": false,
+  "raw_tokens_included": false,
+  "business_content_included": false,
+  "selected_metrics": [
+    "post_media_view",
+    "post_total_media_view_unique",
+    "post_clicks"
+  ],
+  "metric_observations": {
+    "post_media_view": {
+      "status": "confirmed",
+      "periods": ["lifetime"],
+      "value_type": "number",
+      "observed_value_points": 2,
+      "observed_zero_value_points": 2
+    },
+    "post_total_media_view_unique": {
+      "status": "confirmed",
+      "periods": ["day", "lifetime"],
+      "value_type": "number",
+      "observed_value_points": 6,
+      "observed_zero_value_points": 6
+    },
+    "post_clicks": {
+      "status": "confirmed",
+      "periods": ["lifetime"],
+      "value_type": "number",
+      "observed_value_points": 2,
+      "observed_zero_value_points": 2
+    },
+    "post_engagements": {
+      "status": "unavailable",
+      "periods": [],
+      "value_type": "missing",
+      "observed_value_points": 0,
+      "observed_zero_value_points": 0
+    },
+    "post_reactions_by_type_total": {
+      "status": "unavailable",
+      "periods": ["lifetime"],
+      "value_type": "empty_object",
+      "observed_value_points": 0,
+      "observed_zero_value_points": 0
+    }
+  },
+  "explicitly_excluded_metrics": [
+    "post_engagements",
+    "post_reactions_by_type_total",
+    "post_impressions",
+    "post_impressions_unique",
+    "post_reach"
+  ]
+}

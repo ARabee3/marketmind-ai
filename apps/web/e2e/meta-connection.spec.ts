@@ -20,6 +20,10 @@ const PENDING_SELECTION = {
   requested_channel: "facebook",
   requested_capability: "static_image",
   expires_at: "2099-08-08T07:15:00.000Z",
+  performance_capability: {
+    status: "supported",
+    blockers: [],
+  },
   options: [
     {
       page: {

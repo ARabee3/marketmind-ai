@@ -30,6 +30,10 @@ describe('MetaConnectionResult', () => {
       requested_channel: 'instagram',
       requested_capability: 'static_image',
       expires_at: null,
+      performance_capability: {
+        status: 'supported',
+        blockers: [],
+      },
       options: [
         {
           page: {
