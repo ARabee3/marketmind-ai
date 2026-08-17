@@ -147,6 +147,8 @@ model Business {
   providerConnections     PublishingProviderConnection[]
   connectionAudits        PublishingConnectionAudit[]
   metaOAuthStates         MetaOAuthState[]
+  performanceSyncWindows  PerformanceSyncWindow[]
+  metricSnapshots         MetricSnapshot[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -1693,6 +1695,7 @@ model PublishingCandidate {
   updatedAt          DateTime                  @updatedAt @map("updated_at")
 
   intents PublishingIntent[]
+  metricSnapshots MetricSnapshot[]
 
   /// Dedup: same content id + checksum is a no-op; different checksum under same id → reject
   @@unique([businessId, externalContentId, candidateChecksum])
@@ -1902,6 +1905,7 @@ model PublishingIntent {
   approvals  PublishingApproval[]
   attempts   PublishingAttempt[]
   exportMeta PublishingExportMetadata[]
+  metricSnapshots MetricSnapshot[]
 
   @@index([businessId, status])
   @@index([candidateId])
@@ -1979,6 +1983,7 @@ model PublishingAttempt {
   intent    PublishingIntent             @relation(fields: [intentId], references: [id], onDelete: Cascade)
   result    PublishingResult?
   callbacks PublishingCallbackIdentity[]
+  metricSnapshots MetricSnapshot[]
 
   /// Unique per intent+version+sequence — allows multiple pure-infra retries
   @@unique([intentId, intentVersion, attemptSequence])
@@ -2019,9 +2024,80 @@ model PublishingResult {
   createdAt           DateTime          @default(now()) @map("created_at")
 
   attempt PublishingAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  performanceSyncWindows PerformanceSyncWindow[]
+  metricSnapshots        MetricSnapshot[]
 
   @@index([intentId])
   @@map("publishing_results")
+}
+
+/// One recoverable collection window for one real Facebook publication result.
+/// The application creates these only after revalidating the immutable
+/// PublishingResult → Attempt → Intent → Candidate chain.
+model PerformanceSyncWindow {
+  id                  String   @id @default(uuid()) @db.Uuid
+  businessId          String   @map("business_id") @db.Uuid
+  publishingResultId  String   @map("publishing_result_id") @db.Uuid
+  provider            String   @default("facebook") @db.VarChar(32)
+  window              String   @db.VarChar(3)
+  dueAt               DateTime @map("due_at") @db.Timestamptz(6)
+  state               String   @default("queued") @db.VarChar(16)
+  attemptCount        Int      @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  leaseOwner          String?  @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt      DateTime? @map("lease_expires_at") @db.Timestamptz(6)
+  lastErrorCode       String?  @map("last_error_code") @db.VarChar(64)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  business         Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  publishingResult PublishingResult @relation(fields: [publishingResultId], references: [id], onDelete: Cascade)
+
+  @@unique([publishingResultId, window])
+  @@index([businessId, state, dueAt])
+  @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
+  @@index([publishingResultId])
+  @@map("performance_sync_windows")
+}
+
+/// Immutable normalized Facebook metric snapshot. Updates and deletes are
+/// rejected by the migration trigger; a replay must insert through the unique
+/// (publishingResultId, window) boundary and is rejected on conflict.
+model MetricSnapshot {
+  id                  String   @id @default(uuid()) @db.Uuid
+  businessId          String   @map("business_id") @db.Uuid
+  publishingResultId  String   @map("publishing_result_id") @db.Uuid
+  publishingAttemptId String   @map("publishing_attempt_id") @db.Uuid
+  publishingIntentId  String   @map("publishing_intent_id") @db.Uuid
+  candidateId         String   @map("candidate_id") @db.Uuid
+  candidateChecksum   String   @map("candidate_checksum")
+  provider            String   @default("facebook") @db.VarChar(32)
+  providerObjectId    String   @map("provider_object_id")
+  window              String   @db.VarChar(3)
+  publishedAt         DateTime @map("published_at") @db.Timestamptz(6)
+  dueAt               DateTime @map("due_at") @db.Timestamptz(6)
+  observedAt          DateTime? @map("observed_at") @db.Timestamptz(6)
+  fetchedAt           DateTime @map("fetched_at") @db.Timestamptz(6)
+  graphVersion        String   @map("graph_version") @db.VarChar(32)
+  metricSchemaVersion String   @default("facebook-insights-v1") @map("metric_schema_version") @db.VarChar(64)
+  metrics             Json
+  providerMetadata    Json     @default("{}") @map("provider_metadata")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  business          Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  publishingResult  PublishingResult  @relation(fields: [publishingResultId], references: [id], onDelete: Cascade)
+  publishingAttempt PublishingAttempt @relation(fields: [publishingAttemptId], references: [id], onDelete: Cascade)
+  publishingIntent  PublishingIntent  @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
+  candidate         PublishingCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([publishingResultId, window])
+  @@index([businessId, publishedAt])
+  @@index([businessId, window, fetchedAt])
+  @@index([candidateId, publishedAt])
+  @@index([publishingIntentId])
+  @@index([publishingAttemptId])
+  @@map("metric_snapshots")
 }
 
 /// Tracks every inbound callback for replay/idempotency independent of outcome changes.
