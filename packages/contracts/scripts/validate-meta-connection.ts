@@ -39,6 +39,8 @@ async function run(): Promise<void> {
   assert.ok(example.options.length > 0);
   assert.equal(example.options[0].page.channel, "facebook");
   assert.ok(Array.isArray(example.options[0].page.blockers));
+  assert.equal(example.performance_capability.status, "supported");
+  assert.deepEqual(example.performance_capability.blockers, []);
 
   console.log("meta-connection-v1 examples and credential-free surface are valid.");
 }

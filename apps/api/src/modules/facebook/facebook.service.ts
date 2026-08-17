@@ -8,11 +8,12 @@ import { facebookSocialConnectionRef } from "../publishing/targets/facebook-targ
 import { EncryptionService } from "./encryption.service";
 import { FacebookOAuthStateStore } from "./facebook-oauth-state.store";
 
-/** Least-privilege Facebook Page permissions (dev milestone). */
+/** Least-privilege Facebook Page permissions, including read-only Insights. */
 export const FACEBOOK_SCOPES: readonly string[] = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
+  "read_insights",
 ];
 
 /** Graph API error code for invalid/expired/revoked OAuth tokens. */

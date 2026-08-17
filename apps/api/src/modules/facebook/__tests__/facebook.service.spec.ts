@@ -138,7 +138,7 @@ describe("FacebookService", () => {
         "http://localhost:3001/api/v1/auth/facebook/callback",
       );
       expect(parsed.searchParams.get("scope")).toBe(
-        "pages_show_list,pages_read_engagement,pages_manage_posts",
+        "pages_show_list,pages_read_engagement,pages_manage_posts,read_insights",
       );
       expect(parsed.searchParams.get("state")).toBeTruthy();
     });
