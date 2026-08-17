@@ -194,11 +194,18 @@ trusting browser redirects, or depending on Stripe.
 
 ### Step 8 — Monitoring and optimization
 
-Add metrics and improvement suggestions.
+First add automatic Facebook monitoring for real MarketMind-published posts.
+Then add an evidence-bound hook/CTA suggestion with owner approval and one-time
+future-draft use. The approved Strategy and weekly plan remain unchanged.
 
 Purpose:
 
 Complete the closed-loop AI story.
+
+Implementation order and acceptance criteria:
+
+- `sprint-8/FACEBOOK_PERFORMANCE_AND_OPTIMIZATION_ARCHITECTURE.md`
+- `sprint-8/FACEBOOK_PERFORMANCE_IMPLEMENTATION_ISSUES.md`
 
 ## What not to do first
 
