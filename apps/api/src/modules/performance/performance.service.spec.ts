@@ -22,6 +22,8 @@ function makeService() {
   const prisma = {
     business: { findFirst: jest.fn().mockResolvedValue({ id: BUSINESS_ID }) },
     publishingTarget: { findFirst: jest.fn().mockResolvedValue(null) },
+    publishingCredential: { findFirst: jest.fn().mockResolvedValue(null) },
+    publishingConnectionAudit: { findFirst: jest.fn().mockResolvedValue(null) },
     socialConnection: { findUnique: jest.fn().mockResolvedValue(null) },
     performanceSyncWindow: { findMany: jest.fn().mockResolvedValue([]) },
     metricSnapshot: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -129,5 +131,105 @@ describe("PerformanceService", () => {
       }),
     });
     expect(repository.listPostsPage).not.toHaveBeenCalled();
+  });
+
+  it("uses the target credential source instead of an unrelated legacy connection", async () => {
+    const { service, prisma, repository } = makeService();
+    prisma.publishingTarget.findFirst.mockResolvedValue({
+      id: "a1000000-0000-4000-8000-000000000010",
+      connectionState: "CONNECTED",
+      credentialRef: "a1000000-0000-4000-8000-000000000011",
+      expiresAt: null,
+      externalAccountId: "page-1",
+      lastVerifiedAt: new Date("2026-08-18T10:00:00Z"),
+    });
+    prisma.publishingCredential.findFirst.mockResolvedValue({
+      providerAccountId: "page-1",
+      expiresAt: null,
+    });
+
+    await service.getOverview(USER_ID);
+
+    expect(prisma.socialConnection.findUnique).not.toHaveBeenCalled();
+    expect(repository.buildOverview).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      expect.objectContaining({ status: "ready", blockers: [] }),
+    );
+  });
+
+  it("keeps persisted Insights permission blockers separate from publishing readiness", async () => {
+    const { service, prisma, repository } = makeService();
+    prisma.publishingTarget.findFirst.mockResolvedValue({
+      id: "a1000000-0000-4000-8000-000000000010",
+      connectionState: "CONNECTED",
+      credentialRef: "a1000000-0000-4000-8000-000000000011",
+      expiresAt: null,
+      externalAccountId: "page-1",
+      lastVerifiedAt: new Date("2026-08-18T10:00:00Z"),
+    });
+    prisma.publishingCredential.findFirst.mockResolvedValue({
+      providerAccountId: "page-1",
+      expiresAt: null,
+    });
+    prisma.publishingConnectionAudit.findFirst.mockResolvedValue({
+      createdAt: new Date("2026-08-18T10:00:01Z"),
+      detail: {
+        performance_capability: {
+          status: "unsupported",
+          blockers: [
+            "pages_read_engagement_permission_missing",
+            "read_insights_permission_missing",
+          ],
+        },
+      },
+    });
+
+    await service.getOverview(USER_ID);
+
+    expect(repository.buildOverview).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      expect.objectContaining({
+        status: "blocked",
+        blockers: [
+          "pages_read_engagement_permission_missing",
+          "read_insights_permission_missing",
+        ],
+      }),
+    );
+  });
+
+  it("does not keep a historical permission failure after a verified reconnect", async () => {
+    const { service, prisma, repository } = makeService();
+    prisma.publishingTarget.findFirst.mockResolvedValue({
+      id: "a1000000-0000-4000-8000-000000000010",
+      connectionState: "CONNECTED",
+      credentialRef: "a1000000-0000-4000-8000-000000000011",
+      expiresAt: null,
+      externalAccountId: "page-1",
+      lastVerifiedAt: new Date("2026-08-18T10:00:00Z"),
+    });
+    prisma.publishingCredential.findFirst.mockResolvedValue({
+      providerAccountId: "page-1",
+      expiresAt: null,
+    });
+    prisma.performanceSyncWindow.findMany.mockResolvedValue([
+      {
+        lastErrorCode: "PERFORMANCE_PERMISSION_REQUIRED",
+        updatedAt: new Date("2026-08-18T09:00:00Z"),
+      },
+    ]);
+    prisma.publishingConnectionAudit.findFirst.mockResolvedValue({
+      createdAt: new Date("2026-08-18T10:00:01Z"),
+      detail: {
+        performance_capability: { status: "supported", blockers: [] },
+      },
+    });
+
+    await service.getOverview(USER_ID);
+
+    expect(repository.buildOverview).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      expect.objectContaining({ status: "ready", blockers: [] }),
+    );
   });
 });

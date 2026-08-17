@@ -165,73 +165,121 @@ export class PerformanceService {
     businessId: string,
     ownerUserId: string,
   ): Promise<PerformanceCapabilityV1> {
-    const [target, socialConnection, terminalWindows, latestSnapshot] =
-      await Promise.all([
-        this.prisma.publishingTarget.findFirst({
-          where: {
-            businessId,
-            provider: "META",
-            channel: "facebook",
-          },
-          select: {
-            connectionState: true,
-            expiresAt: true,
-            externalAccountId: true,
-          },
-        }),
-        this.prisma.socialConnection.findUnique({
-          where: { userId: ownerUserId },
-          select: { pageId: true, isValid: true, expiresAt: true },
-        }),
-        this.prisma.performanceSyncWindow.findMany({
-          where: {
-            businessId,
-            state: "terminal",
-            lastErrorCode: {
-              in: [
-                "PERFORMANCE_PERMISSION_REQUIRED",
-                "PERFORMANCE_PROVIDER_UNAVAILABLE",
-                "PERFORMANCE_PROVIDER_RATE_LIMITED",
-              ],
+    const target = await this.prisma.publishingTarget.findFirst({
+      where: {
+        businessId,
+        provider: "META",
+        channel: "facebook",
+        connectionState: { not: "REVOKED" },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        connectionState: true,
+        credentialRef: true,
+        expiresAt: true,
+        externalAccountId: true,
+        lastVerifiedAt: true,
+      },
+    });
+    const usesSocialConnection = Boolean(
+      target?.credentialRef.startsWith("facebook-social-connection:"),
+    );
+    const [
+      socialConnection,
+      vaultCredential,
+      terminalWindows,
+      latestSnapshot,
+      selectionAudit,
+    ] = await Promise.all([
+      usesSocialConnection
+        ? this.prisma.socialConnection.findUnique({
+            where: { userId: ownerUserId },
+            select: { pageId: true, isValid: true, expiresAt: true },
+          })
+        : Promise.resolve(null),
+      target && !usesSocialConnection
+        ? this.prisma.publishingCredential.findFirst({
+            where: {
+              id: target.credentialRef,
+              businessId,
+              provider: "META",
+              kind: "page",
+              revokedAt: null,
             },
+            select: { providerAccountId: true, expiresAt: true },
+          })
+        : Promise.resolve(null),
+      this.prisma.performanceSyncWindow.findMany({
+        where: {
+          businessId,
+          state: "terminal",
+          lastErrorCode: {
+            in: [
+              "PERFORMANCE_PERMISSION_REQUIRED",
+              "PERFORMANCE_PROVIDER_RATE_LIMITED",
+            ],
           },
-          select: { lastErrorCode: true },
-        }),
-        this.prisma.metricSnapshot.findFirst({
-          where: { businessId },
-          orderBy: { fetchedAt: "desc" },
-          select: { fetchedAt: true },
-        }),
-      ]);
+        },
+        select: { lastErrorCode: true, updatedAt: true },
+      }),
+      this.prisma.metricSnapshot.findFirst({
+        where: { businessId },
+        orderBy: { fetchedAt: "desc" },
+        select: { fetchedAt: true },
+      }),
+      target
+        ? this.prisma.publishingConnectionAudit.findFirst({
+            where: {
+              businessId,
+              targetId: target.id,
+              action: "SELECTED",
+            },
+            orderBy: { createdAt: "desc" },
+            select: { detail: true, createdAt: true },
+          })
+        : Promise.resolve(null),
+    ]);
     const blockers: Array<PerformanceCapabilityV1["blockers"][number]> = [];
     if (!target) {
       blockers.push("no_facebook_connection");
     } else if (
       target.connectionState !== "CONNECTED" ||
       (target.expiresAt && target.expiresAt.getTime() <= Date.now()) ||
-      (socialConnection &&
-        socialConnection.pageId === target.externalAccountId &&
-        (!socialConnection.isValid ||
+      (usesSocialConnection &&
+        (!socialConnection ||
+          socialConnection.pageId !== target.externalAccountId ||
+          !socialConnection.isValid ||
           (socialConnection.expiresAt &&
-            socialConnection.expiresAt.getTime() <= Date.now())))
+            socialConnection.expiresAt.getTime() <= Date.now()))) ||
+      (!usesSocialConnection &&
+        (!vaultCredential ||
+          vaultCredential.providerAccountId !== target.externalAccountId ||
+          (vaultCredential.expiresAt &&
+            vaultCredential.expiresAt.getTime() <= Date.now())))
     ) {
       blockers.push("connection_expired");
     }
-    if (
-      terminalWindows.some(
-        (window) => window.lastErrorCode === "PERFORMANCE_PERMISSION_REQUIRED",
-      )
-    ) {
-      blockers.push("read_insights_permission_missing");
+
+    for (const blocker of persistedPermissionBlockers(selectionAudit?.detail)) {
+      pushUnique(blockers, blocker);
     }
-    if (
-      terminalWindows.some(
-        (window) =>
-          window.lastErrorCode === "PERFORMANCE_PROVIDER_UNAVAILABLE" ||
-          window.lastErrorCode === "PERFORMANCE_PROVIDER_RATE_LIMITED",
-      )
-    ) {
-      blockers.push("provider_unavailable");
+
+    // Historical terminal rows are evidence for their observation window, not
+    // permanent connection state. A later target verification/reconnect or a
+    // successful snapshot supersedes those blockers for capability reporting.
+    const recoveredAt = Math.max(
+      target?.lastVerifiedAt?.getTime() ?? 0,
+      latestSnapshot?.fetchedAt.getTime() ?? 0,
+      selectionAudit?.createdAt.getTime() ?? 0,
+    );
+    for (const window of terminalWindows) {
+      if (window.updatedAt.getTime() <= recoveredAt) continue;
+      if (window.lastErrorCode === "PERFORMANCE_PERMISSION_REQUIRED") {
+        pushUnique(blockers, "read_insights_permission_missing");
+      } else if (window.lastErrorCode === "PERFORMANCE_PROVIDER_RATE_LIMITED") {
+        pushUnique(blockers, "provider_unavailable");
+      }
     }
     return {
       status: blockers.length === 0 ? "ready" : "blocked",
@@ -265,4 +313,34 @@ export class PerformanceService {
     }
     throw error;
   }
+}
+
+function persistedPermissionBlockers(
+  detail: unknown,
+): Array<PerformanceCapabilityV1["blockers"][number]> {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return [];
+  const capability = (detail as { performance_capability?: unknown })
+    .performance_capability;
+  if (
+    !capability ||
+    typeof capability !== "object" ||
+    Array.isArray(capability)
+  ) {
+    return [];
+  }
+  const blockers = (capability as { blockers?: unknown }).blockers;
+  if (!Array.isArray(blockers)) return [];
+  return blockers.flatMap((blocker) =>
+    blocker === "pages_read_engagement_permission_missing" ||
+    blocker === "read_insights_permission_missing"
+      ? [blocker]
+      : [],
+  );
+}
+
+function pushUnique(
+  blockers: Array<PerformanceCapabilityV1["blockers"][number]>,
+  blocker: PerformanceCapabilityV1["blockers"][number],
+): void {
+  if (!blockers.includes(blocker)) blockers.push(blocker);
 }

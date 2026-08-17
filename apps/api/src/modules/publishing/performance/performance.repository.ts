@@ -220,6 +220,12 @@ export class PerformanceRepository {
         outcome: "PUBLISHED",
         provider: "meta",
         remotePublicationId: { not: null },
+        // Completed rows must leave the bounded discovery set. Without this
+        // missing-window filter the oldest `limit` publications are selected
+        // forever and newer posts never receive their 24h/72h/7d windows.
+        OR: PERFORMANCE_WINDOWS.map((window) => ({
+          performanceSyncWindows: { none: { window } },
+        })),
         attempt: {
           intent: {
             mode: "REAL",
@@ -909,9 +915,14 @@ export class PerformanceRepository {
         "metric snapshot due_at must match its sync window",
       );
     }
-    try {
-      const row = await client.metricSnapshot.create({
-        data: {
+    // `createMany(skipDuplicates)` is deliberate here. Catching P2002 and then
+    // reading again is unsafe inside an interactive PostgreSQL transaction:
+    // the unique violation aborts that transaction, so the replay read fails
+    // with 25P02. A skipped duplicate keeps the transaction usable and lets us
+    // compare the immutable evidence before completing the claimed window.
+    await client.metricSnapshot.createMany({
+      data: [
+        {
           id: snapshot.snapshot_id,
           businessId: snapshot.business_id,
           publishingResultId: snapshot.publishing_result_id,
@@ -934,26 +945,24 @@ export class PerformanceRepository {
           providerMetadata: snapshot.provider_metadata as Prisma.InputJsonValue,
           createdAt: new Date(snapshot.created_at),
         },
-      });
-      return toSnapshotContract(row);
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-      const existing = await client.metricSnapshot.findUnique({
-        where: {
-          publishingResultId_window: {
-            publishingResultId: snapshot.publishing_result_id,
-            window: snapshot.window,
-          },
+      ],
+      skipDuplicates: true,
+    });
+    const existing = await client.metricSnapshot.findUnique({
+      where: {
+        publishingResultId_window: {
+          publishingResultId: snapshot.publishing_result_id,
+          window: snapshot.window,
         },
-      });
-      if (existing && snapshotsEqual(toSnapshotContract(existing), snapshot)) {
-        return toSnapshotContract(existing);
-      }
-      throw new PerformanceRepositoryError(
-        "PERFORMANCE_SNAPSHOT_CONFLICT",
-        "metric snapshot replay conflicts with immutable evidence",
-      );
+      },
+    });
+    if (existing && snapshotsEqual(toSnapshotContract(existing), snapshot)) {
+      return toSnapshotContract(existing);
     }
+    throw new PerformanceRepositoryError(
+      "PERFORMANCE_SNAPSHOT_CONFLICT",
+      "metric snapshot replay conflicts with immutable evidence",
+    );
   }
 
   private async loadEligibleResult(

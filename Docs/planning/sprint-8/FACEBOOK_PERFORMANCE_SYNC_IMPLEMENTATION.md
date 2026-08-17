@@ -56,6 +56,13 @@ expired leases to `retryable`, and claims a bounded batch. Queue jobs have a
 deterministic ID (`performance-sync:<window-id>:<attempt>`). A failed enqueue
 releases the lease with a future retry time.
 
+Discovery selects only publications that are missing at least one required
+window. Completed publications therefore leave the bounded scan instead of
+permanently starving newer posts. Snapshot replay uses PostgreSQL
+`createMany(skipDuplicates)` followed by an immutable equality check, so an
+identical duplicate remains recoverable inside the same transaction without a
+unique violation aborting that transaction.
+
 429s, timeouts, and eligible 5xx responses retry with bounded exponential
 backoff. Expired/revoked credentials and missing Insights permission become a
 terminal permission blocker. Deleted or unsupported posts become terminal
@@ -79,7 +86,10 @@ the PostgreSQL cooldown.
 
 Publishing readiness and monitoring capability are separate. A valid Facebook
 publishing target remains usable when Insights permission or the monitoring
-credential is blocked.
+credential is blocked. Capability follows the credential source referenced by
+the current target (vault record or legacy SocialConnection), includes the
+permission result recorded during Page selection, and treats a later verified
+reconnect or successful snapshot as recovery from older terminal failures.
 
 ## Verification
 
