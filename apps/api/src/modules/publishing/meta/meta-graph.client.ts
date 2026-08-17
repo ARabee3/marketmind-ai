@@ -242,7 +242,7 @@ export class MetaGraphClient {
   }
 
   /**
-   * Reads the candidate Facebook post Insights allowlist server-side. The
+   * Reads the frozen Facebook post Insights allowlist server-side. The
    * provider object id and Page token are both supplied by the vault-backed
    * service boundary; this method never accepts browser input.
    */
@@ -273,6 +273,7 @@ export class MetaGraphClient {
         message: "facebook insights metric is not in the allowlist",
       });
     }
+    const requestedMetrics = new Set<string>(metrics);
     const data = await this.graphGet<{
       data?: Array<{
         name?: string;
@@ -289,16 +290,18 @@ export class MetaGraphClient {
 
     return {
       postId,
-      metrics: (data.data ?? []).map((metric) => ({
-        name: String(metric.name ?? ""),
-        period: metric.period ?? null,
-        values: (metric.values ?? []).flatMap((point) => {
-          const value = normalizeInsightValue(point.value);
-          return value === null
-            ? []
-            : [{ value, endTime: point.end_time ?? null }];
-        }),
-      })),
+      metrics: (data.data ?? [])
+        .filter((metric) => requestedMetrics.has(String(metric.name ?? "")))
+        .map((metric) => ({
+          name: String(metric.name ?? ""),
+          period: metric.period ?? null,
+          values: (metric.values ?? []).flatMap((point) => {
+            const value = normalizeInsightValue(point.value);
+            return value === null
+              ? []
+              : [{ value, endTime: point.end_time ?? null }];
+          }),
+        })),
     };
   }
 

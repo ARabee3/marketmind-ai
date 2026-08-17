@@ -112,14 +112,19 @@ describe("MetaGraphClient (issue #175)", () => {
               values: [{ value: 42, end_time: "2026-08-17T12:00:00+0000" }],
             },
             {
-              name: "post_reactions_by_type_total",
+              name: "post_clicks",
               period: "lifetime",
               values: [
                 {
-                  value: { like: 3, love: 1, ignored: "not-a-number" },
+                  value: 0,
                   end_time: "2026-08-17T12:00:00+0000",
                 },
               ],
+            },
+            {
+              name: "post_reactions_by_type_total",
+              period: "lifetime",
+              values: [{ value: { like: 3, love: 1 } }],
             },
             {
               name: "unsupported_metric",
@@ -147,19 +152,14 @@ describe("MetaGraphClient (issue #175)", () => {
           ],
         },
         {
-          name: "post_reactions_by_type_total",
+          name: "post_clicks",
           period: "lifetime",
           values: [
             {
-              value: { like: 3, love: 1 },
+              value: 0,
               endTime: "2026-08-17T12:00:00+0000",
             },
           ],
-        },
-        {
-          name: "unsupported_metric",
-          period: "lifetime",
-          values: [],
         },
       ],
     });
