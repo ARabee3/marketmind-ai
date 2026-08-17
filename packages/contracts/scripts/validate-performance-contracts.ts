@@ -64,6 +64,10 @@ await assertInvalid(
   validateMetricSnapshotV1,
 );
 await assertInvalid(
+  "performance-snapshot-coerced-value.invalid.json",
+  validateMetricSnapshotV1,
+);
+await assertInvalid(
   "performance-snapshot-sensitive-metadata.invalid.json",
   validateMetricSnapshotV1,
 );

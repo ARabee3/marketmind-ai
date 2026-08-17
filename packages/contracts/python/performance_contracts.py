@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Annotated, Literal, Union
 from uuid import UUID
 
-from pydantic import Field, FiniteFloat
+from pydantic import Field
 
 from content_base import FrozenModel
 
@@ -50,11 +50,17 @@ PerformanceErrorCode = Literal[
     "PERFORMANCE_SNAPSHOT_IMMUTABLE",
     "PERFORMANCE_SYNC_TERMINAL",
 ]
+NonNegativeFiniteNumber = Annotated[
+    float,
+    Field(strict=True, allow_inf_nan=False, ge=0),
+]
+NonNegativeInteger = Annotated[int, Field(strict=True, ge=0)]
+NonEmptyString = Annotated[str, Field(min_length=1)]
 
 
 class PerformanceMetricAvailable(FrozenModel):
     status: Literal["available"]
-    value: FiniteFloat = Field(ge=0)
+    value: NonNegativeFiniteNumber
 
 
 class PerformanceMetricUnavailable(FrozenModel):
@@ -76,8 +82,8 @@ class PerformanceMetricsV1(FrozenModel):
 
 class PerformanceProviderMetadataV1(FrozenModel):
     source: Literal["meta_insights"]
-    response_metric_count: int = Field(ge=0)
-    response_periods: list[str]
+    response_metric_count: NonNegativeInteger
+    response_periods: list[NonEmptyString]
 
 
 class PerformanceSyncWindowV1(FrozenModel):
@@ -89,7 +95,7 @@ class PerformanceSyncWindowV1(FrozenModel):
     window: PerformanceWindow
     due_at: datetime
     state: PerformanceSyncState
-    attempt_count: int = Field(ge=0)
+    attempt_count: NonNegativeInteger
     next_attempt_at: datetime | None
     lease_owner: str | None
     lease_expires_at: datetime | None
@@ -106,15 +112,15 @@ class MetricSnapshotV1(FrozenModel):
     publishing_attempt_id: UUID
     publication_intent_id: UUID
     candidate_id: UUID
-    candidate_checksum: str
+    candidate_checksum: NonEmptyString
     provider: Literal["facebook"]
-    provider_object_id: str
+    provider_object_id: NonEmptyString
     window: PerformanceWindow
     published_at: datetime
     due_at: datetime
     observed_at: datetime | None
     fetched_at: datetime
-    graph_version: str
+    graph_version: NonEmptyString
     metric_schema_version: Literal["facebook-insights-v1"]
     metrics: PerformanceMetricsV1
     provider_metadata: PerformanceProviderMetadataV1
@@ -127,7 +133,7 @@ class PerformanceSnapshotProjectionV1(FrozenModel):
     business_id: UUID
     publishing_result_id: UUID
     provider: Literal["facebook"]
-    provider_object_id: str
+    provider_object_id: NonEmptyString
     window: PerformanceWindow
     published_at: datetime
     observed_at: datetime | None
@@ -141,15 +147,15 @@ class PerformancePostProjectionV1(FrozenModel):
     candidate_id: UUID
     publishing_result_id: UUID
     provider: Literal["facebook"]
-    provider_object_id: str
+    provider_object_id: NonEmptyString
     published_at: datetime
     snapshots: list[PerformanceSnapshotProjectionV1]
 
 
 class PerformanceBaselineReadinessV1(FrozenModel):
     status: Literal["ready", "not_ready"]
-    observed_snapshot_count: int = Field(ge=0)
-    required_snapshot_count: int = Field(ge=0)
+    observed_snapshot_count: NonNegativeInteger
+    required_snapshot_count: NonNegativeInteger
     reason: Literal[
         "no_published_posts", "insufficient_snapshots", "provider_unavailable"
     ] | None

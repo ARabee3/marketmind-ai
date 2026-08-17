@@ -36,7 +36,7 @@ export type PersistMetricSnapshotInput = {
   readonly snapshot: unknown;
 };
 
-type EligibleResultChain = Prisma.PublishingResultGetPayload<{
+type PublishingResultChain = Prisma.PublishingResultGetPayload<{
   include: {
     attempt: {
       include: {
@@ -47,6 +47,9 @@ type EligibleResultChain = Prisma.PublishingResultGetPayload<{
     };
   };
 }>;
+type EligibleResultChain = PublishingResultChain & {
+  readonly remotePublicationId: string;
+};
 
 const RESULT_CHAIN_INCLUDE = {
   attempt: {
@@ -163,7 +166,7 @@ export class PerformanceRepository {
           candidateId: snapshot.candidate_id,
           candidateChecksum: snapshot.candidate_checksum,
           provider: snapshot.provider,
-          providerObjectId: snapshot.provider_object_id,
+          providerObjectId: chain.remotePublicationId,
           window: snapshot.window,
           publishedAt: new Date(snapshot.published_at),
           dueAt: new Date(snapshot.due_at),
@@ -260,7 +263,7 @@ export class PerformanceRepository {
         "only a real, published Facebook result is performance-eligible",
       );
     }
-    return chain;
+    return chain as EligibleResultChain;
   }
 
   private assertSnapshotProvenance(
@@ -377,7 +380,25 @@ function snapshotsEqual(a: MetricSnapshotV1, b: MetricSnapshotV1): boolean {
     fetched_at: new Date(value.fetched_at).toISOString(),
     created_at: new Date(value.created_at).toISOString(),
   });
-  return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+  return (
+    JSON.stringify(canonicalizeJson(normalize(a))) ===
+    JSON.stringify(canonicalizeJson(normalize(b)))
+  );
+}
+
+/** PostgreSQL jsonb does not preserve caller object-key insertion order. */
+function canonicalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeJson);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, canonicalizeJson(child)]),
+    );
+  }
+  return value;
 }
 
 function isUniqueViolation(error: unknown): boolean {

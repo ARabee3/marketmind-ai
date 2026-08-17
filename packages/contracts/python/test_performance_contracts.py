@@ -46,6 +46,7 @@ class TestPerformanceContracts(unittest.TestCase):
     def test_invalid_fixtures_are_rejected(self):
         invalid = [
             "performance-snapshot-negative-value.invalid.json",
+            "performance-snapshot-coerced-value.invalid.json",
             "performance-snapshot-sensitive-metadata.invalid.json",
             "performance-sync-window-unknown-state.invalid.json",
         ]

@@ -183,11 +183,13 @@ describe("PerformanceRepository", () => {
     ["FAILED", "meta", false, "REAL", "facebook", "ACTIVE", "failed"],
     ["CANCELLED", "meta", false, "REAL", "facebook", "ACTIVE", "cancelled"],
     ["UNKNOWN", "meta", false, "REAL", "facebook", "ACTIVE", "unknown"],
-    ["PUBLISHED", "meta", false, "REAL", "instagram", "ACTIVE", "channel"],
+    ["PUBLISHED", "meta", false, "REAL", "facebook", "ACTIVE", "remote ID"],
+    ["PUBLISHED", "meta", true, "REAL", "instagram", "ACTIVE", "channel"],
+    ["PUBLISHED", "meta", true, "SIMULATION", "facebook", "ACTIVE", "mode"],
     ["PUBLISHED", "instagram", true, "REAL", "facebook", "ACTIVE", "provider"],
     ["PUBLISHED", "meta", true, "REAL", "facebook", "ACTIVE", "business"],
   ] as const)(
-    "rejects %s result when it violates the Facebook eligibility boundary (%s)",
+    "rejects %s provider=%s remote=%s mode=%s channel=%s candidate=%s (%s)",
     async (
       outcome,
       provider,
@@ -264,6 +266,22 @@ describe("PerformanceRepository", () => {
     expect(createData).not.toHaveProperty("caption");
   });
 
+  it("rejects a provider object ID that does not match the server-side publishing result", async () => {
+    const prisma = makePrisma();
+    prisma.publishingResult.findUnique.mockResolvedValue(chain());
+    const repository = new PerformanceRepository(prisma as PrismaService);
+
+    await expect(
+      repository.createMetricSnapshot({
+        snapshot: snapshot({ provider_object_id: "client-supplied-post" }),
+      }),
+    ).rejects.toMatchObject({
+      code: "PERFORMANCE_INVALID_PROVIDER_DATA",
+    });
+    expect(prisma.performanceSyncWindow.findUnique).not.toHaveBeenCalled();
+    expect(prisma.metricSnapshot.create).not.toHaveBeenCalled();
+  });
+
   it("keeps a real published result eligible after a later candidate revocation", async () => {
     const prisma = makePrisma();
     prisma.publishingResult.findUnique.mockResolvedValue(
@@ -295,13 +313,24 @@ describe("PerformanceRepository", () => {
 
   it("treats an identical replay as a read-only no-op and rejects a conflicting replay", async () => {
     const first = snapshot();
+    const reordered = dbSnapshot(first);
+    reordered.metrics = {
+      post_clicks: first.metrics.post_clicks,
+      post_total_media_view_unique: first.metrics.post_total_media_view_unique,
+      post_media_view: first.metrics.post_media_view,
+    };
+    reordered.providerMetadata = {
+      response_periods: first.provider_metadata.response_periods,
+      response_metric_count: first.provider_metadata.response_metric_count,
+      source: first.provider_metadata.source,
+    };
     const prisma = makePrisma();
     prisma.publishingResult.findUnique.mockResolvedValue(chain());
     prisma.performanceSyncWindow.findUnique.mockResolvedValue(syncWindow());
     prisma.metricSnapshot.create.mockRejectedValue({
       message: "P2002 unique constraint",
     });
-    prisma.metricSnapshot.findUnique.mockResolvedValue(dbSnapshot(first));
+    prisma.metricSnapshot.findUnique.mockResolvedValue(reordered);
     const repository = new PerformanceRepository(prisma as PrismaService);
 
     await expect(

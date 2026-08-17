@@ -102,6 +102,15 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   PUBLISHING_PROVIDER_OUTCOME_UNKNOWN: "Errors.generic",
   PUBLISHING_CALLBACK_INVALID: "Errors.validationError",
   PUBLISHING_CALLBACK_CONFLICT: "Errors.generic",
+  PERFORMANCE_NOT_ELIGIBLE: "Errors.generic",
+  PERFORMANCE_PERMISSION_REQUIRED: "Errors.generic",
+  PERFORMANCE_PROVIDER_RATE_LIMITED: "Errors.serverError",
+  PERFORMANCE_PROVIDER_UNAVAILABLE: "Errors.serverError",
+  PERFORMANCE_INVALID_PROVIDER_DATA: "Errors.serverError",
+  PERFORMANCE_SNAPSHOT_CONFLICT: "Errors.generic",
+  PERFORMANCE_SYNC_WINDOW_CONFLICT: "Errors.generic",
+  PERFORMANCE_SNAPSHOT_IMMUTABLE: "Errors.generic",
+  PERFORMANCE_SYNC_TERMINAL: "Errors.generic",
 };
 
 export function isKnownErrorCode(code: string): code is ErrorCode {
