@@ -27,11 +27,11 @@ class Settings(BaseSettings):
     )
     ai_orchestration_trace_timeout_ms: int = Field(default=500, ge=50, le=10_000)
     ai_request_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
-    # End-to-end provider-call budget for one logical artifact. NestJS retries
-    # the whole request up to 3 times, so the AI service must not multiply
-    # that with its own loop — 3(queue) x 3(service) would hit the provider
-    # up to 9 times. One bounded attempt-set means at most 3 provider calls.
-    ai_generation_attempts: int = Field(default=1, ge=1, le=5)
+    # End-to-end provider-call budget for one logical Strategy artifact.
+    # FastAPI owns validation-aware repair, while NestJS sends one logical
+    # generate/revise request. Keep the hard upper bound at 3 so retries can
+    # never multiply across services.
+    ai_generation_attempts: int = Field(default=3, ge=1, le=3)
     discovery_triage_timeout_ms: int = Field(default=120_000, ge=1_000, le=300_000)
     openai_api_key: str = ""
     openai_model: str = ""

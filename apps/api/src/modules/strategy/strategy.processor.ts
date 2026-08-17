@@ -39,24 +39,10 @@ interface ReviseJobData {
   correlationId: string;
 }
 
-/**
- * Total attempts (including the first) for a single AI generation/revise
- * call. Each attempt already includes the AI service's own bounded
- * generation retries, so this loop is the outer safety net.
- */
-const MAX_AI_GENERATION_ATTEMPTS = 3;
-
-/** Base backoff delay between AI generation attempts (doubles per attempt). */
-const DEFAULT_AI_GENERATION_RETRY_DELAY_MS = 1_000;
-
 // FastAPI can perform up to three provider/repair attempts inside one Strategy
 // request. This timeout covers that whole bounded loop; a shorter timeout can
 // abort a healthy repair and start duplicate provider work.
 const STRATEGY_AI_GENERATION_TIMEOUT_MS = 150_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 @Processor("strategy-generation")
 @Injectable()
@@ -64,7 +50,6 @@ export class StrategyProcessor extends WorkerHost {
   private readonly logger = new Logger(StrategyProcessor.name);
   private readonly aiUrl: string;
   private readonly aiRequestTimeoutMs: number;
-  private readonly aiGenerationRetryDelayMs: number;
 
   constructor(
     private readonly strategyRepository: StrategyRepository,
@@ -80,9 +65,6 @@ export class StrategyProcessor extends WorkerHost {
     this.aiRequestTimeoutMs =
       this.config.get<number>("aiService.requestTimeoutMs") ??
       DEFAULT_AI_REQUEST_TIMEOUT_MS;
-    this.aiGenerationRetryDelayMs =
-      this.config.get<number>("aiService.generationRetryDelayMs") ??
-      DEFAULT_AI_GENERATION_RETRY_DELAY_MS;
   }
 
   async process(job: Job<unknown, unknown, string>): Promise<unknown> {
@@ -158,8 +140,7 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const response = await this.callAiGenerationWithRetry(
-        correlationId,
+      const response = await this.callAiGeneration(
         () =>
           this.postAi(
             "/internal/v1/ai/strategy/generate",
@@ -488,8 +469,7 @@ export class StrategyProcessor extends WorkerHost {
         );
       }
 
-      const revisionResponse = await this.callAiGenerationWithRetry(
-        correlationId,
+      const revisionResponse = await this.callAiGeneration(
         () =>
           this.postAi(
             "/internal/v1/ai/strategy/revise",
@@ -627,45 +607,19 @@ export class StrategyProcessor extends WorkerHost {
   }
 
   /**
-   * Calls the AI generation/revise endpoint with bounded automatic retries.
+   * Calls one logical AI generation/revise request and validates its boundary.
    *
-   * Owner-facing rule: a draft is only ever surfaced when it is valid AND
-   * approvable. Transient provider errors, malformed responses, and plans that
-   * carry blocking blockers are retried automatically while the strategy stays
-   * in `generating`. HTTP 422 means the AI service already exhausted its own
-   * bounded repair loop, so repeating the same request only wastes provider
-   * calls. The strategy only moves to `failed` (owner-visible retry) after
-   * every useful attempt is exhausted.
+   * FastAPI owns the bounded provider loop because it can build targeted
+   * repair prompts from deterministic validation issues. Repeating the whole
+   * request here would discard that context and could multiply provider calls.
    */
-  private async callAiGenerationWithRetry<T>(
-    correlationId: string,
+  private async callAiGeneration<T>(
     attempt: () => Promise<T>,
     validate: (result: T) => void,
   ): Promise<T> {
-    let lastError: unknown = new Error("AI generation failed");
-    for (
-      let attemptNumber = 0;
-      attemptNumber < MAX_AI_GENERATION_ATTEMPTS;
-      attemptNumber += 1
-    ) {
-      try {
-        const result = await attempt();
-        validate(result);
-        return result;
-      } catch (error: unknown) {
-        lastError = error;
-        const hasRetriesLeft = attemptNumber < MAX_AI_GENERATION_ATTEMPTS - 1;
-        if (!hasRetriesLeft || !shouldRetryAiGeneration(error)) {
-          throw error;
-        }
-        const delay = this.aiGenerationRetryDelayMs * 2 ** attemptNumber;
-        this.logger.warn(
-          `[Corr: ${correlationId}] AI generation attempt ${attemptNumber + 1}/${MAX_AI_GENERATION_ATTEMPTS} failed (${errorMessage(error)}); retrying in ${delay}ms`,
-        );
-        await sleep(delay);
-      }
-    }
-    throw lastError;
+    const result = await attempt();
+    validate(result);
+    return result;
   }
 
   private async recordProgress(
@@ -731,33 +685,6 @@ function formatResponseData(data: unknown): string {
   return serialized.length > 2_000
     ? `${serialized.slice(0, 2_000)}…`
     : serialized;
-}
-
-/**
- * Decides whether an AI generation attempt is worth repeating. Retries are
- * bounded and safe for transient provider failures and plans that are
- * structurally invalid or non-approvable. HTTP 422 validation failures are
- * terminal for this job because the AI service already re-attempted them with
- * repair prompts. Other HTTP 4xx responses will not fix themselves and are
- * surfaced immediately.
- */
-function shouldRetryAiGeneration(error: unknown): boolean {
-  if (!(error instanceof Error)) return true;
-  const code = (error as Error & { code?: string }).code;
-  if (code === "ECONNABORTED") {
-    // The upstream request may still be running. Repeating it can create a
-    // duplicate provider call without improving the result.
-    return false;
-  }
-  const status = (error as Error & { response?: { status?: number } }).response
-    ?.status;
-  if (typeof status === "number") {
-    if (status >= 400 && status < 500) {
-      return false;
-    }
-    return true;
-  }
-  return true;
 }
 
 /**

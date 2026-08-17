@@ -33,10 +33,9 @@ from tests.strategy.fixtures import (
 
 def _mock_settings():
     from app.core.config import Settings
-    # Exercise the bounded retry/repair machinery in these endpoint tests. The
-    # production default (ai_generation_attempts=1) caps provider calls at 3
-    # end-to-end with the NestJS outer retry.
-    return Settings(ai_provider_mode="mock", ai_generation_attempts=3)
+    # Use the production retry default so endpoint tests exercise the same
+    # validation-aware repair budget that handles real provider responses.
+    return Settings(ai_provider_mode="mock")
 
 
 client = TestClient(app)
@@ -51,6 +50,13 @@ def override_settings():
 
 
 class TestGenerateEndpoint:
+    def test_generation_attempt_budget_defaults_to_three_and_cannot_exceed_it(self):
+        from app.core.config import Settings
+
+        assert Settings.model_fields["ai_generation_attempts"].default == 3
+        with pytest.raises(ValidationError):
+            Settings(ai_generation_attempts=4)
+
     def test_generate_endpoint_returns_valid_plan(self):
         request = make_generate_request()
         response = client.post(
@@ -151,6 +157,44 @@ class TestGenerateEndpoint:
         assert response.status_code == 200
         assert len(provider.prompts) == 2
         assert "MANDATORY LANGUAGE CORRECTION" in provider.prompts[1].system_prompt
+
+    def test_language_repair_prompt_includes_rejected_field_value(self, monkeypatch):
+        request = make_generate_request()
+        fixture = load_default_plan_fixture()
+        rejected_value = "English evidence gap that must be rewritten in Arabic."
+        bad_plan = fixture.model_copy(update={
+            "knowledge_gaps": [
+                fixture.knowledge_gaps[0].model_copy(
+                    update={"description": rejected_value}
+                ),
+                *fixture.knowledge_gaps[1:],
+            ],
+        })
+
+        class SequenceProvider:
+            def __init__(self):
+                self.prompts = []
+                self.plans = [bad_plan, fixture]
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.prompts.append(prompt)
+                return self.plans.pop(0)
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert len(provider.prompts) == 2
+        assert "plan.knowledge_gaps[0].description" in provider.prompts[1].user_prompt
+        assert rejected_value in provider.prompts[1].user_prompt
 
     def test_language_mismatch_returns_422_after_bounded_retries(self, monkeypatch):
         request = make_generate_request()

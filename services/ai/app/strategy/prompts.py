@@ -440,7 +440,7 @@ def build_revise_user_context(
 STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
     [
         _GENERATE_PROMPT_HEADER,
-        f"Prompt version: strategy-generate-v2-owner-first.",
+        f"Prompt version: strategy-generate-v3-owner-first.",
         f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
         "",
         "Your job: turn one confirmed Business Profile, one owner-first Strategy Brief, one",
@@ -517,6 +517,9 @@ STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
         "- Every numeric threshold or market assumption must come from the supplied",
         "  knowledge pack or be marked as a gap/assumption. Never present global averages",
         "  as Egyptian market reality.",
+        "- knowledge_gaps[].description is owner-facing synthesized prose. For ar-EG, write",
+        "  the description in Arabic even when the input question_hint is English; preserve",
+        "  only the gap category and severity, not the source wording.",
         "",
         "## Anti-pattern rules (never do these)",
         "",
@@ -537,7 +540,7 @@ STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
 STRATEGY_REVISE_V2_SYSTEM_PROMPT = "\n".join(
     [
         _GENERATE_PROMPT_HEADER,
-        f"Prompt version: strategy-revise-v2-owner-first.",
+        f"Prompt version: strategy-revise-v3-owner-first.",
         f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
         "",
         "Your job: create a revised owner-first 12-week StrategyPlan (strategy-v2) from",
@@ -565,6 +568,9 @@ STRATEGY_REVISE_V2_SYSTEM_PROMPT = "\n".join(
         "Use the same evidence labels, calendar week rules, owner advice rules, and",
         "anti-pattern rules as generation (Egypt-first evidence, owner-led advice, no",
         "execution language).",
+        "The knowledge_gaps[].description values are owner-facing synthesized prose and",
+        "must be written in the requested plan language; for ar-EG, do not copy an English",
+        "question_hint into the description.",
         "",
         "Return only a valid JSON object matching the StrategyPlan contract (strategy-v2).",
         "Emit the content_handoff placeholder",

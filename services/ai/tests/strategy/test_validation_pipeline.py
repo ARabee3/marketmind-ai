@@ -413,6 +413,31 @@ class TestContentLeakage:
         result = _pipeline().validate(plan, request)
         assert not result.valid
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "تعتمد الخطة على بيانات الملف لتقييم الإعلان المقترح.",
+            "تم إعداد ملخص الأدلة لمقارنة خيارات النشر دون تنفيذها.",
+            "يتم تقييم خيارات نشر المحتوى بعد قرار المالك.",
+        ],
+    )
+    def test_safe_arabic_planning_text_does_not_trigger_execution_rule(self, text):
+        request = make_generate_request()
+        plan = default_plan()
+        plan = plan.model_copy(update={
+            "executive_summary": plan.executive_summary.model_copy(
+                update={"text": text}
+            )
+        })
+
+        result = _pipeline().validate(plan, request)
+
+        assert not any(
+            issue.code == "STRATEGY_RULE_VIOLATION"
+            and "publishing" in issue.message
+            for issue in result.issues
+        )
+
 
 # ---------------------------------------------------------------------------
 # Contract-level: stale or unconfirmed profile

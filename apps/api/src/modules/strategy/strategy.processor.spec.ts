@@ -150,7 +150,6 @@ describe("StrategyProcessor", () => {
           useValue: {
             get: jest.fn((key: string) => {
               if (key === "aiService.url") return "http://localhost:8000";
-              if (key === "aiService.generationRetryDelayMs") return 0;
               return 30_000;
             }),
           },
@@ -582,9 +581,9 @@ describe("StrategyProcessor", () => {
     });
   });
 
-  // ── generate-strategy: automatic retry until valid + approvable ─────
+  // ── generate-strategy: single request retry ownership ──────────────
 
-  describe("handleGenerate — automatic retry", () => {
+  describe("handleGenerate — retry ownership", () => {
     const validPlan = {
       id: "plan-1",
       strategy_id: "strat-1",
@@ -638,6 +637,27 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
+    it("does not repeat a 503 because FastAPI owns provider retries", async () => {
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValueOnce(throwError(() => httpStatusError(503)));
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("Request failed with status code 503");
+
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
+        "strat-1",
+        "failed",
+      );
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
+    });
+
     it("allows the AI service repair loop enough time and does not duplicate a timed-out request", async () => {
       const timeoutError = Object.assign(
         new Error("timeout of 150000ms exceeded"),
@@ -665,11 +685,7 @@ describe("StrategyProcessor", () => {
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
-    it("rejects a plan carrying blocking blockers and regenerates until approvable", async () => {
-      (repository.appendStrategyVersion as jest.Mock).mockResolvedValue({
-        id: "ver-1",
-        version: 1,
-      });
+    it("rejects a plan carrying blocking blockers without repeating the request", async () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
         .mockReturnValueOnce(
@@ -688,34 +704,25 @@ describe("StrategyProcessor", () => {
               validation: { valid: true, issues: [] },
             },
           }),
-        )
-        .mockReturnValue(
-          of({
-            data: {
-              plan: { ...validPlan, blockers: [] },
-              validation: { valid: true, issues: [] },
-              prompt_config: {},
-            },
-          }),
         );
 
-      const result = await processor.process({
-        id: "job-1",
-        name: "generate-strategy",
-        data: baseJob,
-      } as never);
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("blocking blockers present");
 
-      expect(result).toEqual({ success: true, versionId: "ver-1" });
-      expect(httpService.post).toHaveBeenCalledTimes(3);
-      expect(repository.appendStrategyVersion).toHaveBeenCalledWith(
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+      expect(repository.updateStrategyStatus).toHaveBeenCalledWith(
         "strat-1",
-        "run-1",
-        expect.objectContaining({ blockers: [] }),
-        {},
+        "failed",
       );
+      expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
 
-    it("fails to failed only after every automatic attempt is exhausted", async () => {
+    it("fails after the AI service exhausts its internal attempts", async () => {
       httpService.post
         .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
         .mockReturnValue(throwError(() => httpStatusError(422)));
