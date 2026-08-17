@@ -44,17 +44,15 @@ export const META_PERMISSION_PAGES_READ_ENGAGEMENT = "pages_read_engagement";
 export const META_PERMISSION_READ_INSIGHTS = "read_insights";
 
 /**
- * Candidate Facebook post Insights allowlist for the performance capability
- * spike. Issue #218 may freeze the exact provider/version response only after
- * a credential-redacted live request; deprecated reach/impression metrics are
- * intentionally not included here.
+ * Frozen Facebook post Insights allowlist from the credential-redacted live
+ * decision recorded in `fixtures/facebook-insights-live-v1.json` (2026-08-18).
+ * Graph v21.0 is retained as the publishing default after an identical v26.0
+ * comparison. Deprecated reach/impression metrics remain intentionally out.
  */
 export const META_FACEBOOK_INSIGHTS_METRICS = [
   "post_media_view",
   "post_total_media_view_unique",
-  "post_engagements",
   "post_clicks",
-  "post_reactions_by_type_total",
 ] as const;
 
 export type MetaFacebookInsightValue = number | Record<string, number>;

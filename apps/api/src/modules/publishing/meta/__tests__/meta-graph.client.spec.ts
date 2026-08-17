@@ -189,6 +189,21 @@ describe("MetaGraphClient (issue #175)", () => {
     expect(http.get).not.toHaveBeenCalled();
   });
 
+  it("rejects live-unavailable candidate metrics after the frozen decision", async () => {
+    const { client, http } = makeClient();
+
+    await expect(
+      client.fetchFacebookPostInsights({
+        pageToken: "page-token",
+        postId: "page-1_post-1",
+        metrics: ["post_engagements"],
+      }),
+    ).rejects.toMatchObject({
+      info: { status: 400, code: 0 },
+    });
+    expect(http.get).not.toHaveBeenCalled();
+  });
+
   it("exchanges a code for a long-lived user token server-to-server", async () => {
     const { client, http } = makeClient(
       (path) => {
