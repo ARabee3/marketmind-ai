@@ -23,6 +23,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { OrchestrationModule } from './modules/orchestration/orchestration.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PerformanceModule } from "./modules/performance/performance.module";
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { AdminModule } from './modules/admin/admin.module';
     BillingModule,
     FacebookModule,
     AdminModule,
+    PerformanceModule,
     // Phase 1 persistence/contracts only; no existing route is wired to it.
     OrchestrationModule,
   ],

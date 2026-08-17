@@ -150,6 +150,7 @@ class PerformancePostProjectionV1(FrozenModel):
     provider_object_id: NonEmptyString
     published_at: datetime
     snapshots: list[PerformanceSnapshotProjectionV1]
+    sync_windows: list[PerformanceSyncWindowV1] = Field(default_factory=list)
 
 
 class PerformanceBaselineReadinessV1(FrozenModel):
@@ -161,6 +162,20 @@ class PerformanceBaselineReadinessV1(FrozenModel):
     ] | None
 
 
+class PerformanceCapabilityV1(FrozenModel):
+    status: Literal["ready", "blocked", "unknown"]
+    blockers: list[
+        Literal[
+            "no_facebook_connection",
+            "connection_expired",
+            "pages_read_engagement_permission_missing",
+            "read_insights_permission_missing",
+            "provider_unavailable",
+        ]
+    ]
+    last_successful_sync: datetime | None
+
+
 class PerformanceOverviewV1(FrozenModel):
     contract_version: Literal["performance-v1"]
     business_id: UUID
@@ -168,3 +183,4 @@ class PerformanceOverviewV1(FrozenModel):
     generated_at: datetime
     posts: list[PerformancePostProjectionV1]
     baseline: PerformanceBaselineReadinessV1
+    capability: PerformanceCapabilityV1 | None = None
