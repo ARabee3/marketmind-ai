@@ -3,19 +3,19 @@ import { expect, test } from '@playwright/test'
 const landingLocales = [
   {
     locale: 'en',
-    title: 'Your plan and this week’s content, ready in one place.',
+    title: 'Your marketing plan and weekly posts, ready in one place.',
     discoveryCta: 'Start my plan',
-    completedLoop: 'Loop complete',
+    completedLoop: 'Closed-loop growth engine',
     plannedLabel: 'Planned next',
-    sampleOutcome: 'Three posts ready to review',
+    sampleOutcome: 'Ready Facebook Posts',
   },
   {
     locale: 'ar',
-    title: 'خطتك ومحتوى الأسبوع، جاهزين في مكان واحد.',
-    discoveryCta: 'ابدأ خطتي',
-    completedLoop: 'الدورة كملت',
+    title: 'خطة تسويق لـ ١٢ أسبوع وبوستات أسبوعية جاهزة لصفحتك.',
+    discoveryCta: 'ابدأ خطتي التسويقية',
+    completedLoop: 'تطوير تسويقي مستمر',
     plannedLabel: 'مخطط بعد كده',
-    sampleOutcome: '٣ منشورات جاهزة للمراجعة',
+    sampleOutcome: '٤. بوستات الفيسبوك جاهزة',
   },
 ] as const
 
@@ -51,12 +51,17 @@ for (const landing of landingLocales) {
     )
 
     await expect(page.locator('#main-content')).toBeVisible()
-    const journey = page.locator('#discovery')
-    await expect(journey.locator('article')).toHaveCount(4)
+    const journey = page.locator('#how-it-works')
+    await expect(journey.locator('article')).toHaveCount(5)
     await expect(journey.getByText(landing.completedLoop, { exact: true })).toBeVisible()
     await expect(page.getByText(landing.plannedLabel, { exact: true })).toHaveCount(0)
+
+    const agents = page.locator('#agents')
+    await expect(agents).toBeVisible()
+    await expect(agents.locator('[role="tab"]')).toHaveCount(6)
+
     await expect(page.locator('#sample .sample-board')).toBeVisible()
-    await expect(page.locator('#sample').getByText(landing.sampleOutcome, { exact: true })).toBeVisible()
+    await expect(page.locator('#sample').getByText(landing.sampleOutcome, { exact: false })).toBeVisible()
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
@@ -64,6 +69,7 @@ for (const landing of landingLocales) {
     expect(hasHorizontalOverflow).toBe(false)
   })
 }
+
 
 test('mobile navigation is an accessible dismissible dialog', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'Mobile navigation is only rendered in the mobile project')
