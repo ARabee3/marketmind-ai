@@ -149,6 +149,7 @@ model Business {
   metaOAuthStates         MetaOAuthState[]
   performanceSyncWindows  PerformanceSyncWindow[]
   metricSnapshots         MetricSnapshot[]
+  optimizationProposals   OptimizationProposal[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -1053,6 +1054,7 @@ model Strategy {
   versions       StrategyVersion[]
   retrievalRuns  StrategyRetrievalRun[]
   progressEvents StrategyProgressEvent[]
+  optimizationProposals OptimizationProposal[]
 
   @@index([businessId])
   @@index([ownerUserId])
@@ -1165,6 +1167,7 @@ model ContentCycle {
   ctaLibraryEntries     ContentCtaLibraryEntry[]
   mediaEntries          ContentMediaLibraryEntry[]
   weekPlans             ContentWeekPlan[]
+  optimizationProposals OptimizationProposal[]
 
   @@unique([ownerUserId, idempotencyKey])
   @@index([businessId])
@@ -2098,6 +2101,41 @@ model MetricSnapshot {
   @@index([publishingIntentId])
   @@index([publishingAttemptId])
   @@map("metric_snapshots")
+}
+
+/// Immutable, pending owner decision generated from a deterministic Facebook
+/// seven-day cohort. The proposal stores references and normalized evidence,
+/// never credentials or raw Meta payloads.
+model OptimizationProposal {
+  id                     String   @id @default(uuid()) @db.Uuid
+  contractVersion        String   @default("optimization-v1") @map("contract_version")
+  businessId             String   @map("business_id") @db.Uuid
+  strategyId             String   @map("strategy_id") @db.Uuid
+  strategyVersion        Int      @map("strategy_version")
+  contentCycleId         String   @map("content_cycle_id") @db.Uuid
+  formatCohort           String   @map("format_cohort") @db.VarChar(64)
+  basisSnapshotIds       Json     @map("basis_snapshot_ids")
+  evidenceChecksum       String   @map("evidence_checksum")
+  deterministicComparison Json    @map("deterministic_comparison")
+  changeKind             String   @map("change_kind") @db.VarChar(32)
+  summary                String
+  rationale              String
+  uncertainty            String
+  instruction            String
+  modelVersion           String   @map("model_version")
+  promptVersion          String   @map("prompt_version")
+  generationFingerprint  String   @map("generation_fingerprint")
+  status                 String   @default("PENDING_OWNER_DECISION") @db.VarChar(32)
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy     Strategy     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, generationFingerprint])
+  @@index([businessId, status, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion])
+  @@map("optimization_proposals")
 }
 
 /// Tracks every inbound callback for replay/idempotency independent of outcome changes.

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from performance_contracts import (
     MetricSnapshotV1,
+    OptimizationProposalV1,
     PerformanceOverviewV1,
     PerformanceSyncWindowV1,
 )
@@ -43,18 +44,50 @@ class TestPerformanceContracts(unittest.TestCase):
         self.assertEqual(overview.baseline.status, "not_ready")
         self.assertEqual(overview.baseline.reason, "insufficient_snapshots")
 
+    def test_optimization_proposal_is_strict_and_pending(self):
+        proposal = OptimizationProposalV1.model_validate(
+            load("optimization-proposal.example.json")
+        )
+        self.assertEqual(proposal.status, "PENDING_OWNER_DECISION")
+        self.assertEqual(proposal.change_kind, "hook_style")
+        self.assertEqual(len(proposal.basis_snapshot_ids), 3)
+
+    def test_optimization_proposal_rejects_unsupported_causal_claims(self):
+        value = load("optimization-proposal.example.json")
+        value["rationale"] = (
+            "This proves the hook causes higher clicks and will increase sales."
+        )
+        with self.assertRaises(ValidationError):
+            OptimizationProposalV1.model_validate(value)
+
+    def test_optimization_proposal_allows_explicit_uncertainty_disclaimers(self):
+        value = load("optimization-proposal.example.json")
+        value["uncertainty"] = (
+            "This is not statistically significant and does not guarantee results."
+        )
+        OptimizationProposalV1.model_validate(value)
+
+    def test_optimization_proposal_rejects_arabic_scope_directives(self):
+        value = load("optimization-proposal.example.json")
+        value["instruction"] = "نوصي بتغيير الموضوع في المنشور القادم."
+        with self.assertRaises(ValidationError):
+            OptimizationProposalV1.model_validate(value)
+
     def test_invalid_fixtures_are_rejected(self):
         invalid = [
             "performance-snapshot-negative-value.invalid.json",
             "performance-snapshot-coerced-value.invalid.json",
             "performance-snapshot-sensitive-metadata.invalid.json",
             "performance-sync-window-unknown-state.invalid.json",
+            "optimization-proposal-unsupported-kind.invalid.json",
         ]
         for name in invalid:
             with self.subTest(name=name):
                 with self.assertRaises(ValidationError):
                     if "snapshot" in name:
                         MetricSnapshotV1.model_validate(load(name))
+                    elif "optimization" in name:
+                        OptimizationProposalV1.model_validate(load(name))
                     else:
                         PerformanceSyncWindowV1.model_validate(load(name))
 
