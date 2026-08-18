@@ -474,7 +474,7 @@ function LedgerPanel({
               >
                 <div className="grid gap-1">
                   <span className="font-semibold text-navy">
-                    {entryLabel(t, entry.reason, entry.points)}
+                    {entryLabel(t, entry.reason, entry.metric, entry.points)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDateTime(entry.created_at)}
@@ -498,14 +498,20 @@ function LedgerPanel({
   )
 }
 
-function entryLabel(
+export function entryLabel(
   t: ReturnType<typeof useTranslations<'Billing'>>,
   reason: BillingPointLedgerEntry['reason'],
+  metric: BillingPointLedgerEntry['metric'],
   points: number,
 ) {
   if (reason === 'topup') return t('ledgerTopup')
   if (reason === 'trial_grant') return t('ledgerTrialGrant')
   if (reason === 'refund') return t('ledgerRefund')
+  if (metric === 'strategy_cycle') return t('ledgerSpendStrategy')
+  if (metric === 'strategy_revision') return t('ledgerSpendStrategyRevision')
+  if (metric === 'content_item') return t('ledgerSpendContent')
+  if (metric === 'content_revision') return t('ledgerSpendContentRevision')
+  if (metric === 'static_image') return t('ledgerSpendImage')
   return t('ledgerSpend', { points })
 }
 
