@@ -1,7 +1,11 @@
 import {
   OPTIMIZATION_CHANGE_KINDS,
   OPTIMIZATION_CONTRACT_VERSION,
+  OPTIMIZATION_DECISION_ACTIONS,
+  OPTIMIZATION_DECISION_CONTRACT_VERSION,
   OPTIMIZATION_FORMATS,
+  OPTIMIZATION_INSTRUCTION_CONTRACT_VERSION,
+  OPTIMIZATION_INSTRUCTION_STATUSES,
   OPTIMIZATION_MAX_GENERATED_TEXT_LENGTH,
   OPTIMIZATION_MAX_UNTRUSTED_TEXT_LENGTH,
   OPTIMIZATION_NO_RECOMMENDATION_REASONS,
@@ -11,7 +15,12 @@ import {
   OPTIMIZATION_READINESS_STATUSES,
   OPTIMIZATION_REQUIRED_METRICS,
   OPTIMIZATION_REQUIRED_SNAPSHOT_COUNT,
+  OPTIMIZATION_PROPOSAL_WORKSPACE_STATES,
   type OptimizationAgentResultV1,
+  type ApprovedOptimizationInstructionV1,
+  type OptimizationDecisionV1,
+  type OptimizationDecisionResponseV1,
+  type OptimizationProposalWorkspaceV1,
   type OptimizationProposalV1,
 } from "./optimization-types";
 import { PERFORMANCE_UNAVAILABLE_REASONS } from "./performance-types";
@@ -1050,10 +1059,410 @@ export function validateOptimizationProposalV1(
   return { valid: issues.length === 0, issues };
 }
 
+export function validateOptimizationDecisionV1(
+  value: unknown,
+): OptimizationValidationResult {
+  const issues: OptimizationValidationIssue[] = [];
+  if (!record(value)) {
+    return {
+      valid: false,
+      issues: [{ field: "decision", message: "must be an object" }],
+    };
+  }
+  issues.push(
+    ...keys(
+      value,
+      [
+        "contract_version",
+        "decision_id",
+        "proposal_id",
+        "business_id",
+        "strategy_id",
+        "strategy_version",
+        "content_cycle_id",
+        "format_cohort",
+        "evidence_checksum",
+        "action",
+        "owner_user_id",
+        "request_fingerprint",
+        "note",
+        "decided_at",
+      ],
+      "decision",
+    ),
+  );
+  if (value.contract_version !== OPTIMIZATION_DECISION_CONTRACT_VERSION)
+    issues.push({
+      field: "decision.contract_version",
+      message: "must be optimization-decision-v1",
+    });
+  requireUuid(value.decision_id, "decision.decision_id", issues);
+  requireUuid(value.proposal_id, "decision.proposal_id", issues);
+  validateIdentity(value, "decision", issues);
+  requireEnum(
+    value.format_cohort,
+    OPTIMIZATION_FORMATS,
+    "decision.format_cohort",
+    issues,
+  );
+  requireChecksum(
+    value.evidence_checksum,
+    "decision.evidence_checksum",
+    issues,
+  );
+  requireEnum(
+    value.action,
+    OPTIMIZATION_DECISION_ACTIONS,
+    "decision.action",
+    issues,
+  );
+  requireUuid(value.owner_user_id, "decision.owner_user_id", issues);
+  requireChecksum(
+    value.request_fingerprint,
+    "decision.request_fingerprint",
+    issues,
+  );
+  if (value.note !== null) {
+    requireOptionalBoundedString(value.note, "decision.note", 1_000, issues);
+  }
+  requireDate(value.decided_at, "decision.decided_at", issues);
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateApprovedOptimizationInstructionV1(
+  value: unknown,
+): OptimizationValidationResult {
+  const issues: OptimizationValidationIssue[] = [];
+  if (!record(value)) {
+    return {
+      valid: false,
+      issues: [{ field: "instruction", message: "must be an object" }],
+    };
+  }
+  issues.push(
+    ...keys(
+      value,
+      [
+        "contract_version",
+        "instruction_id",
+        "proposal_id",
+        "approved_decision_id",
+        "business_id",
+        "strategy_id",
+        "strategy_version",
+        "content_cycle_id",
+        "format_cohort",
+        "evidence_checksum",
+        "change_kind",
+        "instruction",
+        "status",
+        "consumed_content_pack_id",
+        "consumed_week_plan_id",
+        "approved_at",
+        "consumed_at",
+        "superseded_at",
+        "created_at",
+        "updated_at",
+      ],
+      "instruction",
+    ),
+  );
+  if (value.contract_version !== OPTIMIZATION_INSTRUCTION_CONTRACT_VERSION)
+    issues.push({
+      field: "instruction.contract_version",
+      message: "must be optimization-instruction-v1",
+    });
+  requireUuid(value.instruction_id, "instruction.instruction_id", issues);
+  requireUuid(value.proposal_id, "instruction.proposal_id", issues);
+  requireUuid(
+    value.approved_decision_id,
+    "instruction.approved_decision_id",
+    issues,
+  );
+  validateIdentity(value, "instruction", issues);
+  requireEnum(
+    value.format_cohort,
+    OPTIMIZATION_FORMATS,
+    "instruction.format_cohort",
+    issues,
+  );
+  requireChecksum(
+    value.evidence_checksum,
+    "instruction.evidence_checksum",
+    issues,
+  );
+  requireEnum(
+    value.change_kind,
+    OPTIMIZATION_CHANGE_KINDS,
+    "instruction.change_kind",
+    issues,
+  );
+  requireBoundedString(
+    value.instruction,
+    "instruction.instruction",
+    OPTIMIZATION_MAX_GENERATED_TEXT_LENGTH,
+    issues,
+  );
+  validateGeneratedPolicy(value.instruction, "instruction.instruction", issues);
+  requireEnum(
+    value.status,
+    OPTIMIZATION_INSTRUCTION_STATUSES,
+    "instruction.status",
+    issues,
+  );
+  for (const field of ["consumed_content_pack_id", "consumed_week_plan_id"]) {
+    if (value[field] !== null)
+      requireUuid(value[field], `instruction.${field}`, issues);
+  }
+  for (const field of ["approved_at", "created_at", "updated_at"]) {
+    requireDate(value[field], `instruction.${field}`, issues);
+  }
+  for (const field of ["consumed_at", "superseded_at"]) {
+    if (value[field] !== null)
+      requireDate(value[field], `instruction.${field}`, issues);
+  }
+  if (value.status === "PENDING_CONSUMPTION") {
+    if (
+      value.consumed_content_pack_id !== null ||
+      value.consumed_week_plan_id !== null ||
+      value.consumed_at !== null ||
+      value.superseded_at !== null
+    ) {
+      issues.push({
+        field: "instruction",
+        message: "pending instructions cannot have consumption provenance",
+      });
+    }
+  }
+  if (value.status === "CONSUMED") {
+    if (
+      value.consumed_content_pack_id === null ||
+      value.consumed_week_plan_id === null ||
+      value.consumed_at === null ||
+      value.superseded_at !== null
+    ) {
+      issues.push({
+        field: "instruction",
+        message:
+          "consumed instructions require pack, week-plan, and timestamp provenance",
+      });
+    }
+  }
+  if (value.status === "SUPERSEDED" || value.status === "EXPIRED") {
+    if (
+      value.consumed_content_pack_id !== null ||
+      value.consumed_week_plan_id !== null ||
+      value.consumed_at !== null ||
+      value.superseded_at === null
+    ) {
+      issues.push({
+        field: "instruction",
+        message:
+          "superseded or expired instructions require terminal provenance",
+      });
+    }
+  }
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateOptimizationProposalWorkspaceV1(
+  value: unknown,
+): OptimizationValidationResult {
+  const issues: OptimizationValidationIssue[] = [];
+  if (!record(value)) {
+    return {
+      valid: false,
+      issues: [{ field: "workspace", message: "must be an object" }],
+    };
+  }
+  issues.push(
+    ...keys(
+      value,
+      ["contract_version", "proposal", "state", "decision", "instruction"],
+      "workspace",
+    ),
+  );
+  if (value.contract_version !== OPTIMIZATION_CONTRACT_VERSION)
+    issues.push({
+      field: "workspace.contract_version",
+      message: "must be optimization-v1",
+    });
+  const proposalResult = validateOptimizationProposalV1(value.proposal);
+  issues.push(...proposalResult.issues);
+  requireEnum(
+    value.state,
+    OPTIMIZATION_PROPOSAL_WORKSPACE_STATES,
+    "workspace.state",
+    issues,
+  );
+  if (value.decision !== null) {
+    const decisionResult = validateOptimizationDecisionV1(value.decision);
+    issues.push(...decisionResult.issues);
+    if (
+      record(value.proposal) &&
+      record(value.decision) &&
+      (value.decision.proposal_id !== value.proposal.proposal_id ||
+        value.decision.business_id !== value.proposal.business_id ||
+        value.decision.strategy_id !== value.proposal.strategy_id ||
+        value.decision.strategy_version !== value.proposal.strategy_version ||
+        value.decision.content_cycle_id !== value.proposal.content_cycle_id ||
+        value.decision.format_cohort !== value.proposal.format_cohort ||
+        value.decision.evidence_checksum !== value.proposal.evidence_checksum)
+    ) {
+      issues.push({
+        field: "workspace.decision",
+        message: "must remain bound to the immutable proposal identity",
+      });
+    }
+  }
+  if (value.instruction !== null) {
+    const instructionResult = validateApprovedOptimizationInstructionV1(
+      value.instruction,
+    );
+    issues.push(...instructionResult.issues);
+    if (record(value.proposal) && record(value.instruction)) {
+      if (
+        value.instruction.proposal_id !== value.proposal.proposal_id ||
+        value.instruction.business_id !== value.proposal.business_id ||
+        value.instruction.strategy_id !== value.proposal.strategy_id ||
+        value.instruction.strategy_version !==
+          value.proposal.strategy_version ||
+        value.instruction.content_cycle_id !==
+          value.proposal.content_cycle_id ||
+        value.instruction.format_cohort !== value.proposal.format_cohort ||
+        value.instruction.evidence_checksum !==
+          value.proposal.evidence_checksum ||
+        value.instruction.change_kind !== value.proposal.change_kind ||
+        value.instruction.instruction !== value.proposal.instruction
+      ) {
+        issues.push({
+          field: "workspace.instruction",
+          message: "must remain bound to the immutable proposal identity",
+        });
+      }
+      if (!record(value.decision) || value.decision.action !== "approve") {
+        issues.push({
+          field: "workspace.instruction",
+          message: "requires an approved owner decision",
+        });
+      } else if (
+        value.instruction.approved_decision_id !== value.decision.decision_id
+      ) {
+        issues.push({
+          field: "workspace.instruction.approved_decision_id",
+          message: "must reference the workspace decision",
+        });
+      }
+    }
+  }
+  if (record(value.decision)) {
+    if (value.decision.action === "approve" && value.instruction === null) {
+      issues.push({
+        field: "workspace.instruction",
+        message: "an approved decision requires one instruction",
+      });
+    }
+    if (value.decision.action === "dismiss" && value.instruction !== null) {
+      issues.push({
+        field: "workspace.instruction",
+        message: "a dismissed decision cannot carry an instruction",
+      });
+    }
+  }
+  const decisionRecord = record(value.decision) ? value.decision : null;
+  const instructionRecord = record(value.instruction)
+    ? value.instruction
+    : null;
+  const expectedState =
+    decisionRecord === null
+      ? "PENDING_OWNER_DECISION"
+      : decisionRecord.action === "dismiss"
+        ? "DISMISSED"
+        : instructionRecord?.status === "CONSUMED"
+          ? "CONSUMED"
+          : instructionRecord?.status === "SUPERSEDED"
+            ? "SUPERSEDED"
+            : instructionRecord?.status === "EXPIRED"
+              ? "EXPIRED"
+              : "APPROVED_PENDING_CONSUMPTION";
+  if (value.state !== expectedState) {
+    issues.push({
+      field: "workspace.state",
+      message: "must reflect the terminal decision and instruction status",
+    });
+  }
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateOptimizationDecisionResponseV1(
+  value: unknown,
+): OptimizationValidationResult {
+  const issues: OptimizationValidationIssue[] = [];
+  if (!record(value)) {
+    return {
+      valid: false,
+      issues: [{ field: "decision_response", message: "must be an object" }],
+    };
+  }
+  issues.push(
+    ...keys(value, ["contract_version", "workspace"], "decision_response"),
+  );
+  if (value.contract_version !== OPTIMIZATION_DECISION_CONTRACT_VERSION) {
+    issues.push({
+      field: "decision_response.contract_version",
+      message: "must be optimization-decision-v1",
+    });
+  }
+  issues.push(
+    ...validateOptimizationProposalWorkspaceV1(value.workspace).issues,
+  );
+  return { valid: issues.length === 0, issues };
+}
+
 export function assertValidOptimizationProposalV1(
   value: unknown,
 ): asserts value is OptimizationProposalV1 {
   const result = validateOptimizationProposalV1(value);
+  if (!result.valid)
+    throw new Error(
+      result.issues.map((item) => `${item.field}: ${item.message}`).join("; "),
+    );
+}
+
+export function assertValidOptimizationDecisionV1(
+  value: unknown,
+): asserts value is OptimizationDecisionV1 {
+  const result = validateOptimizationDecisionV1(value);
+  if (!result.valid)
+    throw new Error(
+      result.issues.map((item) => `${item.field}: ${item.message}`).join("; "),
+    );
+}
+
+export function assertValidApprovedOptimizationInstructionV1(
+  value: unknown,
+): asserts value is ApprovedOptimizationInstructionV1 {
+  const result = validateApprovedOptimizationInstructionV1(value);
+  if (!result.valid)
+    throw new Error(
+      result.issues.map((item) => `${item.field}: ${item.message}`).join("; "),
+    );
+}
+
+export function assertValidOptimizationProposalWorkspaceV1(
+  value: unknown,
+): asserts value is OptimizationProposalWorkspaceV1 {
+  const result = validateOptimizationProposalWorkspaceV1(value);
+  if (!result.valid)
+    throw new Error(
+      result.issues.map((item) => `${item.field}: ${item.message}`).join("; "),
+    );
+}
+
+export function assertValidOptimizationDecisionResponseV1(
+  value: unknown,
+): asserts value is OptimizationDecisionResponseV1 {
+  const result = validateOptimizationDecisionResponseV1(value);
   if (!result.valid)
     throw new Error(
       result.issues.map((item) => `${item.field}: ${item.message}`).join("; "),

@@ -68,6 +68,20 @@ export type ContentWeekPlanListResponse = {
 };
 
 /**
+ * A bounded, owner-approved copy cue. It is frozen with the week plan and
+ * can influence only wording for cards in the matching format cohort.
+ */
+export type ContentV2OptimizationGuidanceV1 = {
+  readonly instruction_id: UUID;
+  readonly proposal_id: UUID;
+  readonly approved_decision_id: UUID;
+  readonly evidence_checksum: string;
+  readonly format_cohort: "text_post" | "static_image_post";
+  readonly change_kind: "hook_style" | "cta_wording_style";
+  readonly instruction: string;
+};
+
+/**
  * Transactionally frozen inputs handed to the full-draft worker when it
  * claims the week. The worker never re-reads live owner state; it consumes
  * this snapshot, preserving idempotency and cutoff guarantees.
@@ -85,6 +99,7 @@ export type ContentV2FrozenInput = {
   readonly media_entries: readonly ContentMediaLibraryEntryV2[];
   /** Frozen, ordered post plans (exactly 3–5). */
   readonly post_plans: readonly ContentPostPlanV2[];
+  readonly optimization_guidance?: ContentV2OptimizationGuidanceV1 | null;
   readonly weekly_claim_id: UUID;
   readonly frozen_at: IsoDateTime;
 };

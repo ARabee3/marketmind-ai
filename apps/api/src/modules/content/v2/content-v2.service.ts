@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
@@ -18,6 +19,7 @@ import type {
   ContentPackV2,
   ContentPackWorkspaceV2,
   ContentV2FrozenInput,
+  ContentV2OptimizationGuidanceV1,
   ContentWeekPlanV2,
   OwnerContentDirectEditRequest,
 } from "@marketmind/contracts";
@@ -53,6 +55,7 @@ import {
   type PostPlanInput,
 } from "./content-week-plan.repository";
 import { ContentVersionEditRepository } from "./content-version-edit.repository";
+import { OptimizationRepository } from "../../performance/optimization/optimization.repository";
 import { toBullMqJobId } from "../../../common/queues/bullmq-job-id";
 import {
   toContentPackV2,
@@ -103,6 +106,8 @@ export class ContentV2Service {
     private readonly jobOutbox: ContentJobOutboxRepository,
     @InjectQueue("content-generation") private readonly contentQueue: Queue,
     @Inject(CONTENT_ASSET_STORAGE) private readonly assetStorage: AssetStorage,
+    @Optional()
+    private readonly optimizationRepository?: OptimizationRepository,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -699,6 +704,41 @@ export class ContentV2Service {
     );
     this.validatePostPlans(planInputs, channels, formats, ctaRows, mediaRows);
 
+    const ownerPlanned = weekPlan.postPlans.some(
+      (plan) => plan.source === "owner",
+    );
+    const pendingOptimizationInstruction = ownerPlanned
+      ? ((await this.optimizationRepository?.findPendingInstruction({
+          businessId: cycle.businessId,
+          contentCycleId: cycleId,
+          strategyId: cycle.strategyId,
+          strategyVersion: cycle.strategyVersion,
+          formatCohorts: [
+            ...new Set(
+              weekPlan.postPlans
+                .map((plan) => plan.format)
+                .filter(
+                  (format): format is "text_post" | "static_image_post" =>
+                    format === "text_post" || format === "static_image_post",
+                ),
+            ),
+          ],
+        })) ?? null)
+      : null;
+    const optimizationGuidance: ContentV2OptimizationGuidanceV1 | null =
+      pendingOptimizationInstruction
+        ? {
+            instruction_id: pendingOptimizationInstruction.instruction_id,
+            proposal_id: pendingOptimizationInstruction.proposal_id,
+            approved_decision_id:
+              pendingOptimizationInstruction.approved_decision_id,
+            evidence_checksum: pendingOptimizationInstruction.evidence_checksum,
+            format_cohort: pendingOptimizationInstruction.format_cohort,
+            change_kind: pendingOptimizationInstruction.change_kind,
+            instruction: pendingOptimizationInstruction.instruction,
+          }
+        : null;
+
     const referencedMediaIds = new Set(
       weekPlan.postPlans.flatMap((plan) => {
         const ids = Array.isArray(plan.selectedMediaIds)
@@ -748,6 +788,7 @@ export class ContentV2Service {
           created_at: plan.createdAt.toISOString(),
           updated_at: plan.updatedAt.toISOString(),
         })),
+      optimization_guidance: optimizationGuidance,
       weekly_claim_id: weekContextRow.weeklyClaimId,
       frozen_at: new Date().toISOString(),
     };
@@ -758,6 +799,7 @@ export class ContentV2Service {
       weekContextId: weekContextRow.id,
       weekPlanId: weekPlan.id,
       frozenInput,
+      optimizationInstructionId: pendingOptimizationInstruction?.instruction_id,
       jobIntent: { idempotencyKey: dto.idempotency_key },
     });
 

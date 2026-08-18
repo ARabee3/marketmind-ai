@@ -45,6 +45,7 @@ model User {
   contentCycles                ContentCycle[]
   decidedContentDecisions      ContentDecision[]            @relation("ContentDecisionDecidedBy")
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
+  optimizationDecisions        OptimizationDecision[]
   contentWeekContextsConfirmed ContentWeekContext[]
   contentMediaEntries          ContentMediaLibraryEntry[]
   publicationCandidateStatuses PublicationCandidateStatus[]
@@ -150,6 +151,8 @@ model Business {
   performanceSyncWindows  PerformanceSyncWindow[]
   metricSnapshots         MetricSnapshot[]
   optimizationProposals   OptimizationProposal[]
+  optimizationDecisions   OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -1055,6 +1058,8 @@ model Strategy {
   retrievalRuns  StrategyRetrievalRun[]
   progressEvents StrategyProgressEvent[]
   optimizationProposals OptimizationProposal[]
+  optimizationDecisions OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@index([businessId])
   @@index([ownerUserId])
@@ -1168,6 +1173,8 @@ model ContentCycle {
   mediaEntries          ContentMediaLibraryEntry[]
   weekPlans             ContentWeekPlan[]
   optimizationProposals OptimizationProposal[]
+  optimizationDecisions OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@unique([ownerUserId, idempotencyKey])
   @@index([businessId])
@@ -1234,6 +1241,7 @@ model ContentPack {
   progressEvents         ContentProgressEvent[]
   generationRuns         ContentGenerationRun[]
   publicationCandidates  PublicationCandidate[]
+  consumedOptimizationInstruction ApprovedOptimizationInstruction? @relation("OptimizationInstructionConsumedPack")
 
   @@unique([contentCycleId, weekNumber])
   @@index([contentCycleId])
@@ -1419,6 +1427,7 @@ model ContentWeekPlan {
   contentCycle ContentCycle     @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
   postPlans    ContentPostPlan[]
   packs        ContentPack[]
+  consumedOptimizationInstruction ApprovedOptimizationInstruction? @relation("OptimizationInstructionConsumedWeekPlan")
 
   @@unique([contentCycleId, weekNumber])
   @@map("content_week_plans")
@@ -2131,11 +2140,85 @@ model OptimizationProposal {
   business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
   strategy     Strategy     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
   contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  decisions           OptimizationDecision[]
+  approvedInstruction ApprovedOptimizationInstruction?
 
   @@unique([businessId, generationFingerprint])
   @@index([businessId, status, createdAt])
   @@index([contentCycleId, strategyId, strategyVersion])
   @@map("optimization_proposals")
+}
+
+/// Immutable terminal owner decision for one Optimization proposal. The
+/// proposal remains immutable; workspace state is derived from this record
+/// and its optional approved instruction.
+model OptimizationDecision {
+  id                 String   @id @default(uuid()) @db.Uuid
+  contractVersion    String   @default("optimization-decision-v1") @map("contract_version")
+  proposalId         String   @unique @map("proposal_id") @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  strategyId         String   @map("strategy_id") @db.Uuid
+  strategyVersion    Int      @map("strategy_version")
+  contentCycleId     String   @map("content_cycle_id") @db.Uuid
+  formatCohort       String   @map("format_cohort") @db.VarChar(64)
+  evidenceChecksum   String   @map("evidence_checksum")
+  action             String   @db.VarChar(16)
+  ownerUserId        String   @map("owner_user_id") @db.Uuid
+  idempotencyKey     String   @map("idempotency_key")
+  requestFingerprint String   @map("request_fingerprint")
+  note               String?
+  decidedAt          DateTime @map("decided_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  proposal               OptimizationProposal             @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  business               Business                         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy               Strategy                         @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle           ContentCycle                     @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  ownerUser              User                             @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  instruction            ApprovedOptimizationInstruction?
+
+  @@unique([ownerUserId, idempotencyKey])
+  @@unique([ownerUserId, requestFingerprint])
+  @@index([businessId, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion])
+  @@map("optimization_decisions")
+}
+
+/// One approved copywriting instruction. It is consumed at most once by the
+/// exact current Content V2 pack claim, with immutable provenance.
+model ApprovedOptimizationInstruction {
+  id                    String    @id @default(uuid()) @db.Uuid
+  contractVersion       String    @default("optimization-instruction-v1") @map("contract_version")
+  proposalId            String    @unique @map("proposal_id") @db.Uuid
+  approvedDecisionId    String    @unique @map("approved_decision_id") @db.Uuid
+  businessId            String    @map("business_id") @db.Uuid
+  strategyId            String    @map("strategy_id") @db.Uuid
+  strategyVersion       Int       @map("strategy_version")
+  contentCycleId        String    @map("content_cycle_id") @db.Uuid
+  formatCohort          String    @map("format_cohort") @db.VarChar(64)
+  evidenceChecksum      String    @map("evidence_checksum")
+  changeKind            String    @map("change_kind") @db.VarChar(32)
+  instruction           String
+  status                String    @default("PENDING_CONSUMPTION") @db.VarChar(32)
+  consumedContentPackId String?   @unique @map("consumed_content_pack_id") @db.Uuid
+  consumedWeekPlanId    String?   @unique @map("consumed_week_plan_id") @db.Uuid
+  approvedAt            DateTime  @map("approved_at")
+  consumedAt            DateTime? @map("consumed_at")
+  supersededAt          DateTime? @map("superseded_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  proposal              OptimizationProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  approvedDecision      OptimizationDecision   @relation(fields: [approvedDecisionId], references: [id], onDelete: Cascade)
+  business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy              Strategy                @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle          ContentCycle            @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  consumedPack          ContentPack?           @relation("OptimizationInstructionConsumedPack", fields: [consumedContentPackId], references: [id], onDelete: SetNull)
+  consumedWeekPlan      ContentWeekPlan?       @relation("OptimizationInstructionConsumedWeekPlan", fields: [consumedWeekPlanId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, status, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion, formatCohort, status])
+  @@map("approved_optimization_instructions")
 }
 
 /// Tracks every inbound callback for replay/idempotency independent of outcome changes.

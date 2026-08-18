@@ -2,12 +2,21 @@ import { Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {
   Prisma,
+  type ApprovedOptimizationInstruction as PrismaApprovedOptimizationInstruction,
+  type OptimizationDecision as PrismaOptimizationDecision,
   type OptimizationProposal as PrismaOptimizationProposal,
 } from "@prisma/client";
 import {
+  assertValidApprovedOptimizationInstructionV1,
+  assertValidOptimizationDecisionV1,
   assertValidOptimizationProposalV1,
+  assertValidOptimizationProposalWorkspaceV1,
+  type ApprovedOptimizationInstructionV1,
+  type OptimizationDecisionAction,
+  type OptimizationDecisionV1,
   type OptimizationFormat,
   type OptimizationProposalV1,
+  type OptimizationProposalWorkspaceV1,
 } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import type { OptimizationSnapshotInput } from "./optimization-analyzer";
@@ -16,7 +25,10 @@ export class OptimizationRepositoryError extends Error {
   constructor(
     readonly code:
       | "OPTIMIZATION_SNAPSHOT_CONFLICT"
-      | "OPTIMIZATION_PROPOSAL_CONFLICT",
+      | "OPTIMIZATION_PROPOSAL_CONFLICT"
+      | "OPTIMIZATION_DECISION_CONFLICT"
+      | "OPTIMIZATION_EVIDENCE_CONFLICT"
+      | "OPTIMIZATION_INSTRUCTION_CONFLICT",
     message: string = code,
   ) {
     super(message);
@@ -53,6 +65,31 @@ export type CreateOptimizationProposalInput = Omit<
   readonly proposal_id?: string;
   readonly created_at?: string;
 };
+
+export type CreateOptimizationDecisionInput = {
+  readonly owner_user_id: string;
+  readonly business_id: string;
+  readonly proposal_id: string;
+  readonly evidence_checksum: string;
+  readonly action: OptimizationDecisionAction;
+  readonly idempotency_key: string;
+  readonly request_fingerprint: string;
+  readonly note: string | null;
+};
+
+export type PendingOptimizationInstruction = ApprovedOptimizationInstructionV1;
+
+const OPTIMIZATION_WORKSPACE_INCLUDE = {
+  decisions: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
+  approvedInstruction: true,
+} satisfies Prisma.OptimizationProposalInclude;
+
+type OptimizationWorkspaceRow = Prisma.OptimizationProposalGetPayload<{
+  include: typeof OPTIMIZATION_WORKSPACE_INCLUDE;
+}>;
 
 @Injectable()
 export class OptimizationRepository {
@@ -123,6 +160,200 @@ export class OptimizationRepository {
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toProposalContract);
+  }
+
+  async listProposalWorkspaces(
+    businessId: string,
+  ): Promise<readonly OptimizationProposalWorkspaceV1[]> {
+    const rows = await this.prisma.optimizationProposal.findMany({
+      where: { businessId },
+      include: OPTIMIZATION_WORKSPACE_INCLUDE,
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map(toWorkspaceContract);
+  }
+
+  async findProposalWorkspace(
+    businessId: string,
+    proposalId: string,
+  ): Promise<OptimizationProposalWorkspaceV1 | null> {
+    const row = await this.prisma.optimizationProposal.findFirst({
+      where: { id: proposalId, businessId },
+      include: OPTIMIZATION_WORKSPACE_INCLUDE,
+    });
+    return row ? toWorkspaceContract(row) : null;
+  }
+
+  /**
+   * Records one terminal owner decision and, for approval, creates the one
+   * immutable instruction in the same transaction. Proposal identity is read
+   * from the database; the caller cannot select a different business, cycle,
+   * Strategy version, or evidence set through this boundary.
+   */
+  async createDecision(
+    input: CreateOptimizationDecisionInput,
+  ): Promise<OptimizationProposalWorkspaceV1> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existingByKey = await tx.optimizationDecision.findUnique({
+          where: {
+            ownerUserId_idempotencyKey: {
+              ownerUserId: input.owner_user_id,
+              idempotencyKey: input.idempotency_key,
+            },
+          },
+        });
+        if (existingByKey) {
+          if (
+            existingByKey.requestFingerprint !== input.request_fingerprint ||
+            existingByKey.proposalId !== input.proposal_id
+          ) {
+            throw new OptimizationRepositoryError(
+              "OPTIMIZATION_DECISION_CONFLICT",
+              "idempotency key was already used for a different optimization decision",
+            );
+          }
+          return loadWorkspaceWithin(tx, input.business_id, input.proposal_id);
+        }
+
+        const existingByFingerprint = await tx.optimizationDecision.findUnique({
+          where: {
+            ownerUserId_requestFingerprint: {
+              ownerUserId: input.owner_user_id,
+              requestFingerprint: input.request_fingerprint,
+            },
+          },
+        });
+        if (existingByFingerprint) {
+          if (existingByFingerprint.proposalId !== input.proposal_id) {
+            throw new OptimizationRepositoryError(
+              "OPTIMIZATION_DECISION_CONFLICT",
+              "request fingerprint was already used for a different proposal",
+            );
+          }
+          return loadWorkspaceWithin(tx, input.business_id, input.proposal_id);
+        }
+
+        await tx.$queryRaw`
+          SELECT "id"
+          FROM "optimization_proposals"
+          WHERE "id" = ${input.proposal_id}::uuid
+            AND "business_id" = ${input.business_id}::uuid
+          FOR UPDATE
+        `;
+        const proposal = await tx.optimizationProposal.findFirst({
+          where: {
+            id: input.proposal_id,
+            businessId: input.business_id,
+          },
+        });
+        if (!proposal) {
+          throw new OptimizationRepositoryError(
+            "OPTIMIZATION_DECISION_CONFLICT",
+            "optimization proposal is not owned by this business",
+          );
+        }
+        if (proposal.evidenceChecksum !== input.evidence_checksum) {
+          throw new OptimizationRepositoryError(
+            "OPTIMIZATION_EVIDENCE_CONFLICT",
+            "the decision evidence checksum does not match the immutable proposal",
+          );
+        }
+
+        const existingForProposal = await tx.optimizationDecision.findUnique({
+          where: { proposalId: input.proposal_id },
+        });
+        if (existingForProposal) {
+          if (
+            existingForProposal.ownerUserId === input.owner_user_id &&
+            existingForProposal.requestFingerprint === input.request_fingerprint
+          ) {
+            return loadWorkspaceWithin(
+              tx,
+              input.business_id,
+              input.proposal_id,
+            );
+          }
+          throw new OptimizationRepositoryError(
+            "OPTIMIZATION_DECISION_CONFLICT",
+            "an optimization proposal already has a different terminal decision",
+          );
+        }
+
+        const decisionId = randomUUID();
+        const decidedAt = new Date();
+        await tx.optimizationDecision.create({
+          data: {
+            id: decisionId,
+            contractVersion: "optimization-decision-v1",
+            proposalId: proposal.id,
+            businessId: proposal.businessId,
+            strategyId: proposal.strategyId,
+            strategyVersion: proposal.strategyVersion,
+            contentCycleId: proposal.contentCycleId,
+            formatCohort: proposal.formatCohort,
+            evidenceChecksum: proposal.evidenceChecksum,
+            action: input.action,
+            ownerUserId: input.owner_user_id,
+            idempotencyKey: input.idempotency_key,
+            requestFingerprint: input.request_fingerprint,
+            note: input.note,
+            decidedAt,
+          },
+        });
+        if (input.action === "approve") {
+          await tx.approvedOptimizationInstruction.create({
+            data: {
+              id: randomUUID(),
+              contractVersion: "optimization-instruction-v1",
+              proposalId: proposal.id,
+              approvedDecisionId: decisionId,
+              businessId: proposal.businessId,
+              strategyId: proposal.strategyId,
+              strategyVersion: proposal.strategyVersion,
+              contentCycleId: proposal.contentCycleId,
+              formatCohort: proposal.formatCohort,
+              evidenceChecksum: proposal.evidenceChecksum,
+              changeKind: proposal.changeKind,
+              instruction: proposal.instruction,
+              status: "PENDING_CONSUMPTION",
+              approvedAt: decidedAt,
+            },
+          });
+        }
+        return loadWorkspaceWithin(tx, input.business_id, input.proposal_id);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new OptimizationRepositoryError(
+          "OPTIMIZATION_DECISION_CONFLICT",
+          "the optimization proposal already has a terminal decision",
+        );
+      }
+      throw error;
+    }
+  }
+
+  async findPendingInstruction(input: {
+    readonly businessId: string;
+    readonly contentCycleId: string;
+    readonly strategyId: string;
+    readonly strategyVersion: number;
+    readonly formatCohorts: readonly OptimizationFormat[];
+  }): Promise<PendingOptimizationInstruction | null> {
+    if (input.formatCohorts.length === 0) return null;
+    const row = await this.prisma.approvedOptimizationInstruction.findFirst({
+      where: {
+        businessId: input.businessId,
+        contentCycleId: input.contentCycleId,
+        strategyId: input.strategyId,
+        strategyVersion: input.strategyVersion,
+        status: "PENDING_CONSUMPTION",
+        formatCohort: { in: [...input.formatCohorts] },
+      },
+      orderBy: [{ approvedAt: "asc" }, { id: "asc" }],
+    });
+    return row ? toInstructionContract(row) : null;
   }
 
   async findById(
@@ -324,6 +555,106 @@ function toProposalContract(
   } as unknown as OptimizationProposalV1;
   assertValidOptimizationProposalV1(proposal);
   return proposal;
+}
+
+function toDecisionContract(
+  row: PrismaOptimizationDecision,
+): OptimizationDecisionV1 {
+  const decision = {
+    contract_version: row.contractVersion,
+    decision_id: row.id,
+    proposal_id: row.proposalId,
+    business_id: row.businessId,
+    strategy_id: row.strategyId,
+    strategy_version: row.strategyVersion,
+    content_cycle_id: row.contentCycleId,
+    format_cohort: row.formatCohort,
+    evidence_checksum: row.evidenceChecksum,
+    action: row.action,
+    owner_user_id: row.ownerUserId,
+    request_fingerprint: row.requestFingerprint,
+    note: row.note,
+    decided_at: row.decidedAt.toISOString(),
+  } as unknown as OptimizationDecisionV1;
+  assertValidOptimizationDecisionV1(decision);
+  return decision;
+}
+
+function toInstructionContract(
+  row: PrismaApprovedOptimizationInstruction,
+): ApprovedOptimizationInstructionV1 {
+  const instruction = {
+    contract_version: row.contractVersion,
+    instruction_id: row.id,
+    proposal_id: row.proposalId,
+    approved_decision_id: row.approvedDecisionId,
+    business_id: row.businessId,
+    strategy_id: row.strategyId,
+    strategy_version: row.strategyVersion,
+    content_cycle_id: row.contentCycleId,
+    format_cohort: row.formatCohort,
+    evidence_checksum: row.evidenceChecksum,
+    change_kind: row.changeKind,
+    instruction: row.instruction,
+    status: row.status,
+    consumed_content_pack_id: row.consumedContentPackId,
+    consumed_week_plan_id: row.consumedWeekPlanId,
+    approved_at: row.approvedAt.toISOString(),
+    consumed_at: row.consumedAt?.toISOString() ?? null,
+    superseded_at: row.supersededAt?.toISOString() ?? null,
+    created_at: row.createdAt.toISOString(),
+    updated_at: row.updatedAt.toISOString(),
+  } as unknown as ApprovedOptimizationInstructionV1;
+  assertValidApprovedOptimizationInstructionV1(instruction);
+  return instruction;
+}
+
+function toWorkspaceContract(
+  row: OptimizationWorkspaceRow,
+): OptimizationProposalWorkspaceV1 {
+  const proposal = toProposalContract(row);
+  const decision = row.decisions[0]
+    ? toDecisionContract(row.decisions[0])
+    : null;
+  const instruction = row.approvedInstruction
+    ? toInstructionContract(row.approvedInstruction)
+    : null;
+  let state: OptimizationProposalWorkspaceV1["state"] =
+    "PENDING_OWNER_DECISION";
+  if (decision?.action === "dismiss") state = "DISMISSED";
+  else if (instruction?.status === "PENDING_CONSUMPTION")
+    state = "APPROVED_PENDING_CONSUMPTION";
+  else if (instruction?.status === "CONSUMED") state = "CONSUMED";
+  else if (instruction?.status === "SUPERSEDED") state = "SUPERSEDED";
+  else if (instruction?.status === "EXPIRED") state = "EXPIRED";
+
+  const workspace = {
+    contract_version: "optimization-v1",
+    proposal,
+    state,
+    decision,
+    instruction,
+  } as OptimizationProposalWorkspaceV1;
+  assertValidOptimizationProposalWorkspaceV1(workspace);
+  return workspace;
+}
+
+async function loadWorkspaceWithin(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  proposalId: string,
+): Promise<OptimizationProposalWorkspaceV1> {
+  const row = await tx.optimizationProposal.findFirst({
+    where: { id: proposalId, businessId },
+    include: OPTIMIZATION_WORKSPACE_INCLUDE,
+  });
+  if (!row) {
+    throw new OptimizationRepositoryError(
+      "OPTIMIZATION_DECISION_CONFLICT",
+      "optimization proposal disappeared while recording the decision",
+    );
+  }
+  return toWorkspaceContract(row);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

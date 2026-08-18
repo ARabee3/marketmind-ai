@@ -160,6 +160,54 @@ function createInput() {
   };
 }
 
+function decisionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "a1000000-0000-4000-8000-000000000020",
+    contractVersion: "optimization-decision-v1",
+    proposalId: proposalRow().id,
+    businessId: BUSINESS_ID,
+    strategyId: STRATEGY_ID,
+    strategyVersion: 2,
+    contentCycleId: CYCLE_ID,
+    formatCohort: "text_post",
+    evidenceChecksum: CHECKSUM,
+    action: "approve",
+    ownerUserId: "a1000000-0000-4000-8000-000000000021",
+    idempotencyKey: "decision-1",
+    requestFingerprint: FINGERPRINT,
+    note: null,
+    decidedAt: new Date("2026-08-20T08:02:12Z"),
+    createdAt: new Date("2026-08-20T08:02:12Z"),
+    ...overrides,
+  };
+}
+
+function instructionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "a1000000-0000-4000-8000-000000000022",
+    contractVersion: "optimization-instruction-v1",
+    proposalId: proposalRow().id,
+    approvedDecisionId: decisionRow().id,
+    businessId: BUSINESS_ID,
+    strategyId: STRATEGY_ID,
+    strategyVersion: 2,
+    contentCycleId: CYCLE_ID,
+    formatCohort: "text_post",
+    evidenceChecksum: CHECKSUM,
+    changeKind: "hook_style",
+    instruction: proposalRow().instruction,
+    status: "PENDING_CONSUMPTION",
+    consumedContentPackId: null,
+    consumedWeekPlanId: null,
+    approvedAt: new Date("2026-08-20T08:02:12Z"),
+    consumedAt: null,
+    supersededAt: null,
+    createdAt: new Date("2026-08-20T08:02:12Z"),
+    updatedAt: new Date("2026-08-20T08:02:12Z"),
+    ...overrides,
+  };
+}
+
 describe("OptimizationRepository", () => {
   it("loads only the server-owned real Facebook seven-day chain", async () => {
     const prisma = {
@@ -236,6 +284,89 @@ describe("OptimizationRepository", () => {
       proposal_id: proposalRow().id,
       generation_fingerprint: FINGERPRINT,
     });
+  });
+
+  it("creates one immutable decision and one approved instruction atomically", async () => {
+    const decision = decisionRow();
+    const instruction = instructionRow();
+    const workspaceRow = {
+      ...proposalRow(),
+      decisions: [decision],
+      approvedInstruction: instruction,
+    };
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      optimizationDecision: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null),
+        create: jest.fn().mockResolvedValue(decision),
+      },
+      optimizationProposal: {
+        findFirst: jest
+          .fn()
+          .mockImplementation(async ({ include }: { include?: unknown }) =>
+            include ? workspaceRow : proposalRow(),
+          ),
+      },
+      approvedOptimizationInstruction: {
+        create: jest.fn().mockResolvedValue(instruction),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (value: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    } as any;
+    const repository = new OptimizationRepository(prisma);
+
+    const result = await repository.createDecision({
+      owner_user_id: decision.ownerUserId,
+      business_id: BUSINESS_ID,
+      proposal_id: proposalRow().id,
+      evidence_checksum: CHECKSUM,
+      action: "approve",
+      idempotency_key: decision.idempotencyKey,
+      request_fingerprint: decision.requestFingerprint,
+      note: null,
+    });
+
+    expect(result.state).toBe("APPROVED_PENDING_CONSUMPTION");
+    expect(tx.optimizationDecision.create).toHaveBeenCalledTimes(1);
+    expect(tx.approvedOptimizationInstruction.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a decision that supplies a different immutable evidence checksum", async () => {
+    const tx = {
+      $queryRaw: jest.fn(),
+      optimizationDecision: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      optimizationProposal: {
+        findFirst: jest.fn().mockResolvedValue(proposalRow()),
+      },
+    } as any;
+    const prisma = {
+      $transaction: jest.fn(async (callback: (value: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    } as any;
+    const repository = new OptimizationRepository(prisma);
+
+    await expect(
+      repository.createDecision({
+        owner_user_id: "a1000000-0000-4000-8000-000000000021",
+        business_id: BUSINESS_ID,
+        proposal_id: proposalRow().id,
+        evidence_checksum: FINGERPRINT,
+        action: "dismiss",
+        idempotency_key: "decision-2",
+        request_fingerprint: FINGERPRINT,
+        note: null,
+      }),
+    ).rejects.toMatchObject({ code: "OPTIMIZATION_EVIDENCE_CONFLICT" });
   });
 
   it("fails closed when the same fingerprint already stores different evidence", async () => {

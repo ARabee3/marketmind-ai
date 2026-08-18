@@ -31,6 +31,33 @@ export const OPTIMIZATION_PROPOSAL_STATUSES = [
 export type OptimizationProposalStatus =
   (typeof OPTIMIZATION_PROPOSAL_STATUSES)[number];
 
+/** Versioned owner-decision boundary for Optimization 2. */
+export const OPTIMIZATION_DECISION_CONTRACT_VERSION =
+  "optimization-decision-v1" as const;
+export const OPTIMIZATION_INSTRUCTION_CONTRACT_VERSION =
+  "optimization-instruction-v1" as const;
+export const OPTIMIZATION_DECISION_ACTIONS = ["approve", "dismiss"] as const;
+export type OptimizationDecisionAction =
+  (typeof OPTIMIZATION_DECISION_ACTIONS)[number];
+export const OPTIMIZATION_INSTRUCTION_STATUSES = [
+  "PENDING_CONSUMPTION",
+  "CONSUMED",
+  "SUPERSEDED",
+  "EXPIRED",
+] as const;
+export type OptimizationInstructionStatus =
+  (typeof OPTIMIZATION_INSTRUCTION_STATUSES)[number];
+export const OPTIMIZATION_PROPOSAL_WORKSPACE_STATES = [
+  "PENDING_OWNER_DECISION",
+  "APPROVED_PENDING_CONSUMPTION",
+  "DISMISSED",
+  "CONSUMED",
+  "SUPERSEDED",
+  "EXPIRED",
+] as const;
+export type OptimizationProposalWorkspaceState =
+  (typeof OPTIMIZATION_PROPOSAL_WORKSPACE_STATES)[number];
+
 export const OPTIMIZATION_READINESS_STATUSES = [
   "ready",
   "collecting_baseline",
@@ -205,6 +232,62 @@ export type OptimizationProposalV1 = {
   readonly created_at: string;
 };
 
+/** Immutable terminal owner decision bound to one exact proposal/evidence pair. */
+export type OptimizationDecisionV1 = {
+  readonly contract_version: typeof OPTIMIZATION_DECISION_CONTRACT_VERSION;
+  readonly decision_id: string;
+  readonly proposal_id: string;
+  readonly business_id: string;
+  readonly strategy_id: string;
+  readonly strategy_version: number;
+  readonly content_cycle_id: string;
+  readonly format_cohort: OptimizationFormat;
+  readonly evidence_checksum: string;
+  readonly action: OptimizationDecisionAction;
+  readonly owner_user_id: string;
+  readonly request_fingerprint: string;
+  readonly note: string | null;
+  readonly decided_at: string;
+};
+
+/** Immutable instruction created only by an approved owner decision. */
+export type ApprovedOptimizationInstructionV1 = {
+  readonly contract_version: typeof OPTIMIZATION_INSTRUCTION_CONTRACT_VERSION;
+  readonly instruction_id: string;
+  readonly proposal_id: string;
+  readonly approved_decision_id: string;
+  readonly business_id: string;
+  readonly strategy_id: string;
+  readonly strategy_version: number;
+  readonly content_cycle_id: string;
+  readonly format_cohort: OptimizationFormat;
+  readonly evidence_checksum: string;
+  readonly change_kind: OptimizationChangeKind;
+  readonly instruction: string;
+  readonly status: OptimizationInstructionStatus;
+  readonly consumed_content_pack_id: string | null;
+  readonly consumed_week_plan_id: string | null;
+  readonly approved_at: string;
+  readonly consumed_at: string | null;
+  readonly superseded_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+};
+
+/** Read model used by the Performance workspace and proposal detail route. */
+export type OptimizationProposalWorkspaceV1 = {
+  readonly contract_version: typeof OPTIMIZATION_CONTRACT_VERSION;
+  readonly proposal: OptimizationProposalV1;
+  readonly state: OptimizationProposalWorkspaceState;
+  readonly decision: OptimizationDecisionV1 | null;
+  readonly instruction: ApprovedOptimizationInstructionV1 | null;
+};
+
+export type OptimizationDecisionResponseV1 = {
+  readonly contract_version: typeof OPTIMIZATION_DECISION_CONTRACT_VERSION;
+  readonly workspace: OptimizationProposalWorkspaceV1;
+};
+
 type CanonicalJson =
   | string
   | number
@@ -259,5 +342,16 @@ export function computeOptimizationGenerationFingerprint(
 ): string {
   return createHash("sha256")
     .update(JSON.stringify(canonicalize(request)), "utf8")
+    .digest("hex");
+}
+
+export function computeOptimizationDecisionFingerprint(input: {
+  readonly proposal_id: string;
+  readonly evidence_checksum: string;
+  readonly action: OptimizationDecisionAction;
+  readonly note: string | null;
+}): string {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(input)), "utf8")
     .digest("hex");
 }

@@ -1,10 +1,17 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
+  OptimizationDecisionResponseV1,
+  OptimizationProposalWorkspaceV1,
   PerformanceOverviewV1,
   PerformancePostProjectionV1,
 } from '@marketmind/contracts'
-import { getPerformanceOverview, refreshPerformancePost } from '@/lib/api/performance'
+import {
+  decideOptimizationProposal,
+  getOptimizationProposals,
+  getPerformanceOverview,
+  refreshPerformancePost,
+} from '@/lib/api/performance'
 import { PerformancePage } from '../performance-page'
 
 vi.mock('next-intl', () => ({
@@ -30,10 +37,14 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/api/performance', () => ({
   getPerformanceOverview: vi.fn(),
+  getOptimizationProposals: vi.fn(),
+  decideOptimizationProposal: vi.fn(),
   refreshPerformancePost: vi.fn(),
 }))
 
 const mockedGetPerformanceOverview = vi.mocked(getPerformanceOverview)
+const mockedGetOptimizationProposals = vi.mocked(getOptimizationProposals)
+const mockedDecideOptimizationProposal = vi.mocked(decideOptimizationProposal)
 const mockedRefreshPerformancePost = vi.mocked(refreshPerformancePost)
 
 const BUSINESS_ID = 'a1000000-0000-4000-8000-000000000001'
@@ -113,6 +124,65 @@ function overview(posts: readonly PerformancePostProjectionV1[]): PerformanceOve
 
 describe('PerformancePage', () => {
   afterEach(() => vi.clearAllMocks())
+  beforeEach(() => mockedGetOptimizationProposals.mockResolvedValue([]))
+
+  function optimizationWorkspace(): OptimizationProposalWorkspaceV1 {
+    return {
+      contract_version: 'optimization-v1',
+      proposal: {
+        contract_version: 'optimization-v1',
+        proposal_id: 'a4000000-0000-4000-8000-000000000101',
+        business_id: BUSINESS_ID,
+        strategy_id: 'a4000000-0000-4000-8000-000000000102',
+        strategy_version: 2,
+        content_cycle_id: 'a4000000-0000-4000-8000-000000000103',
+        format_cohort: 'text_post',
+        basis_snapshot_ids: [
+          'a4000000-0000-4000-8000-000000000104',
+          'a4000000-0000-4000-8000-000000000105',
+          'a4000000-0000-4000-8000-000000000106',
+        ],
+        evidence_checksum:
+          'b7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0',
+        deterministic_comparison: [
+          {
+            metric: 'post_media_view',
+            baseline_median: 10,
+            values: [5, 10, 20],
+            best_snapshot_id: 'a4000000-0000-4000-8000-000000000106',
+            best_value: 20,
+            delta_from_median: 10,
+            delta_percent: 100,
+            direction: 'higher_is_better',
+          },
+          {
+            metric: 'post_clicks',
+            baseline_median: 2,
+            values: [1, 2, 4],
+            best_snapshot_id: 'a4000000-0000-4000-8000-000000000106',
+            best_value: 4,
+            delta_from_median: 2,
+            delta_percent: 100,
+            direction: 'higher_is_better',
+          },
+        ],
+        change_kind: 'hook_style',
+        summary: 'Lead with a concrete situation.',
+        rationale: 'The strongest observed post used a direct opening.',
+        uncertainty: 'Small cohort; no causal claim.',
+        instruction: 'Try a concrete situation in one future hook only.',
+        model_version: 'mock',
+        prompt_version: 'optimization-prompt-v1',
+        generation_fingerprint:
+          'c7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0',
+        status: 'PENDING_OWNER_DECISION',
+        created_at: '2026-08-19T08:00:01.000Z',
+      },
+      state: 'PENDING_OWNER_DECISION',
+      decision: null,
+      instruction: null,
+    }
+  }
 
   it('renders real raw values and labels missing metrics unavailable', async () => {
     mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))
@@ -197,5 +267,52 @@ describe('PerformancePage', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('notices.rateLimited')
     expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
     expect(screen.getAllByText('12')).not.toHaveLength(0)
+  })
+
+  it('shows the exact Optimization evidence and updates the terminal decision state', async () => {
+    const workspace = optimizationWorkspace()
+    const approved: OptimizationDecisionResponseV1 = {
+      contract_version: 'optimization-decision-v1',
+      workspace: {
+        ...workspace,
+        state: 'APPROVED_PENDING_CONSUMPTION',
+        decision: {
+          contract_version: 'optimization-decision-v1',
+          decision_id: 'a4000000-0000-4000-8000-000000000107',
+          proposal_id: workspace.proposal.proposal_id,
+          business_id: workspace.proposal.business_id,
+          strategy_id: workspace.proposal.strategy_id,
+          strategy_version: workspace.proposal.strategy_version,
+          content_cycle_id: workspace.proposal.content_cycle_id,
+          format_cohort: workspace.proposal.format_cohort,
+          evidence_checksum: workspace.proposal.evidence_checksum,
+          action: 'approve',
+          owner_user_id: 'a4000000-0000-4000-8000-000000000108',
+          request_fingerprint:
+            'c7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0',
+          note: null,
+          decided_at: '2026-08-19T08:01:00.000Z',
+        },
+        instruction: null,
+      },
+    }
+    mockedGetPerformanceOverview.mockResolvedValue(overview([]))
+    mockedGetOptimizationProposals.mockResolvedValue([workspace])
+    mockedDecideOptimizationProposal.mockResolvedValue(approved)
+
+    render(<PerformancePage />)
+
+    expect(await screen.findByText('Lead with a concrete situation.')).not.toBeNull()
+    expect(screen.getByText('optimization.unchangedTitle')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'optimization.approve' }))
+
+    await waitFor(() => expect(mockedDecideOptimizationProposal).toHaveBeenCalledWith(
+      workspace.proposal.proposal_id,
+      expect.objectContaining({
+        action: 'approve',
+        evidence_checksum: workspace.proposal.evidence_checksum,
+      }),
+    ))
+    expect(await screen.findByText('optimization.states.APPROVED_PENDING_CONSUMPTION')).not.toBeNull()
   })
 })

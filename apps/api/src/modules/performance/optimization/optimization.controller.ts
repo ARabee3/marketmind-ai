@@ -17,6 +17,7 @@ import { Permissions } from "../../rbac/decorators/permissions.decorator";
 import { PermissionsGuard } from "../../rbac/guards/permissions.guard";
 import { PERMISSIONS } from "../../rbac/rbac.constants";
 import { GenerateOptimizationProposalDto } from "./dto/generate-optimization-proposal.dto";
+import { DecideOptimizationProposalDto } from "./dto/decide-optimization-proposal.dto";
 import { OptimizationService } from "./optimization.service";
 
 type RequestWithUser = Request & { user: AuthenticatedUser };
@@ -61,5 +62,14 @@ export class OptimizationController {
     @Param("proposalId", ParseUUIDPipe) proposalId: string,
   ) {
     return this.optimization.get(req.user.id, proposalId);
+  }
+
+  @Post("proposals/:proposalId/decisions")
+  decide(
+    @Req() req: RequestWithUser,
+    @Param("proposalId", ParseUUIDPipe) proposalId: string,
+    @Body() dto: DecideOptimizationProposalDto,
+  ) {
+    return this.optimization.decide(req.user.id, proposalId, dto);
   }
 }

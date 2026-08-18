@@ -35,6 +35,11 @@ import { OptimizationService } from "./optimization/optimization.service";
     OptimizationRepository,
     OptimizationService,
   ],
-  exports: [PerformanceService, PerformanceRepository, OptimizationService],
+  exports: [
+    PerformanceService,
+    PerformanceRepository,
+    OptimizationService,
+    OptimizationRepository,
+  ],
 })
 export class PerformanceModule {}

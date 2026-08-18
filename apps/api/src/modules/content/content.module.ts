@@ -33,6 +33,7 @@ import { AssetStorageModule } from './assets/asset-storage.module';
 import { BillingModule } from '../billing/billing.module';
 import { StrategyModule } from '../strategy/strategy.module';
 import { PublishingModule } from '../publishing/publishing.module';
+import { PerformanceModule } from '../performance/performance.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { PublishingModule } from '../publishing/publishing.module';
     AssetStorageModule,
     StrategyModule,
     PublishingModule,
+    PerformanceModule,
     ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: 'content-generation' }),
     BullModule.registerQueue({ name: 'content-outbox' }),
