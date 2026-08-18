@@ -2002,6 +2002,7 @@
     "lifetimeGranted": "إجمالي النقاط الممنوحة: {points}",
     "lifetimeSpent": "النقاط المستهلكة: {points}",
     "topUp": "اشترِ نقاط",
+    "sidebarPointsLabel": "النقاط المتاحة",
     "bundlesTitle": "باقات النقاط",
     "bundlesBody": "دفعة واحدة بالجنيه المصري. النقاط بتتضاف بعد تأكيد الدفع بس.",
     "bundlePoints": "{points} نقطة",

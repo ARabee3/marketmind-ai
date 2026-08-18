@@ -246,4 +246,27 @@ describe("AppShell", () => {
     expect(screen.getByText("Ahmed Mohamed")).toBeTruthy();
     expect(screen.getByText("AM")).toBeTruthy();
   });
+
+  it("renders remaining points in the desktop sidebar when authenticated", async () => {
+    authenticated = true;
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(await screen.findByText("215")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "topUp" })).toBeTruthy();
+  });
+
+  it("hides the sidebar points card when unauthenticated", () => {
+    authenticated = false;
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(container.textContent).not.toMatch(/215/);
+  });
 });

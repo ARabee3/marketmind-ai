@@ -6,8 +6,9 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useSession } from "@/features/auth/session-provider";
-import { WalletProvider } from "@/features/billing/wallet-context";
+import { WalletProvider, useWallet } from "@/features/billing/wallet-context";
 import { LogoutButton } from "@/features/auth/logout-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   AppShellChevronIcon,
@@ -201,6 +202,64 @@ export function BrandLogoMark({ className }: { className?: string }) {
   );
 }
 
+function WalletSidebarCard({ collapsed }: { readonly collapsed: boolean }) {
+  const t = useTranslations("Billing");
+  const { wallet, loading } = useWallet();
+
+  if (loading) {
+    return (
+      <div className="px-4 pb-3" aria-hidden="true">
+        <div className="grid gap-2 rounded-lg border border-border bg-background p-2.5 shadow-xs">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!wallet) return null;
+
+  return (
+    <div className="px-4 pb-3">
+      <div
+        className={cn(
+          "rounded-lg border border-border bg-background p-2.5 shadow-xs transition-colors",
+          collapsed && "grid place-items-center p-2",
+        )}
+        title={collapsed ? t("sidebarPointsLabel") : undefined}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2",
+            collapsed && "flex-col",
+          )}
+        >
+          <span
+            className={cn(
+              "text-[11px] font-semibold tracking-wide text-muted-foreground uppercase",
+              collapsed && "sr-only",
+            )}
+          >
+            {t("sidebarPointsLabel")}
+          </span>
+          <span className="text-lg font-extrabold text-navy tabular-nums">
+            {wallet.balance}
+          </span>
+        </div>
+        <Link
+          href="/billing"
+          className={cn(
+            "text-xs font-semibold text-primary transition-colors hover:text-primary/80 hover:underline",
+            collapsed && "sr-only",
+          )}
+        >
+          {t("topUp")}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function DesktopSidebar({
   brandName,
   collapsed,
@@ -291,6 +350,7 @@ function DesktopSidebar({
           })}
         </ul>
       </nav>
+      <WalletSidebarCard collapsed={collapsed} />
       <div className="px-4 py-4">
         <div
           className={cn(

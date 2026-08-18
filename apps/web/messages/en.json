@@ -2002,6 +2002,7 @@
     "lifetimeGranted": "Total points granted: {points}",
     "lifetimeSpent": "Points used: {points}",
     "topUp": "Buy points",
+    "sidebarPointsLabel": "Available points",
     "bundlesTitle": "Points bundles",
     "bundlesBody": "One-time payment in Egyptian pounds. Points appear only after the payment is confirmed.",
     "bundlePoints": "{points, plural, one{{points} point} other{{points} points}}",
