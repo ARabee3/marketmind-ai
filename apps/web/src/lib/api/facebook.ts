@@ -24,7 +24,13 @@ export async function getFacebookConnection(): Promise<FacebookConnectionView | 
   const response = await apiRequest('/connections')
   if (response.status === 404 || response.status === 204) return null
   if (!response.ok) throw new Error('Could not load the connection status.')
-  return (await response.json()) as FacebookConnectionView
+
+  // Nest can represent a nullable controller result as a successful response
+  // with no body. Treat that shape exactly like the documented empty state so
+  // a disconnected owner can revisit Connections without a JSON parse error.
+  const body = await response.text()
+  if (body.trim() === '') return null
+  return JSON.parse(body) as FacebookConnectionView
 }
 
 /**
