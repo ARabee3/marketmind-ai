@@ -18,6 +18,9 @@ export class DecideOptimizationProposalDto {
 
   @IsString()
   @IsNotEmpty()
+  @Matches(/\S/, {
+    message: "idempotency_key must contain a non-whitespace character",
+  })
   @Length(1, 256)
   idempotency_key!: string;
 

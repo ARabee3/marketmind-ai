@@ -621,6 +621,30 @@ describe("ContentV2Service.generateWeek", () => {
     );
   });
 
+  it("leaves approved Optimization guidance pending for a planner-only week", async () => {
+    const { service, mocks } = generateBuildService({
+      instruction_id: "instruction-1",
+    });
+
+    await service.generateWeek(
+      CYCLE,
+      1,
+      { content_cycle_id: CYCLE, week_number: 1, idempotency_key: "k-opt-2" },
+      OWNER,
+    );
+
+    expect(
+      mocks.optimizationRepository.findPendingInstruction,
+    ).not.toHaveBeenCalled();
+    const claimInput = mocks.packRepository.claimQueuedPackV2.mock
+      .calls[0][0] as {
+      frozenInput: Record<string, unknown>;
+      optimizationInstructionId?: string;
+    };
+    expect(claimInput.optimizationInstructionId).toBeUndefined();
+    expect(claimInput.frozenInput.optimization_guidance).toBeNull();
+  });
+
   it("rejects generation for a non-current week", async () => {
     const { service } = generateBuildService();
     await expect(

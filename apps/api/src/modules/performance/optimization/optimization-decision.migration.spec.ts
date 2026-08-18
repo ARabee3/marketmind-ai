@@ -28,6 +28,12 @@ describe("Optimization 2 decision migration", () => {
       "approved_optimization_instructions_consumed_week_plan_id_key",
     );
     expect(migration).toContain("one forward transition");
+    expect(migration).toMatch(
+      /"status" <> 'PENDING_CONSUMPTION'[\s\S]*?"superseded_at" IS NULL/,
+    );
+    expect(migration).toMatch(
+      /"status" <> 'CONSUMED'[\s\S]*?"superseded_at" IS NULL/,
+    );
     expect(migration).not.toMatch(/access[_ ]token|raw[_ ]payload/i);
   });
 });

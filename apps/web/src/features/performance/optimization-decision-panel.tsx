@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Dialog } from "@base-ui/react/dialog";
 import { useFormatter, useTranslations } from "next-intl";
 import type { OptimizationProposalWorkspaceV1 } from "@marketmind/contracts";
 import { Check, Info, LoaderCircle, X } from "lucide-react";
@@ -106,6 +108,14 @@ function OptimizationProposalCard({
   const formatter = useFormatter();
   const { proposal } = workspace;
   const terminal = workspace.state !== "PENDING_OWNER_DECISION";
+  const [pendingAction, setPendingAction] =
+    useState<OptimizationDecisionAction | null>(null);
+
+  function confirmDecision() {
+    if (!pendingAction) return;
+    onDecide(workspace, pendingAction);
+    setPendingAction(null);
+  }
 
   return (
     <article className="grid gap-5 rounded-xl border border-border bg-surface p-5 shadow-elevated md:p-6">
@@ -224,10 +234,37 @@ function OptimizationProposalCard({
                 count: proposal.basis_snapshot_ids.length,
               })}
             </summary>
-            <ul className="mt-3 grid gap-2 text-xs leading-5 text-muted-foreground">
-              {proposal.basis_snapshot_ids.map((snapshotId) => (
-                <li key={snapshotId} className="break-all font-mono">
-                  {snapshotId}
+            <ul className="mt-3 grid gap-3 text-xs leading-5 text-muted-foreground">
+              {proposal.basis_snapshot_ids.map((snapshotId, snapshotIndex) => (
+                <li
+                  key={snapshotId}
+                  className="grid gap-2 rounded-md border border-border bg-surface p-3"
+                >
+                  <code className="break-all font-mono" translate="no">
+                    {snapshotId}
+                  </code>
+                  <dl className="grid gap-1.5">
+                    {proposal.deterministic_comparison.map((comparison) => {
+                      const value = comparison.values[snapshotIndex];
+                      return (
+                        <div
+                          key={comparison.metric}
+                          className="flex items-baseline justify-between gap-3"
+                        >
+                          <dt>
+                            {t(`optimization.metrics.${comparison.metric}`)}
+                          </dt>
+                          <dd className="font-semibold text-navy tabular-nums">
+                            {value === undefined
+                              ? t("optimization.notAvailable")
+                              : formatter.number(value, {
+                                  maximumFractionDigits: 1,
+                                })}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
                 </li>
               ))}
             </ul>
@@ -302,16 +339,16 @@ function OptimizationProposalCard({
           <Button
             type="button"
             disabled={deciding}
-            onClick={() => onDecide(workspace, "approve")}
+            onClick={() => setPendingAction("approve")}
           >
             <Check className="size-4" aria-hidden="true" />
             {t("optimization.approve")}
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="destructive"
             disabled={deciding}
-            onClick={() => onDecide(workspace, "dismiss")}
+            onClick={() => setPendingAction("dismiss")}
           >
             <X className="size-4" aria-hidden="true" />
             {t("optimization.dismiss")}
@@ -323,6 +360,76 @@ function OptimizationProposalCard({
           ) : null}
         </div>
       )}
+
+      <Dialog.Root
+        open={pendingAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !deciding) setPendingAction(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/35" />
+          <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6">
+            <Dialog.Title className="text-xl font-bold text-navy">
+              {pendingAction === "approve"
+                ? t("optimization.confirm.approveTitle")
+                : t("optimization.confirm.dismissTitle")}
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
+              {pendingAction === "approve"
+                ? t("optimization.confirm.approveBody")
+                : t("optimization.confirm.dismissBody")}
+            </Dialog.Description>
+
+            {pendingAction === "approve" ? (
+              <div className="mt-4 rounded-lg border border-border bg-background p-3">
+                <p className="text-sm font-semibold text-navy">
+                  {t("optimization.confirm.unchangedLabel")}
+                </p>
+                <ul className="mt-2 grid gap-1.5 ps-5 text-sm leading-6 text-muted-foreground">
+                  {(
+                    [
+                      "strategy",
+                      "topic",
+                      "purpose",
+                      "audience",
+                      "channel",
+                      "format",
+                      "locale",
+                      "media",
+                      "post_count",
+                      "schedule",
+                      "publishing",
+                    ] as const
+                  ).map((key) => (
+                    <li key={key} className="list-disc">
+                      {t(`optimization.unchanged.${key}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Dialog.Close render={<Button type="button" variant="ghost" />}>
+                {t("optimization.confirm.cancel")}
+              </Dialog.Close>
+              <Button
+                type="button"
+                variant={
+                  pendingAction === "dismiss" ? "destructive" : "default"
+                }
+                disabled={deciding}
+                onClick={confirmDecision}
+              >
+                {pendingAction === "approve"
+                  ? t("optimization.confirm.approveCta")
+                  : t("optimization.confirm.dismissCta")}
+              </Button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </article>
   );
 }

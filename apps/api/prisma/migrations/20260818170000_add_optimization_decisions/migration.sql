@@ -74,11 +74,11 @@ CREATE TABLE "approved_optimization_instructions" (
     CONSTRAINT "approved_optimization_instructions_instruction_length_check" CHECK (char_length("instruction") BETWEEN 1 AND 2000),
     CONSTRAINT "approved_optimization_instructions_pending_shape_check" CHECK (
         "status" <> 'PENDING_CONSUMPTION'
-        OR ("consumed_content_pack_id" IS NULL AND "consumed_week_plan_id" IS NULL AND "consumed_at" IS NULL)
+        OR ("consumed_content_pack_id" IS NULL AND "consumed_week_plan_id" IS NULL AND "consumed_at" IS NULL AND "superseded_at" IS NULL)
     ),
     CONSTRAINT "approved_optimization_instructions_consumed_shape_check" CHECK (
         "status" <> 'CONSUMED'
-        OR ("consumed_content_pack_id" IS NOT NULL AND "consumed_week_plan_id" IS NOT NULL AND "consumed_at" IS NOT NULL)
+        OR ("consumed_content_pack_id" IS NOT NULL AND "consumed_week_plan_id" IS NOT NULL AND "consumed_at" IS NOT NULL AND "superseded_at" IS NULL)
     ),
     CONSTRAINT "approved_optimization_instructions_terminal_shape_check" CHECK (
         "status" NOT IN ('SUPERSEDED', 'EXPIRED')

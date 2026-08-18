@@ -3122,6 +3122,16 @@
       },
       "approve": "Approve once",
       "dismiss": "Dismiss",
+      "confirm": {
+        "approveTitle": "Approve this wording cue once?",
+        "approveBody": "This terminal decision makes the cue eligible for one future owner-planned week with the matching format.",
+        "dismissTitle": "Dismiss this proposal?",
+        "dismissBody": "Dismissal is terminal and cannot be changed later. This cue will never be applied to Content.",
+        "unchangedLabel": "Your approval will not change:",
+        "cancel": "Cancel",
+        "approveCta": "Confirm approval",
+        "dismissCta": "Confirm dismissal"
+      },
       "saving": "Saving decision…",
       "consumedBody": "This approved cue was consumed once in the frozen Content V2 input.",
       "terminalBody": "This proposal has a terminal owner decision and cannot be changed."

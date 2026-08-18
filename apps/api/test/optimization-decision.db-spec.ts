@@ -239,4 +239,94 @@ describeDatabase("Optimization 2 PostgreSQL invariants", () => {
       }),
     ).rejects.toThrow(/P2002|unique|instruction/i);
   });
+
+  it("allows only one concurrent terminal decision for a proposal", async () => {
+    const proposalId = randomUUID();
+    await prisma.optimizationProposal.create({
+      data: proposalData({ id: proposalId }) as never,
+    });
+
+    const attempts = ["first", "second"].map((label) =>
+      prisma.optimizationDecision.create({
+        data: {
+          id: randomUUID(),
+          contractVersion: "optimization-decision-v1",
+          proposalId,
+          businessId: ids.business,
+          strategyId: ids.strategy,
+          strategyVersion: 2,
+          contentCycleId: ids.cycle,
+          formatCohort: "text_post",
+          evidenceChecksum,
+          action: "dismiss",
+          ownerUserId: ids.user,
+          idempotencyKey: `concurrent-${label}-${randomUUID()}`,
+          requestFingerprint: randomUUID().replaceAll("-", "").padEnd(64, "0"),
+          note: null,
+          decidedAt: new Date(),
+        },
+      }),
+    );
+
+    const results = await Promise.allSettled(attempts);
+
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
+    await expect(
+      prisma.optimizationDecision.count({ where: { proposalId } }),
+    ).resolves.toBe(1);
+  });
+
+  it("rejects pending instructions carrying a terminal timestamp", async () => {
+    const proposalId = randomUUID();
+    const decisionId = randomUUID();
+    await prisma.optimizationProposal.create({
+      data: proposalData({ id: proposalId }) as never,
+    });
+    await prisma.optimizationDecision.create({
+      data: {
+        id: decisionId,
+        contractVersion: "optimization-decision-v1",
+        proposalId,
+        businessId: ids.business,
+        strategyId: ids.strategy,
+        strategyVersion: 2,
+        contentCycleId: ids.cycle,
+        formatCohort: "text_post",
+        evidenceChecksum,
+        action: "approve",
+        ownerUserId: ids.user,
+        idempotencyKey: `shape-${randomUUID()}`,
+        requestFingerprint: randomUUID().replaceAll("-", "").padEnd(64, "0"),
+        note: null,
+        decidedAt: new Date(),
+      },
+    });
+
+    await expect(
+      prisma.approvedOptimizationInstruction.create({
+        data: {
+          id: randomUUID(),
+          contractVersion: "optimization-instruction-v1",
+          proposalId,
+          approvedDecisionId: decisionId,
+          businessId: ids.business,
+          strategyId: ids.strategy,
+          strategyVersion: 2,
+          contentCycleId: ids.cycle,
+          formatCohort: "text_post",
+          evidenceChecksum,
+          changeKind: "hook_style",
+          instruction: "Try one different hook wording in a future draft.",
+          status: "PENDING_CONSUMPTION",
+          approvedAt: new Date(),
+          supersededAt: new Date(),
+        },
+      }),
+    ).rejects.toThrow(/check|P2004|constraint/i);
+  });
 });

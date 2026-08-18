@@ -76,6 +76,7 @@ describe("ContentPackRepository", () => {
     it("rejects approved → queued", () => {
       expect(canTransitionContentPack("approved", "queued")).toBe(false);
     });
+  });
 
   describe("appendPackWithItems", () => {
     function makeTx() {
@@ -204,9 +205,7 @@ describe("ContentPackRepository", () => {
       const cycleUpdate = jest.fn().mockResolvedValue({ id: "cycle-1" });
       const packFindUnique = jest.fn().mockImplementation(({ where }: any) => {
         const weekNumber = where.contentCycleId_weekNumber.weekNumber;
-        return Promise.resolve(
-          weekNumber === 3 ? null : { status: "draft" },
-        );
+        return Promise.resolve(weekNumber === 3 ? null : { status: "draft" });
       });
       return {
         tx: {
@@ -292,9 +291,9 @@ describe("ContentPackRepository", () => {
         ),
       } as unknown as PrismaService);
 
-      await expect(repo.claimQueuedPack("cycle-1", 3, "week-3")).rejects.toThrow(
-        "Week 2 is not complete",
-      );
+      await expect(
+        repo.claimQueuedPack("cycle-1", 3, "week-3"),
+      ).rejects.toThrow("Week 2 is not complete");
       expect(mocks.packCreate).not.toHaveBeenCalled();
     });
 
@@ -380,9 +379,46 @@ describe("ContentPackRepository", () => {
         );
       }
     });
-  });
 
-  describe("getPackByIdAndOwner", () => {
+    it("returns an existing V2 pack without freezing or consuming anything", async () => {
+      const transactionClient = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        contentPack: { findUnique: jest.fn().mockResolvedValue(PACK_ROW) },
+        contentCycle: { findUniqueOrThrow: jest.fn() },
+        contentWeekPlan: { updateMany: jest.fn() },
+        approvedOptimizationInstruction: {
+          findUnique: jest.fn(),
+          updateMany: jest.fn(),
+        },
+      };
+      const repo = new ContentPackRepository({
+        $transaction: jest.fn(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback(transactionClient),
+        ),
+      } as unknown as PrismaService);
+
+      const result = await repo.claimQueuedPackV2({
+        cycleId: "cycle-1",
+        weekNumber: 1,
+        weekContextId: "context-1",
+        weekPlanId: "plan-1",
+        frozenInput: { optimization_guidance: { instruction_id: "ignored" } },
+        optimizationInstructionId: "ignored",
+      });
+
+      expect(result).toEqual({ pack: PACK_ROW, created: false });
+      expect(
+        transactionClient.contentCycle.findUniqueOrThrow,
+      ).not.toHaveBeenCalled();
+      expect(
+        transactionClient.contentWeekPlan.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(
+        transactionClient.approvedOptimizationInstruction.updateMany,
+      ).not.toHaveBeenCalled();
+    });
+
     it("consumes an approved Optimization instruction in the same pack claim", async () => {
       const consumedUpdate = jest.fn().mockResolvedValue({ count: 1 });
       const instruction = {
@@ -483,6 +519,7 @@ describe("ContentPackRepository", () => {
     });
   });
 
+  describe("getPackByIdAndOwner", () => {
     it("scopes by owner through the cycle", async () => {
       const findFirst = jest.fn().mockResolvedValue(PACK_ROW);
       const repo = new ContentPackRepository({

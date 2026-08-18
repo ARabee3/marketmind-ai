@@ -15,12 +15,13 @@ import {
 import { PerformancePage } from '../performance-page'
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
-    values
-      ? `${key}:${Object.entries(values)
-          .map(([name, value]) => `${name}=${value}`)
-          .join(',')}`
-      : key,
+  useTranslations:
+    () => (key: string, values?: Record<string, string | number>) =>
+      values
+        ? `${key}:${Object.entries(values)
+            .map(([name, value]) => `${name}=${value}`)
+            .join(',')}`
+        : key,
   useFormatter: () => ({
     dateTime: (value: Date) => value.toISOString(),
     number: (value: number) => String(value),
@@ -28,7 +29,14 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
+  Link: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => (
     <a href={href} {...props}>
       {children}
     </a>
@@ -101,7 +109,9 @@ function post(): PerformancePostProjectionV1 {
   }
 }
 
-function overview(posts: readonly PerformancePostProjectionV1[]): PerformanceOverviewV1 {
+function overview(
+  posts: readonly PerformancePostProjectionV1[],
+): PerformanceOverviewV1 {
   return {
     contract_version: 'performance-v1',
     business_id: BUSINESS_ID,
@@ -190,11 +200,15 @@ describe('PerformancePage', () => {
     render(<PerformancePage />)
 
     expect(await screen.findByRole('heading', { name: 'title' })).not.toBeNull()
-    expect(screen.getAllByText('metrics.names.post_media_view')).not.toHaveLength(0)
+    expect(
+      screen.getAllByText('metrics.names.post_media_view'),
+    ).not.toHaveLength(0)
     expect(screen.getAllByText('12')).not.toHaveLength(0)
     expect(screen.getAllByText('0')).not.toHaveLength(0)
     expect(screen.getAllByText('metrics.unavailable').length).toBeGreaterThan(0)
-    expect(screen.getByText(/baseline.count:observed=1,required=3/)).not.toBeNull()
+    expect(
+      screen.getByText(/baseline.count:observed=1,required=3/),
+    ).not.toBeNull()
   })
 
   it('shows a permission blocker and safe reconnect action without hiding evidence', async () => {
@@ -210,7 +224,11 @@ describe('PerformancePage', () => {
 
     render(<PerformancePage />)
 
-    expect(await screen.findByText('connection.blockers.read_insights_permission_missing')).not.toBeNull()
+    expect(
+      await screen.findByText(
+        'connection.blockers.read_insights_permission_missing',
+      ),
+    ).not.toBeNull()
     const reconnectLinks = screen.getAllByRole('link', {
       name: 'connection.reconnectAction',
     })
@@ -225,10 +243,12 @@ describe('PerformancePage', () => {
 
     render(<PerformancePage />)
 
-    expect(await screen.findByRole('heading', { name: 'empty.title' })).not.toBeNull()
-    expect(screen.getByRole('link', { name: 'empty.action' }).getAttribute('href')).toBe(
-      '/publishing',
-    )
+    expect(
+      await screen.findByRole('heading', { name: 'empty.title' }),
+    ).not.toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'empty.action' }).getAttribute('href'),
+    ).toBe('/publishing')
     expect(screen.queryByText('metrics.names.post_clicks')).toBeNull()
   })
 
@@ -236,7 +256,10 @@ describe('PerformancePage', () => {
     mockedGetPerformanceOverview
       .mockResolvedValueOnce(overview([post()]))
       .mockResolvedValueOnce(overview([post()]))
-    mockedRefreshPerformancePost.mockResolvedValue({ status: 'queued', windows: [] })
+    mockedRefreshPerformancePost.mockResolvedValue({
+      status: 'queued',
+      windows: [],
+    })
 
     render(<PerformancePage />)
 
@@ -264,7 +287,9 @@ describe('PerformancePage', () => {
     await screen.findByRole('heading', { name: 'title' })
     fireEvent.click(screen.getByRole('button', { name: 'post.refresh' }))
 
-    expect((await screen.findByRole('alert')).textContent).toContain('notices.rateLimited')
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'notices.rateLimited',
+    )
     expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
     expect(screen.getAllByText('12')).not.toHaveLength(0)
   })
@@ -293,7 +318,28 @@ describe('PerformancePage', () => {
           note: null,
           decided_at: '2026-08-19T08:01:00.000Z',
         },
-        instruction: null,
+        instruction: {
+          contract_version: 'optimization-instruction-v1',
+          instruction_id: 'a4000000-0000-4000-8000-000000000109',
+          proposal_id: workspace.proposal.proposal_id,
+          approved_decision_id: 'a4000000-0000-4000-8000-000000000107',
+          business_id: workspace.proposal.business_id,
+          strategy_id: workspace.proposal.strategy_id,
+          strategy_version: workspace.proposal.strategy_version,
+          content_cycle_id: workspace.proposal.content_cycle_id,
+          format_cohort: workspace.proposal.format_cohort,
+          evidence_checksum: workspace.proposal.evidence_checksum,
+          change_kind: workspace.proposal.change_kind,
+          instruction: workspace.proposal.instruction,
+          status: 'PENDING_CONSUMPTION',
+          consumed_content_pack_id: null,
+          consumed_week_plan_id: null,
+          approved_at: '2026-08-19T08:01:00.000Z',
+          consumed_at: null,
+          superseded_at: null,
+          created_at: '2026-08-19T08:01:00.000Z',
+          updated_at: '2026-08-19T08:01:00.000Z',
+        },
       },
     }
     mockedGetPerformanceOverview.mockResolvedValue(overview([]))
@@ -302,18 +348,90 @@ describe('PerformancePage', () => {
 
     render(<PerformancePage />)
 
-    expect(await screen.findByText('Lead with a concrete situation.')).not.toBeNull()
-    expect(screen.getByText(workspace.proposal.basis_snapshot_ids[0])).not.toBeNull()
+    expect(
+      await screen.findByText('Lead with a concrete situation.'),
+    ).not.toBeNull()
+    expect(
+      screen.getByText(workspace.proposal.basis_snapshot_ids[0]),
+    ).not.toBeNull()
+    expect(screen.getAllByText('5')).not.toHaveLength(0)
     expect(screen.getByText('optimization.unchangedTitle')).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'optimization.approve' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'optimization.approve' }),
+    )
 
-    await waitFor(() => expect(mockedDecideOptimizationProposal).toHaveBeenCalledWith(
-      workspace.proposal.proposal_id,
-      expect.objectContaining({
-        action: 'approve',
-        evidence_checksum: workspace.proposal.evidence_checksum,
-      }),
-    ))
-    expect(await screen.findByText('optimization.states.APPROVED_PENDING_CONSUMPTION')).not.toBeNull()
+    expect(mockedDecideOptimizationProposal).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).not.toBeNull()
+    expect(screen.getByText('optimization.confirm.approveTitle')).not.toBeNull()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'optimization.confirm.approveCta' }),
+    )
+
+    await waitFor(() =>
+      expect(mockedDecideOptimizationProposal).toHaveBeenCalledWith(
+        workspace.proposal.proposal_id,
+        expect.objectContaining({
+          action: 'approve',
+          evidence_checksum: workspace.proposal.evidence_checksum,
+        }),
+      ),
+    )
+    expect(
+      await screen.findByText(
+        'optimization.states.APPROVED_PENDING_CONSUMPTION',
+      ),
+    ).not.toBeNull()
+  })
+
+  it('requires confirmation before a terminal dismissal', async () => {
+    const workspace = optimizationWorkspace()
+    mockedGetPerformanceOverview.mockResolvedValue(overview([]))
+    mockedGetOptimizationProposals.mockResolvedValue([workspace])
+    mockedDecideOptimizationProposal.mockResolvedValue({
+      contract_version: 'optimization-decision-v1',
+      workspace: {
+        ...workspace,
+        state: 'DISMISSED',
+        decision: {
+          contract_version: 'optimization-decision-v1',
+          decision_id: 'a4000000-0000-4000-8000-000000000110',
+          proposal_id: workspace.proposal.proposal_id,
+          business_id: workspace.proposal.business_id,
+          strategy_id: workspace.proposal.strategy_id,
+          strategy_version: workspace.proposal.strategy_version,
+          content_cycle_id: workspace.proposal.content_cycle_id,
+          format_cohort: workspace.proposal.format_cohort,
+          evidence_checksum: workspace.proposal.evidence_checksum,
+          action: 'dismiss',
+          owner_user_id: 'a4000000-0000-4000-8000-000000000108',
+          request_fingerprint:
+            'd7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0',
+          note: null,
+          decided_at: '2026-08-19T08:02:00.000Z',
+        },
+        instruction: null,
+      },
+    })
+
+    render(<PerformancePage />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'optimization.dismiss' }),
+    )
+    expect(mockedDecideOptimizationProposal).not.toHaveBeenCalled()
+    expect(screen.getByText('optimization.confirm.dismissBody')).not.toBeNull()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'optimization.confirm.dismissCta' }),
+    )
+
+    await waitFor(() =>
+      expect(mockedDecideOptimizationProposal).toHaveBeenCalledWith(
+        workspace.proposal.proposal_id,
+        expect.objectContaining({ action: 'dismiss' }),
+      ),
+    )
+    expect(
+      await screen.findByText('optimization.states.DISMISSED'),
+    ).not.toBeNull()
   })
 })

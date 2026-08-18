@@ -338,6 +338,37 @@ describe("OptimizationRepository", () => {
     expect(tx.approvedOptimizationInstruction.create).toHaveBeenCalledTimes(1);
   });
 
+  it("selects only the oldest pending instruction with the exact generation identity", async () => {
+    const findFirst = jest.fn().mockResolvedValue(instructionRow());
+    const repository = new OptimizationRepository({
+      approvedOptimizationInstruction: { findFirst },
+    } as any);
+
+    const result = await repository.findPendingInstruction({
+      businessId: BUSINESS_ID,
+      contentCycleId: CYCLE_ID,
+      strategyId: STRATEGY_ID,
+      strategyVersion: 2,
+      formatCohorts: ["text_post", "static_image_post"],
+    });
+
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        businessId: BUSINESS_ID,
+        contentCycleId: CYCLE_ID,
+        strategyId: STRATEGY_ID,
+        strategyVersion: 2,
+        status: "PENDING_CONSUMPTION",
+        formatCohort: { in: ["text_post", "static_image_post"] },
+      },
+      orderBy: [{ approvedAt: "asc" }, { id: "asc" }],
+    });
+    expect(result).toMatchObject({
+      instruction_id: instructionRow().id,
+      status: "PENDING_CONSUMPTION",
+    });
+  });
+
   it("rejects a decision that supplies a different immutable evidence checksum", async () => {
     const tx = {
       $queryRaw: jest.fn(),
