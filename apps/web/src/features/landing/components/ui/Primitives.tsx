@@ -138,7 +138,7 @@ export function Section({
     <section
       id={id}
       className={cn(
-        'relative w-full scroll-mt-24 px-4 py-[72px] sm:px-6 md:py-[96px]',
+        'relative w-full scroll-mt-24 px-4 py-16 sm:px-6 md:py-20',
         SECTION_BG[tone],
         className,
       )}

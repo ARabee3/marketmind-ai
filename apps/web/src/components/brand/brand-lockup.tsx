@@ -25,13 +25,13 @@ export function BrandLockup({
       aria-label={normalizedLabel}
       translate="no"
       dir="ltr"
-      className={cn('inline-flex min-w-0 items-center gap-1', className)}
+      className={cn('inline-flex min-w-0 items-center gap-1.5 leading-none', className)}
     >
-      <BrandMark className={cn('size-7', markClassName)} variant={variant} />
+      <BrandMark className={cn('size-7 shrink-0', markClassName)} variant={variant} />
       <span
         aria-hidden="true"
         className={cn(
-          'whitespace-nowrap font-latin text-[17px] font-bold tracking-[-0.045em]',
+          'inline-flex items-center whitespace-nowrap font-latin text-[17px] font-bold tracking-[-0.045em] leading-none',
           variant === 'inverse' ? 'text-white' : 'text-navy',
           wordmarkClassName,
         )}

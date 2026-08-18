@@ -111,7 +111,7 @@ export function Nav() {
         <a
           href="#top"
           onClick={() => setDrawerOpen(false)}
-          className="rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="flex items-center rounded-full ps-3.5 pe-2.5 py-1 transition-opacity hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
           <BrandLockup label={common('appName')} markClassName="size-7" />
         </a>

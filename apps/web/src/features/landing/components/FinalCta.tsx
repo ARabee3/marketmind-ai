@@ -7,7 +7,7 @@ export async function FinalCta() {
   const t = await getTranslations('Landing.finalCta')
 
   return (
-    <section id="start" className="final-cta relative w-full overflow-hidden bg-primary px-4 py-24 sm:px-6 md:py-[124px]">
+    <section id="start" className="final-cta relative w-full overflow-hidden bg-primary px-4 py-16 sm:px-6 md:py-20">
       <Reveal className="relative mx-auto grid max-w-content gap-8 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-white/80 rtl:tracking-normal">{t('eyebrow')}</p>
