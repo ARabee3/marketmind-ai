@@ -228,22 +228,9 @@ export class StrategyProcessor extends WorkerHost {
       this.logger.error(
         `[Corr: ${correlationId}] Generation failed: ${errorMessage(error)}`,
       );
-      // The phase reserve (50 pts) was taken when the owner committed; a
-      // terminal failure must not keep the owner's points for work that never
-      // produced a strategy.
-      try {
-        const failedStrategy = await this.strategyRepository.readStrategy(
-          strategyId,
-        );
-        await this.billingEntitlements?.refund(
-          failedStrategy?.ownerUserId ?? "",
-          `strategy-cycle:${strategyId}:${retrievalRunId}`,
-        );
-      } catch (refundError: unknown) {
-        this.logger.warn(
-          `[Corr: ${correlationId}] Could not refund strategy cycle reserve: ${errorMessage(refundError)}`,
-        );
-      }
+      // No refund here: points are debited only after the draft version is
+      // successfully persisted (see the record call above), so a failure
+      // before that point never spent anything.
       await this.safeFail(
         strategyId,
         correlationId,

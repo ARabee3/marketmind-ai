@@ -378,19 +378,11 @@ export class StrategyService {
         throw new StrategyKnowledgeUnavailableError();
       }
 
-      // Prepaid points: the strategy phase is the thin-margin action and its
-      // third-party research cost is front-loaded, so the 50-point reserve is
-      // taken when the owner commits to the phase — right after retrieval,
-      // before any generation cost is incurred. The worker re-records the same
-      // claim key (idempotent no-op) and refunds it on failure; an owner
-      // rejection refunds it via releaseStrategyCycle.
-      await this.billingEntitlements?.record(
-        ownerUserId,
-        "strategy_cycle",
-        1,
-        `strategy-cycle:${id}:${retrieval_run_id}`,
-        strategy.businessId,
-      );
+      // Prepaid points: the strategy cycle is debited only when the draft is
+      // successfully produced. The generation worker records the spend after
+      // persisting the immutable version (claim key strategy-cycle:<id>:<run>),
+      // so no reserve is taken here and no refund is needed on failure or
+      // rejection. The read-only assertAllowed above still gates the commit.
 
       this.logger.log(
         `[Strategy ${id}] [Corr: ${correlationId}] Retrieval complete. Run: ${retrieval_run_id}. Queuing generation.`,
@@ -619,15 +611,6 @@ export class StrategyService {
       // progress events are all deleted. Nothing from the rejected cycle is
       // kept — the frontend routes the owner back to the creation wizard.
       await this.strategyRepository.deleteStrategy(id);
-      // Release the billing usage the deleted cycle consumed so the owner can
-      // actually start over instead of hitting an entitlement limit.
-      try {
-        await this.billingEntitlements?.releaseStrategyCycle(ownerUserId, id);
-      } catch (releaseError: unknown) {
-        this.logger.warn(
-          `[Strategy ${id}] Could not release usage for deleted cycle: ${errorMessage(releaseError)}`,
-        );
-      }
       this.logger.log(
         `[Strategy ${id}] Owner rejected the plan; strategy deleted for a fresh start.`,
       );
