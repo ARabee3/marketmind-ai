@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { BullModule } from "@nestjs/bullmq";
+import { ScheduleModule } from "@nestjs/schedule";
 import { configuration } from "./config/configuration";
 import { envSchema } from "./config/env.schema";
 import { HealthModule } from "./modules/health/health.module";
@@ -16,13 +17,13 @@ import { MailModule } from "./modules/mail/mail.module";
 import { PrismaModule } from "./common/persistence/prisma.module";
 
 import { AppController } from "./app.controller";
-import { StrategyModule } from './modules/strategy/strategy.module';
-import { ContentModule } from './modules/content/content.module';
-import { PublishingModule } from './modules/publishing/publishing.module';
-import { BillingModule } from './modules/billing/billing.module';
-import { OrchestrationModule } from './modules/orchestration/orchestration.module';
-import { FacebookModule } from './modules/facebook/facebook.module';
-import { AdminModule } from './modules/admin/admin.module';
+import { StrategyModule } from "./modules/strategy/strategy.module";
+import { ContentModule } from "./modules/content/content.module";
+import { PublishingModule } from "./modules/publishing/publishing.module";
+import { BillingModule } from "./modules/billing/billing.module";
+import { OrchestrationModule } from "./modules/orchestration/orchestration.module";
+import { FacebookModule } from "./modules/facebook/facebook.module";
+import { AdminModule } from "./modules/admin/admin.module";
 import { PerformanceModule } from "./modules/performance/performance.module";
 
 @Module({
@@ -51,10 +52,15 @@ import { PerformanceModule } from "./modules/performance/performance.module";
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: {
-          url: config.get<string>('redis.url') || 'redis://localhost:6379',
+          url: config.get<string>("redis.url") || "redis://localhost:6379",
         },
       }),
     }),
+
+    // Cron scheduler — registered exactly once at the application root so
+    // each @Cron handler fires a single time per tick inside one API process
+    // (issue #240). Feature modules only declare @Injectable hosts.
+    ScheduleModule.forRoot(),
 
     // Infrastructure
     RedisModule,

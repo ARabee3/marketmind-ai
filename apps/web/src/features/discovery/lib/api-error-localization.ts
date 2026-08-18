@@ -99,6 +99,7 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   PUBLISHING_WEBHOOK_NONCE_REPLAYED: "Errors.generic",
   PUBLISHING_PROVIDER_RATE_LIMITED: "Errors.serverError",
   PUBLISHING_PROVIDER_FAILURE: "Errors.serverError",
+  PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE: "Errors.mediaOriginNotReachable",
   PUBLISHING_PROVIDER_OUTCOME_UNKNOWN: "Errors.generic",
   PUBLISHING_CALLBACK_INVALID: "Errors.validationError",
   PUBLISHING_CALLBACK_CONFLICT: "Errors.generic",

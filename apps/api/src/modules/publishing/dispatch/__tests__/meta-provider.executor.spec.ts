@@ -47,6 +47,7 @@ type MediaFetchLike = {
   buildUrl: jest.Mock;
   isConfigured: jest.Mock;
   configurationError: jest.Mock;
+  providerFetchOriginError: jest.Mock;
   verify: jest.Mock;
 };
 type AssetReaderLike = { readApprovedAsset: jest.Mock };
@@ -59,6 +60,7 @@ function makeMediaFetch(): MediaFetchLike {
     ),
     isConfigured: jest.fn(() => true),
     configurationError: jest.fn(() => null),
+    providerFetchOriginError: jest.fn(() => null),
     verify: jest.fn(() => true),
   };
 }
@@ -548,11 +550,13 @@ describe("MetaProviderExecutor (issue #175)", () => {
     expect(result.result.error_code).toBe("PUBLISHING_ASSET_UNAVAILABLE");
   });
 
-  it("fails with a provider configuration error before reading or sending media", async () => {
+  it("fails with a specific media-origin error before reading or sending media", async () => {
     const mediaFetch = {
       ...makeMediaFetch(),
-      configurationError: jest.fn(
-        () => "PUBLISHING_MEDIA_FETCH_BASE_URL must use HTTPS",
+      configurationError: jest.fn(() => null),
+      providerFetchOriginError: jest.fn(
+        () =>
+          "PUBLISHING_MEDIA_FETCH_BASE_URL must be publicly reachable for real image publishing (Meta cannot fetch loopback or private addresses)",
       ),
     };
     const { executor, graph, assetReader } = makeContext({ mediaFetch });
@@ -565,11 +569,49 @@ describe("MetaProviderExecutor (issue #175)", () => {
 
     expect(result.result).toMatchObject({
       outcome: "failed",
-      error_code: "PUBLISHING_PROVIDER_FAILURE",
+      error_code: "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE",
       retryable: false,
     });
     expect(assetReader.readApprovedAsset).not.toHaveBeenCalled();
     expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+  });
+
+  it("blocks a social-connection image dispatch with the same media-origin error", async () => {
+    const mediaFetch = {
+      ...makeMediaFetch(),
+      configurationError: jest.fn(() => null),
+      providerFetchOriginError: jest.fn(
+        () =>
+          "PUBLISHING_MEDIA_FETCH_BASE_URL must use HTTPS for real image publishing (Meta cannot fetch HTTP origins)",
+      ),
+    };
+    const { executor, facebook } = makeContext({
+      target: {
+        id: "target-social-origin",
+        businessId: "biz-1",
+        provider: "META",
+        channel: "facebook",
+        externalAccountId: "page-1",
+        connectionState: "CONNECTED",
+        credentialRef: "facebook-social-connection:social-1",
+        capabilities: ["static_image"],
+        expiresAt: null,
+      },
+      mediaFetch,
+    });
+
+    const result = await executor.execute({
+      attemptId: "attempt-1",
+      intentId: "intent-1",
+      targetId: "target-social-origin",
+    });
+
+    expect(result.result).toMatchObject({
+      outcome: "failed",
+      error_code: "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE",
+      retryable: false,
+    });
+    expect(facebook.publishPhotoForUser).not.toHaveBeenCalled();
   });
 
   it("blocks a provider call when approved media bytes are unavailable", async () => {
