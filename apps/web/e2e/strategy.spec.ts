@@ -43,6 +43,15 @@ test.describe('Strategy owner journey', () => {
   test('saves a valid brief and starts generation only after the owner action', async ({ page }) => {
     await authenticate(page)
     await mockJourney(page, confirmedJourney(false))
+    await page.route('**/billing/wallet', async (route) => {
+      await json(route, {
+        billing_account_id: 'billing-account-1',
+        balance: 215,
+        lifetime_granted: 365,
+        lifetime_spent: 150,
+        low_balance: false,
+      })
+    })
 
     let savedBrief: Record<string, unknown> | null = null
     let generationCalls = 0
@@ -91,6 +100,18 @@ test.describe('Strategy owner journey', () => {
     await page.getByLabel('3–5 hours a week').check()
     await page.getByLabel('Paid media').selectOption('organic')
     await page.getByRole('button', { name: 'Generate plan' }).click()
+
+    // The confirmation dialog shows the 50-point cost and the remaining
+    // balance; generation must not start before the owner confirms it.
+    const dialog = page.getByRole('dialog')
+    await expect(
+      dialog.getByRole('heading', { name: 'Confirm point usage' }),
+    ).toBeVisible()
+    await expect(
+      dialog.getByText(/This will use 50 points. You have 215 points./),
+    ).toBeVisible()
+    expect(generationCalls).toBe(0)
+    await dialog.getByRole('button', { name: 'Confirm and generate' }).click()
 
     await expect.poll(() => generationCalls).toBe(1)
     expect(savedBrief).toMatchObject({

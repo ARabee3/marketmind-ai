@@ -9,7 +9,7 @@ import type {
   BillingTransactionResponse,
   BillingWalletResponse,
 } from '@marketmind/contracts'
-import { LoaderCircle, WalletCards } from 'lucide-react'
+import { ChevronDown, LoaderCircle, WalletCards } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -142,6 +142,12 @@ export function BillingHome() {
           dateStyle: 'medium',
         })
       }
+      formatDateTime={(value) =>
+        formatter.dateTime(new Date(value), {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      }
     />
   )
 }
@@ -153,6 +159,7 @@ function BillingReadyView({
   onBuy,
   formatCurrency,
   formatDate,
+  formatDateTime,
 }: {
   readonly data: BillingData
   readonly workingBundle: string | null
@@ -160,6 +167,7 @@ function BillingReadyView({
   readonly onBuy: (bundle: BillingPointBundle) => void
   readonly formatCurrency: (amount: number) => string
   readonly formatDate: (value: string) => string
+  readonly formatDateTime: (value: string) => string
 }) {
   const t = useTranslations('Billing')
   const busy = workingBundle !== null
@@ -195,7 +203,10 @@ function BillingReadyView({
             formatCurrency={formatCurrency}
           />
 
-          <LedgerPanel entries={data.ledger} formatDate={formatDate} />
+          <LedgerPanel
+            entries={data.ledger}
+            formatDateTime={formatDateTime}
+          />
           <TransactionsPanel
             transactions={data.transactions}
             formatCurrency={formatCurrency}
@@ -247,31 +258,47 @@ function WalletBalancePanel({
           {t('balanceLabel')}
         </CardDescription>
         <CardTitle
-          className="text-5xl font-bold text-primary-foreground tabular-nums"
+          className="text-lg font-semibold text-primary-foreground"
           data-testid="wallet-balance"
         >
-          {t('balanceCount', { points: wallet.balance })}
+          {t.rich('balanceCount', {
+            points: wallet.balance,
+            big: (chunks) => (
+              <span className="text-5xl font-extrabold tracking-tight text-white tabular-nums md:text-6xl">
+                {chunks}
+              </span>
+            ),
+          })}
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 text-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-        <div className="grid gap-1 border-t border-primary-foreground/20 pt-4">
-          <span className="text-primary-foreground/65">
-            {t('lifetimeGranted', { points: wallet.lifetime_granted })}
-          </span>
-          <span className="text-primary-foreground/65">
-            {t('lifetimeSpent', { points: wallet.lifetime_spent })}
-          </span>
+      <CardContent className="grid gap-3 text-sm">
+        <div className="flex items-center justify-between gap-4 border-t border-primary-foreground/20 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={onTopUp}
+            className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+          >
+            <WalletCards aria-hidden="true" />
+            {t('topUp')}
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={onTopUp}
-          className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-        >
-          <WalletCards aria-hidden="true" />
-          {t('topUp')}
-        </Button>
+        <details className="group border-t border-primary-foreground/20 pt-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-primary-foreground/70 transition-colors hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">{t('balanceDetails')}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-4 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="grid gap-1 pt-3 text-primary-foreground/65">
+            <span>
+              {t('lifetimeGranted', { points: wallet.lifetime_granted })}
+            </span>
+            <span>{t('lifetimeSpent', { points: wallet.lifetime_spent })}</span>
+          </div>
+        </details>
       </CardContent>
     </Card>
   )
@@ -422,10 +449,10 @@ function LowBalanceNudge({
 
 function LedgerPanel({
   entries,
-  formatDate,
+  formatDateTime,
 }: {
   readonly entries: readonly BillingPointLedgerEntry[]
-  readonly formatDate: (value: string) => string
+  readonly formatDateTime: (value: string) => string
 }) {
   const t = useTranslations('Billing')
   return (
@@ -447,10 +474,10 @@ function LedgerPanel({
               >
                 <div className="grid gap-1">
                   <span className="font-semibold text-navy">
-                    {entryLabel(t, entry.reason, entry.points)}
+                    {entryLabel(t, entry.reason, entry.metric, entry.points)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDate(entry.created_at)}
+                    {formatDateTime(entry.created_at)}
                   </span>
                 </div>
                 <div className="text-end">
@@ -471,14 +498,20 @@ function LedgerPanel({
   )
 }
 
-function entryLabel(
+export function entryLabel(
   t: ReturnType<typeof useTranslations<'Billing'>>,
   reason: BillingPointLedgerEntry['reason'],
+  metric: BillingPointLedgerEntry['metric'],
   points: number,
 ) {
   if (reason === 'topup') return t('ledgerTopup')
   if (reason === 'trial_grant') return t('ledgerTrialGrant')
   if (reason === 'refund') return t('ledgerRefund')
+  if (metric === 'strategy_cycle') return t('ledgerSpendStrategy')
+  if (metric === 'strategy_revision') return t('ledgerSpendStrategyRevision')
+  if (metric === 'content_item') return t('ledgerSpendContent')
+  if (metric === 'content_revision') return t('ledgerSpendContentRevision')
+  if (metric === 'static_image') return t('ledgerSpendImage')
   return t('ledgerSpend', { points })
 }
 

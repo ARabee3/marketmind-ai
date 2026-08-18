@@ -75,6 +75,17 @@ vi.mock("@/features/auth/logout-button", () => ({
   ),
 }));
 
+vi.mock("@/lib/api/billing", () => ({
+  getBillingWallet: () =>
+    Promise.resolve({
+      billing_account_id: "acc-1",
+      balance: 215,
+      lifetime_granted: 365,
+      lifetime_spent: 150,
+      low_balance: false,
+    }),
+}));
+
 describe("AppShell", () => {
   it("does not keep Dashboard active on a different section", () => {
     expect(isAppNavItemActive("/dashboard", "/dashboard")).toBe(true);
@@ -234,5 +245,28 @@ describe("AppShell", () => {
 
     expect(screen.getByText("Ahmed Mohamed")).toBeTruthy();
     expect(screen.getByText("AM")).toBeTruthy();
+  });
+
+  it("renders remaining points in the desktop sidebar when authenticated", async () => {
+    authenticated = true;
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(await screen.findByText("215")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "topUp" })).toBeTruthy();
+  });
+
+  it("hides the sidebar points card when unauthenticated", () => {
+    authenticated = false;
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(container.textContent).not.toMatch(/215/);
   });
 });
