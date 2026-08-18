@@ -10,6 +10,7 @@ import {
   type MetricSnapshotV1,
   type PerformanceErrorCode,
   type PerformanceOverviewV1,
+  type PerformanceCapabilityV1,
   type PerformancePostProjectionV1,
   type PerformanceProviderMetadataV1,
   type PerformanceSnapshotProjectionV1,
@@ -423,6 +424,7 @@ export function validatePerformanceOverviewV1(
         "generated_at",
         "posts",
         "baseline",
+        "capability",
       ],
       "overview",
     ),
@@ -496,7 +498,56 @@ export function validatePerformanceOverviewV1(
       issues.push(issue("overview.baseline.reason", "must be null when ready"));
     }
   }
+  if (value.capability !== undefined) {
+    issues.push(
+      ...validatePerformanceCapability(value.capability, "overview.capability"),
+    );
+  }
   return { valid: issues.length === 0, issues };
+}
+
+function validatePerformanceCapability(
+  value: unknown,
+  field: string,
+): PerformanceValidationIssue[] {
+  if (!objectValue(value)) return [issue(field, "must be an object")];
+  const issues = hasOnlyKeys(
+    value,
+    ["status", "blockers", "last_successful_sync"],
+    field,
+  );
+  requireEnum(
+    value.status,
+    ["ready", "blocked", "unknown"],
+    `${field}.status`,
+    issues,
+  );
+  if (!Array.isArray(value.blockers)) {
+    issues.push(issue(`${field}.blockers`, "must be an array"));
+  } else {
+    const allowed = [
+      "no_facebook_connection",
+      "connection_expired",
+      "pages_read_engagement_permission_missing",
+      "read_insights_permission_missing",
+      "provider_unavailable",
+    ];
+    value.blockers.forEach((blocker, index) => {
+      if (typeof blocker !== "string" || !allowed.includes(blocker)) {
+        issues.push(
+          issue(`${field}.blockers[${index}]`, "has an unsupported blocker"),
+        );
+      }
+    });
+  }
+  if (value.last_successful_sync !== null) {
+    requireDate(
+      value.last_successful_sync,
+      `${field}.last_successful_sync`,
+      issues,
+    );
+  }
+  return issues;
 }
 
 function validatePostProjection(
@@ -514,6 +565,7 @@ function validatePostProjection(
       "provider_object_id",
       "published_at",
       "snapshots",
+      "sync_windows",
     ],
     field,
   );
@@ -541,6 +593,21 @@ function validatePostProjection(
         ...validateSnapshotProjection(snapshot, `${field}.snapshots[${index}]`),
       );
     });
+  }
+  if (value.sync_windows !== undefined) {
+    if (!Array.isArray(value.sync_windows)) {
+      issues.push(issue(`${field}.sync_windows`, "must be an array"));
+    } else {
+      value.sync_windows.forEach((window, index) => {
+        const result = validatePerformanceSyncWindowV1(window);
+        issues.push(
+          ...result.issues.map((item) => ({
+            field: `${field}.sync_windows[${index}].${item.field.replace(/^window\.?/, "")}`,
+            message: item.message,
+          })),
+        );
+      });
+    }
   }
   return issues;
 }
@@ -585,6 +652,7 @@ export function isPerformanceErrorCode(
 }
 
 export type {
+  PerformanceCapabilityV1,
   PerformanceOverviewV1,
   PerformancePostProjectionV1,
   PerformanceProviderMetadataV1,

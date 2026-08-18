@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { PrismaService } from "../src/common/persistence/prisma.service";
+import { PerformanceRepository } from "../src/modules/publishing/performance/performance.repository";
 
 /**
  * PostgreSQL verification for Performance 1. The suite only runs against a
@@ -66,6 +68,31 @@ function snapshotData(id: string, window: "24h" | "72h" = "24h") {
       response_periods: ["lifetime"],
     },
     createdAt: fetchedAt,
+  };
+}
+
+function snapshotContract() {
+  return {
+    contract_version: "performance-v1" as const,
+    snapshot_id: ids.snapshot,
+    business_id: ids.business,
+    publishing_result_id: ids.result,
+    publishing_attempt_id: ids.attempt,
+    publication_intent_id: ids.intent,
+    candidate_id: ids.candidate,
+    candidate_checksum: checksum,
+    provider: "facebook" as const,
+    provider_object_id: "page-123_post-456",
+    window: "24h" as const,
+    published_at: publishedAt.toISOString(),
+    due_at: dueAt.toISOString(),
+    observed_at: new Date("2026-08-19T08:01:00.000Z").toISOString(),
+    fetched_at: fetchedAt.toISOString(),
+    graph_version: "v21.0",
+    metric_schema_version: "facebook-insights-v1" as const,
+    metrics: snapshotData(ids.snapshot).metrics,
+    provider_metadata: snapshotData(ids.snapshot).providerMetadata,
+    created_at: fetchedAt.toISOString(),
   };
 }
 
@@ -224,6 +251,36 @@ describeDatabase("Performance 1 migration + PostgreSQL invariants", () => {
     expect(row?.metrics).toMatchObject({
       post_media_view: { status: "available", value: 0 },
     });
+  });
+
+  it("completes a leased window after an identical snapshot replay without aborting the transaction", async () => {
+    const leaseOwner = `performance-replay-${randomUUID()}`;
+    await prisma.performanceSyncWindow.update({
+      where: { id: ids.syncWindow },
+      data: {
+        state: "leased",
+        attemptCount: 1,
+        leaseOwner,
+        leaseExpiresAt: new Date("2026-08-19T08:10:00.000Z"),
+      },
+    });
+    const repository = new PerformanceRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    await expect(
+      repository.completeSyncWindowWithSnapshot({
+        syncWindowId: ids.syncWindow,
+        owner: leaseOwner,
+        snapshot: snapshotContract(),
+      }),
+    ).resolves.toMatchObject({ snapshot_id: ids.snapshot });
+    await expect(
+      prisma.performanceSyncWindow.findUnique({
+        where: { id: ids.syncWindow },
+        select: { state: true, leaseOwner: true },
+      }),
+    ).resolves.toEqual({ state: "succeeded", leaseOwner: null });
   });
 
   it("rejects UPDATE and DELETE through the immutable snapshot trigger", async () => {

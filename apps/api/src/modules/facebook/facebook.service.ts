@@ -338,6 +338,27 @@ export class FacebookService {
   }
 
   /**
+   * Runs an API-owned provider operation with the connected Page token without
+   * ever returning the token to a controller, queue payload, or browser. This
+   * is the credential boundary used by Facebook performance synchronization.
+   */
+  async withPageTokenForUser<T>(
+    input: {
+      readonly userId: string;
+      readonly pageId: string;
+    },
+    operation: (pageToken: string) => Promise<T>,
+  ): Promise<T> {
+    const pageToken = await this.pageTokenForUser(input.userId, input.pageId);
+    try {
+      return await operation(pageToken);
+    } catch (error) {
+      await this.invalidateOnExpiredToken(input.userId, error);
+      throw error;
+    }
+  }
+
+  /**
    * Deletes the user's SocialConnection row and expires any bridged publishing
    * target that still references it, so a stale target can never remain
    * selectable or approvable after the owner disconnects.

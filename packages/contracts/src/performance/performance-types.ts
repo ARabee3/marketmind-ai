@@ -137,6 +137,8 @@ export type PerformancePostProjectionV1 = {
   readonly provider_object_id: string;
   readonly published_at: IsoDateTime;
   readonly snapshots: readonly PerformanceSnapshotProjectionV1[];
+  /** Mutable collection state is projected separately from immutable evidence. */
+  readonly sync_windows?: readonly PerformanceSyncWindowV1[];
 };
 
 export type PerformanceBaselineReadinessV1 = {
@@ -150,6 +152,23 @@ export type PerformanceBaselineReadinessV1 = {
     | null;
 };
 
+/**
+ * Monitoring capability is deliberately separate from publishing readiness.
+ * A Page may remain publishable while Insights collection is blocked or
+ * disconnected.
+ */
+export type PerformanceCapabilityV1 = {
+  readonly status: "ready" | "blocked" | "unknown";
+  readonly blockers: readonly (
+    | "no_facebook_connection"
+    | "connection_expired"
+    | "pages_read_engagement_permission_missing"
+    | "read_insights_permission_missing"
+    | "provider_unavailable"
+  )[];
+  readonly last_successful_sync: IsoDateTime | null;
+};
+
 export type PerformanceOverviewV1 = {
   readonly contract_version: typeof PERFORMANCE_CONTRACT_VERSION;
   readonly business_id: UUID;
@@ -157,4 +176,7 @@ export type PerformanceOverviewV1 = {
   readonly generated_at: IsoDateTime;
   readonly posts: readonly PerformancePostProjectionV1[];
   readonly baseline: PerformanceBaselineReadinessV1;
+  /** Added by the synchronization API; optional for backwards-compatible
+   *  consumers of the Performance 1 contract. */
+  readonly capability?: PerformanceCapabilityV1;
 };

@@ -129,14 +129,14 @@ function dbSnapshot(value = snapshot()) {
 
 function makePrisma() {
   return {
-    publishingResult: { findUnique: jest.fn() },
+    publishingResult: { findUnique: jest.fn(), findMany: jest.fn() },
     performanceSyncWindow: {
       create: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
     metricSnapshot: {
-      create: jest.fn(),
+      createMany: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -167,6 +167,28 @@ describe("PerformanceRepository", () => {
         window: "24h",
       }),
     });
+  });
+
+  it("discovers only publications missing at least one required window", async () => {
+    const prisma = makePrisma();
+    prisma.publishingResult.findMany.mockResolvedValue([{ id: RESULT_ID }]);
+    const repository = new PerformanceRepository(prisma as PrismaService);
+
+    await expect(repository.listEligiblePublicationIds(100)).resolves.toEqual([
+      RESULT_ID,
+    ]);
+    expect(prisma.publishingResult.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { performanceSyncWindows: { none: { window: "24h" } } },
+            { performanceSyncWindows: { none: { window: "72h" } } },
+            { performanceSyncWindows: { none: { window: "7d" } } },
+          ],
+        }),
+        take: 100,
+      }),
+    );
   });
 
   it.each([
@@ -243,13 +265,15 @@ describe("PerformanceRepository", () => {
     const prisma = makePrisma();
     prisma.publishingResult.findUnique.mockResolvedValue(chain());
     prisma.performanceSyncWindow.findUnique.mockResolvedValue(syncWindow());
-    prisma.metricSnapshot.create.mockResolvedValue(dbSnapshot());
+    prisma.metricSnapshot.createMany.mockResolvedValue({ count: 1 });
+    prisma.metricSnapshot.findUnique.mockResolvedValue(dbSnapshot());
     const repository = new PerformanceRepository(prisma as PrismaService);
 
     const result = await repository.createMetricSnapshot({
       snapshot: snapshot(),
     });
-    const createData = prisma.metricSnapshot.create.mock.calls[0][0].data;
+    const createData =
+      prisma.metricSnapshot.createMany.mock.calls[0][0].data[0];
 
     expect(result.metrics.post_media_view).toEqual({
       status: "available",
@@ -279,7 +303,7 @@ describe("PerformanceRepository", () => {
       code: "PERFORMANCE_INVALID_PROVIDER_DATA",
     });
     expect(prisma.performanceSyncWindow.findUnique).not.toHaveBeenCalled();
-    expect(prisma.metricSnapshot.create).not.toHaveBeenCalled();
+    expect(prisma.metricSnapshot.createMany).not.toHaveBeenCalled();
   });
 
   it("keeps a real published result eligible after a later candidate revocation", async () => {
@@ -327,9 +351,7 @@ describe("PerformanceRepository", () => {
     const prisma = makePrisma();
     prisma.publishingResult.findUnique.mockResolvedValue(chain());
     prisma.performanceSyncWindow.findUnique.mockResolvedValue(syncWindow());
-    prisma.metricSnapshot.create.mockRejectedValue({
-      message: "P2002 unique constraint",
-    });
+    prisma.metricSnapshot.createMany.mockResolvedValue({ count: 0 });
     prisma.metricSnapshot.findUnique.mockResolvedValue(reordered);
     const repository = new PerformanceRepository(prisma as PrismaService);
 
@@ -338,7 +360,9 @@ describe("PerformanceRepository", () => {
     ).resolves.toMatchObject({
       snapshot_id: SNAPSHOT_ID,
     });
-    expect(prisma.metricSnapshot.create).toHaveBeenCalledTimes(1);
+    expect(prisma.metricSnapshot.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: true }),
+    );
 
     prisma.metricSnapshot.findUnique.mockResolvedValue(
       dbSnapshot(snapshot({ provider_object_id: "different-post" })),

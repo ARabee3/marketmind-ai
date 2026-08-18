@@ -124,6 +124,11 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     TargetsService,
     IntentsService,
     PUBLICATION_CANDIDATE_SINK,
+    // Performance synchronization reuses the same server-side Meta adapter
+    // and encrypted credential boundary as publishing. Neither provider
+    // service is exposed through an HTTP module export.
+    MetaGraphClient,
+    CredentialVaultService,
   ],
 })
 export class PublishingModule {}
