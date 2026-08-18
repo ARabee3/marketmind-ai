@@ -141,9 +141,13 @@ describe('PerformancePage', () => {
     render(<PerformancePage />)
 
     expect(await screen.findByText('connection.blockers.read_insights_permission_missing')).not.toBeNull()
-    expect(
-      screen.getByRole('link', { name: 'connection.reconnectAction' }).getAttribute('href'),
-    ).toBe('/connections')
+    const reconnectLinks = screen.getAllByRole('link', {
+      name: 'connection.reconnectAction',
+    })
+    expect(reconnectLinks).toHaveLength(2)
+    for (const link of reconnectLinks) {
+      expect(link.getAttribute('href')).toBe('/connections')
+    }
   })
 
   it('keeps the no-eligible-post state truthful', async () => {
@@ -174,5 +178,24 @@ describe('PerformancePage', () => {
       expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(2)
     })
     expect(screen.getByText(/notices.queued/)).not.toBeNull()
+  })
+
+  it('reports refresh rate limiting without replacing the current evidence', async () => {
+    mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))
+    mockedRefreshPerformancePost.mockRejectedValue(
+      Object.assign(new Error('wait'), {
+        status: 429,
+        code: 'PERFORMANCE_PROVIDER_RATE_LIMITED',
+      }),
+    )
+
+    render(<PerformancePage />)
+
+    await screen.findByRole('heading', { name: 'title' })
+    fireEvent.click(screen.getByRole('button', { name: 'post.refresh' }))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('notices.rateLimited')
+    expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByText('12')).not.toHaveLength(0)
   })
 })

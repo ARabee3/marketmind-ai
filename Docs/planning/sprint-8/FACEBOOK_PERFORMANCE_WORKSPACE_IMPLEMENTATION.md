@@ -44,6 +44,9 @@ are all explicit.
 
 - `apps/web/src/lib/api/performance.ts` validates the frozen overview and sync
   window contracts before exposing data to the UI.
+- `apps/web/package.json` builds the shared runtime contracts before local
+  development, production builds, and unit tests so clean workspaces do not
+  depend on an untracked `packages/contracts/dist` artifact.
 - `apps/web/src/features/performance/performance-state.ts` maps collection
   state and metric availability without inventing values.
 - `apps/web/src/features/performance/performance-page.tsx` owns the bilingual
