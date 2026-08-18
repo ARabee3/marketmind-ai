@@ -107,9 +107,11 @@ Focused verification for this issue includes:
 - an isolated PostgreSQL migration test for fingerprint uniqueness, minimum
   evidence size, and update/delete immutability.
 
-The controlled demo still requires the human owner to confirm that the
-Facebook connection and three eligible 7-day snapshots are real before using
-the Generate action. A green local mock test is not evidence of Meta quota,
+The performance workspace's controlled walkthrough is read-only synthetic
+evidence. It does not call the Generate action and does not satisfy the
+eligibility gate. A human owner still must confirm that the Facebook
+connection and three eligible 7-day snapshots are real before generating a
+live proposal. A green local mock test is not evidence of Meta quota,
 permissions, or live account readiness.
 
 Optimization 2 owner decisions and the one-time Content V2 handoff are

@@ -16,11 +16,13 @@ export function OptimizationDecisionPanel({
   error,
   decidingProposalId,
   onDecide,
+  readOnly = false,
 }: {
   readonly workspaces: readonly OptimizationProposalWorkspaceV1[];
   readonly loading: boolean;
   readonly error: boolean;
   readonly decidingProposalId: string | null;
+  readonly readOnly?: boolean;
   readonly onDecide: (
     workspace: OptimizationProposalWorkspaceV1,
     action: OptimizationDecisionAction,
@@ -85,6 +87,7 @@ export function OptimizationDecisionPanel({
             workspace={workspace}
             deciding={decidingProposalId === workspace.proposal.proposal_id}
             onDecide={onDecide}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -96,9 +99,11 @@ function OptimizationProposalCard({
   workspace,
   deciding,
   onDecide,
+  readOnly,
 }: {
   readonly workspace: OptimizationProposalWorkspaceV1;
   readonly deciding: boolean;
+  readonly readOnly: boolean;
   readonly onDecide: (
     workspace: OptimizationProposalWorkspaceV1,
     action: OptimizationDecisionAction,
@@ -328,7 +333,11 @@ function OptimizationProposalCard({
         </ul>
       </details>
 
-      {terminal ? (
+      {readOnly ? (
+        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm leading-6 text-warning" role="note">
+          {t("optimization.demoReadOnly")}
+        </p>
+      ) : terminal ? (
         <p className="text-sm font-semibold text-muted-foreground">
           {workspace.state === "CONSUMED"
             ? t("optimization.consumedBody")
