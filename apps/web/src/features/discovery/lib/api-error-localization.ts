@@ -36,6 +36,7 @@ const API_ERROR_CODE_TO_TRANSLATION: Record<ErrorCode, TranslationKey> = {
   STRATEGY_PROFILE_UNCONFIRMED: "Errors.validationError",
   STRATEGY_KNOWLEDGE_GAP: "Errors.generic",
   STRATEGY_RETRIEVAL_FAILURE: "Errors.serverError",
+  STRATEGY_BLOCKING_BLOCKER: "Errors.generic",
   STRATEGY_PROVIDER_FAILURE: "Errors.serverError",
   STRATEGY_SCHEMA_FAILURE: "Errors.serverError",
   STRATEGY_INVALID_CITATION: "Errors.validationError",
