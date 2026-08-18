@@ -13,8 +13,8 @@ AI providers (Gemini / OpenRouter / R2) with email+password login.
 
 | Item | Choice | Cost |
 | --- | --- | --- |
-| Compute | AWS EC2 `t4g.medium` (2 vCPU / 4 GB ARM, Ubuntu 24.04) in `eu-central-1` | Paid from credit (~$31/mo incl. public IPv4) |
-| Images | GitHub Actions build → public GHCR (`ghcr.io/arabe3/marketmind-ai-*`) | Free |
+| Compute | AWS EC2 `t3.medium` (2 vCPU / 4 GB x86, Ubuntu 24.04) in `eu-central-1` | Paid from credit (~$30-37/mo incl. public IPv4) |
+| Images | On-box `docker compose build` (see Phase 0 note) | Free |
 | Domain | `marketmindai.duckdns.org` | Free |
 | HTTPS | Caddy + Let's Encrypt | Free |
 | AI providers | Gemini / OpenRouter / Cloudflare R2 (existing dev keys) | Free tier |
@@ -50,9 +50,18 @@ root and pushes to GHCR as `ghcr.io/arabe3/marketmind-ai-{api,web,ai}:latest`
 (+ commit SHA). It runs automatically on `main` pushes touching app code, or
 manually via **Actions → build-push-images → Run workflow**.
 
+> **Registry note (as of 2026-08):** the owner account `ARabee3` cannot push
+> to GHCR — the registry refuses `permission_denied: create_package` for any
+> PAT (even `admin:packages`), and the GHCR token endpoint grants zero scopes.
+> This is a GitHub-account-level block, not a workflow issue. Until it is
+> resolved, do **not** rely on the workflow. Build the images directly on the
+> VM instead (Phase 3 step 4 below) — `docker-compose.prod.yml` keeps `build:`
+> contexts alongside the GHCR `image:` tags, so on-box builds produce the same
+> containers and bake in the correct `NEXT_PUBLIC_API_URL` from `CADDY_HOSTNAME`.
+
 The web image bakes in `NEXT_PUBLIC_API_URL=https://marketmindai.duckdns.org/api/v1`
 at build time (Next.js inlines `NEXT_PUBLIC_*`), so the public hostname is a
-fixed build arg in the workflow.
+fixed build arg in the workflow and a fixed `build.args` entry in compose.
 
 ## Phase 1 — AWS resources
 
@@ -62,7 +71,7 @@ fixed build arg in the workflow.
 2. **Launch an instance**:
    - Name: `marketmind-demo`
    - Image: **Ubuntu 24.04 LTS**
-   - Instance type: **`t4g.medium`** (ARM, 2 vCPU / 4 GB)
+   - Instance type: **`t3.medium`** (x86, 2 vCPU / 4 GB)
    - Key pair: the imported one
    - Storage: **40 GB gp3** (30 GB is free-tier eligible under 12 months)
 3. **Security group** (create or edit): allow inbound **TCP 22, 80, 443**
@@ -109,11 +118,17 @@ scp services/ai/.env user@IP:~/marketmind-ai/services/ai/.env
 cp infra/docker/.env.prod.example infra/docker/.env.prod
 nano infra/docker/.env.prod   # set CADDY_HOSTNAME + POSTGRES_PASSWORD
 
-# 4. Pull images from GHCR and start (no on-box build)
-docker compose -f infra/docker/docker-compose.prod.yml pull
+# 4. Build images on the box and start (GHCR push is blocked on this account —
+#    build locally instead of pulling)
+docker compose -f infra/docker/docker-compose.prod.yml build api
+docker compose -f infra/docker/docker-compose.prod.yml build web
+docker compose -f infra/docker/docker-compose.prod.yml build ai
 docker compose -f infra/docker/docker-compose.prod.yml up -d
 docker compose -f infra/docker/docker-compose.prod.yml ps
 ```
+
+> Build sequentially (one image at a time) on a `t3.medium` — parallel
+> builds can exhaust the 4 GB of RAM.
 
 > In `services/ai/.env`, keep `KNOWLEDGE_SOURCE_DIR=Docs/marketing-knowledge`
 > (the compose file overrides `AI_ORCHESTRATION_ENABLED=true` and
@@ -122,11 +137,27 @@ docker compose -f infra/docker/docker-compose.prod.yml ps
 
 ### Bootstrap the database
 
+The seed scripts refuse to run without their env vars, so add these to
+`apps/api/.env` on the VM first (gitignored; use a strong password):
+
+```bash
+# apps/api/.env (append)
+ADMIN_EMAIL=admin@marketmind.ai
+ADMIN_NAME=MarketMind Admin
+ADMIN_PASSWORD=<strong admin password>
+DEMO_OWNER_EMAIL=demo-owner@marketmind.test
+```
+
+Then run migrations and seeds:
+
 ```bash
 docker compose -f infra/docker/docker-compose.prod.yml run --rm api npx prisma migrate deploy
 docker compose -f infra/docker/docker-compose.prod.yml run --rm api npm run seed:admin-user -w @marketmind/api
 docker compose -f infra/docker/docker-compose.prod.yml run --rm api npm run seed:demo-owner -w @marketmind/api
 ```
+
+`seed:demo-owner` prints a real refresh-token JWT — that is the demo owner's
+login cookie, so the demo link works without a Google handshake.
 
 ### Sync marketing knowledge into Qdrant
 
@@ -169,6 +200,17 @@ curl -sI https://marketmindai.duckdns.org/ | head -1
   (`infra/caddy/Caddyfile`).
 - **Container restarts** — `docker compose ... logs -f api` / `ai`. Common:
   DB not migrated, provider key expired, Qdrant not reachable.
+- **`web` shows unhealthy though the server is up** — the container healthcheck
+  uses `wget http://localhost:3000/`, but `localhost` resolves to `::1`
+  (IPv6) while Next.js binds IPv4 only. The compose file uses `127.0.0.1`;
+  keep it that way when editing.
+- **Compose warns about blank `CADDY_HOSTNAME`** — you must pass the env file
+  explicitly because it is not named `.env`:
+  `docker compose --env-file infra/docker/.env.prod -f infra/docker/docker-compose.prod.yml ...`
+- **Knowledge sync fails with `SOURCE_RESOLUTION_FAILED` (HTTP 403)** — some
+  cited government sites (e.g. `moe.gov.eg`) block datacenter IPs at the WAF
+  for any user-agent. Append `--no-strict-sources` per the runbook note, and
+  do **not** present that corpus as fully verified.
 - **DuckDNS IP drift** — the Elastic IP is fixed; only re-point the A record
   if you ever release it.
 - **Credit/overrun** — set an AWS billing alarm (~$80) so the promotional
