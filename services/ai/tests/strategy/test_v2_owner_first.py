@@ -351,3 +351,99 @@ class TestV2GenerateEndpoint:
         assert any(
             issue.code == "STRATEGY_LANGUAGE_MISMATCH" for issue in result.issues
         )
+
+    def test_v2_validation_pipeline_rejects_blocking_blocker(self):
+        from strategy_contracts import BlockerSeverity, StrategyBlocker
+
+        request = make_generate_request_v2()
+        pipeline = StrategyV2ValidationPipeline()
+
+        clean_plan = default_plan_v2().model_copy()
+        clean = pipeline.validate(clean_plan, request)
+        assert clean.valid is True
+
+        blocked_plan = clean_plan.model_copy(
+            update={
+                "blockers": [
+                    StrategyBlocker(
+                        code="missing_gbp",
+                        message="صفحة جوجل غير متصلة بعد.",
+                        severity=BlockerSeverity.blocking,
+                    )
+                ]
+            }
+        )
+        result = pipeline.validate(blocked_plan, request)
+        assert result.valid is False
+        assert any(
+            issue.code == "STRATEGY_BLOCKING_BLOCKER" for issue in result.issues
+        )
+        blocking_issue = next(
+            issue for issue in result.issues if issue.code == "STRATEGY_BLOCKING_BLOCKER"
+        )
+        assert blocking_issue.field == "plan.blockers[0].severity"
+
+        warning_plan = clean_plan.model_copy(
+            update={
+                "blockers": [
+                    StrategyBlocker(
+                        code="missing_gbp",
+                        message="صفحة جوجل غير متصلة بعد.",
+                        severity=BlockerSeverity.warning,
+                    )
+                ]
+            }
+        )
+        warning = pipeline.validate(warning_plan, request)
+        assert warning.valid is True
+
+    def test_blocking_blocker_is_retried_with_repair_prompt(self, client, monkeypatch):
+        from strategy_contracts import BlockerSeverity, StrategyBlocker
+
+        request = make_generate_request_v2()
+
+        class SequenceProvider(MockStrategyProvider):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.prompts = []
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                plan = await super().generate_strategy_plan(
+                    prompt, output_model=output_model
+                )
+                if self.call_count != 1:
+                    return plan
+                return plan.model_copy(
+                    update={
+                        "blockers": [
+                            StrategyBlocker(
+                                code="missing_gbp",
+                                message="صفحة جوجل غير متصلة بعد.",
+                                severity=BlockerSeverity.blocking,
+                            )
+                        ]
+                    }
+                )
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        assert "STRATEGY_BLOCKING_BLOCKER" in provider.prompts[1].system_prompt
+        assert "plan.blockers[0].severity" in provider.prompts[1].user_prompt
+        plan = StrategyPlanV2.model_validate(response.json()["plan"])
+        assert all(
+            blocker.severity.value != "blocking" for blocker in plan.blockers
+        )

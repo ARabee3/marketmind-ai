@@ -106,7 +106,8 @@ export type StrategyValidationCode =
   | "STRATEGY_LANGUAGE_MISMATCH"
   | "STRATEGY_APPROVAL_BLOCKED"
   | "STRATEGY_CHANNEL_CHOICE_MISMATCH"
-  | "STRATEGY_CONTENT_HANDOFF_INVALID";
+  | "STRATEGY_CONTENT_HANDOFF_INVALID"
+  | "STRATEGY_BLOCKING_BLOCKER";
 
 export interface StrategyValidationResult {
   valid: boolean;

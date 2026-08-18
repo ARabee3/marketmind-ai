@@ -246,7 +246,11 @@ def _validation_repair_prompt(
             "must explain channel fit and role, never state or imply that a post was, "
             "is, or will be published; an ad was, is, or will be launched; money was, "
             "is, or will be spent; or anything was auto-approved. Do not echo the "
-            "validation message as output."
+            "validation message as output. If a validation issue has code "
+            "STRATEGY_BLOCKING_BLOCKER, do not emit any blocker with severity "
+            "'blocking'. Either resolve the underlying problem inside the plan "
+            "(adjust scope, capacity, or capability_state) or downgrade the "
+            "blocker to severity 'warning' with a clear owner-visible explanation."
         ),
         user_prompt=(
             f"{prompt.user_prompt}\n\n"
