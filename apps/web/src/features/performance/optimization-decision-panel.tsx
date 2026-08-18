@@ -146,7 +146,7 @@ function OptimizationProposalCard({
               >
                 {t("optimization.evidenceTitle")}
               </h4>
-              <p className="text-xs leading-5 text-muted-foreground">
+              <p className="break-all font-mono text-xs leading-5 text-muted-foreground">
                 {t("optimization.evidenceChecksum", {
                   checksum: proposal.evidence_checksum,
                 })}
@@ -218,6 +218,20 @@ function OptimizationProposalCard({
               </tbody>
             </table>
           </div>
+          <details className="rounded-lg border border-border bg-background p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-navy">
+              {t("optimization.snapshotsTitle", {
+                count: proposal.basis_snapshot_ids.length,
+              })}
+            </summary>
+            <ul className="mt-3 grid gap-2 text-xs leading-5 text-muted-foreground">
+              {proposal.basis_snapshot_ids.map((snapshotId) => (
+                <li key={snapshotId} className="break-all font-mono">
+                  {snapshotId}
+                </li>
+              ))}
+            </ul>
+          </details>
         </section>
 
         <div className="grid content-start gap-3">

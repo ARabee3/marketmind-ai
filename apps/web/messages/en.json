@@ -3092,6 +3092,7 @@
       "evidenceTitle": "Deterministic evidence",
       "evidenceTable": "Optimization evidence comparison",
       "evidenceChecksum": "Evidence checksum: {checksum}",
+      "snapshotsTitle": "Supporting snapshots ({count})",
       "metric": "Metric",
       "baseline": "Baseline median",
       "best": "Best observed",

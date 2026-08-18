@@ -303,6 +303,7 @@ describe('PerformancePage', () => {
     render(<PerformancePage />)
 
     expect(await screen.findByText('Lead with a concrete situation.')).not.toBeNull()
+    expect(screen.getByText(workspace.proposal.basis_snapshot_ids[0])).not.toBeNull()
     expect(screen.getByText('optimization.unchangedTitle')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'optimization.approve' }))
 

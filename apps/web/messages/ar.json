@@ -3092,6 +3092,7 @@
       "evidenceTitle": "أدلة حسابية ثابتة",
       "evidenceTable": "مقارنة أدلة التحسين",
       "evidenceChecksum": "بصمة الدليل: {checksum}",
+      "snapshotsTitle": "لقطات الأداء الداعمة ({count})",
       "metric": "المقياس",
       "baseline": "وسيط خط الأساس",
       "best": "أفضل ملاحظة",
