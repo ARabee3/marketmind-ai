@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { BrandLockup } from "@/components/brand/brand-lockup";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { useSession } from "@/features/auth/session-provider";
 import { WalletProvider, useWallet } from "@/features/billing/wallet-context";
 import { LogoutButton } from "@/features/auth/logout-button";
@@ -259,7 +261,6 @@ function WalletSidebarCard({ collapsed }: { readonly collapsed: boolean }) {
     </div>
   );
 }
-
 function DesktopSidebar({
   brandName,
   collapsed,
@@ -296,15 +297,22 @@ function DesktopSidebar({
           )}
           aria-label={brandName}
         >
-          <BrandLogoMark />
-          <span className={cn("min-w-0", collapsed && "sr-only")}>
-            <span className="block truncate text-base font-bold tracking-tight">
-              {brandName}
+          {collapsed ? (
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-soft-teal shadow-sm">
+              <BrandMark className="size-7" />
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {t("tagline")}
+          ) : (
+            <span className="min-w-0">
+              <BrandLockup
+                label={brandName}
+                markClassName="size-9"
+                wordmarkClassName="text-base"
+              />
+              <span className="block truncate ps-10 text-xs text-muted-foreground">
+                {t("tagline")}
+              </span>
             </span>
-          </span>
+          )}
         </Link>
         <button
           type="button"

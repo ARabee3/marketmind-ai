@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { BrandLockup } from '@/components/brand/brand-lockup'
 
 type Props = {
   children: ReactNode
@@ -16,11 +17,12 @@ export default async function AuthLayout({ children }: Props) {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top,var(--color-soft-teal),transparent_64%)]" />
       <div className="relative mx-auto flex min-h-[calc(100dvh-2.5rem)] w-full max-w-content flex-col">
         <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 text-navy">
-            <span className="grid size-11 place-items-center rounded-lg border-2 border-navy bg-primary text-base font-bold text-primary-foreground shadow-tactile">
-              M
-            </span>
-            <span className="font-latin text-lg font-bold">{t('appName')}</span>
+          <Link href="/" className="rounded-lg text-navy outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <BrandLockup
+              label={t('appName')}
+              markClassName="size-10"
+              wordmarkClassName="text-lg"
+            />
           </Link>
           <LanguageSwitcher />
         </header>

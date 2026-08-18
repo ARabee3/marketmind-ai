@@ -19,13 +19,13 @@ export async function LandingShell({ children, locale }: Props) {
       className="landing-page min-h-full w-full bg-bg font-sans text-navy"
     >
       <a
-        href="#top"
+        href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-surface focus:px-4 focus:py-2 focus:text-navy"
       >
         {t('skip')}
       </a>
       <Nav />
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <Footer />
     </div>
   )

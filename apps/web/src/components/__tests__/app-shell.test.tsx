@@ -5,7 +5,7 @@ import { AppShell, isAppNavItemActive } from "../layout/app-shell";
 
 const t = (key: string) => {
   const dict: Record<string, string> = {
-    appName: "MarketMind AI",
+    appName: "MarketMind",
     navHome: "Home",
     navDiscovery: "Discovery",
     navDashboard: "Dashboard",
@@ -95,17 +95,17 @@ describe("AppShell", () => {
 
   it("renders brand in both mobile top bar and desktop sidebar", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
-    const brands = screen.getAllByText("MarketMind AI");
+    const brands = screen.getAllByRole("img", { name: "MarketMind" });
     expect(brands).toHaveLength(2);
   });
 
   it("renders primary desktop sidebar and fixed mobile bottom nav with all destinations", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -144,7 +144,7 @@ describe("AppShell", () => {
 
   it("marks the dashboard link as current in both navs", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -156,7 +156,7 @@ describe("AppShell", () => {
 
   it("keeps content inside a max-width 1200 container", () => {
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <p data-testid="copy">body</p>
       </AppShell>,
     );
@@ -172,7 +172,7 @@ describe("AppShell", () => {
   it("renders login and register actions in the desktop top bar when unauthenticated", () => {
     authenticated = false;
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -185,7 +185,7 @@ describe("AppShell", () => {
   it("renders logout action in the desktop top bar when authenticated", () => {
     authenticated = true;
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -197,7 +197,7 @@ describe("AppShell", () => {
   it("renders auth actions in the mobile top bar", () => {
     authenticated = false;
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -211,7 +211,7 @@ describe("AppShell", () => {
 
   it("can collapse the desktop sidebar", () => {
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -225,7 +225,7 @@ describe("AppShell", () => {
 
   it("keeps the mobile navigation visible without a modal drawer", () => {
     const { baseElement } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -238,7 +238,7 @@ describe("AppShell", () => {
     authenticated = true;
     userMock = { id: "1", email: "ahmed@example.com", fullName: "Ahmed Mohamed" };
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
