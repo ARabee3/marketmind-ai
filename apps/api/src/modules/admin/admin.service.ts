@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/persistence/prisma.service";
 
 const ACTIVE_BUSINESS_STATUS = "active";
+const ACTIVE_USER_STATUS = "active";
 const ACTIVE_SUBSCRIPTION_STATE = "active";
 const TRIALING_SUBSCRIPTION_STATE = "trialing";
 const PAST_DUE_SUBSCRIPTION_STATE = "past_due";
@@ -266,7 +267,7 @@ export class AdminService {
         where: { state: EXPIRED_SUBSCRIPTION_STATE },
       }),
       this.prisma.user.count({
-        where: { isEmailVerified: false },
+        where: { isEmailVerified: false, status: ACTIVE_USER_STATUS },
       }),
     ]);
 

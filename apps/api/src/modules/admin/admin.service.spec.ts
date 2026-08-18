@@ -273,9 +273,15 @@ describe("AdminService", () => {
         return Promise.resolve(0);
       });
       prisma.user.count.mockImplementation((args?: {
-        where?: { isEmailVerified?: boolean };
+        where?: { isEmailVerified?: boolean; status?: string };
       }) =>
-        Promise.resolve(args?.where?.isEmailVerified === false ? 5 : 0),
+        // Only active, unverified users count toward the needs-attention total.
+        Promise.resolve(
+          args?.where?.isEmailVerified === false &&
+            args?.where?.status === "active"
+            ? 5
+            : 0,
+        ),
       );
 
       const result = await service.getRevenueSummary();
