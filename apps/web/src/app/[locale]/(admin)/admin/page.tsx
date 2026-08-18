@@ -169,18 +169,18 @@ function NeedsAttentionPanel({
         </div>
 
           {total === 0 ? (
-            <div
-              className="rounded-xl border border-border bg-bg px-5 py-6"
-              data-testid="admin-needs-attention"
-            >
-              <Badge variant="active">{t("allClear")}</Badge>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("allHealthyDescription")}
-              </p>
-            </div>
-          ) : (
-            <ul className="grid gap-2" data-testid="admin-needs-attention">
-              {pastDue > 0 && (
+          <div
+            className="rounded-xl border border-border bg-bg px-5 py-6"
+            data-testid="admin-needs-attention"
+          >
+            <Badge variant="active">{t("allClear")}</Badge>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("allHealthyDescription")}
+            </p>
+          </div>
+        ) : (
+          <ul className="grid gap-2" data-testid="admin-needs-attention">
+            {pastDue > 0 && (
               <NeedsAttentionRow
                 label={t("pastDueSubscriptions")}
                 count={pastDue}

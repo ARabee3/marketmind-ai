@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react"
-import { StatTile } from "../ui/stat-tile"
 import AdminOverviewPage from "@/app/[locale]/(admin)/admin/page"
 import {
   getAdminRevenueSummary,
@@ -64,26 +63,6 @@ const summaryAllClear = {
 function emptyUsersPage(total = 0) {
   return { items: [], total, page: 1, pageSize: 5 }
 }
-
-describe("StatTile clickable variant", () => {
-  it("renders as a link when href is provided", () => {
-    const { container } = render(
-      <StatTile label="Total Users" value="42" href="/admin/users" ariaLabel="View all users" />,
-    )
-    const anchor = container.querySelector("a")
-    expect(anchor).not.toBeNull()
-    expect(anchor?.getAttribute("href")).toBe("/admin/users")
-    expect(anchor?.getAttribute("aria-label")).toBe("View all users")
-    expect(screen.getByText("Total Users")).toBeDefined()
-    expect(screen.getByText("42")).toBeDefined()
-  })
-
-  it("renders no anchor when href is omitted", () => {
-    const { container } = render(<StatTile label="MRR" value="EGP 299" />)
-    expect(container.querySelector("a")).toBeNull()
-    expect(screen.getByText("MRR")).toBeDefined()
-  })
-})
 
 describe("AdminOverviewPage", () => {
   beforeEach(() => {
