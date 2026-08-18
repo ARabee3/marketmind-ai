@@ -37,7 +37,8 @@
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
     "error": "Error",
-    "navConnections": "Connections"
+    "navConnections": "Connections",
+    "navPerformance": "Content performance"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -122,6 +123,13 @@
       "profile_review_required": "Strategy stays locked until you confirm the profile.",
       "strategy_not_active": "Strategy is planned next, but not available in this sprint.",
       "strategy_active": "The Strategy workspace is available."
+    },
+    "performance": {
+      "eyebrow": "Published results",
+      "title": "Review content performance",
+      "body": "You have {count} real Facebook {count, plural, one {post} other {posts}} ready for monitoring.",
+      "baseline": "Baseline: {observed} of {required} seven-day snapshots",
+      "action": "Open content performance"
     },
     "phase": {
       "discovery": {
@@ -2924,6 +2932,122 @@
     "disconnectConfirm": "Disconnect the Facebook Page connection?",
     "disconnectConfirmAction": "Yes, disconnect",
     "cancelDisconnect": "Cancel"
+  },
+  "Performance": {
+    "metadata": {
+      "title": "Content performance"
+    },
+    "loading": "Loading content performance…",
+    "eyebrow": "Facebook evidence",
+    "title": "See what your published posts are teaching you",
+    "subtitle": "MarketMind collects real Facebook results from posts it published. Each observation stays tied to the original publication and its collection window.",
+    "lastSyncLabel": "Last successful sync",
+    "notAvailable": "Not available yet",
+    "refreshOverview": "Refresh view",
+    "loadFailed": "Content performance is unavailable",
+    "loadFailedBody": "We could not load the monitoring evidence. Your published content is unchanged; try again when the API is available.",
+    "retry": "Try again",
+    "capability": {
+      "ready": { "label": "Insights ready" },
+      "blocked": { "label": "Action needed" },
+      "unknown": { "label": "Status unavailable" }
+    },
+    "notices": {
+      "queued": "A refresh was queued. The evidence rail will update when Facebook returns a new observation.",
+      "notDue": "These collection windows are not due yet. The current evidence remains unchanged.",
+      "refreshFailed": "We could not request a refresh. The current evidence remains unchanged.",
+      "rateLimited": "Refresh was requested too recently. Wait a moment before trying again."
+    },
+    "empty": {
+      "title": "No eligible Facebook posts yet",
+      "body": "This workspace only monitors real Facebook posts that MarketMind successfully published. Exported, simulated, or manually entered results do not appear here.",
+      "action": "Open publishing"
+    },
+    "baseline": {
+      "eyebrow": "Baseline readiness",
+      "title": "Enough evidence for comparison",
+      "count": "{observed} of {required}",
+      "progressLabel": "Completed seven-day snapshot progress",
+      "explanation": "A useful baseline needs three real MarketMind-published Facebook posts with completed 7-day snapshots. Missing values stay unavailable instead of becoming zero.",
+      "status": {
+        "ready": "Baseline ready",
+        "not_ready": "Collecting baseline"
+      },
+      "reason": {
+        "no_published_posts": "Publish a real Facebook post through MarketMind to begin collection.",
+        "insufficient_snapshots": "More time or more eligible posts are needed before comparison is reliable.",
+        "provider_unavailable": "Facebook did not provide all required observations. Reconnect or retry when prompted."
+      }
+    },
+    "connection": {
+      "eyebrow": "Collection access",
+      "title": "Facebook Insights",
+      "blockersLabel": "Actions needed for collection",
+      "viewAction": "View connection",
+      "reconnectAction": "Reconnect Facebook",
+      "status": {
+        "ready": {
+          "body": "The selected Facebook Page is connected and its Insights capability is ready for monitoring."
+        },
+        "blocked": {
+          "body": "Monitoring is blocked for this Page. Publishing readiness is separate; reconnect to restore Insights collection."
+        },
+        "unknown": {
+          "body": "The monitoring capability could not be confirmed. Open Connections to check the Page and permissions."
+        }
+      },
+      "blockers": {
+        "no_facebook_connection": "No Facebook Page is connected.",
+        "connection_expired": "The Facebook connection expired.",
+        "pages_read_engagement_permission_missing": "Page engagement permission is missing.",
+        "read_insights_permission_missing": "Facebook Insights permission is missing.",
+        "provider_unavailable": "Facebook is temporarily unavailable."
+      }
+    },
+    "post": {
+      "title": "Published Facebook post",
+      "realEvidence": "Real evidence",
+      "publishedAt": "Published {date}",
+      "refresh": "Request refresh",
+      "refreshing": "Requesting…"
+    },
+    "rail": {
+      "label": "Evidence collection timeline",
+      "stages": {
+        "published": { "label": "Published" },
+        "24h": { "label": "24 hours" },
+        "72h": { "label": "72 hours" },
+        "7d": { "label": "7 days" }
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "collecting": "Collecting",
+        "retrying": "Retrying",
+        "blocked": "Blocked",
+        "unavailable": "Unavailable",
+        "complete": "Complete"
+      }
+    },
+    "metrics": {
+      "title": "Observed metrics",
+      "caption": "Raw Facebook values by collection age",
+      "tableCaption": "Facebook metrics across observation windows",
+      "metric": "Metric",
+      "unavailable": "Unavailable",
+      "names": {
+        "post_media_view": "Media views",
+        "post_total_media_view_unique": "Unique media views",
+        "post_clicks": "Post clicks"
+      },
+      "reasons": {
+        "not_returned": "Facebook did not return this metric.",
+        "unsupported": "This metric is not supported for the post.",
+        "permission_denied": "Permission is required for this metric.",
+        "provider_error": "Facebook returned an error for this metric.",
+        "invalid_value": "The returned value was not usable.",
+        "not_yet_observed": "This collection window has not produced an observation yet."
+      }
+    }
   },
   "Admin": {
     "adminConsole": "Admin Console",

@@ -9,6 +9,7 @@ const WORKSPACE_SEGMENTS = new Set([
   'dashboard',
   'discovery',
   'publishing',
+  'performance',
   'strategy',
 ])
 
