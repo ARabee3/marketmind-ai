@@ -117,6 +117,9 @@ services:
       PUBLISHING_WEB_BASE_URL: https://${CADDY_HOSTNAME}
       PUBLISHING_MEDIA_FETCH_BASE_URL: https://${CADDY_HOSTNAME}
       PUBLISHING_CALLBACK_BASE_URL: https://${CADDY_HOSTNAME}
+      GOOGLE_CALLBACK_URL: https://${CADDY_HOSTNAME}/api/v1/auth/google/callback
+      FB_REDIRECT_URI: https://${CADDY_HOSTNAME}/api/v1/auth/facebook/callback
+      META_REDIRECT_URI: https://${CADDY_HOSTNAME}/api/v1/publishing-targets/meta/callback
       ASSET_STORAGE_PROVIDER: r2
     depends_on:
       postgres:

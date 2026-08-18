@@ -188,6 +188,32 @@ curl -sI https://marketmindai.duckdns.org/ | head -1
    - Content/public asset storage uses real R2 credentials already in
      `services/ai/.env`.
 
+## OAuth dashboard registration (Google / Meta)
+
+The production API is a single HTTPS origin, so every OAuth callback must be
+registered in the provider dashboards with the **exact HTTPS URI** below
+(`docker-compose.prod.yml` overrides the localhost dev values with
+`https://${CADDY_HOSTNAME}/...`):
+
+| Provider | Redirect URI to register |
+| --- | --- |
+| Google Login (API side) | `https://marketmindai.duckdns.org/api/v1/auth/google/callback` |
+| Facebook Login (Meta app) | `https://marketmindai.duckdns.org/api/v1/auth/facebook/callback` |
+| Meta publishing target OAuth | `https://marketmindai.duckdns.org/api/v1/publishing-targets/meta/callback` |
+
+- These three are the only URI-bearing env vars the compose file overrides;
+  every other API env var keeps its `localhost` value from `apps/api/.env`,
+  which is fine because only these three are used in browser/server-to-server
+  OAuth round trips.
+- Until they are registered, Google/Facebook/Meta flows fail with redirect-URI
+  mismatches while email+password login keeps working.
+
+> **n8n publishing webhook is demo-inert.** `PUBLISHING_N8N_WEBHOOK_URL` still
+> points at `http://localhost:5678/webhook/publishing-dispatch` and no n8n runs
+> on the box, so the publishing-automation handoff is not exercised in the
+> hosted demo. The demo's publishing path is the deterministic manual/simulated
+> flow — never present automated publishing as real.
+
 ## Troubleshooting
 
 - **Login works on localhost but fails on the VM** — cookie lost. Check
