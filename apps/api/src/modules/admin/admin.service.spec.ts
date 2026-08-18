@@ -188,6 +188,20 @@ describe("AdminService", () => {
       );
     });
 
+    it("filters users by email-verification state", async () => {
+      await service.getUsers(1, 20, undefined, false);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isEmailVerified: false }),
+        }),
+      );
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isEmailVerified: false }),
+        }),
+      );
+    });
+
     it("passes pagination offset correctly", async () => {
       await service.getUsers(3, 10);
       expect(prisma.user.findMany).toHaveBeenCalledWith(
@@ -319,6 +333,16 @@ describe("AdminService", () => {
     it("returns paginated empty list", async () => {
       const result = await service.getSubscriptions(1, 20);
       expect(result).toEqual({ items: [], total: 0, page: 1, pageSize: 20 });
+    });
+
+    it("filters subscriptions by state", async () => {
+      await service.getSubscriptions(1, 20, "past_due");
+      expect(prisma.billingSubscription.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { state: "past_due" } }),
+      );
+      expect(prisma.billingSubscription.count).toHaveBeenCalledWith({
+        where: { state: "past_due" },
+      });
     });
 
     it("maps subscription fields to SubscriptionRow shape", async () => {

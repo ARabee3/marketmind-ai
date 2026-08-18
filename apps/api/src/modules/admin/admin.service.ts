@@ -111,15 +111,19 @@ export class AdminService {
     page: number,
     pageSize: number,
     search?: string,
+    verified?: boolean,
   ): Promise<PaginatedResponse<UserRow>> {
-    const where = search
-      ? {
-          OR: [
-            { email: { contains: search, mode: "insensitive" as const } },
-            { fullName: { contains: search, mode: "insensitive" as const } },
-          ],
-        }
-      : {};
+    const where = {
+      ...(search
+        ? {
+            OR: [
+              { email: { contains: search, mode: "insensitive" as const } },
+              { fullName: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+      ...(verified !== undefined ? { isEmailVerified: verified } : {}),
+    };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -293,9 +297,11 @@ export class AdminService {
   async getSubscriptions(
     page: number,
     pageSize: number,
+    state?: string,
   ): Promise<PaginatedResponse<SubscriptionRow>> {
     const [subs, total] = await Promise.all([
       this.prisma.billingSubscription.findMany({
+        where: state ? { state } : {},
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: "desc" },
@@ -318,7 +324,7 @@ export class AdminService {
           },
         },
       }),
-      this.prisma.billingSubscription.count(),
+      this.prisma.billingSubscription.count({ where: state ? { state } : {} }),
     ]);
 
     const items: SubscriptionRow[] = subs.map((s) => ({

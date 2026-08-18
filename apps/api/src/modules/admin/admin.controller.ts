@@ -24,10 +24,13 @@ export class AdminController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("search") search?: string,
+    @Query("verified") verified?: string,
   ) {
     const p = Math.max(1, parseInt(page ?? "1", 10) || 1);
     const ps = Math.min(100, Math.max(1, parseInt(pageSize ?? "20", 10) || 20));
-    return this.adminService.getUsers(p, ps, search);
+    const verifiedFilter =
+      verified === "true" ? true : verified === "false" ? false : undefined;
+    return this.adminService.getUsers(p, ps, search, verifiedFilter);
   }
 
   @Get("users/:id")
@@ -46,9 +49,10 @@ export class AdminController {
   async getSubscriptions(
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("state") state?: string,
   ) {
     const p = Math.max(1, parseInt(page ?? "1", 10) || 1);
     const ps = Math.min(100, Math.max(1, parseInt(pageSize ?? "20", 10) || 20));
-    return this.adminService.getSubscriptions(p, ps);
+    return this.adminService.getSubscriptions(p, ps, state);
   }
 }
