@@ -76,12 +76,10 @@ export function LoginForm() {
       try {
         const signedInUser = await login({ email: email.trim(), password })
         const requestedPath = searchParams.get('from')
-        const target =
-          (signedInUser.roles.includes('ADMIN')
-            ? safeAdminReturnPath(requestedPath)
-            : null) ??
-          safeWorkspaceReturnPath(requestedPath) ??
-          (signedInUser.roles.includes('ADMIN') ? '/admin' : '/dashboard')
+        const isAdmin = signedInUser.roles.includes('ADMIN')
+        const target = isAdmin
+          ? (safeAdminReturnPath(requestedPath) ?? '/admin')
+          : (safeWorkspaceReturnPath(requestedPath) ?? '/dashboard')
         router.replace(target)
       } catch (error) {
         const apiError = error as { response?: Response }
