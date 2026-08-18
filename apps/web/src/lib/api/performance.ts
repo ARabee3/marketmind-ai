@@ -1,6 +1,10 @@
 import {
+  assertValidOptimizationDecisionResponseV1,
+  assertValidOptimizationProposalWorkspaceV1,
   assertValidPerformanceOverview,
   assertValidPerformanceSyncWindow,
+  type OptimizationDecisionResponseV1,
+  type OptimizationProposalWorkspaceV1,
   type PerformanceOverviewV1,
   type PerformanceSyncWindowV1,
 } from '@marketmind/contracts'
@@ -14,6 +18,13 @@ export type PerformanceApiError = Error & {
 export type PerformanceRefreshResponse = {
   readonly status: 'queued' | 'not_due' | 'rate_limited'
   readonly windows: readonly PerformanceSyncWindowV1[]
+}
+
+export type DecideOptimizationProposalInput = {
+  readonly action: 'approve' | 'dismiss'
+  readonly evidence_checksum: string
+  readonly idempotency_key: string
+  readonly note?: string | null
 }
 
 type RawRecord = Record<string, unknown>
@@ -45,6 +56,39 @@ export async function refreshPerformancePost(
   const windows = Array.isArray(record.windows) ? record.windows : []
   for (const window of windows) assertValidPerformanceSyncWindow(window)
   return { status, windows }
+}
+
+export async function getOptimizationProposals(): Promise<
+  readonly OptimizationProposalWorkspaceV1[]
+> {
+  const value = await request<unknown>('/performance/optimization/proposals')
+  if (!Array.isArray(value)) {
+    throw new Error('Optimization proposals response was not a list.')
+  }
+  value.forEach(assertValidOptimizationProposalWorkspaceV1)
+  return value
+}
+
+export async function getOptimizationProposal(
+  proposalId: string,
+): Promise<OptimizationProposalWorkspaceV1> {
+  const value = await request<unknown>(
+    `/performance/optimization/proposals/${encodeURIComponent(proposalId)}`,
+  )
+  assertValidOptimizationProposalWorkspaceV1(value)
+  return value
+}
+
+export async function decideOptimizationProposal(
+  proposalId: string,
+  input: DecideOptimizationProposalInput,
+): Promise<OptimizationDecisionResponseV1> {
+  const value = await request<unknown>(
+    `/performance/optimization/proposals/${encodeURIComponent(proposalId)}/decisions`,
+    { method: 'POST', body: input },
+  )
+  assertValidOptimizationDecisionResponseV1(value)
+  return value
 }
 
 async function toApiError(response: Response): Promise<PerformanceApiError> {

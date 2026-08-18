@@ -71,6 +71,23 @@ PLAN_ALIGNMENT_RULES = """
 - Do not add, drop, reorder, or merge cards. Do not change a card's channel or format.
 """
 
+OPTIMIZATION_GUIDANCE_RULES = """
+## Owner-approved Optimization 2 guidance
+
+- The supplied optimization_guidance is already approved by the owner and is
+  a bounded copy cue, not a new plan.
+- Precedence is strict: approved Strategy and frozen weekly plan first, then
+  owner instructions and business facts, then this optimization guidance.
+- Apply it only to post_plans cards whose format exactly equals
+  optimization_guidance.format_cohort.
+- It may influence hook wording or CTA wording only, according to
+  optimization_guidance.change_kind. Preserve every card's purpose, audience,
+  channel, format, locale/language, media, post count, and publish window.
+- Do not turn the guidance into a factual claim, promise, causal statement, or
+  instruction to change the Strategy. If it conflicts with a frozen card or
+  approved CTA destination, preserve the frozen card and CTA boundary.
+"""
+
 _HASHTAG_SEPARATOR = re.compile(r"[\s,،;؛]+")
 _ARABIC_LETTER = re.compile(
     r"[\u0600-\u06ff\u0750-\u077f\u0870-\u089f"
@@ -237,23 +254,55 @@ def assemble_v2_generation_prompt(
         frozen_libraries, ensure_ascii=False, indent=2
     )
     rules = PLAN_ALIGNMENT_RULES.format(plan_count=len(plan_payloads))
+    optimization_guidance = request.frozen_input.optimization_guidance
     context = copy.deepcopy(base.context)
     context["grounding_inputs"]["post_plans"] = plan_payloads
     context["grounding_inputs"].update(frozen_libraries)
+    metadata = {
+        **base.metadata,
+        "contract_version": "content-v2",
+        "frozen_input_hash": _sha256(plan_json),
+    }
+    user_prompt = (
+        base.user_prompt
+        + "\n\npost_plans:\n"
+        + plan_json
+        + "\n\nfrozen_editorial_and_libraries:\n"
+        + frozen_libraries_json
+    )
+    system_prompt = base.system_prompt + "\n\n" + rules
+    if optimization_guidance is not None:
+        guidance_payload = optimization_guidance.model_dump(
+            mode="json", exclude_none=True
+        )
+        context["grounding_inputs"]["optimization_guidance"] = guidance_payload
+        metadata["frozen_input_hash"] = _sha256(
+            plan_json
+            + "\noptimization_guidance:\n"
+            + json.dumps(guidance_payload, ensure_ascii=False, sort_keys=True)
+        )
+        user_prompt += (
+            "\n\nowner_approved_optimization_guidance (apply only to the "
+            "matching format cohort; preserve all frozen plan fields):\n"
+            + json.dumps(guidance_payload, ensure_ascii=False, indent=2)
+        )
+        system_prompt += "\n\n" + OPTIMIZATION_GUIDANCE_RULES
+        metadata.update(
+            {
+                "optimization_instruction_id": guidance_payload["instruction_id"],
+                "optimization_proposal_id": guidance_payload["proposal_id"],
+                "optimization_decision_id": guidance_payload[
+                    "approved_decision_id"
+                ],
+                "optimization_evidence_checksum": guidance_payload[
+                    "evidence_checksum"
+                ],
+            }
+        )
     return PromptAssembly(
-        system_prompt=base.system_prompt + "\n\n" + rules,
-        user_prompt=(
-            base.user_prompt
-            + "\n\npost_plans:\n"
-            + plan_json
-            + "\n\nfrozen_editorial_and_libraries:\n"
-            + frozen_libraries_json
-        ),
-        metadata={
-            **base.metadata,
-            "contract_version": "content-v2",
-            "frozen_input_hash": _sha256(plan_json),
-        },
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        metadata=metadata,
         context=context,
     )
 
@@ -501,6 +550,7 @@ def _normalize_v2_generated_items(
         return items
 
     cta_by_id = {entry.id: entry for entry in request.frozen_input.cta_entries}
+    optimization_guidance = request.frozen_input.optimization_guidance
     normalized_items: list[ContentItemVersion] = []
     for plan, item in zip(request.frozen_input.post_plans, items):
         cta_entry = cta_by_id.get(plan.cta_library_entry_id)
@@ -607,23 +657,38 @@ def _normalize_v2_generated_items(
         if asset_required and not asset_ids:
             blockers.append("CONTENT_ASSET_REQUIRED")
 
-        normalized_items.append(
-            item.model_copy(
-                update={
-                    "caption_variants": normalized_variants,
-                    "cta": primary_cta,
-                    "hashtags": primary_hashtags,
-                    "short_video_script": short_video_script,
-                    "asset_required": asset_required,
-                    "asset_ids": asset_ids,
-                    "blockers": blockers,
-                    "claim_sources": _normalized_claim_sources(
-                        item_request,
-                        item,
-                    ),
-                }
+        item_updates: dict[str, Any] = {
+            "caption_variants": normalized_variants,
+            "cta": primary_cta,
+            "hashtags": primary_hashtags,
+            "short_video_script": short_video_script,
+            "asset_required": asset_required,
+            "asset_ids": asset_ids,
+            "blockers": blockers,
+            "claim_sources": _normalized_claim_sources(
+                item_request,
+                item,
+            ),
+        }
+        if (
+            optimization_guidance is not None
+            and plan.format == optimization_guidance.format_cohort
+        ):
+            item_updates["generation_provenance"] = (
+                item.generation_provenance.model_copy(
+                    update={
+                        "optimization_guidance": {
+                            "instruction_id": optimization_guidance.instruction_id,
+                            "proposal_id": optimization_guidance.proposal_id,
+                            "approved_decision_id": optimization_guidance.approved_decision_id,
+                            "evidence_checksum": optimization_guidance.evidence_checksum,
+                            "format_cohort": optimization_guidance.format_cohort,
+                            "change_kind": optimization_guidance.change_kind,
+                        }
+                    }
+                )
             )
-        )
+        normalized_items.append(item.model_copy(update=item_updates))
     return normalized_items
 
 

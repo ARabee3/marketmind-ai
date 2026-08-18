@@ -111,3 +111,7 @@ The controlled demo still requires the human owner to confirm that the
 Facebook connection and three eligible 7-day snapshots are real before using
 the Generate action. A green local mock test is not evidence of Meta quota,
 permissions, or live account readiness.
+
+Optimization 2 owner decisions and the one-time Content V2 handoff are
+documented in
+`FACEBOOK_OPTIMIZATION_DECISION_IMPLEMENTATION.md` (issue #223).

@@ -2,6 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import type {
   OptimizationAgentResultV1,
   OptimizationProposalV1,
+  OptimizationProposalWorkspaceV1,
 } from "@marketmind/contracts";
 import { OptimizationService } from "./optimization.service";
 import type { OptimizationSnapshotInput } from "./optimization-analyzer";
@@ -112,6 +113,9 @@ describe("OptimizationService", () => {
       createProposal: jest.fn().mockResolvedValue(proposal()),
       listProposals: jest.fn().mockResolvedValue([proposal()]),
       findById: jest.fn().mockResolvedValue(proposal()),
+      listProposalWorkspaces: jest.fn().mockResolvedValue([]),
+      findProposalWorkspace: jest.fn().mockResolvedValue(null),
+      createDecision: jest.fn(),
     } as any;
     const ai = { generate: jest.fn() } as any;
     const service = new OptimizationService(prisma, repository, ai);
@@ -219,5 +223,61 @@ describe("OptimizationService", () => {
     await expect(
       service.generate("owner-1", { format: "text_post" }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("binds an owner decision to the immutable proposal evidence", async () => {
+    const { service, repository } = setup([
+      snapshot(1),
+      snapshot(2),
+      snapshot(3),
+    ]);
+    const workspace = {
+      contract_version: "optimization-v1",
+      proposal: proposal(),
+      state: "APPROVED_PENDING_CONSUMPTION",
+      decision: null,
+      instruction: null,
+    } as unknown as OptimizationProposalWorkspaceV1;
+    repository.createDecision.mockResolvedValue(workspace);
+
+    const result = await service.decide("owner-1", proposal().proposal_id, {
+      action: "approve",
+      evidence_checksum: proposal().evidence_checksum,
+      idempotency_key: "optimization-decision-test-1",
+      note: "  apply to one future draft  ",
+    });
+
+    expect(result.contract_version).toBe("optimization-decision-v1");
+    expect(repository.createDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner_user_id: "owner-1",
+        business_id: BUSINESS_ID,
+        proposal_id: proposal().proposal_id,
+        action: "approve",
+        note: "apply to one future draft",
+        evidence_checksum: proposal().evidence_checksum,
+        request_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    );
+  });
+
+  it("rejects a stale evidence checksum before writing a decision", async () => {
+    const { service, repository } = setup([
+      snapshot(1),
+      snapshot(2),
+      snapshot(3),
+    ]);
+
+    await expect(
+      service.decide("owner-1", proposal().proposal_id, {
+        action: "dismiss",
+        evidence_checksum:
+          "c7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+        idempotency_key: "optimization-decision-test-2",
+      }),
+    ).rejects.toMatchObject({
+      response: { code: "OPTIMIZATION_EVIDENCE_CONFLICT" },
+    });
+    expect(repository.createDecision).not.toHaveBeenCalled();
   });
 });

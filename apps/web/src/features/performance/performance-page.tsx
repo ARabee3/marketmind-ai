@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import type {
+  OptimizationProposalWorkspaceV1,
   PerformanceCapabilityV1,
   PerformanceMetricValueV1,
   PerformanceOverviewV1,
@@ -26,10 +27,13 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  decideOptimizationProposal,
+  getOptimizationProposals,
   getPerformanceOverview,
   refreshPerformancePost,
   type PerformanceApiError,
 } from '@/lib/api/performance'
+import { OptimizationDecisionPanel } from './optimization-decision-panel'
 import {
   baselineProgress,
   metricValueFor,
@@ -44,52 +48,74 @@ type LoadState =
   | { readonly status: 'ready'; readonly overview: PerformanceOverviewV1 }
   | { readonly status: 'error' }
 
+type OptimizationLoadState =
+  | { readonly status: 'loading' }
+  | { readonly status: 'ready'; readonly workspaces: readonly OptimizationProposalWorkspaceV1[] }
+  | { readonly status: 'error' }
+
 type Notice =
-  | { readonly kind: 'success'; readonly key: 'queued' | 'notDue' }
-  | { readonly kind: 'error'; readonly key: 'refreshFailed' | 'rateLimited' }
+  | { readonly kind: 'success'; readonly key: 'queued' | 'notDue' | 'optimizationSaved' }
+  | { readonly kind: 'error'; readonly key: 'refreshFailed' | 'rateLimited' | 'optimizationFailed' }
 
 export function PerformancePage() {
   const t = useTranslations('Performance')
   const formatter = useFormatter()
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
+  const [optimizationState, setOptimizationState] = useState<OptimizationLoadState>({
+    status: 'loading',
+  })
   const [reloading, setReloading] = useState(false)
   const [refreshingPostId, setRefreshingPostId] = useState<string | null>(null)
+  const [decidingOptimizationId, setDecidingOptimizationId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
 
   const fetchOverview = useCallback(async () => getPerformanceOverview(), [])
+  const fetchOptimization = useCallback(async () => getOptimizationProposals(), [])
 
-  const loadOverview = useCallback(async () => {
-    setLoadState({ status: 'loading' })
+  const loadData = useCallback(async () => {
     setNotice(null)
-    try {
-      setLoadState({ status: 'ready', overview: await fetchOverview() })
-    } catch {
-      setLoadState({ status: 'error' })
+    const [overviewResult, optimizationResult] = await Promise.allSettled([
+      fetchOverview(),
+      fetchOptimization(),
+    ])
+    if (overviewResult.status === 'fulfilled') {
+      setLoadState({ status: 'ready', overview: overviewResult.value })
+    } else {
+      setLoadState((current) =>
+        current.status === 'ready' ? current : { status: 'error' },
+      )
     }
-  }, [fetchOverview])
+    if (optimizationResult.status === 'fulfilled') {
+      setOptimizationState({ status: 'ready', workspaces: optimizationResult.value })
+    } else {
+      setOptimizationState({ status: 'error' })
+    }
+    return overviewResult.status === 'fulfilled'
+  }, [fetchOptimization, fetchOverview])
+
+  const loadOverview = useCallback(() => {
+    setLoadState({ status: 'loading' })
+    setOptimizationState({ status: 'loading' })
+    void loadData()
+  }, [loadData])
 
   useEffect(() => {
-    let active = true
-    void fetchOverview()
-      .then((overview) => {
-        if (active) setLoadState({ status: 'ready', overview })
-      })
-      .catch(() => {
-        if (active) setLoadState({ status: 'error' })
-      })
-    return () => {
-      active = false
-    }
-  }, [fetchOverview])
+    const timer = window.setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadData])
 
   async function reload() {
     if (reloading) return
     setReloading(true)
+    setOptimizationState({ status: 'loading' })
     setNotice(null)
     try {
-      setLoadState({ status: 'ready', overview: await fetchOverview() })
-    } catch {
-      setNotice({ kind: 'error', key: 'refreshFailed' })
+      const overviewLoaded = await loadData()
+      if (!overviewLoaded) {
+        setNotice({ kind: 'error', key: 'refreshFailed' })
+      }
     } finally {
       setReloading(false)
     }
@@ -101,8 +127,8 @@ export function PerformancePage() {
     setNotice(null)
     try {
       const response = await refreshPerformancePost(post.publishing_result_id)
-      const overview = await fetchOverview()
-      setLoadState({ status: 'ready', overview })
+      setOptimizationState({ status: 'loading' })
+      await loadData()
       setNotice({
         kind: 'success',
         key: response.status === 'not_due' ? 'notDue' : 'queued',
@@ -115,6 +141,40 @@ export function PerformancePage() {
       })
     } finally {
       setRefreshingPostId(null)
+    }
+  }
+
+  async function decideOptimization(
+    workspace: OptimizationProposalWorkspaceV1,
+    action: 'approve' | 'dismiss',
+  ) {
+    if (decidingOptimizationId) return
+    const proposalId = workspace.proposal.proposal_id
+    setDecidingOptimizationId(proposalId)
+    setNotice(null)
+    try {
+      const response = await decideOptimizationProposal(proposalId, {
+        action,
+        evidence_checksum: workspace.proposal.evidence_checksum,
+        idempotency_key: optimizationIdempotencyKey(proposalId, action),
+      })
+      setOptimizationState((current) =>
+        current.status !== 'ready'
+          ? current
+          : {
+              status: 'ready',
+              workspaces: current.workspaces.map((candidate) =>
+                candidate.proposal.proposal_id === proposalId
+                  ? response.workspace
+                  : candidate,
+              ),
+            },
+      )
+      setNotice({ kind: 'success', key: 'optimizationSaved' })
+    } catch {
+      setNotice({ kind: 'error', key: 'optimizationFailed' })
+    } finally {
+      setDecidingOptimizationId(null)
     }
   }
 
@@ -169,6 +229,14 @@ export function PerformancePage() {
           </p>
         ) : null}
       </div>
+
+      <OptimizationDecisionPanel
+        workspaces={optimizationState.status === 'ready' ? optimizationState.workspaces : []}
+        loading={optimizationState.status === 'loading'}
+        error={optimizationState.status === 'error'}
+        decidingProposalId={decidingOptimizationId}
+        onDecide={(workspace, action) => void decideOptimization(workspace, action)}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid gap-5">
@@ -645,4 +713,11 @@ function MetricValue({
       {t('metrics.unavailable')}
     </span>
   )
+}
+
+function optimizationIdempotencyKey(
+  proposalId: string,
+  action: 'approve' | 'dismiss',
+): string {
+  return `optimization-decision:${proposalId}:${action}`
 }

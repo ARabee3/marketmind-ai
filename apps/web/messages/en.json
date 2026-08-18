@@ -2975,7 +2975,9 @@
       "queued": "A refresh was queued. The evidence rail will update when Facebook returns a new observation.",
       "notDue": "These collection windows are not due yet. The current evidence remains unchanged.",
       "refreshFailed": "We could not request a refresh. The current evidence remains unchanged.",
-      "rateLimited": "Refresh was requested too recently. Wait a moment before trying again."
+      "rateLimited": "Refresh was requested too recently. Wait a moment before trying again.",
+      "optimizationSaved": "Your Optimization decision was saved. The Strategy and weekly plan remain unchanged.",
+      "optimizationFailed": "We could not save that Optimization decision. The proposal remains unchanged."
     },
     "empty": {
       "title": "No eligible Facebook posts yet",
@@ -3066,6 +3068,73 @@
         "invalid_value": "The returned value was not usable.",
         "not_yet_observed": "This collection window has not produced an observation yet."
       }
+    },
+    "optimization": {
+      "eyebrow": "Owner-approved copy guidance",
+      "title": "Review one bounded improvement",
+      "subtitle": "Inspect the Facebook evidence, uncertainty, and exact wording cue before deciding. Approval can influence hook or CTA wording once during the current owner-planned Content week.",
+      "loading": "Loading Optimization proposals…",
+      "loadFailed": "Optimization proposals are unavailable",
+      "loadFailedBody": "The performance evidence is still safe. Try refreshing this view when the decision service is available.",
+      "format": "Eligible format",
+      "formats": {
+        "text_post": "Text post",
+        "static_image_post": "Static image post"
+      },
+      "states": {
+        "PENDING_OWNER_DECISION": "Needs your decision",
+        "APPROVED_PENDING_CONSUMPTION": "Approved · waiting for eligible week",
+        "DISMISSED": "Dismissed",
+        "CONSUMED": "Applied once",
+        "SUPERSEDED": "Superseded",
+        "EXPIRED": "Expired"
+      },
+      "evidenceTitle": "Deterministic evidence",
+      "evidenceTable": "Optimization evidence comparison",
+      "evidenceChecksum": "Evidence checksum: {checksum}",
+      "snapshotsTitle": "Supporting snapshots ({count})",
+      "metric": "Metric",
+      "baseline": "Baseline median",
+      "best": "Best observed",
+      "delta": "Difference",
+      "metrics": {
+        "post_media_view": "Media views",
+        "post_clicks": "Post clicks"
+      },
+      "notAvailable": "Unavailable",
+      "uncertaintyTitle": "Uncertainty",
+      "instructionTitle": "Exact wording cue",
+      "eligibleWeekTitle": "Eligible week",
+      "eligibleWeekBody": "Waiting for the current owner-planned Content week with a matching {format} card. Existing or planner-only weeks are never regenerated.",
+      "unchangedTitle": "What approval never changes",
+      "unchanged": {
+        "strategy": "Approved Strategy and version",
+        "topic": "Topic and weekly purpose",
+        "purpose": "Post purposes",
+        "audience": "Intended audiences",
+        "channel": "Channels",
+        "format": "Formats and post count",
+        "locale": "Language and locale",
+        "media": "Selected media and CTA destinations",
+        "post_count": "Number and order of cards",
+        "schedule": "Publishing windows",
+        "publishing": "Publishing approvals and schedule"
+      },
+      "approve": "Approve once",
+      "dismiss": "Dismiss",
+      "confirm": {
+        "approveTitle": "Approve this wording cue once?",
+        "approveBody": "This terminal decision makes the cue eligible for one future owner-planned week with the matching format.",
+        "dismissTitle": "Dismiss this proposal?",
+        "dismissBody": "Dismissal is terminal and cannot be changed later. This cue will never be applied to Content.",
+        "unchangedLabel": "Your approval will not change:",
+        "cancel": "Cancel",
+        "approveCta": "Confirm approval",
+        "dismissCta": "Confirm dismissal"
+      },
+      "saving": "Saving decision…",
+      "consumedBody": "This approved cue was consumed once in the frozen Content V2 input.",
+      "terminalBody": "This proposal has a terminal owner decision and cannot be changed."
     }
   },
   "Admin": {

@@ -143,6 +143,18 @@ class ContentPostPlanV2(ContentV2Types):
     updated_at: datetime
 
 
+class ContentV2OptimizationGuidanceV1(FrozenModel):
+    """Owner-approved copy guidance frozen with one Content V2 week."""
+
+    instruction_id: UUID
+    proposal_id: UUID
+    approved_decision_id: UUID
+    evidence_checksum: str
+    format_cohort: Literal["text_post", "static_image_post"]
+    change_kind: Literal["hook_style", "cta_wording_style"]
+    instruction: str = Field(min_length=1, max_length=2000)
+
+
 class ContentV2FrozenInput(FrozenModel):
     week_plan_id: UUID
     content_cycle_id: UUID
@@ -152,6 +164,7 @@ class ContentV2FrozenInput(FrozenModel):
     cta_entries: list[ContentCtaLibraryEntryV2]
     media_entries: list[ContentMediaLibraryEntryV2]
     post_plans: list[ContentPostPlanV2] = Field(min_length=3, max_length=5)
+    optimization_guidance: ContentV2OptimizationGuidanceV1 | None = None
     weekly_claim_id: UUID
     frozen_at: datetime
 

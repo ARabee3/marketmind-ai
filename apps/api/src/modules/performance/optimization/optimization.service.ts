@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  computeOptimizationDecisionFingerprint,
   computeOptimizationGenerationFingerprint,
   OPTIMIZATION_CHANGE_KINDS,
   OPTIMIZATION_PROHIBITED_CHANGES,
@@ -16,6 +17,8 @@ import {
   type OptimizationFormat,
   type OptimizationGenerationRequestV1,
   type OptimizationProposalV1,
+  type OptimizationProposalWorkspaceV1,
+  type OptimizationDecisionResponseV1,
   type OptimizationReadinessV1,
 } from "@marketmind/contracts";
 import { ProviderError } from "../../../common/errors/provider-error";
@@ -27,6 +30,7 @@ import {
 } from "./optimization.repository";
 import { OptimizationAiClient } from "./optimization-ai.client";
 import type { GenerateOptimizationProposalDto } from "./dto/generate-optimization-proposal.dto";
+import type { DecideOptimizationProposalDto } from "./dto/decide-optimization-proposal.dto";
 
 export type OptimizationReadinessResponse = {
   readonly readiness: OptimizationReadinessV1;
@@ -206,8 +210,10 @@ export class OptimizationService {
     }
   }
 
-  async list(ownerUserId: string): Promise<readonly OptimizationProposalV1[]> {
-    return this.repository.listProposals(
+  async list(
+    ownerUserId: string,
+  ): Promise<readonly OptimizationProposalWorkspaceV1[]> {
+    return this.repository.listProposalWorkspaces(
       await this.businessIdForOwner(ownerUserId),
     );
   }
@@ -215,8 +221,8 @@ export class OptimizationService {
   async get(
     ownerUserId: string,
     proposalId: string,
-  ): Promise<OptimizationProposalV1> {
-    const proposal = await this.repository.findById(
+  ): Promise<OptimizationProposalWorkspaceV1> {
+    const proposal = await this.repository.findProposalWorkspace(
       await this.businessIdForOwner(ownerUserId),
       proposalId,
     );
@@ -226,6 +232,67 @@ export class OptimizationService {
         message: "Optimization proposal was not found.",
       });
     return proposal;
+  }
+
+  async decide(
+    ownerUserId: string,
+    proposalId: string,
+    dto: DecideOptimizationProposalDto,
+  ): Promise<OptimizationDecisionResponseV1> {
+    const businessId = await this.businessIdForOwner(ownerUserId);
+    const proposal = await this.repository.findById(businessId, proposalId);
+    if (!proposal) {
+      throw new NotFoundException({
+        code: "OPTIMIZATION_PROPOSAL_NOT_FOUND",
+        message: "Optimization proposal was not found.",
+      });
+    }
+    if (proposal.evidence_checksum !== dto.evidence_checksum) {
+      throw new ConflictException({
+        code: "OPTIMIZATION_EVIDENCE_CONFLICT",
+        message:
+          "The proposal evidence changed or the supplied evidence checksum is stale.",
+      });
+    }
+    const note = dto.note?.trim() || null;
+    const requestFingerprint = computeOptimizationDecisionFingerprint({
+      proposal_id: proposal.proposal_id,
+      evidence_checksum: proposal.evidence_checksum,
+      action: dto.action,
+      note,
+    });
+    try {
+      const workspace = await this.repository.createDecision({
+        owner_user_id: ownerUserId,
+        business_id: businessId,
+        proposal_id: proposal.proposal_id,
+        evidence_checksum: proposal.evidence_checksum,
+        action: dto.action,
+        idempotency_key: dto.idempotency_key.trim(),
+        request_fingerprint: requestFingerprint,
+        note,
+      });
+      return {
+        contract_version: "optimization-decision-v1",
+        workspace,
+      };
+    } catch (error) {
+      if (error instanceof OptimizationRepositoryError) {
+        if (error.code === "OPTIMIZATION_EVIDENCE_CONFLICT") {
+          throw new ConflictException({
+            code: error.code,
+            message:
+              "The proposal evidence changed or the supplied evidence checksum is stale.",
+          });
+        }
+        throw new ConflictException({
+          code: error.code,
+          message:
+            "This proposal already has a different terminal decision or request identity.",
+        });
+      }
+      throw error;
+    }
   }
 
   private async businessIdForOwner(ownerUserId: string): Promise<string> {
