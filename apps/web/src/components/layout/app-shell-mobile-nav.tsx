@@ -15,6 +15,7 @@ export type AppShellMobileNavItem = {
     | "/strategy"
     | "/content"
     | "/publishing"
+    | "/performance"
     | "/connections"
     | "/billing";
   readonly labelKey:
@@ -23,6 +24,7 @@ export type AppShellMobileNavItem = {
     | "navStrategy"
     | "navContent"
     | "navPublishing"
+    | "navPerformance"
     | "navConnections"
     | "navBilling";
   readonly iconName: AppShellIconName;

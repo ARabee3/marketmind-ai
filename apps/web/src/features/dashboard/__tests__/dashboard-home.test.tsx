@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
   ActiveDiscoveryStatus,
@@ -6,8 +6,11 @@ import type {
   CurrentJourneyResponse,
   StrategyStatus,
   UnavailableDiscoveryStatus,
+  PerformanceOverviewV1,
+  PerformancePostProjectionV1,
 } from '@marketmind/contracts'
 import { getCurrentJourney } from '@/lib/api/journey'
+import { getPerformanceOverview } from '@/lib/api/performance'
 import { DashboardHome } from '../dashboard-home'
 
 vi.mock('next-intl', () => ({
@@ -30,6 +33,10 @@ vi.mock('@/lib/api/journey', () => ({
   getCurrentJourney: vi.fn(),
 }))
 
+vi.mock('@/lib/api/performance', () => ({
+  getPerformanceOverview: vi.fn(),
+}))
+
 const logoutMock = vi.fn()
 
 vi.mock('@/features/auth/session-provider', () => ({
@@ -48,8 +55,13 @@ vi.mock('@/features/auth/resend-verification-form', () => ({
 }))
 
 const mockedGetCurrentJourney = vi.mocked(getCurrentJourney)
+const mockedGetPerformanceOverview = vi.mocked(getPerformanceOverview)
 
 describe('DashboardHome', () => {
+  beforeEach(() => {
+    mockedGetPerformanceOverview.mockResolvedValue(performanceOverview([]))
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -183,6 +195,17 @@ describe('DashboardHome', () => {
     expect(await screen.findByText('loadError')).not.toBeNull()
     expect(screen.queryByRole('link', { name: 'actions.start_discovery' })).toBeNull()
     expect(screen.getByRole('button', { name: 'retry' })).not.toBeNull()
+  })
+
+  it('shows a secondary Performance action only when eligible real publications exist', async () => {
+    mockedGetCurrentJourney.mockResolvedValue(responseWithConfirmedProfile())
+    mockedGetPerformanceOverview.mockResolvedValue(performanceOverview([performancePost()]))
+
+    render(<DashboardHome />)
+
+    const link = await screen.findByRole('link', { name: 'performance.action' })
+    expect(link.getAttribute('href')).toBe('/performance')
+    expect(screen.getByText(/performance\.baseline/)).not.toBeNull()
   })
 })
 
@@ -378,5 +401,42 @@ function futurePhase(
     status: 'needs_brief',
     reason,
     destination: null,
+  }
+}
+
+function performanceOverview(
+  posts: readonly PerformancePostProjectionV1[],
+): PerformanceOverviewV1 {
+  return {
+    contract_version: 'performance-v1',
+    business_id: 'a1000000-0000-4000-8000-000000000001',
+    provider: 'facebook',
+    generated_at: '2026-08-18T12:00:00.000Z',
+    posts,
+    baseline: {
+      status: 'not_ready',
+      observed_snapshot_count: posts.length,
+      required_snapshot_count: 3,
+      reason: posts.length === 0 ? 'no_published_posts' : 'insufficient_snapshots',
+    },
+    capability: {
+      status: 'ready',
+      blockers: [],
+      last_successful_sync: null,
+    },
+  }
+}
+
+function performancePost(): PerformancePostProjectionV1 {
+  return {
+    contract_version: 'performance-v1',
+    business_id: 'a1000000-0000-4000-8000-000000000001',
+    candidate_id: 'a1000000-0000-4000-8000-000000000002',
+    publishing_result_id: 'a1000000-0000-4000-8000-000000000003',
+    provider: 'facebook',
+    provider_object_id: 'page-1_post-1',
+    published_at: '2026-08-18T08:00:00.000Z',
+    snapshots: [],
+    sync_windows: [],
   }
 }

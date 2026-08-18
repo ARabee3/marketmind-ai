@@ -11,6 +11,7 @@ const t = (key: string) => {
     navDashboard: "Dashboard",
     navStrategy: "Strategy",
     navPublishing: "Publishing",
+    navPerformance: "Content performance",
     navConnections: "Connections",
     navBilling: "Billing",
     primaryNavLabel: "Primary",
@@ -115,7 +116,7 @@ describe("AppShell", () => {
     expect(navList?.className).toMatch(/flex/);
     expect(navList?.className).not.toMatch(/grid-cols-6/);
     const items = mobileNav.querySelectorAll("li");
-    expect(items.length).toBe(7);
+    expect(items.length).toBe(8);
     for (const item of Array.from(items)) {
       expect((item as HTMLElement).className).toMatch(/min-w-\[4\.5rem\] flex-none/);
     }
@@ -125,6 +126,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: "Dashboard" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Strategy" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Publishing" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Content performance" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Connections" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Billing" })).toHaveLength(2);
   });

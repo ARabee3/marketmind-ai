@@ -1,5 +1,10 @@
 export { apiRequest, publicRequest, refreshAccessToken } from './client'
 export { getCurrentJourney } from './journey'
+export { getPerformanceOverview, refreshPerformancePost } from './performance'
+export type {
+  PerformanceApiError,
+  PerformanceRefreshResponse,
+} from './performance'
 export type { ApiError, ApiRequestOptions } from './client'
 export {
   getAccessToken,
