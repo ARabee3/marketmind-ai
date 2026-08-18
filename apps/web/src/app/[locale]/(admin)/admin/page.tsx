@@ -185,7 +185,7 @@ function NeedsAttentionPanel({
                 label={t("pastDueSubscriptions")}
                 count={pastDue}
                 variant="past_due"
-                href="/admin/revenue"
+                href="/admin/revenue?state=past_due"
                 ariaLabel={`${t("pastDueSubscriptions")} — ${t("viewDetails")}`}
                 viewLabel={t("viewDetails")}
               />
@@ -195,7 +195,7 @@ function NeedsAttentionPanel({
                 label={t("expiredSubscriptions")}
                 count={expired}
                 variant="expired"
-                href="/admin/revenue"
+                href="/admin/revenue?state=expired"
                 ariaLabel={`${t("expiredSubscriptions")} — ${t("viewDetails")}`}
                 viewLabel={t("viewDetails")}
               />
@@ -205,7 +205,7 @@ function NeedsAttentionPanel({
                 label={t("unverifiedUsers")}
                 count={unverified}
                 variant="draft"
-                href="/admin/users"
+                href="/admin/users?verified=false"
                 ariaLabel={`${t("unverifiedUsers")} — ${t("viewDetails")}`}
                 viewLabel={t("viewDetails")}
               />

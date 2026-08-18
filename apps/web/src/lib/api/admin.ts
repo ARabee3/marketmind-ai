@@ -78,6 +78,7 @@ export type GetUsersParams = {
   page?: number
   pageSize?: number
   search?: string
+  verified?: boolean
 }
 
 export async function getAdminUsers(
@@ -87,6 +88,9 @@ export async function getAdminUsers(
   if (params.page) searchParams.set("page", String(params.page))
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize))
   if (params.search) searchParams.set("search", params.search)
+  if (params.verified !== undefined) {
+    searchParams.set("verified", String(params.verified))
+  }
 
   const qs = searchParams.toString()
   const response = await apiRequest(`/admin/users${qs ? `?${qs}` : ""}`)
@@ -123,10 +127,11 @@ export async function getAdminRevenueSummary(): Promise<AdminRevenueSummary> {
 export async function getAdminSubscriptions(
   page = 1,
   pageSize = 20,
+  state?: string,
 ): Promise<AdminPaginatedResponse<AdminSubscriptionRow>> {
-  const response = await apiRequest(
-    `/admin/subscriptions?page=${page}&pageSize=${pageSize}`,
-  )
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (state) query.set("state", state)
+  const response = await apiRequest(`/admin/subscriptions?${query.toString()}`)
   if (!response.ok) {
     throw Object.assign(new Error("Failed to fetch subscriptions"), {
       status: response.status,

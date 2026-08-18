@@ -30,6 +30,25 @@ vi.mock("@/lib/api/admin", () => ({
   getAdminUser: vi.fn(),
 }))
 
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}))
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 const getAdminUsersMock = vi.mocked(getAdminUsers)
 const getAdminUserMock = vi.mocked(getAdminUser)
 

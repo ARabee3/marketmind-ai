@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useFormatter, useLocale, useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { StatTile } from "@/components/ui/stat-tile"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { AdminPagination } from "@/components/layout/admin-pagination"
+import { Link } from "@/i18n/navigation"
 import {
   getAdminRevenueSummary,
   getAdminSubscriptions,
@@ -23,6 +25,7 @@ export default function AdminRevenuePage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
   const locale = useLocale()
+  const searchParams = useSearchParams()
   const [phase, setPhase] = useState<Phase>("loading")
   const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null)
   const [subs, setSubs] = useState<AdminSubscriptionRow[]>([])
@@ -30,6 +33,7 @@ export default function AdminRevenuePage() {
   const [subPage, setSubPage] = useState(1)
   const [dataVersion, setDataVersion] = useState(0)
   const subPageSize = 20
+  const stateFilter = searchParams.get("state") ?? undefined
 
   const retry = useCallback(() => {
     setDataVersion((v) => v + 1)
@@ -40,13 +44,17 @@ export default function AdminRevenuePage() {
   }, [])
 
   useEffect(() => {
+    setSubPage(1)
+  }, [stateFilter])
+
+  useEffect(() => {
     let cancelled = false
     async function fetch() {
       setPhase("loading")
       try {
         const [rev, subData] = await Promise.all([
           getAdminRevenueSummary(),
-          getAdminSubscriptions(subPage, subPageSize),
+          getAdminSubscriptions(subPage, subPageSize, stateFilter),
         ])
         if (cancelled) return
         setRevenue(rev)
@@ -59,7 +67,7 @@ export default function AdminRevenuePage() {
     }
     void fetch()
     return () => { cancelled = true }
-  }, [dataVersion, subPage])
+  }, [dataVersion, subPage, stateFilter])
 
   if (phase === "loading") {
     return (
@@ -148,6 +156,28 @@ export default function AdminRevenuePage() {
               {t("revenueDescription")}
             </p>
           </div>
+
+          {stateFilter && (
+            <div
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+              data-testid="subscription-state-filter"
+            >
+              <Badge
+                variant={stateFilter === "past_due" ? "past_due" : "expired"}
+              >
+                {stateFilter === "past_due" ? t("pastDue") : t("expired")}
+              </Badge>
+              <span className="text-muted-foreground">
+                {t("filteredByState")}
+              </span>
+              <Link
+                href="/admin/revenue"
+                className="ms-auto rounded font-medium text-primary outline-none hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+              >
+                {t("clearFilter")}
+              </Link>
+            </div>
+          )}
 
           {subs.length === 0 ? (
             <p className="text-sm text-muted-foreground">

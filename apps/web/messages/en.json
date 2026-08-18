@@ -3027,6 +3027,9 @@
     "allHealthyDescription": "Everything looks healthy. No subscriptions or accounts need attention right now.",
     "recentUsersLabel": "Recent activity",
     "recentUsersTitle": "Latest users",
-    "noRecentUsers": "No users have joined yet."
+    "noRecentUsers": "No users have joined yet.",
+    "filteredByState": "Filtered by subscription state",
+    "filteredByVerified": "Filtered to unverified users",
+    "clearFilter": "Show all"
   }
 }

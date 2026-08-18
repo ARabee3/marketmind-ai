@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useFormatter, useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { X, Monitor, MapPin, Calendar } from "lucide-react"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { AdminPagination } from "@/components/layout/admin-pagination"
+import { Link } from "@/i18n/navigation"
 import {
   getAdminUsers,
   getAdminUser,
@@ -30,6 +32,7 @@ const FOCUSABLE_SELECTOR =
 export default function AdminUsersPage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
+  const searchParams = useSearchParams()
   const [phase, setPhase] = useState<Phase>("loading")
   const [users, setUsers] = useState<AdminUserRow[]>([])
   const [total, setTotal] = useState(0)
@@ -39,6 +42,13 @@ export default function AdminUsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
   const pageSize = 20
+  const verifiedParam = searchParams.get("verified")
+  const verifiedFilter =
+    verifiedParam === "true"
+      ? true
+      : verifiedParam === "false"
+        ? false
+        : undefined
   const closeUserDetails = useCallback(() => {
     setSelectedUserId(null)
   }, [])
@@ -52,11 +62,15 @@ export default function AdminUsersPage() {
   }, [])
 
   useEffect(() => {
+    setPage(1)
+  }, [verifiedParam])
+
+  useEffect(() => {
     let cancelled = false
     async function fetch() {
       setPhase("loading")
       try {
-        const result = await getAdminUsers({ page, pageSize, search })
+        const result = await getAdminUsers({ page, pageSize, search, verified: verifiedFilter })
         if (cancelled) return
         setUsers(result.items)
         setTotal(result.total)
@@ -67,7 +81,7 @@ export default function AdminUsersPage() {
     }
     void fetch()
     return () => { cancelled = true }
-  }, [dataVersion, page, search])
+  }, [dataVersion, page, search, verifiedFilter])
 
   const handleSearch = () => {
     setPage(1)
@@ -96,6 +110,24 @@ export default function AdminUsersPage() {
         }}
         t={t}
       />
+
+      {verifiedFilter === false && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          data-testid="user-verification-filter"
+        >
+          <Badge variant="draft">{t("unverified")}</Badge>
+          <span className="text-muted-foreground">
+            {t("filteredByVerified")}
+          </span>
+          <Link
+            href="/admin/users"
+            className="ms-auto rounded font-medium text-primary outline-none hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+          >
+            {t("clearFilter")}
+          </Link>
+        </div>
+      )}
 
       {phase === "loading" && <UsersTableSkeleton />}
 

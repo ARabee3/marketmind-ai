@@ -3022,6 +3022,9 @@
     "allHealthyDescription": "كل شيء يبدو سليماً. لا توجد اشتراكات أو حسابات تستدعي الانتباه حالياً.",
     "recentUsersLabel": "النشاط الأخير",
     "recentUsersTitle": "آخر المستخدمين",
-    "noRecentUsers": "لم ينضم أي مستخدم بعد."
+    "noRecentUsers": "لم ينضم أي مستخدم بعد.",
+    "filteredByState": "مصفى حسب حالة الاشتراك",
+    "filteredByVerified": "مصفى إلى المستخدمين غير الموثقين",
+    "clearFilter": "عرض الكل"
   }
 }
