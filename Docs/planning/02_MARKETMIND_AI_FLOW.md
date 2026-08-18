@@ -173,9 +173,8 @@ Understand how content performed.
 
 Metrics may come from:
 
-- read-only Meta analytics if available
-- manually entered data
-- clearly labeled scenario/demo data
+- read-only Facebook Page Insights collected automatically for real posts that
+  MarketMind successfully published
 
 Output:
 
@@ -183,7 +182,10 @@ Output:
 
 Important:
 
-Fake/demo analytics must be visibly labeled.
+The monitoring slice does not accept manual analytics. Export, simulation,
+Instagram, failed, unknown, and missing-remote-ID results are ineligible.
+Fixtures may prove automated behavior but never appear as live product data.
+Snapshots are collected at comparable 24-hour, 72-hour, and 7-day ages.
 
 ## Phase 7 — Improve
 
@@ -193,11 +195,8 @@ Suggest changes for future content based on performance.
 
 The Optimization Agent may suggest:
 
-- change posting time
-- change topic mix
-- change caption style
-- create more of a successful format
-- reduce weak content types
+- a different opening-hook style
+- different wording for the already-planned CTA
 
 Output:
 
@@ -205,7 +204,14 @@ Output:
 
 Approval:
 
-Future drafts only change after owner approval.
+The suggestion requires owner approval and may influence one eligible future
+draft only. It cannot edit the Strategy, weekly plan, topic, audience, channel,
+format, locale, media, post count, or publishing schedule. Existing generated,
+approved, scheduled, and published content never changes.
+
+Detailed architecture:
+
+`sprint-8/FACEBOOK_PERFORMANCE_AND_OPTIMIZATION_ARCHITECTURE.md`
 
 ## Full data movement
 
@@ -220,7 +226,9 @@ flowchart TD
     PR --> MS["MetricSnapshot"]
     MS --> OP["OptimizationProposal"]
     SP --> OP
-    OP --> CP2["Future Content Drafts"]
+    OP --> OD["Owner Decision"]
+    OD --> OI["Approved one-time copy instruction"]
+    OI --> CP2["Future Content Draft; weekly plan unchanged"]
 ```
 
 ## Fictional example
