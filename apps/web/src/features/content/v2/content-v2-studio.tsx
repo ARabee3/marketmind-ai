@@ -9,6 +9,7 @@ import type {
   ContentPostPlanV2,
   ContentWeekSummaryV2,
 } from "@marketmind/contracts";
+import { POINT_PRICES } from "@marketmind/contracts";
 import {
   createOrReplaceWeekPlanV2,
   getCycleWorkspaceV2,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/api/content-v2";
 import { generateContentWeek, retryContentPack } from "@/lib/api/content-cycle";
 import { createIdempotencyKey } from "@/lib/api/publishing";
+import { useWallet } from "@/features/billing/wallet-context";
 import { ContentV2PostCard } from "./content-v2-post-card";
 import { ContentV2Setup } from "./content-v2-setup";
 
@@ -33,12 +35,14 @@ type MutationErrorKey =
   | "cyclePaused"
   | "cycleCompleted"
   | "weekAlreadyClaimed"
-  | "rateLimited";
+  | "rateLimited"
+  | "insufficientPoints";
 
 export function ContentV2Studio({ cycleId }: StudioProps) {
   const t = useTranslations("ContentV2.studio");
   const tErrors = useTranslations("ContentV2.errors");
   const format = useFormatter();
+  const { wallet } = useWallet();
 
   const [workspace, setWorkspace] = useState<ContentCycleWorkspaceV2 | null>(
     null,
@@ -273,6 +277,14 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
     current_week.generation_state === "completed" ||
     current_week.pack?.status === "approved";
 
+  const weekPostCount = current_week.week_plan?.post_plans.length ?? 0;
+  const weekCost = weekPostCount * POINT_PRICES.content_item;
+  const generateBlocked =
+    current_week.primary_action === "generate" &&
+    wallet !== null &&
+    weekCost > 0 &&
+    wallet.balance < weekCost;
+
   const primaryActionLabel = () => {
     switch (current_week.primary_action) {
       case "plan_week":
@@ -397,10 +409,35 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
 
             {current_week.week_plan &&
               current_week.primary_action === "generate" && (
-                <p className="rounded-lg border border-dashed border-border bg-surface/60 p-3 text-xs text-muted-foreground">
-                  {t("defaultVisualHint")}
-                </p>
+                <div className="space-y-3">
+                  <p className="rounded-lg border border-dashed border-border bg-surface/60 p-3 text-xs text-muted-foreground">
+                    {t("defaultVisualHint")}
+                  </p>
+                  <p className="text-xs font-semibold text-primary">
+                    {t("weekCost", { points: weekCost })}
+                  </p>
+                </div>
               )}
+
+            {generateBlocked && wallet && (
+              <div
+                role="alert"
+                className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs font-semibold leading-relaxed text-warning"
+              >
+                <p>
+                  {t("insufficientPoints", {
+                    points: weekCost,
+                    balance: wallet.balance,
+                  })}
+                </p>
+                <Link
+                  href="/billing"
+                  className="mt-1 inline-block font-bold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+                >
+                  {t("topUpCta")}
+                </Link>
+              </div>
+            )}
 
             {current_week.primary_action === "regenerate" && (
               <div className="border-s-4 border-danger bg-danger/5 px-4 py-3">
@@ -433,7 +470,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                 <button
                   type="button"
                   onClick={handlePrimaryAction}
-                  disabled={isMutating}
+                  disabled={isMutating || generateBlocked}
                   className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
                 >
                   {isMutating
@@ -740,6 +777,9 @@ function mutationErrorKey(
       return "cycleCompleted";
     case "CONTENT_WEEK_ALREADY_CLAIMED":
       return "weekAlreadyClaimed";
+    case "BILLING_INSUFFICIENT_POINTS":
+    case "BILLING_ENTITLEMENT_EXHAUSTED":
+      return "insufficientPoints";
     default:
       if (candidate?.status === 400) return "planInvalid";
       if (candidate?.status === 409) return "weekAlreadyClaimed";

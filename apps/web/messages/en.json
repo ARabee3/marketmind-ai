@@ -2624,6 +2624,9 @@
       "replanConfirm": "Re-planning replaces the current cards, including owner edits. Continue?",
       "refineCta": "Refine cards",
       "generateCta": "Generate drafts",
+      "weekCost": "This week will use {points} points",
+      "insufficientPoints": "You need {points} points but you have {balance}. Top up to continue.",
+      "topUpCta": "Top up points",
       "generatingCta": "Queueing generation…",
       "reviewCta": "Review drafts",
       "viewApprovedCta": "View approved posts",
@@ -2643,6 +2646,7 @@
     },
     "postCard": {
       "postLabel": "Post {position}",
+      "pointCost": "{points} points",
       "purposeLabel": "Purpose",
       "audienceLabel": "Intended audience",
       "channelLabel": "Channel",
@@ -2799,6 +2803,7 @@
       "cycleCompleted": "This content cycle is complete and cannot generate another week.",
       "weekAlreadyClaimed": "Generation already started for this week. Refresh the studio for the latest status.",
       "rateLimited": "Too many generation requests. Wait a moment, then try again.",
+      "insufficientPoints": "Not enough points for this action. Top up to continue.",
       "refresh": "Refresh",
       "legacyCycle": "This legacy Content V1 pack is outside the active workflow. Start a new Content V2 cycle to continue.",
       "backToContent": "Go to Content"
