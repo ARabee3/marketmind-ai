@@ -197,4 +197,31 @@ describe("PublishingDecisionBuilder", () => {
       ).disabled,
     ).toBe(false);
   });
+
+  it("explains an unreachable media origin without offering a blind retry", () => {
+    const intent = {
+      intent_id: "intent-1",
+      mode: "real",
+      state: "failed",
+      version: 3,
+    } as unknown as PublicationIntentV1;
+    const detail = {
+      publication_intent: intent,
+      approval: null,
+      target,
+      attempts: [{ state: "failed", attempt_number: 1 }],
+      results: [
+        {
+          outcome: "failed",
+          error_code: "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE",
+          retryable: false,
+        },
+      ],
+    } as unknown as PublishingIntentDetailView;
+
+    renderBuilder(intent, detail);
+
+    expect(screen.getByText("decision.mediaOriginNotReachable")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "decision.retry" })).toBeNull();
+  });
 });

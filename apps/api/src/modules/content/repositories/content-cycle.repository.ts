@@ -385,9 +385,10 @@ export class ContentCycleRepository {
    * unplanned content. This method atomically:
    *
    *   1. Serializes on the cycle row (`SELECT ... FOR UPDATE`).
-   *   2. Conditionally advances `currentWeekNumber` from N to N+1 only when
-   *      the row still has the expected cursor and status — concurrent
-   *      scheduler ticks resolve to a no-op (`advanced: false`).
+   *   2. Conditionally advances `currentWeekNumber` from the caller's
+   *      observed N to N+1 only when the locked row still has that cursor and
+   *      status — concurrent scheduler ticks resolve to a no-op
+   *      (`advanced: false`) instead of rolling over another week.
    *   3. Sets `nextGenerationAt` to the cutoff for week N+1 so the cycle is
    *      not reselected every five minutes while the owner plans.
    *   4. Creates the structural week-context row for week N+1 if it does not
@@ -400,7 +401,10 @@ export class ContentCycleRepository {
    * Returns `advanced: false` for cycles that are not active content-v2 or
    * when a concurrent tick already handled the rollover.
    */
-  async advanceToNextWeek(cycleId: string): Promise<{
+  async advanceToNextWeek(
+    cycleId: string,
+    expectedCurrentWeekNumber: number,
+  ): Promise<{
     advanced: boolean;
     completed: boolean;
     nextWeekNumber: number | null;
@@ -424,6 +428,15 @@ export class ContentCycleRepository {
       });
 
       if (cycle.status !== "active" || cycle.contractVersion !== "content-v2") {
+        return { advanced: false, completed: false, nextWeekNumber: null };
+      }
+
+      // The scheduler selected this cycle using a snapshot of the cursor. A
+      // different process/tick may have advanced it while this transaction
+      // waited for the row lock. Treat that stale snapshot as a no-op; never
+      // roll a cycle forward a second time just because the lock serialized
+      // the two callers.
+      if (cycle.currentWeekNumber !== expectedCurrentWeekNumber) {
         return { advanced: false, completed: false, nextWeekNumber: null };
       }
 

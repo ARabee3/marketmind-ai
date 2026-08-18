@@ -29,7 +29,10 @@ export class ContentScheduler {
       const correlationId = randomUUID();
 
       try {
-        const result = await this.cycleRepository.advanceToNextWeek(cycle.id);
+        const result = await this.cycleRepository.advanceToNextWeek(
+          cycle.id,
+          cycle.currentWeekNumber,
+        );
         if (result.advanced) {
           this.logger.log(
             `Rolled over cycle ${cycle.id} to actionable week ${result.nextWeekNumber} (correlation_id=${correlationId})`,

@@ -655,6 +655,7 @@
     "strategyVersionConflict": "This Strategy version is stale. Refresh before deciding.",
     "discoveryAlreadyConfirmed": "A business profile is already confirmed. View your saved discovery result in the dashboard.",
     "billingLimitReached": "Your plan limit for this action has been reached for the current period.",
+    "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then retry.",
     "serverError": "Server error. Please try again later."
   },
   "NotFound": {
@@ -1858,6 +1859,7 @@
       "unknownConsequence": "Do not repost or retry. MarketMind is checking whether the provider received the request.",
       "retryableFailure": "The publishing provider did not complete this post, and nothing was confirmed as published. It is safe to retry.",
       "nonRetryableFailure": "The publishing provider did not complete this post. Refresh the status before choosing another action.",
+      "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then refresh and retry after it is fixed.",
       "dispatching": "Working through the publishing boundary…",
       "cancelled": "This intent is read-only. Start a new decision if the candidate is still active.",
       "completed": "This action is complete. Export and simulation do not block publishing.",

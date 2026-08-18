@@ -477,7 +477,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result).toEqual({
         advanced: true,
@@ -511,7 +511,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result.advanced).toBe(true);
       expect(contextCreate).not.toHaveBeenCalled();
@@ -525,7 +525,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result).toEqual({
         advanced: false,
@@ -543,7 +543,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 12);
 
       expect(result).toEqual({
         advanced: false,
@@ -568,7 +568,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result).toEqual({
         advanced: false,
@@ -586,7 +586,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result).toEqual({
         advanced: false,
@@ -608,7 +608,7 @@ describe("ContentCycleRepository", () => {
         $transaction,
       } as unknown as PrismaService);
 
-      const result = await repo.advanceToNextWeek("cycle-1");
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
 
       expect(result.advanced).toBe(true);
       expect(result.nextWeekNumber).toBe(2);
@@ -618,6 +618,25 @@ describe("ContentCycleRepository", () => {
       const created = contextCreate.mock.calls[0][0].data;
       expect(created.weekNumber).toBe(2);
       expect(created.contextSource).toBe("system_defaulted");
+    });
+
+    it("does not advance again when a concurrent tick's snapshot is stale", async () => {
+      const { $transaction, tx, contextCreate } = makeRolloverTx({
+        cycle: { currentWeekNumber: 2 },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: false,
+        nextWeekNumber: null,
+      });
+      expect(tx.contentCycle.updateMany).not.toHaveBeenCalled();
+      expect(contextCreate).not.toHaveBeenCalled();
     });
   });
 });

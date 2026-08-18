@@ -39,8 +39,8 @@ describe("ContentScheduler", () => {
     await scheduler.progressWeeks();
 
     expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledTimes(2);
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1");
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-2");
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1", 1);
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-2", 5);
   });
 
   it("does not call generateWeek and never auto-generates content", async () => {
@@ -57,7 +57,7 @@ describe("ContentScheduler", () => {
 
     // The scheduler must only advance the cursor; content generation is an
     // owner-explicit action through the V2 studio.
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledTimes(1);
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1", 1);
     expect((cycleRepo as any).generateWeek).toBeUndefined();
   });
 
@@ -86,7 +86,7 @@ describe("ContentScheduler", () => {
     await scheduler.progressWeeks();
 
     expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledTimes(2);
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenNthCalledWith(2, "good");
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenNthCalledWith(2, "good", 3);
   });
 
   it("completes a cycle that has reached week 12 instead of advancing", async () => {
@@ -101,7 +101,7 @@ describe("ContentScheduler", () => {
 
     await scheduler.progressWeeks();
 
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1");
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1", 11);
   });
 
   // ── Regression (issue #240): a Week 1 approved cycle past cutoff with no
@@ -128,6 +128,7 @@ describe("ContentScheduler", () => {
     expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledTimes(1);
     expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith(
       "c75bbc14-e983-44d6-98c9-baad91d02c08",
+      1,
     );
   });
 
@@ -143,6 +144,6 @@ describe("ContentScheduler", () => {
 
     await scheduler.progressWeeks();
 
-    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledTimes(1);
+    expect(cycleRepo.advanceToNextWeek).toHaveBeenCalledWith("cycle-1", 1);
   });
 });
