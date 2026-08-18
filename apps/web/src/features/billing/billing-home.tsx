@@ -9,7 +9,7 @@ import type {
   BillingTransactionResponse,
   BillingWalletResponse,
 } from '@marketmind/contracts'
-import { LoaderCircle, WalletCards } from 'lucide-react'
+import { ChevronDown, LoaderCircle, WalletCards } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -247,31 +247,47 @@ function WalletBalancePanel({
           {t('balanceLabel')}
         </CardDescription>
         <CardTitle
-          className="text-5xl font-bold text-primary-foreground tabular-nums"
+          className="text-lg font-semibold text-primary-foreground"
           data-testid="wallet-balance"
         >
-          {t('balanceCount', { points: wallet.balance })}
+          {t.rich('balanceCount', {
+            points: wallet.balance,
+            big: (chunks) => (
+              <span className="text-5xl font-extrabold tracking-tight text-white tabular-nums md:text-6xl">
+                {chunks}
+              </span>
+            ),
+          })}
         </CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 text-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-        <div className="grid gap-1 border-t border-primary-foreground/20 pt-4">
-          <span className="text-primary-foreground/65">
-            {t('lifetimeGranted', { points: wallet.lifetime_granted })}
-          </span>
-          <span className="text-primary-foreground/65">
-            {t('lifetimeSpent', { points: wallet.lifetime_spent })}
-          </span>
+      <CardContent className="grid gap-3 text-sm">
+        <div className="flex items-center justify-between gap-4 border-t border-primary-foreground/20 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={onTopUp}
+            className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+          >
+            <WalletCards aria-hidden="true" />
+            {t('topUp')}
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={onTopUp}
-          className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-        >
-          <WalletCards aria-hidden="true" />
-          {t('topUp')}
-        </Button>
+        <details className="group border-t border-primary-foreground/20 pt-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-primary-foreground/70 transition-colors hover:text-primary-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">{t('balanceDetails')}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-4 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="grid gap-1 pt-3 text-primary-foreground/65">
+            <span>
+              {t('lifetimeGranted', { points: wallet.lifetime_granted })}
+            </span>
+            <span>{t('lifetimeSpent', { points: wallet.lifetime_spent })}</span>
+          </div>
+        </details>
       </CardContent>
     </Card>
   )
