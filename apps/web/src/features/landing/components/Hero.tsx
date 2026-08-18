@@ -5,6 +5,7 @@ import {
   CheckIcon,
   FileTextIcon,
   Layers3Icon,
+  SparklesIcon,
   UserRoundCheckIcon,
 } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
@@ -20,37 +21,37 @@ export async function Hero() {
   return (
     <section
       id="top"
-      className="hero-workspace hero-grid relative w-full overflow-hidden px-4 pb-14 pt-[112px] scroll-mt-28 sm:px-6 md:pb-20 md:pt-[142px]"
+      className="hero-workspace hero-grid relative w-full overflow-hidden px-4 pb-12 pt-[108px] scroll-mt-28 sm:px-6 md:pb-16 md:pt-[132px]"
     >
-      <div className="relative z-10 mx-auto grid w-full max-w-content items-center gap-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16">
+      <div className="relative z-10 mx-auto grid w-full max-w-content items-center gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-14">
         <div className="max-w-[620px] text-start">
-          <div className="flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-surface px-4 py-1.5 text-primary shadow-[0_8px_24px_rgb(16_42_67_/_6%)]">
+          <div className="flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-surface px-3.5 py-1.5 text-primary shadow-[0_4px_16px_rgb(16_42_67_/_6%)]">
             <span className="relative flex h-2.5 w-2.5" aria-hidden>
               <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
               <span className="relative h-2.5 w-2.5 rounded-full bg-primary" />
             </span>
-            <span className="text-[13px] font-bold">{t('badge')}</span>
+            <span className="text-[12px] font-bold">{t('badge')}</span>
           </div>
 
-          <h1 className="mt-6 text-balance text-[clamp(2.7rem,4.6vw,4.45rem)] font-bold leading-[1.01] tracking-[-0.02em] text-navy rtl:leading-[1.2] rtl:tracking-normal">
+          <h1 className="mt-5 text-balance text-[clamp(2.5rem,4.5vw,4.25rem)] font-bold leading-[1.02] tracking-[-0.02em] text-navy rtl:leading-[1.2] rtl:tracking-normal">
             {t('title')}
           </h1>
-          <p className="mt-6 max-w-[580px] text-pretty text-[clamp(1.05rem,2vw,1.22rem)] leading-[1.8] text-ink-soft rtl:leading-[1.95]">
+          <p className="mt-5 max-w-[580px] text-pretty text-[clamp(1rem,1.8vw,1.15rem)] leading-[1.75] text-ink-soft rtl:leading-[1.9]">
             {t('body')}
           </p>
 
-          <div className="mt-8 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
-            <Link href="/register" className="cta-solid group w-full gap-2 px-7 py-3 text-[15px] font-bold sm:w-auto">
+          <div className="mt-7 flex flex-col items-stretch gap-3.5 sm:flex-row sm:items-center">
+            <Link href="/register" className="cta-solid group w-full gap-2 px-7 py-3 text-[14px] font-bold sm:w-auto">
               {t('primary')}
               <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5 rtl:scale-x-[-1] rtl:group-hover:-translate-x-0.5" aria-hidden />
             </Link>
-            <a href="#discovery" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-4 py-3 text-[14px] font-bold text-navy underline decoration-border decoration-2 underline-offset-8 outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-action">
+            <a href="#how-it-works" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-navy underline decoration-border decoration-2 underline-offset-8 outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-action">
               {t('secondary')}
               <ArrowDownIcon className="h-4 w-4" aria-hidden />
             </a>
           </div>
 
-          <p className="mt-6 flex max-w-[520px] items-start gap-2 text-[13px] leading-[1.7] text-muted rtl:leading-[1.85]">
+          <p className="mt-5 flex max-w-[520px] items-start gap-2 text-[12.5px] leading-[1.65] text-muted rtl:leading-[1.8]">
             <UserRoundCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             {t('note')}
           </p>
@@ -69,6 +70,8 @@ export async function Hero() {
             weekUpcomingLabel={t('preview.weekUpcomingLabel')}
             focusLabel={t('preview.focusLabel')}
             focusText={t('preview.focusText')}
+            optimizationLabel={t('preview.optimizationLabel')}
+            optimizationText={t('preview.optimizationText')}
             contentLabel={t('preview.contentLabel')}
             contentItems={contentItems}
             actionLabel={t('preview.actionLabel')}
@@ -93,6 +96,8 @@ type MarketingRunwayProps = {
   readonly weekUpcomingLabel: string
   readonly focusLabel: string
   readonly focusText: string
+  readonly optimizationLabel: string
+  readonly optimizationText: string
   readonly contentLabel: string
   readonly contentItems: string[]
   readonly actionLabel: string
@@ -112,6 +117,8 @@ function MarketingRunway({
   weekUpcomingLabel,
   focusLabel,
   focusText,
+  optimizationLabel,
+  optimizationText,
   contentLabel,
   contentItems,
   actionLabel,
@@ -164,19 +171,28 @@ function MarketingRunway({
           })}
         </ol>
 
-        <div className="mt-4 rounded-xl bg-navy p-5 text-white shadow-[0_5px_0_var(--primary)]">
+        <div className="mt-4 rounded-xl bg-navy p-4 text-white shadow-[0_5px_0_var(--primary)] sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-journey-mint/15 text-journey-mint">
               <Layers3Icon className="h-[18px] w-[18px]" aria-hidden />
             </span>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-journey-mint rtl:tracking-normal">{focusLabel}</p>
-              <p className="mt-1 text-[16px] font-bold leading-[1.5] text-white rtl:leading-[1.75]">{focusText}</p>
+              <p className="mt-1 text-[15px] font-bold leading-[1.5] text-white rtl:leading-[1.75]">{focusText}</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1.08fr_0.92fr]">
+        {/* Optimization feedback pill */}
+        <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-primary/25 bg-soft-teal px-3.5 py-2.5 text-navy">
+          <SparklesIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <div className="text-[12px] leading-[1.6]">
+            <span className="font-bold text-primary">{optimizationLabel}: </span>
+            <span className="font-semibold text-ink-soft">{optimizationText}</span>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1.08fr_0.92fr]">
           <div className="rounded-xl border border-border bg-bg p-4">
             <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted rtl:tracking-normal">
               <FileTextIcon className="h-4 w-4 text-action" aria-hidden />
@@ -204,3 +220,4 @@ function MarketingRunway({
     </div>
   )
 }
+

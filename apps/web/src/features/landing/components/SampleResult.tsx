@@ -1,4 +1,11 @@
-import { ArrowDownIcon, FileTextIcon, Layers3Icon, TargetIcon, UserRoundCheckIcon } from 'lucide-react'
+import {
+  ArrowDownIcon,
+  BarChart3Icon,
+  FileTextIcon,
+  Layers3Icon,
+  TargetIcon,
+  UserRoundCheckIcon,
+} from 'lucide-react'
 import Image from 'next/image'
 import { getTranslations } from 'next-intl/server'
 import { cn } from '@/lib/utils'
@@ -11,36 +18,36 @@ export async function SampleResult() {
   const status = await getTranslations('Landing.status')
 
   return (
-    <section id="sample" className="relative overflow-hidden bg-bg px-4 py-[84px] scroll-mt-24 sm:px-6 md:py-[118px]">
+    <section id="sample" className="relative overflow-hidden bg-bg px-4 py-16 scroll-mt-24 sm:px-6 md:py-20">
       <div className="mx-auto w-full max-w-content">
-        <div className="grid items-end gap-6 md:grid-cols-[1fr_auto]">
+        <div className="grid items-end gap-5 md:grid-cols-[1fr_auto]">
           <div className="max-w-[760px]">
             <Eyebrow>{t('eyebrow')}</Eyebrow>
-            <h2 className="mt-4 text-balance text-[clamp(2.5rem,6vw,5rem)] font-bold leading-[0.98] tracking-[-0.04em] text-navy rtl:leading-[1.18] rtl:tracking-normal">
+            <h2 className="mt-3.5 text-balance text-[clamp(2.3rem,5.2vw,4.3rem)] font-bold leading-[1.02] tracking-[-0.03em] text-navy rtl:leading-[1.2] rtl:tracking-normal">
               {t('title')}
             </h2>
           </div>
-          <p className="max-w-[390px] text-[14px] leading-[1.8] text-ink-soft md:text-end">{t('body')}</p>
+          <p className="max-w-[390px] text-[14px] leading-[1.75] text-ink-soft md:text-end">{t('body')}</p>
         </div>
 
-        <div className="sample-board mt-10 overflow-hidden rounded-[1.35rem] border border-border bg-surface shadow-elevated">
-          <header className="flex flex-col gap-3 border-b border-border bg-surface/95 px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-7">
+        <div className="sample-board mt-8 overflow-hidden rounded-[1.35rem] border border-border bg-surface shadow-elevated">
+          <header className="flex flex-col gap-3 border-b border-border bg-surface/95 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between md:px-7">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-soft-teal text-primary">
-                <FileTextIcon className="h-[18px] w-[18px]" aria-hidden />
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-soft-teal text-primary">
+                <FileTextIcon className="h-4 w-4" aria-hidden />
               </span>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-muted rtl:tracking-normal">{t('caseLabel')}</p>
-                <p className="mt-0.5 text-[14px] font-bold text-navy">{t('name')}</p>
+                <p className="mt-0.5 text-[13px] font-bold text-navy">{t('name')}</p>
               </div>
             </div>
-            <span className="w-fit rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-bold text-warning">
+            <span className="w-fit rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-[11px] font-bold text-warning">
               {t('exampleLabel')}
             </span>
           </header>
 
           <div className="grid lg:grid-cols-[0.76fr_1.24fr]">
-            <div className="relative min-h-[300px] overflow-hidden border-b border-border lg:min-h-[620px] lg:border-b-0 lg:border-e">
+            <div className="relative min-h-[260px] overflow-hidden border-b border-border lg:min-h-[560px] lg:border-b-0 lg:border-e">
               <Image
                 src={SHOP_IMG}
                 alt={t('imageAlt')}
@@ -50,13 +57,13 @@ export async function SampleResult() {
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/10 to-transparent" aria-hidden />
-              <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8">
+              <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-7">
                 <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-journey-mint rtl:tracking-normal">{t('sourceType')}</p>
-                <p className="mt-2 max-w-[430px] text-[15px] font-medium leading-[1.75] text-white/90">{t('sourceCaption')}</p>
+                <p className="mt-1.5 max-w-[430px] text-[14px] font-medium leading-[1.7] text-white/90">{t('sourceCaption')}</p>
               </div>
             </div>
 
-            <div className="bg-surface p-5 md:p-8 lg:p-10">
+            <div className="bg-surface p-5 md:p-7">
               <div aria-label={t('aria')} className="grid gap-3">
                 <DecisionStep icon={TargetIcon} label={t('sourceTitle')} tone="neutral">
                   {t('sourceText')}
@@ -88,9 +95,18 @@ export async function SampleResult() {
                 >
                   {t('outcomeText')}
                 </DecisionStep>
+                <FlowArrow label={t('optTransition')} />
+                <DecisionStep
+                  icon={BarChart3Icon}
+                  label={t('optimizationTitle')}
+                  tone="action"
+                  badge={<span className="rounded-full border border-primary/35 bg-soft-teal px-2.5 py-1 text-[10px] font-bold text-primary">{t('optimizationBadge')}</span>}
+                >
+                  {t('optimizationText')}
+                </DecisionStep>
               </div>
 
-              <p className="mt-7 border-t border-border pt-5 text-[12px] leading-[1.7] text-muted">{t('outcomeNote')}</p>
+              <p className="mt-6 border-t border-border pt-4 text-[12px] leading-[1.7] text-muted">{t('optimizationNote')}</p>
             </div>
           </div>
         </div>
@@ -124,7 +140,7 @@ function DecisionStep({
   return (
     <div
       className={cn(
-        'rounded-xl border p-4 md:p-5',
+        'rounded-xl border p-4 md:p-4.5',
         tone === 'neutral' && 'border-border bg-bg',
         tone === 'action' && 'border-action/25 bg-action-soft',
         tone === 'owner' && 'border-2 border-primary bg-soft-teal shadow-[0_5px_0_var(--navy)]',
@@ -146,3 +162,4 @@ function DecisionStep({
     </div>
   )
 }
+

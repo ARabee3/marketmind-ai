@@ -1,3 +1,4 @@
+import { AgentShowcase } from './components/AgentShowcase'
 import { Faq } from './components/Faq'
 import { FinalCta } from './components/FinalCta'
 import { Hero } from './components/Hero'
@@ -9,9 +10,11 @@ export async function LandingPageContent() {
     <>
       <Hero />
       <OwnerDecisionTrail />
+      <AgentShowcase />
       <SampleResult />
       <Faq />
       <FinalCta />
     </>
   )
 }
+
