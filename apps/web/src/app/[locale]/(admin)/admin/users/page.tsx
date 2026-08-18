@@ -76,64 +76,31 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <section className="flex flex-col gap-5 md:gap-7">
       <AdminPageHeader
         eyebrow={t("usersEyebrow")}
         title={t("users")}
         description={t("usersDescription")}
       />
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          handleSearch()
+      <SearchCard
+        searchInput={searchInput}
+        onSearchInputChange={setSearchInput}
+        onSearch={handleSearch}
+        search={search}
+        onClear={() => {
+          setSearchInput("")
+          setSearch("")
+          setPage(1)
+          setDataVersion((v) => v + 1)
         }}
-        className="flex flex-col gap-2 sm:flex-row"
-      >
-        <label htmlFor="admin-user-search" className="sr-only">
-          {t("searchLabel")}
-        </label>
-        <Input
-          id="admin-user-search"
-          name="search"
-          autoComplete="off"
-          type="search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder={t("searchUsers")}
-          className="h-10 w-full sm:max-w-sm"
-        />
-        <Button type="submit" size="lg" className="h-10">
-          {t("search")}
-        </Button>
-        {search && (
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="h-10"
-            onClick={() => {
-              setSearchInput("")
-              setSearch("")
-              setPage(1)
-              setDataVersion((v) => v + 1)
-            }}
-          >
-            {t("clear")}
-          </Button>
-        )}
-      </form>
+        t={t}
+      />
 
-      {phase === "loading" && (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12" />
-          ))}
-        </div>
-      )}
+      {phase === "loading" && <UsersTableSkeleton />}
 
       {phase === "error" && (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface px-5 py-8 shadow-elevated">
           <p className="text-muted-foreground">{t("loadError")}</p>
           <Button type="button" onClick={retry}>
             {t("retry")}
@@ -141,119 +108,17 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {phase === "ready" && users.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("noUsers")}</p>
-      )}
-
-      {phase === "ready" && users.length > 0 && (
-        <>
-          <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-            <Table className="min-w-[980px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("fullName")}</TableHead>
-                  <TableHead>{t("email")}</TableHead>
-                  <TableHead>{t("emailVerified")}</TableHead>
-                  <TableHead>{t("roles")}</TableHead>
-                  <TableHead>{t("loginMethod")}</TableHead>
-                  <TableHead>{t("status")}</TableHead>
-                  <TableHead>{t("businesses")}</TableHead>
-                  <TableHead>{t("activeSessions")}</TableHead>
-                  <TableHead>{t("joined")}</TableHead>
-                  <TableHead>{t("lastLogin")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => {
-                  const displayName = u.fullName || t("none")
-                  return (
-                    <TableRow
-                      key={u.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={t("openUserDetails", { name: displayName })}
-                      className="cursor-pointer touch-manipulation focus-visible:bg-soft-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-                      onClick={() => setSelectedUserId(u.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault()
-                          setSelectedUserId(u.id)
-                        }
-                      }}
-                    >
-                      <TableCell className="font-medium text-navy">
-                        {displayName}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {u.email}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={u.isEmailVerified ? "active" : "draft"}
-                        >
-                          {u.isEmailVerified ? t("verified") : t("unverified")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {u.roles.map((r) => (
-                            <Badge
-                              key={r}
-                              variant={
-                                r === "ADMIN"
-                                  ? "admin"
-                                  : r === "OWNER"
-                                    ? "owner"
-                                    : "demo"
-                              }
-                            >
-                              {adminRoleLabel(r, t)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {adminLoginMethodLabel(u.loginMethod, t)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={u.status === "active" ? "active" : "draft"}
-                        >
-                          {adminStatusLabel(u.status, t)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="tabular-nums text-muted-foreground">
-                        {u.businessCount}
-                      </TableCell>
-                      <TableCell className="tabular-nums text-muted-foreground">
-                        {u.activeSessionCount}
-                      </TableCell>
-                      <TableCell className="tabular-nums text-muted-foreground">
-                        {format.dateTime(new Date(u.createdAt), {
-                          dateStyle: "medium",
-                        })}
-                      </TableCell>
-                      <TableCell className="tabular-nums text-muted-foreground">
-                        {u.lastLoginAt
-                          ? format.dateTime(new Date(u.lastLoginAt), {
-                              dateStyle: "medium",
-                            })
-                          : t("neverLoggedIn")}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-          <AdminPagination
-            page={page}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={goToPage}
-          />
-        </>
+      {phase === "ready" && (
+        <UsersTableCard
+          users={users}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={goToPage}
+          onSelectUser={setSelectedUserId}
+          t={t}
+          format={format}
+        />
       )}
 
       {selectedUserId && (
@@ -262,7 +127,238 @@ export default function AdminUsersPage() {
           onClose={closeUserDetails}
         />
       )}
-    </div>
+    </section>
+  )
+}
+
+function SearchCard({
+  searchInput,
+  onSearchInputChange,
+  onSearch,
+  search,
+  onClear,
+  t,
+}: {
+  searchInput: string
+  onSearchInputChange: (value: string) => void
+  onSearch: () => void
+  search: string
+  onClear: () => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
+      <div className="border-b border-border bg-soft-teal px-4 py-3 md:px-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
+          {t("search")}
+        </p>
+      </div>
+      <div className="p-4 md:p-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSearch()
+          }}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <label htmlFor="admin-user-search" className="sr-only">
+            {t("searchLabel")}
+          </label>
+          <Input
+            id="admin-user-search"
+            name="search"
+            autoComplete="off"
+            type="search"
+            value={searchInput}
+            onChange={(e) => onSearchInputChange(e.target.value)}
+            placeholder={t("searchUsers")}
+            className="h-10 w-full sm:max-w-sm"
+          />
+          <Button type="submit" size="lg" className="h-10">
+            {t("search")}
+          </Button>
+          {search && (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-10"
+              onClick={onClear}
+            >
+              {t("clear")}
+            </Button>
+          )}
+        </form>
+      </div>
+    </article>
+  )
+}
+
+function UsersTableCard({
+  users,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onSelectUser,
+  t,
+  format,
+}: {
+  users: AdminUserRow[]
+  total: number
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onSelectUser: (id: string) => void
+  t: ReturnType<typeof useTranslations>
+  format: ReturnType<typeof useFormatter>
+}) {
+  return (
+    <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
+      <div className="border-b border-border bg-soft-teal px-4 py-3 md:px-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
+          {t("users")}
+        </p>
+      </div>
+      <div className="grid gap-5 p-4 md:p-5">
+        <div className="grid gap-1">
+          <h2 className="text-2xl font-bold text-navy">
+            {t("recentUsers")}
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            {t("usersDescription")}
+          </p>
+        </div>
+
+        {users.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noUsers")}</p>
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-xl border border-border">
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("fullName")}</TableHead>
+                    <TableHead>{t("email")}</TableHead>
+                    <TableHead>{t("emailVerified")}</TableHead>
+                    <TableHead>{t("roles")}</TableHead>
+                    <TableHead>{t("loginMethod")}</TableHead>
+                    <TableHead>{t("status")}</TableHead>
+                    <TableHead>{t("businesses")}</TableHead>
+                    <TableHead>{t("activeSessions")}</TableHead>
+                    <TableHead>{t("joined")}</TableHead>
+                    <TableHead>{t("lastLogin")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((u) => {
+                    const displayName = u.fullName || t("none")
+                    return (
+                      <TableRow
+                        key={u.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t("openUserDetails", { name: displayName })}
+                        className="cursor-pointer touch-manipulation focus-visible:bg-soft-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+                        onClick={() => onSelectUser(u.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            onSelectUser(u.id)
+                          }
+                        }}
+                      >
+                        <TableCell className="font-medium text-navy">
+                          {displayName}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {u.email}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={u.isEmailVerified ? "active" : "draft"}
+                          >
+                            {u.isEmailVerified ? t("verified") : t("unverified")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {u.roles.map((r) => (
+                              <Badge
+                                key={r}
+                                variant={
+                                  r === "ADMIN"
+                                    ? "admin"
+                                    : r === "OWNER"
+                                      ? "owner"
+                                      : "demo"
+                                }
+                              >
+                                {adminRoleLabel(r, t)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {adminLoginMethodLabel(u.loginMethod, t)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={u.status === "active" ? "active" : "draft"}
+                          >
+                            {adminStatusLabel(u.status, t)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {u.businessCount}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {u.activeSessionCount}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {format.dateTime(new Date(u.createdAt), {
+                            dateStyle: "medium",
+                          })}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {u.lastLoginAt
+                            ? format.dateTime(new Date(u.lastLoginAt), {
+                                dateStyle: "medium",
+                              })
+                            : t("neverLoggedIn")}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <AdminPagination
+              page={page}
+              total={total}
+              pageSize={pageSize}
+              onPageChange={onPageChange}
+            />
+          </>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function UsersTableSkeleton() {
+  return (
+    <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
+      <div className="border-b border-border bg-soft-teal px-4 py-3 md:px-5">
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <div className="space-y-2 p-4 md:p-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-12" />
+        ))}
+      </div>
+    </article>
   )
 }
 

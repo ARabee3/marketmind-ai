@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react"
 import { StatTile } from "../ui/stat-tile"
 import AdminOverviewPage from "@/app/[locale]/(admin)/admin/page"
 import {
@@ -14,7 +14,7 @@ vi.mock("next-intl", () => ({
       : key,
   useFormatter: () => ({
     dateTime: () => "10:00 AM",
-    number: (_: number) => "EGP 299",
+    number: () => "EGP 299",
   }),
   useLocale: () => "en",
 }))
@@ -90,6 +90,21 @@ describe("AdminOverviewPage", () => {
     vi.clearAllMocks()
   })
 
+  it("renders the admin console hero banner", async () => {
+    getAdminRevenueSummaryMock.mockResolvedValue(summaryAllClear)
+    getAdminUsersMock.mockResolvedValue(emptyUsersPage())
+
+    await act(async () => {
+      render(<AdminOverviewPage />)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("adminConsole")).toBeDefined()
+      expect(screen.getByText("overviewDescription")).toBeDefined()
+      expect(screen.getByRole("link", { name: "viewAllUsers" })).toBeDefined()
+    })
+  })
+
   it("renders Needs-attention rows from the summary counts", async () => {
     getAdminRevenueSummaryMock.mockResolvedValue(summaryWithNeeds)
     getAdminUsersMock.mockResolvedValue(emptyUsersPage(42))
@@ -98,15 +113,17 @@ describe("AdminOverviewPage", () => {
       render(<AdminOverviewPage />)
     })
 
+    const needsAttention = await screen.findByTestId("admin-needs-attention")
+
     await waitFor(() => {
-      expect(screen.getByText("pastDueSubscriptions")).toBeDefined()
-      expect(screen.getByText("expiredSubscriptions")).toBeDefined()
-      expect(screen.getByText("unverifiedUsers")).toBeDefined()
+      expect(within(needsAttention).getByText("pastDueSubscriptions")).toBeDefined()
+      expect(within(needsAttention).getByText("expiredSubscriptions")).toBeDefined()
+      expect(within(needsAttention).getByText("unverifiedUsers")).toBeDefined()
     })
-    expect(screen.getByText("2")).toBeDefined()
-    expect(screen.getByText("7")).toBeDefined()
-    expect(screen.getByText("9")).toBeDefined()
-    expect(screen.getAllByText("viewDetails")).toHaveLength(3)
+    expect(within(needsAttention).getByText("2")).toBeDefined()
+    expect(within(needsAttention).getByText("7")).toBeDefined()
+    expect(within(needsAttention).getByText("9")).toBeDefined()
+    expect(within(needsAttention).getAllByText("viewDetails")).toHaveLength(3)
   })
 
   it("shows the all-clear healthy state when no counts need attention", async () => {
@@ -121,6 +138,31 @@ describe("AdminOverviewPage", () => {
       expect(screen.getByText("allClear")).toBeDefined()
     })
     expect(screen.queryByText("viewDetails")).toBeNull()
+  })
+
+  it("renders metric cards from revenue and user totals", async () => {
+    getAdminRevenueSummaryMock.mockResolvedValue(summaryWithNeeds)
+    getAdminUsersMock.mockResolvedValue(emptyUsersPage(42))
+
+    await act(async () => {
+      render(<AdminOverviewPage />)
+    })
+
+    const metrics = await screen.findByTestId("admin-metrics")
+
+    await waitFor(() => {
+      expect(within(metrics).getByText("totalUsers")).toBeDefined()
+      expect(within(metrics).getByText("activeBusinesses")).toBeDefined()
+      expect(within(metrics).getByText("activeSubscriptions")).toBeDefined()
+      expect(within(metrics).getByText("mrr")).toBeDefined()
+    })
+    const values = within(metrics)
+      .getAllByTestId("metric-value")
+      .map((el) => el.textContent)
+    expect(values).toContain("42")
+    expect(values).toContain("3")
+    expect(values).toContain("5")
+    expect(values).toContain("EGP 299")
   })
 
   it("renders Last-refreshed timestamp and a Refresh action that re-fetches", async () => {

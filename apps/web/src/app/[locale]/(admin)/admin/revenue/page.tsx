@@ -63,7 +63,7 @@ export default function AdminRevenuePage() {
 
   if (phase === "loading") {
     return (
-      <div className="space-y-8">
+      <section className="flex flex-col gap-5 md:gap-7">
         <AdminPageHeader
           eyebrow={t("revenueEyebrow")}
           title={t("revenue")}
@@ -74,31 +74,31 @@ export default function AdminRevenuePage() {
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
-        <Skeleton className="h-64" />
-      </div>
+        <RevenueTableSkeleton t={t} />
+      </section>
     )
   }
 
   if (phase === "error") {
     return (
-      <div className="space-y-8">
+      <section className="flex flex-col gap-5 md:gap-7">
         <AdminPageHeader
           eyebrow={t("revenueEyebrow")}
           title={t("revenue")}
           description={t("revenueDescription")}
         />
-        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface px-5 py-8 shadow-elevated">
           <p className="text-muted-foreground">{t("loadError")}</p>
           <Button type="button" onClick={retry}>
             {t("retry")}
           </Button>
         </div>
-      </div>
+      </section>
     )
   }
 
   return (
-    <div className="space-y-8">
+    <section className="flex flex-col gap-5 md:gap-7">
       <AdminPageHeader
         eyebrow={t("revenueEyebrow")}
         title={t("revenue")}
@@ -133,94 +133,126 @@ export default function AdminRevenuePage() {
         />
       </div>
 
-      <section>
-        <h2 className="mb-4 text-sm font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-          {t("subscriptions")}
-        </h2>
-        {subs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("noSubscriptions")}
+      <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
+        <div className="border-b border-border bg-soft-teal px-4 py-3 md:px-5">
+          <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
+            {t("subscriptions")}
           </p>
-        ) : (
-          <>
-            <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("owner")}</TableHead>
-                    <TableHead>{t("plan")}</TableHead>
-                    <TableHead>{t("amount")}</TableHead>
-                    <TableHead>{t("subscriptionState")}</TableHead>
-                    <TableHead>{t("paidThrough")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subs.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <span className="font-medium text-navy">
-                          {s.ownerName || s.ownerEmail}
-                        </span>
-                        {s.ownerName && (
-                          <span className="block text-xs text-muted-foreground">
-                            {s.ownerEmail}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {(locale === "ar"
-                          ? s.priceDisplayNameAr
-                          : s.priceDisplayNameEn) + ` (${s.planCode})`}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {format.number(s.amountEgp, {
-                          style: "currency",
-                          currency: "EGP",
-                          maximumFractionDigits: 0,
-                        })}
-                        <span className="ms-1 text-xs text-muted-foreground">
-                          /{adminIntervalLabel(s.interval, t)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            s.state === "active"
-                              ? "active"
-                              : s.state === "trialing"
-                                ? "trialing"
-                                : s.state === "past_due"
-                                  ? "past_due"
-                                  : s.state === "expired"
-                                    ? "expired"
-                                    : "default"
-                          }
-                        >
-                          {adminStatusLabel(s.state, t)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="tabular-nums text-muted-foreground">
-                        {s.paidThroughAt
-                          ? format.dateTime(new Date(s.paidThroughAt), {
-                              dateStyle: "medium",
-                            })
-                          : t("none")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+        </div>
+        <div className="grid gap-5 p-4 md:p-5">
+          <div className="grid gap-1">
+            <h2 className="text-2xl font-bold text-navy">
+              {t("subscriptions")}
+            </h2>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              {t("revenueDescription")}
+            </p>
+          </div>
 
-            <AdminPagination
-              page={subPage}
-              total={subTotal}
-              pageSize={subPageSize}
-              onPageChange={goToPage}
-            />
-          </>
-        )}
-      </section>
-    </div>
+          {subs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("noSubscriptions")}
+            </p>
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-xl border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("owner")}</TableHead>
+                      <TableHead>{t("plan")}</TableHead>
+                      <TableHead>{t("amount")}</TableHead>
+                      <TableHead>{t("subscriptionState")}</TableHead>
+                      <TableHead>{t("paidThrough")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subs.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <span className="font-medium text-navy">
+                            {s.ownerName || s.ownerEmail}
+                          </span>
+                          {s.ownerName && (
+                            <span className="block text-xs text-muted-foreground">
+                              {s.ownerEmail}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {(locale === "ar"
+                            ? s.priceDisplayNameAr
+                            : s.priceDisplayNameEn) + ` (${s.planCode})`}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {format.number(s.amountEgp, {
+                            style: "currency",
+                            currency: "EGP",
+                            maximumFractionDigits: 0,
+                          })}
+                          <span className="ms-1 text-xs text-muted-foreground">
+                            /{adminIntervalLabel(s.interval, t)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              s.state === "active"
+                                ? "active"
+                                : s.state === "trialing"
+                                  ? "trialing"
+                                  : s.state === "past_due"
+                                    ? "past_due"
+                                    : s.state === "expired"
+                                      ? "expired"
+                                      : "default"
+                            }
+                          >
+                            {adminStatusLabel(s.state, t)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {s.paidThroughAt
+                            ? format.dateTime(new Date(s.paidThroughAt), {
+                                dateStyle: "medium",
+                              })
+                            : t("none")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <AdminPagination
+                page={subPage}
+                total={subTotal}
+                pageSize={subPageSize}
+                onPageChange={goToPage}
+              />
+            </>
+          )}
+        </div>
+      </article>
+    </section>
+  )
+}
+
+function RevenueTableSkeleton({
+  t,
+}: {
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
+      <div className="border-b border-border bg-soft-teal px-4 py-3 md:px-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
+          {t("subscriptions")}
+        </p>
+      </div>
+      <div className="space-y-2 p-4 md:p-5">
+        <Skeleton className="h-48" />
+      </div>
+    </article>
   )
 }

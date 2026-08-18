@@ -20,15 +20,14 @@ export function StatTile({
   const card = (
     <Card
       className={cn(
-        "border-t-2 border-t-primary/40 shadow-sm",
-        href &&
-          "transition-colors hover:bg-soft-teal focus-visible:bg-soft-teal",
+        "border-border shadow-sm transition-transform hover:-translate-y-0.5",
+        href && "hover:border-primary/60 hover:bg-soft-teal",
         className,
       )}
       size="sm"
     >
       <CardContent>
-        <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
           {label}
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-navy">

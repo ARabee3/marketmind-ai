@@ -3019,6 +3019,16 @@
     "lastRefreshed": "Last refreshed {time}",
     "refresh": "Refresh",
     "totalUsersAria": "View all users",
-    "activeSubscriptionsAria": "View subscriptions"
+    "activeSubscriptionsAria": "View subscriptions",
+    "viewAllUsers": "View all users",
+    "viewRevenue": "View revenue",
+    "metricsLabel": "Platform metrics",
+    "metricsTitle": "Growth at a glance",
+    "needsAttentionLabel": "Needs attention",
+    "needsAttentionTitle": "Actionable items",
+    "allHealthyDescription": "Everything looks healthy. No subscriptions or accounts need attention right now.",
+    "recentUsersLabel": "Recent activity",
+    "recentUsersTitle": "Latest users",
+    "noRecentUsers": "No users have joined yet."
   }
 }

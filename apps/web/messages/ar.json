@@ -3014,6 +3014,16 @@
     "lastRefreshed": "آخر تحديث {time}",
     "refresh": "تحديث",
     "totalUsersAria": "عرض جميع المستخدمين",
-    "activeSubscriptionsAria": "عرض الاشتراكات"
+    "activeSubscriptionsAria": "عرض الاشتراكات",
+    "viewAllUsers": "عرض جميع المستخدمين",
+    "viewRevenue": "عرض الإيرادات",
+    "metricsLabel": "مؤشرات المنصة",
+    "metricsTitle": "نمو المنصة بنظرة",
+    "needsAttentionLabel": "يحتاج انتباه",
+    "needsAttentionTitle": "عناصر تتطلب إجراءً",
+    "allHealthyDescription": "كل شيء يبدو سليماً. لا توجد اشتراكات أو حسابات تستدعي الانتباه حالياً.",
+    "recentUsersLabel": "النشاط الأخير",
+    "recentUsersTitle": "آخر المستخدمين",
+    "noRecentUsers": "لم ينضم أي مستخدم بعد."
   }
 }
