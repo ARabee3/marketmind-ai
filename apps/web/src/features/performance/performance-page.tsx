@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useFormatter, useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import type {
   OptimizationProposalWorkspaceV1,
@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Clock3,
   Facebook,
+  FlaskConical,
   Info,
   LoaderCircle,
   RefreshCw,
@@ -34,6 +35,10 @@ import {
   type PerformanceApiError,
 } from '@/lib/api/performance'
 import { OptimizationDecisionPanel } from './optimization-decision-panel'
+import {
+  getPerformanceDemoWorkspace,
+  PERFORMANCE_DEMO_OVERVIEW,
+} from './performance-demo'
 import {
   baselineProgress,
   metricValueFor,
@@ -68,6 +73,7 @@ export function PerformancePage() {
   const [refreshingPostId, setRefreshingPostId] = useState<string | null>(null)
   const [decidingOptimizationId, setDecidingOptimizationId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [demoMode, setDemoMode] = useState(false)
 
   const fetchOverview = useCallback(async () => getPerformanceOverview(), [])
   const fetchOptimization = useCallback(async () => getOptimizationProposals(), [])
@@ -178,12 +184,21 @@ export function PerformancePage() {
     }
   }
 
+  if (demoMode) {
+    return <PerformanceDemoPage onExit={() => setDemoMode(false)} />
+  }
+
   if (loadState.status === 'loading') return <PerformanceLoading />
 
   if (loadState.status === 'error') {
     return (
       <section className="grid gap-5" aria-live="polite">
-        <PerformanceHeader overview={null} reloading={false} onReload={() => void loadOverview()} />
+        <PerformanceHeader
+          overview={null}
+          reloading={false}
+          onReload={() => void loadOverview()}
+          onOpenDemo={() => setDemoMode(true)}
+        />
         <div className="grid gap-3 rounded-xl border border-danger/30 bg-danger/10 p-5 text-sm text-danger">
           <p className="flex items-start gap-2 font-semibold">
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -208,7 +223,12 @@ export function PerformancePage() {
 
   return (
     <section className="grid gap-6">
-      <PerformanceHeader overview={overview} reloading={reloading} onReload={() => void reload()} />
+      <PerformanceHeader
+        overview={overview}
+        reloading={reloading}
+        onReload={() => void reload()}
+        onOpenDemo={() => setDemoMode(true)}
+      />
 
       <div aria-live="polite" className="min-h-0">
         {notice ? (
@@ -294,14 +314,109 @@ function PerformanceLoading() {
   )
 }
 
+function PerformanceDemoPage({ onExit }: { readonly onExit: () => void }) {
+  const locale = useLocale()
+  const formatter = useFormatter()
+  const overview = PERFORMANCE_DEMO_OVERVIEW
+  const workspace = getPerformanceDemoWorkspace(locale)
+  const timelineNow = new Date(overview.generated_at)
+
+  return (
+    <section className="grid gap-6">
+      <PerformanceHeader
+        overview={overview}
+        reloading={false}
+        onReload={onExit}
+        onOpenDemo={onExit}
+        demoMode
+      />
+
+      <DemoEvidenceBanner />
+
+      <OptimizationDecisionPanel
+        workspaces={[workspace]}
+        loading={false}
+        error={false}
+        decidingProposalId={null}
+        onDecide={() => undefined}
+        readOnly
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-5">
+          {overview.posts.map((post) => (
+            <PostEvidence
+              key={post.publishing_result_id}
+              post={post}
+              now={timelineNow}
+              refreshing={false}
+              onRefresh={() => undefined}
+              formatDate={(value) =>
+                formatter.dateTime(new Date(value), {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })
+              }
+              formatNumber={(value) =>
+                formatter.number(value, { maximumFractionDigits: 0 })
+              }
+              demoMode
+            />
+          ))}
+        </div>
+
+        <aside className="grid h-fit gap-4">
+          <BaselinePanel overview={overview} demoMode />
+          <ConnectionPanel capability={undefined} demoMode />
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function DemoEvidenceBanner() {
+  const t = useTranslations('Performance')
+
+  return (
+    <aside
+      className="grid gap-3 rounded-xl border border-warning/30 bg-warning/10 p-5 shadow-elevated md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start md:gap-4"
+      role="note"
+      aria-labelledby="performance-demo-heading"
+    >
+      <span className="grid size-10 place-items-center rounded-lg bg-warning/15 text-warning">
+        <FlaskConical className="size-5" aria-hidden="true" />
+      </span>
+      <div className="grid min-w-0 gap-1">
+        <p className="text-xs font-semibold tracking-[0.12em] text-warning uppercase">
+          {t('demo.eyebrow')}
+        </p>
+        <h2
+          id="performance-demo-heading"
+          className="text-base font-bold text-navy"
+        >
+          {t('demo.bannerTitle')}
+        </h2>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t('demo.bannerBody')}
+        </p>
+      </div>
+      <Badge variant="default">{t('demo.readOnly')}</Badge>
+    </aside>
+  )
+}
+
 function PerformanceHeader({
   overview,
   reloading,
   onReload,
+  onOpenDemo,
+  demoMode = false,
 }: {
   readonly overview: PerformanceOverviewV1 | null
   readonly reloading: boolean
   readonly onReload: () => void
+  readonly onOpenDemo: () => void
+  readonly demoMode?: boolean
 }) {
   const t = useTranslations('Performance')
   const formatter = useFormatter()
@@ -315,56 +430,101 @@ function PerformanceHeader({
       <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="grid gap-3">
           <p className="text-xs font-semibold tracking-[0.14em] text-journey-mint uppercase">
-            {t('eyebrow')}
+            {demoMode ? t('demo.eyebrow') : t('eyebrow')}
           </p>
           <h1 className="max-w-3xl text-balance text-3xl leading-tight font-bold md:text-4xl">
-            {t('title')}
+            {demoMode ? t('demo.title') : t('title')}
           </h1>
           <p className="max-w-2xl text-sm leading-6 text-primary-foreground/75 md:text-base">
-            {t('subtitle')}
+            {demoMode ? t('demo.headerSubtitle') : t('subtitle')}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-[auto_auto] sm:items-end lg:justify-items-end">
           <div className="grid gap-1 text-sm sm:text-end">
-            <span className="text-primary-foreground/60">{t('lastSyncLabel')}</span>
+            <span className="text-primary-foreground/60">
+              {demoMode ? t('demo.generatedLabel') : t('lastSyncLabel')}
+            </span>
             <span className="font-semibold">
-              {capability?.last_successful_sync
-                ? formatter.dateTime(new Date(capability.last_successful_sync), {
+              {demoMode && overview?.generated_at
+                ? formatter.dateTime(new Date(overview.generated_at), {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })
-                : t('notAvailable')}
+                : capability?.last_successful_sync
+                  ? formatter.dateTime(
+                      new Date(capability.last_successful_sync),
+                      {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }
+                    )
+                  : t('notAvailable')}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1 text-xs font-semibold">
-              <Facebook className="size-3.5" aria-hidden="true" />
-              {t(`capability.${capabilityStatus}.label`)}
-            </span>
-            {capabilityStatus === 'blocked' ? (
-              <Link
-                href="/connections"
-                className={buttonVariants({
-                  variant: 'outline',
-                  size: 'sm',
-                  className:
-                    'border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground',
-                })}
+            {demoMode ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning/20 px-3 py-1 text-xs font-semibold text-primary-foreground">
+                <FlaskConical className="size-3.5" aria-hidden="true" />
+                {t('demo.badge')}
+              </span>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1 text-xs font-semibold">
+                  <Facebook className="size-3.5" aria-hidden="true" />
+                  {t(`capability.${capabilityStatus}.label`)}
+                </span>
+                {capabilityStatus === 'blocked' ? (
+                  <Link
+                    href="/connections"
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'sm',
+                      className:
+                        'border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground',
+                    })}
+                  >
+                    {t('connection.reconnectAction')}
+                  </Link>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  onClick={onOpenDemo}
+                >
+                  <FlaskConical className="size-4" aria-hidden="true" />
+                  {t('demo.open')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  disabled={reloading}
+                  onClick={onReload}
+                >
+                  <RefreshCw
+                    className={
+                      reloading ? 'size-4 motion-safe:animate-spin' : 'size-4'
+                    }
+                    aria-hidden="true"
+                  />
+                  {t('refreshOverview')}
+                </Button>
+              </>
+            )}
+            {demoMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                onClick={onOpenDemo}
               >
-                {t('connection.reconnectAction')}
-              </Link>
+                {t('demo.exit')}
+              </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              disabled={reloading}
-              onClick={onReload}
-            >
-              <RefreshCw className={reloading ? 'size-4 motion-safe:animate-spin' : 'size-4'} aria-hidden="true" />
-              {t('refreshOverview')}
-            </Button>
           </div>
         </div>
       </div>
@@ -395,12 +555,18 @@ function EmptyPerformanceState() {
   )
 }
 
-function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 }) {
+function BaselinePanel({
+  overview,
+  demoMode = false,
+}: {
+  readonly overview: PerformanceOverviewV1
+  readonly demoMode?: boolean
+}) {
   const t = useTranslations('Performance')
   const { baseline } = overview
   const progress = baselineProgress(
     baseline.observed_snapshot_count,
-    baseline.required_snapshot_count,
+    baseline.required_snapshot_count
   )
 
   return (
@@ -409,7 +575,9 @@ function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 
         <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
           {t('baseline.eyebrow')}
         </p>
-        <h2 className="text-xl font-bold text-navy">{t('baseline.title')}</h2>
+        <h2 className="text-xl font-bold text-navy">
+          {demoMode ? t('demo.baselineTitle') : t('baseline.title')}
+        </h2>
       </div>
       <div className="grid gap-2">
         <div className="flex items-baseline justify-between gap-3">
@@ -419,8 +587,14 @@ function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 
               required: baseline.required_snapshot_count,
             })}
           </p>
-          <Badge variant={baseline.status === 'ready' ? 'active' : 'default'}>
-            {t(`baseline.status.${baseline.status}`)}
+          <Badge
+            variant={
+              demoMode || baseline.status !== 'ready' ? 'default' : 'active'
+            }
+          >
+            {demoMode
+              ? t('demo.baselineStatus')
+              : t(`baseline.status.${baseline.status}`)}
           </Badge>
         </div>
         <div
@@ -431,7 +605,7 @@ function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 
           aria-valuemax={baseline.required_snapshot_count}
           aria-valuenow={Math.min(
             baseline.observed_snapshot_count,
-            baseline.required_snapshot_count,
+            baseline.required_snapshot_count
           )}
         >
           <div
@@ -440,7 +614,9 @@ function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 
           />
         </div>
       </div>
-      <p className="text-sm leading-6 text-muted-foreground">{t('baseline.explanation')}</p>
+      <p className="text-sm leading-6 text-muted-foreground">
+        {demoMode ? t('demo.baselineExplanation') : t('baseline.explanation')}
+      </p>
       {baseline.reason ? (
         <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -453,10 +629,35 @@ function BaselinePanel({ overview }: { readonly overview: PerformanceOverviewV1 
 
 function ConnectionPanel({
   capability,
+  demoMode = false,
 }: {
   readonly capability: PerformanceCapabilityV1 | undefined
+  readonly demoMode?: boolean
 }) {
   const t = useTranslations('Performance')
+
+  if (demoMode) {
+    return (
+      <article className="grid gap-4 rounded-xl border border-warning/30 bg-warning/10 p-5 shadow-elevated">
+        <div className="flex items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <p className="text-xs font-semibold tracking-[0.12em] text-warning uppercase">
+              {t('demo.connectionEyebrow')}
+            </p>
+            <h2 className="text-xl font-bold text-navy">
+              {t('demo.connectionTitle')}
+            </h2>
+          </div>
+          <Info className="mt-1 size-5 text-warning" aria-hidden="true" />
+        </div>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t('demo.connectionBody')}
+        </p>
+        <Badge variant="default">{t('demo.readOnly')}</Badge>
+      </article>
+    )
+  }
+
   const status = capability?.status ?? 'unknown'
   const blockers = capability?.blockers ?? []
 
@@ -467,7 +668,9 @@ function ConnectionPanel({
           <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
             {t('connection.eyebrow')}
           </p>
-          <h2 className="text-xl font-bold text-navy">{t('connection.title')}</h2>
+          <h2 className="text-xl font-bold text-navy">
+            {t('connection.title')}
+          </h2>
         </div>
         <ConnectionStatusIcon status={status} />
       </div>
@@ -475,17 +678,30 @@ function ConnectionPanel({
         {t(`connection.status.${status}.body`)}
       </p>
       {blockers.length > 0 ? (
-        <ul className="grid gap-2 text-sm" aria-label={t('connection.blockersLabel')}>
+        <ul
+          className="grid gap-2 text-sm"
+          aria-label={t('connection.blockersLabel')}
+        >
           {blockers.map((blocker) => (
             <li key={blocker} className="flex items-start gap-2 text-warning">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <ShieldAlert
+                className="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
               <span>{t(`connection.blockers.${blocker}`)}</span>
             </li>
           ))}
         </ul>
       ) : null}
-      <Link href="/connections" className={buttonVariants({ variant: status === 'ready' ? 'outline' : 'default' })}>
-        {status === 'ready' ? t('connection.viewAction') : t('connection.reconnectAction')}
+      <Link
+        href="/connections"
+        className={buttonVariants({
+          variant: status === 'ready' ? 'outline' : 'default',
+        })}
+      >
+        {status === 'ready'
+          ? t('connection.viewAction')
+          : t('connection.reconnectAction')}
       </Link>
     </article>
   )
@@ -524,6 +740,7 @@ function PostEvidence({
   onRefresh,
   formatDate,
   formatNumber,
+  demoMode = false,
 }: {
   readonly post: PerformancePostProjectionV1
   readonly now: Date
@@ -531,6 +748,7 @@ function PostEvidence({
   readonly onRefresh: () => void
   readonly formatDate: (value: string) => string
   readonly formatNumber: (value: number) => string
+  readonly demoMode?: boolean
 }) {
   const t = useTranslations('Performance')
 
@@ -541,22 +759,35 @@ function PostEvidence({
           <div className="flex flex-wrap items-center gap-2">
             <Facebook className="size-4 text-primary" aria-hidden="true" />
             <h2 className="text-xl font-bold text-navy">{t('post.title')}</h2>
-            <Badge variant="owner">{t('post.realEvidence')}</Badge>
+            <Badge variant={demoMode ? 'default' : 'owner'}>
+              {demoMode ? t('demo.postBadge') : t('post.realEvidence')}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             {t('post.publishedAt', { date: formatDate(post.published_at) })}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={refreshing}
-          onClick={onRefresh}
-        >
-          <RefreshCw className={refreshing ? 'size-4 motion-safe:animate-spin' : 'size-4'} aria-hidden="true" />
-          {refreshing ? t('post.refreshing') : t('post.refresh')}
-        </Button>
+        {demoMode ? (
+          <span className="text-xs font-semibold text-warning">
+            {t('demo.readOnly')}
+          </span>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={refreshing}
+            onClick={onRefresh}
+          >
+            <RefreshCw
+              className={
+                refreshing ? 'size-4 motion-safe:animate-spin' : 'size-4'
+              }
+              aria-hidden="true"
+            />
+            {refreshing ? t('post.refreshing') : t('post.refresh')}
+          </Button>
+        )}
       </header>
 
       <div className="grid gap-5 p-5 md:p-6">

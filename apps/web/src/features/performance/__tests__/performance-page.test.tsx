@@ -15,6 +15,7 @@ import {
 import { PerformancePage } from '../performance-page'
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
   useTranslations:
     () => (key: string, values?: Record<string, string | number>) =>
       values
@@ -250,6 +251,45 @@ describe('PerformancePage', () => {
       screen.getByRole('link', { name: 'empty.action' }).getAttribute('href'),
     ).toBe('/publishing')
     expect(screen.queryByText('metrics.names.post_clicks')).toBeNull()
+  })
+
+  it('opens a read-only demo without calling decision or refresh APIs', async () => {
+    mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))
+
+    render(<PerformancePage />)
+
+    await screen.findByRole('heading', { name: 'title' })
+    const optimizationCallsBeforeDemo =
+      mockedGetOptimizationProposals.mock.calls.length
+    expect(optimizationCallsBeforeDemo).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'demo.open' }))
+
+    expect(await screen.findByText('demo.bannerTitle')).not.toBeNull()
+    expect(screen.getAllByText('demo.readOnly').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        'Test a clearer customer situation in the opening sentence.',
+      ),
+    ).not.toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'optimization.approve' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'optimization.dismiss' }),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'post.refresh' })).toBeNull()
+    expect(mockedDecideOptimizationProposal).not.toHaveBeenCalled()
+    expect(mockedRefreshPerformancePost).not.toHaveBeenCalled()
+    expect(mockedGetOptimizationProposals).toHaveBeenCalledTimes(
+      optimizationCallsBeforeDemo,
+    )
+    expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'demo.exit' }))
+    expect(
+      await screen.findByRole('heading', { name: 'title' }),
+    ).not.toBeNull()
+    expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
   })
 
   it('reports a queued refresh and reloads the evidence view', async () => {

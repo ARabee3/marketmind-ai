@@ -2963,6 +2963,25 @@
     "lastSyncLabel": "Last successful sync",
     "notAvailable": "Not available yet",
     "refreshOverview": "Refresh view",
+    "demo": {
+      "open": "Open demo evidence",
+      "exit": "Return to live data",
+      "badge": "Demo evidence",
+      "eyebrow": "Controlled walkthrough",
+      "title": "See the optimization loop before live data is ready",
+      "headerSubtitle": "This read-only walkthrough uses synthetic snapshots to show how evidence becomes a bounded proposal. It never queries Meta or changes your account.",
+      "generatedLabel": "Demo generated",
+      "bannerTitle": "Synthetic evidence — not live Facebook data",
+      "bannerBody": "The three posts, metrics, and proposal below are fixtures for rehearsal. Nothing here is stored, published, or applied to your account.",
+      "readOnly": "Read-only demo",
+      "baselineTitle": "Demo baseline",
+      "baselineStatus": "Demo ready",
+      "baselineExplanation": "Three synthetic seven-day snapshots unlock the comparison path in this walkthrough. Live data still waits for Facebook’s collection windows.",
+      "connectionEyebrow": "Demo boundary",
+      "connectionTitle": "Live connection is not shown",
+      "connectionBody": "This walkthrough does not read your Facebook Page or prove live permission readiness. Return to live data to inspect the account.",
+      "postBadge": "Synthetic evidence"
+    },
     "loadFailed": "Content performance is unavailable",
     "loadFailedBody": "We could not load the monitoring evidence. Your published content is unchanged; try again when the API is available.",
     "retry": "Try again",
@@ -3133,6 +3152,7 @@
         "dismissCta": "Confirm dismissal"
       },
       "saving": "Saving decision…",
+      "demoReadOnly": "Demo only: decisions are disabled and nothing can be applied to your account.",
       "consumedBody": "This approved cue was consumed once in the frozen Content V2 input.",
       "terminalBody": "This proposal has a terminal owner decision and cannot be changed."
     }

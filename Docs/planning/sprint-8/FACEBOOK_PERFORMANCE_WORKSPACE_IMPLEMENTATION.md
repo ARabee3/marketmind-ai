@@ -40,6 +40,25 @@ endpoint, reports queued/not-due/rate-limited outcomes, and never calls Meta
 from the browser. Load, retry, empty, blocked-permission, and refresh states
 are all explicit.
 
+## Controlled demo walkthrough
+
+When the owner needs to rehearse the optimization story before Facebook's
+collection windows are complete, the live workspace exposes **Open demo
+evidence**. This is a read-only walkthrough built from deterministic,
+contract-shaped fixtures in `performance-demo.ts`:
+
+- it renders three synthetic posts, completed seven-day snapshots, and one
+  pending owner-decision proposal;
+- it never calls Meta, the performance API, the decision API, or the database;
+- it cannot refresh, approve, dismiss, publish, or apply anything; and
+- its banner and badges explicitly say that the evidence is synthetic and does
+  not prove the live account's permissions or baseline readiness.
+
+The walkthrough is for a presentation or local rehearsal only. Return to live
+data before evaluating the connected Facebook Page. Fixture contract and
+read-only UI coverage live in `performance-demo.test.ts` and
+`performance-page.test.tsx`.
+
 ## Contracts and files
 
 - `apps/web/src/lib/api/performance.ts` validates the frozen overview and sync
@@ -50,7 +69,11 @@ are all explicit.
 - `apps/web/src/features/performance/performance-state.ts` maps collection
   state and metric availability without inventing values.
 - `apps/web/src/features/performance/performance-page.tsx` owns the bilingual
-  workspace, evidence rail, baseline, connection, and recovery states.
+  workspace, evidence rail, baseline, connection, recovery, and controlled demo
+  states.
+- `apps/web/src/features/performance/performance-demo.ts` provides the
+  deterministic synthetic overview and proposal used only by the read-only
+  walkthrough.
 - `apps/web/messages/en.json` and `apps/web/messages/ar.json` keep the
   workspace, navigation, and dashboard copy in parity.
 - `apps/web/src/features/dashboard/dashboard-home.tsx` adds only the
