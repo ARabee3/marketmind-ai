@@ -27,6 +27,8 @@ export type MetaCapabilityStatus = "supported" | "unsupported";
 export type MetaBlockerCode =
   | "no_page_privilege"
   | "page_publish_capability_missing"
+  | "pages_read_engagement_permission_missing"
+  | "read_insights_permission_missing"
   | "instagram_not_linked"
   | "instagram_not_professional"
   | "instagram_publish_capability_missing"
@@ -56,6 +58,16 @@ export type MetaChannelOptionV1 = {
   readonly blockers: readonly MetaBlockerCode[];
 };
 
+export type MetaPerformanceCapabilityV1 = {
+  readonly status: MetaCapabilityStatus;
+  readonly blockers: readonly Extract<
+    MetaBlockerCode,
+    | "no_page_privilege"
+    | "pages_read_engagement_permission_missing"
+    | "read_insights_permission_missing"
+  >[];
+};
+
 export type MetaAccountOptionV1 = {
   readonly page: MetaChannelOptionV1;
   readonly instagram: MetaChannelOptionV1 | null;
@@ -67,6 +79,7 @@ export type MetaPendingSelectionV1 = {
   readonly requested_channel: MetaChannel | null;
   readonly requested_capability: string;
   readonly expires_at: string | null;
+  readonly performance_capability: MetaPerformanceCapabilityV1;
   readonly options: readonly MetaAccountOptionV1[];
 };
 

@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyChoicesForm } from './strategy-choices-form'
+import { GenerateConfirmDialog } from './generate-confirm-dialog'
 import { StrategyProfileSummary } from './strategy-profile-summary'
 
 const OBJECTIVES: readonly StrategyObjective[] = [
@@ -292,6 +293,7 @@ export function StrategyWizard() {
   const [facebookPending, setFacebookPending] = useState(false)
   const [facebookConnected, setFacebookConnected] = useState<string | null>(null)
   const [facebookError, setFacebookError] = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const metaResumeRef = useRef(false)
 
   const stepIndex = useMemo(() => STEPS.findIndex((entry) => entry.id === step), [step])
@@ -862,7 +864,7 @@ export function StrategyWizard() {
                       type="button"
                       className="shadow-tactile"
                       disabled={disabled}
-                      onClick={() => void persist(true)}
+                      onClick={() => setConfirmOpen(true)}
                     >
                       {pending
                         ? t('wizard.generatePending')
@@ -919,6 +921,14 @@ export function StrategyWizard() {
           </aside>
         </div>
       )}
+      <GenerateConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => {
+          setConfirmOpen(false)
+          void persist(true)
+        }}
+      />
     </section>
   )
 }

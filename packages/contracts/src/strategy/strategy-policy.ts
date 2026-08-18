@@ -80,7 +80,12 @@ const executionLanguagePatterns = [
   /\bhas\s+been\s+published\b/iu,
   /\bwe\s+will\s+run\s+the\s+ads?\b/iu,
   /\bauto-?approve\b/iu,
-  /(?:تم|هيتم|هننشر|انشر).*(?:نشر|بوست|إعلان)/u,
+  // Keep Arabic execution checks phrase-based. The previous expression used
+  // an unbounded `.*` and matched `تم` inside ordinary words such as
+  // `تعتمد`, so safe evidence summaries were rejected when they mentioned an
+  // advertisement or publishing as a planning topic.
+  /(?<![\u0600-\u06FF])(?:تم|سيتم|هيتم)\s+(?:نشر|إطلاق|اطلاق)(?![\u0600-\u06FF])/u,
+  /(?<![\u0600-\u06FF])(?:هننشر|انشر)\s+(?:ال)?(?:بوست|منشور|إعلان|اعلان)(?![\u0600-\u06FF])/u,
 ] as const;
 
 const paidTacticPatterns = [

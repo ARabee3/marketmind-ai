@@ -153,8 +153,112 @@ export type BillingCatalogResponse = {
   readonly prices: readonly BillingCatalogPrice[];
 };
 
+export type BillingBundleCode = "starter_150" | "growth_300" | "pro_500";
+
+export type BillingPointBundle = {
+  readonly code: BillingBundleCode;
+  readonly points: number;
+  readonly amount_egp: number;
+  readonly currency: "EGP";
+  readonly display_name_en: string;
+  readonly display_name_ar: string;
+};
+
+/**
+ * The prepaid points bundle catalog. Server-controlled and versioned: the
+ * browser only ever sends a bundle code, and the API resolves the exact EGP
+ * amount and granted points from this list. Never reprice a bundle code in
+ * place — add a new code and retire the old one so already-granted points
+ * keep their purchase semantics.
+ */
+export const BILLING_BUNDLES: readonly BillingPointBundle[] = [
+  {
+    code: "starter_150",
+    points: 150,
+    amount_egp: 100,
+    currency: "EGP",
+    display_name_en: "Starter",
+    display_name_ar: "مبتدئ",
+  },
+  {
+    code: "growth_300",
+    points: 300,
+    amount_egp: 200,
+    currency: "EGP",
+    display_name_en: "Growth",
+    display_name_ar: "نمو",
+  },
+  {
+    code: "pro_500",
+    points: 500,
+    amount_egp: 300,
+    currency: "EGP",
+    display_name_en: "Pro",
+    display_name_ar: "احترافي",
+  },
+] as const;
+
+/**
+ * Fixed, published point price per owner action. Charged on the successful
+ * artifact only — failed/retried provider attempts never spend points.
+ * Versioned alongside the bundle catalog; do not change a price in place once
+ * it has been granted/published.
+ */
+export const POINT_PRICES: Readonly<Record<BillingMetric, number>> = {
+  content_item: 2,
+  content_revision: 1,
+  static_image: 8,
+  strategy_cycle: 50,
+  strategy_revision: 10,
+  discovery: 0,
+  publication_target: 0,
+};
+
+export const TRIAL_GRANT_POINTS = 65;
+
+/** Balance below which the owner sees a low-balance nudge. */
+export const LOW_BALANCE_THRESHOLD_POINTS = 20;
+
+export function pointsForMetric(metric: BillingMetric, units = 1): number {
+  return POINT_PRICES[metric] * Math.max(0, units);
+}
+
+export function getBillingBundle(
+  code: string,
+): BillingPointBundle | undefined {
+  return BILLING_BUNDLES.find((bundle) => bundle.code === code);
+}
+
+export type BillingBundlesResponse = {
+  readonly version: "billing-bundles-v1";
+  readonly currency: "EGP";
+  readonly bundles: readonly BillingPointBundle[];
+};
+
+export type BillingWalletResponse = {
+  readonly billing_account_id: string;
+  readonly balance: number;
+  readonly lifetime_granted: number;
+  readonly lifetime_spent: number;
+  readonly low_balance: boolean;
+};
+
+export type BillingPointLedgerEntry = {
+  readonly id: string;
+  readonly direction: "credit" | "debit";
+  readonly reason: "topup" | "trial_grant" | "spend" | "refund";
+  readonly metric: BillingMetric | null;
+  readonly points: number;
+  readonly balance_after: number;
+  readonly created_at: string;
+};
+
+export type BillingPointLedgerResponse = {
+  readonly entries: readonly BillingPointLedgerEntry[];
+};
+
 export type BillingCheckoutRequest = {
-  readonly price_code: BillingPriceCode;
+  readonly bundle_code: BillingBundleCode;
   readonly payment_mode: BillingPaymentMode;
   readonly idempotency_key: string;
 };
@@ -229,7 +333,9 @@ export type BillingErrorCode =
   | "BILLING_AMOUNT_MISMATCH"
   | "BILLING_SUBSCRIPTION_NOT_ACTIVE"
   | "BILLING_ENTITLEMENT_EXHAUSTED"
-  | "BILLING_TRIAL_EXPIRED";
+  | "BILLING_TRIAL_EXPIRED"
+  | "BILLING_BUNDLE_NOT_FOUND"
+  | "BILLING_INSUFFICIENT_POINTS";
 
 export function getPublicBillingCatalog(): BillingCatalogResponse {
   return {

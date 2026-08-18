@@ -52,6 +52,7 @@ function makeGraph(overrides: Partial<Record<keyof MetaGraphClient, unknown>> = 
       { permission: "pages_show_list", status: "granted" },
       { permission: "pages_manage_posts", status: "granted" },
       { permission: "pages_read_engagement", status: "granted" },
+      { permission: "read_insights", status: "granted" },
       { permission: "instagram_basic", status: "granted" },
       { permission: "instagram_content_publish", status: "granted" },
     ]),
@@ -507,7 +508,70 @@ describe("MetaConnectionService.getPendingSelection", () => {
       account_id: "ig-1",
       capability_status: "supported",
     });
+    expect(selection.performance_capability).toEqual({
+      status: "supported",
+      blockers: [],
+    });
     expect(JSON.stringify(selection)).not.toContain("EAA-user-token");
+  });
+
+  it("reports missing Insights permission without blocking Facebook publishing", async () => {
+    const graph = makeGraph({
+      fetchGrantedPermissions: jest.fn(async () => [
+        { permission: "pages_show_list", status: "granted" },
+        { permission: "pages_manage_posts", status: "granted" },
+        { permission: "pages_read_engagement", status: "granted" },
+        { permission: "read_insights", status: "declined" },
+      ]),
+    });
+    const { service, prisma } = makeService({ graph });
+    await (prisma as any).publishingProviderConnection.create({
+      data: {
+        businessId: "biz-1",
+        userId: "owner-1",
+        provider: "META",
+        providerIdentity: "fb-user-1",
+        displayName: "Meta Owner",
+        externalAccountId: "fb-user-1",
+        state: "PENDING_SELECTION",
+        userCredentialRef: "cred-1",
+      },
+    });
+    const credential = await (prisma as any).publishingCredential.create({
+      data: {
+        businessId: "biz-1",
+        provider: "META",
+        kind: "user",
+        keyVersion: "v1",
+        ciphertext: "",
+      },
+    });
+    credential.ciphertext = new CredentialVaultService(makeConfig({
+      "publishing.vaultKey": VAULT_KEY,
+      "publishing.vaultKeyVersion": "v1",
+    }) as never).encrypt(
+      JSON.stringify({
+        type: "user",
+        token: "fixture-user-token",
+        userId: "fb-user-1",
+        userName: "Meta Owner",
+        expiresAt: new Date().toISOString(),
+      }),
+    ).ciphertext;
+    const conn = (await (prisma as any).publishingProviderConnection.findMany())[0];
+    conn.userCredentialRef = credential.id;
+
+    const selection = await service.getPendingSelection({
+      ...USER,
+      connectionId: conn.id,
+    });
+
+    expect(selection.performance_capability).toEqual({
+      status: "unsupported",
+      blockers: ["read_insights_permission_missing"],
+    });
+    expect(selection.options[0].page.capability_status).toBe("supported");
+    expect(selection.options[0].page.blockers).toEqual([]);
   });
 
   it("rejects another owner's or another business's pending selection", async () => {

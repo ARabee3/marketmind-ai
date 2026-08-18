@@ -9,6 +9,7 @@ import type {
   PublicationResultV1,
   PublishingMode,
   PublishingTargetPublicV1,
+  MetaPerformanceCapabilityV1,
 } from "@marketmind/contracts";
 import { apiRequest, type ApiRequestOptions } from "./client";
 import { getConnectionFingerprint } from "@/features/publishing/lib/publishing-state";
@@ -786,6 +787,7 @@ export type PublishingMetaPendingSelection = {
   readonly requested_channel: "facebook" | "instagram" | null;
   readonly requested_capability: string;
   readonly expires_at: string | null;
+  readonly performance_capability: MetaPerformanceCapabilityV1;
   readonly options: readonly PublishingMetaAccountOption[];
 };
 

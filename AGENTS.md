@@ -37,6 +37,7 @@ marketmind-ai/
 | Sprint 1 architecture | `Docs/planning/sprint-1/prepared-discovery-architecture/README.md` | Prepared Discovery architecture pack. |
 | Content Agent and automation handoff | `Docs/planning/sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md` | Approved `content-v1` implementation plan, approval lifecycle, and `PublicationCandidateV1` freeze boundary. |
 | Publishing Automation | `Docs/planning/sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` | Approved deterministic publishing lifecycle, n8n boundary, safety rules, and Automation-team issue split. |
+| Points-wallet billing | `Docs/planning/sprint-7/billing-points-model.md` + `billing-plan.md` | Approved prepaid-points model and implementation plan (bundles, `POINT_PRICES`, ledger, reserve/refund). |
 | Project structure | `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md` | Target monorepo folders and reusable boundaries. |
 | Team process | `Docs/planning/05_TEAM_OPERATING_SYSTEM.md` | Issue readiness, review, DoD. |
 | Stack notes | `Docs/techstack.md` | NestJS/TypeScript, Next.js, FastAPI, PostgreSQL, Qdrant. |

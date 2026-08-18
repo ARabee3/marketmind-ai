@@ -719,9 +719,11 @@ function ExistingIntentActions({
       {intent.state === "failed" ? (
         <div className="grid gap-3 rounded-lg border border-danger/25 bg-danger/10 p-4">
           <p className="text-sm leading-6 text-danger">
-            {lastResult?.retryable
-              ? t("decision.retryableFailure")
-              : t("decision.nonRetryableFailure")}
+            {lastResult?.error_code === "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE"
+              ? t("decision.mediaOriginNotReachable")
+              : lastResult?.retryable
+                ? t("decision.retryableFailure")
+                : t("decision.nonRetryableFailure")}
           </p>
           {canRetry ? (
             <Button

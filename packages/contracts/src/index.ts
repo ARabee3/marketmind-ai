@@ -7,3 +7,4 @@ export * from "./journey";
 export * from "./errors/error-codes";
 export * from "./errors/error-envelope";
 export * from "./orchestration";
+export * from "./performance";

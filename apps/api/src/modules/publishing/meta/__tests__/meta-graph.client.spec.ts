@@ -2,6 +2,7 @@ import { HttpService } from "@nestjs/axios";
 import { ConfigService } from "@nestjs/config";
 import { of, throwError } from "rxjs";
 import {
+  META_FACEBOOK_INSIGHTS_METRICS,
   META_LEAST_PRIVILEGE_SCOPES,
   MetaGraphClient,
   MetaGraphClientError,
@@ -89,6 +90,118 @@ describe("MetaGraphClient (issue #175)", () => {
     }
     expect(url).not.toContain("access_token");
     expect(url).not.toContain("client_secret");
+  });
+
+  it("requests the Facebook Insights permission for the performance slice", () => {
+    const { client } = makeClient();
+    const url = client.buildAuthorizationUrl("state-performance");
+
+    expect(url).toContain("read_insights");
+    expect(url).toContain("pages_read_engagement");
+  });
+
+  it("fetches and normalizes Facebook post Insights without exposing raw provider data", async () => {
+    const { client, http } = makeClient();
+    http.get.mockImplementationOnce(() =>
+      of({
+        data: {
+          data: [
+            {
+              name: "post_media_view",
+              period: "lifetime",
+              values: [{ value: 42, end_time: "2026-08-17T12:00:00+0000" }],
+            },
+            {
+              name: "post_clicks",
+              period: "lifetime",
+              values: [
+                {
+                  value: 0,
+                  end_time: "2026-08-17T12:00:00+0000",
+                },
+              ],
+            },
+            {
+              name: "post_reactions_by_type_total",
+              period: "lifetime",
+              values: [{ value: { like: 3, love: 1 } }],
+            },
+            {
+              name: "unsupported_metric",
+              period: "lifetime",
+              values: [{ value: null }],
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(
+      client.fetchFacebookPostInsights({
+        pageToken: "page-token",
+        postId: "page-1_post-1",
+      }),
+    ).resolves.toEqual({
+      postId: "page-1_post-1",
+      metrics: [
+        {
+          name: "post_media_view",
+          period: "lifetime",
+          values: [
+            { value: 42, endTime: "2026-08-17T12:00:00+0000" },
+          ],
+        },
+        {
+          name: "post_clicks",
+          period: "lifetime",
+          values: [
+            {
+              value: 0,
+              endTime: "2026-08-17T12:00:00+0000",
+            },
+          ],
+        },
+      ],
+    });
+    expect(http.get).toHaveBeenCalledWith(
+      "https://graph.facebook.com/v21.0/page-1_post-1/insights",
+      expect.objectContaining({
+        params: {
+          metric: META_FACEBOOK_INSIGHTS_METRICS.join(","),
+          access_token: "page-token",
+        },
+      }),
+    );
+  });
+
+  it("rejects metrics outside the performance allowlist before calling Meta", async () => {
+    const { client, http } = makeClient();
+
+    await expect(
+      client.fetchFacebookPostInsights({
+        pageToken: "page-token",
+        postId: "page-1_post-1",
+        metrics: ["post_impressions"],
+      }),
+    ).rejects.toMatchObject({
+      info: { status: 400, code: 0 },
+    });
+    expect(http.get).not.toHaveBeenCalled();
+  });
+
+  it("rejects live-unavailable candidate metrics after the frozen decision", async () => {
+    const { client, http } = makeClient();
+
+    await expect(
+      client.fetchFacebookPostInsights({
+        pageToken: "page-token",
+        postId: "page-1_post-1",
+        metrics: ["post_engagements"],
+      }),
+    ).rejects.toMatchObject({
+      info: { status: 400, code: 0 },
+    });
+    expect(http.get).not.toHaveBeenCalled();
   });
 
   it("exchanges a code for a long-lived user token server-to-server", async () => {

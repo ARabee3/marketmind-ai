@@ -98,7 +98,11 @@ process.env.PUBLISHING_VAULT_KEY ??=
 process.env.PUBLISHING_VAULT_KEY_VERSION ??= "v1";
 process.env.PUBLISHING_MEDIA_FETCH_SECRET ??=
   "publishing-e2e-media-fetch-secret";
-process.env.PUBLISHING_MEDIA_FETCH_BASE_URL ??= "http://127.0.0.1:3101";
+// Real image dispatch now requires a provider-reachable HTTPS origin. The
+// fake Meta client does not fetch this URL, so a reserved public hostname keeps
+// the integration journey deterministic without weakening the production guard.
+process.env.PUBLISHING_MEDIA_FETCH_BASE_URL =
+  "https://publishing-e2e.example.com";
 process.env.META_APP_ID ??= "publishing-e2e-meta-app-id";
 process.env.META_APP_SECRET ??= "publishing-e2e-meta-app-secret";
 process.env.META_REDIRECT_URI ??=

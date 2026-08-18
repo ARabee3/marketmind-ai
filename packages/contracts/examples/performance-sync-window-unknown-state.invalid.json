@@ -1,0 +1,17 @@
+{
+  "contract_version": "performance-v1",
+  "sync_window_id": "a2000000-0000-4000-8000-000000000001",
+  "business_id": "a1000000-0000-4000-8000-000000000002",
+  "publishing_result_id": "a1000000-0000-4000-8000-000000000003",
+  "provider": "facebook",
+  "window": "24h",
+  "due_at": "2026-08-19T08:00:00Z",
+  "state": "running",
+  "attempt_count": 0,
+  "next_attempt_at": null,
+  "lease_owner": null,
+  "lease_expires_at": null,
+  "last_error_code": null,
+  "created_at": "2026-08-18T08:00:00Z",
+  "updated_at": "2026-08-18T08:00:00Z"
+}

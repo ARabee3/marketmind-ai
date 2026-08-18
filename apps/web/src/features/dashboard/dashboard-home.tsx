@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { getCurrentJourney, type JourneyApiError } from '@/lib/api/journey'
+import { getPerformanceOverview } from '@/lib/api/performance'
 import { buttonVariants } from '@/components/ui/button'
 import { useSession } from '@/features/auth/session-provider'
 import { LogoutButton } from '@/features/auth/logout-button'
@@ -14,7 +15,12 @@ import {
   type DashboardJourneyState,
 } from './dashboard-state'
 import { DashboardOnboarding } from './dashboard-onboarding'
-import { BusinessSnapshot, DashboardLoading, NextActionPanel } from './dashboard-panels'
+import {
+  BusinessSnapshot,
+  DashboardLoading,
+  DashboardPerformanceLink,
+  NextActionPanel,
+} from './dashboard-panels'
 import { JourneyRail } from './dashboard-journey-rail'
 
 type LoadState =
@@ -23,11 +29,23 @@ type LoadState =
   | { readonly status: 'verification_required'; readonly ownerEmail: string }
   | { readonly status: 'error' }
 
+type PerformanceAvailability =
+  | { readonly status: 'loading' }
+  | { readonly status: 'unavailable' }
+  | {
+      readonly status: 'ready'
+      readonly eligiblePostCount: number
+      readonly observedSnapshotCount: number
+      readonly requiredSnapshotCount: number
+    }
+
 export function DashboardHome() {
   const t = useTranslations('Dashboard')
   const { user, logout } = useSession()
   const router = useRouter()
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' })
+  const [performanceAvailability, setPerformanceAvailability] =
+    useState<PerformanceAvailability>({ status: 'loading' })
 
   // Capture logout/router/userEmail in refs so the error resolver stays
   // identity-stable; otherwise the initial-load effect would re-fire whenever
@@ -70,8 +88,25 @@ export function DashboardHome() {
     [],
   )
 
+  const loadPerformanceAvailability = useCallback(async () => {
+    try {
+      const overview = await getPerformanceOverview()
+      setPerformanceAvailability({
+        status: 'ready',
+        eligiblePostCount: overview.posts.length,
+        observedSnapshotCount: overview.baseline.observed_snapshot_count,
+        requiredSnapshotCount: overview.baseline.required_snapshot_count,
+      })
+    } catch {
+      // Performance is a secondary dashboard projection. A monitoring outage
+      // must never replace or delay the journey's primary owner action.
+      setPerformanceAvailability({ status: 'unavailable' })
+    }
+  }, [])
+
   const loadJourney = useCallback(async () => {
     setLoadState({ status: 'loading' })
+    setPerformanceAvailability({ status: 'loading' })
     try {
       const response = await getCurrentJourney()
       if (!response.owner.email_verified) {
@@ -85,11 +120,12 @@ export function DashboardHome() {
         status: 'ready',
         journey: mapCurrentJourney(response),
       })
+      void loadPerformanceAvailability()
     } catch (error) {
       const next = await resolveLoadError(error)
       setLoadState(next)
     }
-  }, [resolveLoadError])
+  }, [loadPerformanceAvailability, resolveLoadError])
 
   useEffect(() => {
     let cancelled = false
@@ -109,6 +145,7 @@ export function DashboardHome() {
           status: 'ready',
           journey: mapCurrentJourney(response),
         })
+        void loadPerformanceAvailability()
       } catch (error) {
         if (cancelled) return
         const next = await resolveLoadError(error)
@@ -122,7 +159,7 @@ export function DashboardHome() {
     return () => {
       cancelled = true
     }
-  }, [resolveLoadError])
+  }, [loadPerformanceAvailability, resolveLoadError])
 
   if (loadState.status === 'loading') {
     return <DashboardLoading />
@@ -185,6 +222,12 @@ export function DashboardHome() {
         <NextActionPanel journey={journey} />
         <BusinessSnapshot journey={journey} />
       </div>
+
+      {loadState.status === 'ready' &&
+      performanceAvailability.status === 'ready' &&
+      performanceAvailability.eligiblePostCount > 0 ? (
+        <DashboardPerformanceLink availability={performanceAvailability} />
+      ) : null}
 
       <div className="mt-12 md:mt-0">
         <JourneyRail activeKind={journey.kind} />

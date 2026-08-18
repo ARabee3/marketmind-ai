@@ -15,6 +15,13 @@ const messages: Record<string, string> = {
   'choices.subtitle': 'These choices guide the plan.',
   'choices.save': 'Save choices',
   'choices.generate': 'Prepare draft',
+  'wizard.confirmTitle': 'Confirm point usage',
+  'wizard.confirmBody': 'This will use {points} points. You have {balance} points.',
+  'wizard.confirmBodyNoBalance': 'This will use {points} points.',
+  'wizard.confirmInsufficient': 'You need {points} points but you have {balance}. Top up to continue.',
+  'wizard.confirmTopUp': 'Top up points',
+  'wizard.confirmCta': 'Confirm and generate',
+  'wizard.confirmCancel': 'Cancel',
   'choices.validation.required': 'This field is required',
   'choices.validation.noProfile': 'Please complete business discovery first',
   'choices.fields.objective.label': 'Main objective',
@@ -36,7 +43,12 @@ const messages: Record<string, string> = {
 }
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => messages[key] ?? key,
+  useTranslations: () => (key: string, params?: Record<string, unknown>) => {
+    const template = messages[key] ?? key
+    return template.replace(/\{(\w+)\}/g, (_match, name: string) =>
+      params && name in params ? String(params[name]) : `{${name}}`,
+    )
+  },
   useLocale: () => 'en',
   useFormatter: () => ({
     dateTime: () => 'Jul 17, 2026',
@@ -45,6 +57,13 @@ vi.mock('next-intl', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  Link: ({
+    href,
+    children,
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => <a href={href}>{children}</a>,
 }))
 
 vi.mock('@/lib/api/journey', () => ({
@@ -63,6 +82,25 @@ vi.mock('../../hooks/use-strategy-actions', () => ({
   }),
 }))
 
+const walletState = vi.hoisted(() => ({
+  wallet: null as {
+    balance: number
+    billing_account_id: string
+    lifetime_granted: number
+    lifetime_spent: number
+    low_balance: boolean
+  } | null,
+}))
+
+vi.mock('@/features/billing/wallet-context', () => ({
+  useWallet: () => ({
+    wallet: walletState.wallet,
+    loading: false,
+    error: false,
+    refresh: vi.fn(),
+  }),
+}))
+
 describe('StrategyChoicesForm', () => {
   beforeEach(() => {
     journeyMock.mockReset()
@@ -73,6 +111,13 @@ describe('StrategyChoicesForm', () => {
     actionMocks.create.mockReset()
     actionMocks.saveBrief.mockReset()
     actionMocks.generate.mockReset()
+    walletState.wallet = {
+      billing_account_id: 'acc-1',
+      balance: 215,
+      lifetime_granted: 365,
+      lifetime_spent: 150,
+      low_balance: false,
+    }
   })
 
   it('renders an interactive form with editable fields and active buttons', async () => {
@@ -145,6 +190,10 @@ describe('StrategyChoicesForm', () => {
       target: { value: 'Owner plus one helper' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Prepare draft' }))
+    // The confirmation dialog appears; confirm the 50-point spend.
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Confirm and generate' }),
+    )
 
     await waitFor(() => expect(actionMocks.saveBrief).toHaveBeenCalledOnce())
     expect(actionMocks.saveBrief).toHaveBeenCalledWith(

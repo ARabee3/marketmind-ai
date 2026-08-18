@@ -374,6 +374,15 @@ async function run(): Promise<void> {
       `${resultFixture} must be valid`,
     );
   }
+  const unreachableMediaResult = clone(
+    await loadExample("publication-result-failed.example.json"),
+  );
+  unreachableMediaResult.error_code = "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE";
+  assert.equal(
+    firstCode(validatePublicationResultV1(unreachableMediaResult)),
+    null,
+    "unreachable media origins must round-trip as a valid failed result code",
+  );
   assert.deepEqual(
     [...PUBLICATION_OUTCOMES].sort(),
     [

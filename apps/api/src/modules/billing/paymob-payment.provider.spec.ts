@@ -2,7 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { PaymobPaymentProvider, createPaymobTestHmac } from "./paymob-payment.provider";
 
 const transaction = {
-  amount: 29900,
+  amount_cents: 29900,
   created_at: "2026-08-04T20:00:00.000Z",
   currency: "EGP",
   error_occured: false,
@@ -12,15 +12,14 @@ const transaction = {
   is_3d_secure: true,
   is_auth: true,
   is_capture: true,
+  is_refund: false,
   is_refunded: false,
   is_standalone_payment: true,
   is_voided: false,
   order: { id: 55, merchant_order_id: "attempt-1" },
   owner: 246,
   pending: false,
-  source_data_pan: "2346",
-  source_data_sub_type: "MasterCard",
-  source_data_type: "card",
+  source_data: { pan: "2346", sub_type: "MasterCard", type: "card" },
   success: true,
 };
 
@@ -30,7 +29,7 @@ function provider(): PaymobPaymentProvider {
       billing: {
         paymob: {
           baseUrl: "https://accept.paymob.com",
-          apiKey: "secret",
+          secretKey: "secret",
           publicKey: "pk_test_123",
           integrationIds: [987],
           hmacSecret: "hmac-secret",
@@ -61,6 +60,20 @@ describe("PaymobPaymentProvider", () => {
       paymentMode: "one_time_card",
       merchantReference: "attempt-1",
       idempotencyKey: "checkout-idempotency-1",
+      billingData: {
+        firstName: "MarketMind",
+        lastName: "Customer",
+        email: "billing@example.com",
+        phone: "01000000000",
+        apartment: "1",
+        building: "1",
+        floor: "1",
+        street: "N/A",
+        city: "Cairo",
+        country: "EG",
+        state: "Cairo",
+        postalCode: "11511",
+      },
       metadata: {
         billing_account_id: "account-1",
         price_code: "growth_monthly_v1",
@@ -81,6 +94,12 @@ describe("PaymobPaymentProvider", () => {
         body: expect.stringContaining('"amount":29900'),
       }),
     );
+    const body = JSON.parse(
+      String(fetchMock.mock.calls[0][1].body),
+    );
+    expect(body.redirect_url).toBe("http://localhost:3000/billing");
+    expect(body.payment_methods).toEqual([987]);
+    expect(body.billing_data.email).toBe("billing@example.com");
   });
 
   it("maps a signed Paymob transaction callback to the provider-neutral event", () => {

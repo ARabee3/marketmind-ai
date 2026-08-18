@@ -126,4 +126,125 @@ describe("MediaFetchTokenService (issue #175)", () => {
       }).configurationError(),
     ).toContain("only an origin");
   });
+
+  // ── providerFetchOriginError (issue #240) ───────────────────────────────
+  // The stricter pre-dispatch check for REAL image publishing: Meta cannot
+  // fetch loopback/private HTTP origins, so they must be blocked before
+  // dispatch with a specific owner-actionable error.
+
+  describe("providerFetchOriginError", () => {
+    it("accepts a public HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://fetch.example.com",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).toBeNull();
+    });
+
+    it("rejects loopback HTTP even in development", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "http://localhost:3001",
+        nodeEnv: "development",
+      });
+
+      const error = service.providerFetchOriginError();
+      expect(error).not.toBeNull();
+      expect(error).toMatch(/HTTPS/);
+    });
+
+    it("rejects a private HTTPS origin even in development", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://192.168.1.10",
+        nodeEnv: "development",
+      });
+
+      const error = service.providerFetchOriginError();
+      expect(error).not.toBeNull();
+      expect(error).toMatch(/publicly reachable/);
+    });
+
+    it("rejects a 127.x loopback HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://127.0.0.1",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).not.toBeNull();
+    });
+
+    it("rejects a 10.x private HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://10.0.0.1",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).not.toBeNull();
+    });
+
+    it("rejects a 172.16-31 private HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://172.16.0.1",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).not.toBeNull();
+    });
+
+    it("does not reject a public-looking 172.32 origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://172.32.0.1",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).toBeNull();
+    });
+
+    it("rejects an IPv6 loopback HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://[::1]",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).not.toBeNull();
+    });
+
+    it("rejects an IPv6 unique-local HTTPS origin", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://[fd12:3456::1]",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).not.toBeNull();
+    });
+
+    it("accepts an HTTPS tunnel hostname (ngrok-style) in development", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://example-tunnel.ngrok-free.app",
+        nodeEnv: "development",
+      });
+
+      expect(service.providerFetchOriginError()).toBeNull();
+    });
+
+    it("surfaces the base configuration error first when the secret is missing", () => {
+      const service = makeService("", 900000, {
+        baseUrl: "https://fetch.example.com",
+      });
+
+      expect(service.providerFetchOriginError()).toMatch(
+        /PUBLISHING_MEDIA_FETCH_SECRET/,
+      );
+    });
+
+    it("still allows buildUrl when the origin is public HTTPS", () => {
+      const service = makeService("media-fetch-secret", 900000, {
+        baseUrl: "https://fetch.example.com",
+      });
+
+      expect(() =>
+        service.buildUrl({ attemptId: "a1", assetId: "asset-9" }),
+      ).not.toThrow();
+    });
+  });
 });

@@ -12,10 +12,12 @@ from content_v2_contracts import (
     AiContentV2GenerateResponse,
     AiContentV2ReviseRequest,
     AiContentV2ReviseResponse,
+    ContentV2OptimizationGuidanceV1,
 )
 
 from app.content.v2_generator import (
     _normalize_v2_finalized_items,
+    _normalize_v2_generated_items,
     generate_v2_content_pack,
     v2_generate_to_v1_request,
     assemble_v2_generation_prompt,
@@ -65,6 +67,48 @@ def test_v2_generate_prompt_embeds_frozen_post_plans() -> None:
         request.frozen_input.post_plans
     )
     assert prompt.metadata["contract_version"] == "content-v2"
+
+
+def test_v2_generate_prompt_freezes_approved_optimization_guidance() -> None:
+    request = make_valid_generate_v2_request()
+    guidance = {
+        "instruction_id": "a5000000-0000-4000-8000-000000000001",
+        "proposal_id": "a5000000-0000-4000-8000-000000000002",
+        "approved_decision_id": "a5000000-0000-4000-8000-000000000003",
+        "evidence_checksum": "b7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+        "format_cohort": "static_image_post",
+        "change_kind": "hook_style",
+        "instruction": "Use a concrete customer situation in the opening hook.",
+    }
+    request = request.model_copy(
+        update={
+            "frozen_input": request.frozen_input.model_copy(
+                    update={
+                        "optimization_guidance": ContentV2OptimizationGuidanceV1.model_validate(
+                            guidance
+                        )
+                    }
+            )
+        }
+    )
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+
+    assert "Owner-approved Optimization 2 guidance" in prompt.system_prompt
+    assert guidance["instruction"] in prompt.user_prompt
+    assert prompt.metadata["optimization_instruction_id"] == guidance[
+        "instruction_id"
+    ]
+
+    raw_items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
+    normalized = _normalize_v2_generated_items(request, v1, raw_items)
+    assert normalized[0].generation_provenance.optimization_guidance is not None
+    assert (
+        normalized[0].generation_provenance.optimization_guidance[
+            "instruction_id"
+        ]
+        == guidance["instruction_id"]
+    )
 
 
 def test_plan_alignment_accepts_matching_items() -> None:
@@ -413,7 +457,9 @@ async def test_v2_generation_spends_repair_on_unsafe_copy_not_shape_noise() -> N
             return invalid_items if self.calls == 1 else valid_items
 
     provider = RepairOnceProvider()
-    response = await generate_v2_content_pack(request, provider, breaker=None)
+    response = await generate_v2_content_pack(
+        request, provider, breaker=None, max_attempts=3
+    )
 
     assert provider.calls == 2
     assert response.validation.valid is True

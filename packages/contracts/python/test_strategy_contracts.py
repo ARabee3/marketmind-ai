@@ -554,6 +554,47 @@ class TestStrategyV2Contracts(unittest.TestCase):
         self.assertTrue(result.valid, f"issues: {[i.model_dump() for i in result.issues]}")
         self.assertEqual(result.issues, [])
 
+    def test_v2_execution_language_rejects_explicit_publish_claim(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        bad = plan.model_copy(update={
+            "evidence_summary": plan.evidence_summary.model_copy(
+                update={"text": "تم نشر الإعلان أمس وحقق نتائج جيدة."}
+            )
+        })
+
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=bad
+        )
+
+        self.assertTrue(
+            any(
+                issue.code == "STRATEGY_RULE_VIOLATION"
+                and issue.field == "evidence_summary"
+                for issue in result.issues
+            )
+        )
+
+    def test_v2_execution_language_allows_safe_planning_reference(self):
+        profile, brief, plan, pack = self.load_v2_bundle()
+        safe_text = "تعتمد الخطة على بيانات الملف لتقييم الإعلان المقترح."
+        safe = plan.model_copy(update={
+            "evidence_summary": plan.evidence_summary.model_copy(
+                update={"text": safe_text}
+            )
+        })
+
+        result = validate_strategy_v2_bundle(
+            business_profile=profile, brief=brief, retrieval_pack=pack, plan=safe
+        )
+
+        self.assertFalse(
+            any(
+                issue.code == "STRATEGY_RULE_VIOLATION"
+                and "publishing" in issue.message
+                for issue in result.issues
+            )
+        )
+
     def test_brief_v2_rejects_missing_primary(self):
         profile, brief, plan, pack = self.load_v2_bundle()
         bad = brief.model_copy(

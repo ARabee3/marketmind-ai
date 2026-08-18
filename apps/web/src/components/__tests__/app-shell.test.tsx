@@ -11,6 +11,7 @@ const t = (key: string) => {
     navDashboard: "Dashboard",
     navStrategy: "Strategy",
     navPublishing: "Publishing",
+    navPerformance: "Content performance",
     navConnections: "Connections",
     navBilling: "Billing",
     primaryNavLabel: "Primary",
@@ -74,6 +75,17 @@ vi.mock("@/features/auth/logout-button", () => ({
   ),
 }));
 
+vi.mock("@/lib/api/billing", () => ({
+  getBillingWallet: () =>
+    Promise.resolve({
+      billing_account_id: "acc-1",
+      balance: 215,
+      lifetime_granted: 365,
+      lifetime_spent: 150,
+      low_balance: false,
+    }),
+}));
+
 describe("AppShell", () => {
   it("does not keep Dashboard active on a different section", () => {
     expect(isAppNavItemActive("/dashboard", "/dashboard")).toBe(true);
@@ -115,7 +127,7 @@ describe("AppShell", () => {
     expect(navList?.className).toMatch(/flex/);
     expect(navList?.className).not.toMatch(/grid-cols-6/);
     const items = mobileNav.querySelectorAll("li");
-    expect(items.length).toBe(7);
+    expect(items.length).toBe(8);
     for (const item of Array.from(items)) {
       expect((item as HTMLElement).className).toMatch(/min-w-\[4\.5rem\] flex-none/);
     }
@@ -125,6 +137,7 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: "Dashboard" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Strategy" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Publishing" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Content performance" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Connections" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Billing" })).toHaveLength(2);
   });
@@ -232,5 +245,28 @@ describe("AppShell", () => {
 
     expect(screen.getByText("Ahmed Mohamed")).toBeTruthy();
     expect(screen.getByText("AM")).toBeTruthy();
+  });
+
+  it("renders remaining points in the desktop sidebar when authenticated", async () => {
+    authenticated = true;
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(await screen.findByText("215")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "topUp" })).toBeTruthy();
+  });
+
+  it("hides the sidebar points card when unauthenticated", () => {
+    authenticated = false;
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(container.textContent).not.toMatch(/215/);
   });
 });

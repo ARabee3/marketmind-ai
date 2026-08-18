@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, RootModel, model_validator
 
@@ -212,6 +212,7 @@ class ContentGenerationProvenance(FrozenModel):
     provider_name: str
     provider_model: str
     generated_at: datetime
+    optimization_guidance: dict[str, Any] | None = None
 
 
 class ContentShortVideoScene(FrozenModel):

@@ -14,6 +14,7 @@ from app.api.internal_v1.discovery import router as discovery_router
 from app.api.internal_v1.content import router as content_router
 from app.api.internal_v1.search import router as search_router
 from app.api.internal_v1.strategy import router as strategy_router
+from app.api.internal_v1.optimization import router as optimization_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.core.ratelimit import RateLimitMiddleware
@@ -85,6 +86,7 @@ def create_app(rate_limit_per_minute: int | None = None) -> FastAPI:
     app.include_router(content_router)
     app.include_router(search_router)
     app.include_router(strategy_router)
+    app.include_router(optimization_router)
     return app
 
 

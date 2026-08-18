@@ -25,6 +25,7 @@ from app.strategy.content_handoff import (
 )
 from app.strategy.validators import StrategyV2ValidationPipeline
 from tests.strategy.fixtures import (
+    default_plan_v2,
     make_generate_request_v2,
     make_revise_request_v2,
 )
@@ -292,6 +293,48 @@ class TestV2GenerateEndpoint:
         assert provider.call_count == 2
         assert "planning-only" in provider.prompts[1].system_prompt
         assert "channel_commitments[*].rationale" in provider.prompts[1].system_prompt
+        assert "Ads have been launched for this channel." in provider.prompts[1].user_prompt
+
+    def test_language_repair_prompt_includes_rejected_gap_value(self, client, monkeypatch):
+        request = make_generate_request_v2()
+        fixture = default_plan_v2()
+        rejected_value = "English knowledge gap that must be rewritten in Arabic."
+        bad_plan = fixture.model_copy(update={
+            "knowledge_gaps": [
+                fixture.knowledge_gaps[0].model_copy(
+                    update={"description": rejected_value}
+                )
+            ],
+        })
+
+        class SequenceProvider(MockStrategyProvider):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.prompts = []
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                if self.call_count == 1:
+                    return bad_plan
+                return fixture
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        assert "plan.knowledge_gaps[0].description" in provider.prompts[1].user_prompt
+        assert rejected_value in provider.prompts[1].user_prompt
 
     def test_v2_validation_pipeline_rejects_plan_language_mismatch(self):
         from strategy_contracts import StrategyPlanV2 as PlanV2

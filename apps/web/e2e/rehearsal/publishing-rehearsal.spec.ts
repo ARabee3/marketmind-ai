@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { mockAuthMe } from '../fixtures/auth'
+import { mockAuthMe, type MockUser } from '../fixtures/auth'
 
 /**
  * H1 clean-demo-rehearsal (IMPLEMENTATION_PLAN_123.md §4.8): runs against the
@@ -36,8 +36,8 @@ const ownerUser = {
   id: 'rehearsal-owner',
   fullName: 'Demo Owner (rehearsal)',
   email: state.ownerEmail,
-  role: 'owner' as const,
-}
+  roles: ['OWNER'],
+} satisfies MockUser
 
 async function authenticate(page: Page) {
   // Real refresh cookie so the Next.js proxy's server-side `/auth/session`

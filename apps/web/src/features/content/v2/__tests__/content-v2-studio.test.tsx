@@ -33,6 +33,10 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.planningCta": "Planning…",
       "ContentV2.studio.replanCta": "Re-plan",
       "ContentV2.studio.generateCta": "Generate drafts",
+      "ContentV2.studio.weekCost": "This week will use 2 points",
+      "ContentV2.studio.insufficientPoints":
+        "You need points. Top up to continue.",
+      "ContentV2.studio.topUpCta": "Top up points",
       "ContentV2.studio.reviewCta": "Review drafts",
       "ContentV2.studio.viewApprovedCta": "View approved posts",
       "ContentV2.studio.completedHint": "All posts for this week are approved.",
@@ -100,6 +104,19 @@ vi.mock("@/lib/api/content-v2");
 vi.mock("@/lib/api/content-cycle");
 vi.mock("@/lib/api/publishing", () => ({
   createIdempotencyKey: () => "key-1",
+}));
+
+const walletState = vi.hoisted(() => ({
+  wallet: null as { balance: number } | null,
+}));
+
+vi.mock("@/features/billing/wallet-context", () => ({
+  useWallet: () => ({
+    wallet: walletState.wallet,
+    loading: false,
+    error: false,
+    refresh: vi.fn(),
+  }),
 }));
 
 function baseWorkspace(
@@ -206,6 +223,7 @@ describe("ContentV2Studio", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockPush.mockClear();
+    walletState.wallet = { balance: 215 };
   });
 
   it("shows a single plan action with a default-voice hint on a fresh cycle", async () => {
@@ -306,6 +324,40 @@ describe("ContentV2Studio", () => {
         }),
       );
     });
+  });
+
+  it("shows the week point cost when generation is available", async () => {
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      draftPlanWorkspace(),
+    );
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    const generateButton = await screen.findByRole("button", {
+      name: "Generate drafts",
+    });
+    expect((generateButton as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText(/This week will use 2 points/)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("disables generation and shows a top-up warning when the balance is below the week cost", async () => {
+    walletState.wallet = { balance: 1 };
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      draftPlanWorkspace(),
+    );
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    const generateButton = await screen.findByRole("button", {
+      name: "Generate drafts",
+    });
+    expect((generateButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/Top up/i);
+    expect(
+      screen.getByRole("link", { name: "Top up points" }),
+    ).toBeTruthy();
+    expect(contentCycleApi.generateContentWeek).not.toHaveBeenCalled();
   });
 
   it("shows an actionable error when the API rejects the planned week", async () => {

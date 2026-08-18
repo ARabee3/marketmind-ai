@@ -21,6 +21,9 @@ import type { TargetProjection } from "./targets.dto";
 import { CredentialVaultService } from "../credentials/credential-vault.service";
 import {
   MetaGraphClient,
+  META_PERMISSION_PAGES_READ_ENGAGEMENT,
+  META_PERMISSION_READ_INSIGHTS,
+  META_PERMISSION_STATUS_GRANTED,
   type MetaPageAccount,
 } from "../meta/meta-graph.client";
 import { MetaOAuthStateStore } from "../meta/meta-oauth-state.store";
@@ -53,8 +56,19 @@ export interface MetaPendingSelection {
   readonly requested_channel: string | null;
   readonly requested_capability: string;
   readonly expires_at: Date | null;
+  readonly performance_capability: MetaPerformanceCapability;
   readonly options: readonly MetaAccountOption[];
 }
+
+interface MetaPerformanceCapability {
+  readonly status: "supported" | "unsupported";
+  readonly blockers: readonly PerformanceBlockerCode[];
+}
+
+type PerformanceBlockerCode =
+  | "no_page_privilege"
+  | "pages_read_engagement_permission_missing"
+  | "read_insights_permission_missing";
 
 export interface MetaAccountOption {
   readonly page: MetaChannelOption;
@@ -310,12 +324,11 @@ export class MetaConnectionService {
   }): Promise<MetaPendingSelection> {
     const connection = await this.loadPendingConnection(input);
     const userToken = await this.loadUserToken(connection);
-    const granted = new Set(
-      (
-        await this.graph.fetchGrantedPermissions(userToken)
-      ).map((p) => p.permission),
+    const granted = grantedPermissionSet(
+      await this.graph.fetchGrantedPermissions(userToken),
     );
     const pages = await this.graph.listManageablePages(userToken);
+    const performance = performanceCapability(granted, pages);
     const options = pages.map((page) =>
       this.optionForPage(page, granted),
     );
@@ -324,6 +337,7 @@ export class MetaConnectionService {
       requested_channel: connection.requestedChannel,
       requested_capability: connection.requestedCapability,
       expires_at: connection.expiresAt,
+      performance_capability: performance,
       options,
     };
   }
@@ -340,12 +354,11 @@ export class MetaConnectionService {
   }): Promise<TargetProjection[]> {
     const connection = await this.loadPendingConnection(input);
     const userToken = await this.loadUserToken(connection);
-    const granted = new Set(
-      (
-        await this.graph.fetchGrantedPermissions(userToken)
-      ).map((p) => p.permission),
+    const granted = grantedPermissionSet(
+      await this.graph.fetchGrantedPermissions(userToken),
     );
     const pages = await this.graph.listManageablePages(userToken);
+    const performance = performanceCapability(granted, pages);
     const page = pages.find((p) => p.pageId === input.pageId);
     if (!page) {
       throw new UnprocessableEntityException(
@@ -527,6 +540,10 @@ export class MetaConnectionService {
           page_id: input.pageId,
           include_instagram: input.includeInstagram,
           instagram_account_id: option.instagram?.account_id ?? null,
+          performance_capability: {
+            status: performance.status,
+            blockers: [...performance.blockers],
+          },
         },
       },
     });
@@ -1124,4 +1141,34 @@ function safeRedirectUrl(url: string, fallback: string): string {
   } catch {
     return fallback;
   }
+}
+
+function grantedPermissionSet(
+  permissions: readonly { permission: string; status: string }[],
+): ReadonlySet<string> {
+  return new Set(
+    permissions
+      .filter((permission) => permission.status === META_PERMISSION_STATUS_GRANTED)
+      .map((permission) => permission.permission),
+  );
+}
+
+function performanceCapability(
+  granted: ReadonlySet<string>,
+  pages: readonly MetaPageAccount[],
+): MetaPerformanceCapability {
+  const blockers: PerformanceBlockerCode[] = [];
+  if (!pages.some((page) => Boolean(page.accessToken))) {
+    blockers.push("no_page_privilege");
+  }
+  if (!granted.has(META_PERMISSION_PAGES_READ_ENGAGEMENT)) {
+    blockers.push("pages_read_engagement_permission_missing");
+  }
+  if (!granted.has(META_PERMISSION_READ_INSIGHTS)) {
+    blockers.push("read_insights_permission_missing");
+  }
+  return {
+    status: blockers.length === 0 ? "supported" : "unsupported",
+    blockers,
+  };
 }

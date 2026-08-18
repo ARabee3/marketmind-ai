@@ -1064,7 +1064,20 @@ EXECUTION_LANGUAGE_PATTERNS = (
     re.compile(r"\bhas\s+been\s+published\b", re.IGNORECASE | re.UNICODE),
     re.compile(r"\bwe\s+will\s+run\s+the\s+ads?\b", re.IGNORECASE | re.UNICODE),
     re.compile(r"\bauto-?approve\b", re.IGNORECASE | re.UNICODE),
-    re.compile(r"(?:تم|هيتم|هننشر|انشر).*(?:نشر|بوست|إعلان)", re.UNICODE),
+    # Keep Arabic execution checks phrase-based. The previous expression used
+    # an unbounded `.*` and matched `تم` inside ordinary words such as
+    # `تعتمد`, so safe evidence summaries were rejected when they mentioned an
+    # advertisement or publishing as a planning topic.
+    re.compile(
+        r"(?<![\u0600-\u06FF])(?:تم|سيتم|هيتم)\s+(?:نشر|إطلاق|اطلاق)"
+        r"(?![\u0600-\u06FF])",
+        re.UNICODE,
+    ),
+    re.compile(
+        r"(?<![\u0600-\u06FF])(?:هننشر|انشر)\s+(?:ال)?"
+        r"(?:بوست|منشور|إعلان|اعلان)(?![\u0600-\u06FF])",
+        re.UNICODE,
+    ),
 )
 
 PAID_TACTIC_PATTERNS = (

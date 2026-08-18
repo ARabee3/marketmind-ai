@@ -345,6 +345,19 @@ export class ContentProcessor extends WorkerHost {
         `content-pack:${pack.id}`,
         pack.businessId,
       );
+      await this.billingEntitlements?.recordProviderCost(cycle.ownerUserId, {
+        metric: "content_item",
+        logicalArtifactKey: `content-pack:${pack.id}`,
+        businessId: pack.businessId,
+        provider:
+          normalizedItemVersions[0]?.generation_provenance?.provider_name ??
+          "ai-service",
+        model:
+          normalizedItemVersions[0]?.generation_provenance?.provider_model ??
+          null,
+        successfulArtifact: true,
+        retryCount: job.attemptsMade ?? 0,
+      });
 
       this.logger.log(
         `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
@@ -606,6 +619,19 @@ export class ContentProcessor extends WorkerHost {
         `content-pack:${pack.id}`,
         pack.businessId,
       );
+      await this.billingEntitlements?.recordProviderCost(cycle.ownerUserId, {
+        metric: "content_item",
+        logicalArtifactKey: `content-pack:${pack.id}`,
+        businessId: pack.businessId,
+        provider:
+          response.item_versions[0]?.generation_provenance?.provider_name ??
+          "ai-service",
+        model:
+          response.item_versions[0]?.generation_provenance?.provider_model ??
+          null,
+        successfulArtifact: true,
+        retryCount: job.attemptsMade ?? 0,
+      });
 
       this.logger.log(
         `Pack ${pack.id} generated successfully (${response.item_versions.length} items)`,
@@ -920,6 +946,18 @@ export class ContentProcessor extends WorkerHost {
         `content-revision:${contentItemId}:${baseItemVersionId}`,
         pack.businessId,
       );
+      await this.billingEntitlements?.recordProviderCost(cycle.ownerUserId, {
+        metric: "content_revision",
+        logicalArtifactKey: `content-revision:${contentItemId}:${baseItemVersionId}`,
+        businessId: pack.businessId,
+        provider:
+          normalizedNewVersion.generation_provenance?.provider_name ??
+          "ai-service",
+        model:
+          normalizedNewVersion.generation_provenance?.provider_model ?? null,
+        successfulArtifact: true,
+        retryCount: job.attemptsMade ?? 0,
+      });
 
       await this.packRepo.appendProgressEvent(pack.id, {
         stage: "revision",
@@ -1086,6 +1124,18 @@ export class ContentProcessor extends WorkerHost {
             1,
             `static-image:${assetId}`,
             billingContext.businessId,
+          );
+          await this.billingEntitlements?.recordProviderCost(
+            billingContext.ownerUserId,
+            {
+              metric: "static_image",
+              logicalArtifactKey: `static-image:${assetId}`,
+              businessId: billingContext.businessId,
+              provider: asset.provider_name ?? "ai-service",
+              model: asset.provider_model ?? null,
+              successfulArtifact: true,
+              retryCount: job.attemptsMade ?? 0,
+            },
           );
         }
 

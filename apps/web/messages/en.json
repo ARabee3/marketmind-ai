@@ -37,7 +37,8 @@
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
     "error": "Error",
-    "navConnections": "Connections"
+    "navConnections": "Connections",
+    "navPerformance": "Content performance"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -122,6 +123,13 @@
       "profile_review_required": "Strategy stays locked until you confirm the profile.",
       "strategy_not_active": "Strategy is planned next, but not available in this sprint.",
       "strategy_active": "The Strategy workspace is available."
+    },
+    "performance": {
+      "eyebrow": "Published results",
+      "title": "Review content performance",
+      "body": "You have {count} real Facebook {count, plural, one {post} other {posts}} ready for monitoring.",
+      "baseline": "Baseline: {observed} of {required} seven-day snapshots",
+      "action": "Open content performance"
     },
     "phase": {
       "discovery": {
@@ -647,6 +655,7 @@
     "strategyVersionConflict": "This Strategy version is stale. Refresh before deciding.",
     "discoveryAlreadyConfirmed": "A business profile is already confirmed. View your saved discovery result in the dashboard.",
     "billingLimitReached": "Your plan limit for this action has been reached for the current period.",
+    "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then retry.",
     "serverError": "Server error. Please try again later."
   },
   "NotFound": {
@@ -1121,6 +1130,13 @@
       "back": "Back",
       "generate": "Generate plan",
       "generatePending": "Saving and generating…",
+      "confirmTitle": "Confirm point usage",
+      "confirmBody": "This will use {points} points. You have {balance} points.",
+      "confirmBodyNoBalance": "This will use {points} points.",
+      "confirmInsufficient": "You need {points} points but you have {balance}. Top up to continue.",
+      "confirmTopUp": "Top up points",
+      "confirmCta": "Confirm and generate",
+      "confirmCancel": "Cancel",
       "save": "Save draft and leave",
       "saved": "Draft saved.",
       "unsaved": "You have unsaved Strategy choices.",
@@ -1910,6 +1926,7 @@
       "unknownConsequence": "Do not repost or retry. MarketMind is checking whether the provider received the request.",
       "retryableFailure": "The publishing provider did not complete this post, and nothing was confirmed as published. It is safe to retry.",
       "nonRetryableFailure": "The publishing provider did not complete this post. Refresh the status before choosing another action.",
+      "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then refresh and retry after it is fixed.",
       "dispatching": "Working through the publishing boundary…",
       "cancelled": "This intent is read-only. Start a new decision if the candidate is still active.",
       "completed": "This action is complete. Export and simulation do not block publishing.",
@@ -1987,16 +2004,17 @@
     },
     "meta": {
       "connectTitle": "Connect Facebook",
-      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
+      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts and read the performance of posts it published. MarketMind never sees your Facebook password, and Insights access is read-only.",
       "connectListTitle": "What gets connected",
       "connectItemPage": "One Facebook Page you manage",
       "connectItemInstagram": "The Page's linked Instagram Professional account (optional)",
+      "connectItemPerformance": "Read-only Page Insights for Facebook posts published through MarketMind",
       "connectItemFormats": "Supported format: static image with caption",
       "connectItemToken": "Your access token is encrypted at rest and referenced opaquely — it is never shown to you, stored in your browser, or written to logs",
       "prereqTitle": "Before you continue",
       "prereqPage": "You must be an admin of the Facebook Page",
       "prereqInstagram": "The Instagram account must be a Professional account linked to the Page",
-      "prereqPermissions": "Grant only the publishing permissions MarketMind requests",
+      "prereqPermissions": "Grant only the publishing and read-only Insights permissions MarketMind requests",
       "startButton": "Continue with Facebook",
       "backButton": "Back to publishing",
       "unavailableTitle": "Connection is not available right now",
@@ -2009,7 +2027,7 @@
       "resultExpiredTitle": "Connection link expired",
       "resultExpiredBody": "The connection link was used once or ran out of time. Start a new connection to try again.",
       "resultDeniedTitle": "Connection was not granted",
-      "resultDeniedBody": "Meta did not grant the publishing permissions. You can retry and accept the permissions, or use export and simulation instead.",
+      "resultDeniedBody": "Meta did not grant the publishing or read-only Insights permissions. You can retry and accept the requested permissions, or use export and simulation instead.",
       "resultUnknownTitle": "Something went wrong",
       "resultUnknownBody": "The connection could not be completed. Your accounts are unchanged. Try again, or use export and simulation instead.",
       "resultRetry": "Start a new connection",
@@ -2048,73 +2066,59 @@
   },
   "Billing": {
     "eyebrow": "Owner billing",
-    "title": "Keep your growth work moving",
-    "subtitle": "One clear plan in Egyptian pounds, with the renewal date and included work visible before you pay.",
-    "sandboxLabel": "Sandbox payment",
-    "sandboxBody": "This checkout is a local sandbox. A live Paymob or Geidea merchant connection is still a launch gate.",
-    "trialLabel": "Current access",
-    "growthLabel": "Growth",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
-    "perMonth": "/ month",
-    "perYear": "/ year",
-    "saveTwoMonths": "Two months free",
-    "chooseMonthly": "Start monthly checkout",
-    "chooseYearly": "Start yearly checkout",
-    "includedTitle": "Included in Growth",
-    "includedContent": "20 content items in a rolling 30 days",
-    "includedImages": "12 generated static images per period",
-    "includedRevisions": "2 revisions per content item",
-    "metricDiscovery": "Discovery profiles",
-    "metricStrategyCycle": "Strategy cycles",
-    "metricStrategyRevision": "Strategy revisions",
-    "metricContentItems": "Content items",
-    "metricContentRevisions": "Content revisions",
-    "metricStaticImages": "Static images",
-    "metricConnectedTargets": "Connected targets",
-    "paymentMethods": "Eligible cards, local wallets, or reference payments appear only after the merchant account enables and tests them.",
-    "statusLabel": "Subscription status",
-    "status": {
-      "trialing": "Trial is active",
-      "active": "Growth is active",
-      "past_due": "Payment needs attention",
-      "paused": "Billing is paused",
-      "cancel_at_period_end": "Renewal is turned off",
-      "expired": "Access has expired",
-      "refunded": "Payment was refunded",
-      "checkout_pending": "Checkout is waiting"
-    },
-    "renewal": "Renewal",
-    "renewalNone": "No automatic renewal",
-    "paidThrough": "Paid through {date}",
-    "graceEnds": "Grace period ends {date}",
-    "trialEnds": "Trial ends {date}",
-    "cancel": "Stop automatic renewal",
-    "resume": "Resume renewal",
-    "cancelled": "Renewal is off. Access continues through {date}.",
-    "usageTitle": "Included usage",
-    "usageEmpty": "No billable work recorded yet.",
-    "usedOf": "{used} of {limit}",
-    "remaining": "{remaining} remaining",
+    "title": "Points for your growth work",
+    "subtitle": "Buy a bundle of points, and every AI action spends a fixed published amount. Points roll over — only generation spends them.",
+    "loading": "Loading billing…",
+    "loadError": "Could not load billing. Try again.",
+    "retry": "Try again",
+    "error": "We could not complete that billing action. Try again.",
+    "balanceLabel": "Your balance",
+    "balanceCount": "{points, plural, one{You have <big>{points}</big> point} other{You have <big>{points}</big> points}}",
+    "balanceDetails": "Details",
+    "lifetimeGranted": "Total points granted: {points}",
+    "lifetimeSpent": "Points used: {points}",
+    "topUp": "Buy points",
+    "sidebarPointsLabel": "Available points",
+    "bundlesTitle": "Points bundles",
+    "bundlesBody": "One-time payment in Egyptian pounds. Points appear only after the payment is confirmed.",
+    "bundlePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "bundlePerPoint": "{perPoint} per point",
+    "bundleBuy": "Buy for {amount}",
+    "bestValue": "Best value",
+    "ledgerTitle": "Points history",
+    "ledgerEmpty": "No point activity yet. Your welcome bonus and purchases will show up here.",
+    "ledgerTopup": "Points purchased",
+    "ledgerTrialGrant": "Welcome bonus",
+    "ledgerSpend": "Used for AI work",
+    "ledgerSpendStrategy": "Used for creating strategy",
+    "ledgerSpendStrategyRevision": "Used for strategy revision",
+    "ledgerSpendContent": "Used for generating content",
+    "ledgerSpendContentRevision": "Used for revising content",
+    "ledgerSpendImage": "Used for generating an image",
+    "ledgerRefund": "Refund",
+    "ledgerBalanceAfter": "Balance after: {points}",
+    "priceMenuTitle": "What actions cost",
+    "priceMenuBody": "One fixed price per successful action. Failed or retried attempts never charge you.",
+    "pricePost": "Generate a post",
+    "pricePostRevision": "Revise a post",
+    "priceImage": "Generate an image",
+    "priceStrategy": "Strategy phase",
+    "priceStrategyRevision": "Strategy revision",
+    "priceDiscovery": "Discovery chat",
+    "priceFree": "Free",
+    "pricePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "lowBalanceTitle": "Balance running low",
+    "lowBalanceBody": "You have {points} points left. Buy a bundle to keep AI work moving.",
+    "lowBalanceCta": "Top up 150 points",
+    "rolloverTitle": "Points roll over",
+    "rolloverBody": "Purchased points roll over across top-ups. Only AI generation spends points — viewing and editing your work stays free.",
     "transactionsTitle": "Payment history",
     "transactionCharge": "Charge",
     "transactionRefund": "Refund",
     "transactionChargeback": "Chargeback",
-    "transactionPending": "Pending",
     "transactionSucceeded": "Confirmed",
     "transactionFailed": "Failed",
-    "checkoutPending": "Checkout created. Confirm the sandbox payment below to test the verified webhook path.",
-    "sandboxConfirm": "Confirm sandbox payment",
-    "sandboxFail": "Mark sandbox payment failed",
-    "checkoutConfirmed": "Payment confirmed. Billing access is now active.",
-    "loadError": "Could not load billing. Try again.",
-    "retry": "Try again",
-    "loading": "Loading billing…",
-    "notAvailable": "Not available",
-    "error": "We could not complete that billing action. Try again.",
-    "finalPriceNote": "Final payable amount is shown in EGP. Advertising spend is separate.",
-    "trialNote": "The trial needs no card and never converts automatically.",
-    "liveGate": "Live payment activation requires merchant approval and signed provider webhooks."
+    "transactionPending": "Pending"
   },
   "ContentCycle": {
     "metadata": {
@@ -2689,6 +2693,9 @@
       "replanConfirm": "Re-planning replaces the current cards, including owner edits. Continue?",
       "refineCta": "Refine cards",
       "generateCta": "Generate drafts",
+      "weekCost": "This week will use {points} points",
+      "insufficientPoints": "You need {points} points but you have {balance}. Top up to continue.",
+      "topUpCta": "Top up points",
       "generatingCta": "Queueing generation…",
       "reviewCta": "Review drafts",
       "viewApprovedCta": "View approved posts",
@@ -2708,6 +2715,7 @@
     },
     "postCard": {
       "postLabel": "Post {position}",
+      "pointCost": "{points} points",
       "purposeLabel": "Purpose",
       "audienceLabel": "Intended audience",
       "channelLabel": "Channel",
@@ -2864,6 +2872,7 @@
       "cycleCompleted": "This content cycle is complete and cannot generate another week.",
       "weekAlreadyClaimed": "Generation already started for this week. Refresh the studio for the latest status.",
       "rateLimited": "Too many generation requests. Wait a moment, then try again.",
+      "insufficientPoints": "Not enough points for this action. Top up to continue.",
       "refresh": "Refresh",
       "legacyCycle": "This legacy Content V1 pack is outside the active workflow. Start a new Content V2 cycle to continue.",
       "backToContent": "Go to Content"
@@ -3011,6 +3020,211 @@
     "disconnectConfirm": "Disconnect the Facebook Page connection?",
     "disconnectConfirmAction": "Yes, disconnect",
     "cancelDisconnect": "Cancel"
+  },
+  "Performance": {
+    "metadata": {
+      "title": "Content performance"
+    },
+    "loading": "Loading content performance…",
+    "eyebrow": "Facebook evidence",
+    "title": "See what your published posts are teaching you",
+    "subtitle": "MarketMind collects real Facebook results from posts it published. Each observation stays tied to the original publication and its collection window.",
+    "lastSyncLabel": "Last successful sync",
+    "notAvailable": "Not available yet",
+    "refreshOverview": "Refresh view",
+    "demo": {
+      "open": "Open demo evidence",
+      "exit": "Return to live data",
+      "badge": "Demo evidence",
+      "eyebrow": "Controlled walkthrough",
+      "title": "See the optimization loop before live data is ready",
+      "headerSubtitle": "This read-only walkthrough uses synthetic snapshots to show how evidence becomes a bounded proposal. It never queries Meta or changes your account.",
+      "generatedLabel": "Demo generated",
+      "bannerTitle": "Synthetic evidence — not live Facebook data",
+      "bannerBody": "The three posts, metrics, and proposal below are fixtures for rehearsal. Nothing here is stored, published, or applied to your account.",
+      "readOnly": "Read-only demo",
+      "baselineTitle": "Demo baseline",
+      "baselineStatus": "Demo ready",
+      "baselineExplanation": "Three synthetic seven-day snapshots unlock the comparison path in this walkthrough. Live data still waits for Facebook’s collection windows.",
+      "connectionEyebrow": "Demo boundary",
+      "connectionTitle": "Live connection is not shown",
+      "connectionBody": "This walkthrough does not read your Facebook Page or prove live permission readiness. Return to live data to inspect the account.",
+      "postBadge": "Synthetic evidence"
+    },
+    "loadFailed": "Content performance is unavailable",
+    "loadFailedBody": "We could not load the monitoring evidence. Your published content is unchanged; try again when the API is available.",
+    "retry": "Try again",
+    "capability": {
+      "ready": { "label": "Insights ready" },
+      "blocked": { "label": "Action needed" },
+      "unknown": { "label": "Status unavailable" }
+    },
+    "notices": {
+      "queued": "A refresh was queued. The evidence rail will update when Facebook returns a new observation.",
+      "notDue": "These collection windows are not due yet. The current evidence remains unchanged.",
+      "refreshFailed": "We could not request a refresh. The current evidence remains unchanged.",
+      "rateLimited": "Refresh was requested too recently. Wait a moment before trying again.",
+      "optimizationSaved": "Your Optimization decision was saved. The Strategy and weekly plan remain unchanged.",
+      "optimizationFailed": "We could not save that Optimization decision. The proposal remains unchanged."
+    },
+    "empty": {
+      "title": "No eligible Facebook posts yet",
+      "body": "This workspace only monitors real Facebook posts that MarketMind successfully published. Exported, simulated, or manually entered results do not appear here.",
+      "action": "Open publishing"
+    },
+    "baseline": {
+      "eyebrow": "Baseline readiness",
+      "title": "Enough evidence for comparison",
+      "count": "{observed} of {required}",
+      "progressLabel": "Completed seven-day snapshot progress",
+      "explanation": "A useful baseline needs three real MarketMind-published Facebook posts with completed 7-day snapshots. Missing values stay unavailable instead of becoming zero.",
+      "status": {
+        "ready": "Baseline ready",
+        "not_ready": "Collecting baseline"
+      },
+      "reason": {
+        "no_published_posts": "Publish a real Facebook post through MarketMind to begin collection.",
+        "insufficient_snapshots": "More time or more eligible posts are needed before comparison is reliable.",
+        "provider_unavailable": "Facebook did not provide all required observations. Reconnect or retry when prompted."
+      }
+    },
+    "connection": {
+      "eyebrow": "Collection access",
+      "title": "Facebook Insights",
+      "blockersLabel": "Actions needed for collection",
+      "viewAction": "View connection",
+      "reconnectAction": "Reconnect Facebook",
+      "status": {
+        "ready": {
+          "body": "The selected Facebook Page is connected and its Insights capability is ready for monitoring."
+        },
+        "blocked": {
+          "body": "Monitoring is blocked for this Page. Publishing readiness is separate; reconnect to restore Insights collection."
+        },
+        "unknown": {
+          "body": "The monitoring capability could not be confirmed. Open Connections to check the Page and permissions."
+        }
+      },
+      "blockers": {
+        "no_facebook_connection": "No Facebook Page is connected.",
+        "connection_expired": "The Facebook connection expired.",
+        "pages_read_engagement_permission_missing": "Page engagement permission is missing.",
+        "read_insights_permission_missing": "Facebook Insights permission is missing.",
+        "provider_unavailable": "Facebook is temporarily unavailable."
+      }
+    },
+    "post": {
+      "title": "Published Facebook post",
+      "realEvidence": "Real evidence",
+      "publishedAt": "Published {date}",
+      "refresh": "Request refresh",
+      "refreshing": "Requesting…"
+    },
+    "rail": {
+      "label": "Evidence collection timeline",
+      "stages": {
+        "published": { "label": "Published" },
+        "24h": { "label": "24 hours" },
+        "72h": { "label": "72 hours" },
+        "7d": { "label": "7 days" }
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "collecting": "Collecting",
+        "retrying": "Retrying",
+        "blocked": "Blocked",
+        "unavailable": "Unavailable",
+        "complete": "Complete"
+      }
+    },
+    "metrics": {
+      "title": "Observed metrics",
+      "caption": "Raw Facebook values by collection age",
+      "tableCaption": "Facebook metrics across observation windows",
+      "metric": "Metric",
+      "unavailable": "Unavailable",
+      "names": {
+        "post_media_view": "Media views",
+        "post_total_media_view_unique": "Unique media views",
+        "post_clicks": "Post clicks"
+      },
+      "reasons": {
+        "not_returned": "Facebook did not return this metric.",
+        "unsupported": "This metric is not supported for the post.",
+        "permission_denied": "Permission is required for this metric.",
+        "provider_error": "Facebook returned an error for this metric.",
+        "invalid_value": "The returned value was not usable.",
+        "not_yet_observed": "This collection window has not produced an observation yet."
+      }
+    },
+    "optimization": {
+      "eyebrow": "Owner-approved copy guidance",
+      "title": "Review one bounded improvement",
+      "subtitle": "Inspect the Facebook evidence, uncertainty, and exact wording cue before deciding. Approval can influence hook or CTA wording once during the current owner-planned Content week.",
+      "loading": "Loading Optimization proposals…",
+      "loadFailed": "Optimization proposals are unavailable",
+      "loadFailedBody": "The performance evidence is still safe. Try refreshing this view when the decision service is available.",
+      "format": "Eligible format",
+      "formats": {
+        "text_post": "Text post",
+        "static_image_post": "Static image post"
+      },
+      "states": {
+        "PENDING_OWNER_DECISION": "Needs your decision",
+        "APPROVED_PENDING_CONSUMPTION": "Approved · waiting for eligible week",
+        "DISMISSED": "Dismissed",
+        "CONSUMED": "Applied once",
+        "SUPERSEDED": "Superseded",
+        "EXPIRED": "Expired"
+      },
+      "evidenceTitle": "Deterministic evidence",
+      "evidenceTable": "Optimization evidence comparison",
+      "evidenceChecksum": "Evidence checksum: {checksum}",
+      "snapshotsTitle": "Supporting snapshots ({count})",
+      "metric": "Metric",
+      "baseline": "Baseline median",
+      "best": "Best observed",
+      "delta": "Difference",
+      "metrics": {
+        "post_media_view": "Media views",
+        "post_clicks": "Post clicks"
+      },
+      "notAvailable": "Unavailable",
+      "uncertaintyTitle": "Uncertainty",
+      "instructionTitle": "Exact wording cue",
+      "eligibleWeekTitle": "Eligible week",
+      "eligibleWeekBody": "Waiting for the current owner-planned Content week with a matching {format} card. Existing or planner-only weeks are never regenerated.",
+      "unchangedTitle": "What approval never changes",
+      "unchanged": {
+        "strategy": "Approved Strategy and version",
+        "topic": "Topic and weekly purpose",
+        "purpose": "Post purposes",
+        "audience": "Intended audiences",
+        "channel": "Channels",
+        "format": "Formats and post count",
+        "locale": "Language and locale",
+        "media": "Selected media and CTA destinations",
+        "post_count": "Number and order of cards",
+        "schedule": "Publishing windows",
+        "publishing": "Publishing approvals and schedule"
+      },
+      "approve": "Approve once",
+      "dismiss": "Dismiss",
+      "confirm": {
+        "approveTitle": "Approve this wording cue once?",
+        "approveBody": "This terminal decision makes the cue eligible for one future owner-planned week with the matching format.",
+        "dismissTitle": "Dismiss this proposal?",
+        "dismissBody": "Dismissal is terminal and cannot be changed later. This cue will never be applied to Content.",
+        "unchangedLabel": "Your approval will not change:",
+        "cancel": "Cancel",
+        "approveCta": "Confirm approval",
+        "dismissCta": "Confirm dismissal"
+      },
+      "saving": "Saving decision…",
+      "demoReadOnly": "Demo only: decisions are disabled and nothing can be applied to your account.",
+      "consumedBody": "This approved cue was consumed once in the frozen Content V2 input.",
+      "terminalBody": "This proposal has a terminal owner decision and cannot be changed."
+    }
   },
   "Admin": {
     "adminConsole": "Admin Console",

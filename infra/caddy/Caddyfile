@@ -1,0 +1,23 @@
+# MarketMind AI — Caddy reverse proxy
+#
+# Single-origin layout required by the host-scoped SameSite=lax refresh-token
+# cookie (see DEPLOY_HOSTED.md). Paths are forwarded WITHOUT stripping so the
+# NestJS global `/api/v1` prefix is preserved.
+
+{$CADDY_HOSTNAME} {
+  handle /api/* {
+    reverse_proxy api:3001
+  }
+
+  handle /internal/* {
+    reverse_proxy api:3001
+  }
+
+  handle /socket.io/* {
+    reverse_proxy api:3001
+  }
+
+  handle {
+    reverse_proxy web:3000
+  }
+}

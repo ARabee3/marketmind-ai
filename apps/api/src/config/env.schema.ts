@@ -166,8 +166,8 @@ export function envSchema(
   }
 
   if (billingProvider === "paymob") {
-    if (!config.PAYMOB_API_KEY) {
-      errors.push("PAYMOB_API_KEY is required when BILLING_PROVIDER=paymob");
+    if (!config.PAYMOB_SECRET_KEY) {
+      errors.push("PAYMOB_SECRET_KEY is required when BILLING_PROVIDER=paymob");
     }
     if (!config.PAYMOB_PUBLIC_KEY) {
       errors.push("PAYMOB_PUBLIC_KEY is required when BILLING_PROVIDER=paymob");

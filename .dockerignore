@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.git
+**/.next
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/coverage
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+!.env.example
+**/*.log

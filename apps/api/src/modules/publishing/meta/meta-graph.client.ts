@@ -18,10 +18,12 @@ import { FacebookService } from "../../facebook/facebook.service";
  *      identity/capability                                  → instagram_basic
  *   5. publish the Instagram Professional static-image op   → instagram_content_publish
  *
- * `pages_read_engagement` is additionally requested because the Instagram Graph
- * API resolves the linked Business Account through the Page access token.
- * Nothing else is requested: no ads, messaging, analytics, or webhooks
- * permissions. A production Meta app additionally requires a registered HTTPS
+ * `pages_read_engagement` is required for Page engagement/Insights access and
+ * the Instagram Graph API resolves the linked Business Account through the
+ * Page access token. `read_insights` is requested for the Facebook-only
+ * performance slice. Nothing else is requested: no ads, messaging, or
+ * webhooks permissions. A production Meta app additionally requires a
+ * registered HTTPS
  * redirect URI, public/live app mode, and any Meta App Review /
  * business-verification approvals — those live prerequisites are reported as
  * honest blockers, never faked. The matrix must be re-verified against the
@@ -31,12 +33,45 @@ export const META_LEAST_PRIVILEGE_SCOPES: readonly string[] = [
   "pages_show_list",
   "pages_manage_posts",
   "pages_read_engagement",
+  "read_insights",
   "instagram_basic",
   "instagram_content_publish",
 ];
 
 /** Stable Meta authorization-denial reasons surfaced to the owner UI. */
 export const META_PERMISSION_STATUS_GRANTED = "granted";
+export const META_PERMISSION_PAGES_READ_ENGAGEMENT = "pages_read_engagement";
+export const META_PERMISSION_READ_INSIGHTS = "read_insights";
+
+/**
+ * Frozen Facebook post Insights allowlist from the credential-redacted live
+ * decision recorded in `fixtures/facebook-insights-live-v1.json` (2026-08-18).
+ * Graph v21.0 is retained as the publishing default after an identical v26.0
+ * comparison. Deprecated reach/impression metrics remain intentionally out.
+ */
+export const META_FACEBOOK_INSIGHTS_METRICS = [
+  "post_media_view",
+  "post_total_media_view_unique",
+  "post_clicks",
+] as const;
+
+export type MetaFacebookInsightValue = number | Record<string, number>;
+
+export interface MetaFacebookInsightValuePoint {
+  readonly value: MetaFacebookInsightValue;
+  readonly endTime: string | null;
+}
+
+export interface MetaFacebookInsightMetric {
+  readonly name: string;
+  readonly period: string | null;
+  readonly values: readonly MetaFacebookInsightValuePoint[];
+}
+
+export interface MetaFacebookPostInsights {
+  readonly postId: string;
+  readonly metrics: readonly MetaFacebookInsightMetric[];
+}
 
 export interface MetaGraphErrorInfo {
   readonly status: number;
@@ -204,6 +239,70 @@ export class MetaGraphClient {
       permission: p.permission,
       status: p.status,
     }));
+  }
+
+  /**
+   * Reads the frozen Facebook post Insights allowlist server-side. The
+   * provider object id and Page token are both supplied by the vault-backed
+   * service boundary; this method never accepts browser input.
+   */
+  async fetchFacebookPostInsights(params: {
+    pageToken: string;
+    postId: string;
+    metrics?: readonly string[];
+  }): Promise<MetaFacebookPostInsights> {
+    const postId = String(params.postId).trim();
+    if (!postId) {
+      throw new MetaGraphClientError({
+        status: 400,
+        code: 0,
+        message: "facebook insights request requires a post id",
+      });
+    }
+    const metrics = params.metrics?.length
+      ? [...params.metrics]
+      : [...META_FACEBOOK_INSIGHTS_METRICS];
+    const unsupportedMetrics = metrics.filter(
+      (metric) =>
+        !(META_FACEBOOK_INSIGHTS_METRICS as readonly string[]).includes(metric),
+    );
+    if (unsupportedMetrics.length > 0) {
+      throw new MetaGraphClientError({
+        status: 400,
+        code: 0,
+        message: "facebook insights metric is not in the allowlist",
+      });
+    }
+    const requestedMetrics = new Set<string>(metrics);
+    const data = await this.graphGet<{
+      data?: Array<{
+        name?: string;
+        period?: string;
+        values?: Array<{
+          value?: unknown;
+          end_time?: string;
+        }>;
+      }>;
+    }>(`/${encodeURIComponent(postId)}/insights`, {
+      metric: metrics.join(","),
+      access_token: params.pageToken,
+    });
+
+    return {
+      postId,
+      metrics: (data.data ?? [])
+        .filter((metric) => requestedMetrics.has(String(metric.name ?? "")))
+        .map((metric) => ({
+          name: String(metric.name ?? ""),
+          period: metric.period ?? null,
+          values: (metric.values ?? []).flatMap((point) => {
+            const value = normalizeInsightValue(point.value);
+            return value === null
+              ? []
+              : [{ value, endTime: point.end_time ?? null }];
+          }),
+        })),
+    };
   }
 
   /** Pages the owner can manage, with any linked Instagram Professional
@@ -475,4 +574,16 @@ export class MetaGraphClient {
       });
     }
   }
+}
+
+function normalizeInsightValue(
+  value: unknown,
+): MetaFacebookInsightValue | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value).filter(
+    ([, entry]) => typeof entry === "number" && Number.isFinite(entry),
+  );
+  if (entries.length === 0) return null;
+  return Object.fromEntries(entries) as Record<string, number>;
 }

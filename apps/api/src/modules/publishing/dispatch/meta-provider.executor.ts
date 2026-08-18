@@ -222,12 +222,16 @@ export class MetaProviderExecutor {
       }
     }
 
-    const mediaConfigurationError = this.mediaFetch.configurationError();
+    const mediaConfigurationError = this.mediaFetch.providerFetchOriginError();
     if (mediaConfigurationError) {
       this.logger.error(
-        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+        `Executor: provider-fetch media origin is not suitable for real image publishing for attempt=${input.attemptId}: ${mediaConfigurationError}`,
       );
-      return this.failed(base, PublishingErrorCode.PROVIDER_FAILURE, false);
+      return this.failed(
+        base,
+        PublishingErrorCode.MEDIA_ORIGIN_NOT_REACHABLE,
+        false,
+      );
     }
 
     // ── Candidate asset for the provider-fetch URL ────────────────────────
@@ -417,14 +421,14 @@ export class MetaProviderExecutor {
         false,
       );
     }
-    const mediaConfigurationError = this.mediaFetch.configurationError();
+    const mediaConfigurationError = this.mediaFetch.providerFetchOriginError();
     if (mediaConfigurationError) {
       this.logger.error(
-        `Executor: provider-fetch media is not configured for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+        `Executor: provider-fetch media origin is not suitable for real image publishing for attempt=${input.attemptId}: ${mediaConfigurationError}`,
       );
       return this.failed(
         input.base,
-        PublishingErrorCode.PROVIDER_FAILURE,
+        PublishingErrorCode.MEDIA_ORIGIN_NOT_REACHABLE,
         false,
       );
     }
@@ -484,7 +488,11 @@ export class MetaProviderExecutor {
       this.logger.warn(
         `Executor: Facebook connection publish failed for attempt=${input.attemptId}: ${(err as Error).message}`,
       );
-      return this.failed(input.base, PublishingErrorCode.PROVIDER_FAILURE, true);
+      return this.failed(
+        input.base,
+        PublishingErrorCode.PROVIDER_FAILURE,
+        true,
+      );
     }
   }
 

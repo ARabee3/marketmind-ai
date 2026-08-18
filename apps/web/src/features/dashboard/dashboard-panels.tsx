@@ -100,6 +100,41 @@ export function BusinessSnapshot({ journey }: { readonly journey: DashboardJourn
   )
 }
 
+export function DashboardPerformanceLink({
+  availability,
+}: {
+  readonly availability: {
+    readonly eligiblePostCount: number
+    readonly observedSnapshotCount: number
+    readonly requiredSnapshotCount: number
+  }
+}) {
+  const t = useTranslations('Dashboard')
+
+  return (
+    <article className="grid gap-4 rounded-xl border border-primary/20 bg-soft-teal p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-5">
+      <div className="grid gap-1">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
+          {t('performance.eyebrow')}
+        </p>
+        <h2 className="text-xl font-bold text-navy">{t('performance.title')}</h2>
+        <p className="text-sm leading-6 text-ink-soft">
+          {t('performance.body', { count: availability.eligiblePostCount })}
+        </p>
+        <p className="text-xs font-semibold text-primary">
+          {t('performance.baseline', {
+            observed: availability.observedSnapshotCount,
+            required: availability.requiredSnapshotCount,
+          })}
+        </p>
+      </div>
+      <Link href="/performance" className={buttonVariants({ size: 'lg', className: 'shadow-tactile' })}>
+        {t('performance.action')}
+      </Link>
+    </article>
+  )
+}
+
 function SnapshotRow({
   label,
   value,

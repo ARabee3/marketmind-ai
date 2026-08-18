@@ -9,6 +9,7 @@ import type {
   ContentMediaLibraryEntryV2,
   ContentPostPlanV2,
 } from "@marketmind/contracts";
+import { POINT_PRICES } from "@marketmind/contracts";
 import { cn } from "@/lib/utils";
 import { ContentV2MediaOption } from "./content-v2-media-option";
 
@@ -173,6 +174,12 @@ export function ContentV2PostCard({
           </span>
           <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
             {t(`source.${plan.source}`)}
+          </span>
+          <span
+            className="rounded-full bg-soft-teal px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+            aria-label={t("pointCost", { points: POINT_PRICES.content_item })}
+          >
+            {t("pointCost", { points: POINT_PRICES.content_item })}
           </span>
         </div>
       </div>

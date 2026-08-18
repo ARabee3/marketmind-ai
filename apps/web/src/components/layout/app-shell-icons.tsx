@@ -6,6 +6,7 @@ export type AppShellIconName =
   | "strategy"
   | "content"
   | "publishing"
+  | "performance"
   | "wallet"
   | "connections";
 
@@ -70,6 +71,17 @@ export function AppShellNavIcon({ name }: { readonly name: AppShellIconName }) {
         <path d="M8 13h4" />
         <path d="M8 16h7" />
         <path d="m16 13 2-2 2 2" />
+      </svg>
+    );
+  }
+
+  if (name === "performance") {
+    return (
+      <svg {...common}>
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="m7 15 3-3 3 2 4-6" />
+        <path d="M16 8h1v1" />
       </svg>
     );
   }

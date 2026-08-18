@@ -100,6 +100,15 @@ export type ContentGenerationProvenance = {
   readonly provider_name: string;
   readonly provider_model: string;
   readonly generated_at: IsoDateTime;
+  /** Exact owner-approved Optimization 2 handoff, when one was consumed. */
+  readonly optimization_guidance?: {
+    readonly instruction_id: UUID;
+    readonly proposal_id: UUID;
+    readonly approved_decision_id: UUID;
+    readonly evidence_checksum: string;
+    readonly format_cohort: "text_post" | "static_image_post";
+    readonly change_kind: "hook_style" | "cta_wording_style";
+  } | null;
 };
 
 export type ContentItemVersion = {

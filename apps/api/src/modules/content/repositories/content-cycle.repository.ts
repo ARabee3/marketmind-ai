@@ -8,6 +8,7 @@ import { Prisma, ContentCycle } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type { ContentWeekContextOwnerInput } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
+import { weekCutoffDate, weekStartDate } from "../content-schedule";
 
 export type CreateContentCycleInput = {
   readonly businessId: string;
@@ -373,6 +374,130 @@ export class ContentCycleRepository {
     await this.prisma.contentCycle.updateMany({
       where: { id, status: "active" },
       data: { status: "completed", completedAt: new Date() },
+    });
+  }
+
+  /**
+   * Content V2 owner-first weekly rollover (issue #240).
+   *
+   * Crossing a weekly cutoff may advance the cycle cursor and prepare the
+   * next actionable planning context, but it must NOT auto-generate
+   * unplanned content. This method atomically:
+   *
+   *   1. Serializes on the cycle row (`SELECT ... FOR UPDATE`).
+   *   2. Conditionally advances `currentWeekNumber` from the caller's
+   *      observed N to N+1 only when the locked row still has that cursor and
+   *      status — concurrent scheduler ticks resolve to a no-op
+   *      (`advanced: false`) instead of rolling over another week.
+   *   3. Sets `nextGenerationAt` to the cutoff for week N+1 so the cycle is
+   *      not reselected every five minutes while the owner plans.
+   *   4. Creates the structural week-context row for week N+1 if it does not
+   *      already exist. This row carries only `weekStartDate` +
+   *      `weeklyClaimId`; owner-authored inputs flow through the V2 week
+   *      plan, editorial profile, CTA, and media libraries — no content is
+   *      generated here.
+   *
+   * A cycle that has reached week 12 is completed instead of advanced.
+   * Returns `advanced: false` for cycles that are not active content-v2 or
+   * when a concurrent tick already handled the rollover.
+   */
+  async advanceToNextWeek(
+    cycleId: string,
+    expectedCurrentWeekNumber: number,
+  ): Promise<{
+    advanced: boolean;
+    completed: boolean;
+    nextWeekNumber: number | null;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "content_cycles"
+        WHERE "id" = ${cycleId}::uuid
+        FOR UPDATE
+      `;
+
+      const cycle = await tx.contentCycle.findUniqueOrThrow({
+        where: { id: cycleId },
+        select: {
+          currentWeekNumber: true,
+          status: true,
+          contractVersion: true,
+          week1StartDate: true,
+        },
+      });
+
+      if (cycle.status !== "active" || cycle.contractVersion !== "content-v2") {
+        return { advanced: false, completed: false, nextWeekNumber: null };
+      }
+
+      // The scheduler selected this cycle using a snapshot of the cursor. A
+      // different process/tick may have advanced it while this transaction
+      // waited for the row lock. Treat that stale snapshot as a no-op; never
+      // roll a cycle forward a second time just because the lock serialized
+      // the two callers.
+      if (cycle.currentWeekNumber !== expectedCurrentWeekNumber) {
+        return { advanced: false, completed: false, nextWeekNumber: null };
+      }
+
+      if (cycle.currentWeekNumber >= 12) {
+        await tx.contentCycle.updateMany({
+          where: { id: cycleId, status: "active" },
+          data: { status: "completed", completedAt: new Date() },
+        });
+        return { advanced: false, completed: true, nextWeekNumber: null };
+      }
+
+      const nextWeek = cycle.currentWeekNumber + 1;
+      const advanced = await tx.contentCycle.updateMany({
+        where: {
+          id: cycleId,
+          currentWeekNumber: cycle.currentWeekNumber,
+          status: "active",
+        },
+        data: {
+          currentWeekNumber: nextWeek,
+          nextGenerationAt: weekCutoffDate(cycle.week1StartDate, nextWeek),
+        },
+      });
+      if (advanced.count === 0) {
+        return { advanced: false, completed: false, nextWeekNumber: null };
+      }
+
+      const existingContext = await tx.contentWeekContext.findUnique({
+        where: {
+          contentCycleId_weekNumber: {
+            contentCycleId: cycleId,
+            weekNumber: nextWeek,
+          },
+        },
+      });
+      if (!existingContext) {
+        await tx.contentWeekContext.create({
+          data: {
+            contentCycleId: cycleId,
+            weekNumber: nextWeek,
+            weekStartDate: new Date(
+              `${weekStartDate(cycle.week1StartDate, nextWeek)}T00:00:00.000Z`,
+            ),
+            promotionMode: "none",
+            promotion: Prisma.JsonNull,
+            mustInclude: [] as Prisma.InputJsonValue,
+            mustAvoid: [] as Prisma.InputJsonValue,
+            approvedAssetIds: [] as Prisma.InputJsonValue,
+            ctaDestination: {
+              type: "none",
+              value: null,
+            } as Prisma.InputJsonValue,
+            generationCutoffAt: weekCutoffDate(cycle.week1StartDate, nextWeek),
+            weeklyClaimId: randomUUID(),
+            contextSource: "system_defaulted",
+            systemDefaultedAt: new Date(),
+          },
+        });
+      }
+
+      return { advanced: true, completed: false, nextWeekNumber: nextWeek };
     });
   }
 }
