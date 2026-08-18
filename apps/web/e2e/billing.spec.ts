@@ -36,13 +36,22 @@ const bundles: readonly BillingPointBundle[] = [
 
 const wallet: BillingWalletResponse = {
   billing_account_id: 'billing-account-1',
-  balance: 65,
+  balance: 15,
   lifetime_granted: 65,
-  lifetime_spent: 0,
+  lifetime_spent: 50,
   low_balance: true,
 }
 
 const ledger: readonly BillingPointLedgerEntry[] = [
+  {
+    id: 'ledger-0',
+    direction: 'debit',
+    reason: 'spend',
+    metric: 'strategy_cycle',
+    points: 50,
+    balance_after: 15,
+    created_at: '2026-08-02T14:30:00.000Z',
+  },
   {
     id: 'ledger-1',
     direction: 'credit',
@@ -72,7 +81,7 @@ test.describe('Billing owner journey', () => {
       }),
     ).toBeVisible()
     await expect(
-      page.locator('[data-testid="wallet-balance"]').getByText('You have 65 points'),
+      page.locator('[data-testid="wallet-balance"]').getByText('You have 15 points'),
     ).toBeVisible()
     await expect(page.getByRole('status')).toContainText('Balance running low')
     await expect(
@@ -82,6 +91,14 @@ test.describe('Billing owner journey', () => {
       page.getByRole('heading', { level: 2, name: 'Points history' }),
     ).toBeVisible()
     await expect(page.getByText('Welcome bonus', { exact: true })).toBeVisible()
+
+    // The spend entry uses its metric for a specific reason label, and its
+    // timestamp includes the time of day.
+    const spendRow = page
+      .getByRole('listitem')
+      .filter({ hasText: 'Used for creating strategy' })
+    await expect(spendRow).toBeVisible()
+    await expect(spendRow).toContainText(/\d{1,2}:\d{2}/)
 
     // Clicking buy creates the checkout and redirects to the hosted page.
     await page.route('https://hosted-checkout.example/**', async (route) => {
@@ -99,7 +116,7 @@ test.describe('Billing owner journey', () => {
     // Paymob returns the owner to the billing page; the wallet refetches.
     await page.goto('/en/billing')
     await expect(
-      page.locator('[data-testid="wallet-balance"]').getByText('You have 365 points'),
+      page.locator('[data-testid="wallet-balance"]').getByText('You have 315 points'),
     ).toBeVisible()
     await expect(page.getByText('Points purchased')).toBeVisible()
   })
@@ -117,7 +134,10 @@ test.describe('Billing owner journey', () => {
       page.getByRole('heading', { level: 1, name: 'نقاط لشغل النمو بتاعك' }),
     ).toBeVisible()
     await expect(
-      page.locator('[data-testid="wallet-balance"]').getByText('عندك 65 نقطة'),
+      page.locator('[data-testid="wallet-balance"]').getByText('عندك 15 نقطة'),
+    ).toBeVisible()
+    await expect(
+      page.getByText('استُخدمت في إنشاء استراتيجية', { exact: true }),
     ).toBeVisible()
 
     if (testInfo.project.name === 'mobile-chrome') {
@@ -162,7 +182,7 @@ async function mockBillingApi(page: Page) {
         paid
           ? {
               ...wallet,
-              balance: 365,
+              balance: 315,
               lifetime_granted: 365,
               low_balance: false,
             }
