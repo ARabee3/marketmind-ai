@@ -179,8 +179,19 @@ export class FacebookController {
 
   @Get("connections")
   @UseGuards(JwtAuthGuard)
-  getConnection(@Req() req: RequestWithUser) {
-    return this.facebookService.getConnection(req.user.id);
+  async getConnection(
+    @Req() req: RequestWithUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const connection = await this.facebookService.getConnection(req.user.id);
+    if (!connection) {
+      // Keep the nullable connection contract explicit. Nest otherwise emits
+      // a 200 response with an empty body for a null controller result, which
+      // is easy for browser clients to mistake for a malformed JSON payload.
+      res.status(204);
+      return;
+    }
+    return connection;
   }
 
   @Post("connections/facebook/test")

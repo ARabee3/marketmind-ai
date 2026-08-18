@@ -207,13 +207,33 @@ describe("FacebookController", () => {
         getConnection: jest.fn().mockResolvedValue(connection),
       };
       const controller = createController({ service });
+      const res = mockResponse();
 
-      const result = await controller.getConnection({
-        user: { id: "user-1" },
-      } as never);
+      const result = await controller.getConnection(
+        {
+          user: { id: "user-1" },
+        } as never,
+        res,
+      );
 
       expect(service.getConnection).toHaveBeenCalledWith("user-1");
       expect(result).toBe(connection);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it("returns no content when the user has disconnected Facebook", async () => {
+      const service = {
+        getConnection: jest.fn().mockResolvedValue(null),
+      };
+      const controller = createController({ service });
+      const res = mockResponse();
+
+      await expect(
+        controller.getConnection({ user: { id: "user-1" } } as never, res),
+      ).resolves.toBeUndefined();
+
+      expect(service.getConnection).toHaveBeenCalledWith("user-1");
+      expect(res.status).toHaveBeenCalledWith(204);
     });
   });
 
