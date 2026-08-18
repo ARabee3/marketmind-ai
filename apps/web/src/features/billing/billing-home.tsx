@@ -142,6 +142,12 @@ export function BillingHome() {
           dateStyle: 'medium',
         })
       }
+      formatDateTime={(value) =>
+        formatter.dateTime(new Date(value), {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      }
     />
   )
 }
@@ -153,6 +159,7 @@ function BillingReadyView({
   onBuy,
   formatCurrency,
   formatDate,
+  formatDateTime,
 }: {
   readonly data: BillingData
   readonly workingBundle: string | null
@@ -160,6 +167,7 @@ function BillingReadyView({
   readonly onBuy: (bundle: BillingPointBundle) => void
   readonly formatCurrency: (amount: number) => string
   readonly formatDate: (value: string) => string
+  readonly formatDateTime: (value: string) => string
 }) {
   const t = useTranslations('Billing')
   const busy = workingBundle !== null
@@ -195,7 +203,10 @@ function BillingReadyView({
             formatCurrency={formatCurrency}
           />
 
-          <LedgerPanel entries={data.ledger} formatDate={formatDate} />
+          <LedgerPanel
+            entries={data.ledger}
+            formatDateTime={formatDateTime}
+          />
           <TransactionsPanel
             transactions={data.transactions}
             formatCurrency={formatCurrency}
@@ -438,10 +449,10 @@ function LowBalanceNudge({
 
 function LedgerPanel({
   entries,
-  formatDate,
+  formatDateTime,
 }: {
   readonly entries: readonly BillingPointLedgerEntry[]
-  readonly formatDate: (value: string) => string
+  readonly formatDateTime: (value: string) => string
 }) {
   const t = useTranslations('Billing')
   return (
@@ -466,7 +477,7 @@ function LedgerPanel({
                     {entryLabel(t, entry.reason, entry.points)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDate(entry.created_at)}
+                    {formatDateTime(entry.created_at)}
                   </span>
                 </div>
                 <div className="text-end">
