@@ -75,6 +75,17 @@ vi.mock("@/features/auth/logout-button", () => ({
   ),
 }));
 
+vi.mock("@/lib/api/billing", () => ({
+  getBillingWallet: () =>
+    Promise.resolve({
+      billing_account_id: "acc-1",
+      balance: 215,
+      lifetime_granted: 365,
+      lifetime_spent: 150,
+      low_balance: false,
+    }),
+}));
+
 describe("AppShell", () => {
   it("does not keep Dashboard active on a different section", () => {
     expect(isAppNavItemActive("/dashboard", "/dashboard")).toBe(true);
