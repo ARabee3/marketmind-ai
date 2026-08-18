@@ -37,6 +37,13 @@ const messages: Record<string, string> = {
   'wizard.back': 'Back',
   'wizard.generate': 'Generate plan',
   'wizard.generatePending': 'Saving and generating…',
+  'wizard.confirmTitle': 'Confirm point usage',
+  'wizard.confirmBody': 'This will use {points} points. You have {balance} points.',
+  'wizard.confirmBodyNoBalance': 'This will use {points} points.',
+  'wizard.confirmInsufficient': 'You need {points} points but you have {balance}. Top up to continue.',
+  'wizard.confirmTopUp': 'Top up points',
+  'wizard.confirmCta': 'Confirm and generate',
+  'wizard.confirmCancel': 'Cancel',
   'wizard.save': 'Save draft and leave',
   'wizard.saved': 'Draft saved.',
   'wizard.unsaved': 'You have unsaved Strategy choices.',
@@ -89,7 +96,12 @@ const messages: Record<string, string> = {
 }
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => messages[key] ?? key,
+  useTranslations: () => (key: string, params?: Record<string, unknown>) => {
+    const template = messages[key] ?? key
+    return template.replace(/\{(\w+)\}/g, (_match, name: string) =>
+      params && name in params ? String(params[name]) : `{${name}}`,
+    )
+  },
   useLocale: () => 'en',
   useFormatter: () => ({
     dateTime: () => 'Aug 3, 2026',
@@ -98,6 +110,13 @@ vi.mock('next-intl', () => ({
 
 vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: pushMock, replace: replaceMock }),
+  Link: ({
+    href,
+    children,
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => <a href={href}>{children}</a>,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -135,6 +154,33 @@ vi.mock('../../hooks/use-strategy-actions', () => ({
   }),
 }))
 
+const walletState = vi.hoisted(() => ({
+  wallet: null as {
+    balance: number
+    billing_account_id: string
+    lifetime_granted: number
+    lifetime_spent: number
+    low_balance: boolean
+  } | null,
+}))
+
+vi.mock('@/features/billing/wallet-context', () => ({
+  useWallet: () => ({
+    wallet: walletState.wallet,
+    loading: false,
+    error: false,
+    refresh: vi.fn(),
+  }),
+}))
+
+const sufficientWallet = {
+  billing_account_id: 'acc-1',
+  balance: 215,
+  lifetime_granted: 365,
+  lifetime_spent: 150,
+  low_balance: false,
+}
+
 describe('StrategyWizard', () => {
   beforeEach(() => {
     getStrategyMock.mockReset().mockResolvedValue({ brief: null })
@@ -160,6 +206,7 @@ describe('StrategyWizard', () => {
     actionMocks.saveBrief.mockReset().mockResolvedValue({ id: 'brief-1' })
     actionMocks.generate.mockReset().mockResolvedValue({ status: 'queued' })
     pushMock.mockReset()
+    walletState.wallet = sufficientWallet
   })
 
   it('walks through goal → channels → realistic and generates a v2 brief', async () => {
@@ -181,6 +228,10 @@ describe('StrategyWizard', () => {
       target: { value: 'organic' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Generate plan' }))
+    // The confirmation dialog appears; confirm the 50-point spend.
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Confirm and generate' }),
+    )
 
     await waitFor(() => {
       expect(actionMocks.create).toHaveBeenCalledWith('prof-1')
@@ -299,6 +350,64 @@ describe('StrategyWizard', () => {
         ).checked,
       ).toBe(true)
     })
+  })
+
+  it('blocks the generation confirmation when the balance is below the cost', async () => {
+    walletState.wallet = { ...sufficientWallet, balance: 30 }
+    render(<StrategyWizard />)
+
+    await screen.findByLabelText('Main objective')
+    fireEvent.change(screen.getByLabelText('Main objective'), {
+      target: { value: 'acquisition' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(
+      screen.getAllByRole('radio', { name: 'Main focus' })[0] as never,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByLabelText('3–5 hours a week'))
+    fireEvent.change(screen.getByLabelText('Paid media'), {
+      target: { value: 'organic' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate plan' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.textContent).toMatch(/30/)
+    const confirm = screen.getByRole('button', {
+      name: 'Confirm and generate',
+    }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    expect(screen.getByRole('link', { name: 'Top up points' })).toBeTruthy()
+    expect(actionMocks.generate).not.toHaveBeenCalled()
+  })
+
+  it('shows the cost in the confirmation dialog with a sufficient balance', async () => {
+    render(<StrategyWizard />)
+
+    await screen.findByLabelText('Main objective')
+    fireEvent.change(screen.getByLabelText('Main objective'), {
+      target: { value: 'acquisition' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(
+      screen.getAllByRole('radio', { name: 'Main focus' })[0] as never,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByLabelText('3–5 hours a week'))
+    fireEvent.change(screen.getByLabelText('Paid media'), {
+      target: { value: 'organic' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate plan' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.textContent).toMatch(/This will use 50 points/)
+    expect(dialog.textContent).toMatch(/215/)
+    const confirm = screen.getByRole('button', {
+      name: 'Confirm and generate',
+    }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(false)
   })
 })
 
