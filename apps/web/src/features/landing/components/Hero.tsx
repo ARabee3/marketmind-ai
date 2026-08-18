@@ -8,6 +8,7 @@ import {
   UserRoundCheckIcon,
 } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
+import { cn } from '@/lib/utils'
 import { Link } from '@/i18n/navigation'
 import { Reveal } from './Reveal'
 
@@ -31,14 +32,14 @@ export async function Hero() {
             <span className="text-[13px] font-bold">{t('badge')}</span>
           </div>
 
-          <h1 className="mt-6 text-balance text-[clamp(2.7rem,4.6vw,4.45rem)] font-bold leading-[1.01] tracking-[-0.045em] text-navy rtl:leading-[1.2] rtl:tracking-normal">
+          <h1 className="mt-6 text-balance text-[clamp(2.7rem,4.6vw,4.45rem)] font-bold leading-[1.01] tracking-[-0.02em] text-navy rtl:leading-[1.2] rtl:tracking-normal">
             {t('title')}
           </h1>
           <p className="mt-6 max-w-[580px] text-pretty text-[clamp(1.05rem,2vw,1.22rem)] leading-[1.8] text-ink-soft rtl:leading-[1.95]">
             {t('body')}
           </p>
 
-          <Reveal delay={0.08} className="mt-8 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+          <div className="mt-8 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
             <Link href="/register" className="cta-solid group w-full gap-2 px-7 py-3 text-[15px] font-bold sm:w-auto">
               {t('primary')}
               <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5 rtl:scale-x-[-1] rtl:group-hover:-translate-x-0.5" aria-hidden />
@@ -47,7 +48,7 @@ export async function Hero() {
               {t('secondary')}
               <ArrowDownIcon className="h-4 w-4" aria-hidden />
             </a>
-          </Reveal>
+          </div>
 
           <p className="mt-6 flex max-w-[520px] items-start gap-2 text-[13px] leading-[1.7] text-muted rtl:leading-[1.85]">
             <UserRoundCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
@@ -150,13 +151,12 @@ function MarketingRunway({
                 key={week}
                 aria-current={isActive ? 'step' : undefined}
                 aria-label={`${week} · ${stateLabel}`}
-                className={`relative grid min-h-9 place-items-center rounded-md border font-latin text-[10px] font-bold ${
-                  isActive
-                    ? 'marketing-week-active border-primary bg-primary text-white'
-                    : isComplete
-                      ? 'border-primary/20 bg-soft-teal text-primary'
-                      : 'border-border bg-bg text-muted'
-                }`}
+                className={cn(
+                  'relative grid min-h-9 place-items-center rounded-md border font-latin text-[10px] font-bold',
+                  isActive && 'marketing-week-active border-primary bg-primary text-white',
+                  !isActive && isComplete && 'border-primary/20 bg-soft-teal text-primary',
+                  !isActive && !isComplete && 'border-border bg-bg text-muted',
+                )}
               >
                 {isComplete ? <CheckIcon className="h-3 w-3" aria-hidden /> : week}
               </li>

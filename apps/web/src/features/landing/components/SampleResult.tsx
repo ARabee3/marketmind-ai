@@ -1,6 +1,7 @@
 import { ArrowDownIcon, FileTextIcon, Layers3Icon, TargetIcon, UserRoundCheckIcon } from 'lucide-react'
 import Image from 'next/image'
 import { getTranslations } from 'next-intl/server'
+import { cn } from '@/lib/utils'
 import { Eyebrow, StatusBadge } from './ui/Primitives'
 
 const SHOP_IMG = '/63d36b5c-0e3c-405d-a588-dfb4af2f657c.jpg'
@@ -44,7 +45,7 @@ export async function SampleResult() {
                 src={SHOP_IMG}
                 alt={t('imageAlt')}
                 fill
-                loading="lazy"
+                priority
                 sizes="(max-width: 1024px) 100vw, 38vw"
                 className="object-cover"
               />
@@ -56,7 +57,7 @@ export async function SampleResult() {
             </div>
 
             <div className="bg-surface p-5 md:p-8 lg:p-10">
-              <ol aria-label={t('aria')} className="grid list-none gap-3 p-0">
+              <div aria-label={t('aria')} className="grid gap-3">
                 <DecisionStep icon={TargetIcon} label={t('sourceTitle')} tone="neutral">
                   {t('sourceText')}
                 </DecisionStep>
@@ -87,7 +88,7 @@ export async function SampleResult() {
                 >
                   {t('outcomeText')}
                 </DecisionStep>
-              </ol>
+              </div>
 
               <p className="mt-7 border-t border-border pt-5 text-[12px] leading-[1.7] text-muted">{t('outcomeNote')}</p>
             </div>
@@ -100,10 +101,10 @@ export async function SampleResult() {
 
 function FlowArrow({ label }: { readonly label: string }) {
   return (
-    <li className="flex items-center gap-3 px-4 text-[11px] font-semibold text-muted">
+    <div className="flex items-center gap-3 px-4 text-[11px] font-semibold text-muted">
       <ArrowDownIcon className="h-4 w-4 text-primary" aria-hidden />
       <span>{label}</span>
-    </li>
+    </div>
   )
 }
 
@@ -120,15 +121,16 @@ function DecisionStep({
   readonly badge?: React.ReactNode
   readonly children: React.ReactNode
 }) {
-  const classes = {
-    neutral: 'border-border bg-bg',
-    action: 'border-action/25 bg-action-soft',
-    owner: 'border-2 border-primary bg-soft-teal shadow-[0_5px_0_var(--navy)]',
-    confirmed: 'border-primary/25 bg-surface',
-  }
-
   return (
-    <li className={`rounded-xl border p-4 md:p-5 ${classes[tone]}`}>
+    <div
+      className={cn(
+        'rounded-xl border p-4 md:p-5',
+        tone === 'neutral' && 'border-border bg-bg',
+        tone === 'action' && 'border-action/25 bg-action-soft',
+        tone === 'owner' && 'border-2 border-primary bg-soft-teal shadow-[0_5px_0_var(--navy)]',
+        tone === 'confirmed' && 'border-primary/25 bg-surface',
+      )}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-primary shadow-[0_0_0_1px_var(--border)]">
@@ -141,6 +143,6 @@ function DecisionStep({
         </div>
         {badge ? <div className="shrink-0">{badge}</div> : null}
       </div>
-    </li>
+    </div>
   )
 }

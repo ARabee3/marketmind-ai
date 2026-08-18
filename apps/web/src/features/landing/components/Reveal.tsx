@@ -8,7 +8,6 @@ type RevealProps = {
   readonly children: ReactNode
   readonly className?: string
   readonly delay?: number
-  readonly viewportMargin?: string
   readonly once?: boolean
 }
 
@@ -22,7 +21,6 @@ export function Reveal({
   children,
   className = '',
   delay = 0,
-  viewportMargin = '-15%',
   once = true,
 }: RevealProps) {
   const reduced = useReducedMotion()
@@ -34,9 +32,9 @@ export function Reveal({
   return (
     <motion.div
       className={className}
-      initial={false}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once, margin: viewportMargin }}
+      viewport={{ once, amount: 0.1 }}
       transition={{ duration: 0.42, ease: EASE.decel, delay }}
     >
       {children}

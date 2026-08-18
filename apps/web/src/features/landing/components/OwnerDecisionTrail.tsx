@@ -25,7 +25,7 @@ export async function OwnerDecisionTrail() {
             <h2 className="mt-4 text-balance text-[clamp(2.5rem,6vw,5.25rem)] font-bold leading-[0.98] tracking-[-0.04em] text-white rtl:leading-[1.18] rtl:tracking-normal">
               {t('title')}
             </h2>
-            <p className="mt-5 max-w-[650px] text-[1rem] leading-[1.85] text-white/70 rtl:leading-[1.95]">{t('body')}</p>
+            <p className="mt-5 max-w-[650px] text-[1rem] leading-[1.85] text-white/90 rtl:leading-[1.95]">{t('body')}</p>
           </div>
           <div className="owner-seal hidden h-36 w-36 rotate-[5deg] place-items-center rounded-full border border-journey-mint/50 text-center text-[12px] font-bold leading-[1.45] text-journey-mint md:grid rtl:rotate-[-5deg]">
             <span className="grid h-[7.2rem] w-[7.2rem] place-items-center rounded-full border border-dashed border-journey-mint/60 px-4">
@@ -48,7 +48,7 @@ export async function OwnerDecisionTrail() {
                     </span>
                   </div>
                   <h3 className="mt-9 text-[clamp(1.55rem,3vw,2rem)] font-bold leading-[1.12] text-white rtl:leading-[1.3]">{step.title}</h3>
-                  <p className="mt-3 text-[14px] leading-[1.75] text-white/70 rtl:leading-[1.9]">{step.body}</p>
+                  <p className="mt-3 text-[14px] leading-[1.75] text-white/85 rtl:leading-[1.9]">{step.body}</p>
                   <p className="mt-6 border-t border-white/15 pt-4 text-[12px] font-semibold leading-[1.6] text-journey-mint">
                     {step.proof}
                   </p>
@@ -70,7 +70,7 @@ export async function OwnerDecisionTrail() {
             </span>
             <div>
               <p className="text-[12px] font-bold text-journey-mint">{t('completeLabel')}</p>
-              <p className="mt-1 text-[14px] leading-[1.75] text-white/75 rtl:leading-[1.9]">{t('footnote')}</p>
+              <p className="mt-1 text-[14px] leading-[1.75] text-white/85 rtl:leading-[1.9]">{t('footnote')}</p>
             </div>
           </div>
           <Link href="/register" className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-journey-mint px-6 py-3 text-[14px] font-bold text-navy outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-white">

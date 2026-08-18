@@ -7,6 +7,7 @@ import { MenuIcon, XIcon } from 'lucide-react'
 import { BrandLockup } from '@/components/brand/brand-lockup'
 import { useSession } from '@/features/auth/session-provider'
 import { Link } from '@/i18n/navigation'
+import { cn } from '@/lib/utils'
 import { inertOutside } from '@/lib/a11y/inert-outside'
 import { EASE, useReducedMotion } from '../lib/motion'
 
@@ -102,7 +103,10 @@ export function Nav() {
     >
       <nav
         aria-label={t('aria')}
-        className={`mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface px-2 py-2 text-navy transition-shadow duration-200 ${scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header'}`}
+        className={cn(
+          'mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface px-2 py-2 text-navy transition-shadow duration-200',
+          scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header',
+        )}
       >
         <a
           href="#top"
@@ -153,7 +157,7 @@ export function Nav() {
           aria-expanded={drawerOpen}
           aria-label={drawerOpen ? t('closeMenu') : t('openMenu')}
           onClick={() => setDrawerOpen((open) => !open)}
-          className="grid h-11 w-11 place-items-center rounded-full bg-primary text-white shadow-[0_5px_0_var(--navy)] ring-1 ring-navy/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-action md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-full bg-primary text-white ring-1 ring-navy/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-action md:hidden"
         >
           {drawerOpen ? <XIcon className="h-6 w-6" aria-hidden /> : <MenuIcon className="h-6 w-6" aria-hidden />}
         </button>
