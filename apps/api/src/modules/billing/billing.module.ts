@@ -1,21 +1,33 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ConfigService } from "@nestjs/config";
+import { BullModule } from "@nestjs/bullmq";
 import { BillingController } from "./billing.controller";
 import { BillingEntitlementsService } from "./billing-entitlements.service";
 import { BillingService } from "./billing.service";
 import { FakePaymentProvider } from "./fake-payment.provider";
 import { PaymobPaymentProvider } from "./paymob-payment.provider";
 import { PAYMENT_PROVIDER } from "./payment-provider.port";
+import { BillingOutboxRepository } from "./billing-outbox.repository";
+import { BillingOutboxProcessor } from "./billing-outbox.processor";
+import { BillingOutboxReconciler } from "./billing-outbox.reconciler";
+import { MailModule } from "../mail/mail.module";
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    ConfigModule,
+    MailModule,
+    BullModule.registerQueue({ name: "billing-outbox" }),
+  ],
   controllers: [BillingController],
   providers: [
     BillingService,
     BillingEntitlementsService,
     FakePaymentProvider,
     PaymobPaymentProvider,
+    BillingOutboxRepository,
+    BillingOutboxProcessor,
+    BillingOutboxReconciler,
     {
       provide: PAYMENT_PROVIDER,
       inject: [ConfigService, FakePaymentProvider, PaymobPaymentProvider],
