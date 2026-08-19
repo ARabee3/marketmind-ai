@@ -106,6 +106,44 @@ export class AdminController {
     return this.adminBillingService.listCostAlerts();
   }
 
+  @Get("billing/wallets/overview")
+  async getWalletOverview() {
+    return this.adminBillingService.getWalletOverview();
+  }
+
+  @Get("billing/wallets")
+  async getWalletBalances(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+  ) {
+    return this.adminBillingService.listWalletBalances({
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      search,
+      status,
+    });
+  }
+
+  @Get("billing/wallets/:id/ledger")
+  async getWalletLedger(@Param("id", ParseUUIDPipe) id: string) {
+    return this.adminBillingService.getWalletLedger(id);
+  }
+
+  @Get("billing/transactions")
+  async getWalletTransactions(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("accountId") accountId?: string,
+  ) {
+    return this.adminBillingService.listWalletTransactions({
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      accountId,
+    });
+  }
+
   @Get("billing/accounts")
   async getBillingAccounts(
     @Query("page") page?: string,

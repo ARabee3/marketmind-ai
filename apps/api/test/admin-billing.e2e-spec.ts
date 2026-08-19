@@ -207,6 +207,80 @@ describe("Admin Billing (e2e)", () => {
     });
   });
 
+  describe("GET /admin/billing/wallets/overview", () => {
+    it("returns 401 for unauthenticated caller", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/wallets/overview")
+        .expect(401);
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/wallets/overview")
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .expect(403);
+    });
+
+    it("returns aggregated wallet totals for admin", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/wallets/overview")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("totalAccounts");
+      expect(res.body).toHaveProperty("activeAccounts");
+      expect(res.body).toHaveProperty("totalPointsOutstanding");
+      expect(res.body).toHaveProperty("totalTopUpEgp");
+      expect(res.body.totalAccounts).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("GET /admin/billing/wallets", () => {
+    it("lists wallets with balance rows", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/wallets?search=billing-e2e-user")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("items");
+      expect(res.body.items.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.items[0]).toHaveProperty("balance");
+      expect(res.body.items[0]).toHaveProperty("lifetimeGranted");
+    });
+  });
+
+  describe("GET /admin/billing/wallets/:id/ledger", () => {
+    it("returns ledger rows for the test account", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/billing/wallets/${testAccountId}/ledger`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it("returns 400 for a non-uuid account id", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/wallets/not-a-uuid/ledger")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(400);
+    });
+  });
+
+  describe("GET /admin/billing/transactions", () => {
+    it("lists wallet top-up transactions", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/transactions")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("items");
+      expect(res.body).toHaveProperty("total");
+      expect(Array.isArray(res.body.items)).toBe(true);
+      expect(typeof res.body.total).toBe("number");
+    });
+  });
+
   describe("POST /admin/billing/accounts/:id/pause and /resume", () => {
     it("returns 404 for missing account", async () => {
       await request(app.getHttpServer())
