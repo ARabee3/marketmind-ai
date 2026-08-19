@@ -352,6 +352,57 @@ class TestV2GenerateEndpoint:
             issue.code == "STRATEGY_LANGUAGE_MISMATCH" for issue in result.issues
         )
 
+    def test_v2_language_repair_retries_owner_advice_source_text(
+        self, client, monkeypatch
+    ):
+        request = make_generate_request_v2()
+        fixture = default_plan_v2()
+        advice = fixture.owner_advice.before_week_1[0]
+        bad_advice = advice.model_copy(
+            update={
+                "source": advice.source.model_copy(
+                    update={"text": "English evidence explanation to rewrite."}
+                )
+            }
+        )
+        bad_plan = fixture.model_copy(
+            update={
+                "owner_advice": fixture.owner_advice.model_copy(
+                    update={"before_week_1": [bad_advice]}
+                )
+            }
+        )
+
+        class SequenceProvider(MockStrategyProvider):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.prompts = []
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                return bad_plan if self.call_count == 1 else fixture
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        assert "source.text" in provider.prompts[1].user_prompt
+        assert (
+            "English evidence explanation to rewrite."
+            in provider.prompts[1].user_prompt
+        )
+
     def test_v2_validation_pipeline_rejects_blocking_blocker(self):
         from strategy_contracts import BlockerSeverity, StrategyBlocker
 
