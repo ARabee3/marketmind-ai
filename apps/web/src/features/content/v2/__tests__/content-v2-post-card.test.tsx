@@ -7,6 +7,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     const map: Record<string, string> = {
       postLabel: "Post {position}",
+      pointCost: "{points} points",
       audienceLabel: "Intended audience",
       channelLabel: "Channel",
       formatLabel: "Format",
@@ -70,6 +71,12 @@ describe("ContentV2PostCard", () => {
     expect(screen.getByText("Instagram")).toBeTruthy();
     expect(screen.getByText("Static image post")).toBeTruthy();
     expect(screen.getByText("No CTA")).toBeTruthy();
+  });
+
+  it("shows the published image price for a static image post", () => {
+    render(<ContentV2PostCard plan={PLAN} ctaLabel={null} mediaCount={1} />);
+
+    expect(screen.getByText("8 points")).toBeTruthy();
   });
 
   it("shows the selected CTA label when provided", () => {

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { StrategyProgressEvent } from '@marketmind/contracts'
-import { strategyProgressPercent } from '../strategy-progress'
+import {
+  strategyFailureTranslationKey,
+  strategyProgressPercent,
+} from '../strategy-progress'
 import { ownerProgressLabel } from '../../lib/strategy-state'
 
 vi.mock('@/i18n/navigation', () => ({
@@ -40,5 +43,22 @@ describe('ownerProgressLabel for approved plans', () => {
   it('labels an approved strategy distinctly from a ready draft', () => {
     expect(ownerProgressLabel('approved')).toBe('approved')
     expect(ownerProgressLabel('draft')).toBe('ready')
+  })
+})
+
+describe('strategyFailureTranslationKey', () => {
+  it('keeps provider diagnostics out of owner-facing failure copy', () => {
+    expect(strategyFailureTranslationKey('STRATEGY_LANGUAGE_MISMATCH')).toBe(
+      'failureBody',
+    )
+    expect(strategyFailureTranslationKey('STRATEGY_INVALID_CITATION')).toBe(
+      'failureBody',
+    )
+  })
+
+  it('preserves the safe knowledge-unavailable guidance', () => {
+    expect(
+      strategyFailureTranslationKey('STRATEGY_KNOWLEDGE_UNAVAILABLE'),
+    ).toBe('knowledgeUnavailable')
   })
 })
