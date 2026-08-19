@@ -34,6 +34,17 @@ export interface FacebookExpiredTemplateVars {
   appUrl: string;
 }
 
+export interface BillingConfirmationTemplateVars {
+  bundleName: string;
+  pointsGranted: string;
+  amountEgp: string;
+  currency: string;
+  transactionRef: string;
+  confirmedAt: string;
+  billingUrl: string;
+  appUrl: string;
+}
+
 const BRAND_NAME = "MarketMind AI";
 
 const SUBJECTS: Record<string, Record<MailLocale, string>> = {
@@ -48,6 +59,10 @@ const SUBJECTS: Record<string, Record<MailLocale, string>> = {
   "facebook-expired": {
     en: "Your Facebook Page connection has expired",
     ar: "انتهت صلاحية اتصال صفحة فيسبوك",
+  },
+  "billing-confirmation": {
+    en: "Your points have been added",
+    ar: "تمت إضافة نقاطك",
   },
 };
 
@@ -170,5 +185,25 @@ export function renderFacebookExpired(
     brandName: BRAND_NAME,
   });
 
-  return { subject: subjectFor("facebook-expired", locale), html };
+return { subject: subjectFor("facebook-expired", locale), html };
+}
+
+export function renderBillingConfirmation(
+  vars: BillingConfirmationTemplateVars,
+  locale: MailLocale = "en",
+): RenderedMail {
+  const html = render(loadTemplate("billing-confirmation", locale), {
+    bundleName: vars.bundleName,
+    pointsGranted: vars.pointsGranted,
+    amountEgp: vars.amountEgp,
+    currency: vars.currency,
+    transactionRef: vars.transactionRef,
+    confirmedAt: vars.confirmedAt,
+    billingUrl: vars.billingUrl,
+    appUrl: vars.appUrl,
+    year: currentYear(),
+    brandName: BRAND_NAME,
+  });
+
+  return { subject: subjectFor("billing-confirmation", locale), html };
 }
