@@ -10,7 +10,9 @@ from app.strategy.assembler import (
     DecisionBundle,
     PromptAssembly,
     assemble_generation_prompt,
+    assemble_generation_v2_prompt,
     assemble_revision_prompt,
+    assemble_revision_v2_prompt,
 )
 from app.strategy.prompt_versions import (
     STRATEGY_GENERATE_PROMPT_VERSION,
@@ -23,7 +25,9 @@ from tests.strategy.fixtures import (
     english_brief,
     make_decision_bundle,
     make_generate_request,
+    make_generate_request_v2,
     make_revise_request,
+    make_revise_request_v2,
     mixed_brief,
 )
 
@@ -101,6 +105,22 @@ class TestPromptAssembly:
 
         assert "Owner-facing output language" in system
         assert "ar-EG" in system
+
+    def test_v2_prompts_explicitly_localize_owner_advice_source_text(self):
+        request = make_generate_request_v2()
+        bundle = make_decision_bundle()
+
+        generation = assemble_generation_v2_prompt(
+            request, bundle, PROVIDER_NAME, MODEL_NAME
+        )
+        revision_request = make_revise_request_v2()
+        revision = assemble_revision_v2_prompt(
+            revision_request, bundle, PROVIDER_NAME, MODEL_NAME
+        )
+
+        for system in (generation.system_prompt, revision.system_prompt):
+            assert "Every owner_advice action" in system
+            assert "source.text" in system
 
     def test_generation_user_context_contains_provenance_sections(self):
         request = make_generate_request()
