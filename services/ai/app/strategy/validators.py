@@ -487,10 +487,39 @@ class StrategyV2ValidationPipeline:
         extra_issues: list[StrategyValidationIssue] = []
         extra_issues.extend(_validate_v2_required_sections(plan))
         extra_issues.extend(_validate_v2_owner_facing_language(plan, request))
+        extra_issues.extend(_validate_v2_blocking_blockers(plan))
         return StrategyValidationResult(
             valid=contract_result.valid and len(extra_issues) == 0,
             issues=contract_result.issues + extra_issues,
         )
+
+
+def _validate_v2_blocking_blockers(plan: Any) -> list[StrategyValidationIssue]:
+    """Reject blockers with severity ``blocking`` so the repair loop re-prompts.
+
+    The contract bundle validator only flags blocking blockers on the approval
+    path (decision=approved). On the generation path (decision=None) they would
+    pass validation and be rejected later by the API, which refuses to persist
+    any plan a blocking blocker makes unapprovable. Surface them here as a
+    validation issue so the bounded repair loop can self-heal instead.
+    """
+    from strategy_contracts import BlockerSeverity
+
+    issues: list[StrategyValidationIssue] = []
+    for index, blocker in enumerate(plan.blockers):
+        if blocker.severity == BlockerSeverity.blocking:
+            issues.append(
+                StrategyValidationIssue(
+                    code="STRATEGY_BLOCKING_BLOCKER",
+                    field=f"plan.blockers[{index}].severity",
+                    message=(
+                        "Blockers with severity 'blocking' prevent plan approval. "
+                        "Resolve the blocker within the plan or downgrade it to "
+                        "'warning' with an owner-visible explanation."
+                    ),
+                )
+            )
+    return issues
 
 
 def _validate_v2_required_sections(plan: Any) -> list[StrategyValidationIssue]:

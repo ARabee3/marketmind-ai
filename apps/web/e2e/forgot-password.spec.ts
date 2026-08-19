@@ -9,7 +9,7 @@ for (const locale of locales) {
       await mockAuthForgotPassword(page)
       await page.goto(`/${locale}/login`)
 
-      await page.getByRole('link', { name: /Forgot password|هل نسيت كلمة المرور/ }).click()
+      await page.getByRole('link', { name: /Forgot password|نسيت كلمة المرور/ }).click()
       await expect(page).toHaveURL(new RegExp(`/${locale}/forgot-password`))
 
       await page

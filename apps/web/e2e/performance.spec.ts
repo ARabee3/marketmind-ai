@@ -22,7 +22,7 @@ for (const locale of locales) {
       await expect(page.getByText(locale === 'ar' ? 'أدلة كفاية للمقارنة' : 'Enough evidence for comparison')).toBeVisible()
       await expect(
         page.getByRole('heading', {
-          name: locale === 'ar' ? 'مشاهدات الوسائط' : 'Media views',
+          name: locale === 'ar' ? 'مشاهدات الفيديو والتصاميم' : 'Media views',
           exact: true,
         }),
       ).toBeVisible()

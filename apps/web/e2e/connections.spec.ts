@@ -55,7 +55,7 @@ for (const locale of ['en', 'ar'] as const) {
 
     await page
       .getByRole('button', {
-        name: locale === 'ar' ? 'قطع الاتصال' : 'Disconnect',
+        name: locale === 'ar' ? 'فصل الحساب' : 'Disconnect',
         exact: true,
       })
       .click()

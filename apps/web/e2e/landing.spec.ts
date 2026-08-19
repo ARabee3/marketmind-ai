@@ -42,8 +42,8 @@ for (const landing of landingLocales) {
     })
 
     expect(brandAlignment).not.toBeNull()
-    expect(brandAlignment?.horizontalGap).toBeGreaterThanOrEqual(3.5)
-    expect(brandAlignment?.horizontalGap).toBeLessThanOrEqual(4.5)
+    expect(brandAlignment?.horizontalGap).toBeGreaterThanOrEqual(5.5)
+    expect(brandAlignment?.horizontalGap).toBeLessThanOrEqual(6.5)
     expect(brandAlignment?.centerDelta).toBeLessThanOrEqual(0.5)
     await expect(page.getByRole('link', { name: landing.discoveryCta }).first()).toHaveAttribute(
       'href',

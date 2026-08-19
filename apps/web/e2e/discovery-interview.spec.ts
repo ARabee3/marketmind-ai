@@ -320,8 +320,8 @@ test.describe('Discovery Interview & Review', () => {
     await page.goto(`/ar/discovery/${sessionId}`)
 
     // Verify Arabic UI chrome
-    await expect(page.getByText('تحديث الملف الشخصي')).toBeVisible()
-    await expect(page.getByPlaceholder('اكتب إجابتك هنا…')).toBeVisible()
+    await expect(page.getByText('المقابلة الذكية مع نشاطك')).toBeVisible()
+    await expect(page.getByPlaceholder(/اكتب إجابتك هنا/)).toBeVisible()
 
     // Verify RTL direction on html
     const dir = await page.locator('html').getAttribute('dir')
@@ -413,26 +413,26 @@ test.describe('Discovery Interview & Review', () => {
 
     // Verify RTL and Arabic chrome
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-    await expect(page.getByPlaceholder('اكتب إجابتك هنا…')).toBeVisible()
+    await expect(page.getByPlaceholder(/اكتب إجابتك هنا/)).toBeVisible()
 
     // Interview phase
     await expect(page.getByText('Welcome! What is your best selling product?')).toBeVisible()
 
-    await page.getByPlaceholder('اكتب إجابتك هنا…').fill('إجابتي')
+    await page.getByPlaceholder(/اكتب إجابتك هنا/).fill('إجابتي')
     await page.getByRole('button', { name: 'إرسال' }).click()
 
     await expect.poll(() => turnCount).toBeGreaterThanOrEqual(2)
 
     // Review phase (after automatic summary_ready from respond)
-    await expect(page.getByText('مراجعة نتائج الاستكشاف')).toBeVisible()
+    await expect(page.getByText('مراجعة واعتماد ملف النشاط')).toBeVisible()
     await expect(page.getByText('مكتمل', { exact: true })).toBeVisible()
 
     // Confirm
-    await page.getByRole('button', { name: 'تأكيد الملف الشخصي' }).click()
+    await page.getByRole('button', { name: 'تأكيد واعتماد ملف النشاط' }).click()
 
     // Confirmed success
     await expect(
-      page.getByText('تم تأكيد الملف الشخصي', { exact: true }),
+      page.getByText('تم تأكيد ملف النشاط', { exact: true }),
     ).toBeVisible()
   })
 
@@ -636,7 +636,7 @@ test.describe('Discovery Interview & Review', () => {
     await page.getByRole('button', { name: /Language/ }).click()
 
     await expect(page).toHaveURL(/\/ar\/discovery\/test-session-interview/)
-    await expect(page.getByText('تحديث الملف الشخصي')).toBeVisible()
+    await expect(page.getByText('المقابلة الذكية مع نشاطك')).toBeVisible()
   })
 
   test('Refresh at interview phase uses /status only', async ({ page }) => {

@@ -10,7 +10,7 @@ for (const locale of locales) {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: locale === 'ar' ? 'الرحلة دي بتقف هنا.' : 'This journey stops here.',
+        name: locale === 'ar' ? 'الصفحة التي تبحث عنها غير متوفرة' : 'This journey stops here.',
       }),
     ).toBeVisible()
     await expect(

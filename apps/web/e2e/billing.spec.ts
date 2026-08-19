@@ -131,7 +131,7 @@ test.describe('Billing owner journey', () => {
 
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
     await expect(
-      page.getByRole('heading', { level: 1, name: 'نقاط لشغل النمو بتاعك' }),
+      page.getByRole('heading', { level: 1, name: 'رصيد نقاط النمو والتسويق' }),
     ).toBeVisible()
     await expect(
       page.locator('[data-testid="wallet-balance"]').getByText('عندك 15 نقطة'),

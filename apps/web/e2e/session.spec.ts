@@ -149,7 +149,7 @@ for (const locale of locales) {
 }
 
 function dashboardTitle(locale: 'en' | 'ar') {
-  return locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here'
+  return locale === 'ar' ? 'مرحباً بك في مساحة عملك التسويقية' : 'Your growth journey starts here'
 }
 
 function onboardingSkip(locale: 'en' | 'ar') {

@@ -440,7 +440,7 @@ def build_revise_user_context(
 STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
     [
         _GENERATE_PROMPT_HEADER,
-        f"Prompt version: strategy-generate-v3-owner-first.",
+        f"Prompt version: strategy-generate-v3.1-owner-first.",
         f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
         "",
         "Your job: turn one confirmed Business Profile, one owner-first Strategy Brief, one",
@@ -533,6 +533,16 @@ STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
         "If the knowledge pack is empty or missing a required category, record the gap",
         "as a blocker or non-critical gap instead of inventing guidance.",
         "",
+        "## Blocker severity rules",
+        "",
+        "- blockers[].severity must always be 'warning' (advisory). Never emit a blocker",
+        "  with severity 'blocking' — such a plan can never be approved and is rejected.",
+        "- If an issue would truly block planning, resolve it inside the plan instead:",
+        "  adjust scope, weekly capacity, or a channel's capability_state, or record it",
+        "  as a knowledge gap or assumption with an owner-visible explanation.",
+        "- Keep the blocker entry itself advisory: describe the constraint and what the",
+        "  owner should watch for, without claiming the plan is stalled or unapprovable.",
+        "",
         "Return only the structured JSON object requested by the caller.",
     ]
 )
@@ -540,7 +550,7 @@ STRATEGY_GENERATE_V2_SYSTEM_PROMPT = "\n".join(
 STRATEGY_REVISE_V2_SYSTEM_PROMPT = "\n".join(
     [
         _GENERATE_PROMPT_HEADER,
-        f"Prompt version: strategy-revise-v3-owner-first.",
+        f"Prompt version: strategy-revise-v3.1-owner-first.",
         f"Reference pattern version: {STRATEGY_REFERENCE_PATTERN_VERSION}.",
         "",
         "Your job: create a revised owner-first 12-week StrategyPlan (strategy-v2) from",
@@ -562,6 +572,8 @@ STRATEGY_REVISE_V2_SYSTEM_PROMPT = "\n".join(
         "- Do not describe publishing, platform calls, ad execution, moving money, or auto-approval.",
         "- If a requested change conflicts with a deterministic rule or confirmed profile fact,",
         "  record it as a blocker or assumption rather than silently overriding.",
+        "- Never emit a blocker with severity 'blocking'; use 'warning' and resolve the",
+        "  conflict inside the plan, or record it as a knowledge gap / assumption.",
         "",
         "## Evidence labels and anti-patterns",
         "",

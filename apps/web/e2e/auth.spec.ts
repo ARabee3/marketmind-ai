@@ -68,7 +68,7 @@ for (const locale of locales) {
       await expect(
         page.getByRole('heading', {
           level: 1,
-          name: locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
+          name: locale === 'ar' ? 'مرحباً بك في مساحة عملك التسويقية' : 'Your growth journey starts here',
         }),
       ).toBeVisible()
     })

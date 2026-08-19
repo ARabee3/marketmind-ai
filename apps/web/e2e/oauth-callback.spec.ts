@@ -62,7 +62,7 @@ for (const locale of locales) {
 
       await expect(page).toHaveURL(`/${locale}/dashboard`, { timeout: 10000 })
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-        locale === 'ar' ? 'رحلة النمو تبدأ من هنا' : 'Your growth journey starts here',
+        locale === 'ar' ? 'مرحباً بك في مساحة عملك التسويقية' : 'Your growth journey starts here',
       )
       expect(rotation.calls).toBe(2)
     })

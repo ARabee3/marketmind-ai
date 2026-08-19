@@ -231,10 +231,12 @@ export class StrategyProcessor extends WorkerHost {
       // No refund here: points are debited only after the draft version is
       // successfully persisted (see the record call above), so a failure
       // before that point never spent anything.
+      const reason = generationFailureReason(error);
       await this.safeFail(
         strategyId,
         correlationId,
         "strategy.generating.failed",
+        { code: reason.code ?? undefined, messageText: reason.messageText },
       );
       // Re-throw so the job moves to failed in the queue. Retries are
       // owner-initiated via POST /:id/retry (failed → ready → ...), which is the
@@ -554,10 +556,12 @@ export class StrategyProcessor extends WorkerHost {
       );
       // A failed revision MUST NOT destroy the prior draft. Only the Strategy
       // status is failed; the prior StrategyVersion row is untouched.
+      const reason = generationFailureReason(error);
       await this.safeFail(
         strategyId,
         correlationId,
         "strategy.revision.generating.failed",
+        { code: reason.code ?? undefined, messageText: reason.messageText },
       );
       throw error;
     }
@@ -567,6 +571,7 @@ export class StrategyProcessor extends WorkerHost {
     strategyId: string,
     correlationId: string,
     messageKey: string,
+    options: { readonly code?: string; readonly messageText?: string } = {},
   ): Promise<void> {
     try {
       await this.strategyRepository.updateStrategyStatus(strategyId, "failed");
@@ -574,9 +579,12 @@ export class StrategyProcessor extends WorkerHost {
         stage: "failed",
         status: "failed",
         messageKey,
-        messageText: "Generation failed.",
+        messageText: options.messageText ?? "Generation failed.",
         retryable: true,
-        payload: { correlation_id: correlationId },
+        payload: {
+          correlation_id: correlationId,
+          ...(options.code ? { code: options.code } : {}),
+        },
       });
     } catch (transitionError: unknown) {
       // If the transition itself is illegal (e.g. another worker already moved
@@ -675,6 +683,68 @@ function formatResponseData(data: unknown): string {
 }
 
 /**
+ * Extracts a stable failure code and an owner-readable reason from a
+ * generation error so the failed progress event can explain WHY generation
+ * stopped instead of showing the generic "Generation failed." text.
+ *
+ * FastAPI errors carry a detail envelope ({ error_type, message, issues });
+ * local gates (e.g. assertPlanApprovable) attach a `code` on the Error.
+ */
+function generationFailureReason(error: unknown): {
+  readonly code: string | null;
+  readonly messageText: string;
+} {
+  const candidate = error as {
+    readonly code?: unknown;
+    readonly message?: unknown;
+    readonly response?: {
+      readonly data?: {
+        readonly detail?: {
+          readonly error_type?: unknown;
+          readonly message?: unknown;
+          readonly issues?: unknown;
+        };
+      };
+    };
+  };
+
+  const detail = candidate.response?.data?.detail;
+  if (detail && typeof detail.message === "string" && detail.message.trim()) {
+    const issues = Array.isArray(detail.issues) ? detail.issues : [];
+    const codes = [
+      ...new Set(
+        issues
+          .map((issue) =>
+            issue && typeof issue === "object"
+              ? (issue as { code?: unknown }).code
+              : undefined,
+          )
+          .filter((code): code is string => typeof code === "string"),
+      ),
+    ];
+    const code = codes.includes("STRATEGY_BLOCKING_BLOCKER")
+      ? "STRATEGY_BLOCKING_BLOCKER"
+      : typeof detail.error_type === "string"
+        ? detail.error_type
+        : (codes[0] ?? null);
+    return {
+      code,
+      messageText:
+        codes.length > 0
+          ? `${detail.message} (${codes.join(", ")})`
+          : detail.message,
+    };
+  }
+
+  const ownCode = typeof candidate.code === "string" ? candidate.code : null;
+  const fallback =
+    typeof candidate.message === "string" && candidate.message.trim()
+      ? candidate.message
+      : "Generation failed.";
+  return { code: ownCode, messageText: fallback };
+}
+
+/**
  * Owner-approvability gate. A plan can pass the contract validation pipeline
  * and still carry `blocking` blockers (e.g. an unresolved capability or a
  * budget constraint the owner cannot approve past). Such a plan can never be
@@ -687,18 +757,24 @@ function assertPlanApprovable(planData: unknown): void {
   }
   const blockers = (planData as { blockers?: unknown }).blockers;
   if (!Array.isArray(blockers)) return;
-  const hasBlockingBlocker = blockers.some(
-    (blocker) =>
+  const blockingBlockers = blockers.filter(
+    (blocker): blocker is { code?: unknown; severity?: unknown } =>
       blocker !== null &&
       typeof blocker === "object" &&
       !Array.isArray(blocker) &&
       (blocker as { severity?: unknown }).severity === "blocking",
   );
-  if (hasBlockingBlocker) {
-    throw new Error(
-      "AI generation service returned a plan that cannot be approved (blocking blockers present)",
-    );
-  }
+  if (blockingBlockers.length === 0) return;
+  const codes = blockingBlockers
+    .map((blocker) => blocker.code)
+    .filter((code): code is string => typeof code === "string");
+  const error = new Error(
+    `AI generation service returned a plan that cannot be approved (blocking blockers present${
+      codes.length > 0 ? `: ${codes.join(", ")}` : ""
+    })`,
+  ) as Error & { code?: string };
+  error.code = "STRATEGY_BLOCKING_BLOCKER";
+  throw error;
 }
 
 function assertStrategyValidationPassed(validation: unknown): void {

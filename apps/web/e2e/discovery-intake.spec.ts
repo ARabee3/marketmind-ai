@@ -145,8 +145,8 @@ test.describe('Discovery Intake & Progress Workflow', () => {
 
     // Fill form (using AR labels)
     await page.getByRole('textbox', { name: 'اسم النشاط التجاري', exact: true }).fill('مقهى الاختبار')
-    await page.getByRole('textbox', { name: 'نوع النشاط', exact: true }).fill('مقهى')
-    await page.getByRole('textbox', { name: 'المدينة', exact: true }).fill('القاهرة')
+    await page.getByRole('textbox', { name: 'مجال ونوع النشاط', exact: true }).fill('مقهى')
+    await page.getByRole('textbox', { name: 'المحافظة / المدينة', exact: true }).fill('القاهرة')
     await page.getByRole('button', { name: 'التالي', exact: true }).click()
     await page.getByRole('button', { name: 'التالي', exact: true }).click()
 
@@ -160,7 +160,7 @@ test.describe('Discovery Intake & Progress Workflow', () => {
     await expect(page).toHaveURL(/\/ar\/discovery\/test-session-123/)
 
     // Should display Arabic translated progress timeline
-    await expect(page.getByText('في طابور الانتظار').first()).toBeVisible()
+    await expect(page.getByText('قيد الانتظار في طابور المعالجة').first()).toBeVisible()
   })
 
   test('Handles partial research error and enters interview', async ({ page }) => {

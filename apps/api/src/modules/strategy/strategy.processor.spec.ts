@@ -744,6 +744,53 @@ describe("StrategyProcessor", () => {
       );
       expect(repository.appendStrategyVersion).not.toHaveBeenCalled();
     });
+
+    it("surfaces the AI failure reason in the failed progress event", async () => {
+      httpService.post
+        .mockReturnValueOnce(of({ data: { deterministic_channel_scores: [] } }))
+        .mockReturnValue(
+          throwError(() =>
+            Object.assign(new Error("Request failed with status code 422"), {
+              response: {
+                status: 422,
+                data: {
+                  detail: {
+                    error_type: "STRATEGY_PLAN_VALIDATION_FAILED",
+                    message:
+                      "The provider did not return a Strategy plan that satisfies the contract after bounded retries.",
+                    issues: [
+                      {
+                        code: "STRATEGY_BLOCKING_BLOCKER",
+                        field: "plan.blockers[0].severity",
+                        message: "Blocking blocker prevents approval.",
+                      },
+                    ],
+                  },
+                },
+              },
+            }),
+          ),
+        );
+
+      await expect(
+        processor.process({
+          id: "job-1",
+          name: "generate-strategy",
+          data: baseJob,
+        } as never),
+      ).rejects.toThrow("Request failed with status code 422");
+
+      expect(repository.appendProgressEvent).toHaveBeenCalledWith(
+        "strat-1",
+        expect.objectContaining({
+          messageKey: "strategy.generating.failed",
+          messageText: expect.stringContaining("STRATEGY_BLOCKING_BLOCKER"),
+          payload: expect.objectContaining({
+            code: "STRATEGY_BLOCKING_BLOCKER",
+          }),
+        }),
+      );
+    });
   });
 
   // ── generate-strategy: FSM violation ────────────────────────────────
