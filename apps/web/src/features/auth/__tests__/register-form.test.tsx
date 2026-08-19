@@ -16,6 +16,8 @@ const authMessages: Record<string, string> = {
   registerConfirmPasswordLabel: 'Confirm password',
   registerConfirmPasswordPlaceholder: '••••••••',
   registerSubmit: 'Create account',
+  showPassword: 'Show password',
+  hidePassword: 'Hide password',
   validationNameRequired: 'Full name is required',
   validationEmailRequired: 'Email address is required',
   validationPasswordRequired: 'Password is required',
@@ -80,9 +82,29 @@ describe('RegisterForm', () => {
 
     expect(screen.getByLabelText(/full name/i)).toBeDefined()
     expect(screen.getByLabelText(/email/i)).toBeDefined()
-    expect(screen.getByLabelText(/^password/i)).toBeDefined()
+    expect(screen.getByLabelText(/^password$/i)).toBeDefined()
     expect(screen.getByLabelText(/confirm password/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /create account/i })).toBeDefined()
+  })
+
+  it('toggles password and confirm password visibility', () => {
+    render(<RegisterForm />)
+    const passwordInput = screen.getByLabelText(/^password$/i)
+    const confirmPasswordInput = screen.getByLabelText(/confirm password/i)
+    const toggleButtons = screen.getAllByRole('button', { name: /show password/i })
+
+    expect(passwordInput.getAttribute('type')).toBe('password')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('password')
+
+    // Toggle password
+    fireEvent.click(toggleButtons[0])
+    expect(passwordInput.getAttribute('type')).toBe('text')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('password')
+
+    // Toggle confirm password
+    fireEvent.click(toggleButtons[1])
+    expect(passwordInput.getAttribute('type')).toBe('text')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('text')
   })
 
   it('sets spellCheck=false on email input', () => {

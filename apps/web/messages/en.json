@@ -212,6 +212,8 @@
     "loginSubmit": "Sign in",
     "loginForgotPassword": "Forgot password?",
     "loginNoAccount": "Don't have an account?",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "registerTitle": "Create your account",
     "registerDescription": "Start with a guided setup built for Arabic-first SME owners.",
     "registerNameLabel": "Full name",

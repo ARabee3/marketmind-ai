@@ -7,7 +7,7 @@ test.describe('Locale rendering', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Better marketing starts with understanding your business',
+      'Your marketing plan and weekly posts, ready in one place.',
     )
   })
 
@@ -16,7 +16,7 @@ test.describe('Locale rendering', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'التسويق الأفضل بيبدأ بفهم نشاطك',
+      'خطة تسويق لـ ١٢ أسبوع وبوستات أسبوعية جاهزة لصفحتك.',
     )
   })
 })
