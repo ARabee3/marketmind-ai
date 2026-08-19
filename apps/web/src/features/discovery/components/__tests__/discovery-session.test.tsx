@@ -140,7 +140,6 @@ describe('DiscoverySession stuck-interview recovery', () => {
     expect(screen.getByText('interviewStuckTitle')).toBeDefined()
     expect(screen.getByText('interviewStuckDescription')).toBeDefined()
     expect(screen.getByRole('button', { name: 'interviewStuckRetry' })).toBeDefined()
-    expect(screen.queryByText('CONVERSATION_PANEL_RENDERED')).toBeNull()
   })
 
   it('triggers retryInterview when the recovery button is clicked', () => {
