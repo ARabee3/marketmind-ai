@@ -1162,6 +1162,13 @@ describe("ContentV2Service.regenerateFailedPack", () => {
         { status: "frozen" },
       ),
     ).toBe("retry");
+    expect(
+      primaryActionFor(
+        pack.contentCycle,
+        { ...pack, retryEligible: true },
+        { status: "draft" },
+      ),
+    ).toBe("retry");
   });
 });
 
