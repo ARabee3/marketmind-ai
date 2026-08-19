@@ -253,10 +253,11 @@ export class DiscoveryConversationRepository {
     language: DiscoveryMessage["language"],
     profileState?: DiscoveryProfileState,
     metadata?: Record<string, unknown>,
+    allowedStatuses: readonly DiscoverySessionStatus[] = ["researching"],
   ): Promise<DiscoveryMessage> {
     const message = await this.completeConversationTurn(
       sessionId,
-      ["researching"],
+      allowedStatuses,
       "in_progress",
       content,
       undefined,

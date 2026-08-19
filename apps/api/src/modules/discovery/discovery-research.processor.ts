@@ -1,15 +1,12 @@
-import { ConflictException, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { externalProviderConfig } from "../../common/config/external-provider.config";
-import { ProviderError } from "../../common/errors/provider-error";
-import { AiDiscoveryClient } from "./ai-client/ai-discovery.client";
 import { DiscoveryConversationRepository } from "./discovery-conversation.repository";
 import { DiscoveryIntelligenceRepository } from "./discovery-intelligence.repository";
 import { DiscoveryRepository } from "./discovery.repository";
-import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
+import { StartDiscoveryDto } from "./dto/start-discovery.dto";
 import { DiscoveryProgressInput } from "./discovery-state";
 import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
-import { DiscoveryReadinessService } from "./discovery-readiness.service";
-import { metadataForSuggestedAnswers } from "./discovery-suggested-answers";
+import { DiscoveryInitialQuestionService } from "./discovery-initial-question.service";
 import { IntelligenceGathererService } from "./intelligence/intelligence-gatherer.service";
 
 /**
@@ -28,9 +25,8 @@ export class DiscoveryResearchProcessor {
     private readonly conversationRepository: DiscoveryConversationRepository,
     private readonly intelligenceRepository: DiscoveryIntelligenceRepository,
     private readonly intelligenceGatherer: IntelligenceGathererService,
-    private readonly aiDiscoveryClient: AiDiscoveryClient,
+    private readonly initialQuestionService: DiscoveryInitialQuestionService,
     private readonly progressGateway: DiscoveryProgressGateway,
-    private readonly readinessService: DiscoveryReadinessService,
   ) {}
 
   /**
@@ -180,33 +176,12 @@ export class DiscoveryResearchProcessor {
     dto: StartDiscoveryDto,
     intelligence: Awaited<ReturnType<IntelligenceGathererService["gather"]>>,
   ): Promise<"started" | "unavailable" | "already_started"> {
-    try {
-      const result = await this.aiDiscoveryClient.start(
-        sessionId,
-        dto,
-        intelligence,
-      );
-      if (result.safe_error || !result.next_question) {
-        return "unavailable";
-      }
-      await this.conversationRepository.recordInitialAssistantQuestion(
-        sessionId,
-        result.next_question,
-        dto.language_mode ?? LanguageModeDto.Mixed,
-        this.readinessService.evaluate(result, 0),
-        metadataForSuggestedAnswers(result.suggested_answers),
-      );
-      return "started";
-    } catch (error) {
-      if (error instanceof ProviderError) {
-        return "unavailable";
-      }
-      if (error instanceof ConflictException) {
-        this.logger.log(`Discovery initial question already recorded for ${sessionId}`);
-        return "already_started";
-      }
-      throw error;
-    }
+    return this.initialQuestionService.ensureInitialQuestion(
+      sessionId,
+      dto,
+      intelligence,
+      ["researching"],
+    );
   }
 
   private async handleTerminalFailure(
