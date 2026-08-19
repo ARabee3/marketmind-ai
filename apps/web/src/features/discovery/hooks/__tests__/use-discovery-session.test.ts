@@ -7,6 +7,7 @@ import {
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
+  retryDiscoveryInterview,
 } from '@/lib/api/discovery'
 
 vi.mock('@/lib/api/discovery', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/lib/api/discovery', () => ({
   respondToDiscovery: vi.fn(),
   summarizeDiscovery: vi.fn(),
   confirmDiscoveryProfile: vi.fn(),
+  retryDiscoveryInterview: vi.fn(),
   connectDiscoveryStream: vi.fn(() => () => {}),
 }))
 
@@ -575,6 +577,64 @@ describe('useDiscoverySession', () => {
 
     expect(result.current.error).toBe('already confirmed')
     expect(result.current.errorTranslationKey).toBe('Errors.discoveryAlreadyConfirmed')
+    expect(result.current.pending).toBe(false)
+  })
+
+  it('retries the interview and refreshes status on success', async () => {
+    const stuck = makeStatus({
+      status: 'partial_ready',
+      messages: [],
+      current_question: undefined,
+    })
+    const resumed = makeStatus({
+      status: 'in_progress',
+      messages: [
+        { id: 'msg-1', role: 'assistant', content: 'Who are your customers?', language: 'en', source: 'chat', created_at: '2026-01-01T00:00:00Z' },
+      ],
+      current_question: 'Who are your customers?',
+    })
+
+    vi.mocked(getDiscoveryStatus)
+      .mockResolvedValueOnce(stuck)
+      .mockResolvedValueOnce(resumed)
+
+    vi.mocked(retryDiscoveryInterview).mockResolvedValueOnce(resumed)
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('interview'))
+    expect(result.current.status?.messages).toHaveLength(0)
+
+    await act(async () => {
+      await result.current.retryInterview()
+    })
+
+    expect(vi.mocked(retryDiscoveryInterview)).toHaveBeenCalledWith('test')
+    await waitFor(() => expect(result.current.status?.messages).toHaveLength(1))
+    expect(result.current.pending).toBe(false)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('sets error without throwing when retry interview fails', async () => {
+    vi.mocked(getDiscoveryStatus).mockResolvedValue(
+      makeStatus({ status: 'partial_ready', messages: [], current_question: undefined }),
+    )
+    vi.mocked(retryDiscoveryInterview).mockRejectedValueOnce({
+      status: 503,
+      code: 'DISCOVERY_AI_SERVICE_UNAVAILABLE',
+      message: 'AI unavailable',
+    })
+
+    const { result } = renderHook(() => useDiscoverySession({ sessionId: 'test' }))
+
+    await waitFor(() => expect(result.current.phase).toBe('interview'))
+
+    await act(async () => {
+      await result.current.retryInterview()
+    })
+
+    expect(result.current.error).toBe('AI unavailable')
+    expect(result.current.errorTranslationKey).toBe('DiscoveryProgress.errorProviderFailure')
     expect(result.current.pending).toBe(false)
   })
 })

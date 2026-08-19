@@ -67,6 +67,18 @@ export function getDiscoveryStatus(
   return request<DiscoveryStatusResponse>(`/discovery/${sessionId}/status`)
 }
 
+/** POST /api/v1/discovery/:sessionId/retry-interview */
+export function retryDiscoveryInterview(
+  sessionId: string,
+): Promise<DiscoveryStatusResponse> {
+  return request<DiscoveryStatusResponse>(
+    `/discovery/${sessionId}/retry-interview`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
 /** POST /api/v1/discovery/:sessionId/respond */
 export function respondToDiscovery(
   sessionId: string,

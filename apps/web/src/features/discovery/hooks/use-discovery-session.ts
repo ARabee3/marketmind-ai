@@ -24,6 +24,7 @@ import {
   respondToDiscovery,
   summarizeDiscovery,
   confirmDiscoveryProfile,
+  retryDiscoveryInterview,
   connectDiscoveryStream,
   type ApiError,
 } from '@/lib/api/discovery'
@@ -303,11 +304,39 @@ export function useDiscoverySession({ sessionId }: Options) {
     loadStatus()
   }, [loadStatus])
 
+  const retryInterview = useCallback(async () => {
+    if (pendingRef.current) return
+
+    setPending(true)
+    setState((prev) => ({ ...prev, error: null, errorTranslationKey: null }))
+
+    try {
+      await retryDiscoveryInterview(sessionId)
+    } catch (err) {
+      await loadStatus()
+      if (!mountedRef.current) return
+      const apiErr = err as ApiError
+      setState((prev) => ({
+        ...prev,
+        pending: false,
+        error: apiErr.message || 'retry interview failed',
+        errorTranslationKey: getApiErrorTranslationKey(apiErr),
+      }))
+      pendingRef.current = false
+      return
+    }
+
+    await loadStatus()
+    if (!mountedRef.current) return
+    setPending(false)
+  }, [sessionId, loadStatus, setPending])
+
   return {
     ...state,
     respond,
     summarize,
     confirm,
+    retryInterview,
     retryLoad,
     refresh: loadStatus,
   }
