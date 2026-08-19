@@ -1,13 +1,14 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { ReconciliationService } from "../scheduling/reconciliation.service";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../rbac/guards/permissions.guard";
 import { Permissions } from "../../rbac/decorators/permissions.decorator";
 import { PERMISSIONS } from "../../rbac/rbac.constants";
-import { IsInt, IsNotEmpty, IsString, Min } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { ListResultsQueryDto } from "./dto/list-results-query.dto";
 
 class ResolveUnknownDto {
   @IsString()
@@ -18,11 +19,13 @@ class ResolveUnknownDto {
   @IsNotEmpty()
   reason!: string;
 
-  // Provider proof — REQUIRED when resolution === 'PUBLISHED'. Never fabricate
-  // a publication without evidence from the provider (anti-pattern §12/G10).
+  // Provider proof — REQUIRED when resolution === 'PUBLISHED' (enforced by the
+  // controller). Optional when resolving as FAILED. Never fabricate a
+  // publication without evidence from the provider (anti-pattern §12/G10).
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  remotePublicationId!: string;
+  remotePublicationId?: string;
 }
 
 /**
@@ -124,5 +127,95 @@ export class AdminController {
     });
     if (!attempt) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
     return attempt;
+  }
+
+  /**
+   * List results across all businesses, newest first. Admin-only (§9) —
+   * ownership scoping is intentionally NOT applied because admins reconcile
+   * on behalf of every business. `outcome` filters (e.g. UNKNOWN surfaces the
+   * reconciliation queue); pagination matches the other admin lists.
+   */
+  @Get("results")
+  @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
+  async listResults(@Query() query: ListResultsQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const where = query.outcome ? { outcome: query.outcome } : {};
+
+    const [total, items] = await Promise.all([
+      this.prisma.publishingResult.count({ where }),
+      this.prisma.publishingResult.findMany({
+        where,
+        orderBy: { occurredAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          attempt: {
+            select: {
+              id: true,
+              status: true,
+              attemptSequence: true,
+              sanitizedError: true,
+              startedAt: true,
+              finishedAt: true,
+              intent: {
+                select: {
+                  id: true,
+                  status: true,
+                  mode: true,
+                  scheduledUtcAt: true,
+                  version: true,
+                  businessId: true,
+                  candidate: {
+                    select: {
+                      id: true,
+                      channel: true,
+                      format: true,
+                      locale: true,
+                    },
+                  },
+                  target: {
+                    select: {
+                      id: true,
+                      provider: true,
+                      channel: true,
+                      displayName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // The Intent model carries only a businessId scalar (no relation), so the
+    // display names are resolved in one small batched read and attached to the
+    // response payload for the admin console — never used for authorization.
+    const businessIds = [
+      ...new Set(
+        items
+          .map((item) => item.attempt.intent.businessId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const businesses = businessIds.length
+      ? await this.prisma.business.findMany({
+          where: { id: { in: businessIds } },
+          select: { id: true, displayName: true },
+        })
+      : [];
+    const businessById = new Map(businesses.map((b) => [b.id, b]));
+
+    const serialized = items.map((item) => ({
+      ...item,
+      intent: {
+        ...item.attempt.intent,
+        business: businessById.get(item.attempt.intent.businessId) ?? null,
+      },
+    }));
+
+    return { items: serialized, total, page, pageSize };
   }
 }

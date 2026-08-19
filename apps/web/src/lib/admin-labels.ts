@@ -68,3 +68,99 @@ export function adminIntervalLabel(interval: string, t: Translator): string {
       return interval
   }
 }
+
+export function publishingOutcomeLabel(outcome: string, t: Translator): string {
+  switch (outcome) {
+    case "UNKNOWN":
+      return t("outcomeUnknown")
+    case "PUBLISHED":
+      return t("outcomePublished")
+    case "FAILED":
+      return t("outcomeFailed")
+    case "EXPORTED":
+      return t("outcomeExported")
+    case "SIMULATED":
+      return t("outcomeSimulated")
+    case "CANCELLED":
+      return t("outcomeCancelled")
+    default:
+      return outcome
+  }
+}
+
+export function publishingIntentStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "DRAFT":
+      return t("intentDraft")
+    case "AWAITING_APPROVAL":
+      return t("intentAwaitingApproval")
+    case "SCHEDULED":
+      return t("intentScheduled")
+    case "DISPATCHING":
+      return t("intentDispatching")
+    case "SUCCEEDED":
+      return t("intentSucceeded")
+    case "FAILED":
+      return t("intentFailed")
+    case "ACTION_REQUIRED":
+      return t("intentActionRequired")
+    case "CANCELLED":
+      return t("intentCancelled")
+    default:
+      return status
+  }
+}
+
+export function publishingAttemptStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "QUEUED":
+      return t("attemptQueued")
+    case "RUNNING":
+      return t("attemptRunning")
+    case "DISPATCHING":
+      return t("attemptDispatching")
+    case "SUCCEEDED":
+      return t("attemptSucceeded")
+    case "FAILED":
+      return t("attemptFailed")
+    case "UNKNOWN":
+      return t("attemptUnknown")
+    case "CANCELLED":
+      return t("attemptCancelled")
+    default:
+      return status
+  }
+}
+
+export function publishingModeLabel(mode: string, t: Translator): string {
+  switch (mode) {
+    case "REAL":
+      return t("modeReal")
+    case "MANUAL_EXPORT":
+      return t("modeManualExport")
+    case "SIMULATION":
+      return t("modeSimulation")
+    default:
+      return mode
+  }
+}
+
+export function publishingChannelLabel(
+  channel: string,
+  t: Translator,
+): string {
+  switch (channel) {
+    case "facebook":
+      return t("channelFacebook")
+    case "instagram":
+      return t("channelInstagram")
+    default:
+      return channel
+  }
+}

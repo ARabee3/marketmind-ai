@@ -14,6 +14,7 @@ import {
   Users,
   WalletCards,
   History,
+  Send,
   type LucideIcon,
 } from "lucide-react"
 import { AppShellChevronIcon } from "./app-shell-icons"
@@ -21,7 +22,7 @@ import { BrandLogoMark, getInitials } from "./app-shell"
 
 type AdminNavItem = {
   href: string
-  labelKey: "navOverview" | "navUsers" | "navRevenue" | "navAudit"
+  labelKey: "navOverview" | "navUsers" | "navRevenue" | "navAudit" | "navPublishing"
   icon: LucideIcon
 }
 
@@ -29,6 +30,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin", labelKey: "navOverview", icon: LayoutDashboard },
   { href: "/admin/users", labelKey: "navUsers", icon: Users },
   { href: "/admin/revenue", labelKey: "navRevenue", icon: WalletCards },
+  { href: "/admin/publishing", labelKey: "navPublishing", icon: Send },
   { href: "/admin/audit", labelKey: "navAudit", icon: History },
 ]
 
