@@ -153,9 +153,6 @@ export default function AdminRevenuePage() {
             <h2 className="text-2xl font-bold text-navy">
               {t("subscriptions")}
             </h2>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              {t("revenueDescription")}
-            </p>
           </div>
 
           {stateFilter && (
