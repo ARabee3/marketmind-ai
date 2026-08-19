@@ -14,6 +14,7 @@ import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service"
 import { DiscoveryReadinessService } from "./discovery-readiness.service";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryInitialQuestionService } from "./discovery-initial-question.service";
 import { DiscoveryQueueModule } from "./discovery-queue.module";
 import { DiscoveryQueueWorker } from "./discovery-queue.worker";
 import { DiscoveryResearchProcessor } from "./discovery-research.processor";
@@ -50,6 +51,7 @@ import { DiscoveryStreamService } from "./discovery-stream.service";
     DiscoveryRedisLimiterService,
     DiscoveryReadinessService,
     DiscoveryService,
+    DiscoveryInitialQuestionService,
     DiscoveryStreamService,
     DiscoveryQueueWorker,
     DiscoveryResearchProcessor,
