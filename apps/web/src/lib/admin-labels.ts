@@ -164,3 +164,97 @@ export function publishingChannelLabel(
       return channel
   }
 }
+
+export function knowledgeKindLabel(kind: string, t: Translator): string {
+  switch (kind) {
+    case "framework":
+      return t("kindFramework")
+    case "objective_playbook":
+      return t("kindObjectivePlaybook")
+    case "channel_playbook":
+      return t("kindChannelPlaybook")
+    case "benchmark_report":
+      return t("kindBenchmarkReport")
+    case "content_strategy_playbook":
+      return t("kindContentStrategyPlaybook")
+    case "budget_playbook":
+      return t("kindBudgetPlaybook")
+    case "measurement_playbook":
+      return t("kindMeasurementPlaybook")
+    case "regional_guidance":
+      return t("kindRegionalGuidance")
+    case "sector_note":
+      return t("kindSectorNote")
+    case "policy":
+      return t("kindPolicy")
+    default:
+      return kind
+  }
+}
+
+export function knowledgeReviewStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "draft":
+      return t("draft")
+    case "approved":
+      return t("approved")
+    case "retired":
+      return t("retired")
+    case "expired":
+      return t("expired")
+    default:
+      return status
+  }
+}
+
+export function knowledgeLocaleLabel(locale: string, t: Translator): string {
+  switch (locale) {
+    case "en":
+      return t("localeEn")
+    case "ar-EG":
+      return t("localeArEg")
+    case "mixed":
+      return t("localeMixed")
+    default:
+      return locale
+  }
+}
+
+export function knowledgeEvidenceTierLabel(
+  tier: string,
+  t: Translator,
+): string {
+  switch (tier) {
+    case "verified_benchmark":
+      return t("tierVerifiedBenchmark")
+    case "reviewed_guidance":
+      return t("tierReviewedGuidance")
+    case "contextual_note":
+      return t("tierContextualNote")
+    default:
+      return tier
+  }
+}
+
+export function ingestionRunStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "pending":
+      return t("runPending")
+    case "running":
+      return t("runRunning")
+    case "succeeded":
+      return t("runSucceeded")
+    case "partial_failure":
+      return t("runPartialFailure")
+    case "failed":
+      return t("runFailed")
+    default:
+      return status
+  }
+}
