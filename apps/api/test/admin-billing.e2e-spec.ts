@@ -170,6 +170,43 @@ describe("Admin Billing (e2e)", () => {
     });
   });
 
+  describe("GET /admin/billing/accounts", () => {
+    it("returns 401 for unauthenticated caller", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/accounts")
+        .expect(401);
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/accounts")
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .expect(403);
+    });
+
+    it("lists billing accounts with the test account included", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/billing/accounts?search=billing-e2e-user`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("items");
+      expect(res.body).toHaveProperty("total");
+      expect(res.body.items.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.items[0]).toHaveProperty("ownerEmail");
+      expect(res.body.items[0]).toHaveProperty("status");
+    });
+
+    it("filters paused accounts by status", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/billing/accounts?status=active")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.items.every((item: { status: string }) => item.status === "active")).toBe(true);
+    });
+  });
+
   describe("POST /admin/billing/accounts/:id/pause and /resume", () => {
     it("returns 404 for missing account", async () => {
       await request(app.getHttpServer())

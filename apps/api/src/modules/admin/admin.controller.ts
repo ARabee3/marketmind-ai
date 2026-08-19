@@ -106,6 +106,21 @@ export class AdminController {
     return this.adminBillingService.listCostAlerts();
   }
 
+  @Get("billing/accounts")
+  async getBillingAccounts(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+  ) {
+    return this.adminBillingService.listAccounts({
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      search,
+      status,
+    });
+  }
+
   @Get("billing/reconciliation")
   async getReconciliationMismatches() {
     return this.adminBillingService.listReconciliationMismatches();

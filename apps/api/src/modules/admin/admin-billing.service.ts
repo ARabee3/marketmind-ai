@@ -45,6 +45,24 @@ export type CostAlertSummary = {
   totalHighRetryArtifacts: number;
 };
 
+export type BillingAccountRow = {
+  id: string;
+  ownerUserId: string;
+  ownerEmail: string | null;
+  ownerFullName: string | null;
+  status: string;
+  pausedReason: string | null;
+  pausedAt: Date | null;
+  createdAt: Date;
+};
+
+export type BillingAccountListResponse = {
+  items: BillingAccountRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type ReconciliationMismatch = {
   billingAccountId: string;
   ownerEmail: string | null;
@@ -430,6 +448,64 @@ export class AdminBillingService {
       pausedReason: account.pausedReason,
       pausedAt: account.pausedAt,
       createdAt: account.createdAt,
+    };
+  }
+
+  async listAccounts(params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: string;
+  }): Promise<BillingAccountListResponse> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 20));
+    const search = params.search?.trim();
+    const status = params.status?.trim();
+
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        {
+          ownerUser: {
+            email: { contains: search, mode: "insensitive" },
+          },
+        },
+        {
+          ownerUser: {
+            fullName: { contains: search, mode: "insensitive" },
+          },
+        },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.billingAccount.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          ownerUser: { select: { email: true, fullName: true } },
+        },
+      }),
+      this.prisma.billingAccount.count({ where }),
+    ]);
+
+    return {
+      items: items.map((account) => ({
+        id: account.id,
+        ownerUserId: account.ownerUserId,
+        ownerEmail: account.ownerUser?.email ?? null,
+        ownerFullName: account.ownerUser?.fullName ?? null,
+        status: account.status,
+        pausedReason: account.pausedReason,
+        pausedAt: account.pausedAt,
+        createdAt: account.createdAt,
+      })),
+      total,
+      page,
+      pageSize,
     };
   }
 }

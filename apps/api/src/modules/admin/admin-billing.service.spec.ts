@@ -10,6 +10,8 @@ describe("AdminBillingService", () => {
     billingAccount: {
       findUnique: jest.Mock;
       update: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
     };
     billingProviderCostLedger: {
       findMany: jest.Mock;
@@ -34,6 +36,8 @@ describe("AdminBillingService", () => {
       billingAccount: {
         findUnique: jest.fn(),
         update: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
       },
       billingProviderCostLedger: {
         findMany: jest.fn(),
@@ -324,6 +328,97 @@ describe("AdminBillingService", () => {
         pausedAt: null,
         createdAt,
       });
+    });
+  });
+
+  describe("listAccounts", () => {
+    it("returns a paginated list of accounts with owner details", async () => {
+      const createdAt = new Date();
+      prisma.billingAccount.findMany.mockResolvedValue([
+        {
+          id: "acc-1",
+          ownerUserId: "user-1",
+          status: "active",
+          pausedReason: null,
+          pausedAt: null,
+          createdAt,
+          ownerUser: { email: "user@example.com", fullName: "Test User" },
+        },
+        {
+          id: "acc-2",
+          ownerUserId: "user-2",
+          status: "paused",
+          pausedReason: "Fraud risk",
+          pausedAt: createdAt,
+          createdAt,
+          ownerUser: { email: "user2@example.com", fullName: null },
+        },
+      ]);
+      prisma.billingAccount.count.mockResolvedValue(2);
+
+      const result = await service.listAccounts({ page: 1, pageSize: 20 });
+
+      expect(result).toEqual({
+        items: [
+          {
+            id: "acc-1",
+            ownerUserId: "user-1",
+            ownerEmail: "user@example.com",
+            ownerFullName: "Test User",
+            status: "active",
+            pausedReason: null,
+            pausedAt: null,
+            createdAt,
+          },
+          {
+            id: "acc-2",
+            ownerUserId: "user-2",
+            ownerEmail: "user2@example.com",
+            ownerFullName: null,
+            status: "paused",
+            pausedReason: "Fraud risk",
+            pausedAt: createdAt,
+            createdAt,
+          },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(prisma.billingAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+          orderBy: { createdAt: "desc" },
+          skip: 0,
+          take: 20,
+          include: {
+            ownerUser: { select: { email: true, fullName: true } },
+          },
+        }),
+      );
+      expect(prisma.billingAccount.count).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it("filters by status and search term", async () => {
+      prisma.billingAccount.findMany.mockResolvedValue([]);
+      prisma.billingAccount.count.mockResolvedValue(0);
+
+      await service.listAccounts({ page: 2, pageSize: 10, search: "  ali  ", status: "paused" });
+
+      expect(prisma.billingAccount.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: "paused",
+            OR: [
+              { ownerUser: { email: { contains: "ali", mode: "insensitive" } } },
+              { ownerUser: { fullName: { contains: "ali", mode: "insensitive" } } },
+            ],
+          },
+          skip: 10,
+          take: 10,
+        }),
+      );
     });
   });
 });
