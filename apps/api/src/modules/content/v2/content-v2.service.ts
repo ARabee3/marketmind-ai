@@ -15,6 +15,7 @@ import type {
   ContentClaimSource,
   ContentCycleWorkspaceV2,
   ContentEditorialProfileV2,
+  ContentGenerationFailureContextV2,
   ContentMediaLibraryEntryV2,
   ContentPackV2,
   ContentPackWorkspaceV2,
@@ -24,6 +25,7 @@ import type {
   OwnerContentDirectEditRequest,
 } from "@marketmind/contracts";
 import {
+  CONTENT_ERROR_CODES,
   deterministicGeneratedAssetId,
   StrategyPlanV2,
 } from "@marketmind/contracts";
@@ -73,6 +75,7 @@ import {
 
 export const CONTENT_V2_REQUIRED = "CONTENT_V2_REQUIRED";
 const STATIC_IMAGE_SIZE_PX = 1024;
+const CONTENT_ERROR_CODE_SET = new Set<string>(CONTENT_ERROR_CODES);
 
 export type UploadMediaResult = {
   readonly media: ContentMediaLibraryEntryV2;
@@ -923,6 +926,33 @@ export class ContentV2Service {
       });
     }
 
+    const progressEvents = await this.packRepository.getProgressEvents(pack.id);
+    const latestFailure = [...progressEvents]
+      .reverse()
+      .find((event) => event.stage === "failed" && event.status === "failed");
+    const failurePayload =
+      latestFailure?.payload &&
+      typeof latestFailure.payload === "object" &&
+      !Array.isArray(latestFailure.payload)
+        ? latestFailure.payload
+        : null;
+    const failureCode =
+      failurePayload && typeof failurePayload.error_code === "string"
+        ? failurePayload.error_code
+        : null;
+    const priorFailure: ContentGenerationFailureContextV2 | undefined =
+      latestFailure &&
+      failureCode !== null &&
+      CONTENT_ERROR_CODE_SET.has(failureCode)
+        ? {
+            error_code:
+              failureCode as ContentGenerationFailureContextV2["error_code"],
+            message:
+              latestFailure.messageText.trim().slice(0, 2000) ||
+              `Previous generation failed with ${failureCode}.`,
+          }
+        : undefined;
+
     const correlationId = randomUUID();
     const jobId = `regenerate-content-v2-${pack.id}-${correlationId}`;
     const jobPayload = {
@@ -931,6 +961,7 @@ export class ContentV2Service {
       contentPackId: pack.id,
       idempotencyKey: `owner-regenerate:${correlationId}`,
       correlationId,
+      ...(priorFailure ? { priorFailure } : {}),
     };
 
     await this.prisma.$transaction(async (tx) => {
@@ -975,6 +1006,9 @@ export class ContentV2Service {
       payload: {
         correlation_id: correlationId,
         owner_recovery: true,
+        ...(priorFailure
+          ? { prior_failure_code: priorFailure.error_code }
+          : {}),
       },
     });
 

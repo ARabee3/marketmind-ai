@@ -19,9 +19,10 @@ from content_contracts import (
     ContentItemVersion,
     ContentValidationIssue,
     ContentValidationResult,
+)
+from content_contracts import (
     validate_content_policy_fixture as validate_frozen_policy_fixture,
 )
-
 
 _BLOCKED_CLAIM_CODES: dict[str, ContentErrorCode] = {
     "price": "CONTENT_UNSUPPORTED_CLAIM",
@@ -57,27 +58,37 @@ _PROMOTION_PATTERN = re.compile(
 )
 _RISKY_CLAIM_PATTERNS: dict[str, tuple[re.Pattern[str], ContentErrorCode]] = {
     "price": (
-        re.compile(r"(?:\b(?:price|cost|egp)\b|سعر|جنيه|[$€£]\s*[0-9٠-٩])", re.IGNORECASE),
+        re.compile(
+            r"(?:\b(?:price|cost|egp)\b|سعر|جنيه|[$€£]\s*[0-9٠-٩])", re.IGNORECASE
+        ),
         "CONTENT_UNSUPPORTED_CLAIM",
     ),
     "availability": (
         re.compile(
-            r"(?:\b(?:available|in stock|sold out|opening hours?|open (?:daily|every day|from|until|at))\b|"
-            r"متوفر|متاحة|نفد المخزون|مواعيد العمل|مفتوح(?:ة|ون)?\s+(?:يومي|كل يوم|من|حتى|الساعة))",
+            r"(?:\b(?:in stock|sold out|opening hours?|open (?:daily|every day|from|until|at))\b|"
+            r"في المخزون|نفد المخزون|مواعيد العمل|مفتوح(?:ة|ون)?\s+(?:يومي|كل يوم|من|حتى|الساعة))",
             re.IGNORECASE,
         ),
         "CONTENT_UNSUPPORTED_CLAIM",
     ),
     "superiority": (
-        re.compile(r"(?:\b(?:best|number one|#1|better than)\b|الأفضل|رقم واحد|أفضل من)", re.IGNORECASE),
+        re.compile(
+            r"(?:\b(?:best|number one|#1|better than)\b|الأفضل|رقم واحد|أفضل من)",
+            re.IGNORECASE,
+        ),
         "CONTENT_UNSUPPORTED_CLAIM",
     ),
     "testimonial": (
-        re.compile(r"(?:\btestimonial\b|\bcustomer says\b|شهادة عميل|قال أحد عملائنا)", re.IGNORECASE),
+        re.compile(
+            r"(?:\btestimonial\b|\bcustomer says\b|شهادة عميل|قال أحد عملائنا)",
+            re.IGNORECASE,
+        ),
         "CONTENT_UNSUPPORTED_CLAIM",
     ),
     "guarantee": (
-        re.compile(r"(?:\b(?:guarantee|guaranteed|warranty)\b|نضمن|مضمون|ضمان)", re.IGNORECASE),
+        re.compile(
+            r"(?:\b(?:guarantee|guaranteed|warranty)\b|نضمن|مضمون|ضمان)", re.IGNORECASE
+        ),
         "CONTENT_POLICY_VIOLATION",
     ),
     "regulated": (
@@ -92,7 +103,10 @@ _RISKY_CLAIM_PATTERNS: dict[str, tuple[re.Pattern[str], ContentErrorCode]] = {
         "CONTENT_UNSUPPORTED_CLAIM",
     ),
     "branded_sponsored": (
-        re.compile(r"(?:\b(?:sponsored|paid partnership)\b|إعلان ممول|شراكة مدفوعة)", re.IGNORECASE),
+        re.compile(
+            r"(?:\b(?:sponsored|paid partnership)\b|إعلان ممول|شراكة مدفوعة)",
+            re.IGNORECASE,
+        ),
         "CONTENT_POLICY_VIOLATION",
     ),
 }
@@ -127,7 +141,10 @@ def validate_content_generation_request(
     profile = request.business_profile
     context = request.week_context
 
-    if plan.strategy_id != request.strategy_id or plan.version != request.strategy_version:
+    if (
+        plan.strategy_id != request.strategy_id
+        or plan.version != request.strategy_version
+    ):
         issues.append(
             _issue(
                 "CONTENT_VERSION_CONFLICT",
@@ -161,13 +178,9 @@ def validate_content_generation_request(
 
     if _strategy_plan_is_v2(request):
         handoff = plan.content_handoff
-        approved_channels = (
-            set(handoff.channels) if handoff.available else set()
-        )
+        approved_channels = set(handoff.channels) if handoff.available else set()
     else:
-        approved_channels = {
-            scorecard.channel for scorecard in plan.selected_channels
-        }
+        approved_channels = {scorecard.channel for scorecard in plan.selected_channels}
     if not request.selected_channels or any(
         channel not in approved_channels for channel in request.selected_channels
     ):
@@ -380,9 +393,7 @@ def validate_content_generation_request(
     if context.promotion is not None:
         promotion = context.promotion
         promotion_text = (
-            promotion.get("text", "")
-            if isinstance(promotion, dict)
-            else promotion.text
+            promotion.get("text", "") if isinstance(promotion, dict) else promotion.text
         )
         promotion_terms = (
             promotion.get("terms", [])
@@ -560,10 +571,9 @@ def _is_arabic_letter(character: str) -> bool:
 
 
 def _is_latin_letter(character: str) -> bool:
-    return (
-        unicodedata.category(character).startswith("L")
-        and "LATIN" in unicodedata.name(character, "")
-    )
+    return unicodedata.category(character).startswith(
+        "L"
+    ) and "LATIN" in unicodedata.name(character, "")
 
 
 def _matches_expected_script(
@@ -604,7 +614,10 @@ def _owner_facing_item_texts(item: ContentItemVersion) -> list[tuple[str, str]]:
             entries.append(("short_video_script.closing_cta", script.closing_cta))
         for index, scene in enumerate(script.scenes):
             entries.append(
-                (f"short_video_script.scenes[{index}].visual_direction", scene.visual_direction)
+                (
+                    f"short_video_script.scenes[{index}].visual_direction",
+                    scene.visual_direction,
+                )
             )
             if scene.voiceover:
                 entries.append(
@@ -612,7 +625,10 @@ def _owner_facing_item_texts(item: ContentItemVersion) -> list[tuple[str, str]]:
                 )
             if scene.on_screen_text:
                 entries.append(
-                    (f"short_video_script.scenes[{index}].on_screen_text", scene.on_screen_text)
+                    (
+                        f"short_video_script.scenes[{index}].on_screen_text",
+                        scene.on_screen_text,
+                    )
                 )
     return entries
 
@@ -639,18 +655,21 @@ def _validate_item_language(
     return issues
 
 
-def _profile_protected_texts(value: Any, key_path: str = "") -> list[str]:
-    """Collect protected identity/contact text for explicit mutation checks."""
+def _profile_protected_fields(
+    value: Any,
+    key_path: str = "",
+) -> list[tuple[str, str]]:
+    """Collect protected identity/contact fields with their source paths."""
     if isinstance(value, dict):
-        values: list[str] = []
+        values: list[tuple[str, str]] = []
         for key, child in value.items():
             child_path = f"{key_path}.{key}" if key_path else key
-            values.extend(_profile_protected_texts(child, child_path))
+            values.extend(_profile_protected_fields(child, child_path))
         return values
     if isinstance(value, list):
-        values = []
+        values: list[tuple[str, str]] = []
         for index, child in enumerate(value):
-            values.extend(_profile_protected_texts(child, f"{key_path}[{index}]"))
+            values.extend(_profile_protected_fields(child, f"{key_path}[{index}]"))
         return values
     protected_keys = (
         "business_name",
@@ -664,12 +683,51 @@ def _profile_protected_texts(value: Any, key_path: str = "") -> list[str]:
     if isinstance(value, str) and any(
         key in key_path.lower() for key in protected_keys
     ):
-        return [value] if value.strip() else []
+        return [(key_path, value)] if value.strip() else []
     return []
+
+
+def _profile_protected_texts(value: Any) -> list[str]:
+    return [text for _, text in _profile_protected_fields(value)]
 
 
 def _normalize_text(value: str) -> str:
     return " ".join(unicodedata.normalize("NFC", value).casefold().split())
+
+
+def _normalize_identity_text(value: str) -> str:
+    """Normalize harmless identity punctuation, spacing, and Arabic marks."""
+    normalized = unicodedata.normalize("NFKC", value).casefold().replace("ـ", "")
+    without_marks = "".join(
+        character for character in normalized if unicodedata.category(character) != "Mn"
+    )
+    return " ".join(re.findall(r"[^\W_]+", without_marks))
+
+
+def _protected_identity_looks_rewritten(
+    key_path: str,
+    protected_text: str,
+    item_text: str,
+) -> bool:
+    """Detect near-complete name/address rewrites without punishing formatting."""
+    lowered_path = key_path.lower()
+    if "business_name" not in lowered_path and "address" not in lowered_path:
+        return False
+
+    normalized_value = _normalize_identity_text(protected_text)
+    normalized_item = _normalize_identity_text(item_text)
+    if not normalized_value or normalized_value in normalized_item:
+        return False
+
+    value_tokens = normalized_value.split()
+    if len(value_tokens) < 2:
+        return False
+    item_tokens = set(normalized_item.split())
+    matched_characters = sum(
+        len(token) for token in value_tokens if token in item_tokens
+    )
+    total_characters = sum(len(token) for token in value_tokens)
+    return total_characters > 0 and matched_characters / total_characters >= 0.80
 
 
 _OWNER_INSTRUCTION_WORDS = {
@@ -1078,7 +1136,10 @@ def _validate_item_against_generation_request(
         ("item.id", item.id),
         ("item.content_item_id", item.content_item_id),
         ("item.content_pack_id", item.content_pack_id),
-        ("item.generation_provenance.generation_run_id", item.generation_provenance.generation_run_id),
+        (
+            "item.generation_provenance.generation_run_id",
+            item.generation_provenance.generation_run_id,
+        ),
     ):
         try:
             uuid.UUID(str(value))
@@ -1197,9 +1258,7 @@ def _validate_item_against_generation_request(
     )
     destination = request.week_context.cta_destination
     destination_value = (
-        destination.get("value")
-        if isinstance(destination, dict)
-        else destination.value
+        destination.get("value") if isinstance(destination, dict) else destination.value
     )
     if destination_value:
         # Approved phone numbers, URLs, and handles are protected input, not
@@ -1295,14 +1354,10 @@ def _validate_item_against_generation_request(
 
     destination = request.week_context.cta_destination
     destination_type = (
-        destination.get("type")
-        if isinstance(destination, dict)
-        else destination.type
+        destination.get("type") if isinstance(destination, dict) else destination.type
     )
     destination_value = (
-        destination.get("value")
-        if isinstance(destination, dict)
-        else destination.value
+        destination.get("value") if isinstance(destination, dict) else destination.value
     )
     all_ctas = [item.cta, *(variant.cta for variant in item.caption_variants)]
     if destination_type == "none":
@@ -1320,10 +1375,7 @@ def _validate_item_against_generation_request(
             "week_context.cta_destination.value",
             "The confirmed CTA destination requires a non-empty value.",
         )
-    elif not any(
-        cta is not None and destination_value in cta
-        for cta in all_ctas
-    ):
+    elif not any(cta is not None and destination_value in cta for cta in all_ctas):
         _add_output_issue(
             issues,
             "CONTENT_POLICY_VIOLATION",
@@ -1332,9 +1384,8 @@ def _validate_item_against_generation_request(
         )
 
     publish_window = item.recommended_publish_window
-    if (
-        not _is_timezone_aware(publish_window.starts_at)
-        or not _is_timezone_aware(publish_window.ends_at)
+    if not _is_timezone_aware(publish_window.starts_at) or not _is_timezone_aware(
+        publish_window.ends_at
     ):
         _add_output_issue(
             issues,
@@ -1368,7 +1419,7 @@ def _validate_item_against_generation_request(
             )
 
     item_text = _item_text(item)
-    profile_texts = _profile_protected_texts(request.business_profile.profile)
+    profile_fields = _profile_protected_fields(request.business_profile.profile)
     if protected_text_mutated:
         _add_output_issue(
             issues,
@@ -1376,19 +1427,17 @@ def _validate_item_against_generation_request(
             "item.protected_text",
             "Protected owner and business text was mutated by generation.",
         )
-    # Protected values may be omitted when irrelevant; if emitted, they must be
-    # present byte-for-byte rather than silently translated or rewritten. A lone
-    # token (e.g. a city name inside an address) is not a rewrite: only flag when
-    # most of the protected value is reproduced without matching it exactly.
-    for protected_text in profile_texts:
+    # Contact destinations are enforced by the exact CTA boundary. For names and
+    # addresses, allow harmless Unicode, punctuation, and spacing differences;
+    # block only a near-complete rewrite that changes the canonical value.
+    for key_path, protected_text in profile_fields:
         if protected_text in item_text:
             continue
-        matched_chars = sum(
-            len(token)
-            for token in protected_text.split()
-            if len(token) >= 4 and token in item_text
-        )
-        if matched_chars >= 0.5 * len(protected_text.strip()):
+        if _protected_identity_looks_rewritten(
+            key_path,
+            protected_text,
+            item_text,
+        ):
             _add_output_issue(
                 issues,
                 "CONTENT_POLICY_VIOLATION",
@@ -1424,7 +1473,10 @@ def _validate_item_against_generation_request(
                 "item.claim_sources",
                 "Every material claim source must resolve to approved supplied grounding.",
             )
-        if claim.claim_type == "promotion" and request.week_context.promotion is not None:
+        if (
+            claim.claim_type == "promotion"
+            and request.week_context.promotion is not None
+        ):
             starts_at = item.recommended_publish_window.starts_at
             ends_at = item.recommended_publish_window.ends_at
             promotion = request.week_context.promotion
@@ -1566,9 +1618,7 @@ def validate_generated_content_pack(
             "item_versions",
             "A generated Content pack must contain distinct editorial items.",
         )
-    missing_channels = set(request.selected_channels) - {
-        item.channel for item in items
-    }
+    missing_channels = set(request.selected_channels) - {item.channel for item in items}
     if missing_channels:
         _add_output_issue(
             issues,
@@ -1632,7 +1682,9 @@ def validate_generated_content_pack(
     return ContentValidationResult(valid=not issues, issues=issues)
 
 
-def validate_frozen_content_policy_fixture(fixture: dict[str, Any]) -> ContentValidationResult:
+def validate_frozen_content_policy_fixture(
+    fixture: dict[str, Any],
+) -> ContentValidationResult:
     """Expose the reviewed cross-object contract validator to the AI service."""
     return validate_frozen_policy_fixture(fixture)
 
@@ -1661,11 +1713,23 @@ def validate_revision_item(
         )
 
     locked_fields = (
-        ("content_item_id", base_item_version.content_item_id, revised_item_version.content_item_id),
-        ("content_pack_id", base_item_version.content_pack_id, revised_item_version.content_pack_id),
+        (
+            "content_item_id",
+            base_item_version.content_item_id,
+            revised_item_version.content_item_id,
+        ),
+        (
+            "content_pack_id",
+            base_item_version.content_pack_id,
+            revised_item_version.content_pack_id,
+        ),
         ("channel", base_item_version.channel, revised_item_version.channel),
         ("format", base_item_version.format, revised_item_version.format),
-        ("language_mode", base_item_version.language_mode, revised_item_version.language_mode),
+        (
+            "language_mode",
+            base_item_version.language_mode,
+            revised_item_version.language_mode,
+        ),
         (
             "strategy_trace.strategy_id",
             base_item_version.strategy_trace.strategy_id,

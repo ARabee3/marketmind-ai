@@ -31,17 +31,17 @@ from content_v2_contracts import (
     AiContentV2GenerateResponse,
     AiContentV2ReviseRequest,
     AiContentV2ReviseResponse,
-    ContentItemVersionV2,
-    ContentVersionEditMetadataV2,
-    ContentPackV2,
     ContentCycleV2,
+    ContentItemVersionV2,
+    ContentPackV2,
+    ContentVersionEditMetadataV2,
 )
 from strategy_contracts import BusinessProfilePayload
 
 from app.content.assembler import (
+    PromptAssembly,
     assemble_generation_prompt,
     assemble_revision_prompt,
-    PromptAssembly,
 )
 from app.content.circuit_breaker import CircuitBreaker
 from app.content.service import (
@@ -204,9 +204,7 @@ def v2_generate_to_v1_request(
         generation_cutoff_at=now,
         weekly_claim_id=frozen.weekly_claim_id,
     )
-    business_profile = BusinessProfilePayload.model_validate(
-        request.business_profile
-    )
+    business_profile = BusinessProfilePayload.model_validate(request.business_profile)
     return AiContentGenerateRequest(
         contract_version="content-v1",
         content_pack_id=request.content_pack_id,
@@ -250,9 +248,7 @@ def assemble_v2_generation_prompt(
             if entry.status == "ready"
         ],
     }
-    frozen_libraries_json = json.dumps(
-        frozen_libraries, ensure_ascii=False, indent=2
-    )
+    frozen_libraries_json = json.dumps(frozen_libraries, ensure_ascii=False, indent=2)
     rules = PLAN_ALIGNMENT_RULES.format(plan_count=len(plan_payloads))
     optimization_guidance = request.frozen_input.optimization_guidance
     context = copy.deepcopy(base.context)
@@ -291,13 +287,24 @@ def assemble_v2_generation_prompt(
             {
                 "optimization_instruction_id": guidance_payload["instruction_id"],
                 "optimization_proposal_id": guidance_payload["proposal_id"],
-                "optimization_decision_id": guidance_payload[
-                    "approved_decision_id"
-                ],
-                "optimization_evidence_checksum": guidance_payload[
-                    "evidence_checksum"
-                ],
+                "optimization_decision_id": guidance_payload["approved_decision_id"],
+                "optimization_evidence_checksum": guidance_payload["evidence_checksum"],
             }
+        )
+    if request.prior_failure is not None:
+        prior_failure = request.prior_failure.model_dump(mode="json")
+        context["recovery_context"] = prior_failure
+        metadata["prior_failure_code"] = prior_failure["error_code"]
+        system_prompt += (
+            "\n\n## Owner regeneration recovery\n\n"
+            "This is an explicit owner retry after a terminal validation failure. "
+            "Address the supplied safe failure summary before returning output. "
+            "Do not repeat the rejected claim or rewrite canonical business values."
+        )
+        user_prompt += (
+            "\n\nprior_generation_failure (diagnostic context only; never use it "
+            "as a business fact):\n"
+            + json.dumps(prior_failure, ensure_ascii=False, indent=2)
         )
     return PromptAssembly(
         system_prompt=system_prompt,
@@ -418,21 +425,199 @@ def _normalize_v2_finalized_items(
         if item.asset_required and not asset_ids:
             asset_ids = [generated_asset_id]
         blockers = [
-            blocker
-            for blocker in item.blockers
-            if blocker != "CONTENT_ASSET_REQUIRED"
+            blocker for blocker in item.blockers if blocker != "CONTENT_ASSET_REQUIRED"
         ]
-        staged = item.model_copy(
-            update={"asset_ids": asset_ids, "blockers": blockers}
-        )
+        staged = item.model_copy(update={"asset_ids": asset_ids, "blockers": blockers})
         normalized.append(
             staged.model_copy(
-                update={
-                    "version_checksum": compute_content_item_checksum(staged)
-                }
+                update={"version_checksum": compute_content_item_checksum(staged)}
             )
         )
     return normalized
+
+
+_SAFE_FALLBACK_COPY: dict[str, tuple[str, ...]] = {
+    "ar": (
+        "تعرّف على نشاطنا وما نقدمه بطريقة واضحة.",
+        "اكتشف كيف نهتم بالتفاصيل في كل خطوة.",
+        "شاهد جانبًا من عملنا وتواصل معنا لمعرفة المزيد.",
+        "تعرّف على أسلوب عملنا والخطوات التي نتبعها.",
+        "تابعنا لمعرفة المزيد من التفاصيل عن نشاطنا.",
+    ),
+    "en": (
+        "Learn more about our business and what we do.",
+        "See how we approach each step with care.",
+        "Discover a closer look at our work and contact us for details.",
+        "Explore the way we work and the steps we follow.",
+        "Follow us to learn more about our business.",
+    ),
+}
+
+
+def _profile_business_name(value: Any) -> str | None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key.lower() == "business_name" and isinstance(child, str):
+                return child.strip() or None
+            nested = _profile_business_name(child)
+            if nested:
+                return nested
+    if isinstance(value, list):
+        for child in value:
+            nested = _profile_business_name(child)
+            if nested:
+                return nested
+    return None
+
+
+def _safe_fallback_text(locale: str, position: int, business_name: str | None) -> str:
+    copy_options = _SAFE_FALLBACK_COPY["ar" if locale == "ar" else "en"]
+    copy_text = copy_options[(position - 1) % len(copy_options)]
+    return f"{business_name}\n{copy_text}" if business_name else copy_text
+
+
+def _safe_rewrite_item(
+    request: AiContentV2GenerateRequest,
+    plan: Any,
+    item: ContentItemVersion,
+    warning_codes: set[str],
+) -> ContentItemVersion:
+    business_payload = BusinessProfilePayload.model_validate(request.business_profile)
+    business_name = _profile_business_name(business_payload.profile)
+    primary_locale = "en" if request.language_mode == "en" else "ar"
+    primary_text = _safe_fallback_text(
+        primary_locale,
+        plan.position,
+        business_name,
+    )
+    safe_hashtags = (
+        []
+        if item.channel == "google_business_profile"
+        else ["#عن_نشاطنا" if primary_locale == "ar" else "#AboutOurBusiness"]
+    )
+    variants = [
+        variant.model_copy(
+            update={
+                "caption": _safe_fallback_text(
+                    variant.locale,
+                    plan.position,
+                    business_name,
+                ),
+                "hashtags": safe_hashtags,
+            }
+        )
+        for variant in item.caption_variants
+    ]
+    short_video_script = item.short_video_script
+    if short_video_script is not None:
+        scene_text = (
+            "مشهد بسيط يعرّف بالنشاط."
+            if primary_locale == "ar"
+            else "A simple scene introducing the business."
+        )
+        on_screen_text = "اعرف المزيد" if primary_locale == "ar" else "Learn more"
+        short_video_script = short_video_script.model_copy(
+            update={
+                "hook": primary_text,
+                "scenes": [
+                    scene.model_copy(
+                        update={
+                            "visual_direction": scene_text,
+                            "voiceover": primary_text
+                            if scene.voiceover is not None
+                            else None,
+                            "on_screen_text": on_screen_text
+                            if scene.on_screen_text is not None
+                            else None,
+                        }
+                    )
+                    for scene in short_video_script.scenes
+                ],
+            }
+        )
+    rationale = (
+        "داخل الأسبوع المعتمد."
+        if primary_locale == "ar"
+        else "Within the approved week."
+    )
+    staged = item.model_copy(
+        update={
+            "caption_variants": variants,
+            "hashtags": safe_hashtags,
+            "creative_brief": (
+                "تصميم تعريفي واضح عن النشاط دون معلومات غير مؤكدة."
+                if primary_locale == "ar"
+                else "A clear visual introduction without unverified information."
+            ),
+            "alt_text": (
+                "تصميم تعريفي بسيط عن النشاط."
+                if primary_locale == "ar"
+                else "A simple visual introduction to the business."
+            ),
+            "short_video_script": short_video_script,
+            "recommended_publish_window": item.recommended_publish_window.model_copy(
+                update={"rationale": rationale}
+            ),
+            "warnings": list(dict.fromkeys([*item.warnings, *sorted(warning_codes)])),
+        }
+    )
+    return staged.model_copy(
+        update={"version_checksum": compute_content_item_checksum(staged)}
+    )
+
+
+def _deterministic_safe_repair_v2(
+    request: AiContentV2GenerateRequest,
+    v1_request: AiContentGenerateRequest,
+    items: list[ContentItemVersion],
+    _validation: ContentValidationResult,
+) -> list[ContentItemVersion]:
+    """Replace only copy blocked by noisy claim/identity checks with safe copy."""
+    cta_by_id = {entry.id: entry for entry in request.frozen_input.cta_entries}
+    repaired: list[ContentItemVersion] = []
+    allowed_issues = {
+        ("CONTENT_UNSUPPORTED_CLAIM", "item.claim_sources"),
+        ("CONTENT_POLICY_VIOLATION", "item.protected_text"),
+    }
+    aggregate_issue_identities = {
+        (issue.code, issue.field) for issue in _validation.issues
+    }
+    if (
+        len(items) != len(request.frozen_input.post_plans)
+        or not aggregate_issue_identities
+        or not aggregate_issue_identities.issubset(allowed_issues)
+    ):
+        return items
+    for plan, item in zip(request.frozen_input.post_plans, items):
+        item_request = _v1_request_for_plan(
+            v1_request,
+            plan,
+            cta_by_id.get(plan.cta_library_entry_id),
+        )
+        item_validation = validate_generated_content_pack(
+            item_request,
+            [item],
+            assets=[_generated_asset_fixture(item)]
+            if _deterministic_generated_asset_id(item.id) in item.asset_ids
+            else [],
+            enforce_asset_readiness=False,
+            enforce_item_count=False,
+        )
+        issue_identities = {
+            (issue.code, issue.field) for issue in item_validation.issues
+        }
+        if issue_identities and issue_identities.issubset(allowed_issues):
+            repaired.append(
+                _safe_rewrite_item(
+                    request,
+                    plan,
+                    item,
+                    {code for code, _ in issue_identities},
+                )
+            )
+        else:
+            repaired.append(item)
+    return repaired
 
 
 def _normalize_hashtags(channel: str, values: list[str]) -> list[str]:
@@ -605,9 +790,7 @@ def _normalize_v2_generated_items(
         # non-video card is inert shape noise and can be discarded safely;
         # missing scripts on actual video cards still fail closed below.
         short_video_script = (
-            item.short_video_script
-            if plan.format == "short_video_script"
-            else None
+            item.short_video_script if plan.format == "short_video_script" else None
         )
         if short_video_script is not None:
             script_locale = (
@@ -650,9 +833,7 @@ def _normalize_v2_generated_items(
         # allowed.
         asset_ids = list(plan.selected_media_ids)
         blockers = [
-            blocker
-            for blocker in item.blockers
-            if blocker != "CONTENT_ASSET_REQUIRED"
+            blocker for blocker in item.blockers if blocker != "CONTENT_ASSET_REQUIRED"
         ]
         if asset_required and not asset_ids:
             blockers.append("CONTENT_ASSET_REQUIRED")
@@ -766,10 +947,12 @@ async def generate_v2_content_pack(
         prompt,
         request=v1_request,
         breaker=breaker,
-        request_validator=lambda generation_request, generated: _validate_v2_generated_items(
-            request,
-            generation_request,
-            generated,
+        request_validator=lambda generation_request, generated: (
+            _validate_v2_generated_items(
+                request,
+                generation_request,
+                generated,
+            )
         ),
         output_normalizer=lambda generated: _normalize_v2_generated_items(
             request,
@@ -777,6 +960,12 @@ async def generate_v2_content_pack(
             generated,
         ),
         final_output_normalizer=_normalize_v2_finalized_items,
+        final_output_repair=lambda generated, validation: _deterministic_safe_repair_v2(
+            request,
+            v1_request,
+            generated,
+            validation,
+        ),
         max_attempts=max_attempts,
     )
     validation = _validate_v2_generated_items(request, v1_request, items)

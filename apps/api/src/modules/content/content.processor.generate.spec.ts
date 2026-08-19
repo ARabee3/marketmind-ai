@@ -618,11 +618,25 @@ describe("ContentProcessor", () => {
       await processor.process({
         id: "job-v2-1",
         name: "generate-content-v2",
-        data: JOB_DATA,
+        data: {
+          ...JOB_DATA,
+          priorFailure: {
+            error_code: "CONTENT_UNSUPPORTED_CLAIM",
+            message: "Availability wording had no approved grounding source.",
+          },
+        },
         attemptsMade: 0,
         opts: { attempts: 3 },
       } as never);
 
+      expect(client.generateV2).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prior_failure: {
+            error_code: "CONTENT_UNSUPPORTED_CLAIM",
+            message: "Availability wording had no approved grounding source.",
+          },
+        }),
+      );
       expect(packRepo.persistGeneratedItemsV2).toHaveBeenCalledWith(
         expect.objectContaining({ assetJobs: [] }),
       );
