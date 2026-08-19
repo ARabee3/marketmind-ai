@@ -122,7 +122,7 @@ function title(locale: 'en' | 'ar', key: 'empty' | 'active' | 'review' | 'confir
 function action(locale: 'en' | 'ar', key: 'start' | 'continue') {
   const values = {
     en: { start: 'Start exploration journey', continue: 'Continue Discovery' },
-    ar: { start: 'ابدأ رحلة الاستكشاف', continue: 'كمّل الاستكشاف' },
+    ar: { start: 'ابدأ رحلة الاستكشاف', continue: 'متابعة المقابلة الذكية' },
   }
   return values[locale][key]
 }
@@ -134,8 +134,9 @@ function strategyText(locale: 'en' | 'ar', key: 'review' | 'inactive') {
       inactive: 'Strategy is planned next, but not available in this sprint.',
     },
     ar: {
-      review: 'الاستراتيجية تظل مغلقة حتى تؤكد ملف النشاط.',
-      inactive: 'الاستراتيجية مخططة كمرحلة تالية، لكنها غير متاحة في هذا السبرنت.',
+      review: 'يرجى مراجعة وتأكيد ملف النشاط لفتح مساحة الخطة الاستراتيجية.',
+      inactive:
+        'تم حفظ ملف النشاط. الاستراتيجية ظاهرة كمرحلة تالية، لكنها غير مفعلة في هذا السبرنت.',
     },
   }
   return values[locale][key]
@@ -148,7 +149,7 @@ function loadError(locale: 'en' | 'ar') {
 }
 
 function retry(locale: 'en' | 'ar') {
-  return locale === 'ar' ? 'إعادة المحاولة' : 'Try again'
+  return locale === 'ar' ? 'إعادة تحميل اللوحة' : 'Try again'
 }
 
 function onboardingNext(locale: 'en' | 'ar') {
@@ -156,7 +157,7 @@ function onboardingNext(locale: 'en' | 'ar') {
 }
 
 function onboardingStart(locale: 'en' | 'ar') {
-  return locale === 'ar' ? 'ابدأ' : 'Start'
+  return locale === 'ar' ? 'ابدأ الآن' : 'Start'
 }
 
 function onboardingTitle(
@@ -170,9 +171,9 @@ function onboardingTitle(
       confirm: 'Confirm before the next phase',
     },
     ar: {
-      control: 'أنت المتحكم في القرار',
-      profile: 'نبني ملف النشاط أولًا',
-      confirm: 'أكد قبل المرحلة التالية',
+      control: 'أنت صاحب القرار والتحكم الكامل',
+      profile: 'بناء ملف نشاطك أولاً',
+      confirm: 'المراجعة والاعتماد خطوة بخطوة',
     },
   }
   return values[locale][key]
