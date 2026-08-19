@@ -11,13 +11,17 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { PERMISSIONS } from "../rbac/rbac.constants";
+import { AuditService } from "../audit/audit.service";
 import { AdminService } from "./admin.service";
 
 @Controller("admin")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Permissions(PERMISSIONS.ADMIN_PLATFORM)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get("users")
   async getUsers(
@@ -54,5 +58,26 @@ export class AdminController {
     const p = Math.max(1, parseInt(page ?? "1", 10) || 1);
     const ps = Math.min(100, Math.max(1, parseInt(pageSize ?? "20", 10) || 20));
     return this.adminService.getSubscriptions(p, ps, state);
+  }
+
+  @Get("audit")
+  async getAuditLogs(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("actor") actor?: string,
+    @Query("action") action?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    const p = Math.max(1, parseInt(page ?? "1", 10) || 1);
+    const ps = Math.min(100, Math.max(1, parseInt(pageSize ?? "20", 10) || 20));
+    return this.auditService.list({
+      page: p,
+      pageSize: ps,
+      actor,
+      action,
+      from,
+      to,
+    });
   }
 }

@@ -139,3 +139,46 @@ export async function getAdminSubscriptions(
   }
   return response.json()
 }
+
+export type AdminAuditRow = {
+  id: string
+  actorUserId: string
+  actorEmail: string | null
+  action: string
+  targetType: string
+  targetId: string | null
+  reason: string | null
+  beforeState: unknown
+  afterState: unknown
+  createdAt: string
+}
+
+export type GetAdminAuditParams = {
+  page?: number
+  pageSize?: number
+  actor?: string
+  action?: string
+  from?: string
+  to?: string
+}
+
+export async function getAdminAudit(
+  params: GetAdminAuditParams = {},
+): Promise<AdminPaginatedResponse<AdminAuditRow>> {
+  const searchParams = new URLSearchParams()
+  if (params.page) searchParams.set("page", String(params.page))
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize))
+  if (params.actor) searchParams.set("actor", params.actor)
+  if (params.action) searchParams.set("action", params.action)
+  if (params.from) searchParams.set("from", params.from)
+  if (params.to) searchParams.set("to", params.to)
+
+  const qs = searchParams.toString()
+  const response = await apiRequest(`/admin/audit${qs ? `?${qs}` : ""}`)
+  if (!response.ok) {
+    throw Object.assign(new Error("Failed to fetch audit logs"), {
+      status: response.status,
+    })
+  }
+  return response.json()
+}

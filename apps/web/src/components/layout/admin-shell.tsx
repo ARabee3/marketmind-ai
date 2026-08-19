@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Users,
   WalletCards,
+  History,
   type LucideIcon,
 } from "lucide-react"
 import { AppShellChevronIcon } from "./app-shell-icons"
@@ -20,7 +21,7 @@ import { BrandLogoMark, getInitials } from "./app-shell"
 
 type AdminNavItem = {
   href: string
-  labelKey: "navOverview" | "navUsers" | "navRevenue"
+  labelKey: "navOverview" | "navUsers" | "navRevenue" | "navAudit"
   icon: LucideIcon
 }
 
@@ -28,6 +29,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin", labelKey: "navOverview", icon: LayoutDashboard },
   { href: "/admin/users", labelKey: "navUsers", icon: Users },
   { href: "/admin/revenue", labelKey: "navRevenue", icon: WalletCards },
+  { href: "/admin/audit", labelKey: "navAudit", icon: History },
 ]
 
 export function isAdminNavItemActive(pathname: string, href: string) {

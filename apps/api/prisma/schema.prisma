@@ -830,6 +830,31 @@ model FederatedIdentity {
   @@map("federated_identities")
 }
 
+// ── Audit Log ─────────────────────────────────────────────────────────
+// Append-only trail for admin-sensitive and AI-sensitive actions. Rows are
+// created via AuditService.record() only; there is intentionally no update
+// or delete surface, and no endpoint mutates existing rows. before/after
+// state capture the actor, reason, and the exact state transition.
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  actorEmail  String?  @map("actor_email")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String?  @map("target_id")
+  reason      String?
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([actorUserId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 // ── Marketing Knowledge Governance ─────────────────────────────────────
 // Authoritative, versioned, auditable store for the curated RAG knowledge
 // library. Qdrant (see services/ai/app/qdrant) is a rebuildable derived
