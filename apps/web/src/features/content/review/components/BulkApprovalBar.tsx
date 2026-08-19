@@ -41,20 +41,20 @@ export function BulkApprovalBar({
     format.dateTime(new Date(startsAt), { weekday: 'short' })
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xs mb-6 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-3">
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-xs mb-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
         <div>
-          <h3 className="text-sm font-bold text-[var(--color-navy)] uppercase tracking-wider">
+          <h3 className="text-sm font-bold text-navy uppercase tracking-wider">
             {t('title')}
           </h3>
-          <p className="text-xs text-slate-500">{t('subtitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
           <button
             type="button"
             onClick={selectAllEligible}
-            className="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            className="rounded border border-border bg-surface px-2.5 py-1 font-semibold text-navy hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {t('selectAllEligible')} ({eligibleCount})
           </button>
@@ -62,7 +62,7 @@ export function BulkApprovalBar({
             <button
               type="button"
               onClick={deselectAll}
-              className="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="rounded border border-border bg-surface px-2.5 py-1 font-semibold text-navy hover:bg-muted outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {t('deselectAll')}
             </button>
@@ -84,19 +84,19 @@ export function BulkApprovalBar({
               onClick={() => toggleSelectItem(item.item.id)}
               disabled={!isActionable}
               aria-pressed={isSelected}
-              className={`flex items-center justify-between p-2.5 rounded-lg border text-xs text-start transition-all ${
+              className={`flex items-center justify-between p-2.5 rounded-lg border text-xs text-start transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 isSelected
-                  ? 'border-[var(--color-primary)] bg-teal-50/70 font-semibold text-[var(--color-navy)]'
+                  ? 'border-primary bg-primary/10 font-semibold text-navy'
                   : isActionable
-                    ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    : 'border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed'
+                    ? 'border-border bg-surface text-navy hover:bg-muted'
+                    : 'border-border bg-muted text-muted-foreground opacity-60 cursor-not-allowed'
               }`}
             >
               <div className="flex items-center gap-2">
                 {isSelected ? (
-                  <CheckSquare className="h-4 w-4 text-[var(--color-primary)] shrink-0" />
+                  <CheckSquare className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
                 ) : (
-                  <Square className="h-4 w-4 text-slate-400 shrink-0" />
+                  <Square className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
                 )}
                 <span>
                   {idx + 1}. {dayLabel(item.current_version.recommended_publish_window.starts_at)} ·{' '}
@@ -105,11 +105,11 @@ export function BulkApprovalBar({
               </div>
 
               {isImmutable ? (
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded">
                   {t('approvedLabel')}
                 </span>
               ) : !isActionable ? (
-                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-warning bg-warning/15 px-1.5 py-0.5 rounded">
                   {t('blockedLabel')}
                 </span>
               ) : null}
@@ -123,7 +123,7 @@ export function BulkApprovalBar({
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-teal-300 bg-teal-50 p-3 text-xs text-teal-950 space-y-2"
+          className="rounded-lg border border-primary/30 bg-soft-teal p-3 text-xs text-navy space-y-2"
         >
           <div className="flex items-center justify-between">
             <span className="font-bold">
@@ -137,18 +137,18 @@ export function BulkApprovalBar({
             <button
               type="button"
               onClick={resetBulkState}
-              className="text-xs text-teal-800 font-bold underline"
+              className="text-xs text-primary font-bold underline"
             >
               {t('dismiss')}
             </button>
           </div>
 
           {bulkState.result.some((r) => r.status !== 'approved') && (
-            <ul className="space-y-1 border-t border-teal-200 pt-2 text-[11px]">
+            <ul className="space-y-1 border-t border-primary/20 pt-2 text-[11px]">
               {bulkState.result
                 .filter((r) => r.status === 'ineligible')
                 .map((r) => (
-                  <li key={r.item_id} className="text-red-900 font-medium">
+                  <li key={r.item_id} className="text-danger font-medium">
                     {t('ineligibleReason', {
                       itemId: r.item_id.slice(0, 8),
                       reason: r.error?.code
@@ -166,16 +166,16 @@ export function BulkApprovalBar({
       {bulkState.status === 'error' && (
         <div
           role="alert"
-          className="rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-950 flex items-center justify-between"
+          className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger flex items-center justify-between"
         >
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+            <AlertCircle className="h-4 w-4 text-danger shrink-0" aria-hidden="true" />
             <span>{t('errorBody')}</span>
           </div>
           <button
             type="button"
             onClick={resetBulkState}
-            className="text-xs font-bold text-red-800 underline"
+            className="text-xs font-bold text-danger underline"
           >
             {t('dismiss')}
           </button>
@@ -183,8 +183,8 @@ export function BulkApprovalBar({
       )}
 
       {/* Submit Action */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-        <span className="text-xs font-semibold text-slate-700">
+      <div className="flex items-center justify-between pt-2 border-t border-border">
+        <span className="text-xs font-semibold text-muted-foreground">
           {t('selectedCount', { count: selectedItemIds.length })}
         </span>
 
@@ -192,16 +192,16 @@ export function BulkApprovalBar({
           type="button"
           onClick={submitBulk}
           disabled={selectedItemIds.length === 0 || isSubmitting}
-          className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               <span>{t('submitting')}</span>
             </>
           ) : (
             <>
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               <span>{t('approveSelected', { count: selectedItemIds.length })}</span>
             </>
           )}

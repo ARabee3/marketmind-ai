@@ -96,13 +96,13 @@ export function DecisionRail({
     <>
       <aside
         aria-label={t('title')}
-        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xs space-y-5 sticky top-6"
+        className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-5 sticky top-6"
       >
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary">
             {t('title')}
           </span>
-          <h3 className="text-base font-bold text-[var(--color-navy)] mt-0.5 inline-flex items-center">
+          <h3 className="text-base font-bold text-navy mt-0.5 inline-flex items-center">
             {t('versionChecksum', {
               version: current_version.version,
               checksum: current_version.version_checksum.slice(0, 8),
@@ -112,45 +112,45 @@ export function DecisionRail({
         </div>
 
         {/* Explicit Consequence Notice */}
-        <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-3 text-xs text-teal-950 flex items-start gap-2">
-          <Info className="h-4 w-4 text-teal-700 shrink-0 mt-0.5" />
+        <div className="rounded-lg border border-primary/20 bg-soft-teal/70 p-3 text-xs text-navy flex items-start gap-2">
+          <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
           <p className="leading-relaxed">{t('consequence')}</p>
         </div>
 
         {/* Eligibility Checklist */}
-        <div className="space-y-2 border-t border-slate-200 pt-4">
-          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+        <div className="space-y-2 border-t border-border pt-4">
+          <h4 className="text-xs font-bold text-navy uppercase tracking-wider">
             {t('eligibility.title')}
           </h4>
           <ul className="space-y-1.5 text-xs">
-            <li className="flex items-center gap-2 text-slate-700">
+            <li className="flex items-center gap-2 text-navy">
               {channelOk ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
               ) : (
-                <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+                <XCircle className="h-4 w-4 text-danger shrink-0" aria-hidden="true" />
               )}
               <span>{t('eligibility.channelApproved')}</span>
             </li>
-            <li className="flex items-center gap-2 text-slate-700">
+            <li className="flex items-center gap-2 text-navy">
               {claimsOk ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
               ) : (
-                <AlertOctagon className="h-4 w-4 text-amber-600 shrink-0" />
+                <AlertOctagon className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
               )}
               <span>{t('eligibility.claimsSupported')}</span>
             </li>
-            <li className="flex items-center gap-2 text-slate-700">
+            <li className="flex items-center gap-2 text-navy">
               {assetOk ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
               ) : (
-                <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+                <XCircle className="h-4 w-4 text-danger shrink-0" aria-hidden="true" />
               )}
               <span>{t('eligibility.assetReady')}</span>
             </li>
           </ul>
 
           {!eligibility.eligible && (
-            <div className="rounded bg-red-50 p-2.5 text-xs text-red-900 border border-red-200 mt-2">
+            <div className="rounded bg-danger/10 p-2.5 text-xs text-danger border border-danger/20 mt-2">
               <span className="font-bold block mb-1">
                 {t('eligibility.blockersPresent', {
                   count: eligibility.blockers.length,
@@ -172,10 +172,10 @@ export function DecisionRail({
           <div
             role="status"
             aria-live="polite"
-            className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 space-y-2"
+            className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning space-y-2"
           >
-            <div className="flex items-center gap-2 font-bold text-amber-900">
-              <RefreshCw className="h-4 w-4 text-amber-700 animate-spin" />
+            <div className="flex items-center gap-2 font-bold text-warning">
+              <RefreshCw className="h-4 w-4 text-warning animate-spin" aria-hidden="true" />
               <span>
                 {isRefreshing ? t('conflict.fetching') : t('conflict.title')}
               </span>
@@ -192,7 +192,7 @@ export function DecisionRail({
                 <button
                   type="button"
                   onClick={resetDecisionState}
-                  className="text-xs font-bold text-amber-900 underline"
+                  className="text-xs font-bold text-warning underline outline-none focus-visible:ring-2 focus-visible:ring-warning"
                 >
                   {t('conflict.dismiss')}
                 </button>
@@ -205,7 +205,7 @@ export function DecisionRail({
         {decisionState.status === 'error' && (
           <div
             role="alert"
-            className="rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-950 space-y-1"
+            className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger space-y-1"
           >
             <span className="font-bold block">
               {tErr(decisionState.code as Parameters<typeof tErr>[0]) ||
@@ -214,7 +214,7 @@ export function DecisionRail({
             <button
               type="button"
               onClick={resetDecisionState}
-              className="text-[11px] font-bold text-red-800 underline mt-1"
+              className="text-[11px] font-bold text-danger underline mt-1 outline-none focus-visible:ring-2 focus-visible:ring-danger"
             >
               {t('errorDismiss')}
             </button>
@@ -224,25 +224,25 @@ export function DecisionRail({
         {/* Action Buttons — replaced by an immutable notice once a
             publication candidate freezes this item */}
         {isImmutable ? (
-          <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-950 space-y-1.5">
-            <div className="flex items-center gap-2 font-bold text-emerald-900">
-              <Lock className="h-4 w-4 shrink-0" />
+          <div className="rounded-lg border border-primary/30 bg-soft-teal p-3 text-xs text-navy space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-primary">
+              <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{t('immutable.title')}</span>
             </div>
             <p className="leading-relaxed">{t('immutable.body')}</p>
           </div>
         ) : (
-          <div className="space-y-2 pt-2 border-t border-slate-200">
+          <div className="space-y-2 pt-2 border-t border-border">
             <button
               type="button"
               onClick={handleApprove}
               disabled={!eligibility.eligible || isBusy}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-xs hover:bg-primary/90 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting && decisionState.decision === 'approve' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <ShieldCheck className="h-4 w-4" />
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               )}
               <span>
                 {t('actions.approveVersion', { version: current_version.version })}
@@ -253,9 +253,9 @@ export function DecisionRail({
               type="button"
               onClick={() => setIsRevisionOpen(true)}
               disabled={isBusy}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning hover:bg-warning/20 outline-none focus-visible:ring-2 focus-visible:ring-warning disabled:opacity-50"
             >
-              <MessageSquarePlus className="h-4 w-4" />
+              <MessageSquarePlus className="h-4 w-4" aria-hidden="true" />
               <span>{t('actions.requestRevision')}</span>
             </button>
 
@@ -263,12 +263,12 @@ export function DecisionRail({
               type="button"
               onClick={handleReject}
               disabled={isBusy}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-danger/30 bg-surface px-4 py-2 text-sm font-semibold text-danger hover:bg-danger/10 outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-50"
             >
               {isSubmitting && decisionState.decision === 'reject' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <XCircle className="h-4 w-4" />
+                <XCircle className="h-4 w-4" aria-hidden="true" />
               )}
               <span>
                 {t('actions.rejectVersion', { version: current_version.version })}

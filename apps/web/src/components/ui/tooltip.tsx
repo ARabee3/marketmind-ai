@@ -19,6 +19,16 @@ export function ContextualHelp({
   const [isOpen, setIsOpen] = React.useState(false)
   const tipId = React.useId()
 
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        e.stopPropagation()
+        setIsOpen(false)
+      }
+    },
+    [isOpen],
+  )
+
   return (
     <span className={`relative inline-flex items-center align-middle ms-1.5 ${className}`}>
       <button
@@ -28,18 +38,19 @@ export function ContextualHelp({
         onMouseLeave={() => setIsOpen(false)}
         onFocus={() => setIsOpen(true)}
         onBlur={() => setIsOpen(false)}
+        onKeyDown={handleKeyDown}
         aria-label={ariaLabel || content}
         aria-describedby={isOpen ? tipId : undefined}
-        className="inline-flex items-center justify-center rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-1 shrink-0 cursor-help"
+        className="inline-flex items-center justify-center rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 shrink-0 cursor-help"
       >
-        <Info className={iconClassName} />
+        <Info className={iconClassName} aria-hidden="true" />
       </button>
 
       {isOpen && (
         <span
           id={tipId}
           role="tooltip"
-          className="absolute bottom-full mb-1.5 start-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2 z-50 w-60 sm:w-64 rounded-lg bg-[var(--color-navy)] p-2.5 text-xs font-normal text-white shadow-xl leading-relaxed tracking-normal text-start normal-case pointer-events-none border border-slate-700"
+          className="absolute bottom-full mb-1.5 start-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2 z-50 w-60 sm:w-64 rounded-lg bg-navy p-2.5 text-xs font-normal text-white shadow-xl leading-relaxed tracking-normal text-start normal-case pointer-events-none border border-border/30"
         >
           {content}
         </span>

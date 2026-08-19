@@ -37,35 +37,35 @@ export function ItemAgenda({
     switch (status) {
       case 'approved':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-300">
-            <CheckCircle2 className="h-3 w-3" />
+          <span className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary border border-primary/30">
+            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
             {statusLabel(status)}
           </span>
         )
       case 'revision_requested':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-300">
-            <FileEdit className="h-3 w-3" />
+          <span className="inline-flex items-center gap-1 rounded bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning border border-warning/30">
+            <FileEdit className="h-3 w-3" aria-hidden="true" />
             {statusLabel(status)}
           </span>
         )
       case 'rejected':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 border border-red-300">
-            <XCircle className="h-3 w-3" />
+          <span className="inline-flex items-center gap-1 rounded bg-danger/15 px-2 py-0.5 text-xs font-semibold text-danger border border-danger/30">
+            <XCircle className="h-3 w-3" aria-hidden="true" />
             {statusLabel(status)}
           </span>
         )
       case 'revising':
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 border border-sky-300">
-            <Clock className="h-3 w-3 animate-spin" />
+          <span className="inline-flex items-center gap-1 rounded bg-action/15 px-2 py-0.5 text-xs font-semibold text-action border border-action/30">
+            <Clock className="h-3 w-3 animate-spin" aria-hidden="true" />
             {statusLabel(status)}
           </span>
         )
       default:
         return (
-          <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 border border-slate-300">
+          <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground border border-border">
             {statusLabel(status)}
           </span>
         )
@@ -78,17 +78,17 @@ export function ItemAgenda({
   return (
     <nav
       aria-label={t('title')}
-      className="border-b border-[var(--color-border)] bg-[var(--color-surface)] py-3 px-4 sm:px-6 mb-6"
+      className="border-b border-border bg-surface py-3 px-4 sm:px-6 mb-6"
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-navy)]">
+            <h2 className="text-sm font-semibold text-navy">
               {t('title')}
             </h2>
-            <p className="text-xs text-slate-500">{t('subtitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+          <span className="text-xs font-medium text-navy bg-muted px-2.5 py-1 rounded border border-border">
             {t('itemCountLabel', {
               current: currentCount,
               blocked: blockedCount,
@@ -106,7 +106,7 @@ export function ItemAgenda({
             id="mobile-item-agenda-select"
             value={selectedItemId ?? ''}
             onChange={(e) => onSelectItem(e.target.value)}
-            className="w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm font-medium text-[var(--color-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-navy outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {items.map((item, index) => (
               <option key={item.item.id} value={item.item.id}>
@@ -129,17 +129,17 @@ export function ItemAgenda({
                   type="button"
                   onClick={() => onSelectItem(item.item.id)}
                   aria-pressed={isSelected}
-                  className={`flex flex-col gap-1 text-start rounded-lg border p-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] ${
+                  className={`flex flex-col gap-1 text-start rounded-lg border p-3 text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                     isSelected
-                      ? 'border-[var(--color-primary)] bg-teal-50/50 shadow-sm font-medium text-[var(--color-navy)] ring-1 ring-[var(--color-primary)]'
-                      : 'border-[var(--color-border)] bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border-primary bg-primary/10 shadow-sm font-medium text-navy ring-1 ring-primary'
+                      : 'border-border bg-surface text-navy hover:bg-muted'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-navy">
                       {index + 1}. {dayLabel(item.current_version.recommended_publish_window.starts_at)}
                     </span>
-                    <span className="uppercase text-xs font-semibold tracking-wider text-slate-500">
+                    <span className="uppercase text-xs font-semibold tracking-wider text-muted-foreground">
                       {item.current_version.channel}
                     </span>
                   </div>
@@ -148,10 +148,10 @@ export function ItemAgenda({
                     {getStatusBadge(item.item.status)}
                     {!eligibility.eligible && (
                       <span
-                        className="inline-flex items-center text-amber-700"
+                        className="inline-flex items-center text-warning"
                         title={eligibility.reasons.join(', ')}
                       >
-                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span className="sr-only">{t('ineligible')}</span>
                       </span>
                     )}
