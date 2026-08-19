@@ -234,6 +234,37 @@ async def test_generation_repairs_schema_failure_once() -> None:
 
 
 @pytest.mark.asyncio
+async def test_generation_repairs_unsupported_claim_with_default_budget() -> None:
+    request = make_valid_request()
+    prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
+    valid_items = await MockContentProvider().generate_content_pack(prompt)
+    provider = SequenceProvider(
+        [
+            ProviderError(
+                "CONTENT_UNSUPPORTED_CLAIM",
+                "availability has no approved grounding source",
+                False,
+            ),
+            valid_items,
+        ]
+    )
+
+    items = await generate_content_pack_with_repair(
+        provider,
+        prompt,
+        sleep=no_sleep,
+    )
+
+    assert len(items) == 3
+    assert provider.pack_calls == 2
+    assert (
+        provider.prompts[1].metadata["repair_error_code"]
+        == "CONTENT_UNSUPPORTED_CLAIM"
+    )
+    assert "Unsupported-claim repair" in provider.prompts[1].system_prompt
+
+
+@pytest.mark.asyncio
 async def test_generation_repair_prompt_retains_prior_validation_failures() -> None:
     request = make_valid_request()
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")

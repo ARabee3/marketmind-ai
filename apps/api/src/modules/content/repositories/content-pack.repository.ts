@@ -950,29 +950,40 @@ export class ContentPackRepository {
    * Appends an immutable sequenced progress event. Seq is the event count for
    * the pack at insert time + 1; `@@unique([content_pack_id, seq])` rejects a
    * duplicate seq so two concurrent appends cannot write the same sequence
-   * number.
+   * number. A collision is retried with a freshly computed seq instead of
+   * failing the caller's job (e.g. owner regeneration appends "queued" while
+   * the worker concurrently appends "generating").
    */
   async appendProgressEvent(
     packId: string,
     event: ContentProgressInput,
   ): Promise<PersistedContentProgressEvent> {
-    return this.prisma.$transaction(async (tx) => {
-      const seq = await tx.contentProgressEvent.count({
-        where: { contentPackId: packId },
-      });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const seq = await tx.contentProgressEvent.count({
+            where: { contentPackId: packId },
+          });
 
-      return tx.contentProgressEvent.create({
-        data: {
-          contentPackId: packId,
-          seq: seq + 1,
-          stage: event.stage,
-          status: event.status,
-          messageKey: event.messageKey,
-          messageText: event.messageText,
-          payload: (event.payload ?? {}) as Prisma.InputJsonObject,
-        },
-      });
-    });
+          return tx.contentProgressEvent.create({
+            data: {
+              contentPackId: packId,
+              seq: seq + 1,
+              stage: event.stage,
+              status: event.status,
+              messageKey: event.messageKey,
+              messageText: event.messageText,
+              payload: (event.payload ?? {}) as Prisma.InputJsonObject,
+            },
+          });
+        });
+      } catch (error) {
+        if (attempt === 2 || !isUniqueViolation(error)) {
+          throw error;
+        }
+      }
+    }
+    throw new Error("appendProgressEvent retries exhausted");
   }
 
   /**
@@ -1002,13 +1013,20 @@ export class ContentPackRepository {
     return { changed: result.count === 1 };
   }
 
-  /** Claims a queued pack or a retryable failed pack for another provider attempt. */
+  /**
+   * Claims a queued pack or a retryable failed pack for another provider
+   * attempt. A `queued` pack was explicitly enqueued (initial generation or
+   * owner regeneration) and must always be claimable; `retryEligible` only
+   * gates reclaiming a `failed` pack for the automatic BullMQ retry path.
+   */
   async claimPackForGeneration(packId: string): Promise<{ changed: boolean }> {
     const result = await this.prisma.contentPack.updateMany({
       where: {
         id: packId,
-        status: { in: ["queued", "failed"] },
-        retryEligible: true,
+        OR: [
+          { status: "queued" },
+          { status: "failed", retryEligible: true },
+        ],
       },
       data: { status: "generating" },
     });

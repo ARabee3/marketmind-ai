@@ -40,7 +40,7 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.reviewCta": "Review drafts",
       "ContentV2.studio.viewApprovedCta": "View approved posts",
       "ContentV2.studio.completedHint": "All posts for this week are approved.",
-      "ContentV2.studio.retryCta": "Retry generation",
+      "ContentV2.studio.retryCta": "Retry this week's generation",
       "ContentV2.studio.regenerateCta": "Generate fresh drafts",
       "ContentV2.studio.regeneratingCta": "Starting fresh generation…",
       "ContentV2.studio.recoveryTitle": "The drafts could not be created",
@@ -436,6 +436,48 @@ describe("ContentV2Studio", () => {
       );
     });
     expect(contentCycleApi.retryContentPack).not.toHaveBeenCalled();
+  });
+
+  it("offers a weekly retry for a retryable failed pack", async () => {
+    const failedWorkspace = draftPlanWorkspace({
+      current_week: {
+        ...draftPlanWorkspace().current_week,
+        generation_state: "failed",
+        week_plan: {
+          ...draftPlanWorkspace().current_week.week_plan!,
+          status: "draft",
+        },
+        pack: {
+          ...draftPlanWorkspace().current_week.pack!,
+          id: "pack-retryable",
+          status: "failed",
+          retry_eligible: true,
+        },
+        primary_action: "retry",
+      },
+    });
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      failedWorkspace,
+    );
+    vi.mocked(contentCycleApi.retryContentPack).mockResolvedValue({
+      content_pack: failedWorkspace.current_week.pack!,
+      status: "queued",
+      correlation_id: "corr-week-retry",
+    } as never);
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    const retryButton = await screen.findByRole("button", {
+      name: "Retry this week's generation",
+    });
+    fireEvent.click(retryButton);
+
+    await waitFor(() => {
+      expect(contentCycleApi.retryContentPack).toHaveBeenCalledWith(
+        "pack-retryable",
+      );
+    });
+    expect(contentV2Api.regenerateContentPackV2).not.toHaveBeenCalled();
   });
 
   it("navigates to the pack review from the single review primary action", async () => {

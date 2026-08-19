@@ -2078,11 +2078,6 @@ export class ContentV2Service {
     if (!pack && !weekPlan) {
       return "plan_week";
     }
-    // A draft plan is reviewable and refinable, but the dominant owner
-    // action is explicit generation (which freezes the plan snapshot).
-    if (weekPlan?.status === "draft") {
-      return "generate";
-    }
     if (pack?.status === "failed" && pack.retryEligible) {
       return "retry";
     }
@@ -2094,6 +2089,13 @@ export class ContentV2Service {
       weekPlan?.status === "frozen"
     ) {
       return "regenerate";
+    }
+    // A draft plan is reviewable and refinable, but the dominant owner
+    // action is explicit generation (which freezes the plan snapshot).
+    // Keep this after failed-pack recovery so an existing failed pack is
+    // never masked by the plan's editable status.
+    if (weekPlan?.status === "draft") {
+      return "generate";
     }
     if (["queued", "generating", "validating"].includes(pack?.status ?? "")) {
       return "none";
