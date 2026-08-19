@@ -1200,7 +1200,7 @@ export function DraftReview({
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             {t('goToStrategy')}
-            <ArrowRight className="size-4" aria-hidden="true" />
+            <ArrowRight className="size-4 rtl:scale-x-[-1]" aria-hidden="true" />
           </Link>
           </>
         ) : (
