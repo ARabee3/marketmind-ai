@@ -31,6 +31,7 @@ import {
   type MetaConnectionCompleteContext,
 } from '@/features/publishing/components/meta-connection-result'
 import { getConnectionFingerprint } from '@/features/publishing/lib/publishing-state'
+import { useWallet } from '@/features/billing/wallet-context'
 import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
@@ -278,6 +279,7 @@ export function StrategyWizard() {
   const metaResult = searchParams.get('meta_result')
   const metaConnectionId = searchParams.get('meta_connection')
   const { create, saveBrief, generate, pending, error } = useStrategyActions()
+  const { refresh: refreshWallet } = useWallet()
   const [step, setStep] = useState<StepId>('goal')
   const [form, setForm] = useState<FormData>(() =>
     emptyForm(locale === 'ar' ? 'ar-EG' : 'en'),
@@ -700,6 +702,7 @@ export function StrategyWizard() {
     if (shouldGenerate) {
       const started = await generate(strategyId)
       if (!started) return
+      await refreshWallet()
       router.push(`/strategy/${strategyId}`)
     } else {
       router.push('/strategy')
