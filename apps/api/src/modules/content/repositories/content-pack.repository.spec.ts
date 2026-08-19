@@ -671,6 +671,35 @@ describe("ContentPackRepository", () => {
         }),
       ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
     });
+
+    it("retries a concurrent seq collision and succeeds on the next attempt", async () => {
+      const create = jest
+        .fn()
+        .mockRejectedValueOnce(uniqueViolation())
+        .mockResolvedValueOnce({ seq: 5 });
+      const $transaction = jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            contentProgressEvent: {
+              count: jest.fn().mockResolvedValue(4),
+              create,
+            },
+          }),
+      );
+      const repo = new ContentPackRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.appendProgressEvent("pack-1", {
+          stage: "generating",
+          status: "started",
+          messageKey: "content.generating",
+          messageText: "Generating.",
+        }),
+      ).resolves.toEqual({ seq: 5 });
+      expect(create).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("markPackStatus", () => {
@@ -1046,11 +1075,55 @@ describe("ContentPackRepository", () => {
       expect(updateMany).toHaveBeenCalledWith({
         where: {
           id: "pack-1",
-          status: { in: ["queued", "failed"] },
-          retryEligible: true,
+          OR: [
+            { status: "queued" },
+            { status: "failed", retryEligible: true },
+          ],
         },
         data: { status: "generating" },
       });
+    });
+
+    it("claims an owner-regenerated queued pack even when retryEligible is false", async () => {
+      const packRow = { status: "queued", retryEligible: false };
+      const updateMany = jest.fn().mockImplementation(({ where }) => {
+        const matched =
+          Array.isArray(where.OR) &&
+          where.OR.some((clause) =>
+            Object.entries(clause).every(
+              ([key, value]) => packRow[key as keyof typeof packRow] === value,
+            ),
+          );
+        return Promise.resolve({ count: matched ? 1 : 0 });
+      });
+      const repo = new ContentPackRepository({
+        contentPack: { updateMany },
+      } as unknown as PrismaService);
+
+      await expect(repo.claimPackForGeneration("pack-1")).resolves.toEqual({
+        changed: true,
+      });
+    });
+
+    it("does not reclaim a failed pack that is no longer retry-eligible", async () => {
+      const packRow = { status: "failed", retryEligible: false };
+      const updateMany = jest.fn().mockImplementation(({ where }) => {
+        const matched =
+          Array.isArray(where.OR) &&
+          where.OR.some((clause) =>
+            Object.entries(clause).every(
+              ([key, value]) => packRow[key as keyof typeof packRow] === value,
+            ),
+          );
+        return Promise.resolve({ count: matched ? 1 : 0 });
+      });
+      const repo = new ContentPackRepository({
+        contentPack: { updateMany },
+      } as unknown as PrismaService);
+
+      await expect(
+        repo.claimPackForGeneration("pack-1"),
+      ).resolves.toEqual({ changed: false });
     });
   });
 });
