@@ -49,6 +49,11 @@ export default function AdminUsersPage() {
       : verifiedParam === "false"
         ? false
         : undefined
+  const [lastVerifiedParam, setLastVerifiedParam] = useState(verifiedParam)
+  if (verifiedParam !== lastVerifiedParam) {
+    setLastVerifiedParam(verifiedParam)
+    setPage(1)
+  }
   const closeUserDetails = useCallback(() => {
     setSelectedUserId(null)
   }, [])
@@ -60,10 +65,6 @@ export default function AdminUsersPage() {
   const goToPage = useCallback((p: number) => {
     setPage(p)
   }, [])
-
-  useEffect(() => {
-    setPage(1)
-  }, [verifiedParam])
 
   useEffect(() => {
     let cancelled = false

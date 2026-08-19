@@ -34,6 +34,11 @@ export default function AdminRevenuePage() {
   const [dataVersion, setDataVersion] = useState(0)
   const subPageSize = 20
   const stateFilter = searchParams.get("state") ?? undefined
+  const [lastStateFilter, setLastStateFilter] = useState(stateFilter)
+  if (stateFilter !== lastStateFilter) {
+    setLastStateFilter(stateFilter)
+    setSubPage(1)
+  }
 
   const retry = useCallback(() => {
     setDataVersion((v) => v + 1)
@@ -42,10 +47,6 @@ export default function AdminRevenuePage() {
   const goToPage = useCallback((p: number) => {
     setSubPage(p)
   }, [])
-
-  useEffect(() => {
-    setSubPage(1)
-  }, [stateFilter])
 
   useEffect(() => {
     let cancelled = false
