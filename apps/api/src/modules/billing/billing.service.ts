@@ -32,6 +32,13 @@ import { PrismaService } from "../../common/persistence/prisma.service";
 import { FakePaymentProvider } from "./fake-payment.provider";
 import { createPaymobTestHmac } from "./paymob-payment.provider";
 import { ConfigService } from "@nestjs/config";
+
+/**
+ * Per-account monthly provider-cost ceiling in EGP. When the owner's direct
+ * provider cost for the current billing period crosses this, the circuit
+ * breaker opens and new AI work is blocked until the period resets.
+ */
+export const PROVIDER_COST_CIRCUIT_BREAKER_EGP = 70;
 import {
   PAYMENT_PROVIDER,
   BillingProviderPayloadError,
@@ -354,6 +361,32 @@ export class BillingService {
         snapshotVersion: "points-wallet-v1",
       },
     });
+  }
+
+  /**
+   * Per-account, per-billing-period provider-cost circuit breaker. Opens when
+   * the owner's direct monthly EGP provider cost crosses the margin ceiling.
+   * Callers gate new AI work against this so failed or mock artifacts are never
+   * presented as real after the breaker trips.
+   */
+  async isProviderCostCircuitBreakerOpen(ownerUserId: string): Promise<boolean> {
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { ownerUserId },
+      select: { id: true },
+    });
+    if (!account) return false;
+
+    const periodStart = periodStartForCostLedger();
+    const aggregated = await this.prisma.billingProviderCostLedger.aggregate({
+      where: {
+        billingAccountId: account.id,
+        billingPeriodStart: periodStart,
+      },
+      _sum: { egpCost: true },
+    });
+
+    const totalEgpCost = Number(aggregated._sum.egpCost ?? 0);
+    return totalEgpCost > PROVIDER_COST_CIRCUIT_BREAKER_EGP;
   }
 
   async getTransactions(
