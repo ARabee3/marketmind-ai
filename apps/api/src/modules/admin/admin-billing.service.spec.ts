@@ -253,6 +253,33 @@ describe("AdminBillingService", () => {
           billingAccountId: "acc-1",
           reason: "monthly_cost_exceeded_egp_50",
           totalEgpCost: 60,
+          costCircuitOpen: false,
+        }),
+      );
+    });
+
+    it("opens the cost circuit when monthly EGP cost crosses the ceiling", async () => {
+      const periodStart = new Date(Date.UTC(2026, 7, 1));
+      prisma.billingProviderCostLedger.findMany.mockResolvedValue([
+        {
+          billingAccountId: "acc-1",
+          billingPeriodStart: periodStart,
+          egpCost: 71,
+          retryCount: 0,
+          billingAccount: {
+            ownerUser: { email: "acc1@example.com", fullName: "User One" },
+          },
+        },
+      ]);
+
+      const summary = await service.listCostAlerts();
+
+      expect(summary.alerts).toContainEqual(
+        expect.objectContaining({
+          billingAccountId: "acc-1",
+          reason: "monthly_cost_exceeded_egp_50",
+          totalEgpCost: 71,
+          costCircuitOpen: true,
         }),
       );
     });

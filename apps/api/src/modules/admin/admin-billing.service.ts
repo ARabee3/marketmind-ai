@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { PROVIDER_COST_CIRCUIT_BREAKER_EGP } from "../billing/billing.service";
 
 export type BillingAccountSummary = {
   id: string;
@@ -37,6 +38,7 @@ export type CostAlert = {
   artifactCount: number;
   highRetryArtifacts: number;
   reason: string;
+  costCircuitOpen: boolean;
 };
 
 export type CostAlertSummary = {
@@ -315,6 +317,7 @@ export class AdminBillingService {
           artifactCount: entry.artifactCount,
           highRetryArtifacts: entry.highRetryArtifacts,
           reason: `artifact_used_${row.retryCount}_attempts`,
+          costCircuitOpen: entry.totalEgpCost > PROVIDER_COST_CIRCUIT_BREAKER_EGP,
         });
       }
     }
@@ -337,6 +340,7 @@ export class AdminBillingService {
           artifactCount: entry.artifactCount,
           highRetryArtifacts: entry.highRetryArtifacts,
           reason: "monthly_cost_exceeded_egp_50",
+          costCircuitOpen: entry.totalEgpCost > PROVIDER_COST_CIRCUIT_BREAKER_EGP,
         });
       }
     }
