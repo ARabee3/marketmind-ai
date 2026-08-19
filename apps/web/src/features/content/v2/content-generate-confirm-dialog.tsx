@@ -29,7 +29,7 @@ export function ContentGenerateConfirmDialog({
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/35" />
         <Dialog.Popup
           className={cn(
-            "fixed top-1/2 start-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
+            "fixed top-1/2 start-1/2 z-50 w-[calc(100%-2rem)] max-w-lg ltr:-translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2",
             "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-5 shadow-elevated",
             "focus-visible:ring-3 focus-visible:ring-ring/40 md:p-6",
           )}

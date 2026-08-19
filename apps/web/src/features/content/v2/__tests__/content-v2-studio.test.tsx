@@ -321,6 +321,9 @@ describe("ContentV2Studio", () => {
       name: "Generate drafts",
     });
     fireEvent.click(generateButton);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.className.split(/\s+/)).toContain("rtl:translate-x-1/2");
+    expect(dialog.className.split(/\s+/)).toContain("ltr:-translate-x-1/2");
     fireEvent.click(
       await screen.findByRole("button", { name: "Confirm and generate" }),
     );
