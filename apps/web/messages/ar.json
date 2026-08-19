@@ -3506,6 +3506,7 @@
     "pastDueSubscriptions": "اشتراكات متأخرة",
     "expiredSubscriptions": "اشتراكات منتهية",
     "unverifiedUsers": "مستخدمون غير موثقون",
+    "billingCostAlertsShort": "تنبيهات تكلفة الفوترة",
     "allClear": "لا يوجد ما يستدعي الانتباه حالياً.",
     "viewDetails": "عرض",
     "lastRefreshed": "آخر تحديث {time}",

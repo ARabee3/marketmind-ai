@@ -3313,6 +3313,7 @@
     "pastDueSubscriptions": "Past-due subscriptions",
     "expiredSubscriptions": "Expired subscriptions",
     "unverifiedUsers": "Unverified users",
+    "billingCostAlertsShort": "Billing cost alerts",
     "allClear": "Nothing needs attention right now.",
     "viewDetails": "View",
     "lastRefreshed": "Last refreshed {time}",
