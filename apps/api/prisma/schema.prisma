@@ -404,17 +404,34 @@ model BillingProviderCostLedger {
   @@map("billing_provider_cost_ledger")
 }
 
+/**
+ * Committed billing events awaiting deterministic delivery (e.g. the
+ * localized payment-confirmation email). Rows are written atomically with the
+ * payment transaction inside `applyPaidEvent`; the unique dedupe key
+ * (`provider:externalEventId`) makes duplicate webhooks and queue replays
+ * idempotent. Delivery state mirrors the content outbox lease pattern so a
+ * transient mail-provider failure is retried without touching the succeeded
+ * payment, wallet credit, or ledger entry.
+ */
 model BillingOutbox {
   id               String    @id @default(uuid()) @db.Uuid
   billingAccountId String    @map("billing_account_id") @db.Uuid
   eventType        String    @map("event_type")
   dedupeKey        String    @unique @map("dedupe_key")
   payload          Json      @default("{}")
+  state            String    @default("pending")
+  attempts         Int       @default(0)
+  leaseOwner       String?   @map("lease_owner")
+  leaseExpiresAt   DateTime? @map("lease_expires_at")
+  nextAttemptAt    DateTime? @map("next_attempt_at")
+  lastError        String?   @map("last_error")
   dispatchedAt     DateTime? @map("dispatched_at")
   createdAt        DateTime  @default(now()) @map("created_at")
 
   billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
 
+  @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
   @@index([dispatchedAt, createdAt])
   @@map("billing_outbox")
 }

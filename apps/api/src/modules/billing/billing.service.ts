@@ -854,10 +854,14 @@ export class BillingService {
         eventType: "billing.payment_confirmed",
         dedupeKey: `${event.provider}:${event.externalEventId}`,
         payload: {
-          transaction_id: event.transactionRef,
+          transaction_ref: event.transactionRef,
           bundle_code: bundle.code,
+          bundle_name_en: bundle.display_name_en,
+          bundle_name_ar: bundle.display_name_ar,
           points_granted: bundle.points,
           amount_egp: event.amountEgp,
+          currency: event.currency,
+          confirmed_at: event.occurredAt.toISOString(),
         },
       },
     });

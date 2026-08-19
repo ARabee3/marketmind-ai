@@ -179,6 +179,24 @@ describe("BillingService webhook recovery", () => {
       }),
     });
     expect(outboxCreate).toHaveBeenCalledTimes(1);
+    expect(outboxCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "billing.payment_confirmed",
+          dedupeKey: "fake:event-2",
+          payload: expect.objectContaining({
+            transaction_ref: "transaction-1",
+            bundle_code: "starter_150",
+            bundle_name_en: "Starter",
+            bundle_name_ar: "مبتدئ",
+            points_granted: 150,
+            amount_egp: 100,
+            currency: "EGP",
+            confirmed_at: expect.any(String),
+          }),
+        }),
+      }),
+    );
   });
 
   it("confirms a Paymob checkout as paid in dev and never double-credits", async () => {
@@ -271,5 +289,62 @@ describe("BillingService webhook recovery", () => {
     const second = await service.confirmSandboxCheckout("user-1", "attempt-1", "paid");
     expect(second).toEqual({ accepted: true, duplicate: true });
     expect(tx.billingPointLedger.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create a confirmation outbox event for pending or failed checkout events", async () => {
+    const fake = new FakePaymentProvider(
+      new ConfigService({ billing: { fakeWebhookSecret: "test-secret" } }),
+    );
+    const checkoutUpdate = jest.fn().mockResolvedValue({});
+    const outboxCreate = jest.fn().mockResolvedValue({});
+    const prisma = {
+      billingProviderEvent: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      billingCheckoutAttempt: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "attempt-id",
+          billingAccountId: "account-id",
+          amountEgp: 100,
+          currency: "EGP",
+          price: { code: "starter_150" },
+        }),
+      },
+      billingOutbox: { create: outboxCreate },
+      $transaction: jest.fn(async (callback: (tx: unknown) => unknown) =>
+        callback({ billingCheckoutAttempt: { update: checkoutUpdate } }),
+      ),
+    };
+    const service = new BillingService(
+      prisma as unknown as PrismaService,
+      fake,
+      new ConfigService({ app: { nodeEnv: "test" } }),
+      fake,
+    );
+
+    for (const outcome of ["pending", "failed"] as const) {
+      const payload = fake.createWebhookPayload({
+        event_type: `checkout.${outcome}`,
+        checkout_ref: "attempt-1",
+        transaction_ref: `transaction-${outcome}`,
+        amount_egp: 100,
+        currency: "EGP",
+        payment_mode: "one_time_card",
+      });
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      await service.handleWebhook(
+        "fake",
+        payload,
+        rawBody,
+        fake.signWebhook(payload),
+      );
+      expect(checkoutUpdate).toHaveBeenLastCalledWith({
+        where: { id: "attempt-id" },
+        data: { status: outcome },
+      });
+    }
+    expect(outboxCreate).not.toHaveBeenCalled();
   });
 });
