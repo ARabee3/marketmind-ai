@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -351,6 +352,58 @@ class TestV2GenerateEndpoint:
         assert any(
             issue.code == "STRATEGY_LANGUAGE_MISMATCH" for issue in result.issues
         )
+
+    def test_combined_citation_and_language_failures_get_both_repair_rules(
+        self, client, monkeypatch
+    ):
+        request = make_generate_request_v2()
+        fixture = default_plan_v2()
+        advice = fixture.owner_advice.before_week_1[0]
+        bad_advice = advice.model_copy(
+            update={
+                "source": advice.source.model_copy(
+                    update={"text": "English evidence explanation to rewrite."}
+                )
+            }
+        )
+        bad_citation = fixture.citations[0].model_copy(update={"chunk_id": str(uuid4())})
+        bad_plan = fixture.model_copy(
+            update={
+                "citations": [bad_citation, *fixture.citations[1:]],
+                "owner_advice": fixture.owner_advice.model_copy(
+                    update={"before_week_1": [bad_advice]}
+                ),
+            }
+        )
+
+        class SequenceProvider(MockStrategyProvider):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.prompts = []
+
+            async def generate_strategy_plan(self, prompt, output_model=None):
+                self.call_count += 1
+                self.prompts.append(prompt)
+                return bad_plan if self.call_count == 1 else fixture
+
+        provider = SequenceProvider()
+        monkeypatch.setattr(
+            "app.api.internal_v1.strategy.create_strategy_provider",
+            lambda _settings: provider,
+        )
+
+        response = client.post(
+            "/internal/v1/ai/strategy/generate",
+            json=request.model_dump(mode="json"),
+        )
+
+        assert response.status_code == 200
+        assert provider.call_count == 2
+        repair_prompt = provider.prompts[1].system_prompt
+        assert "owner_advice" in repair_prompt
+        assert "source.text" in repair_prompt
+        assert "STRATEGY_INVALID_CITATION" in repair_prompt
 
     def test_v2_validation_pipeline_rejects_blocking_blocker(self):
         from strategy_contracts import BlockerSeverity, StrategyBlocker

@@ -105,9 +105,7 @@ export function StrategyProgress({
             {t('progress.failureTitle')}
           </p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            {failureCode === 'STRATEGY_KNOWLEDGE_UNAVAILABLE'
-              ? t('progress.knowledgeUnavailable')
-              : (lastFailure?.message_text ?? t('progress.failureBody'))}
+            {t(`progress.${strategyFailureTranslationKey(failureCode)}`)}
           </p>
           <div className="mt-3" aria-live="polite">
             {canRetry && onRetry ? (
@@ -142,6 +140,14 @@ export function StrategyProgress({
       ) : null}
     </section>
   )
+}
+
+export function strategyFailureTranslationKey(
+  failureCode: unknown,
+): 'knowledgeUnavailable' | 'failureBody' {
+  return failureCode === 'STRATEGY_KNOWLEDGE_UNAVAILABLE'
+    ? 'knowledgeUnavailable'
+    : 'failureBody'
 }
 
 export function strategyProgressPercent(
