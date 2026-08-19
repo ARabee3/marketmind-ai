@@ -208,6 +208,40 @@ export function DiscoverySession({
   const showFinish = canOpenInterview(status.status)
   const uncertainties = status.profile_state.uncertainties
 
+  // A session is stuck when the interview phase is open but the AI never
+  // created the first question (no messages and no current question).
+  const isInterviewStuck =
+    phase === 'interview' &&
+    (status.messages ?? []).length === 0 &&
+    !status.current_question
+
+  if (isInterviewStuck) {
+    return (
+      <div className="py-6 max-w-2xl mx-auto">
+        <h1 className="text-xl font-semibold text-navy">{tInterview('title')}</h1>
+        <div className="mt-4 p-6 rounded-xl bg-surface border border-border">
+          <h2 className="text-base font-semibold text-navy">{tInterview('interviewStuckTitle')}</h2>
+          <p className="text-sm text-muted-foreground mt-2">{tInterview('interviewStuckDescription')}</p>
+          <ActionErrorBanner
+            error={session.error}
+            errorTranslationKey={session.errorTranslationKey}
+            pending={pending}
+            onRetry={session.retryInterview}
+            t={tProgress}
+            tErrors={tErrors}
+          />
+          <Button
+            onClick={session.retryInterview}
+            disabled={pending}
+            className="mt-4"
+          >
+            {pending ? tInterview('interviewStuckRetrying') : tInterview('interviewStuckRetry')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="py-6">
       {/* Title + lifecycle status */}
