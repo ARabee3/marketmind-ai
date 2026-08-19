@@ -205,7 +205,6 @@ export function ResetPasswordForm() {
             onClick={() => setShowPassword((prev) => !prev)}
             className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-action rounded-e-md"
             aria-label={showPassword ? t('hidePassword') : t('showPassword')}
-            tabIndex={-1}
           >
             {showPassword ? (
               <EyeOffIcon className="h-4 w-4 shrink-0" aria-hidden />
@@ -246,7 +245,6 @@ export function ResetPasswordForm() {
             onClick={() => setShowConfirmPassword((prev) => !prev)}
             className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-action rounded-e-md"
             aria-label={showConfirmPassword ? t('hidePassword') : t('showPassword')}
-            tabIndex={-1}
           >
             {showConfirmPassword ? (
               <EyeOffIcon className="h-4 w-4 shrink-0" aria-hidden />

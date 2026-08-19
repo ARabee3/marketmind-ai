@@ -7,21 +7,10 @@ import { Prisma, ContentCtaLibraryEntry } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type { ContentCtaDestination } from "@marketmind/contracts";
 import { PrismaService } from "../../../common/persistence/prisma.service";
-
-function defaultVoiceForPreset(preset: string | undefined): string {
-  switch (preset) {
-    case "friendly_local":
-      return "Friendly and local, while staying practical and truthful.";
-    case "clear_professional":
-      return "Clear and professional, with concise grounded language.";
-    case "warm_reassuring":
-      return "Warm and reassuring, without making unsupported promises.";
-    case "direct_confident":
-      return "Direct and confident, while staying grounded in confirmed facts.";
-    default:
-      return "Practical, clear, and trustworthy; use only confirmed business facts.";
-  }
-}
+import {
+  defaultAudienceNuance,
+  defaultEditorialVoice,
+} from "./content-editorial-defaults";
 
 export type UpsertEditorialProfileInput = {
   readonly contentCycleId: string;
@@ -86,8 +75,10 @@ export class ContentSetupRepository {
           data: {
             audienceNuance:
               input.audienceNuance?.trim() ||
-              "Use the confirmed audience facts from the business profile.",
-            voice: input.voice?.trim() || defaultVoiceForPreset(input.tonePreset),
+              defaultAudienceNuance(input.language),
+            voice:
+              input.voice?.trim() ||
+              defaultEditorialVoice(input.tonePreset, input.language),
             language: input.language,
             writingGuardrails:
               input.writingGuardrails as unknown as Prisma.InputJsonValue,
@@ -102,8 +93,10 @@ export class ContentSetupRepository {
           contentCycleId: input.contentCycleId,
           audienceNuance:
             input.audienceNuance?.trim() ||
-            "Use the confirmed audience facts from the business profile.",
-          voice: input.voice?.trim() || defaultVoiceForPreset(input.tonePreset),
+            defaultAudienceNuance(input.language),
+          voice:
+            input.voice?.trim() ||
+            defaultEditorialVoice(input.tonePreset, input.language),
           language: input.language,
           writingGuardrails:
             input.writingGuardrails as unknown as Prisma.InputJsonValue,

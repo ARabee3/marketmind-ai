@@ -31,8 +31,8 @@ export function ContentReviewWorkspace({ packId }: ContentReviewWorkspaceProps) 
 
   if (status === 'loading' && !workspace) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-slate-500">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)] mb-3" />
+      <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" aria-hidden="true" />
         <p className="text-sm font-medium">{t('loading')}</p>
       </div>
     )
@@ -41,19 +41,19 @@ export function ContentReviewWorkspace({ packId }: ContentReviewWorkspaceProps) 
   if (status === 'error' || !workspace) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-center">
-        <AlertCircle className="h-10 w-10 text-[var(--color-danger)] mb-3" />
-        <h2 className="text-lg font-bold text-[var(--color-navy)]">
+        <AlertCircle className="h-10 w-10 text-danger mb-3" aria-hidden="true" />
+        <h2 className="text-lg font-bold text-navy">
           {t('loadError')}
         </h2>
-        <p className="text-xs text-slate-500 max-w-md mt-1 mb-4">
+        <p className="text-xs text-muted-foreground max-w-md mt-1 mb-4">
           {t('loadErrorBody')}
         </p>
         <button
           type="button"
           onClick={refetch}
-          className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-bold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
           <span>{t('retry')}</span>
         </button>
       </div>
@@ -61,12 +61,12 @@ export function ContentReviewWorkspace({ packId }: ContentReviewWorkspaceProps) 
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] pb-16">
+    <div className="min-h-screen bg-background pb-16">
       {/* Contract-Aligned Fixture Notice Banner while the workspace API is unavailable */}
       {isFixture && (
         <div
           role="status"
-          className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-center text-xs font-semibold text-amber-900"
+          className="bg-warning/15 border-b border-warning/30 px-4 py-2 text-center text-xs font-semibold text-warning"
         >
           {t('fixtureNotice')}
         </div>

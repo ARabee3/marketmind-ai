@@ -28,15 +28,15 @@ export function VersionHistory({
   }
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-        <History className="h-4 w-4 text-[var(--color-primary)]" />
-        <h3 className="text-sm font-bold text-[var(--color-navy)] uppercase tracking-wider">
+    <div className="rounded-xl border border-border bg-surface p-5 space-y-4">
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <History className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h3 className="text-sm font-bold text-navy uppercase tracking-wider">
           {t('title')}
         </h3>
       </div>
 
-      <ol className="relative border-s border-slate-200 ms-3 space-y-4">
+      <ol className="relative border-s border-border ms-3 space-y-4">
         {versionHistory.map((ver) => {
           const isCurrent = ver.id === currentVersionId
           const versionDecisions = decisions.filter(
@@ -47,25 +47,25 @@ export function VersionHistory({
             <li key={ver.id} className="mb-4 ms-6">
               <span
                 aria-hidden="true"
-                className="absolute -start-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 ring-4 ring-white border border-slate-300"
+                className="absolute -start-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-muted ring-4 ring-surface border border-border"
               >
-                <GitCommit className="h-3 w-3 text-slate-600" />
+                <GitCommit className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
               </span>
 
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-sm text-[var(--color-navy)]">
+                <span className="font-bold text-sm text-navy">
                   {t('version', { version: ver.version })}
                 </span>
                 {isCurrent && (
-                  <span className="rounded bg-teal-100 px-2 py-0.5 text-xs font-bold text-teal-900 border border-teal-300">
+                  <span className="rounded bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary border border-primary/30">
                     {t('current')}
                   </span>
                 )}
               </div>
 
-              <div className="font-mono text-[11px] text-slate-500 mt-0.5 inline-flex items-center gap-0.5">
+              <div className="font-mono text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-0.5">
                 {t('checksum', { checksum: ver.version_checksum.slice(0, 16) })}…
-                <Tooltip content={tTooltips('checksum')} iconClassName="h-3 w-3 text-slate-400 hover:text-slate-600 transition-colors" />
+                <Tooltip content={tTooltips('checksum')} iconClassName="h-3 w-3 text-muted-foreground hover:text-navy transition-colors" />
               </div>
 
               {/* Associated decisions and revision notes */}
@@ -74,13 +74,13 @@ export function VersionHistory({
                   {versionDecisions.map((dec) => (
                     <div
                       key={dec.id}
-                      className="rounded border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-700 space-y-1"
+                      className="rounded border border-border bg-muted/40 p-2.5 text-xs text-navy space-y-1"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold capitalize text-slate-900">
+                        <span className="font-semibold capitalize text-navy">
                           {decisionLabel(dec.decision)}
                         </span>
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-muted-foreground">
                           {format.dateTime(new Date(dec.decided_at), {
                             day: 'numeric',
                             month: 'short',
@@ -90,13 +90,13 @@ export function VersionHistory({
                       </div>
 
                       {dec.revision_notes && (
-                        <div className="flex items-start gap-1.5 text-amber-900 bg-amber-50 p-2 rounded border border-amber-200 mt-1">
-                          <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />
+                        <div className="flex items-start gap-1.5 text-warning bg-warning/15 p-2 rounded border border-warning/30 mt-1">
+                          <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0 text-warning" aria-hidden="true" />
                           <div>
                             <span className="font-bold block text-[10px]">
                               {t('revisionNotesLabel')}
                             </span>
-                            <p className="whitespace-pre-wrap font-sans text-xs">
+                            <p className="whitespace-pre-wrap font-sans text-xs text-navy">
                               {dec.revision_notes}
                             </p>
                           </div>

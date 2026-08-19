@@ -215,6 +215,13 @@ describe("ContentV2Service.planWeek", () => {
 
     const result = await service.planWeek(CYCLE, 1, OWNER);
 
+    const editorialProfile = mocks.contentAiClient.plan.mock.calls[0][0]
+      .editorial_profile as {
+      audience_nuance: string;
+      language: string;
+      voice: string;
+    };
+
     expect(mocks.contentAiClient.plan).toHaveBeenCalledWith(
       expect.objectContaining({
         editorial_profile: expect.objectContaining({
@@ -227,13 +234,13 @@ describe("ContentV2Service.planWeek", () => {
         }),
       }),
     );
-    expect(
-      (
-        mocks.contentAiClient.plan.mock.calls[0][0] as {
-          editorial_profile: { voice: string };
-        }
-      ).editorial_profile.voice.length,
-    ).toBeGreaterThan(0);
+    expect(editorialProfile.audience_nuance).toBe(
+      "لم يتم تأكيد تفاصيل إضافية عن الجمهور في ملف النشاط.",
+    );
+    expect(editorialProfile.voice).toBe(
+      "استخدم نبرة مصرية عملية وواضحة وموثوقة. لا تفترض حقائق أو عروضًا أو أماكن أو تفاصيل عن الجمهور خارج الملف المؤكد وخطة الاستراتيجية المعتمدة.",
+    );
+    expect(editorialProfile.voice).not.toMatch(/Use|English|Egyptian Arabic/);
     expect(result.week_plan.id).toBe("week-plan-1");
   });
 

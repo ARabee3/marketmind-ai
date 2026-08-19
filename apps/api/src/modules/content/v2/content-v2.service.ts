@@ -55,6 +55,10 @@ import {
   type PostPlanInput,
 } from "./content-week-plan.repository";
 import { ContentVersionEditRepository } from "./content-version-edit.repository";
+import {
+  fallbackAudienceNuance,
+  fallbackEditorialVoice,
+} from "./content-editorial-defaults";
 import { OptimizationRepository } from "../../performance/optimization/optimization.repository";
 import { toBullMqJobId } from "../../../common/queues/bullmq-job-id";
 import {
@@ -2136,13 +2140,6 @@ export class ContentV2Service {
     ]
       .map((fact) => fact.trim())
       .filter(Boolean);
-    const languageLabel =
-      language === "ar-EG"
-        ? "Egyptian Arabic"
-        : language === "en"
-          ? "English"
-          : "the owner's selected Arabic and English mix";
-
     return {
       // The fallback is not persisted, but it still crosses the typed API/AI
       // boundary. Keep its identity deterministic while satisfying the UUID
@@ -2151,10 +2148,8 @@ export class ContentV2Service {
       id: deterministicFallbackEditorialProfileId(cycle.id),
       contract_version: "content-v2",
       content_cycle_id: cycle.id,
-      audience_nuance: confirmedAudienceFacts.length
-        ? `Confirmed customer facts: ${confirmedAudienceFacts.join("; ")}.`
-        : "No additional audience details were confirmed in the business profile.",
-      voice: `Use a practical, clear, and trustworthy ${languageLabel} voice. Do not infer facts, offers, locations, or audience details beyond the confirmed profile and approved Strategy handoff.`,
+      audience_nuance: fallbackAudienceNuance(language, confirmedAudienceFacts),
+      voice: fallbackEditorialVoice(language),
       language: language as ContentEditorialProfileV2["language"],
       writing_guardrails: [],
       default_visual_guidance: null,
