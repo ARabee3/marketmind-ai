@@ -22,6 +22,7 @@ import { AdminService } from "./admin.service";
 import { AdminBillingService } from "./admin-billing.service";
 import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 import { PauseAccountDto } from "./dto/pause-account.dto";
+import { TopUpWalletDto } from "./dto/top-up-wallet.dto";
 
 @Controller("admin")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -129,6 +130,22 @@ export class AdminController {
   @Get("billing/wallets/:id/ledger")
   async getWalletLedger(@Param("id", ParseUUIDPipe) id: string) {
     return this.adminBillingService.getWalletLedger(id);
+  }
+
+  @Post("billing/wallets/:id/top-up")
+  async topUpWallet(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: TopUpWalletDto,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    return this.adminBillingService.topUpWallet(
+      id,
+      dto.points,
+      dto.reason,
+      actor.id,
+      actor.email,
+    );
   }
 
   @Get("billing/transactions")

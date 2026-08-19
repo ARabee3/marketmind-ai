@@ -267,6 +267,67 @@ describe("Admin Billing (e2e)", () => {
     });
   });
 
+  describe("POST /admin/billing/wallets/:id/top-up", () => {
+    it("returns 401 for unauthenticated caller", async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/billing/wallets/${testAccountId}/top-up`)
+        .send({ points: 50, reason: "e2e topup" })
+        .expect(401);
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/billing/wallets/${testAccountId}/top-up`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({ points: 50, reason: "e2e topup" })
+        .expect(403);
+    });
+
+    it("rejects non-positive points with 400", async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/admin/billing/wallets/${testAccountId}/top-up`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ points: 0, reason: "e2e topup" })
+        .expect(400);
+    });
+
+    it("credits the wallet and records an audit entry", async () => {
+      const before = await prisma.billingPointBalance.findUnique({
+        where: { billingAccountId: testAccountId },
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/admin/billing/wallets/${testAccountId}/top-up`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ points: 50, reason: "e2e manual correction" })
+        .expect(201);
+
+      expect(res.body).toHaveProperty("balance");
+      expect(res.body.balance).toBe((before?.balance ?? 0) + 50);
+
+      const ledger = await prisma.billingPointLedger.findFirst({
+        where: { billingAccountId: testAccountId, claimKey: { startsWith: "admin:topup:" } },
+        orderBy: { createdAt: "desc" },
+      });
+      expect(ledger).toBeTruthy();
+      expect(ledger?.direction).toBe("credit");
+      expect(ledger?.reason).toBe("topup");
+      expect(ledger?.points).toBe(50);
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: { targetId: testAccountId, action: "billing.wallet_topup" },
+        orderBy: { createdAt: "desc" },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.reason).toBe("e2e manual correction");
+      expect(auditEntry?.beforeState).toEqual({
+        balance: before?.balance ?? 0,
+        lifetimeGranted: before?.lifetimeGranted ?? 0,
+      });
+      expect(auditEntry?.afterState).toHaveProperty("balance");
+    });
+  });
+
   describe("GET /admin/billing/transactions", () => {
     it("lists wallet top-up transactions", async () => {
       const res = await request(app.getHttpServer())

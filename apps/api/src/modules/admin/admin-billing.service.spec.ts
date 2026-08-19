@@ -30,10 +30,13 @@ describe("AdminBillingService", () => {
     };
     billingPointBalance: {
       aggregate: jest.Mock;
+      update: jest.Mock;
     };
     billingPointLedger: {
       findMany: jest.Mock;
+      create: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
   let audit: {
     record: jest.Mock;
@@ -64,10 +67,13 @@ describe("AdminBillingService", () => {
       },
       billingPointBalance: {
         aggregate: jest.fn(),
+        update: jest.fn(),
       },
       billingPointLedger: {
         findMany: jest.fn(),
+        create: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
 
     audit = {
@@ -463,6 +469,87 @@ describe("AdminBillingService", () => {
         totalTopUpEgp: 3600,
         totalTopUpCount: 12,
       });
+    });
+  });
+
+  describe("topUpWallet", () => {
+    it("throws NotFoundException if billing account does not exist", async () => {
+      prisma.billingAccount.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.topUpWallet("acc-1", 100, "manual correction", "admin-1", "admin@example.com"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws NotFoundException if the wallet has no balance row", async () => {
+      prisma.billingAccount.findUnique.mockResolvedValue({
+        id: "acc-1",
+        pointBalances: [],
+      });
+
+      await expect(
+        service.topUpWallet("acc-1", 100, "manual correction", "admin-1", "admin@example.com"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("credits the wallet and records an audit entry", async () => {
+      prisma.billingAccount.findUnique.mockResolvedValue({
+        id: "acc-1",
+        ownerUser: { email: "user@example.com" },
+        pointBalances: [
+          { balance: 300, lifetimeGranted: 500, lifetimeSpent: 200 },
+        ],
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn({
+          billingPointBalance: {
+            update: prisma.billingPointBalance.update,
+          },
+          billingPointLedger: {
+            create: prisma.billingPointLedger.create,
+          },
+        });
+      });
+      prisma.billingPointBalance.update.mockResolvedValue({
+        balance: 400,
+        lifetimeGranted: 600,
+        lifetimeSpent: 200,
+      });
+      prisma.billingPointLedger.create.mockResolvedValue({ id: "ledger-1" });
+
+      const result = await service.topUpWallet(
+        "acc-1",
+        100,
+        "Operator manual correction",
+        "admin-1",
+        "admin@example.com",
+      );
+
+      expect(result).toEqual({ balance: 400, lifetimeGranted: 600 });
+      expect(prisma.billingPointBalance.update).toHaveBeenCalledWith({
+        where: { billingAccountId: "acc-1" },
+        data: { balance: 400, lifetimeGranted: { increment: 100 } },
+      });
+      expect(prisma.billingPointLedger.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          billingAccountId: "acc-1",
+          direction: "credit",
+          reason: "topup",
+          points: 100,
+          balanceAfter: 400,
+          transactionId: null,
+        }),
+      });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "billing.wallet_topup",
+          targetType: "billing_account",
+          targetId: "acc-1",
+          reason: "Operator manual correction",
+          beforeState: { balance: 300, lifetimeGranted: 500 },
+          afterState: { balance: 400, lifetimeGranted: 600 },
+        }),
+      );
     });
   });
 

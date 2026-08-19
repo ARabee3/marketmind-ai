@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -550,6 +551,82 @@ export class AdminBillingService {
       totalTopUpEgp: topUps._sum.amountEgp ?? 0,
       totalTopUpCount: topUps._count._all,
     };
+  }
+
+  /**
+   * Manual operator wallet top-up — grants points directly to a billing
+   * account's wallet and records the before/after balance in the append-only
+   * audit log. This is a corrective/manual-correction path (sprint-7 §manual
+   * corrections), not a payment: no `BillingPaymentTransaction` is created, so
+   * the reconciliation queue never flags it. The ledger row carries the
+   * `admin:topup` claim key and the operator reason as a durable trace.
+   */
+  async topUpWallet(
+    id: string,
+    points: number,
+    reason: string,
+    actorUserId: string,
+    actorEmail: string,
+  ): Promise<{ balance: number; lifetimeGranted: number }> {
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { id },
+      include: {
+        pointBalances: { take: 1 },
+        ownerUser: { select: { email: true } },
+      },
+    });
+    if (!account) {
+      throw new NotFoundException("Billing account not found");
+    }
+
+    const balance = account.pointBalances[0];
+    if (!balance) {
+      throw new NotFoundException("Billing wallet not found");
+    }
+
+    const beforeState = { balance: balance.balance, lifetimeGranted: balance.lifetimeGranted };
+    const balanceAfter = balance.balance + points;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.billingPointBalance.update({
+        where: { billingAccountId: id },
+        data: {
+          balance: balanceAfter,
+          lifetimeGranted: { increment: points },
+        },
+      });
+      await tx.billingPointLedger.create({
+        data: {
+          id: randomUUID(),
+          billingAccountId: id,
+          direction: "credit",
+          reason: "topup",
+          metric: null,
+          points,
+          balanceAfter,
+          claimKey: `admin:topup:${randomUUID()}`,
+          transactionId: null,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        },
+      });
+      return row;
+    });
+
+    await this.auditService.record({
+      actorUserId,
+      actorEmail,
+      action: "billing.wallet_topup",
+      targetType: "billing_account",
+      targetId: id,
+      reason,
+      beforeState,
+      afterState: {
+        balance: updated.balance,
+        lifetimeGranted: updated.lifetimeGranted,
+      },
+    });
+
+    return { balance: updated.balance, lifetimeGranted: updated.lifetimeGranted };
   }
 
   async listWalletBalances(params: {
