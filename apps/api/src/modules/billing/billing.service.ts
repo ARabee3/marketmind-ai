@@ -155,6 +155,7 @@ export class BillingService {
     if (points <= 0) return;
 
     const account = await this.ensureBillingAccount(userId);
+    this.assertAccountActive(account);
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`
         SELECT "id"
@@ -399,6 +400,7 @@ export class BillingService {
     }
 
     const account = await this.ensureBillingAccount(userId);
+    this.assertAccountActive(account);
     const storedPrice = await this.ensureBundlePrice(bundle);
     const requestFingerprint = fingerprintCheckout(input, bundle);
     const billingData = await this.resolveBillingData(userId);
@@ -1013,6 +1015,20 @@ export class BillingService {
       state: "Cairo",
       postalCode: "11511",
     };
+  }
+
+  /**
+   * Operator fraud/safety pause. A paused account cannot buy new bundles or
+   * spend points; the wallet stays intact and existing work is preserved.
+   * Throws before any row lock so the check is cheap and race-free.
+   */
+  private assertAccountActive(account: { status: string }): void {
+    if (account.status === "paused") {
+      throw new BillingDomainException(
+        "BILLING_ACCOUNT_PAUSED",
+        "This billing account is paused by an operator. Existing work is preserved; new checkouts and point spends are blocked.",
+      );
+    }
   }
 }
 
