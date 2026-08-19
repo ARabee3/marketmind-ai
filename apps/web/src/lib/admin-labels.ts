@@ -304,3 +304,60 @@ export function billingMismatchTypeLabel(
       return type
   }
 }
+
+export function walletLedgerDirectionLabel(
+  direction: string,
+  t: Translator,
+): string {
+  switch (direction) {
+    case "credit":
+      return t("ledgerCredit")
+    case "debit":
+      return t("ledgerDebit")
+    default:
+      return direction
+  }
+}
+
+export function walletLedgerReasonLabel(reason: string, t: Translator): string {
+  switch (reason) {
+    case "topup":
+      return t("ledgerReasonTopup")
+    case "trial_grant":
+      return t("ledgerReasonTrialGrant")
+    case "spend":
+      return t("ledgerReasonSpend")
+    case "refund":
+      return t("ledgerReasonRefund")
+    default:
+      return reason
+  }
+}
+
+export function walletTransactionKindLabel(
+  kind: string,
+  t: Translator,
+): string {
+  switch (kind) {
+    case "charge":
+      return t("transactionKindTopup")
+    default:
+      return kind
+  }
+}
+
+export function walletTransactionStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "succeeded":
+      return t("transactionStatusSucceeded")
+    case "failed":
+      return t("transactionStatusFailed")
+    case "pending":
+      return t("transactionStatusPending")
+    default:
+      return status
+  }
+}
