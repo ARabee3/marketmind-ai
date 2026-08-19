@@ -78,6 +78,7 @@ export function MetaConnectionStart() {
           {(
             [
               "connectItemPage",
+              "connectItemPerformance",
               "connectItemFormats",
               "connectItemToken",
             ] as const

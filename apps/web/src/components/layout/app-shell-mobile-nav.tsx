@@ -4,9 +4,10 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { BrandLockup } from "@/components/brand/brand-lockup";
 import { AppShellNavIcon, type AppShellIconName } from "./app-shell-icons";
 
-import { BrandLogoMark, isAppNavItemActive } from "./app-shell";
+import { isAppNavItemActive } from "./app-shell";
 
 export type AppShellMobileNavItem = {
   readonly href:
@@ -15,6 +16,7 @@ export type AppShellMobileNavItem = {
     | "/strategy"
     | "/content"
     | "/publishing"
+    | "/performance"
     | "/connections"
     | "/billing";
   readonly labelKey:
@@ -23,6 +25,7 @@ export type AppShellMobileNavItem = {
     | "navStrategy"
     | "navContent"
     | "navPublishing"
+    | "navPerformance"
     | "navConnections"
     | "navBilling";
   readonly iconName: AppShellIconName;
@@ -46,10 +49,11 @@ export function AppShellMobileNav({ brandName, navItems, topActions }: Props) {
           className="flex min-w-0 items-center gap-2 rounded text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
           aria-label={brandName}
         >
-          <BrandLogoMark className="size-9" />
-          <span className="hidden truncate text-base font-bold min-[360px]:inline">
-            {brandName}
-          </span>
+          <BrandLockup
+            label={brandName}
+            markClassName="size-8"
+            wordmarkClassName="hidden text-base min-[360px]:inline"
+          />
         </Link>
         <div className="flex items-center gap-2">{topActions}</div>
       </header>

@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { BrandLockup } from '@/components/brand/brand-lockup'
 import { buttonVariants } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 
@@ -16,10 +17,11 @@ export default async function NotFound() {
             href="/"
             className="flex items-center gap-3 rounded-lg text-navy focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <span className="grid size-11 place-items-center rounded-lg border-2 border-navy bg-primary text-base font-bold text-primary-foreground shadow-tactile">
-              M
-            </span>
-            <span className="font-latin text-lg font-bold">{common('appName')}</span>
+            <BrandLockup
+              label={common('appName')}
+              markClassName="size-10"
+              wordmarkClassName="text-lg"
+            />
           </Link>
           <LanguageSwitcher />
         </header>

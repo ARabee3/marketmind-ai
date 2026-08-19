@@ -399,6 +399,7 @@ export function WeekContextForm({
                     name={rowKey}
                     type="text"
                     autoComplete="off"
+                    spellCheck={false}
                     aria-label={t("termInputLabel", { index: idx + 1 })}
                     value={term}
                     onChange={(e) => handleUpdateTerm(idx, e.target.value)}

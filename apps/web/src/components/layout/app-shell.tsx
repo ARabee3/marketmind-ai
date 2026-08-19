@@ -5,8 +5,12 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { BrandLockup } from "@/components/brand/brand-lockup";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { useSession } from "@/features/auth/session-provider";
+import { WalletProvider, useWallet } from "@/features/billing/wallet-context";
 import { LogoutButton } from "@/features/auth/logout-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   AppShellChevronIcon,
@@ -22,6 +26,7 @@ type NavItem = {
     | "/strategy"
     | "/content"
     | "/publishing"
+    | "/performance"
     | "/connections"
     | "/billing";
   labelKey:
@@ -30,6 +35,7 @@ type NavItem = {
     | "navStrategy"
     | "navContent"
     | "navPublishing"
+    | "navPerformance"
     | "navConnections"
     | "navBilling";
   iconName: AppShellIconName;
@@ -45,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/strategy", labelKey: "navStrategy", iconName: "strategy" },
   { href: "/content", labelKey: "navContent", iconName: "content" },
   { href: "/publishing", labelKey: "navPublishing", iconName: "publishing" },
+  { href: "/performance", labelKey: "navPerformance", iconName: "performance" },
   { href: "/connections", labelKey: "navConnections", iconName: "connections" },
   { href: "/billing", labelKey: "navBilling", iconName: "wallet" },
 ];
@@ -66,46 +73,48 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="relative min-h-dvh overflow-x-clip bg-background text-foreground">
-      <a
-        href="#main-content"
-        className="fixed start-4 top-2 z-50 -translate-y-20 rounded-lg bg-navy px-3 py-2 text-sm font-semibold text-white transition-transform focus-visible:translate-y-0 focus-visible:ring-3 focus-visible:ring-action/50"
-      >
-        {t("skipToMain")}
-      </a>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top,var(--color-soft-teal),transparent_62%)] opacity-80" />
-      <div className="pointer-events-none absolute end-0 top-20 h-72 w-72 rounded-full bg-action/5 blur-3xl" />
-      <AppShellMobileNav
-        brandName={brandName}
-        navItems={NAV_ITEMS}
-        topActions={
-          <>
-            <LanguageSwitcher />
-            <AuthSection />
-          </>
-        }
-      />
-      <DesktopSidebar
-        brandName={brandName}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((current) => !current)}
-      />
-      <div
-        className={cn(
-          "relative transition-[margin] duration-300 ease-out",
-          sidebarCollapsed ? "lg:ms-[84px]" : "lg:ms-[260px]",
-        )}
-      >
-        <DesktopTopBar />
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="mx-auto w-full max-w-[1200px] scroll-mt-16 px-4 pt-5 pb-28 md:px-6 md:pt-6 lg:pb-10"
+    <WalletProvider>
+      <div className="relative min-h-dvh overflow-x-clip bg-background text-foreground">
+        <a
+          href="#main-content"
+          className="fixed start-4 top-2 z-50 -translate-y-20 rounded-lg bg-navy px-3 py-2 text-sm font-semibold text-white transition-transform focus-visible:translate-y-0 focus-visible:ring-3 focus-visible:ring-action/50"
         >
-          {children}
-        </main>
+          {t("skipToMain")}
+        </a>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top,var(--color-soft-teal),transparent_62%)] opacity-80" />
+        <div className="pointer-events-none absolute end-0 top-20 h-72 w-72 rounded-full bg-action/5 blur-3xl" />
+        <AppShellMobileNav
+          brandName={brandName}
+          navItems={NAV_ITEMS}
+          topActions={
+            <>
+              <LanguageSwitcher />
+              <AuthSection />
+            </>
+          }
+        />
+        <DesktopSidebar
+          brandName={brandName}
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((current) => !current)}
+        />
+        <div
+          className={cn(
+            "relative transition-[margin] duration-300 ease-out",
+            sidebarCollapsed ? "lg:ms-[84px]" : "lg:ms-[260px]",
+          )}
+        >
+          <DesktopTopBar />
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="mx-auto w-full max-w-[1200px] scroll-mt-16 px-4 pt-5 pb-28 md:px-6 md:pt-6 lg:pb-10"
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </WalletProvider>
   );
 }
 
@@ -195,6 +204,63 @@ export function BrandLogoMark({ className }: { className?: string }) {
   );
 }
 
+function WalletSidebarCard({ collapsed }: { readonly collapsed: boolean }) {
+  const t = useTranslations("Billing");
+  const { wallet, loading } = useWallet();
+
+  if (loading) {
+    return (
+      <div className="px-4 pb-3" aria-hidden="true">
+        <div className="grid gap-2 rounded-lg border border-border bg-background p-2.5 shadow-xs">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!wallet) return null;
+
+  return (
+    <div className="px-4 pb-3">
+      <div
+        className={cn(
+          "rounded-lg border border-border bg-background p-2.5 shadow-xs transition-colors",
+          collapsed && "grid place-items-center p-2",
+        )}
+        title={collapsed ? t("sidebarPointsLabel") : undefined}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2",
+            collapsed && "flex-col",
+          )}
+        >
+          <span
+            className={cn(
+              "text-[11px] font-semibold tracking-wide text-muted-foreground uppercase",
+              collapsed && "sr-only",
+            )}
+          >
+            {t("sidebarPointsLabel")}
+          </span>
+          <span className="text-lg font-extrabold text-navy tabular-nums">
+            {wallet.balance}
+          </span>
+        </div>
+        <Link
+          href="/billing"
+          className={cn(
+            "text-xs font-semibold text-primary transition-colors hover:text-primary/80 hover:underline",
+            collapsed && "sr-only",
+          )}
+        >
+          {t("topUp")}
+        </Link>
+      </div>
+    </div>
+  );
+}
 function DesktopSidebar({
   brandName,
   collapsed,
@@ -231,15 +297,22 @@ function DesktopSidebar({
           )}
           aria-label={brandName}
         >
-          <BrandLogoMark />
-          <span className={cn("min-w-0", collapsed && "sr-only")}>
-            <span className="block truncate text-base font-bold tracking-tight">
-              {brandName}
+          {collapsed ? (
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-soft-teal shadow-sm">
+              <BrandMark className="size-7" />
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {t("tagline")}
+          ) : (
+            <span className="min-w-0">
+              <BrandLockup
+                label={brandName}
+                markClassName="size-9"
+                wordmarkClassName="text-base"
+              />
+              <span className="block truncate ps-10 text-xs text-muted-foreground">
+                {t("tagline")}
+              </span>
             </span>
-          </span>
+          )}
         </Link>
         <button
           type="button"
@@ -285,6 +358,7 @@ function DesktopSidebar({
           })}
         </ul>
       </nav>
+      <WalletSidebarCard collapsed={collapsed} />
       <div className="px-4 py-4">
         <div
           className={cn(

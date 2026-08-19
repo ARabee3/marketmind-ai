@@ -4,12 +4,34 @@ export const PAYMENT_PROVIDER = Symbol("PAYMENT_PROVIDER");
 
 export type ProviderCheckoutStatus = "pending" | "succeeded" | "failed";
 
+/**
+ * Customer billing data forwarded to the payment provider. Paymob's Intention
+ * API requires these fields to be present (non-empty) to create an intention;
+ * they are the merchant-side customer record. The hosted checkout collects the
+ * cardholder's payment details separately.
+ */
+export type ProviderBillingData = {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly email: string;
+  readonly phone: string;
+  readonly apartment: string;
+  readonly building: string;
+  readonly floor: string;
+  readonly street: string;
+  readonly city: string;
+  readonly country: string;
+  readonly state: string;
+  readonly postalCode: string;
+};
+
 export type CreateProviderCheckoutInput = {
   readonly amountEgp: number;
   readonly currency: "EGP";
   readonly paymentMode: BillingPaymentMode;
   readonly merchantReference: string;
   readonly idempotencyKey: string;
+  readonly billingData: ProviderBillingData;
   readonly metadata: Readonly<Record<string, string>>;
 };
 

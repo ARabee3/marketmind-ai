@@ -5,12 +5,13 @@ import { AppShell, isAppNavItemActive } from "../layout/app-shell";
 
 const t = (key: string) => {
   const dict: Record<string, string> = {
-    appName: "MarketMind AI",
+    appName: "MarketMind",
     navHome: "Home",
     navDiscovery: "Discovery",
     navDashboard: "Dashboard",
     navStrategy: "Strategy",
     navPublishing: "Publishing",
+    navPerformance: "Content performance",
     navConnections: "Connections",
     navBilling: "Billing",
     primaryNavLabel: "Primary",
@@ -74,6 +75,17 @@ vi.mock("@/features/auth/logout-button", () => ({
   ),
 }));
 
+vi.mock("@/lib/api/billing", () => ({
+  getBillingWallet: () =>
+    Promise.resolve({
+      billing_account_id: "acc-1",
+      balance: 215,
+      lifetime_granted: 365,
+      lifetime_spent: 150,
+      low_balance: false,
+    }),
+}));
+
 describe("AppShell", () => {
   it("does not keep Dashboard active on a different section", () => {
     expect(isAppNavItemActive("/dashboard", "/dashboard")).toBe(true);
@@ -83,17 +95,17 @@ describe("AppShell", () => {
 
   it("renders brand in both mobile top bar and desktop sidebar", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
-    const brands = screen.getAllByText("MarketMind AI");
+    const brands = screen.getAllByRole("img", { name: "MarketMind" });
     expect(brands).toHaveLength(2);
   });
 
   it("renders primary desktop sidebar and fixed mobile bottom nav with all destinations", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -115,7 +127,7 @@ describe("AppShell", () => {
     expect(navList?.className).toMatch(/flex/);
     expect(navList?.className).not.toMatch(/grid-cols-6/);
     const items = mobileNav.querySelectorAll("li");
-    expect(items.length).toBe(7);
+    expect(items.length).toBe(8);
     for (const item of Array.from(items)) {
       expect((item as HTMLElement).className).toMatch(/min-w-\[4\.5rem\] flex-none/);
     }
@@ -125,13 +137,14 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("link", { name: "Dashboard" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Strategy" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Publishing" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Content performance" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Connections" })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "Billing" })).toHaveLength(2);
   });
 
   it("marks the dashboard link as current in both navs", () => {
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -143,7 +156,7 @@ describe("AppShell", () => {
 
   it("keeps content inside a max-width 1200 container", () => {
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <p data-testid="copy">body</p>
       </AppShell>,
     );
@@ -159,7 +172,7 @@ describe("AppShell", () => {
   it("renders login and register actions in the desktop top bar when unauthenticated", () => {
     authenticated = false;
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -172,7 +185,7 @@ describe("AppShell", () => {
   it("renders logout action in the desktop top bar when authenticated", () => {
     authenticated = true;
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -184,7 +197,7 @@ describe("AppShell", () => {
   it("renders auth actions in the mobile top bar", () => {
     authenticated = false;
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -198,7 +211,7 @@ describe("AppShell", () => {
 
   it("can collapse the desktop sidebar", () => {
     const { container } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -212,7 +225,7 @@ describe("AppShell", () => {
 
   it("keeps the mobile navigation visible without a modal drawer", () => {
     const { baseElement } = render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
@@ -225,12 +238,35 @@ describe("AppShell", () => {
     authenticated = true;
     userMock = { id: "1", email: "ahmed@example.com", fullName: "Ahmed Mohamed" };
     render(
-      <AppShell brandName="MarketMind AI">
+      <AppShell brandName="MarketMind">
         <div>content</div>
       </AppShell>,
     );
 
     expect(screen.getByText("Ahmed Mohamed")).toBeTruthy();
     expect(screen.getByText("AM")).toBeTruthy();
+  });
+
+  it("renders remaining points in the desktop sidebar when authenticated", async () => {
+    authenticated = true;
+    render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(await screen.findByText("215")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "topUp" })).toBeTruthy();
+  });
+
+  it("hides the sidebar points card when unauthenticated", () => {
+    authenticated = false;
+    const { container } = render(
+      <AppShell brandName="MarketMind AI">
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(container.textContent).not.toMatch(/215/);
   });
 });

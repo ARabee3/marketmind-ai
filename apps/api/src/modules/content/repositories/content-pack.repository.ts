@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { Prisma, ContentPack } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../../../common/persistence/prisma.service";
@@ -468,6 +468,8 @@ export class ContentPackRepository {
     readonly weekContextId: string;
     readonly weekPlanId: string;
     readonly frozenInput: unknown;
+    /** Optional exact approved Optimization 2 instruction to consume. */
+    readonly optimizationInstructionId?: string;
     readonly jobIntent?: GenerationJobIntentInput;
   }): Promise<{ pack: ContentPack; created: boolean }> {
     const { cycleId, weekNumber, weekContextId, weekPlanId, frozenInput } =
@@ -594,6 +596,81 @@ export class ContentPackRepository {
             itemIds: [],
           },
         });
+
+        if (input.optimizationInstructionId) {
+          const guidance = readFrozenOptimizationGuidance(frozenInput);
+          if (
+            !guidance ||
+            guidance.instruction_id !== input.optimizationInstructionId
+          ) {
+            throw new ConflictException({
+              code: "OPTIMIZATION_INSTRUCTION_CONFLICT",
+              message:
+                "The frozen Content V2 input does not carry the requested approved instruction.",
+            });
+          }
+          const plans = readFrozenPostPlans(frozenInput);
+          const ownerPlanned = plans.some((plan) => plan.source === "owner");
+          const compatible = plans.some(
+            (plan) => plan.format === guidance.format_cohort,
+          );
+          if (!ownerPlanned || !compatible) {
+            throw new ConflictException({
+              code: "OPTIMIZATION_INSTRUCTION_NOT_ELIGIBLE",
+              message:
+                "The approved instruction is not eligible for this owner-planned week.",
+            });
+          }
+          const instruction =
+            await tx.approvedOptimizationInstruction.findUnique({
+              where: { id: input.optimizationInstructionId },
+            });
+          if (
+            !instruction ||
+            instruction.status !== "PENDING_CONSUMPTION" ||
+            instruction.businessId !== cycle.businessId ||
+            instruction.strategyId !== cycle.strategyId ||
+            instruction.strategyVersion !== cycle.strategyVersion ||
+            instruction.contentCycleId !== cycleId ||
+            instruction.formatCohort !== guidance.format_cohort ||
+            instruction.evidenceChecksum !== guidance.evidence_checksum ||
+            instruction.proposalId !== guidance.proposal_id ||
+            instruction.approvedDecisionId !== guidance.approved_decision_id ||
+            instruction.changeKind !== guidance.change_kind ||
+            instruction.instruction !== guidance.instruction
+          ) {
+            throw new ConflictException({
+              code: "OPTIMIZATION_INSTRUCTION_CONFLICT",
+              message:
+                "The approved instruction identity no longer matches the current Content V2 claim.",
+            });
+          }
+          const consumed = await tx.approvedOptimizationInstruction.updateMany({
+            where: {
+              id: input.optimizationInstructionId,
+              status: "PENDING_CONSUMPTION",
+              businessId: cycle.businessId,
+              strategyId: cycle.strategyId,
+              strategyVersion: cycle.strategyVersion,
+              contentCycleId: cycleId,
+              formatCohort: guidance.format_cohort,
+              evidenceChecksum: guidance.evidence_checksum,
+            },
+            data: {
+              status: "CONSUMED",
+              consumedContentPackId: createdPack.id,
+              consumedWeekPlanId: weekPlanId,
+              consumedAt: new Date(),
+            },
+          });
+          if (consumed.count !== 1) {
+            throw new ConflictException({
+              code: "OPTIMIZATION_INSTRUCTION_CONFLICT",
+              message:
+                "The approved instruction was consumed by another Content V2 claim.",
+            });
+          }
+        }
 
         if (input.jobIntent) {
           await tx.contentJobOutbox.create({
@@ -1570,6 +1647,59 @@ export class ContentPackRepository {
       return { changed: result.count === 1 };
     });
   }
+}
+
+type FrozenOptimizationGuidance = {
+  readonly instruction_id: string;
+  readonly proposal_id: string;
+  readonly approved_decision_id: string;
+  readonly evidence_checksum: string;
+  readonly format_cohort: "text_post" | "static_image_post";
+  readonly change_kind: "hook_style" | "cta_wording_style";
+  readonly instruction: string;
+};
+
+function readFrozenOptimizationGuidance(
+  value: unknown,
+): FrozenOptimizationGuidance | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const guidance = (value as { optimization_guidance?: unknown })
+    .optimization_guidance;
+  if (!guidance || typeof guidance !== "object" || Array.isArray(guidance)) {
+    return null;
+  }
+  const candidate = guidance as Record<string, unknown>;
+  if (
+    typeof candidate.instruction_id !== "string" ||
+    typeof candidate.proposal_id !== "string" ||
+    typeof candidate.approved_decision_id !== "string" ||
+    typeof candidate.evidence_checksum !== "string" ||
+    (candidate.format_cohort !== "text_post" &&
+      candidate.format_cohort !== "static_image_post") ||
+    (candidate.change_kind !== "hook_style" &&
+      candidate.change_kind !== "cta_wording_style") ||
+    typeof candidate.instruction !== "string" ||
+    candidate.instruction.trim().length === 0
+  ) {
+    return null;
+  }
+  return candidate as FrozenOptimizationGuidance;
+}
+
+function readFrozenPostPlans(
+  value: unknown,
+): readonly { readonly source: string; readonly format: string }[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const plans = (value as { post_plans?: unknown }).post_plans;
+  if (!Array.isArray(plans)) return [];
+  return plans.flatMap((plan) => {
+    if (!plan || typeof plan !== "object" || Array.isArray(plan)) return [];
+    const candidate = plan as Record<string, unknown>;
+    return typeof candidate.source === "string" &&
+      typeof candidate.format === "string"
+      ? [{ source: candidate.source, format: candidate.format }]
+      : [];
+  });
 }
 
 export type PersistedContentProgressEvent = {

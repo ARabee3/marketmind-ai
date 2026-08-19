@@ -45,6 +45,7 @@ model User {
   contentCycles                ContentCycle[]
   decidedContentDecisions      ContentDecision[]            @relation("ContentDecisionDecidedBy")
   ownedContentDecisions        ContentDecision[]            @relation("ContentDecisionOwner")
+  optimizationDecisions        OptimizationDecision[]
   contentWeekContextsConfirmed ContentWeekContext[]
   contentMediaEntries          ContentMediaLibraryEntry[]
   publicationCandidateStatuses PublicationCandidateStatus[]
@@ -147,6 +148,11 @@ model Business {
   providerConnections     PublishingProviderConnection[]
   connectionAudits        PublishingConnectionAudit[]
   metaOAuthStates         MetaOAuthState[]
+  performanceSyncWindows  PerformanceSyncWindow[]
+  metricSnapshots         MetricSnapshot[]
+  optimizationProposals   OptimizationProposal[]
+  optimizationDecisions   OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@index([ownerUserId])
   @@index([city, area])
@@ -167,16 +173,62 @@ model BillingAccount {
 
   ownerUser      User                        @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   activeBusiness Business?                   @relation(fields: [activeBusinessId], references: [id], onDelete: SetNull)
-  subscriptions  BillingSubscription[]
+  subscriptions BillingSubscription[]
   checkouts      BillingCheckoutAttempt[]
   transactions   BillingPaymentTransaction[]
   providerEvents BillingProviderEvent[]
   usageLedger    BillingUsageLedger[]
   costLedger     BillingProviderCostLedger[]
+  pointBalances  BillingPointBalance[]
+  pointLedger    BillingPointLedger[]
   outbox         BillingOutbox[]
 
   @@index([activeBusinessId])
   @@map("billing_accounts")
+}
+
+/**
+ * The spendable prepaid points balance for one account. The running sum of
+ * the append-only BillingPointLedger; never modified outside a ledger
+ * transaction.
+ */
+model BillingPointBalance {
+  id               String   @id @default(uuid()) @db.Uuid
+  billingAccountId String   @unique @map("billing_account_id") @db.Uuid
+  balance          Int      @default(0)
+  lifetimeGranted  Int      @default(0) @map("lifetime_granted")
+  lifetimeSpent    Int      @default(0) @map("lifetime_spent")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@map("billing_point_balances")
+}
+
+/**
+ * Append-only points ledger. Balance is the running sum; a claim key makes
+ * debits, credits, and refunds idempotent so queue replays and duplicate
+ * webhooks never double-charge or double-grant.
+ */
+model BillingPointLedger {
+  id               String    @id @default(uuid()) @db.Uuid
+  billingAccountId String    @map("billing_account_id") @db.Uuid
+  direction        String    // "credit" | "debit"
+  reason           String    // "topup" | "trial_grant" | "spend" | "refund"
+  metric           String?   // action metric for spends
+  points           Int       // positive magnitude
+  balanceAfter     Int       @map("balance_after")
+  claimKey         String    @map("claim_key") // idempotency key
+  transactionId    String?   @map("transaction_id") @db.Uuid // for top-ups
+  expiresAt        DateTime? @map("expires_at") // for credits (rollover/expiry)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([billingAccountId, claimKey])
+  @@index([billingAccountId, createdAt])
+  @@map("billing_point_ledger")
 }
 
 model BillingPrice {
@@ -187,6 +239,7 @@ model BillingPrice {
   amountEgp     Int       @map("amount_egp")
   currency      String    @default("EGP")
   periodDays    Int       @map("period_days")
+  pointsGranted Int?      @map("points_granted")
   public        Boolean   @default(true)
   displayNameEn String    @map("display_name_en")
   displayNameAr String    @map("display_name_ar")
@@ -1004,6 +1057,9 @@ model Strategy {
   versions       StrategyVersion[]
   retrievalRuns  StrategyRetrievalRun[]
   progressEvents StrategyProgressEvent[]
+  optimizationProposals OptimizationProposal[]
+  optimizationDecisions OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@index([businessId])
   @@index([ownerUserId])
@@ -1116,6 +1172,9 @@ model ContentCycle {
   ctaLibraryEntries     ContentCtaLibraryEntry[]
   mediaEntries          ContentMediaLibraryEntry[]
   weekPlans             ContentWeekPlan[]
+  optimizationProposals OptimizationProposal[]
+  optimizationDecisions OptimizationDecision[]
+  approvedOptimizationInstructions ApprovedOptimizationInstruction[]
 
   @@unique([ownerUserId, idempotencyKey])
   @@index([businessId])
@@ -1182,6 +1241,7 @@ model ContentPack {
   progressEvents         ContentProgressEvent[]
   generationRuns         ContentGenerationRun[]
   publicationCandidates  PublicationCandidate[]
+  consumedOptimizationInstruction ApprovedOptimizationInstruction? @relation("OptimizationInstructionConsumedPack")
 
   @@unique([contentCycleId, weekNumber])
   @@index([contentCycleId])
@@ -1367,6 +1427,7 @@ model ContentWeekPlan {
   contentCycle ContentCycle     @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
   postPlans    ContentPostPlan[]
   packs        ContentPack[]
+  consumedOptimizationInstruction ApprovedOptimizationInstruction? @relation("OptimizationInstructionConsumedWeekPlan")
 
   @@unique([contentCycleId, weekNumber])
   @@map("content_week_plans")
@@ -1646,6 +1707,7 @@ model PublishingCandidate {
   updatedAt          DateTime                  @updatedAt @map("updated_at")
 
   intents PublishingIntent[]
+  metricSnapshots MetricSnapshot[]
 
   /// Dedup: same content id + checksum is a no-op; different checksum under same id → reject
   @@unique([businessId, externalContentId, candidateChecksum])
@@ -1855,6 +1917,7 @@ model PublishingIntent {
   approvals  PublishingApproval[]
   attempts   PublishingAttempt[]
   exportMeta PublishingExportMetadata[]
+  metricSnapshots MetricSnapshot[]
 
   @@index([businessId, status])
   @@index([candidateId])
@@ -1932,6 +1995,7 @@ model PublishingAttempt {
   intent    PublishingIntent             @relation(fields: [intentId], references: [id], onDelete: Cascade)
   result    PublishingResult?
   callbacks PublishingCallbackIdentity[]
+  metricSnapshots MetricSnapshot[]
 
   /// Unique per intent+version+sequence — allows multiple pure-infra retries
   @@unique([intentId, intentVersion, attemptSequence])
@@ -1972,9 +2036,189 @@ model PublishingResult {
   createdAt           DateTime          @default(now()) @map("created_at")
 
   attempt PublishingAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  performanceSyncWindows PerformanceSyncWindow[]
+  metricSnapshots        MetricSnapshot[]
 
   @@index([intentId])
   @@map("publishing_results")
+}
+
+/// One recoverable collection window for one real Facebook publication result.
+/// The application creates these only after revalidating the immutable
+/// PublishingResult → Attempt → Intent → Candidate chain.
+model PerformanceSyncWindow {
+  id                  String   @id @default(uuid()) @db.Uuid
+  businessId          String   @map("business_id") @db.Uuid
+  publishingResultId  String   @map("publishing_result_id") @db.Uuid
+  provider            String   @default("facebook") @db.VarChar(32)
+  window              String   @db.VarChar(3)
+  dueAt               DateTime @map("due_at") @db.Timestamptz(6)
+  state               String   @default("queued") @db.VarChar(16)
+  attemptCount        Int      @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  leaseOwner          String?  @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt      DateTime? @map("lease_expires_at") @db.Timestamptz(6)
+  lastErrorCode       String?  @map("last_error_code") @db.VarChar(64)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  business         Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  publishingResult PublishingResult @relation(fields: [publishingResultId], references: [id], onDelete: Cascade)
+
+  @@unique([publishingResultId, window])
+  @@index([businessId, state, dueAt])
+  @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
+  @@index([publishingResultId])
+  @@map("performance_sync_windows")
+}
+
+/// Immutable normalized Facebook metric snapshot. Updates and deletes are
+/// rejected by the migration trigger; a replay must insert through the unique
+/// (publishingResultId, window) boundary and is rejected on conflict.
+model MetricSnapshot {
+  id                  String   @id @default(uuid()) @db.Uuid
+  businessId          String   @map("business_id") @db.Uuid
+  publishingResultId  String   @map("publishing_result_id") @db.Uuid
+  publishingAttemptId String   @map("publishing_attempt_id") @db.Uuid
+  publishingIntentId  String   @map("publishing_intent_id") @db.Uuid
+  candidateId         String   @map("candidate_id") @db.Uuid
+  candidateChecksum   String   @map("candidate_checksum")
+  provider            String   @default("facebook") @db.VarChar(32)
+  providerObjectId    String   @map("provider_object_id")
+  window              String   @db.VarChar(3)
+  publishedAt         DateTime @map("published_at") @db.Timestamptz(6)
+  dueAt               DateTime @map("due_at") @db.Timestamptz(6)
+  observedAt          DateTime? @map("observed_at") @db.Timestamptz(6)
+  fetchedAt           DateTime @map("fetched_at") @db.Timestamptz(6)
+  graphVersion        String   @map("graph_version") @db.VarChar(32)
+  metricSchemaVersion String   @default("facebook-insights-v1") @map("metric_schema_version") @db.VarChar(64)
+  metrics             Json
+  providerMetadata    Json     @default("{}") @map("provider_metadata")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  business          Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  publishingResult  PublishingResult  @relation(fields: [publishingResultId], references: [id], onDelete: Cascade)
+  publishingAttempt PublishingAttempt @relation(fields: [publishingAttemptId], references: [id], onDelete: Cascade)
+  publishingIntent  PublishingIntent  @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
+  candidate         PublishingCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([publishingResultId, window])
+  @@index([businessId, publishedAt])
+  @@index([businessId, window, fetchedAt])
+  @@index([candidateId, publishedAt])
+  @@index([publishingIntentId])
+  @@index([publishingAttemptId])
+  @@map("metric_snapshots")
+}
+
+/// Immutable, pending owner decision generated from a deterministic Facebook
+/// seven-day cohort. The proposal stores references and normalized evidence,
+/// never credentials or raw Meta payloads.
+model OptimizationProposal {
+  id                     String   @id @default(uuid()) @db.Uuid
+  contractVersion        String   @default("optimization-v1") @map("contract_version")
+  businessId             String   @map("business_id") @db.Uuid
+  strategyId             String   @map("strategy_id") @db.Uuid
+  strategyVersion        Int      @map("strategy_version")
+  contentCycleId         String   @map("content_cycle_id") @db.Uuid
+  formatCohort           String   @map("format_cohort") @db.VarChar(64)
+  basisSnapshotIds       Json     @map("basis_snapshot_ids")
+  evidenceChecksum       String   @map("evidence_checksum")
+  deterministicComparison Json    @map("deterministic_comparison")
+  changeKind             String   @map("change_kind") @db.VarChar(32)
+  summary                String
+  rationale              String
+  uncertainty            String
+  instruction            String
+  modelVersion           String   @map("model_version")
+  promptVersion          String   @map("prompt_version")
+  generationFingerprint  String   @map("generation_fingerprint")
+  status                 String   @default("PENDING_OWNER_DECISION") @db.VarChar(32)
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy     Strategy     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle ContentCycle @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  decisions           OptimizationDecision[]
+  approvedInstruction ApprovedOptimizationInstruction?
+
+  @@unique([businessId, generationFingerprint])
+  @@index([businessId, status, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion])
+  @@map("optimization_proposals")
+}
+
+/// Immutable terminal owner decision for one Optimization proposal. The
+/// proposal remains immutable; workspace state is derived from this record
+/// and its optional approved instruction.
+model OptimizationDecision {
+  id                 String   @id @default(uuid()) @db.Uuid
+  contractVersion    String   @default("optimization-decision-v1") @map("contract_version")
+  proposalId         String   @unique @map("proposal_id") @db.Uuid
+  businessId         String   @map("business_id") @db.Uuid
+  strategyId         String   @map("strategy_id") @db.Uuid
+  strategyVersion    Int      @map("strategy_version")
+  contentCycleId     String   @map("content_cycle_id") @db.Uuid
+  formatCohort       String   @map("format_cohort") @db.VarChar(64)
+  evidenceChecksum   String   @map("evidence_checksum")
+  action             String   @db.VarChar(16)
+  ownerUserId        String   @map("owner_user_id") @db.Uuid
+  idempotencyKey     String   @map("idempotency_key")
+  requestFingerprint String   @map("request_fingerprint")
+  note               String?
+  decidedAt          DateTime @map("decided_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  proposal               OptimizationProposal             @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  business               Business                         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy               Strategy                         @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle           ContentCycle                     @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  ownerUser              User                             @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  instruction            ApprovedOptimizationInstruction?
+
+  @@unique([ownerUserId, idempotencyKey])
+  @@unique([ownerUserId, requestFingerprint])
+  @@index([businessId, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion])
+  @@map("optimization_decisions")
+}
+
+/// One approved copywriting instruction. It is consumed at most once by the
+/// exact current Content V2 pack claim, with immutable provenance.
+model ApprovedOptimizationInstruction {
+  id                    String    @id @default(uuid()) @db.Uuid
+  contractVersion       String    @default("optimization-instruction-v1") @map("contract_version")
+  proposalId            String    @unique @map("proposal_id") @db.Uuid
+  approvedDecisionId    String    @unique @map("approved_decision_id") @db.Uuid
+  businessId            String    @map("business_id") @db.Uuid
+  strategyId            String    @map("strategy_id") @db.Uuid
+  strategyVersion       Int       @map("strategy_version")
+  contentCycleId        String    @map("content_cycle_id") @db.Uuid
+  formatCohort          String    @map("format_cohort") @db.VarChar(64)
+  evidenceChecksum      String    @map("evidence_checksum")
+  changeKind            String    @map("change_kind") @db.VarChar(32)
+  instruction           String
+  status                String    @default("PENDING_CONSUMPTION") @db.VarChar(32)
+  consumedContentPackId String?   @unique @map("consumed_content_pack_id") @db.Uuid
+  consumedWeekPlanId    String?   @unique @map("consumed_week_plan_id") @db.Uuid
+  approvedAt            DateTime  @map("approved_at")
+  consumedAt            DateTime? @map("consumed_at")
+  supersededAt          DateTime? @map("superseded_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  proposal              OptimizationProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  approvedDecision      OptimizationDecision   @relation(fields: [approvedDecisionId], references: [id], onDelete: Cascade)
+  business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy              Strategy                @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  contentCycle          ContentCycle            @relation(fields: [contentCycleId], references: [id], onDelete: Cascade)
+  consumedPack          ContentPack?           @relation("OptimizationInstructionConsumedPack", fields: [consumedContentPackId], references: [id], onDelete: SetNull)
+  consumedWeekPlan      ContentWeekPlan?       @relation("OptimizationInstructionConsumedWeekPlan", fields: [consumedWeekPlanId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, status, createdAt])
+  @@index([contentCycleId, strategyId, strategyVersion, formatCohort, status])
+  @@map("approved_optimization_instructions")
 }
 
 /// Tracks every inbound callback for replay/idempotency independent of outcome changes.

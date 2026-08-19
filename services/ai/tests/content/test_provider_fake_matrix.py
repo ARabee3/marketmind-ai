@@ -218,6 +218,7 @@ async def test_provider_timeout_has_bounded_retry() -> None:
         provider,
         prompt,
         sleep=no_sleep,
+        max_attempts=2,
     )
 
     assert len(result) == 3

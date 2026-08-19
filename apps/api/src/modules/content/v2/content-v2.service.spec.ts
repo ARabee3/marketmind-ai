@@ -215,6 +215,13 @@ describe("ContentV2Service.planWeek", () => {
 
     const result = await service.planWeek(CYCLE, 1, OWNER);
 
+    const editorialProfile = mocks.contentAiClient.plan.mock.calls[0][0]
+      .editorial_profile as {
+      audience_nuance: string;
+      language: string;
+      voice: string;
+    };
+
     expect(mocks.contentAiClient.plan).toHaveBeenCalledWith(
       expect.objectContaining({
         editorial_profile: expect.objectContaining({
@@ -227,13 +234,13 @@ describe("ContentV2Service.planWeek", () => {
         }),
       }),
     );
-    expect(
-      (
-        mocks.contentAiClient.plan.mock.calls[0][0] as {
-          editorial_profile: { voice: string };
-        }
-      ).editorial_profile.voice.length,
-    ).toBeGreaterThan(0);
+    expect(editorialProfile.audience_nuance).toBe(
+      "لم يتم تأكيد تفاصيل إضافية عن الجمهور في ملف النشاط.",
+    );
+    expect(editorialProfile.voice).toBe(
+      "استخدم نبرة مصرية عملية وواضحة وموثوقة. لا تفترض حقائق أو عروضًا أو أماكن أو تفاصيل عن الجمهور خارج الملف المؤكد وخطة الاستراتيجية المعتمدة.",
+    );
+    expect(editorialProfile.voice).not.toMatch(/Use|English|Egyptian Arabic/);
     expect(result.week_plan.id).toBe("week-plan-1");
   });
 
@@ -292,7 +299,7 @@ describe("ContentV2Service.planWeek", () => {
 });
 
 describe("ContentV2Service.generateWeek", () => {
-  function generateBuildService() {
+  function generateBuildService(optimizationInstruction?: unknown) {
     const cycle = {
       id: CYCLE,
       contractVersion: "content-v2",
@@ -454,6 +461,11 @@ describe("ContentV2Service.generateWeek", () => {
       markDirectDispatched: jest.fn().mockResolvedValue(undefined),
     };
     const contentQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    const optimizationRepository = {
+      findPendingInstruction: jest
+        .fn()
+        .mockResolvedValue(optimizationInstruction ?? null),
+    };
 
     const service = new ContentV2Service(
       prisma as never,
@@ -495,11 +507,18 @@ describe("ContentV2Service.generateWeek", () => {
       jobOutbox as never,
       contentQueue as never,
       { store: jest.fn() } as never,
+      optimizationRepository as never,
     );
 
     return {
       service,
-      mocks: { packRepository, jobOutbox, contentQueue, weekPlanRepository },
+      mocks: {
+        packRepository,
+        jobOutbox,
+        contentQueue,
+        weekPlanRepository,
+        optimizationRepository,
+      },
     };
   }
 
@@ -562,6 +581,75 @@ describe("ContentV2Service.generateWeek", () => {
         OWNER,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("freezes an approved Optimization cue only for an owner-planned matching week", async () => {
+    const instruction = {
+      instruction_id: "instruction-1",
+      proposal_id: "proposal-1",
+      approved_decision_id: "decision-1",
+      business_id: "biz-1",
+      strategy_id: "strat-1",
+      strategy_version: 2,
+      content_cycle_id: CYCLE,
+      format_cohort: "static_image_post",
+      evidence_checksum:
+        "b7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+      change_kind: "hook_style",
+      instruction: "Use a concrete opening.",
+      status: "PENDING_CONSUMPTION",
+      consumed_content_pack_id: null,
+      consumed_week_plan_id: null,
+      approved_at: "2026-08-20T08:00:00Z",
+      consumed_at: null,
+      superseded_at: null,
+      created_at: "2026-08-20T08:00:00Z",
+      updated_at: "2026-08-20T08:00:00Z",
+    };
+    const { service, mocks } = generateBuildService(instruction);
+    const currentPlan = await mocks.weekPlanRepository.getWeekPlan();
+    currentPlan.postPlans[0].source = "owner";
+
+    await service.generateWeek(
+      CYCLE,
+      1,
+      { content_cycle_id: CYCLE, week_number: 1, idempotency_key: "k-opt-1" },
+      OWNER,
+    );
+
+    const claimInput = mocks.packRepository.claimQueuedPackV2.mock
+      .calls[0][0] as {
+      frozenInput: Record<string, unknown>;
+      optimizationInstructionId?: string;
+    };
+    expect(claimInput.optimizationInstructionId).toBe("instruction-1");
+    expect(claimInput.frozenInput.optimization_guidance).toEqual(
+      expect.objectContaining({ instruction_id: "instruction-1" }),
+    );
+  });
+
+  it("leaves approved Optimization guidance pending for a planner-only week", async () => {
+    const { service, mocks } = generateBuildService({
+      instruction_id: "instruction-1",
+    });
+
+    await service.generateWeek(
+      CYCLE,
+      1,
+      { content_cycle_id: CYCLE, week_number: 1, idempotency_key: "k-opt-2" },
+      OWNER,
+    );
+
+    expect(
+      mocks.optimizationRepository.findPendingInstruction,
+    ).not.toHaveBeenCalled();
+    const claimInput = mocks.packRepository.claimQueuedPackV2.mock
+      .calls[0][0] as {
+      frozenInput: Record<string, unknown>;
+      optimizationInstructionId?: string;
+    };
+    expect(claimInput.optimizationInstructionId).toBeUndefined();
+    expect(claimInput.frozenInput.optimization_guidance).toBeNull();
   });
 
   it("rejects generation for a non-current week", async () => {

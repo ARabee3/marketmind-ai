@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyProfileSummary } from './strategy-profile-summary'
+import { GenerateConfirmDialog } from './generate-confirm-dialog'
 
 const OBJECTIVES: readonly StrategyObjective[] = [
   'awareness',
@@ -132,6 +133,7 @@ export function StrategyChoicesForm() {
   const [loading, setLoading] = useState(true)
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -573,7 +575,7 @@ export function StrategyChoicesForm() {
                 type="button"
                 className="shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all"
                 disabled={disabled}
-                onClick={() => persist(true)}
+                onClick={() => setConfirmOpen(true)}
               >
                 {pending ? tc('saving') : t('choices.generate')}
               </Button>
@@ -616,6 +618,14 @@ export function StrategyChoicesForm() {
           </aside>
         </div>
       )}
+      <GenerateConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => {
+          setConfirmOpen(false)
+          void persist(true)
+        }}
+      />
     </section>
   )
 }

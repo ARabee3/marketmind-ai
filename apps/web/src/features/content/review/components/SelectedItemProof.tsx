@@ -57,17 +57,17 @@ export function SelectedItemProof({ item }: SelectedItemProofProps) {
     <article
       id={`item-proof-${item.item.id}`}
       aria-labelledby={`item-heading-${item.item.id}`}
-      className="space-y-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-6 shadow-xs"
+      className="space-y-6 rounded-xl border border-border bg-surface p-5 sm:p-6 shadow-xs"
     >
       {/* Proof Header */}
-      <header className="border-b border-slate-200 pb-4">
+      <header className="border-b border-border pb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="inline-block rounded bg-teal-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-teal-900 border border-teal-300">
+              <span className="inline-block rounded bg-primary/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary border border-primary/30">
                 {channelLabel ?? current_version.channel}
               </span>
-              <span className="inline-block rounded bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
+              <span className="inline-block rounded bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground border border-border">
                 {formatLabel ?? current_version.format.replace(/_/g, ' ')}
               </span>
             </div>
@@ -75,14 +75,14 @@ export function SelectedItemProof({ item }: SelectedItemProofProps) {
             <h2
               id={`item-heading-${item.item.id}`}
               tabIndex={-1}
-              className="text-xl font-bold text-[var(--color-navy)] mt-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded"
+              className="text-xl font-bold text-navy mt-2 outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
               {dayStr} · {current_version.strategy_trace.objective}
             </h2>
           </div>
 
           <div className="text-end">
-            <span className="inline-block rounded-md bg-slate-100 px-3 py-1 font-mono text-xs font-medium text-slate-800 border border-slate-200">
+            <span className="inline-block rounded-md bg-muted px-3 py-1 font-mono text-xs font-medium text-navy border border-border">
               {t('versionLabel', {
                 version: current_version.version,
                 checksum: current_version.version_checksum.slice(0, 8),
@@ -92,17 +92,17 @@ export function SelectedItemProof({ item }: SelectedItemProofProps) {
         </div>
 
         {/* Recommended Cairo Window */}
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600 bg-slate-50 p-2.5 rounded-md border border-slate-200">
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-medium text-muted-foreground bg-muted/40 p-2.5 rounded-md border border-border">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-[var(--color-primary)]" />
+            <Calendar className="h-4 w-4 text-primary" aria-hidden="true" />
             <span>{dayStr}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4 text-[var(--color-primary)]" />
+            <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
             <span>{t('cairoTime', { startsAt: startTimeStr, endsAt: endTimeStr })}</span>
           </div>
           <div className="flex items-center gap-1.5 ms-auto">
-            <Globe className="h-4 w-4 text-slate-500" />
+            <Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <span>{t('languageMode', { mode: current_version.language_mode })}</span>
           </div>
         </div>

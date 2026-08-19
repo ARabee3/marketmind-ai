@@ -1,6 +1,6 @@
 {
   "Common": {
-    "appName": "MarketMind AI",
+    "appName": "MarketMind",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -37,7 +37,8 @@
     "ownerControlHint": "Every important step waits for a clear owner decision before the system moves.",
     "saving": "Saving…",
     "error": "Error",
-    "navConnections": "Connections"
+    "navConnections": "Connections",
+    "navPerformance": "Content performance"
   },
   "Dashboard": {
     "eyebrow": "Owner workspace",
@@ -123,6 +124,13 @@
       "strategy_not_active": "Strategy is planned next, but not available in this sprint.",
       "strategy_active": "The Strategy workspace is available."
     },
+    "performance": {
+      "eyebrow": "Published results",
+      "title": "Review content performance",
+      "body": "You have {count} real Facebook {count, plural, one {post} other {posts}} ready for monitoring.",
+      "baseline": "Baseline: {observed} of {required} seven-day snapshots",
+      "action": "Open content performance"
+    },
     "phase": {
       "discovery": {
         "number": "1",
@@ -204,6 +212,8 @@
     "loginSubmit": "Sign in",
     "loginForgotPassword": "Forgot password?",
     "loginNoAccount": "Don't have an account?",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "registerTitle": "Create your account",
     "registerDescription": "Start with a guided setup built for Arabic-first SME owners.",
     "registerNameLabel": "Full name",
@@ -647,6 +657,7 @@
     "strategyVersionConflict": "This Strategy version is stale. Refresh before deciding.",
     "discoveryAlreadyConfirmed": "A business profile is already confirmed. View your saved discovery result in the dashboard.",
     "billingLimitReached": "Your plan limit for this action has been reached for the current period.",
+    "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then retry.",
     "serverError": "Server error. Please try again later."
   },
   "NotFound": {
@@ -1121,6 +1132,13 @@
       "back": "Back",
       "generate": "Generate plan",
       "generatePending": "Saving and generating…",
+      "confirmTitle": "Confirm point usage",
+      "confirmBody": "This will use {points} points. You have {balance} points.",
+      "confirmBodyNoBalance": "This will use {points} points.",
+      "confirmInsufficient": "You need {points} points but you have {balance}. Top up to continue.",
+      "confirmTopUp": "Top up points",
+      "confirmCta": "Confirm and generate",
+      "confirmCancel": "Cancel",
       "save": "Save draft and leave",
       "saved": "Draft saved.",
       "unsaved": "You have unsaved Strategy choices.",
@@ -1271,19 +1289,23 @@
     }
   },
   "Landing": {
+    "meta": {
+      "title": "MarketMind | 12-Week Marketing Plan & Weekly Content for Egyptian SMEs",
+      "description": "Get a 12-week marketing roadmap, review weekly posts tailored in Egyptian Arabic & English, publish to Facebook, and optimize performance continuously."
+    },
     "nav": {
       "links": [
         {
-          "href": "#roadmap",
-          "label": "Full journey"
-        },
-        {
-          "href": "#discovery",
+          "href": "#how-it-works",
           "label": "How it works"
         },
         {
+          "href": "#agents",
+          "label": "AI Agents"
+        },
+        {
           "href": "#sample",
-          "label": "Sample"
+          "label": "Live sample"
         },
         {
           "href": "#faq",
@@ -1293,6 +1315,7 @@
       "aria": "Primary navigation",
       "login": "Log in",
       "signup": "Create account",
+      "continueWork": "Continue your work",
       "openMenu": "Open menu",
       "closeMenu": "Close menu",
       "language": "AR",
@@ -1302,371 +1325,450 @@
       "skip": "Skip to content"
     },
     "hero": {
-      "badge": "A clear growth journey",
-      "title": "Better marketing starts with understanding your business",
-      "body": "MarketMind helps you confirm the facts, build a practical growth plan, review every recommendation, and improve using real results.",
-      "note": "You stay the decision-maker at every stage: confirm facts, review the plan, and approve before execution.",
-      "noteLink": "See the full journey",
-      "primary": "Start business discovery",
-      "secondary": "Explore the full journey",
+      "badge": "12-Week Plan + Weekly Facebook Content",
+      "title": "Your marketing plan and weekly posts, ready in one place.",
+      "body": "Tell us what your business aims to achieve. MarketMind maps a 12-week strategic roadmap, prepares weekly posts for your Facebook page, and optimizes results after every week.",
+      "note": "Zero autonomous publishing. Every post and plan change requires your explicit approval.",
+      "primary": "Start my plan",
+      "secondary": "See how it works",
       "preview": {
-        "steps": [
-          {
-            "step": "1",
-            "title": "Business understanding",
-            "mono": "Profile",
-            "text": "Confirmed facts about your business and market"
-          },
-          {
-            "step": "2",
-            "title": "Growth plan",
-            "mono": "Strategy",
-            "text": "Clear goals, channels, and priorities"
-          },
-          {
-            "step": "3",
-            "title": "Reviewable execution",
-            "mono": "Content",
-            "text": "Content and campaigns ready before publishing"
-          },
-          {
-            "step": "4",
-            "title": "Continuous improvement",
-            "mono": "Improve",
-            "text": "Results guide the next question and next step"
-          }
-        ]
+        "previewLabel": "Workspace preview",
+        "status": "Week 04 content ready for review",
+        "progressLabel": "12-week marketing roadmap",
+        "progressValue": "04 / 12",
+        "progressAria": "12-week marketing plan progress",
+        "weeks": ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"],
+        "weekCompleteLabel": "Complete",
+        "weekCurrentLabel": "Current week",
+        "weekUpcomingLabel": "Upcoming",
+        "focusLabel": "This week’s objective",
+        "focusText": "Drive Facebook page messages & orders for the family dessert box",
+        "optimizationLabel": "Optimized from Week 03 performance",
+        "optimizationText": "+44% higher post clicks when opening with a direct question hook",
+        "contentLabel": "3 Facebook posts to review",
+        "contentItems": ["Unboxing visual & offer intro", "Item assortment & pricing breakdown", "Thursday pre-weekend deadline reminder"],
+        "actionLabel": "Your next decision",
+        "actionText": "Review copy & visual direction, then approve for publishing",
+        "readyLabel": "Ready for approval"
       }
     },
-    "capability": {
-      "eyebrow": "What MarketMind checks",
-      "row1": [
-        {
-          "label": "Public research sources",
-          "latin": null
-        },
-        {
-          "label": "Trusted local directories",
-          "latin": null
-        },
-        {
-          "label": "Fallback sources",
-          "latin": null
-        },
-        {
-          "label": "Official business links",
-          "latin": null
-        },
-        {
-          "label": "Local context",
-          "latin": null
-        }
-      ],
-      "row2": [
-        {
-          "label": "Identity",
-          "latin": null
-        },
-        {
-          "label": "Offers and services",
-          "latin": null
-        },
-        {
-          "label": "Customers",
-          "latin": null
-        },
-        {
-          "label": "Differentiation",
-          "latin": null
-        },
-        {
-          "label": "Current marketing",
-          "latin": null
-        },
-        {
-          "label": "Goals",
-          "latin": null
-        },
-        {
-          "label": "Market context",
-          "latin": null
-        }
-      ]
-    },
-    "evidence": {
-      "title": "Evidence before decisions.",
-      "body": "Each tag above is something MarketMind really checks — a research source or a part of your business profile.",
-      "tags": [
-        {
-          "label": "Public search source",
-          "type": "provider"
-        },
-        {
-          "label": "Local directory",
-          "type": "provider"
-        },
-        {
-          "label": "Fallback source",
-          "type": "provider"
-        },
-        {
-          "label": "Official owner link",
-          "type": "provider"
-        },
-        {
-          "label": "Identity",
-          "type": "known"
-        },
-        {
-          "label": "Offers",
-          "type": "known"
-        },
-        {
-          "label": "Customers",
-          "type": "review"
-        }
-      ]
-    },
-    "why": {
-      "eyebrow": "Why evidence matters",
-      "title": "Research can suggest. You confirm.",
-      "body": "Every business fact stays a research suggestion until you review it. The visual state makes the difference clear at a glance.",
-      "before": "Before confirmation",
-      "beforeText": "The business opens from 9 AM to 11 PM",
-      "transition": "↓ Reviewed and confirmed",
-      "after": "After confirmation",
-      "afterText": "The business opens from 10 AM to midnight"
-    },
-    "roadmap": {
-      "eyebrow": "Full journey",
-      "title": "From understanding to improvement",
-      "body": "You can start with Discovery now. The rest of the journey is designed as clear, reviewable steps.",
-      "hint": "See what is available now and what comes next",
-      "aria": "MarketMind journey phases",
-      "liveCta": "Start Discovery",
-      "cards": [
-        {
-          "no": "01",
-          "title": "Discover",
-          "en": "Discover",
-          "output": "BusinessProfile",
-          "desc": "Build an evidence-backed view of your business through real research and a conversation with you.",
-          "status": "live",
-          "statusLabel": "Available now"
-        },
-        {
-          "no": "02",
-          "title": "Research",
-          "en": "Research",
-          "output": "ResearchPack",
-          "desc": "Collect market and competitor evidence in a clear review pack.",
-          "status": "planned",
-          "statusLabel": "Next phase"
-        },
-        {
-          "no": "03",
-          "title": "Strategize",
-          "en": "Strategize",
-          "output": "StrategyPlan",
-          "desc": "Turn the confirmed profile into priorities, channels, and metrics.",
-          "status": "planned",
-          "statusLabel": "In the journey"
-        },
-        {
-          "no": "04",
-          "title": "Create",
-          "en": "Create",
-          "output": "ContentPack",
-          "desc": "Prepare content that fits the goal and context before execution.",
-          "status": "planned",
-          "statusLabel": "In the journey"
-        },
-        {
-          "no": "05",
-          "title": "Publish or export",
-          "en": "Publish or export",
-          "output": "Publication Result",
-          "desc": "Safe publishing or export only after owner approval.",
-          "status": "planned",
-          "statusLabel": "In the journey"
-        },
-        {
-          "no": "06",
-          "title": "Monitor",
-          "en": "Monitor",
-          "output": "MetricSnapshot",
-          "desc": "Show a clear performance snapshot without inventing unavailable metrics.",
-          "status": "planned",
-          "statusLabel": "In the journey"
-        },
-        {
-          "no": "07",
-          "title": "Improve",
-          "en": "Improve",
-          "output": "OptimizationProposal",
-          "desc": "Suggest reviewable improvements before any change is made.",
-          "status": "planned",
-          "statusLabel": "In the journey"
-        }
-      ]
-    },
-    "discovery": {
-      "eyebrow": "Discovery journey — phase one in detail",
-      "title": "Five steps, all working now",
-      "body": "This is the fully available flow: from entering your business name to reviewing a confirmed profile.",
-      "aria": "Discovery journey steps",
+    "journey": {
+      "eyebrow": "A Complete Marketing Cycle",
+      "title": "From business goal to measurable growth in 5 clear steps.",
+      "body": "A closed-loop marketing engine: clear strategy, weekly ready posts, direct Facebook publishing, and AI performance learning that improves future weeks with your consent.",
+      "seal": "A continuous growth loop you control",
+      "aria": "The five steps in a complete MarketMind marketing cycle",
       "steps": [
         {
           "no": "01",
-          "label": "Receive business data",
-          "desc": "You enter your business name, category, and location — the starting point for research.",
-          "chips": ["Name", "Category", "Location"]
+          "title": "Define your goal",
+          "body": "Share what you sell, your audience, and your core objective through a quick, straightforward chat.",
+          "proof": "Deliverable · Confirmed Business Profile"
         },
         {
           "no": "02",
-          "label": "Plan and run research",
-          "desc": "We turn your intake into search queries and run them against real sources.",
-          "chips": ["Search sources", "Local directories", "Fallbacks"]
+          "title": "Approve the 12-week plan",
+          "body": "Review a quarterly strategic roadmap divided week by week. Adjust any theme before confirming.",
+          "proof": "Deliverable · Approved Strategic Roadmap"
         },
         {
           "no": "03",
-          "label": "Filter evidence",
-          "desc": "We remove unrelated results and keep relevant findings with their sources.",
-          "chips": ["Filtering", "Source mapping"]
+          "title": "Review weekly posts",
+          "body": "Receive ready-to-publish posts with Egyptian dialect hooks, visual direction, and clear calls to action.",
+          "proof": "Deliverable · Approved Weekly Content Pack"
         },
         {
           "no": "04",
-          "label": "First research-backed question",
-          "desc": "We ask a question that completes the picture, based on what was found.",
-          "chips": ["Smart question", "Research context"]
+          "title": "Publish to Facebook",
+          "body": "Publish directly to your connected Facebook page with one click, or export assets to post manually.",
+          "proof": "Deliverable · Published & Scheduled Posts"
         },
         {
           "no": "05",
-          "label": "Confirmed profile",
-          "desc": "Every fact you confirm is saved as a trusted business profile fact.",
-          "chips": ["Owner confirmation", "Evidence saved"]
+          "title": "Measure & Optimize",
+          "body": "The Optimization Agent analyzes post media views, clicks, and engagement to propose data-backed hook and copy improvements for next week.",
+          "proof": "Deliverable · Data-backed Performance Guidance"
         }
-      ]
+      ],
+      "completeLabel": "Closed-loop growth engine",
+      "footnote": "Every week learns from the last. Once you approve an optimization cue, next week’s content generates with higher relevance.",
+      "cta": "Build your first week"
     },
-    "research": {
-      "eyebrow": "Research progress preview",
-      "title": "Watch real work happen step by step",
-      "body": "Each stage moves only when there is actual work behind it — no fake counter and no made-up percentage.",
-      "status": "Illustrative preview — example stages",
-      "stageStatus": {
-        "complete": "Done",
-        "active": "Running now",
-        "queued": "Waiting"
+    "agents": {
+      "eyebrow": "AI Multi-Agent Architecture",
+      "title": "Specialized AI agents designed for each phase of your marketing journey.",
+      "body": "Every agent has a single focused responsibility, verified data inputs, and a strict owner confirmation gate. Nothing moves forward without your explicit approval.",
+      "controlBadge": "100% Owner Governed",
+      "sectorsLabel": "Preview real Egyptian SME examples:",
+      "uiLabels": {
+        "phase": "Phase",
+        "deliverable": "Approved Deliverable",
+        "gate": "Owner Governance Gate",
+        "realtime": "Live Workspace Preview",
+        "approved": "Approved & Locked",
+        "needsApproval": "Awaiting Your Decision",
+        "actionEdit": "Request Revision",
+        "actionApprove": "Approve",
+        "actionApply": "Apply to Next Week",
+        "connected": "Connected & Verified",
+        "weeksBadge": "12 Weeks",
+        "metaBadge": "Meta Graph API",
+        "closedLoopBadge": "Closed Loop",
+        "facebookCtaBadge": "Facebook CTA",
+        "chatLive": "Discovery Interview · AI Live",
+        "readinessLabel": "Business Profile Readiness",
+        "readinessComplete": "100% Ready",
+        "agentLabel": "Discovery Agent",
+        "ownerLabel": "Owner Response",
+        "nextQuestionLabel": "Next Question",
+        "voiceNote": "Voice Note"
       },
-      "stages": [
+      "sectors": {
+        "sweets": "Bakery & Desserts",
+        "fashion": "Fashion & Apparel",
+        "services": "Dental Clinic"
+      },
+      "tabs": [
         {
-          "label": "Request received",
-          "detail": "The research request was accepted and queued."
+          "id": "discovery",
+          "name": "Discovery Agent",
+          "role": "Business Intake & Brand Profile",
+          "desc": "Conducts a focused bilingual chat to capture your business offerings, target customers, location, and strengths without marketing jargon.",
+          "deliverable": "Confirmed BusinessProfile",
+          "gate": "Owner verifies and confirms profile to lock context"
         },
         {
-          "label": "Query planning",
-          "detail": "Business data is turned into focused search queries."
+          "id": "research",
+          "name": "Research Agent",
+          "role": "Local Egyptian Market Intelligence",
+          "desc": "Scans public search data, local directories, and category trends in Egypt to uncover peak posting hours, competitor angles, and winning topics.",
+          "deliverable": "Curated ResearchPack",
+          "gate": "Transparent sources & evidence grounding"
         },
         {
-          "label": "Owner link check",
-          "detail": "Facebook and submitted links are reviewed."
+          "id": "strategy",
+          "name": "Strategy Agent",
+          "role": "12-Week Strategic Roadmap",
+          "desc": "Synthesizes your business profile, market research, and marketing knowledge into a quarterly plan divided into 3 distinct growth phases.",
+          "deliverable": "Approved 12-Week StrategyPlan",
+          "gate": "Owner reviews and approves roadmap themes"
         },
         {
-          "label": "Filtering",
-          "detail": "Unrelated results are removed."
+          "id": "content",
+          "name": "Content Agent",
+          "role": "Egyptian Dialect Copy & Visuals",
+          "desc": "Generates rolling weekly packs of ready-to-post content with Egyptian dialect hooks, engaging captions, visual direction, and high-converting CTAs.",
+          "deliverable": "Weekly ContentPack (3-5 Posts)",
+          "gate": "Owner edits, revises, or approves each post"
         },
         {
-          "label": "Evidence saved",
-          "detail": "Each result is stored with its source."
+          "id": "publishing",
+          "name": "Publishing Service",
+          "role": "Deterministic Meta / Facebook Dispatch",
+          "desc": "A deterministic execution engine connected to your Facebook Page via Meta Graph API that schedules and dispatches approved posts safely.",
+          "deliverable": "Live Facebook Post & Audit Trail",
+          "gate": "Zero autonomous posting without explicit owner approval"
         },
         {
-          "label": "First question ready",
-          "detail": "A question is drafted from what was found."
-        },
-        {
-          "label": "Ready",
-          "detail": "The initial profile is ready for your review."
+          "id": "optimization",
+          "name": "Optimization Agent",
+          "role": "Facebook Performance & Closed Loop",
+          "desc": "Analyzes 7-day post media views, clicks, and engagement to identify top-performing hooks and optimize upcoming post generation.",
+          "deliverable": "OptimizationProposal & Guidance",
+          "gate": "Owner accepts proposal to guide next week's content"
         }
-      ]
+      ],
+      "previews": {
+        "sweets": {
+          "discovery": {
+            "badge": "BusinessProfile Snapshot",
+            "title": "Rose & Sugar Sweets (Cairo)",
+            "fields": [
+              { "label": "Business Category", "value": "Artisan Bakery & Oriental Desserts" },
+              { "label": "Target Audience", "value": "Families, Weekend Gatherings, Corporate Gift Boxes" },
+              { "label": "Core Differentiator", "value": "Fresh Belgian Chocolate & Natural Butter (No Hydrogenated Oils)" }
+            ],
+            "chat": {
+              "question": "Welcome! What makes Rose & Sugar desserts stand out from others in your area?",
+              "ownerAnswer": "We use 100% pure Belgian chocolate and real natural butter with zero hydrogenated fats.",
+              "nextQuestion": "Great! And who is your primary customer segment: families and weekend gatherings, or corporate gift boxes?",
+              "voiceLabel": "0:14",
+              "readiness": "100%"
+            },
+            "footer": "Readiness: 100% · Confirmed by Owner"
+          },
+          "research": {
+            "badge": "ResearchPack Signals",
+            "title": "Greater Cairo Bakery Benchmarks",
+            "fields": [
+              { "label": "Peak Engagement Hours", "value": "Wednesdays & Thursdays 7:00 PM – 11:00 PM" },
+              { "label": "High-Converting Format", "value": "Short dessert unboxing clips & weekend reservation hooks" },
+              { "label": "Post Click Rate", "value": "3.4x higher clicks when listing exact box assortment and pricing" }
+            ],
+            "footer": "Grounded from 14 verified local market signals"
+          },
+          "strategy": {
+            "badge": "StrategyPlan (12 Weeks)",
+            "title": "Quarter 1 Strategic Roadmap",
+            "fields": [
+              { "label": "Phase 1 (Weeks 01–04)", "value": "Taste Differentiation & Signature Assortment Awareness" },
+              { "label": "Phase 2 (Weeks 05–08)", "value": "Weekend Pre-Orders & Family Sharing Box Urgency" },
+              { "label": "Phase 3 (Weeks 09–12)", "value": "Customer Reviews, Loyalty Bundles & Catering Bookings" }
+            ],
+            "footer": "Strategy Approved · Content Cycle Active"
+          },
+          "content": {
+            "badge": "ContentPack · Week 04 Post 01",
+            "title": "Weekend Family Box Feature",
+            "fields": [
+              { "label": "Hook (Egyptian Arabic)", "value": "“ويك إند من غير بوكس الورد والسكر ميكملش! 🍰”" },
+              { "label": "Visual Direction", "value": "High-res overhead video unboxing showing all 6 dessert varieties" },
+              { "label": "Call to Action", "value": "Send Message on Facebook for Friday Pre-Orders" }
+            ],
+            "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
+          },
+          "publishing": {
+            "badge": "Meta Graph API Dispatch",
+            "title": "Facebook Business Page Connection",
+            "fields": [
+              { "label": "Connected Account", "value": "Rose & Sugar Sweets (Facebook Page ID #8491)" },
+              { "label": "Scheduled Broadcast", "value": "Thursday 6:30 PM (Africa/Cairo)" },
+              { "label": "Dispatch Safety", "value": "Approved candidate frozen · No automatic rewriting" }
+            ],
+            "footer": "Status: Verified & Scheduled for Meta Broadcast"
+          },
+          "optimization": {
+            "badge": "OptimizationProposal (Closed Loop)",
+            "title": "Post Performance & Next-Week Cues",
+            "fields": [
+              { "label": "Post Click-Through Rate", "value": "+44% clicks when opening with a direct curiosity hook" },
+              { "label": "Media View Retention", "value": "Unboxing clips generated 3.8x higher 7-day views than static images" },
+              { "label": "AI Next-Week Guidance", "value": "Adopt question-style hooks and prioritize video unboxing format" }
+            ],
+            "footer": "Approved by Owner · Fed into Week 05 Generator"
+          }
+        },
+        "fashion": {
+          "discovery": {
+            "badge": "BusinessProfile Snapshot",
+            "title": "Nile Modest Apparel (Mansoura)",
+            "fields": [
+              { "label": "Business Category", "value": "Modern Modest Wear & Summer Linen Sets" },
+              { "label": "Target Audience", "value": "University Students & Working Women (20–35)" },
+              { "label": "Core Differentiator", "value": "100% Egyptian Breathable Cotton with Contemporary Tailoring" }
+            ],
+            "chat": {
+              "question": "Welcome! Who is your primary audience and what fabrics/tailoring do you specialize in?",
+              "ownerAnswer": "University students and working women looking for comfortable, chic 100% Egyptian linen & cotton modest sets.",
+              "nextQuestion": "Got it! And what is the average price range for your sets, and do you offer nationwide shipping?",
+              "voiceLabel": "0:18",
+              "readiness": "100%"
+            },
+            "footer": "Readiness: 100% · Confirmed by Owner"
+          },
+          "research": {
+            "badge": "ResearchPack Signals",
+            "title": "Egyptian Apparel Benchmarks",
+            "fields": [
+              { "label": "Top Engagement Driver", "value": "Fabric drape & natural movement videos" },
+              { "label": "Purchase Trigger", "value": "Clear sizing guide in comments boosts checkout confidence by 64%" },
+              { "label": "Winning Channel Angle", "value": "Direct Facebook Page posts highlighting natural Egyptian fabrics" }
+            ],
+            "footer": "Grounded from 18 verified local market signals"
+          },
+          "strategy": {
+            "badge": "StrategyPlan (12 Weeks)",
+            "title": "Summer Capsule Roadmap",
+            "fields": [
+              { "label": "Phase 1 (Weeks 01–04)", "value": "Collection Lookbook & Premium Egyptian Fabric Quality" },
+              { "label": "Phase 2 (Weeks 05–08)", "value": "Mix-and-Match Styling Guides & Everyday Wear Demos" },
+              { "label": "Phase 3 (Weeks 09–12)", "value": "Limited Summer Colorways & Free Shipping Thresholds" }
+            ],
+            "footer": "Strategy Approved · Content Cycle Active"
+          },
+          "content": {
+            "badge": "ContentPack · Week 02 Post 02",
+            "title": "Linen Set Styling Guide",
+            "fields": [
+              { "label": "Hook (Egyptian Arabic)", "value": "“طقم الكتان اللي هيعيش معاكي الصيف كله بكل شياكة ✨”" },
+              { "label": "Visual Direction", "value": "Natural outdoor daylight video showcasing fabric texture and movement" },
+              { "label": "Call to Action", "value": "Send Message on Facebook to check remaining sizes" }
+            ],
+            "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
+          },
+          "publishing": {
+            "badge": "Meta Graph API Dispatch",
+            "title": "Facebook Business Page Connection",
+            "fields": [
+              { "label": "Connected Account", "value": "Nile Modest Apparel (Facebook Page ID #3920)" },
+              { "label": "Scheduled Broadcast", "value": "Sunday 8:00 PM (Africa/Cairo)" },
+              { "label": "Dispatch Safety", "value": "Deterministic dispatch · Exact approved candidate" }
+            ],
+            "footer": "Status: Verified & Scheduled for Meta Broadcast"
+          },
+          "optimization": {
+            "badge": "OptimizationProposal (Closed Loop)",
+            "title": "Post Performance & Next-Week Cues",
+            "fields": [
+              { "label": "Post Click Rate", "value": "Fabric drape video drove 2.8x higher click engagement than static photos" },
+              { "label": "Audience Retention", "value": "7-day post media views peaked on evening lookbook posts" },
+              { "label": "AI Next-Week Guidance", "value": "Include quick fabric care tip card in Week 03 visual carousel" }
+            ],
+            "footer": "Approved by Owner · Fed into Week 03 Generator"
+          }
+        },
+        "services": {
+          "discovery": {
+            "badge": "BusinessProfile Snapshot",
+            "title": "Al-Safwa Dental Care (Maadi)",
+            "fields": [
+              { "label": "Business Category", "value": "Specialized Dental Center & Smile Aesthetics" },
+              { "label": "Target Audience", "value": "Working Adults, Families seeking painless dental treatments" },
+              { "label": "Core Differentiator", "value": "German Laser Technology & 0% Interest Installment Plans" }
+            ],
+            "chat": {
+              "question": "Welcome Doctor! What is your clinic's flagship specialty that we should highlight in the plan?",
+              "ownerAnswer": "Painless laser smile makeovers and flexible 0% interest installment plans for families.",
+              "nextQuestion": "Understood Doctor! Are patient consultations primarily focused in morning or evening slots?",
+              "voiceLabel": "0:22",
+              "readiness": "100%"
+            },
+            "footer": "Readiness: 100% · Confirmed by Owner"
+          },
+          "research": {
+            "badge": "ResearchPack Signals",
+            "title": "Local Healthcare Search Trends",
+            "fields": [
+              { "label": "Primary Patient Barrier", "value": "Cost ambiguity and fear of painful procedures" },
+              { "label": "Highest Converting Angle", "value": "Doctor credentials with real patient before/after transformations" },
+              { "label": "Booking Habit", "value": "Weekend consultations booked 3–4 days in advance" }
+            ],
+            "footer": "Grounded from 12 verified local market signals"
+          },
+          "strategy": {
+            "badge": "StrategyPlan (12 Weeks)",
+            "title": "Patient Trust & Growth Plan",
+            "fields": [
+              { "label": "Phase 1 (Weeks 01–04)", "value": "Clinic Tech, Sterilization Standards & Painless Care" },
+              { "label": "Phase 2 (Weeks 05–08)", "value": "Patient Smile Makeovers & Installment Option Transparency" },
+              { "label": "Phase 3 (Weeks 09–12)", "value": "Seasonal Family Checkup Packages & Preventive Care" }
+            ],
+            "footer": "Strategy Approved · Content Cycle Active"
+          },
+          "content": {
+            "badge": "ContentPack · Week 03 Post 01",
+            "title": "Laser Dentistry Case Study",
+            "fields": [
+              { "label": "Hook (Egyptian Arabic)", "value": "“ابتسامتك بتفرق في ثقتك.. جلسة واحدة من غير أي ألم وبأحدث ليزر 🦷”" },
+              { "label": "Visual Direction", "value": "High-clarity split before/after photo with doctor explanation badge" },
+              { "label": "Call to Action", "value": "Send Message on Facebook to book your consultation" }
+            ],
+            "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
+          },
+          "publishing": {
+            "badge": "Meta Graph API Dispatch",
+            "title": "Facebook Business Page Connection",
+            "fields": [
+              { "label": "Connected Account", "value": "Al-Safwa Dental Care (Facebook Page ID #5102)" },
+              { "label": "Scheduled Broadcast", "value": "Tuesday 1:00 PM (Africa/Cairo)" },
+              { "label": "Dispatch Safety", "value": "Deterministic dispatch · Exact approved candidate" }
+            ],
+            "footer": "Status: Verified & Scheduled for Meta Broadcast"
+          },
+          "optimization": {
+            "badge": "OptimizationProposal (Closed Loop)",
+            "title": "Post Performance & Next-Week Cues",
+            "fields": [
+              { "label": "Post Engagement & Clicks", "value": "Posts highlighting 0% installments generated +58% post clicks" },
+              { "label": "Media View Duration", "value": "Before/after video comparisons had 3.1x longer view time" },
+              { "label": "AI Next-Week Guidance", "value": "Lead with painless procedure hooks and feature installment transparency" }
+            ],
+            "footer": "Approved by Owner · Fed into Week 04 Generator"
+          }
+        }
+      }
     },
     "sample": {
-      "sourceNotes": [
-        "Public search source",
-        "Local directory",
-        "Official link",
-        "Review question"
-      ],
-      "eyebrow": "Illustrative sample",
-      "name": "Rose & Sugar Sweets",
-      "meta": "A fictional sweets shop in a fictional city —",
-      "metaEmphasis": "example only",
-      "fileLabel": "Sample evidence file",
-      "imageAlt": "Fictional sweets shop storefront with a dessert display",
-      "sourceNote": "Research can reach public sources, but final truth stays with the business owner.",
-      "acceptedTitle": "Accepted result",
-      "acceptedText": "The shop appears in a public local directory with reviews, customer photos, and clear opening hours.",
-      "discardedTitle": "Discarded result",
-      "discardedText": "A result with a similar name in another city was discarded because the activity and location are different.",
-      "chatTitle": "Sample conversation",
-      "aiQuestion": "I found public hours from 9 AM to 11 PM. Is that correct?",
-      "suggested": [
-        "Yes, correct",
-        "I want to edit the hours",
-        "Hours change in Ramadan"
-      ],
-      "inputLabel": "Write your answer",
-      "inputValue": "No, we open at 10 AM and close at midnight.",
-      "inputPlaceholder": "Or write your answer here…",
-      "send": "Send"
+      "eyebrow": "Real-World SME Scenario",
+      "title": "See what you receive in one complete week.",
+      "body": "A practical example for an Egyptian dessert studio aiming to boost Facebook orders before the weekend.",
+      "caseLabel": "Business Example",
+      "name": "Rose & Sugar Sweets (Cairo)",
+      "exampleLabel": "Representative Case",
+      "imageAlt": "Fresh oriental and western desserts on display",
+      "sourceType": "Weekly Goal",
+      "sourceCaption": "Increase Facebook page engagement and orders for the family box ahead of the weekend.",
+      "aria": "Representative weekly marketing cycle with publishing and optimization",
+      "sourceTitle": "1. Business Goal",
+      "sourceText": "Drive higher post clicks and orders for the family dessert assortment.",
+      "researchTransition": "MarketMind shapes the goal into a weekly strategy",
+      "suggestionTitle": "2. Weekly Strategic Angle",
+      "suggestionText": "Highlight product variety, family-sized value, and a strict Thursday ordering deadline.",
+      "ownerTransition": "Owner reviews and approves direction",
+      "ownerTitle": "3. Owner Direction",
+      "ownerBadge": "Approved",
+      "ownerText": "Keep copy in natural Egyptian Arabic and emphasize ordering before Thursday midnight.",
+      "resultTransition": "Content Agent drafts weekly Facebook pack",
+      "outcomeTitle": "4. Ready Facebook Posts",
+      "outcomeText": "Unboxing video post · Flavor breakdown & price · Thursday last-chance order reminder.",
+      "outcomeNote": "Every post includes caption copy, visual guidance, and a Send Message call to action.",
+      "optTransition": "Performance analyzed after Facebook publishing",
+      "optimizationTitle": "5. Facebook Performance & AI Optimization",
+      "optimizationText": "Thursday countdown post generated 3.2x more post clicks and video views than average. Recommendation for Week 05: Lead with unboxing video hooks and open early-bird orders on Wednesday.",
+      "optimizationBadge": "Approved for Week 05",
+      "optimizationNote": "Every cycle ends with clear data insights that make subsequent weeks perform better."
     },
     "faq": {
       "eyebrow": "FAQ",
-      "title": "Everything is clear before you start",
+      "title": "Quick answers before you begin",
+      "body": "How it works, what you control, and how Facebook publishing operates.",
       "items": [
         {
-          "q": "How do you protect my data?",
-          "a": "MarketMind uses your business data to build your profile. To run research and the interview, your data is processed by approved service providers (search and AI) on MarketMind's behalf. We do not sell your data, and you control what gets saved. The full privacy policy, including retention and deletion, is being finalized and will be published before launch."
+          "q": "What do I need to get started?",
+          "a": "Just your business name, what you sell, your location, and your target audience. Even if you don't have detailed marketing materials, our Discovery Agent guides you step by step."
         },
         {
-          "q": "Where does the information come from?",
-          "a": "From public search sources and official links for your business. Every result appears with its source, and nothing becomes a fact until you confirm it."
+          "q": "Will the AI publish anything automatically to my Facebook page?",
+          "a": "Never. Nothing is ever published without your explicit review and approval. You can also choose to download the captions and visual assets to post manually."
         },
         {
-          "q": "How long does research take?",
-          "a": "Research timing varies with the business and the sources we check. You can watch each stage move only when there is real work behind it — no fake timer or made-up percentage."
+          "q": "Is the content written in authentic Egyptian Arabic?",
+          "a": "Yes. The Content Agent is specifically optimized for natural Egyptian Arabic dialect suited for social media engagement, as well as English if preferred."
         },
         {
-          "q": "Can I continue later if I leave?",
-          "a": "Yes. Discovery progress is saved, and you can return to continue from the same point."
+          "q": "How does the Optimization Agent help my business grow?",
+          "a": "It tracks how your published Facebook posts perform (post media views, clicks, engagement) and suggests data-backed hook and CTA improvements for upcoming weeks so your return on effort compounds."
         },
         {
-          "q": "Who controls the final information?",
-          "a": "You do. Research can suggest, but you confirm or reject every fact before it enters your profile."
+          "q": "Can I edit the 12-week roadmap and individual posts?",
+          "a": "Absolutely. You have full editorial control. You can edit copy directly, request instant revisions from the AI, or alter weekly roadmap themes whenever your business needs change."
         }
       ]
     },
     "finalCta": {
-      "title": "Ready to understand your business?",
-      "body": "Start Discovery now — real research, questions based on findings, and a profile you confirm.",
-      "primary": "Start business discovery",
-      "secondary": "See a full example"
+      "eyebrow": "Start Your Growth Today",
+      "title": "Ready to organize your marketing for next week?",
+      "body": "Join MarketMind today to build your 12-week strategic roadmap and receive ready-to-review weekly Facebook content with closed-loop performance optimization.",
+      "primary": "Start my plan",
+      "secondary": "See the live sample"
     },
     "footer": {
-      "body": "Understand your business and market with evidence before marketing starts.",
+      "body": "A strategic 12-week roadmap and ready-to-review weekly Facebook content for Egyptian SMEs.",
       "navAria": "Site links",
       "linksTitle": "Links",
       "contactTitle": "Contact",
+      "email": "hello@marketmind.ai",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "sourceLine": "MarketMind — every result has a source.",
+      "sourceLine": "MarketMind — plan your quarters, review weekly posts, publish to Facebook, and optimize.",
       "privacy": "Privacy",
       "terms": "Terms"
     },
     "status": {
-      "accepted": "Confirmed",
+      "accepted": "Approved",
       "review": "Needs review",
       "discard": "Discarded",
-      "inference": "Research suggestion"
+      "inference": "AI Proposal"
     }
   },
   "Publishing": {
@@ -1826,6 +1928,7 @@
       "unknownConsequence": "Do not repost or retry. MarketMind is checking whether the provider received the request.",
       "retryableFailure": "The publishing provider did not complete this post, and nothing was confirmed as published. It is safe to retry.",
       "nonRetryableFailure": "The publishing provider did not complete this post. Refresh the status before choosing another action.",
+      "mediaOriginNotReachable": "Image publishing needs a publicly reachable HTTPS media URL. Configure the API media origin, then refresh and retry after it is fixed.",
       "dispatching": "Working through the publishing boundary…",
       "cancelled": "This intent is read-only. Start a new decision if the candidate is still active.",
       "completed": "This action is complete. Export and simulation do not block publishing.",
@@ -1903,16 +2006,17 @@
     },
     "meta": {
       "connectTitle": "Connect Facebook",
-      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts. MarketMind never sees your Facebook password, and we request only the publishing permissions needed for static-image posts.",
+      "connectBody": "Connect the Facebook Page you own so MarketMind can publish approved posts and read the performance of posts it published. MarketMind never sees your Facebook password, and Insights access is read-only.",
       "connectListTitle": "What gets connected",
       "connectItemPage": "One Facebook Page you manage",
       "connectItemInstagram": "The Page's linked Instagram Professional account (optional)",
+      "connectItemPerformance": "Read-only Page Insights for Facebook posts published through MarketMind",
       "connectItemFormats": "Supported format: static image with caption",
       "connectItemToken": "Your access token is encrypted at rest and referenced opaquely — it is never shown to you, stored in your browser, or written to logs",
       "prereqTitle": "Before you continue",
       "prereqPage": "You must be an admin of the Facebook Page",
       "prereqInstagram": "The Instagram account must be a Professional account linked to the Page",
-      "prereqPermissions": "Grant only the publishing permissions MarketMind requests",
+      "prereqPermissions": "Grant only the publishing and read-only Insights permissions MarketMind requests",
       "startButton": "Continue with Facebook",
       "backButton": "Back to publishing",
       "unavailableTitle": "Connection is not available right now",
@@ -1925,7 +2029,7 @@
       "resultExpiredTitle": "Connection link expired",
       "resultExpiredBody": "The connection link was used once or ran out of time. Start a new connection to try again.",
       "resultDeniedTitle": "Connection was not granted",
-      "resultDeniedBody": "Meta did not grant the publishing permissions. You can retry and accept the permissions, or use export and simulation instead.",
+      "resultDeniedBody": "Meta did not grant the publishing or read-only Insights permissions. You can retry and accept the requested permissions, or use export and simulation instead.",
       "resultUnknownTitle": "Something went wrong",
       "resultUnknownBody": "The connection could not be completed. Your accounts are unchanged. Try again, or use export and simulation instead.",
       "resultRetry": "Start a new connection",
@@ -1964,73 +2068,59 @@
   },
   "Billing": {
     "eyebrow": "Owner billing",
-    "title": "Keep your growth work moving",
-    "subtitle": "One clear plan in Egyptian pounds, with the renewal date and included work visible before you pay.",
-    "sandboxLabel": "Sandbox payment",
-    "sandboxBody": "This checkout is a local sandbox. A live Paymob or Geidea merchant connection is still a launch gate.",
-    "trialLabel": "Current access",
-    "growthLabel": "Growth",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
-    "perMonth": "/ month",
-    "perYear": "/ year",
-    "saveTwoMonths": "Two months free",
-    "chooseMonthly": "Start monthly checkout",
-    "chooseYearly": "Start yearly checkout",
-    "includedTitle": "Included in Growth",
-    "includedContent": "20 content items in a rolling 30 days",
-    "includedImages": "12 generated static images per period",
-    "includedRevisions": "2 revisions per content item",
-    "metricDiscovery": "Discovery profiles",
-    "metricStrategyCycle": "Strategy cycles",
-    "metricStrategyRevision": "Strategy revisions",
-    "metricContentItems": "Content items",
-    "metricContentRevisions": "Content revisions",
-    "metricStaticImages": "Static images",
-    "metricConnectedTargets": "Connected targets",
-    "paymentMethods": "Eligible cards, local wallets, or reference payments appear only after the merchant account enables and tests them.",
-    "statusLabel": "Subscription status",
-    "status": {
-      "trialing": "Trial is active",
-      "active": "Growth is active",
-      "past_due": "Payment needs attention",
-      "paused": "Billing is paused",
-      "cancel_at_period_end": "Renewal is turned off",
-      "expired": "Access has expired",
-      "refunded": "Payment was refunded",
-      "checkout_pending": "Checkout is waiting"
-    },
-    "renewal": "Renewal",
-    "renewalNone": "No automatic renewal",
-    "paidThrough": "Paid through {date}",
-    "graceEnds": "Grace period ends {date}",
-    "trialEnds": "Trial ends {date}",
-    "cancel": "Stop automatic renewal",
-    "resume": "Resume renewal",
-    "cancelled": "Renewal is off. Access continues through {date}.",
-    "usageTitle": "Included usage",
-    "usageEmpty": "No billable work recorded yet.",
-    "usedOf": "{used} of {limit}",
-    "remaining": "{remaining} remaining",
+    "title": "Points for your growth work",
+    "subtitle": "Buy a bundle of points, and every AI action spends a fixed published amount. Points roll over — only generation spends them.",
+    "loading": "Loading billing…",
+    "loadError": "Could not load billing. Try again.",
+    "retry": "Try again",
+    "error": "We could not complete that billing action. Try again.",
+    "balanceLabel": "Your balance",
+    "balanceCount": "{points, plural, one{You have <big>{points}</big> point} other{You have <big>{points}</big> points}}",
+    "balanceDetails": "Details",
+    "lifetimeGranted": "Total points granted: {points}",
+    "lifetimeSpent": "Points used: {points}",
+    "topUp": "Buy points",
+    "sidebarPointsLabel": "Available points",
+    "bundlesTitle": "Points bundles",
+    "bundlesBody": "One-time payment in Egyptian pounds. Points appear only after the payment is confirmed.",
+    "bundlePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "bundlePerPoint": "{perPoint} per point",
+    "bundleBuy": "Buy for {amount}",
+    "bestValue": "Best value",
+    "ledgerTitle": "Points history",
+    "ledgerEmpty": "No point activity yet. Your welcome bonus and purchases will show up here.",
+    "ledgerTopup": "Points purchased",
+    "ledgerTrialGrant": "Welcome bonus",
+    "ledgerSpend": "Used for AI work",
+    "ledgerSpendStrategy": "Used for creating strategy",
+    "ledgerSpendStrategyRevision": "Used for strategy revision",
+    "ledgerSpendContent": "Used for generating content",
+    "ledgerSpendContentRevision": "Used for revising content",
+    "ledgerSpendImage": "Used for generating an image",
+    "ledgerRefund": "Refund",
+    "ledgerBalanceAfter": "Balance after: {points}",
+    "priceMenuTitle": "What actions cost",
+    "priceMenuBody": "One fixed price per successful action. Failed or retried attempts never charge you.",
+    "pricePost": "Generate a post",
+    "pricePostRevision": "Revise a post",
+    "priceImage": "Generate an image",
+    "priceStrategy": "Strategy phase",
+    "priceStrategyRevision": "Strategy revision",
+    "priceDiscovery": "Discovery chat",
+    "priceFree": "Free",
+    "pricePoints": "{points, plural, one{{points} point} other{{points} points}}",
+    "lowBalanceTitle": "Balance running low",
+    "lowBalanceBody": "You have {points} points left. Buy a bundle to keep AI work moving.",
+    "lowBalanceCta": "Top up 150 points",
+    "rolloverTitle": "Points roll over",
+    "rolloverBody": "Purchased points roll over across top-ups. Only AI generation spends points — viewing and editing your work stays free.",
     "transactionsTitle": "Payment history",
     "transactionCharge": "Charge",
     "transactionRefund": "Refund",
     "transactionChargeback": "Chargeback",
-    "transactionPending": "Pending",
     "transactionSucceeded": "Confirmed",
     "transactionFailed": "Failed",
-    "checkoutPending": "Checkout created. Confirm the sandbox payment below to test the verified webhook path.",
-    "sandboxConfirm": "Confirm sandbox payment",
-    "sandboxFail": "Mark sandbox payment failed",
-    "checkoutConfirmed": "Payment confirmed. Billing access is now active.",
-    "loadError": "Could not load billing. Try again.",
-    "retry": "Try again",
-    "loading": "Loading billing…",
-    "notAvailable": "Not available",
-    "error": "We could not complete that billing action. Try again.",
-    "finalPriceNote": "Final payable amount is shown in EGP. Advertising spend is separate.",
-    "trialNote": "The trial needs no card and never converts automatically.",
-    "liveGate": "Live payment activation requires merchant approval and signed provider webhooks."
+    "transactionPending": "Pending"
   },
   "ContentCycle": {
     "metadata": {
@@ -2605,6 +2695,9 @@
       "replanConfirm": "Re-planning replaces the current cards, including owner edits. Continue?",
       "refineCta": "Refine cards",
       "generateCta": "Generate drafts",
+      "weekCost": "This week will use {points} points",
+      "insufficientPoints": "You need {points} points but you have {balance}. Top up to continue.",
+      "topUpCta": "Top up points",
       "generatingCta": "Queueing generation…",
       "reviewCta": "Review drafts",
       "viewApprovedCta": "View approved posts",
@@ -2624,6 +2717,7 @@
     },
     "postCard": {
       "postLabel": "Post {position}",
+      "pointCost": "{points} points",
       "purposeLabel": "Purpose",
       "audienceLabel": "Intended audience",
       "channelLabel": "Channel",
@@ -2780,6 +2874,7 @@
       "cycleCompleted": "This content cycle is complete and cannot generate another week.",
       "weekAlreadyClaimed": "Generation already started for this week. Refresh the studio for the latest status.",
       "rateLimited": "Too many generation requests. Wait a moment, then try again.",
+      "insufficientPoints": "Not enough points for this action. Top up to continue.",
       "refresh": "Refresh",
       "legacyCycle": "This legacy Content V1 pack is outside the active workflow. Start a new Content V2 cycle to continue.",
       "backToContent": "Go to Content"
@@ -2927,6 +3022,211 @@
     "disconnectConfirm": "Disconnect the Facebook Page connection?",
     "disconnectConfirmAction": "Yes, disconnect",
     "cancelDisconnect": "Cancel"
+  },
+  "Performance": {
+    "metadata": {
+      "title": "Content performance"
+    },
+    "loading": "Loading content performance…",
+    "eyebrow": "Facebook evidence",
+    "title": "See what your published posts are teaching you",
+    "subtitle": "MarketMind collects real Facebook results from posts it published. Each observation stays tied to the original publication and its collection window.",
+    "lastSyncLabel": "Last successful sync",
+    "notAvailable": "Not available yet",
+    "refreshOverview": "Refresh view",
+    "demo": {
+      "open": "Open demo evidence",
+      "exit": "Return to live data",
+      "badge": "Demo evidence",
+      "eyebrow": "Controlled walkthrough",
+      "title": "See the optimization loop before live data is ready",
+      "headerSubtitle": "This read-only walkthrough uses synthetic snapshots to show how evidence becomes a bounded proposal. It never queries Meta or changes your account.",
+      "generatedLabel": "Demo generated",
+      "bannerTitle": "Synthetic evidence — not live Facebook data",
+      "bannerBody": "The three posts, metrics, and proposal below are fixtures for rehearsal. Nothing here is stored, published, or applied to your account.",
+      "readOnly": "Read-only demo",
+      "baselineTitle": "Demo baseline",
+      "baselineStatus": "Demo ready",
+      "baselineExplanation": "Three synthetic seven-day snapshots unlock the comparison path in this walkthrough. Live data still waits for Facebook’s collection windows.",
+      "connectionEyebrow": "Demo boundary",
+      "connectionTitle": "Live connection is not shown",
+      "connectionBody": "This walkthrough does not read your Facebook Page or prove live permission readiness. Return to live data to inspect the account.",
+      "postBadge": "Synthetic evidence"
+    },
+    "loadFailed": "Content performance is unavailable",
+    "loadFailedBody": "We could not load the monitoring evidence. Your published content is unchanged; try again when the API is available.",
+    "retry": "Try again",
+    "capability": {
+      "ready": { "label": "Insights ready" },
+      "blocked": { "label": "Action needed" },
+      "unknown": { "label": "Status unavailable" }
+    },
+    "notices": {
+      "queued": "A refresh was queued. The evidence rail will update when Facebook returns a new observation.",
+      "notDue": "These collection windows are not due yet. The current evidence remains unchanged.",
+      "refreshFailed": "We could not request a refresh. The current evidence remains unchanged.",
+      "rateLimited": "Refresh was requested too recently. Wait a moment before trying again.",
+      "optimizationSaved": "Your Optimization decision was saved. The Strategy and weekly plan remain unchanged.",
+      "optimizationFailed": "We could not save that Optimization decision. The proposal remains unchanged."
+    },
+    "empty": {
+      "title": "No eligible Facebook posts yet",
+      "body": "This workspace only monitors real Facebook posts that MarketMind successfully published. Exported, simulated, or manually entered results do not appear here.",
+      "action": "Open publishing"
+    },
+    "baseline": {
+      "eyebrow": "Baseline readiness",
+      "title": "Enough evidence for comparison",
+      "count": "{observed} of {required}",
+      "progressLabel": "Completed seven-day snapshot progress",
+      "explanation": "A useful baseline needs three real MarketMind-published Facebook posts with completed 7-day snapshots. Missing values stay unavailable instead of becoming zero.",
+      "status": {
+        "ready": "Baseline ready",
+        "not_ready": "Collecting baseline"
+      },
+      "reason": {
+        "no_published_posts": "Publish a real Facebook post through MarketMind to begin collection.",
+        "insufficient_snapshots": "More time or more eligible posts are needed before comparison is reliable.",
+        "provider_unavailable": "Facebook did not provide all required observations. Reconnect or retry when prompted."
+      }
+    },
+    "connection": {
+      "eyebrow": "Collection access",
+      "title": "Facebook Insights",
+      "blockersLabel": "Actions needed for collection",
+      "viewAction": "View connection",
+      "reconnectAction": "Reconnect Facebook",
+      "status": {
+        "ready": {
+          "body": "The selected Facebook Page is connected and its Insights capability is ready for monitoring."
+        },
+        "blocked": {
+          "body": "Monitoring is blocked for this Page. Publishing readiness is separate; reconnect to restore Insights collection."
+        },
+        "unknown": {
+          "body": "The monitoring capability could not be confirmed. Open Connections to check the Page and permissions."
+        }
+      },
+      "blockers": {
+        "no_facebook_connection": "No Facebook Page is connected.",
+        "connection_expired": "The Facebook connection expired.",
+        "pages_read_engagement_permission_missing": "Page engagement permission is missing.",
+        "read_insights_permission_missing": "Facebook Insights permission is missing.",
+        "provider_unavailable": "Facebook is temporarily unavailable."
+      }
+    },
+    "post": {
+      "title": "Published Facebook post",
+      "realEvidence": "Real evidence",
+      "publishedAt": "Published {date}",
+      "refresh": "Request refresh",
+      "refreshing": "Requesting…"
+    },
+    "rail": {
+      "label": "Evidence collection timeline",
+      "stages": {
+        "published": { "label": "Published" },
+        "24h": { "label": "24 hours" },
+        "72h": { "label": "72 hours" },
+        "7d": { "label": "7 days" }
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "collecting": "Collecting",
+        "retrying": "Retrying",
+        "blocked": "Blocked",
+        "unavailable": "Unavailable",
+        "complete": "Complete"
+      }
+    },
+    "metrics": {
+      "title": "Observed metrics",
+      "caption": "Raw Facebook values by collection age",
+      "tableCaption": "Facebook metrics across observation windows",
+      "metric": "Metric",
+      "unavailable": "Unavailable",
+      "names": {
+        "post_media_view": "Media views",
+        "post_total_media_view_unique": "Unique media views",
+        "post_clicks": "Post clicks"
+      },
+      "reasons": {
+        "not_returned": "Facebook did not return this metric.",
+        "unsupported": "This metric is not supported for the post.",
+        "permission_denied": "Permission is required for this metric.",
+        "provider_error": "Facebook returned an error for this metric.",
+        "invalid_value": "The returned value was not usable.",
+        "not_yet_observed": "This collection window has not produced an observation yet."
+      }
+    },
+    "optimization": {
+      "eyebrow": "Owner-approved copy guidance",
+      "title": "Review one bounded improvement",
+      "subtitle": "Inspect the Facebook evidence, uncertainty, and exact wording cue before deciding. Approval can influence hook or CTA wording once during the current owner-planned Content week.",
+      "loading": "Loading Optimization proposals…",
+      "loadFailed": "Optimization proposals are unavailable",
+      "loadFailedBody": "The performance evidence is still safe. Try refreshing this view when the decision service is available.",
+      "format": "Eligible format",
+      "formats": {
+        "text_post": "Text post",
+        "static_image_post": "Static image post"
+      },
+      "states": {
+        "PENDING_OWNER_DECISION": "Needs your decision",
+        "APPROVED_PENDING_CONSUMPTION": "Approved · waiting for eligible week",
+        "DISMISSED": "Dismissed",
+        "CONSUMED": "Applied once",
+        "SUPERSEDED": "Superseded",
+        "EXPIRED": "Expired"
+      },
+      "evidenceTitle": "Deterministic evidence",
+      "evidenceTable": "Optimization evidence comparison",
+      "evidenceChecksum": "Evidence checksum: {checksum}",
+      "snapshotsTitle": "Supporting snapshots ({count})",
+      "metric": "Metric",
+      "baseline": "Baseline median",
+      "best": "Best observed",
+      "delta": "Difference",
+      "metrics": {
+        "post_media_view": "Media views",
+        "post_clicks": "Post clicks"
+      },
+      "notAvailable": "Unavailable",
+      "uncertaintyTitle": "Uncertainty",
+      "instructionTitle": "Exact wording cue",
+      "eligibleWeekTitle": "Eligible week",
+      "eligibleWeekBody": "Waiting for the current owner-planned Content week with a matching {format} card. Existing or planner-only weeks are never regenerated.",
+      "unchangedTitle": "What approval never changes",
+      "unchanged": {
+        "strategy": "Approved Strategy and version",
+        "topic": "Topic and weekly purpose",
+        "purpose": "Post purposes",
+        "audience": "Intended audiences",
+        "channel": "Channels",
+        "format": "Formats and post count",
+        "locale": "Language and locale",
+        "media": "Selected media and CTA destinations",
+        "post_count": "Number and order of cards",
+        "schedule": "Publishing windows",
+        "publishing": "Publishing approvals and schedule"
+      },
+      "approve": "Approve once",
+      "dismiss": "Dismiss",
+      "confirm": {
+        "approveTitle": "Approve this wording cue once?",
+        "approveBody": "This terminal decision makes the cue eligible for one future owner-planned week with the matching format.",
+        "dismissTitle": "Dismiss this proposal?",
+        "dismissBody": "Dismissal is terminal and cannot be changed later. This cue will never be applied to Content.",
+        "unchangedLabel": "Your approval will not change:",
+        "cancel": "Cancel",
+        "approveCta": "Confirm approval",
+        "dismissCta": "Confirm dismissal"
+      },
+      "saving": "Saving decision…",
+      "demoReadOnly": "Demo only: decisions are disabled and nothing can be applied to your account.",
+      "consumedBody": "This approved cue was consumed once in the frozen Content V2 input.",
+      "terminalBody": "This proposal has a terminal owner decision and cannot be changed."
+    }
   },
   "Admin": {
     "adminConsole": "Admin Console",

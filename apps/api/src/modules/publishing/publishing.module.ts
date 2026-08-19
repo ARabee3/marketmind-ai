@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { HttpModule } from "@nestjs/axios";
-import { ScheduleModule } from "@nestjs/schedule";
 
 import { PrismaModule } from "../../common/persistence/prisma.module";
 import { FacebookModule } from "../facebook/facebook.module";
@@ -69,7 +68,6 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     AssetStorageModule,
     HttpModule,
     FacebookModule,
-    ScheduleModule.forRoot(),
     BullModule.registerQueue({ name: "publishing-dispatch" }),
   ],
   controllers: [
@@ -124,6 +122,11 @@ import { InternalAuthGuard } from "./common/guards/internal-auth.guard";
     TargetsService,
     IntentsService,
     PUBLICATION_CANDIDATE_SINK,
+    // Performance synchronization reuses the same server-side Meta adapter
+    // and encrypted credential boundary as publishing. Neither provider
+    // service is exposed through an HTTP module export.
+    MetaGraphClient,
+    CredentialVaultService,
   ],
 })
 export class PublishingModule {}

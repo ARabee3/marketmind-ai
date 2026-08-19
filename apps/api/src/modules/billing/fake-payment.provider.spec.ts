@@ -18,6 +18,20 @@ describe("FakePaymentProvider", () => {
       paymentMode: "one_time_card",
       merchantReference: "attempt-1",
       idempotencyKey: "checkout-idempotency-1",
+      billingData: {
+        firstName: "MarketMind",
+        lastName: "Customer",
+        email: "billing@example.com",
+        phone: "01000000000",
+        apartment: "1",
+        building: "1",
+        floor: "1",
+        street: "N/A",
+        city: "Cairo",
+        country: "EG",
+        state: "Cairo",
+        postalCode: "11511",
+      },
       metadata: {},
     });
 

@@ -224,6 +224,7 @@ async def test_generation_repairs_schema_failure_once() -> None:
         provider,
         prompt,
         sleep=no_sleep,
+        max_attempts=2,
     )
 
     assert len(items) == 3
@@ -249,6 +250,7 @@ async def test_generation_repair_prompt_retains_prior_validation_failures() -> N
         provider,
         prompt,
         sleep=no_sleep,
+        max_attempts=3,
     )
 
     assert len(items) == 3
@@ -264,7 +266,9 @@ async def test_generation_schema_failure_becomes_stable_safe_failure() -> None:
     provider = SequenceProvider([[], [], []])
 
     with pytest.raises(ProviderError) as error:
-        await generate_content_pack_with_repair(provider, prompt, sleep=no_sleep)
+        await generate_content_pack_with_repair(
+            provider, prompt, sleep=no_sleep, max_attempts=3
+        )
 
     assert error.value.code == "CONTENT_SCHEMA_FAILURE"
     assert not error.value.retryable
@@ -279,7 +283,9 @@ async def test_repair_loop_logs_warn_per_attempt(caplog) -> None:
     provider = SequenceProvider([[], [], valid_items])
 
     with caplog.at_level(logging.WARNING, logger="app.content.service"):
-        await generate_content_pack_with_repair(provider, prompt, sleep=no_sleep)
+        await generate_content_pack_with_repair(
+            provider, prompt, sleep=no_sleep, max_attempts=3
+        )
 
     warn_records = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warn_records) >= 2
@@ -396,6 +402,7 @@ async def test_transient_provider_failure_retries_with_backoff() -> None:
         prompt,
         sleep=record_sleep,
         retry_delay_seconds=0.25,
+        max_attempts=3,
     )
 
     assert len(items) == 3
@@ -435,7 +442,9 @@ async def test_revision_returns_new_item_version_after_schema_repair() -> None:
     revised = base_item.model_copy(update={"version": 2})
     provider = SequenceProvider([[]], [ProviderError("CONTENT_SCHEMA_FAILURE", "bad", False), revised])
 
-    result = await revise_content_item_with_repair(provider, prompt, sleep=no_sleep)
+    result = await revise_content_item_with_repair(
+        provider, prompt, sleep=no_sleep, max_attempts=3
+    )
 
     assert result.version == 2
     assert provider.revision_calls == 2

@@ -423,4 +423,220 @@ describe("ContentCycleRepository", () => {
       });
     });
   });
+
+  describe("advanceToNextWeek (issue #240)", () => {
+    function makeRolloverTx(
+      overrides: {
+        cycle?: Record<string, unknown>;
+        advanceCount?: number;
+        existingContext?: Record<string, unknown> | null;
+      } = {},
+    ) {
+      const cycle = {
+        currentWeekNumber: 1,
+        status: "active",
+        contractVersion: "content-v2",
+        week1StartDate: new Date("2026-01-01T00:00:00Z"),
+        ...overrides.cycle,
+      };
+      const contextFindUnique = jest
+        .fn()
+        .mockResolvedValue(overrides.existingContext ?? null);
+      const contextCreate = jest
+        .fn()
+        .mockResolvedValue({ id: "week-context-2" });
+      const cycleUpdateMany = jest
+        .fn()
+        .mockResolvedValue({ count: overrides.advanceCount ?? 1 });
+      const tx = {
+        $queryRaw: jest.fn().mockResolvedValue([{ id: "cycle-1" }]),
+        contentCycle: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue(cycle),
+          updateMany: cycleUpdateMany,
+        },
+        contentWeekContext: {
+          findUnique: contextFindUnique,
+          create: contextCreate,
+        },
+      };
+      const $transaction = jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) => callback(tx),
+      );
+      return {
+        $transaction,
+        tx,
+        cycleUpdateMany,
+        contextFindUnique,
+        contextCreate,
+      };
+    }
+
+    it("advances the cursor from week 1 to week 2 and prepares the next week context", async () => {
+      const { $transaction, tx, contextCreate } = makeRolloverTx();
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: true,
+        completed: false,
+        nextWeekNumber: 2,
+      });
+      expect(tx.contentCycle.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "cycle-1",
+          currentWeekNumber: 1,
+          status: "active",
+        },
+        data: {
+          currentWeekNumber: 2,
+          nextGenerationAt: expect.any(Date),
+        },
+      });
+      // The structural week-2 context row is created so the owner can plan.
+      expect(contextCreate).toHaveBeenCalledTimes(1);
+      const created = contextCreate.mock.calls[0][0].data;
+      expect(created.weekNumber).toBe(2);
+      expect(created.contextSource).toBe("system_defaulted");
+      expect(created.promotionMode).toBe("none");
+    });
+
+    it("does not create a duplicate week context when one already exists", async () => {
+      const { $transaction, contextCreate } = makeRolloverTx({
+        existingContext: { id: "existing-week-2", weekNumber: 2 },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result.advanced).toBe(true);
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+
+    it("reports advanced=false when a concurrent tick already advanced the cursor", async () => {
+      const { $transaction, contextCreate } = makeRolloverTx({
+        advanceCount: 0,
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: false,
+        nextWeekNumber: null,
+      });
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+
+    it("completes a cycle that has reached week 12 instead of advancing", async () => {
+      const { $transaction, tx, contextCreate } = makeRolloverTx({
+        cycle: { currentWeekNumber: 12 },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 12);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: true,
+        nextWeekNumber: null,
+      });
+      // The completion updateMany is the first call; the advance updateMany
+      // is never reached.
+      expect(tx.contentCycle.updateMany).toHaveBeenCalledTimes(1);
+      expect(tx.contentCycle.updateMany).toHaveBeenCalledWith({
+        where: { id: "cycle-1", status: "active" },
+        data: { status: "completed", completedAt: expect.any(Date) },
+      });
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+
+    it("is a no-op for a paused cycle", async () => {
+      const { $transaction, contextCreate } = makeRolloverTx({
+        cycle: { status: "paused" },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: false,
+        nextWeekNumber: null,
+      });
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+
+    it("is a no-op for a legacy content-v1 cycle", async () => {
+      const { $transaction, contextCreate } = makeRolloverTx({
+        cycle: { contractVersion: "content-v1" },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: false,
+        nextWeekNumber: null,
+      });
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+
+    it("regression: a Week 1 cycle past cutoff advances to Week 2 without generating a pack", async () => {
+      const { $transaction, contextCreate } = makeRolloverTx({
+        cycle: {
+          currentWeekNumber: 1,
+          status: "active",
+          contractVersion: "content-v2",
+        },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result.advanced).toBe(true);
+      expect(result.nextWeekNumber).toBe(2);
+      // The rollover creates only the structural context row; it never
+      // creates a content pack or queues a generation job.
+      expect(contextCreate).toHaveBeenCalledTimes(1);
+      const created = contextCreate.mock.calls[0][0].data;
+      expect(created.weekNumber).toBe(2);
+      expect(created.contextSource).toBe("system_defaulted");
+    });
+
+    it("does not advance again when a concurrent tick's snapshot is stale", async () => {
+      const { $transaction, tx, contextCreate } = makeRolloverTx({
+        cycle: { currentWeekNumber: 2 },
+      });
+      const repo = new ContentCycleRepository({
+        $transaction,
+      } as unknown as PrismaService);
+
+      const result = await repo.advanceToNextWeek("cycle-1", 1);
+
+      expect(result).toEqual({
+        advanced: false,
+        completed: false,
+        nextWeekNumber: null,
+      });
+      expect(tx.contentCycle.updateMany).not.toHaveBeenCalled();
+      expect(contextCreate).not.toHaveBeenCalled();
+    });
+  });
 });

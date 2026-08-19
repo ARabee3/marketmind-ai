@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.cjs",
-    "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:orchestration && npm run check:policy && npm run check:content-examples && npm run check:content-policy && npm run check:publication-candidate && npm run check:publishing && npm run check:consumers && npm run check:meta-connection && npm run check:snapshot && npm run check:python && npm run check:content-python && npm run check:content-v2-python",
+    "check": "npm run typecheck && node scripts/validate-examples.mjs && npm run check:performance && npm run check:orchestration && npm run check:policy && npm run check:content-examples && npm run check:content-policy && npm run check:publication-candidate && npm run check:publishing && npm run check:consumers && npm run check:meta-connection && npm run check:snapshot && npm run check:python && npm run check:content-python && npm run check:content-v2-python && npm run check:performance-python",
+    "check:performance": "tsx scripts/validate-performance-contracts.ts",
     "check:orchestration": "tsx scripts/test-orchestration-lifecycle.ts && node scripts/validate-orchestration-examples.mjs && uv run --project ../../services/ai python python/test_orchestration_contracts.py",
     "check:content-examples": "node scripts/validate-content-examples.mjs",
     "check:content-policy": "tsx scripts/validate-content-policy.ts",
@@ -19,6 +20,7 @@
     "check:python": "uv run --project ../../services/ai python python/test_strategy_contracts.py",
     "check:content-python": "uv run --project ../../services/ai python python/test_content_contracts.py",
     "check:content-v2-python": "uv run --project ../../services/ai python python/test_content_v2_contracts.py",
+    "check:performance-python": "uv run --project ../../services/ai python python/test_performance_contracts.py",
     "typecheck": "tsc --project tsconfig.json",
     "check:meta-connection": "tsx scripts/validate-meta-connection.ts"
   },

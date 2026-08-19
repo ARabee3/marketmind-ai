@@ -196,6 +196,31 @@ function expectV2Code(
   );
 }
 
+const explicitArabicExecutionPlan = clone(v2Plan) as unknown as StrategyPlanV2;
+explicitArabicExecutionPlan.evidence_summary.text =
+  "تم نشر الإعلان أمس وحقق نتائج جيدة.";
+expectV2Code("STRATEGY_RULE_VIOLATION", {
+  plan: explicitArabicExecutionPlan,
+});
+
+const safeArabicPlanningPlan = clone(v2Plan) as unknown as StrategyPlanV2;
+safeArabicPlanningPlan.evidence_summary.text =
+  "تعتمد الخطة على بيانات الملف لتقييم الإعلان المقترح.";
+const safeArabicPlanningResult = validateStrategyV2Bundle({
+  business_profile: v2Profile(),
+  brief: v2Brief,
+  retrieval_pack: retrievalPack,
+  plan: safeArabicPlanningPlan,
+});
+assert(
+  !safeArabicPlanningResult.issues.some(
+    (issue) =>
+      issue.code === "STRATEGY_RULE_VIOLATION" &&
+      issue.message.includes("publishing"),
+  ),
+  `safe Arabic planning text was rejected: ${JSON.stringify(safeArabicPlanningResult.issues)}`,
+);
+
 // The v2 plan must commit to exactly the owner's choices.
 const extraChannelPlan = clone(v2Plan) as unknown as StrategyPlanV2;
 extraChannelPlan.channel_commitments = [

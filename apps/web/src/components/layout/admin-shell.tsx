@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname } from "@/i18n/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { BrandLockup } from "@/components/brand/brand-lockup"
 import { LogoutButton } from "@/features/auth/logout-button"
 import { useSession } from "@/features/auth/session-provider"
 import { cn } from "@/lib/utils"
@@ -79,15 +80,20 @@ export function AdminShell({
             )}
             aria-label={brandName}
           >
-            <BrandLogoMark />
-            <span className={cn("min-w-0", sidebarCollapsed && "sr-only")}>
-              <span className="block truncate text-base font-bold tracking-tight">
-                {brandName}
+            {sidebarCollapsed ? (
+              <BrandLogoMark />
+            ) : (
+              <span className="min-w-0">
+                <BrandLockup
+                  label={brandName}
+                  markClassName="size-9"
+                  wordmarkClassName="text-base"
+                />
+                <span className="block truncate ps-10 text-xs text-muted-foreground">
+                  {tc("tagline")}
+                </span>
               </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {tc("tagline")}
-              </span>
-            </span>
+            )}
           </Link>
           <button
             type="button"
@@ -149,10 +155,11 @@ export function AdminShell({
           className="flex min-w-0 items-center gap-2 rounded text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
           aria-label={brandName}
         >
-          <BrandLogoMark className="size-9" />
-          <span className="hidden truncate text-base font-bold min-[360px]:inline">
-            {brandName}
-          </span>
+          <BrandLockup
+            label={brandName}
+            markClassName="size-7"
+            wordmarkClassName="text-sm"
+          />
         </Link>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />

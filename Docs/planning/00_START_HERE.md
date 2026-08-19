@@ -37,8 +37,10 @@ The MVP should feel like a real product, even if some external integrations use 
   week's draft is prepared by the end of the current week.
 - Human approval before publishing.
 - Manual export or clearly labeled simulation when real publishing is unavailable.
-- Basic analytics or clearly labeled scenario data.
-- Improvement proposal for future content.
+- Facebook-only automatic performance monitoring for real posts published by
+  MarketMind; test fixtures never appear as live analytics.
+- An evidence-backed hook/CTA improvement proposal after enough comparable
+  seven-day data, with owner approval before one future draft is influenced.
 
 ## What is not included now
 
@@ -78,6 +80,10 @@ Recommended order:
     pricing, Egypt-friendly gateway, billing-lifecycle, and implementation plan.
 15. Use `09_RAG_CHECKLIST_CLOSEOUT_IMPLEMENTATION_PLAN.md` for the focused
     MMR, retrieval-evaluation, and truthful RAG-readiness closeout.
+16. Use
+    `sprint-8/FACEBOOK_PERFORMANCE_AND_OPTIMIZATION_ARCHITECTURE.md` and
+    `sprint-8/FACEBOOK_PERFORMANCE_IMPLEMENTATION_ISSUES.md` for the
+    Facebook-only monitoring and owner-approved Optimization vertical slice.
 
 ## Important team rule
 

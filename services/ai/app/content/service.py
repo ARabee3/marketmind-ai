@@ -28,7 +28,11 @@ from app.content.validators import (
 )
 
 
-MAX_CONTENT_ATTEMPTS = 3
+# End-to-end retry budget: the NestJS BullMQ job retries the whole request up
+# to 3 times, so the service itself must not add a second multiplier on top
+# (3x3 would hit the provider up to 9 times per logical artifact). One
+# bounded attempt-set means at most 3 provider calls total.
+MAX_CONTENT_ATTEMPTS = 1
 logger = logging.getLogger(__name__)
 _SCHEMA_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",

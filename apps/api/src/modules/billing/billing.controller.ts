@@ -15,13 +15,9 @@ import { Throttle } from "@nestjs/throttler";
 import { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
-import type {
-  BillingCheckoutRequest,
-  BillingSubscriptionResponse,
-} from "@marketmind/contracts";
+import type { BillingCheckoutRequest } from "@marketmind/contracts";
 import { BillingService } from "./billing.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
-import { SubscriptionNoteDto } from "./dto/subscription-note.dto";
 import { SandboxConfirmationDto } from "./dto/sandbox-confirmation.dto";
 
 type RequestWithUser = Request & { user: AuthenticatedUser };
@@ -31,21 +27,21 @@ type WebhookRequest = Request & { rawBody?: Buffer };
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
-  @Get("prices")
-  getPrices() {
-    return this.billingService.getPrices();
+  @Get("bundles")
+  getBundles() {
+    return this.billingService.getBundles();
   }
 
-  @Get("subscription")
+  @Get("wallet")
   @UseGuards(JwtAuthGuard)
-  getSubscription(@Req() req: RequestWithUser) {
-    return this.billingService.getSubscription(req.user.id);
+  getWallet(@Req() req: RequestWithUser) {
+    return this.billingService.getWallet(req.user.id);
   }
 
-  @Get("usage")
+  @Get("wallet/ledger")
   @UseGuards(JwtAuthGuard)
-  getUsage(@Req() req: RequestWithUser) {
-    return this.billingService.getUsage(req.user.id);
+  getWalletLedger(@Req() req: RequestWithUser) {
+    return this.billingService.getLedger(req.user.id);
   }
 
   @Get("transactions")
@@ -64,48 +60,11 @@ export class BillingController {
     @Headers("idempotency-key") headerIdempotencyKey?: string,
   ) {
     const input: BillingCheckoutRequest = {
-      price_code: dto.price_code,
+      bundle_code: dto.bundle_code,
       payment_mode: dto.payment_mode,
       idempotency_key: headerIdempotencyKey ?? dto.idempotency_key,
     };
     return this.billingService.createCheckout(req.user.id, input);
-  }
-
-  @Post("manual-renewal")
-  @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @HttpCode(HttpStatus.CREATED)
-  manualRenewal(
-    @Req() req: RequestWithUser,
-    @Body() dto: CreateCheckoutDto,
-    @Headers("idempotency-key") headerIdempotencyKey?: string,
-  ) {
-    const input: BillingCheckoutRequest = {
-      price_code: dto.price_code,
-      payment_mode:
-        dto.payment_mode === "recurring_card"
-          ? "one_time_card"
-          : dto.payment_mode,
-      idempotency_key: headerIdempotencyKey ?? dto.idempotency_key,
-    };
-    return this.billingService.createCheckout(req.user.id, input);
-  }
-
-  @Post("subscription/cancel")
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  cancelSubscription(
-    @Req() req: RequestWithUser,
-    @Body() _dto: SubscriptionNoteDto,
-  ): Promise<BillingSubscriptionResponse> {
-    return this.billingService.cancelSubscription(req.user.id);
-  }
-
-  @Post("subscription/resume")
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  resumeSubscription(@Req() req: RequestWithUser) {
-    return this.billingService.resumeSubscription(req.user.id);
   }
 
   @Post("sandbox/confirm")

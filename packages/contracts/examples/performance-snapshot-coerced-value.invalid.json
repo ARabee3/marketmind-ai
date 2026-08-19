@@ -1,0 +1,33 @@
+{
+  "contract_version": "performance-v1",
+  "snapshot_id": "a1000000-0000-4000-8000-000000000001",
+  "business_id": "a1000000-0000-4000-8000-000000000002",
+  "publishing_result_id": "a1000000-0000-4000-8000-000000000003",
+  "publishing_attempt_id": "a1000000-0000-4000-8000-000000000004",
+  "publication_intent_id": "a1000000-0000-4000-8000-000000000005",
+  "candidate_id": "a1000000-0000-4000-8000-000000000006",
+  "candidate_checksum": "b7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+  "provider": "facebook",
+  "provider_object_id": "page-123_post-456",
+  "window": "24h",
+  "published_at": "2026-08-18T08:00:00Z",
+  "due_at": "2026-08-19T08:00:00Z",
+  "observed_at": "2026-08-19T07:59:58Z",
+  "fetched_at": "2026-08-19T08:01:12Z",
+  "graph_version": "v21.0",
+  "metric_schema_version": "facebook-insights-v1",
+  "metrics": {
+    "post_media_view": { "status": "available", "value": "0" },
+    "post_total_media_view_unique": {
+      "status": "unavailable",
+      "reason": "not_returned"
+    },
+    "post_clicks": { "status": "available", "value": 14 }
+  },
+  "provider_metadata": {
+    "source": "meta_insights",
+    "response_metric_count": 2,
+    "response_periods": ["lifetime"]
+  },
+  "created_at": "2026-08-19T08:01:12Z"
+}

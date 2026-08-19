@@ -16,8 +16,9 @@ Use this file before coding, before reviews, and before the final demo.
 | BusinessProfile | Confirmed business information | ملف البيزنس |
 | StrategyPlan | Marketing plan | خطة التسويق |
 | ContentPack | Generated posts/scripts/assets | حزمة المحتوى |
-| MetricSnapshot | Saved performance numbers | لقطة أداء |
-| OptimizationProposal | Suggested future improvement | اقتراح تحسين |
+| MetricSnapshot | Immutable same-age Facebook performance evidence | لقطة أداء ثابتة |
+| OptimizationProposal | Evidence-backed hook/CTA suggestion awaiting owner decision | اقتراح تحسين يحتاج موافقة |
+| ApprovedOptimizationInstruction | One approved copywriting hint for one future draft | توجيه كتابة معتمد لمسودة واحدة |
 | Simulation | Demo fallback, not real data/action | محاكاة للديمو |
 
 ## Before coding checklist
@@ -46,10 +47,10 @@ Use this file before coding, before reviews, and before the final demo.
 
 ## Before demo checklist
 
-- [ ] Demo journey works from discovery to optimization.
+- [ ] Demo journey works from discovery to real Facebook monitoring; Optimization is shown only when enough real evidence exists.
 - [ ] Arabic and English examples are ready.
 - [ ] Citations are visible where market claims appear.
-- [ ] Simulation data is clearly labeled.
+- [ ] Publishing simulation is clearly labeled and no fixture metric is shown as live analytics.
 - [ ] Manual export works if publishing integration fails.
 - [ ] No AI action publishes without approval.
 - [ ] The team can explain what each agent does.
@@ -74,9 +75,10 @@ If Discovery starts creating strategy, the design is wrong.
 
 Publishing, strategy changes, and future pivots need explicit human approval.
 
-### Mistake 4 — Hiding simulation
+### Mistake 4 — Hiding simulation or fixture data
 
-If analytics or publishing is simulated, label it clearly.
+Publishing simulation must be labeled. Performance fixtures belong in automated
+tests and must never appear as live Facebook analytics.
 
 ### Mistake 5 — Inventing research
 

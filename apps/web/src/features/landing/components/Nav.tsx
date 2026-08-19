@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { MenuIcon, XIcon } from 'lucide-react'
+import { BrandLockup } from '@/components/brand/brand-lockup'
+import { useSession } from '@/features/auth/session-provider'
 import { Link } from '@/i18n/navigation'
+import { cn } from '@/lib/utils'
 import { inertOutside } from '@/lib/a11y/inert-outside'
 import { EASE, useReducedMotion } from '../lib/motion'
 
@@ -20,10 +23,12 @@ function getFocusable(root: HTMLElement | null): HTMLElement[] {
 
 export function Nav() {
   const t = useTranslations('Landing.nav')
+  const common = useTranslations('Common')
   const locale = useLocale()
   const isRtl = locale === 'ar'
   const targetLocale = isRtl ? 'en' : 'ar'
   const links = t.raw('links') as NavLink[]
+  const { isAuthenticated } = useSession()
 
   const reduced = useReducedMotion()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -86,25 +91,29 @@ export function Nav() {
   // is the left in LTR and the right in RTL.
   const slideFrom = isRtl ? '100%' : '-100%'
 
+  const primaryHref = isAuthenticated ? '/dashboard' : '/register'
+  const primaryLabel = isAuthenticated ? t('continueWork') : t('signup')
+
   return (
     <motion.header
-      initial={reduced ? false : { y: -32, opacity: 0 }}
+      initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: EASE.decel }}
       className="fixed inset-x-0 top-3 z-50 flex justify-center px-3 sm:top-4 sm:px-4"
     >
       <nav
         aria-label={t('aria')}
-        className={`mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface px-2 py-2 text-navy transition-shadow duration-200 ${scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header'}`}
+        className={cn(
+          'mobile-drawer-nav relative z-20 flex w-full max-w-[920px] items-center justify-between gap-3 rounded-full border border-border/80 bg-surface px-2 py-2 text-navy transition-shadow duration-200',
+          scrolled ? 'shadow-[0_8px_24px_rgb(16_42_67_/_12%)]' : 'shadow-header',
+        )}
       >
         <a
           href="#top"
-          translate="no"
           onClick={() => setDrawerOpen(false)}
-          className="flex items-center gap-2 rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-action"
+          className="flex items-center rounded-full ps-3.5 pe-2.5 py-1 transition-opacity hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
-          <span className="h-3 w-3 rounded-full border-[3px] border-soft-teal bg-primary" aria-hidden />
-          <span className="font-latin text-[17px] font-bold text-navy">MarketMind</span>
+          <BrandLockup label={common('appName')} markClassName="size-7" />
         </a>
 
         <ul className="hidden flex-1 items-center justify-center gap-[5px] md:flex">
@@ -135,10 +144,10 @@ export function Nav() {
             {t('login')}
           </Link>
           <Link
-            href="/register"
+            href={primaryHref}
             className="cta-solid cta-solid--nav px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
-            {t('signup')}
+            {primaryLabel}
           </Link>
         </div>
 
@@ -148,7 +157,7 @@ export function Nav() {
           aria-expanded={drawerOpen}
           aria-label={drawerOpen ? t('closeMenu') : t('openMenu')}
           onClick={() => setDrawerOpen((open) => !open)}
-          className="grid h-11 w-11 place-items-center rounded-full bg-primary text-white shadow-[0_5px_0_var(--navy)] ring-1 ring-navy/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-action md:hidden"
+          className="grid h-11 w-11 place-items-center rounded-full bg-primary text-white ring-1 ring-navy/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-action md:hidden"
         >
           {drawerOpen ? <XIcon className="h-6 w-6" aria-hidden /> : <MenuIcon className="h-6 w-6" aria-hidden />}
         </button>
@@ -162,9 +171,15 @@ export function Nav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE.micro }}
-            className="fixed inset-0 z-10 bg-navy/45 md:hidden"
-            onClick={() => setDrawerOpen(false)}
+            className="fixed inset-0 z-10 md:hidden"
           >
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={t('closeMenu')}
+              onClick={() => setDrawerOpen(false)}
+              className="absolute inset-0 cursor-default bg-navy/45"
+            />
             <motion.div
               ref={drawerRef}
               role="dialog"
@@ -175,7 +190,6 @@ export function Nav() {
               exit={reduced ? { opacity: 0 } : { opacity: 0, x: slideFrom }}
               transition={{ duration: 0.24, ease: EASE.decel }}
               className="mobile-drawer-panel fixed inset-y-0 start-0 w-[min(82vw,336px)] overscroll-contain border-e border-border bg-surface px-8 pb-8 pt-28 text-navy shadow-elevated"
-              onClick={(event) => event.stopPropagation()}
             >
               <ul className="space-y-0 text-start">
                 {links.map((link) => (
@@ -192,11 +206,11 @@ export function Nav() {
               </ul>
               <div className="mt-7 grid gap-3">
                 <Link
-                  href="/register"
+                  href={primaryHref}
                   onClick={() => setDrawerOpen(false)}
                   className="cta-solid min-h-[42px] px-4 py-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
-                  {t('signup')}
+                  {primaryLabel}
                 </Link>
                 <Link
                   href="/login"

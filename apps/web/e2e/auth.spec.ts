@@ -54,7 +54,9 @@ for (const locale of locales) {
 
     test('logs in and redirects to dashboard', async ({ page }) => {
       await mockAuthLogin(page)
-      await mockAuthRefresh(page)
+      // Unauthenticated start so the guest-only login page renders the form;
+      // an active-session stub would redirect away to the dashboard instead.
+      await mockAuthRefresh(page, null)
       await mockAuthMe(page)
       await page.goto(`/${locale}/login`)
 

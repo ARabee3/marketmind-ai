@@ -1,0 +1,45 @@
+{
+  "contract_version": "performance-v1",
+  "business_id": "a1000000-0000-4000-8000-000000000002",
+  "provider": "facebook",
+  "generated_at": "2026-08-19T08:02:00Z",
+  "posts": [
+    {
+      "contract_version": "performance-v1",
+      "business_id": "a1000000-0000-4000-8000-000000000002",
+      "candidate_id": "a1000000-0000-4000-8000-000000000006",
+      "publishing_result_id": "a1000000-0000-4000-8000-000000000003",
+      "provider": "facebook",
+      "provider_object_id": "page-123_post-456",
+      "published_at": "2026-08-18T08:00:00Z",
+      "snapshots": [
+        {
+          "contract_version": "performance-v1",
+          "snapshot_id": "a1000000-0000-4000-8000-000000000001",
+          "business_id": "a1000000-0000-4000-8000-000000000002",
+          "publishing_result_id": "a1000000-0000-4000-8000-000000000003",
+          "provider": "facebook",
+          "provider_object_id": "page-123_post-456",
+          "window": "24h",
+          "published_at": "2026-08-18T08:00:00Z",
+          "observed_at": "2026-08-19T07:59:58Z",
+          "fetched_at": "2026-08-19T08:01:12Z",
+          "metrics": {
+            "post_media_view": { "status": "available", "value": 0 },
+            "post_total_media_view_unique": {
+              "status": "unavailable",
+              "reason": "not_returned"
+            },
+            "post_clicks": { "status": "available", "value": 14 }
+          }
+        }
+      ]
+    }
+  ],
+  "baseline": {
+    "status": "not_ready",
+    "observed_snapshot_count": 1,
+    "required_snapshot_count": 2,
+    "reason": "insufficient_snapshots"
+  }
+}

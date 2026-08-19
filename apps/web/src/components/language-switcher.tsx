@@ -25,7 +25,7 @@ export function LanguageSwitcher() {
       <button
         type="button"
         onClick={() => switchLocale(otherLocale)}
-        className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-background hover:border-primary/40 hover:text-primary"
+        className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-background hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
         aria-label={`${t('language')}: ${label}`}
       >
         <LanguageIcon dir={locale === 'ar' ? 'rtl' : 'ltr'} />

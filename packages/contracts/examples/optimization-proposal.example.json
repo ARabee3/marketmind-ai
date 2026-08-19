@@ -1,0 +1,47 @@
+{
+  "contract_version": "optimization-v1",
+  "proposal_id": "a1000000-0000-4000-8000-000000000010",
+  "business_id": "a1000000-0000-4000-8000-000000000002",
+  "strategy_id": "a1000000-0000-4000-8000-000000000011",
+  "strategy_version": 2,
+  "content_cycle_id": "a1000000-0000-4000-8000-000000000012",
+  "format_cohort": "text_post",
+  "basis_snapshot_ids": [
+    "a1000000-0000-4000-8000-000000000001",
+    "a1000000-0000-4000-8000-000000000013",
+    "a1000000-0000-4000-8000-000000000014"
+  ],
+  "evidence_checksum": "b7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+  "deterministic_comparison": [
+    {
+      "metric": "post_media_view",
+      "baseline_median": 100,
+      "values": [80, 100, 140],
+      "best_snapshot_id": "a1000000-0000-4000-8000-000000000014",
+      "best_value": 140,
+      "delta_from_median": 40,
+      "delta_percent": 40,
+      "direction": "higher_is_better"
+    },
+    {
+      "metric": "post_clicks",
+      "baseline_median": 10,
+      "values": [8, 10, 13],
+      "best_snapshot_id": "a1000000-0000-4000-8000-000000000014",
+      "best_value": 13,
+      "delta_from_median": 3,
+      "delta_percent": 30,
+      "direction": "higher_is_better"
+    }
+  ],
+  "change_kind": "hook_style",
+  "summary": "Lead with a concrete customer moment before the offer.",
+  "rationale": "The strongest observed 7-day post used a direct situation-led opening in this small text-post cohort.",
+  "uncertainty": "This is an observed association across three posts, not a causal or universal rule.",
+  "instruction": "For one future text post, try a specific customer situation in the first sentence while keeping the approved topic and audience unchanged.",
+  "model_version": "mock-optimization-model",
+  "prompt_version": "optimization-prompt-v1",
+  "generation_fingerprint": "c7c2f8f7602d3e89f5be2ee0f2a277df0dd90b9ad4b6fb79f2e8f6dba6f7b1b0",
+  "status": "PENDING_OWNER_DECISION",
+  "created_at": "2026-08-20T08:01:12Z"
+}

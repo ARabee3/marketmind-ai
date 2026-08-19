@@ -193,8 +193,8 @@ Suggest better future content based on performance.
 Input:
 
 - approved strategy
-- published/exported content history
-- metric snapshots
+- real MarketMind-published Facebook content history
+- immutable, same-age Facebook metric snapshots
 
 Output:
 
@@ -203,20 +203,28 @@ Output:
 Allowed:
 
 - compare expected vs actual performance
-- suggest changes to future drafts
+- suggest a hook-style or CTA-wording change to one eligible future draft
 - explain evidence behind each recommendation
 - mark weak data as uncertain
 
 Forbidden:
 
 - rewrite approved past content
-- change future strategy without approval
+- change the approved Strategy or weekly plan
+- change topic, audience, channel, format, locale, media, post count, or schedule
+- call Meta, calculate provider metrics, approve itself, or trigger Content generation
 - pretend simulation data is real
 - overreact to one weak metric
 
 Approval point:
 
-Owner approves any pivot before future drafts change.
+Owner approves or dismisses the exact proposal. Approval creates a one-time
+copywriting instruction that normal Content V2 generation may consume; it does
+not create, plan, regenerate, approve, schedule, or publish a week.
+
+Detailed architecture:
+
+`sprint-8/FACEBOOK_PERFORMANCE_AND_OPTIMIZATION_ARCHITECTURE.md`
 
 ## Publishing Service, not Publishing Agent
 

@@ -129,6 +129,39 @@ export const PUBLISHING_TARGET_FIXTURES: readonly PublishingTargetPublicV1[] = [
   },
 ];
 
+/**
+ * Future-dated schedule pair for fixtures. The owner approval dialog refuses
+ * past dates (`new Date(scheduled_utc) <= Date.now()`), so fixed calendar
+ * dates rot the fixtures as time passes. `scheduled_local` is the same
+ * instant formatted in the fixture's Africa/Cairo time zone.
+ */
+export function futureSchedulePair(hoursAhead = 2): {
+  scheduled_local: string
+  scheduled_utc: string
+} {
+  const utc = new Date(Date.now() + hoursAhead * 3_600_000)
+  utc.setSeconds(0, 0)
+  utc.setMilliseconds(0)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(utc)
+  const get = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return {
+    scheduled_local: `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`,
+    scheduled_utc: utc.toISOString(),
+  }
+}
+
+const FUTURE_SCHEDULE = futureSchedulePair()
+
 export const PUBLISHING_INTENT_FIXTURE: PublicationIntentV1 = {
   contract_version: "publication-intent-v1",
   intent_id: "13131313-1313-4131-8131-131313131313",
@@ -139,11 +172,11 @@ export const PUBLISHING_INTENT_FIXTURE: PublicationIntentV1 = {
     "c5c1c475672658d5f3760f54b2969428544ca3bcf619c8c998a922485b3b3554",
   mode: "real",
   target_id: "12121212-1212-4121-8121-121212121212",
-  scheduled_local: "2026-08-10T18:30:00",
+  scheduled_local: FUTURE_SCHEDULE.scheduled_local,
   time_zone: "Africa/Cairo",
-  scheduled_utc: "2026-08-10T15:30:00Z",
+  scheduled_utc: FUTURE_SCHEDULE.scheduled_utc,
   state: "scheduled",
-  approved_decision_id: "14141414-1414-4141-8141-141414141414",
+  approved_decision_id: "14141414-1414-8141-141414141414",
   created_by_user_id: OWNER_ID,
   created_at: "2026-08-02T11:30:00Z",
   updated_at: "2026-08-02T12:00:00Z",

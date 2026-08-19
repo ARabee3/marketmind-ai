@@ -14,37 +14,74 @@ import {
 
 export const PAYMOB_PAYMENT_PROVIDER = "paymob";
 
-const PAYMOB_HMAC_FIELDS = [
-  "amount",
-  "created_at",
-  "currency",
-  "error_occured",
-  "has_parent_transaction",
-  "id",
-  "integration_id",
-  "is_3d_secure",
-  "is_auth",
-  "is_capture",
-  "is_refunded",
-  "is_standalone_payment",
-  "is_voided",
-  "order",
-  "owner",
-  "pending",
-  "source_data_pan",
-  "source_data_sub_type",
-  "source_data_type",
-  "success",
-] as const;
+/**
+ * The 20 transaction fields Paymob includes in webhook HMAC validation,
+ * sorted lexicographically by field name (verified against real callbacks:
+ * `is_refund` is NOT part of the HMAC, `success` IS the final field). The
+ * canonical string concatenates the field values in this order (no
+ * separators), hashed with HMAC-SHA512 and the merchant HMAC secret. Note
+ * `error_occured` (one "r") is Paymob's own spelling and `order.id` /
+ * `source_data.*` are nested values.
+ */
+const PAYMOB_HMAC_FIELDS: ReadonlyArray<{
+  readonly name: string;
+  readonly value: (transaction: Record<string, unknown>) => unknown;
+}> = [
+  { name: "amount_cents", value: (t) => t.amount_cents },
+  { name: "created_at", value: (t) => t.created_at },
+  { name: "currency", value: (t) => t.currency },
+  { name: "error_occured", value: (t) => t.error_occured },
+  { name: "has_parent_transaction", value: (t) => t.has_parent_transaction },
+  { name: "id", value: (t) => t.id },
+  { name: "integration_id", value: (t) => t.integration_id },
+  { name: "is_3d_secure", value: (t) => t.is_3d_secure },
+  { name: "is_auth", value: (t) => t.is_auth },
+  { name: "is_capture", value: (t) => t.is_capture },
+  { name: "is_refunded", value: (t) => t.is_refunded },
+  { name: "is_standalone_payment", value: (t) => t.is_standalone_payment },
+  { name: "is_voided", value: (t) => t.is_voided },
+  {
+    name: "order.id",
+    value: (t) =>
+      t.order && typeof t.order === "object"
+        ? (t.order as Record<string, unknown>).id
+        : undefined,
+  },
+  { name: "owner", value: (t) => t.owner },
+  { name: "pending", value: (t) => t.pending },
+  {
+    name: "source_data.pan",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).pan
+        : undefined,
+  },
+  {
+    name: "source_data.sub_type",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).sub_type
+        : undefined,
+  },
+  {
+    name: "source_data.type",
+    value: (t) =>
+      t.source_data && typeof t.source_data === "object"
+        ? (t.source_data as Record<string, unknown>).type
+        : undefined,
+  },
+  { name: "success", value: (t) => t.success },
+];
 
 type PaymobConfig = {
   readonly baseUrl: string;
-  readonly apiKey: string;
+  readonly secretKey: string;
   readonly publicKey: string;
   readonly integrationIds: readonly number[];
   readonly hmacSecret: string;
   readonly timeoutMs: number;
   readonly sandbox: boolean;
+  readonly webOrigin: string;
 };
 
 type PaymobTransactionPayload = {
@@ -73,7 +110,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
         configService.get<string>("billing.paymob.baseUrl") ??
           "https://accept.paymob.com",
       ),
-      apiKey: configService.get<string>("billing.paymob.apiKey") ?? "",
+      secretKey: configService.get<string>("billing.paymob.secretKey") ?? "",
       publicKey: configService.get<string>("billing.paymob.publicKey") ?? "",
       integrationIds: configuredIds
         .map((value) => Number(value))
@@ -82,6 +119,8 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       timeoutMs:
         configService.get<number>("billing.paymob.timeoutMs") ?? 15000,
       sandbox: configService.get<boolean>("billing.paymob.sandbox") ?? false,
+      webOrigin:
+        configService.get<string>("cors.origin") ?? "http://localhost:3000",
     };
   }
 
@@ -104,7 +143,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       {
         method: "POST",
         headers: {
-          Authorization: `Token ${this.config.apiKey}`,
+          Authorization: `Token ${this.config.secretKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -112,6 +151,24 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
           currency: input.currency,
           payment_methods: this.config.integrationIds,
           special_reference: input.merchantReference,
+          // The hosted checkout returns the owner to the billing page after
+          // payment; the web proxy negotiates the locale from the cookie. The
+          // points themselves are granted by the verified webhook.
+          redirect_url: `${this.config.webOrigin}/billing`,
+          billing_data: {
+            first_name: input.billingData.firstName,
+            last_name: input.billingData.lastName,
+            email: input.billingData.email,
+            phone_number: input.billingData.phone,
+            apartment: input.billingData.apartment,
+            building: input.billingData.building,
+            floor: input.billingData.floor,
+            street: input.billingData.street,
+            city: input.billingData.city,
+            country: input.billingData.country,
+            state: input.billingData.state,
+            postal_code: input.billingData.postalCode,
+          },
           items: [
             {
               name: "MarketMind Growth",
@@ -122,7 +179,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
           ],
           extras: {
             marketmind_billing_account_id: input.metadata.billing_account_id,
-            marketmind_price_code: input.metadata.price_code,
+            marketmind_bundle_code: input.metadata.bundle_code,
             marketmind_idempotency_key: input.idempotencyKey,
           },
         }),
@@ -155,7 +212,7 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
       throw new BillingProviderSignatureError();
     }
 
-    const amountMinor = readInteger(transaction.amount, "amount");
+    const amountMinor = readInteger(transaction.amount_cents, "amount_cents");
     const amountEgp = amountMinor / 100;
     const currency = readString(transaction.currency, "currency").toUpperCase();
     if (currency !== "EGP" || !Number.isSafeInteger(amountEgp)) {
@@ -201,13 +258,13 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
 
   private assertConfigured(): void {
     if (
-      !this.config.apiKey ||
+      !this.config.secretKey ||
       !this.config.publicKey ||
       !this.config.hmacSecret ||
       this.config.integrationIds.length === 0
     ) {
       throw new Error(
-        "Paymob is not configured. Set PAYMOB_API_KEY, PAYMOB_PUBLIC_KEY, PAYMOB_INTEGRATION_IDS, and PAYMOB_HMAC_SECRET after merchant approval.",
+        "Paymob is not configured. Set PAYMOB_SECRET_KEY, PAYMOB_PUBLIC_KEY, PAYMOB_INTEGRATION_IDS, and PAYMOB_HMAC_SECRET after merchant approval.",
       );
     }
   }
@@ -228,7 +285,16 @@ export class PaymobPaymentProvider implements PaymentProviderPort {
         parsed = null;
       }
       if (!response.ok) {
-        throw new Error(`Paymob intention request failed with HTTP ${response.status}.`);
+        // Surface Paymob's error detail (field errors, rate-limit info) so a
+        // 503 on checkout is diagnosable from logs. The response body contains
+        // request field echoes, never credentials.
+        const detail =
+          parsed && typeof parsed === "object"
+            ? `: ${JSON.stringify(parsed).slice(0, 300)}`
+            : "";
+        throw new Error(
+          `Paymob intention request failed with HTTP ${response.status}${detail}.`,
+        );
       }
       if (!isRecord(parsed)) {
         throw new Error("Paymob intention response was not JSON.");
@@ -251,7 +317,9 @@ export function verifyPaymobHmac(
   secret: string,
 ): boolean {
   if (!receivedHmac || !secret) return false;
-  const canonical = PAYMOB_HMAC_FIELDS.map((field) => hmacValue(transaction[field])).join("");
+  const canonical = PAYMOB_HMAC_FIELDS.map((field) =>
+    hmacValue(field.value(transaction)),
+  ).join("");
   const expected = createHmac("sha512", secret).update(canonical).digest("hex");
   const left = Buffer.from(receivedHmac, "hex");
   const right = Buffer.from(expected, "hex");
@@ -328,6 +396,8 @@ export function createPaymobTestHmac(
   transaction: Record<string, unknown>,
   secret: string,
 ): string {
-  const canonical = PAYMOB_HMAC_FIELDS.map((field) => hmacValue(transaction[field])).join("");
+  const canonical = PAYMOB_HMAC_FIELDS.map((field) =>
+    hmacValue(field.value(transaction)),
+  ).join("");
   return createHmac("sha512", secret).update(canonical).digest("hex");
 }

@@ -926,7 +926,7 @@ function EvidenceDisclosure({
                     className="inline-flex items-center gap-1 text-xs font-semibold text-action underline underline-offset-4"
                   >
                     {t('review.openSource')}
-                    <ArrowUpRight className="size-3" aria-hidden="true" />
+                    <ArrowUpRight className="size-3 rtl:scale-x-[-1]" aria-hidden="true" />
                   </a>
                 ) : (
                   <code className="break-all text-xs text-muted-foreground">
