@@ -232,6 +232,42 @@ describe('LoginForm', () => {
     })
   })
 
+  it('keeps admins on the admin console when a workspace route was requested', async () => {
+    login.mockResolvedValue({ roles: ['ADMIN'] })
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({ from: '/en/dashboard' }) as unknown as ReturnType<
+        typeof useSearchParams
+      >,
+    )
+
+    render(<LoginForm />)
+    typeInto(screen.getByLabelText(/email/i), 'admin@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/admin')
+    })
+  })
+
+  it('never routes a non-admin to an admin route from the query string', async () => {
+    login.mockResolvedValue({ roles: [] })
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({ from: '/en/admin' }) as unknown as ReturnType<
+        typeof useSearchParams
+      >,
+    )
+
+    render(<LoginForm />)
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/password/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
   it('displays an error when login fails', async () => {
     login.mockRejectedValue({
       response: new Response(JSON.stringify({ code: 'INVALID_CREDENTIALS' }), {

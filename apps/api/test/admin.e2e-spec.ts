@@ -10,6 +10,7 @@ import { envSchema } from "../src/config/env.schema";
 import { AuthModule } from "../src/modules/auth/auth.module";
 import { RbacModule } from "../src/modules/rbac/rbac.module";
 import { AdminModule } from "../src/modules/admin/admin.module";
+import { PrismaService } from "../src/common/persistence/prisma.service";
 
 const TEST_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_ACCESS_SECRET = TEST_ACCESS_SECRET;
@@ -33,9 +34,18 @@ process.env.REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 describe("Admin (e2e)", () => {
   let app: INestApplication;
+  let prisma: PrismaService;
   let ownerToken: string;
   let adminToken: string;
   let devDemoToken: string;
+
+  const TEST_EMAILS = [
+    "admin-e2e-unverified@test.local",
+    "admin-e2e-suspended@test.local",
+    "admin-e2e-owner@test.local",
+  ];
+  let testPriceCode: string;
+  let testAccountId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -50,6 +60,8 @@ describe("Admin (e2e)", () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix("api/v1");
     await app.init();
+
+    prisma = app.get(PrismaService);
 
     const jwtService = app.get(JwtService);
     ownerToken = await jwtService.signAsync(
@@ -66,7 +78,78 @@ describe("Admin (e2e)", () => {
     );
   });
 
-  afterAll(async () => app.close());
+  afterAll(async () => {
+    await cleanupSeedData();
+    await app.close();
+  });
+
+  async function seedAttentionData() {
+    await cleanupSeedData();
+    const unverified = await prisma.user.create({
+      data: {
+        email: TEST_EMAILS[0],
+        password: "test-password",
+        isEmailVerified: false,
+        status: "active",
+      },
+    });
+    const suspended = await prisma.user.create({
+      data: {
+        email: TEST_EMAILS[1],
+        password: "test-password",
+        isEmailVerified: false,
+        status: "suspended",
+      },
+    });
+    const owner = await prisma.user.create({
+      data: {
+        email: TEST_EMAILS[2],
+        password: "test-password",
+        isEmailVerified: true,
+        status: "active",
+      },
+    });
+    testPriceCode = `admin-e2e-${Date.now()}`;
+    const price = await prisma.billingPrice.create({
+      data: {
+        code: testPriceCode,
+        planCode: "growth",
+        interval: "monthly",
+        amountEgp: 299,
+        periodDays: 30,
+        displayNameEn: "Admin e2e",
+        displayNameAr: "اختبار",
+      },
+    });
+    const account = await prisma.billingAccount.create({
+      data: { ownerUserId: owner.id },
+    });
+    testAccountId = account.id;
+    await prisma.billingSubscription.createMany({
+      data: [
+        { billingAccountId: account.id, priceId: price.id, state: "past_due" },
+        { billingAccountId: account.id, priceId: price.id, state: "expired" },
+      ],
+    });
+    return { unverified, suspended };
+  }
+
+  async function cleanupSeedData() {
+    if (testAccountId) {
+      await prisma.billingSubscription.deleteMany({
+        where: { billingAccountId: testAccountId },
+      });
+      await prisma.billingAccount.deleteMany({
+        where: { id: testAccountId },
+      });
+      testAccountId = "";
+    }
+    if (testPriceCode) {
+      await prisma.billingPrice.deleteMany({ where: { code: testPriceCode } });
+      testPriceCode = "";
+    }
+    await prisma.user.deleteMany({ where: { email: { in: TEST_EMAILS } } });
+  }
 
   describe("authorization matrix", () => {
     const adminEndpoints = [
@@ -175,6 +258,69 @@ describe("Admin (e2e)", () => {
       expect(res.body).toHaveProperty("items");
       expect(res.body).toHaveProperty("total");
       expect(Array.isArray(res.body.items)).toBe(true);
+    });
+
+    it("matches needs-attention counts against the database and excludes suspended unverified users", async () => {
+      await seedAttentionData();
+
+      const expectedPastDue = await prisma.billingSubscription.count({
+        where: { state: "past_due" },
+      });
+      const expectedExpired = await prisma.billingSubscription.count({
+        where: { state: "expired" },
+      });
+      const expectedUnverifiedActive = await prisma.user.count({
+        where: { isEmailVerified: false, status: "active" },
+      });
+      const expectedUnverifiedAnyStatus = await prisma.user.count({
+        where: { isEmailVerified: false },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/revenue/summary")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.pastDueSubscriptions).toBe(expectedPastDue);
+      expect(res.body.expiredSubscriptions).toBe(expectedExpired);
+      expect(res.body.unverifiedUsers).toBe(expectedUnverifiedActive);
+      // The seeded suspended unverified user must NOT be counted, so the
+      // active-only count is strictly below the all-statuses count.
+      expect(res.body.unverifiedUsers).toBeLessThan(
+        expectedUnverifiedAnyStatus,
+      );
+    });
+
+    it("filters subscriptions by state", async () => {
+      await seedAttentionData();
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/subscriptions?state=past_due")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.items.length).toBeGreaterThan(0);
+      for (const item of res.body.items) {
+        expect(item.state).toBe("past_due");
+      }
+    });
+
+    it("filters users by verification state", async () => {
+      const { unverified } = await seedAttentionData();
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/users?verified=false")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(
+        res.body.items.some(
+          (u: { email: string }) => u.email === unverified.email,
+        ),
+      ).toBe(true);
+      for (const item of res.body.items) {
+        expect(item.isEmailVerified).toBe(false);
+      }
     });
   });
 });
