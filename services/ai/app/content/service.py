@@ -28,11 +28,10 @@ from app.content.validators import (
 )
 
 
-# End-to-end retry budget: the NestJS BullMQ job retries the whole request up
-# to 3 times, so the service itself must not add a second multiplier on top
-# (3x3 would hit the provider up to 9 times per logical artifact). One
-# bounded attempt-set means at most 3 provider calls total.
-MAX_CONTENT_ATTEMPTS = 1
+# Keep one local repair pass for deterministic output violations. Transient
+# provider failures still use the existing retry policy and are not multiplied
+# by an unbounded local loop.
+MAX_CONTENT_ATTEMPTS = 2
 logger = logging.getLogger(__name__)
 _SCHEMA_ERROR_CODES = {
     "CONTENT_SCHEMA_FAILURE",
@@ -50,12 +49,23 @@ _REPAIRABLE_OUTPUT_CODES = {
 
 
 def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -> PromptAssembly:
+    claim_repair = ""
+    if error.code == "CONTENT_UNSUPPORTED_CLAIM":
+        claim_repair = (
+            "\n\nUnsupported-claim repair: remove every unsupported price, availability, "
+            "opening-hours, superiority, testimonial, or competitor claim from the "
+            "complete output. Do not invent a replacement fact. Only keep a risky "
+            "claim when the exact value appears in the supplied approved grounding "
+            "source and claim_sources points to that source; otherwise rewrite the "
+            "sentence as a factual, non-claiming statement."
+        )
     return PromptAssembly(
         system_prompt=(
             f"{prompt.system_prompt}\n\n"
             "STRUCTURED OUTPUT REPAIR: The previous response failed deterministic "
             "content-v1 validation. Regenerate the complete requested output. "
             "Do not return a patch, explanation, approval, or publishing decision."
+            f"{claim_repair}"
         ),
         user_prompt=(
             f"{prompt.user_prompt}\n\n"
