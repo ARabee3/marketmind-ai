@@ -16,6 +16,7 @@ import {
   History,
   Send,
   BookMarked,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react"
 import { AppShellChevronIcon } from "./app-shell-icons"
@@ -27,6 +28,7 @@ type AdminNavItem = {
     | "navOverview"
     | "navUsers"
     | "navRevenue"
+    | "navBilling"
     | "navAudit"
     | "navPublishing"
     | "navLibrary"
@@ -37,6 +39,7 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin", labelKey: "navOverview", icon: LayoutDashboard },
   { href: "/admin/users", labelKey: "navUsers", icon: Users },
   { href: "/admin/revenue", labelKey: "navRevenue", icon: WalletCards },
+  { href: "/admin/billing", labelKey: "navBilling", icon: CreditCard },
   { href: "/admin/publishing", labelKey: "navPublishing", icon: Send },
   { href: "/admin/library", labelKey: "navLibrary", icon: BookMarked },
   { href: "/admin/audit", labelKey: "navAudit", icon: History },

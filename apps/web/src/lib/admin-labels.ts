@@ -258,3 +258,49 @@ export function ingestionRunStatusLabel(
       return status
   }
 }
+
+export function billingAccountStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "active":
+      return t("billingAccountActive")
+    case "paused":
+      return t("billingAccountPaused")
+    default:
+      return status
+  }
+}
+
+export function billingCostAlertReasonLabel(
+  reason: string,
+  t: Translator,
+): string {
+  const match = reason.match(/^artifact_used_(\d+)_attempts$/)
+  if (match) {
+    return t("costAlertHighRetry", { count: match[1] })
+  }
+  switch (reason) {
+    case "monthly_cost_exceeded_egp_50":
+      return t("costAlertOverEgp50")
+    default:
+      return reason
+  }
+}
+
+export function billingMismatchTypeLabel(
+  type: string,
+  t: Translator,
+): string {
+  switch (type) {
+    case "succeeded_attempt_no_transaction":
+      return t("mismatchAttemptNoTransaction")
+    case "processed_event_no_transaction":
+      return t("mismatchEventNoTransaction")
+    case "transaction_no_event":
+      return t("mismatchTransactionNoEvent")
+    default:
+      return type
+  }
+}
