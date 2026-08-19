@@ -3780,6 +3780,15 @@
     "transactionStatusSucceeded": "ناجح",
     "transactionStatusFailed": "فشل",
     "transactionStatusPending": "قيد الانتظار",
-    "selectWalletForLedger": "اختر محفظة لعرض سجلها."
+    "selectWalletForLedger": "اختر محفظة لعرض سجلها.",
+    "topUpWallet": "شحن",
+    "topUpWalletTitle": "شحن هذه المحفظة؟",
+    "topUpWalletDescription": "سيتم إضافة نقاط إلى محفظة {name}. يُسجَّل الرصيد المضاف في سجل النقاط مع السبب أدناه.",
+    "topUpPointsLabel": "النقاط المطلوب إضافتها",
+    "topUpPointsPlaceholder": "مثال: 500",
+    "topUpWalletFailed": "فشل الشحن. قد لا يكون الحساب موجودًا بعد.",
+    "topUpWalletComplete": "تم شحن المحفظة.",
+    "toppingUpWallet": "جارٍ الشحن…",
+    "costCircuitOpen": "توقف عمل الذكاء الاصطناعي — تم بلوغ حد التكلفة الشهرية للمزوّد"
     }
   }

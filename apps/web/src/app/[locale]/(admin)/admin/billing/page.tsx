@@ -187,9 +187,17 @@ function CostAlertsPanel({ summary }: { summary: CostAlertSummary | null }) {
                       <p className="text-xs text-muted-foreground">{alert.ownerEmail}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="past_due">
-                        {billingCostAlertReasonLabel(alert.reason, t)}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1.5">
+                        <Badge variant="past_due">
+                          {billingCostAlertReasonLabel(alert.reason, t)}
+                        </Badge>
+                        {alert.costCircuitOpen && (
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-danger">
+                            <AlertTriangle className="size-3.5" aria-hidden="true" />
+                            {t("costCircuitOpen")}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {alert.totalEgpCost !== null

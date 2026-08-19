@@ -145,6 +145,7 @@ describe("AdminOverviewPage", () => {
           artifactCount: 2,
           highRetryArtifacts: 1,
           reason: "monthly_cost_exceeded_egp_50",
+          costCircuitOpen: false,
         },
       ],
       cohort95thPercentileEgp: 42,

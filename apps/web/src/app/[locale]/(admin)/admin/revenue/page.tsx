@@ -9,6 +9,15 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { AdminPagination } from "@/components/layout/admin-pagination"
 import {
@@ -16,6 +25,7 @@ import {
   listWalletBalances,
   getWalletLedger,
   listWalletTransactions,
+  topUpWallet,
   type WalletOverview,
   type WalletBalanceRow,
   type WalletLedgerRow,
@@ -88,6 +98,13 @@ export default function AdminRevenuePage() {
       setLedgerPhase("ready")
     }
   }, [])
+
+  const refreshAfterTopUp = useCallback(() => {
+    setDataVersion((v) => v + 1)
+    if (selectedWallet) {
+      void selectWallet(selectedWallet)
+    }
+  }, [selectedWallet, selectWallet])
 
   useEffect(() => {
     let cancelled = false
@@ -325,12 +342,15 @@ export default function AdminRevenuePage() {
             </p>
           </div>
           <div className="grid gap-5 p-4 md:p-5">
-            <h2 className="text-2xl font-bold text-navy">
-              {t("walletLedgerTitle")}:{" "}
-              <span className="text-primary">
-                {selectedWallet.ownerFullName || selectedWallet.ownerEmail || t("unknownOwner")}
-              </span>
-            </h2>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <h2 className="text-2xl font-bold text-navy">
+                {t("walletLedgerTitle")}:{" "}
+                <span className="text-primary">
+                  {selectedWallet.ownerFullName || selectedWallet.ownerEmail || t("unknownOwner")}
+                </span>
+              </h2>
+              <TopUpDialog wallet={selectedWallet} onDone={refreshAfterTopUp} />
+            </div>
 
             {ledgerPhase === "loading" ? (
               <Skeleton className="h-48" />
@@ -497,5 +517,150 @@ function WalletTableSkeleton({
         <Skeleton className="h-48" />
       </div>
     </article>
+  )
+}
+
+function TopUpDialog({
+  wallet,
+  onDone,
+}: {
+  wallet: WalletBalanceRow
+  onDone: () => void
+}) {
+  const t = useTranslations("Admin")
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [points, setPoints] = useState("")
+  const [reason, setReason] = useState("")
+
+  const parsedPoints = Number.parseInt(points, 10)
+  const pointsValid = Number.isInteger(parsedPoints) && parsedPoints >= 1
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && busy) return
+    if (next) {
+      setError(false)
+      setSuccess(false)
+      setPoints("")
+      setReason("")
+    }
+    setOpen(next)
+  }
+
+  const submit = async () => {
+    if (!pointsValid || !reason.trim()) return
+    setBusy(true)
+    setError(false)
+    try {
+      await topUpWallet(wallet.accountId, parsedPoints, reason.trim())
+      setBusy(false)
+      setSuccess(true)
+      window.setTimeout(() => {
+        setOpen(false)
+        onDone()
+      }, 600)
+    } catch {
+      setBusy(false)
+      setError(true)
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
+      <AlertDialogTrigger
+        render={
+          <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)}>
+            {t("topUpWallet")}
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("topUpWalletTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("topUpWalletDescription", {
+              name: wallet.ownerFullName ?? wallet.ownerEmail ?? t("unknownOwner"),
+            })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="grid gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm">
+          <p className="font-semibold text-navy">
+            {wallet.ownerFullName ?? t("unknownOwner")}
+          </p>
+          <p className="text-xs text-muted-foreground">{wallet.ownerEmail}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("walletBalance")}: {wallet.balance}
+          </p>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <label htmlFor="top-up-points" className="sr-only">
+              {t("topUpPointsLabel")}
+            </label>
+            <Input
+              id="top-up-points"
+              type="number"
+              min={1}
+              value={points}
+              onChange={(e) => setPoints(e.target.value)}
+              placeholder={t("topUpPointsPlaceholder")}
+              className="h-10"
+            />
+          </div>
+          <div className="grid gap-1">
+            <label htmlFor="top-up-reason" className="sr-only">
+              {t("reasonLabel")}
+            </label>
+            <Input
+              id="top-up-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t("reasonPlaceholder")}
+              className="h-10"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            {t("topUpWalletFailed")}
+          </p>
+        )}
+        {success && (
+          <p
+            aria-live="polite"
+            className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-primary"
+          >
+            {t("topUpWalletComplete")}
+          </p>
+        )}
+
+        <AlertDialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={busy}
+          >
+            {t("cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            onClick={submit}
+            disabled={busy || !pointsValid || !reason.trim()}
+          >
+            {busy ? t("toppingUpWallet") : t("topUpWallet")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

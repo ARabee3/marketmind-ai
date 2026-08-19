@@ -27,6 +27,7 @@ export type CostAlert = {
   artifactCount: number
   highRetryArtifacts: number
   reason: string
+  costCircuitOpen: boolean
 }
 
 export type CostAlertSummary = {
@@ -195,4 +196,20 @@ export function listWalletTransactions(
 
   const qs = searchParams.toString()
   return request(`/admin/billing/transactions${qs ? `?${qs}` : ""}`)
+}
+
+export type TopUpWalletResult = {
+  balance: number
+  lifetimeGranted: number
+}
+
+export function topUpWallet(
+  accountId: string,
+  points: number,
+  reason: string,
+): Promise<TopUpWalletResult> {
+  return request(`/admin/billing/wallets/${accountId}/top-up`, {
+    method: "POST",
+    body: { points, reason },
+  })
 }

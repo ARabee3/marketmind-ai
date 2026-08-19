@@ -3587,6 +3587,15 @@
     "transactionStatusSucceeded": "Succeeded",
     "transactionStatusFailed": "Failed",
     "transactionStatusPending": "Pending",
-    "selectWalletForLedger": "Select a wallet to view its ledger."
+    "selectWalletForLedger": "Select a wallet to view its ledger.",
+    "topUpWallet": "Top up",
+    "topUpWalletTitle": "Top up this wallet?",
+    "topUpWalletDescription": "Credits {name}'s points wallet. The credit is recorded in the points ledger with the reason below.",
+    "topUpPointsLabel": "Points to add",
+    "topUpPointsPlaceholder": "e.g. 500",
+    "topUpWalletFailed": "Top-up failed. The account may no longer exist.",
+    "topUpWalletComplete": "Wallet topped up.",
+    "toppingUpWallet": "Topping up…",
+    "costCircuitOpen": "AI work paused — monthly provider cost limit reached"
     }
   }

@@ -6,6 +6,7 @@ import {
   listWalletBalances,
   getWalletLedger,
   listWalletTransactions,
+  topUpWallet,
 } from "@/lib/api/admin-billing"
 
 vi.mock("next-intl", () => ({
@@ -35,6 +36,7 @@ vi.mock("@/lib/api/admin-billing", () => ({
   listWalletBalances: vi.fn(),
   getWalletLedger: vi.fn(),
   listWalletTransactions: vi.fn(),
+  topUpWallet: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -45,6 +47,7 @@ const overviewMock = vi.mocked(getWalletOverview)
 const balancesMock = vi.mocked(listWalletBalances)
 const ledgerMock = vi.mocked(getWalletLedger)
 const transactionsMock = vi.mocked(listWalletTransactions)
+const topUpMock = vi.mocked(topUpWallet)
 
 function makeWallet(overrides: {
   accountId?: string
@@ -110,6 +113,7 @@ describe("AdminRevenuePage", () => {
     balancesMock.mockReset()
     ledgerMock.mockReset()
     transactionsMock.mockReset()
+    topUpMock.mockReset()
     overviewMock.mockResolvedValue({
       totalAccounts: 1,
       activeAccounts: 1,
@@ -133,6 +137,7 @@ describe("AdminRevenuePage", () => {
       page: 1,
       pageSize: 20,
     })
+    topUpMock.mockResolvedValue({ balance: 170, lifetimeGranted: 550 })
   })
 
   it("renders the revenue header, wallet stats, and tables", async () => {
@@ -227,5 +232,58 @@ describe("AdminRevenuePage", () => {
         expect.objectContaining({ status: "paused" }),
       )
     })
+  })
+
+  it("top-ups the selected wallet and refreshes the data", async () => {
+    await waitFor(() => {
+      render(<AdminRevenuePage />)
+    })
+
+    const ownerCells = await screen.findAllByText("owner@example.com")
+    fireEvent.click(ownerCells[0])
+
+    const topUpButton = await screen.findByRole("button", { name: "topUpWallet" })
+    fireEvent.click(topUpButton)
+
+    const pointsInput = await screen.findByLabelText("topUpPointsLabel")
+    fireEvent.change(pointsInput, { target: { value: "50" } })
+    const reasonInput = screen.getByLabelText("reasonLabel")
+    fireEvent.change(reasonInput, { target: { value: "manual credit" } })
+
+    const confirmButton = screen.getByRole("button", { name: "topUpWallet" })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(topUpMock).toHaveBeenCalledWith("wallet-1", 50, "manual credit")
+    })
+    expect(await screen.findByText("topUpWalletComplete")).toBeDefined()
+    await waitFor(() => {
+      expect(ledgerMock).toHaveBeenCalledWith("wallet-1")
+    })
+  })
+
+  it("disables the top-up confirm button until points and reason are valid", async () => {
+    await waitFor(() => {
+      render(<AdminRevenuePage />)
+    })
+
+    const ownerCells = await screen.findAllByText("owner@example.com")
+    fireEvent.click(ownerCells[0])
+
+    const topUpButton = await screen.findByRole("button", { name: "topUpWallet" })
+    fireEvent.click(topUpButton)
+
+    const confirmButton = screen.getByRole("button", { name: "topUpWallet" })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+
+    const pointsInput = await screen.findByLabelText("topUpPointsLabel")
+    fireEvent.change(pointsInput, { target: { value: "0" } })
+    const reasonInput = screen.getByLabelText("reasonLabel")
+    fireEvent.change(reasonInput, { target: { value: "manual credit" } })
+
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.change(pointsInput, { target: { value: "50" } })
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(false)
   })
 })

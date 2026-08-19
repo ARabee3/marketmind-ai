@@ -203,6 +203,7 @@ describe("AdminBillingPage", () => {
           artifactCount: 2,
           highRetryArtifacts: 0,
           reason: "monthly_cost_exceeded_egp_50",
+          costCircuitOpen: false,
         },
       ],
       cohort95thPercentileEgp: 42,
@@ -216,6 +217,34 @@ describe("AdminBillingPage", () => {
 
     expect(await screen.findByText("costAlertOverEgp50")).toBeDefined()
     expect(screen.getByText("EGP 60")).toBeDefined()
+  })
+
+  it("shows the cost-circuit warning when AI work is paused", async () => {
+    listCostAlertsMock.mockResolvedValue({
+      alerts: [
+        {
+          billingAccountId: "acc-1",
+          ownerEmail: "owner@example.com",
+          ownerFullName: "Cairo Owner",
+          billingPeriodStart: "2026-08-01T00:00:00.000Z",
+          totalEgpCost: 72,
+          artifactCount: 3,
+          highRetryArtifacts: 0,
+          reason: "monthly_cost_exceeded_egp_50",
+          costCircuitOpen: true,
+        },
+      ],
+      cohort95thPercentileEgp: 42,
+      totalAccountsAboveEgp50: 1,
+      totalHighRetryArtifacts: 0,
+    })
+
+    await waitFor(() => {
+      render(<AdminBillingPage />)
+    })
+
+    expect(await screen.findByText("costAlertOverEgp50")).toBeDefined()
+    expect(screen.getByText("costCircuitOpen")).toBeDefined()
   })
 
   it("renders reconciliation mismatch rows", async () => {
