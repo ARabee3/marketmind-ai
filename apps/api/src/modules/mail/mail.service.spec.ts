@@ -138,4 +138,120 @@ describe("MailService", () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe("sendBillingPaymentConfirmation", () => {
+    const input = {
+      ownerUserId: "user-1",
+      bundleNameEn: "Starter",
+      bundleNameAr: "مبتدئ",
+      pointsGranted: 150,
+      amountEgp: 100,
+      currency: "EGP",
+      transactionRef: "tx-1",
+      confirmedAt: new Date("2026-08-20T10:00:00.000Z"),
+    };
+
+    it("sends a localized English confirmation with the billing link", async () => {
+      provider.send.mockResolvedValue(undefined);
+      const prisma = createPrismaService();
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: MAIL_PROVIDER, useValue: provider },
+          { provide: ConfigService, useValue: createConfigService() },
+          { provide: PrismaService, useValue: prisma },
+        ],
+      }).compile();
+      const mailService = module.get<MailService>(MailService);
+
+      await mailService.sendBillingPaymentConfirmation(input);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        select: { email: true, preferredLocale: true },
+      });
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      const [to, subject, html] = provider.send.mock.calls[0] as [
+        string,
+        string,
+        string,
+      ];
+      expect(to).toBe("user@example.com");
+      expect(subject).toBe("Your points have been added");
+      expect(html).toContain("Starter");
+      expect(html).toContain("150");
+      expect(html).toContain("tx-1");
+      expect(html).toContain("http://localhost:3000/billing");
+    });
+
+    it("renders Arabic for an ar-EG preferred locale", async () => {
+      provider.send.mockResolvedValue(undefined);
+      const prisma = createPrismaService();
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        email: "user@example.com",
+        preferredLocale: "ar-EG",
+      });
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: MAIL_PROVIDER, useValue: provider },
+          { provide: ConfigService, useValue: createConfigService() },
+          { provide: PrismaService, useValue: prisma },
+        ],
+      }).compile();
+      const mailService = module.get<MailService>(MailService);
+
+      await mailService.sendBillingPaymentConfirmation(input);
+
+      const [to, subject, html] = provider.send.mock.calls[0] as [
+        string,
+        string,
+        string,
+      ];
+      expect(subject).toBe("تمت إضافة نقاطك");
+      expect(html).toContain("مبتدئ");
+      expect(html).toContain('dir="rtl"');
+    });
+
+    it("throws when the owner user does not exist so the outbox retries", async () => {
+      const prisma = createPrismaService();
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: MAIL_PROVIDER, useValue: provider },
+          { provide: ConfigService, useValue: createConfigService() },
+          { provide: PrismaService, useValue: prisma },
+        ],
+      }).compile();
+      const mailService = module.get<MailService>(MailService);
+
+      await expect(
+        mailService.sendBillingPaymentConfirmation(input),
+      ).rejects.toBeInstanceOf(MailDeliveryError);
+      expect(provider.send).not.toHaveBeenCalled();
+    });
+
+    it("propagates provider failures so the outbox worker can retry", async () => {
+      provider.send.mockRejectedValue(new MailDeliveryError("SMTP down"));
+      const prisma = createPrismaService();
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: MAIL_PROVIDER, useValue: provider },
+          { provide: ConfigService, useValue: createConfigService() },
+          { provide: PrismaService, useValue: prisma },
+        ],
+      }).compile();
+      const mailService = module.get<MailService>(MailService);
+
+      await expect(
+        mailService.sendBillingPaymentConfirmation(input),
+      ).rejects.toBeInstanceOf(MailDeliveryError);
+    });
+  });
 });
