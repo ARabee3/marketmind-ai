@@ -13,6 +13,12 @@ enum Role {
   DEVELOPER_DEMO
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
 enum ActionTokenType {
   PASSWORD_RESET
   EMAIL_VERIFICATION
@@ -27,7 +33,7 @@ model User {
   refreshToken    String?
   lastLoginAt     DateTime?
   fullName        String?
-  status          String    @default("active")
+  status          UserStatus @default(ACTIVE)
   preferredLocale String    @default("ar-EG")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

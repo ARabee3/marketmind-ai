@@ -5,6 +5,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import * as bcrypt from 'bcrypt';
+import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../common/persistence/prisma.service';
 import { JwtPayload, AuthenticatedUser } from '../interfaces/jwt-payload.interface';
 import { REFRESH_TOKEN_COOKIE } from '../auth.controller';
@@ -45,6 +46,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
           email: true,
           roles: true,
           refreshToken: true,
+          status: true,
         },
       }),
       this.prisma.refreshSession.findMany({
@@ -58,6 +60,10 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     ]);
 
     if (!user) {
+      throw new UnauthorizedException('Access denied');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Access denied');
     }
 

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { UserStatus } from "@prisma/client";
 import {
   AdminService,
   computeMrrEgp,
@@ -6,6 +7,7 @@ import {
   resolveLoginMethod,
 } from "./admin.service";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { AuditService } from "../audit/audit.service";
 
 describe("computeMrrEgp", () => {
   it("returns 0 for an empty subscription list", () => {
@@ -86,12 +88,13 @@ describe("resolveLoginMethod", () => {
 describe("AdminService", () => {
   let service: AdminService;
   let prisma: {
-    user: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
+    user: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     refreshSession: { findMany: jest.Mock };
     federatedIdentity: { findMany: jest.Mock };
     business: { findMany: jest.Mock; count: jest.Mock };
     billingSubscription: { findMany: jest.Mock; count: jest.Mock };
   };
+  let audit: { record: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -99,6 +102,7 @@ describe("AdminService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
         findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
       },
       refreshSession: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -115,11 +119,13 @@ describe("AdminService", () => {
         count: jest.fn().mockResolvedValue(0),
       },
     };
+    audit = { record: jest.fn().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: audit },
       ],
     }).compile();
 
@@ -287,12 +293,12 @@ describe("AdminService", () => {
         return Promise.resolve(0);
       });
       prisma.user.count.mockImplementation((args?: {
-        where?: { isEmailVerified?: boolean; status?: string };
+        where?: { isEmailVerified?: boolean; status?: UserStatus };
       }) =>
         // Only active, unverified users count toward the needs-attention total.
         Promise.resolve(
           args?.where?.isEmailVerified === false &&
-            args?.where?.status === "active"
+            args?.where?.status === UserStatus.ACTIVE
             ? 5
             : 0,
         ),
@@ -379,6 +385,129 @@ describe("AdminService", () => {
         amountEgp: 299,
         interval: "monthly",
       });
+    });
+  });
+
+  describe("updateUser", () => {
+    const actorUserId = "admin-1";
+    const actorEmail = "admin@e2e.test";
+
+    function mockExistingUser(status: UserStatus = UserStatus.ACTIVE) {
+      const user = {
+        id: "user-1",
+        email: "target@test.local",
+        fullName: "Target",
+        isEmailVerified: true,
+        roles: ["OWNER"],
+        status,
+        lastLoginAt: new Date("2024-06-01"),
+        createdAt: new Date("2024-01-01"),
+        updatedAt: new Date("2024-07-01"),
+      };
+      prisma.user.findUnique.mockResolvedValue(user);
+      return user;
+    }
+
+    it("suspends a user and records a user.suspend audit entry", async () => {
+      mockExistingUser(UserStatus.ACTIVE);
+      prisma.user.update.mockResolvedValue({
+        ...mockExistingUser(UserStatus.ACTIVE),
+        status: UserStatus.SUSPENDED,
+      });
+
+      const result = await service.updateUser(
+        "user-1",
+        { status: UserStatus.SUSPENDED, reason: "policy violation" },
+        actorUserId,
+        actorEmail,
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        data: { status: UserStatus.SUSPENDED },
+      });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId,
+          actorEmail,
+          action: "user.suspend",
+          targetType: "user",
+          targetId: "user-1",
+          reason: "policy violation",
+          beforeState: { status: UserStatus.ACTIVE, roles: ["OWNER"] },
+          afterState: { status: UserStatus.SUSPENDED, roles: ["OWNER"] },
+        }),
+      );
+      expect(result.status).toBe("suspended");
+    });
+
+    it("unsuspends a user with a user.unsuspend audit action", async () => {
+      mockExistingUser(UserStatus.SUSPENDED);
+      prisma.user.update.mockResolvedValue({
+        ...mockExistingUser(UserStatus.SUSPENDED),
+        status: UserStatus.ACTIVE,
+      });
+
+      const result = await service.updateUser(
+        "user-1",
+        { status: UserStatus.ACTIVE },
+        actorUserId,
+        actorEmail,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "user.unsuspend" }),
+      );
+      expect(result.status).toBe("active");
+    });
+
+    it("records user.role_change when only roles change", async () => {
+      mockExistingUser(UserStatus.ACTIVE);
+      prisma.user.update.mockResolvedValue({
+        ...mockExistingUser(UserStatus.ACTIVE),
+        roles: ["ADMIN"],
+      });
+
+      await service.updateUser(
+        "user-1",
+        { roles: ["ADMIN"] },
+        actorUserId,
+        actorEmail,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "user.role_change" }),
+      );
+    });
+
+    it("rejects self-mutation with BadRequestException", async () => {
+      await expect(
+        service.updateUser(
+          actorUserId,
+          { status: UserStatus.SUSPENDED },
+          actorUserId,
+          actorEmail,
+        ),
+      ).rejects.toThrow("Admins cannot modify their own account");
+    });
+
+    it("throws NotFoundException for an unknown user", async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.updateUser(
+          "missing-id",
+          { status: UserStatus.SUSPENDED },
+          actorUserId,
+          actorEmail,
+        ),
+      ).rejects.toThrow("User not found");
+    });
+
+    it("throws BadRequestException when nothing is provided to update", async () => {
+      mockExistingUser(UserStatus.ACTIVE);
+      await expect(
+        service.updateUser("user-1", {}, actorUserId, actorEmail),
+      ).rejects.toThrow("Nothing to update");
     });
   });
 });

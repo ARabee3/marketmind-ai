@@ -1,18 +1,24 @@
 import {
+  Body,
   Controller,
   Get,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { Permissions } from "../rbac/decorators/permissions.decorator";
 import { PERMISSIONS } from "../rbac/rbac.constants";
+import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { AuditService } from "../audit/audit.service";
 import { AdminService } from "./admin.service";
+import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 
 @Controller("admin")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -42,6 +48,16 @@ export class AdminController {
     const detail = await this.adminService.getUserById(id);
     if (!detail) throw new NotFoundException();
     return detail;
+  }
+
+  @Patch("users/:id")
+  async updateUser(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAdminUserDto,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    return this.adminService.updateUser(id, dto, actor.id, actor.email);
   }
 
   @Get("revenue/summary")

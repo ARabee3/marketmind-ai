@@ -1,8 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Role, UserStatus } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 
 const ACTIVE_BUSINESS_STATUS = "active";
-const ACTIVE_USER_STATUS = "active";
 const ACTIVE_SUBSCRIPTION_STATE = "active";
 const TRIALING_SUBSCRIPTION_STATE = "trialing";
 const PAST_DUE_SUBSCRIPTION_STATE = "past_due";
@@ -79,6 +85,18 @@ export interface UserDetail {
   }[];
 }
 
+export interface UpdateUserResult {
+  id: string;
+  email: string;
+  fullName: string | null;
+  roles: string[];
+  status: string;
+  isEmailVerified: boolean;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface RevenueSummary {
   activeBusinesses: number;
   activeSubscriptions: number;
@@ -105,7 +123,10 @@ export interface SubscriptionRow {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async getUsers(
     page: number,
@@ -157,7 +178,7 @@ export class AdminService {
       loginMethod: resolveLoginMethod(
         user.federatedIdentities.map((identity) => identity.provider),
       ),
-      status: user.status,
+      status: user.status.toLowerCase(),
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       businessCount: user.businesses.length,
@@ -225,7 +246,7 @@ export class AdminService {
         loginMethod: resolveLoginMethod(
           federatedIdentities.map((identity) => identity.provider),
         ),
-        status: user.status,
+        status: user.status.toLowerCase(),
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
         businessCount: businesses.length,
@@ -271,7 +292,7 @@ export class AdminService {
         where: { state: EXPIRED_SUBSCRIPTION_STATE },
       }),
       this.prisma.user.count({
-        where: { isEmailVerified: false, status: ACTIVE_USER_STATUS },
+        where: { isEmailVerified: false, status: UserStatus.ACTIVE },
       }),
     ]);
 
@@ -343,4 +364,81 @@ export class AdminService {
 
     return { items, total, page, pageSize };
   }
+
+  /**
+   * Updates the mutable admin-controlled fields of a user (status and roles).
+   *
+   * Every mutation is recorded in the append-only audit log with the full
+   * before/after state. Admins cannot modify their own account (self-protection).
+   */
+  async updateUser(
+    id: string,
+    dto: UpdateAdminUserDto,
+    actorUserId: string,
+    actorEmail: string,
+  ): Promise<UpdateUserResult> {
+    if (id === actorUserId) {
+      throw new BadRequestException("Admins cannot modify their own account");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const data: { status?: UserStatus; roles?: Role[] } = {};
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.roles !== undefined) data.roles = dto.roles;
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException("Nothing to update");
+    }
+
+    const beforeState = { status: user.status, roles: user.roles };
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    const afterState = { status: updated.status, roles: updated.roles };
+
+    await this.auditService.record({
+      actorUserId,
+      actorEmail,
+      action: resolveUserUpdateAction(beforeState, afterState),
+      targetType: "user",
+      targetId: id,
+      reason: dto.reason,
+      beforeState,
+      afterState,
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName,
+      roles: updated.roles,
+      status: updated.status.toLowerCase(),
+      isEmailVerified: updated.isEmailVerified,
+      lastLoginAt: updated.lastLoginAt,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
+  }
+}
+
+/**
+ * Maps a user mutation to the most specific audit action so the log stays
+ * filterable by intent (suspend, unsuspend, role change, generic update).
+ */
+function resolveUserUpdateAction(
+  before: { status: string; roles: string[] },
+  after: { status: string; roles: string[] },
+): string {
+  if (before.status !== after.status && after.status === UserStatus.SUSPENDED) {
+    return "user.suspend";
+  }
+  if (before.status !== after.status && after.status === UserStatus.ACTIVE) {
+    return "user.unsuspend";
+  }
+  if (JSON.stringify(before.roles) !== JSON.stringify(after.roles)) {
+    return "user.role_change";
+  }
+  return "user.update";
 }

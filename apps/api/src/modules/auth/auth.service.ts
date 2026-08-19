@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ActionTokenType, Prisma, Role, User } from '@prisma/client';
+import { ActionTokenType, Prisma, Role, User, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
@@ -154,6 +154,13 @@ export class AuthService {
       throw new UnauthorizedException({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Please verify your email before logging in',
+      });
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'Your account is not active. Contact support if you believe this is a mistake',
       });
     }
 

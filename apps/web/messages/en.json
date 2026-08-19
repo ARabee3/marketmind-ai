@@ -3353,6 +3353,27 @@
     "auditApply": "Apply",
     "auditClearFilters": "Clear filters",
     "auditStateNone": "—",
-    "auditFiltersActive": "Filters applied"
+    "auditFiltersActive": "Filters applied",
+    "accountManagement": "Account management",
+    "accountStatus": "Account status",
+    "accountStatusHint": "Suspended accounts lose access to sign-in and all API routes immediately.",
+    "suspend": "Suspend account",
+    "reactivate": "Reactivate account",
+    "confirmSuspendTitle": "Suspend this account?",
+    "confirmSuspendDescription": "This immediately blocks {name} from signing in and using the platform until the account is reactivated. Their data is kept.",
+    "confirmReactivateTitle": "Reactivate this account?",
+    "confirmReactivateDescription": "This restores sign-in and platform access for {name}.",
+    "reasonLabel": "Reason (visible in the audit log)",
+    "reasonPlaceholder": "e.g. policy violation, fraud flag",
+    "rolesHint": "Roles apply on the user's next sign-in.",
+    "saveRoles": "Save roles",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "actionFailed": "The update failed. Check the user is still active and try again.",
+    "saved": "Saved. The change is recorded in the audit log.",
+    "roleUpdateTitle": "Role",
+    "roleUpdateDescription": "Choose which roles this account should have. At least one role is required.",
+    "selectRole": "Select role",
+    "noRoleSelected": "Choose at least one role."
   }
 }

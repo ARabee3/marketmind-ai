@@ -9,12 +9,23 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { AdminPagination } from "@/components/layout/admin-pagination"
 import { Link } from "@/i18n/navigation"
 import {
   getAdminUsers,
   getAdminUser,
+  updateAdminUser,
   type AdminUserRow,
   type AdminUserDetail,
 } from "@/lib/api/admin"
@@ -23,6 +34,8 @@ import {
   adminRoleLabel,
   adminStatusLabel,
 } from "@/lib/admin-labels"
+
+const AVAILABLE_ROLES = ["OWNER", "ADMIN", "DEVELOPER_DEMO"] as const
 
 type Phase = "loading" | "error" | "ready"
 
@@ -158,6 +171,7 @@ export default function AdminUsersPage() {
         <UserDetailPanel
           id={selectedUserId}
           onClose={closeUserDetails}
+          onUserChanged={retry}
         />
       )}
     </section>
@@ -398,9 +412,11 @@ function UsersTableSkeleton() {
 function UserDetailPanel({
   id,
   onClose,
+  onUserChanged,
 }: {
   id: string
   onClose: () => void
+  onUserChanged: () => void
 }) {
   const t = useTranslations("Admin")
   const format = useFormatter()
@@ -408,6 +424,12 @@ function UserDetailPanel({
   const [detail, setDetail] = useState<AdminUserDetail | null>(null)
   const [version, setVersion] = useState(0)
   const panelRef = useRef<HTMLElement>(null)
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [rolesDirty, setRolesDirty] = useState(false)
+  const [reason, setReason] = useState("")
+  const [busyAction, setBusyAction] = useState<"status" | "roles" | null>(null)
+  const [actionError, setActionError] = useState(false)
+  const [actionSuccess, setActionSuccess] = useState(false)
 
   const doRetry = useCallback(() => {
     setVersion((v) => v + 1)
@@ -421,6 +443,11 @@ function UserDetailPanel({
         const data = await getAdminUser(id)
         if (cancelled) return
         setDetail(data)
+        setSelectedRoles(data.user.roles)
+        setReason("")
+        setRolesDirty(false)
+        setActionError(false)
+        setActionSuccess(false)
         setPhase("ready")
       } catch {
         if (!cancelled) setPhase("error")
@@ -429,6 +456,51 @@ function UserDetailPanel({
     void fetch()
     return () => { cancelled = true }
   }, [id, version])
+
+  const applyStatus = useCallback(
+    async (status: "ACTIVE" | "SUSPENDED") => {
+      if (!detail || busyAction) return
+      setBusyAction("status")
+      setActionError(false)
+      setActionSuccess(false)
+      try {
+        await updateAdminUser(id, {
+          status,
+          reason: reason.trim() || undefined,
+        })
+        setActionSuccess(true)
+        onUserChanged()
+        setVersion((v) => v + 1)
+      } catch {
+        setActionError(true)
+      } finally {
+        setBusyAction(null)
+      }
+    },
+    [detail, busyAction, id, reason, onUserChanged],
+  )
+
+  const applyRoles = useCallback(async () => {
+    if (!detail || busyAction) return
+    if (selectedRoles.length === 0) {
+      setActionError(true)
+      return
+    }
+    setBusyAction("roles")
+    setActionError(false)
+    setActionSuccess(false)
+    try {
+      await updateAdminUser(id, { roles: selectedRoles })
+      setRolesDirty(false)
+      setActionSuccess(true)
+      onUserChanged()
+      setVersion((v) => v + 1)
+    } catch {
+      setActionError(true)
+    } finally {
+      setBusyAction(null)
+    }
+  }, [detail, busyAction, id, selectedRoles, onUserChanged])
 
   useEffect(() => {
     const panel = panelRef.current
@@ -607,6 +679,28 @@ function UserDetailPanel({
                 />
               </div>
 
+              <AccountManagementSection
+                user={detail.user}
+                selectedRoles={selectedRoles}
+                rolesDirty={rolesDirty}
+                reason={reason}
+                busyAction={busyAction}
+                actionError={actionError}
+                actionSuccess={actionSuccess}
+                onToggleRole={(role) => {
+                  setSelectedRoles((prev) =>
+                    prev.includes(role)
+                      ? prev.filter((r) => r !== role)
+                      : [...prev, role],
+                  )
+                  setRolesDirty(true)
+                }}
+                onReasonChange={setReason}
+                onApplyStatus={applyStatus}
+                onApplyRoles={applyRoles}
+                t={t}
+              />
+
               {detail.businesses.length > 0 && (
                 <section>
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
@@ -722,5 +816,220 @@ function StatPill({
         {value}
       </p>
     </div>
+  )
+}
+
+function AccountManagementSection({
+  user,
+  selectedRoles,
+  rolesDirty,
+  reason,
+  busyAction,
+  actionError,
+  actionSuccess,
+  onToggleRole,
+  onReasonChange,
+  onApplyStatus,
+  onApplyRoles,
+  t,
+}: {
+  user: AdminUserRow
+  selectedRoles: string[]
+  rolesDirty: boolean
+  reason: string
+  busyAction: "status" | "roles" | null
+  actionError: boolean
+  actionSuccess: boolean
+  onToggleRole: (role: string) => void
+  onReasonChange: (value: string) => void
+  onApplyStatus: (status: "ACTIVE" | "SUSPENDED") => void
+  onApplyRoles: () => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  const isActive = user.status === "active"
+  const isSuspended = user.status === "suspended"
+  const statusBusy = busyAction === "status"
+  const rolesBusy = busyAction === "roles"
+
+  return (
+    <section aria-labelledby="account-management-title">
+      <h3
+        id="account-management-title"
+        className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]"
+      >
+        {t("accountManagement")}
+      </h3>
+
+      <div className="space-y-4 rounded-lg border border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-navy">
+              {t("accountStatus")}
+            </p>
+            <p className="mt-0.5 max-w-sm text-xs leading-5 text-muted-foreground">
+              {t("accountStatusHint")}
+            </p>
+          </div>
+
+          {isActive && (
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button variant="destructive" disabled={statusBusy}>
+                    {t("suspend")}
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("confirmSuspendTitle")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("confirmSuspendDescription", {
+                      name: user.fullName || user.email,
+                    })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="mt-4 grid gap-1">
+                  <label
+                    htmlFor="admin-suspend-reason"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    {t("reasonLabel")}
+                  </label>
+                  <Input
+                    id="admin-suspend-reason"
+                    value={reason}
+                    onChange={(e) => onReasonChange(e.target.value)}
+                    placeholder={t("reasonPlaceholder")}
+                    autoComplete="off"
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogClose
+                    render={<Button variant="outline">{t("cancel")}</Button>}
+                  />
+                  <Button
+                    variant="destructive"
+                    disabled={statusBusy}
+                    onClick={() => onApplyStatus("SUSPENDED")}
+                  >
+                    {statusBusy ? t("saving") : t("suspend")}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          {isSuspended && (
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button disabled={statusBusy}>{t("reactivate")}</Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("confirmReactivateTitle")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("confirmReactivateDescription", {
+                      name: user.fullName || user.email,
+                    })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="mt-4 grid gap-1">
+                  <label
+                    htmlFor="admin-reactivate-reason"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    {t("reasonLabel")}
+                  </label>
+                  <Input
+                    id="admin-reactivate-reason"
+                    value={reason}
+                    onChange={(e) => onReasonChange(e.target.value)}
+                    placeholder={t("reasonPlaceholder")}
+                    autoComplete="off"
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogClose
+                    render={<Button variant="outline">{t("cancel")}</Button>}
+                  />
+                  <Button
+                    disabled={statusBusy}
+                    onClick={() => onApplyStatus("ACTIVE")}
+                  >
+                    {statusBusy ? t("saving") : t("reactivate")}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4">
+          <div>
+            <p className="text-sm font-medium text-navy">
+              {t("roleUpdateTitle")}
+            </p>
+            <p className="mt-0.5 max-w-sm text-xs leading-5 text-muted-foreground">
+              {t("rolesHint")}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <div
+              role="group"
+              aria-label={t("roleUpdateTitle")}
+              className="flex flex-wrap gap-2"
+            >
+              {AVAILABLE_ROLES.map((role) => {
+                const selected = selectedRoles.includes(role)
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => onToggleRole(role)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none ${
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {adminRoleLabel(role, t)}
+                  </button>
+                )
+              })}
+            </div>
+            <Button
+              size="sm"
+              disabled={!rolesDirty || rolesBusy || selectedRoles.length === 0}
+              onClick={onApplyRoles}
+            >
+              {rolesBusy ? t("saving") : t("saveRoles")}
+            </Button>
+          </div>
+        </div>
+
+        {actionError && (
+          <p
+            role="alert"
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {t("actionFailed")}
+          </p>
+        )}
+        {actionSuccess && !actionError && (
+          <p className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+            {t("saved")}
+          </p>
+        )}
+      </div>
+    </section>
   )
 }

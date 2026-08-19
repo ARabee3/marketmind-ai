@@ -3546,6 +3546,27 @@
     "auditApply": "تطبيق",
     "auditClearFilters": "مسح التصفية",
     "auditStateNone": "—",
-    "auditFiltersActive": "التصفية مفعلة"
+    "auditFiltersActive": "التصفية مفعلة",
+    "accountManagement": "إدارة الحساب",
+    "accountStatus": "حالة الحساب",
+    "accountStatusHint": "يتم منع الحسابات المعلّقة من تسجيل الدخول ومن جميع مسارات الواجهة البرمجية فورًا.",
+    "suspend": "تعليق الحساب",
+    "reactivate": "إعادة تفعيل الحساب",
+    "confirmSuspendTitle": "هل تريد تعليق هذا الحساب؟",
+    "confirmSuspendDescription": "سيتم فورًا منع {name} من تسجيل الدخول واستخدام المنصة حتى تتم إعادة التفعيل. تبقى بياناته محفوظة.",
+    "confirmReactivateTitle": "هل تريد إعادة تفعيل هذا الحساب؟",
+    "confirmReactivateDescription": "سيتم استعادة تسجيل الدخول ووصول المنصة لـ {name}.",
+    "reasonLabel": "السبب (يظهر في سجل التدقيق)",
+    "reasonPlaceholder": "مثال: مخالفة سياسة، اشتباه احتيال",
+    "rolesHint": "تسري الأدوار عند تسجيل الدخول التالي للمستخدم.",
+    "saveRoles": "حفظ الأدوار",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "actionFailed": "فشل التحديث. تحقق من أن المستخدم ما زال نشطًا وحاول مجددًا.",
+    "saved": "تم الحفظ. التغيير مسجل في سجل التدقيق.",
+    "roleUpdateTitle": "الدور",
+    "roleUpdateDescription": "اختر الأدوار التي يجب أن يمتلكها هذا الحساب. مطلوب دور واحد على الأقل.",
+    "selectRole": "اختر الدور",
+    "noRoleSelected": "اختر دورًا واحدًا على الأقل."
   }
 }

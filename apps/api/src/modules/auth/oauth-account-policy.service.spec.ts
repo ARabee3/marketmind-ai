@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Role, Prisma } from "@prisma/client";
+import { Role, UserStatus, Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
@@ -39,6 +39,7 @@ const mockDbUser = {
   ...mockSafeUser,
   password: "hashed-password",
   refreshToken: null,
+  status: UserStatus.ACTIVE,
 };
 
 describe("OAuthAccountPolicyService", () => {

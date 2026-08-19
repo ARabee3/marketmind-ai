@@ -1,7 +1,7 @@
 import { INestApplication } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { Role } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { Test, TestingModule } from "@nestjs/testing";
 import * as request from "supertest";
 
@@ -93,7 +93,7 @@ describe("Admin Audit (e2e)", () => {
         email: TEST_EMAIL,
         password: "test-password",
         isEmailVerified: true,
-        status: "active",
+        status: UserStatus.ACTIVE,
       },
     });
     actorUserId = actor.id;

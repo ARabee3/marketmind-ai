@@ -114,6 +114,40 @@ export async function getAdminUser(
   return response.json()
 }
 
+export type UpdateAdminUserPayload = {
+  status?: "ACTIVE" | "SUSPENDED" | "DISABLED"
+  roles?: string[]
+  reason?: string
+}
+
+export type UpdateAdminUserResult = {
+  id: string
+  email: string
+  fullName: string | null
+  roles: string[]
+  status: string
+  isEmailVerified: boolean
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function updateAdminUser(
+  id: string,
+  payload: UpdateAdminUserPayload,
+): Promise<UpdateAdminUserResult> {
+  const response = await apiRequest(`/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw Object.assign(new Error("Failed to update user"), {
+      status: response.status,
+    })
+  }
+  return response.json()
+}
+
 export async function getAdminRevenueSummary(): Promise<AdminRevenueSummary> {
   const response = await apiRequest("/admin/revenue/summary")
   if (!response.ok) {
