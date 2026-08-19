@@ -19,14 +19,13 @@ from platform_constraints import validate_platform_constraints
 
 from app.content.assembler import PromptAssembly
 from app.content.circuit_breaker import CircuitBreaker
-from app.providers.base import ProviderError
-from app.providers.content_provider import ContentLLMProvider
 from app.content.validators import (
     compute_content_item_checksum,
     validate_generated_content_pack,
     validate_revision_item,
 )
-
+from app.providers.base import ProviderError
+from app.providers.content_provider import ContentLLMProvider
 
 # Keep one local repair pass for deterministic output violations. Transient
 # provider failures still use the existing retry policy and are not multiplied
@@ -48,7 +47,9 @@ _REPAIRABLE_OUTPUT_CODES = {
 }
 
 
-def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -> PromptAssembly:
+def _repair_prompt(
+    prompt: PromptAssembly, error: ProviderError, attempt: int
+) -> PromptAssembly:
     claim_repair = ""
     if error.code == "CONTENT_UNSUPPORTED_CLAIM":
         claim_repair = (
@@ -59,6 +60,23 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
             "source and claim_sources points to that source; otherwise rewrite the "
             "sentence as a factual, non-claiming statement."
         )
+    protected_text_repair = ""
+    if error.code == "CONTENT_POLICY_VIOLATION":
+        protected_text_repair = (
+            "\n\nProtected-text repair: when business names, addresses, handles, "
+            "phone numbers, WhatsApp values, or URLs are used, copy the supplied "
+            "canonical value exactly. Do not translate, reformat, or paraphrase it. "
+            "Omit the value when it is not needed."
+        )
+    safe_copy_mode = ""
+    if attempt >= 1:
+        safe_copy_mode = (
+            "\n\nFINAL SAFE COPY MODE: prefer plain factual wording. Remove every "
+            "price, stock, opening-hours, superiority, testimonial, guarantee, "
+            "regulated, sponsored, and competitor claim unless the exact approved "
+            "value and source path are supplied. Preserve canonical business values "
+            "exactly and do not invent replacement facts."
+        )
     return PromptAssembly(
         system_prompt=(
             f"{prompt.system_prompt}\n\n"
@@ -66,11 +84,13 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
             "content-v1 validation. Regenerate the complete requested output. "
             "Do not return a patch, explanation, approval, or publishing decision."
             f"{claim_repair}"
+            f"{protected_text_repair}"
+            f"{safe_copy_mode}"
         ),
         user_prompt=(
             f"{prompt.user_prompt}\n\n"
             "The previous output failed with this safe validation summary:\n"
-            f"code={error.code}\nmessage={str(error)}\n"
+            f"code={error.code}\nmessage={error!s}\n"
             "Return the complete corrected structured output."
         ),
         metadata={
@@ -85,10 +105,7 @@ def _repair_prompt(prompt: PromptAssembly, error: ProviderError, attempt: int) -
 def _validation_error(validation: ContentValidationResult) -> ProviderError:
     """Return bounded, safe, multi-issue feedback for the next repair pass."""
     first = validation.issues[0]
-    summaries = [
-        f"{issue.field}: {issue.message}"
-        for issue in validation.issues[:5]
-    ]
+    summaries = [f"{issue.field}: {issue.message}" for issue in validation.issues[:5]]
     return ProviderError(
         first.code,
         "Validation issues: " + " | ".join(summaries),
@@ -176,9 +193,7 @@ def _with_platform_constraint_warning(
     item: ContentItemVersion,
 ) -> ContentItemVersion:
     """Canonicalize the advisory platform warning on a finalized item."""
-    warnings = [
-        code for code in item.warnings if code != "CONTENT_PLATFORM_CONSTRAINT"
-    ]
+    warnings = [code for code in item.warnings if code != "CONTENT_PLATFORM_CONSTRAINT"]
     if validate_platform_constraints(item.model_dump(mode="json")):
         warnings.append("CONTENT_PLATFORM_CONSTRAINT")
     return item.model_copy(update={"warnings": warnings})
@@ -233,7 +248,11 @@ def _finalize_generated_items(
             else []
         )
         blockers = list(item.blockers)
-        if item.asset_required and not asset_ids and "CONTENT_ASSET_REQUIRED" not in blockers:
+        if (
+            item.asset_required
+            and not asset_ids
+            and "CONTENT_ASSET_REQUIRED" not in blockers
+        ):
             blockers.append("CONTENT_ASSET_REQUIRED")
         staged = item.model_copy(
             update={
@@ -295,19 +314,21 @@ async def generate_content_pack_with_repair(
     retry_delay_seconds: float = 2.0,
     breaker: CircuitBreaker | None = None,
     max_output_tokens: int | None = None,
-    extra_validator: Callable[
-        [list[ContentItemVersion]], ContentValidationResult
-    ] | None = None,
+    extra_validator: Callable[[list[ContentItemVersion]], ContentValidationResult]
+    | None = None,
     request_validator: Callable[
         [AiContentGenerateRequest, list[ContentItemVersion]], ContentValidationResult
     ]
     | None = None,
-    output_normalizer: Callable[
-        [list[ContentItemVersion]], list[ContentItemVersion]
-    ]
+    output_normalizer: Callable[[list[ContentItemVersion]], list[ContentItemVersion]]
     | None = None,
     final_output_normalizer: Callable[
         [list[ContentItemVersion]], list[ContentItemVersion]
+    ]
+    | None = None,
+    final_output_repair: Callable[
+        [list[ContentItemVersion], ContentValidationResult],
+        list[ContentItemVersion],
     ]
     | None = None,
 ) -> list[ContentItemVersion]:
@@ -338,7 +359,9 @@ async def generate_content_pack_with_repair(
                 items = output_normalizer(items)
                 _validate_pack_shape(items)
             if request is not None:
-                items = _finalize_generated_items(request, items, provider, current_prompt)
+                items = _finalize_generated_items(
+                    request, items, provider, current_prompt
+                )
                 if final_output_normalizer is not None:
                     items = final_output_normalizer(items)
                     _validate_pack_shape(items)
@@ -352,6 +375,36 @@ async def generate_content_pack_with_repair(
                         enforce_asset_readiness=False,
                     )
                 )
+                if (
+                    not validation.valid
+                    and attempt == max_attempts
+                    and final_output_repair is not None
+                ):
+                    repaired_items = final_output_repair(items, validation)
+                    _validate_pack_shape(repaired_items)
+                    if final_output_normalizer is not None:
+                        repaired_items = final_output_normalizer(repaired_items)
+                        _validate_pack_shape(repaired_items)
+                    repaired_validation = (
+                        request_validator(request, repaired_items)
+                        if request_validator is not None
+                        else validate_generated_content_pack(
+                            request,
+                            repaired_items,
+                            enforce_asset_readiness=False,
+                        )
+                    )
+                    if repaired_validation.valid:
+                        if extra_validator is not None:
+                            repaired_extra_validation = extra_validator(repaired_items)
+                            if not repaired_extra_validation.valid:
+                                raise _validation_error(repaired_extra_validation)
+                        logger.warning(
+                            "content deterministic_safe_fallback applied after attempt=%d",
+                            attempt,
+                        )
+                        return repaired_items
+                    validation = repaired_validation
                 if not validation.valid:
                     raise _validation_error(validation)
             if extra_validator is not None:
@@ -395,7 +448,8 @@ async def generate_content_pack_with_repair(
     if last_error.code in _REPAIRABLE_OUTPUT_CODES:
         raise ProviderError(
             last_error.code,
-            "Content provider output remained unsafe after bounded repair.",
+            "Content provider output remained unsafe after bounded repair: "
+            f"{last_error}",
             retryable=False,
         ) from last_error
     if last_error.retryable:

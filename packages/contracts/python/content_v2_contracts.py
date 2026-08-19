@@ -18,6 +18,7 @@ from content_contracts import (
     ContentAsset,
     ContentCtaDestination,
     ContentDecision,
+    ContentErrorCode,
     ContentValidationResult,
 )
 from strategy_contracts import StrategyPlanV2
@@ -452,6 +453,13 @@ class AiContentV2PlanResponse(ContentV2Types):
         return self
 
 
+class ContentGenerationFailureContextV2(FrozenModel):
+    """Safe summary from a previous terminal generation run."""
+
+    error_code: ContentErrorCode
+    message: str = Field(min_length=1, max_length=2000)
+
+
 class AiContentV2GenerateRequest(ContentV2Types):
     content_pack_id: UUID
     business_id: UUID
@@ -463,6 +471,7 @@ class AiContentV2GenerateRequest(ContentV2Types):
     frozen_input: ContentV2FrozenInput
     language_mode: LanguageMode
     idempotency_key: str
+    prior_failure: ContentGenerationFailureContextV2 | None = None
 
 
 class AiContentV2GenerateResponse(ContentV2Types):

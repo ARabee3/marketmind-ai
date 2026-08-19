@@ -5,13 +5,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
-from content_contracts import (
-    AiContentGenerateRequest,
-    ContentAsset,
-    ContentClaimSource,
-)
-
 from app.content.assembler import assemble_generation_prompt
 from app.content.validators import (
     compute_content_item_checksum,
@@ -19,6 +12,11 @@ from app.content.validators import (
     validate_generated_content_pack,
 )
 from app.providers.content_provider import MockContentProvider
+from content_contracts import (
+    AiContentGenerateRequest,
+    ContentAsset,
+    ContentClaimSource,
+)
 from tests.content.fixture_helpers import (
     load_example,
     make_request_with_channel,
@@ -33,9 +31,13 @@ def _generated_text_items():
     return request, items
 
 
-def _asset_for(item, *, status: str = "ready", kind: str = "owner_supplied") -> ContentAsset:
+def _asset_for(
+    item, *, status: str = "ready", kind: str = "owner_supplied"
+) -> ContentAsset:
     return ContentAsset(
-        id=item.asset_ids[0] if item.asset_ids else "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        id=item.asset_ids[0]
+        if item.asset_ids
+        else "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         content_item_version_id=item.id,
         kind=kind,
         status=status,
@@ -201,9 +203,49 @@ def test_invented_opening_hours_are_blocked() -> None:
     result = validate_generated_content_pack(request, items)
 
     assert not result.valid
-    assert "CONTENT_UNSUPPORTED_CLAIM" in {
-        issue.code for issue in result.issues
-    }
+    assert "CONTENT_UNSUPPORTED_CLAIM" in {issue.code for issue in result.issues}
+
+
+def test_generic_arabic_availability_wording_is_not_a_material_claim() -> None:
+    request, items = _generated_text_items()
+    item = items[0]
+    variant = item.caption_variants[0]
+    staged = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} فريقنا متوفر لخدمتك."}
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(staged)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert result.valid
+
+
+def test_concrete_stock_claim_without_grounding_is_blocked() -> None:
+    request, items = _generated_text_items()
+    item = items[0]
+    variant = item.caption_variants[0]
+    staged = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} المنتج في المخزون."}
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(staged)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert not result.valid
+    assert "CONTENT_UNSUPPORTED_CLAIM" in {issue.code for issue in result.issues}
+
 
 def test_risky_claim_must_preserve_the_exact_grounded_value() -> None:
     request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
@@ -236,9 +278,7 @@ def test_risky_claim_must_preserve_the_exact_grounded_value() -> None:
     result = validate_generated_content_pack(request, items)
 
     assert not result.valid
-    assert "CONTENT_UNSUPPORTED_CLAIM" in {
-        issue.code for issue in result.issues
-    }
+    assert "CONTENT_UNSUPPORTED_CLAIM" in {issue.code for issue in result.issues}
 
     grounded_variant = variant.model_copy(
         update={"caption": f"{variant.caption} السعر 50 جنيه."}
@@ -324,6 +364,28 @@ def test_short_city_token_of_protected_address_is_not_a_rewrite() -> None:
     assert "item.protected_text" not in {issue.field for issue in result.issues}
 
 
+def test_protected_address_allows_harmless_punctuation_and_spacing() -> None:
+    request, items = _generated_text_items()
+    request = _with_address(request, "شارع النيل ملوي المنيا")
+    item = items[0]
+    variant = item.caption_variants[0]
+    staged = item.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} شارع النيل، ملوي - المنيا."}
+                )
+            ]
+        }
+    )
+    items[0] = _rehash(staged)
+
+    result = validate_generated_content_pack(request, items)
+
+    assert result.valid
+    assert "item.protected_text" not in {issue.field for issue in result.issues}
+
+
 def test_protected_address_reproduced_mostly_is_still_blocked() -> None:
     request, items = _generated_text_items()
     request = _with_address(request, "شارع النيل ملوي المنيا")
@@ -333,7 +395,9 @@ def test_protected_address_reproduced_mostly_is_still_blocked() -> None:
         update={
             "caption_variants": [
                 variant.model_copy(
-                    update={"caption": f"{variant.caption} نلتقي في شارع النيل بمدينة ملوي."}
+                    update={
+                        "caption": f"{variant.caption} نلتقي في شارع النيل ملوي بمحافظة المنيا."
+                    }
                 )
             ]
         }
@@ -356,9 +420,7 @@ def test_required_static_asset_needs_ready_checksum_addressed_media() -> None:
     ready_result = validate_generated_content_pack(request, items, ready_assets)
 
     assert not missing_result.valid
-    assert "CONTENT_ASSET_REQUIRED" in {
-        issue.code for issue in missing_result.issues
-    }
+    assert "CONTENT_ASSET_REQUIRED" in {issue.code for issue in missing_result.issues}
     assert not ready_result.valid
     # The other generated items reference their own approved asset IDs and are
     # intentionally still blocked until each exact item has ready media.
@@ -417,9 +479,7 @@ def test_gbp_item_with_hashtags_is_rejected() -> None:
 
 
 def test_social_channel_without_hashtags_still_fails() -> None:
-    request = make_valid_request().model_copy(
-        update={"allowed_formats": ["text_post"]}
-    )
+    request = make_valid_request().model_copy(update={"allowed_formats": ["text_post"]})
     prompt = assemble_generation_prompt(request, "mock", "mock-content-model")
     items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
     items = [_strip_hashtags(item) for item in items]

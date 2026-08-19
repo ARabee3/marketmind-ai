@@ -5,35 +5,30 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from fastapi.testclient import TestClient
-
-from content_contracts import ContentClaimSource, ContentItemVersion
-from content_v2_contracts import (
-    AiContentV2GenerateResponse,
-    AiContentV2ReviseRequest,
-    AiContentV2ReviseResponse,
-    ContentV2OptimizationGuidanceV1,
-)
-
 from app.content.v2_generator import (
     _normalize_v2_finalized_items,
     _normalize_v2_generated_items,
-    generate_v2_content_pack,
-    v2_generate_to_v1_request,
     assemble_v2_generation_prompt,
-    validate_plan_alignment,
+    generate_v2_content_pack,
     revise_v2_content_item,
-    to_v1_item_version,
     to_v2_item_version,
+    v2_generate_to_v1_request,
+    validate_plan_alignment,
 )
 from app.content.validators import compute_content_item_checksum
 from app.core.config import Settings, get_settings
 from app.main import app
 from app.providers.content_provider import MockContentProvider
-from tests.content.fixture_helpers import (
-    make_valid_generate_v2_request,
-    make_valid_plan_request,
+from content_contracts import ContentClaimSource, ContentItemVersion
+from content_v2_contracts import (
+    AiContentV2GenerateResponse,
+    AiContentV2ReviseRequest,
+    AiContentV2ReviseResponse,
+    ContentGenerationFailureContextV2,
+    ContentV2OptimizationGuidanceV1,
 )
+from fastapi.testclient import TestClient
+from tests.content.fixture_helpers import make_valid_generate_v2_request
 
 
 def test_v2_generate_projects_frozen_snapshot_into_v1_request() -> None:
@@ -69,6 +64,26 @@ def test_v2_generate_prompt_embeds_frozen_post_plans() -> None:
     assert prompt.metadata["contract_version"] == "content-v2"
 
 
+def test_v2_owner_regeneration_prompt_includes_prior_failure_context() -> None:
+    request = make_valid_generate_v2_request().model_copy(
+        update={
+            "prior_failure": ContentGenerationFailureContextV2(
+                error_code="CONTENT_UNSUPPORTED_CLAIM",
+                message="Availability wording had no approved grounding source.",
+            )
+        }
+    )
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+
+    assert "Owner regeneration recovery" in prompt.system_prompt
+    assert "prior_generation_failure" in prompt.user_prompt
+    assert prompt.metadata["prior_failure_code"] == "CONTENT_UNSUPPORTED_CLAIM"
+    assert prompt.context["recovery_context"]["error_code"] == (
+        "CONTENT_UNSUPPORTED_CLAIM"
+    )
+
+
 def test_v2_generate_prompt_freezes_approved_optimization_guidance() -> None:
     request = make_valid_generate_v2_request()
     guidance = {
@@ -83,11 +98,11 @@ def test_v2_generate_prompt_freezes_approved_optimization_guidance() -> None:
     request = request.model_copy(
         update={
             "frozen_input": request.frozen_input.model_copy(
-                    update={
-                        "optimization_guidance": ContentV2OptimizationGuidanceV1.model_validate(
-                            guidance
-                        )
-                    }
+                update={
+                    "optimization_guidance": ContentV2OptimizationGuidanceV1.model_validate(
+                        guidance
+                    )
+                }
             )
         }
     )
@@ -96,17 +111,13 @@ def test_v2_generate_prompt_freezes_approved_optimization_guidance() -> None:
 
     assert "Owner-approved Optimization 2 guidance" in prompt.system_prompt
     assert guidance["instruction"] in prompt.user_prompt
-    assert prompt.metadata["optimization_instruction_id"] == guidance[
-        "instruction_id"
-    ]
+    assert prompt.metadata["optimization_instruction_id"] == guidance["instruction_id"]
 
     raw_items = asyncio.run(MockContentProvider().generate_content_pack(prompt))
     normalized = _normalize_v2_generated_items(request, v1, raw_items)
     assert normalized[0].generation_provenance.optimization_guidance is not None
     assert (
-        normalized[0].generation_provenance.optimization_guidance[
-            "instruction_id"
-        ]
+        normalized[0].generation_provenance.optimization_guidance["instruction_id"]
         == guidance["instruction_id"]
     )
 
@@ -167,9 +178,7 @@ def test_v2_item_version_carries_generated_edit_metadata() -> None:
     assert v2_item.edit_metadata.edit_kind == "generated"
     assert v2_item.edit_metadata.validation_state == "validated"
     assert v2_item.edit_metadata.base_version_id is None
-    assert v2_item.version_checksum == compute_content_item_checksum(
-        items[0]
-    )
+    assert v2_item.version_checksum == compute_content_item_checksum(items[0])
 
 
 def test_text_post_does_not_acquire_an_automatic_image_dependency() -> None:
@@ -314,11 +323,54 @@ async def test_v2_generation_normalizes_frozen_ctas_and_hashtag_shape() -> None:
     assert response.item_versions[2].hashtags == []
     assert response.item_versions[3].cta is None
     assert all(
-        variant["cta"] is None
-        for variant in response.item_versions[3].caption_variants
+        variant["cta"] is None for variant in response.item_versions[3].caption_variants
     )
     assert response.item_versions[3].short_video_script is not None
     assert response.item_versions[3].short_video_script["closing_cta"] is None
+
+
+@pytest.mark.asyncio
+async def test_v2_generation_uses_deterministic_safe_fallback_after_repair() -> None:
+    request = make_valid_generate_v2_request()
+    v1 = v2_generate_to_v1_request(request)
+    prompt = assemble_v2_generation_prompt(request, v1, "mock", "mock-model")
+    raw_items = await MockContentProvider().generate_content_pack(prompt)
+    first = raw_items[0]
+    raw_items[0] = first.model_copy(
+        update={
+            "caption_variants": [
+                variant.model_copy(
+                    update={"caption": f"{variant.caption} المنتج في المخزون."}
+                )
+                for variant in first.caption_variants
+            ]
+        }
+    )
+
+    class RepeatingUnsafeProvider(MockContentProvider):
+        name = "repeating-unsafe"
+        model = "repeating-unsafe-model"
+
+        def __init__(self, items: list[ContentItemVersion]) -> None:
+            self.items = items
+            self.calls = 0
+
+        async def generate_content_pack(
+            self,
+            _prompt,
+            *,
+            max_output_tokens: int | None = None,
+        ) -> list[ContentItemVersion]:
+            del max_output_tokens
+            self.calls += 1
+            return [item.model_copy(deep=True) for item in self.items]
+
+    provider = RepeatingUnsafeProvider(raw_items)
+    response = await generate_v2_content_pack(request, provider, breaker=None)
+
+    assert provider.calls == 2
+    assert "في المخزون" not in response.item_versions[0].caption_variants[0]["caption"]
+    assert "CONTENT_UNSUPPORTED_CLAIM" in response.item_versions[0].warnings
 
 
 @pytest.mark.asyncio
@@ -485,9 +537,7 @@ def test_v2_revise_returns_ai_rewrite_version() -> None:
     request = _v2_revise_request()
     provider = MockContentProvider()
 
-    response = asyncio.run(
-        revise_v2_content_item(request, provider, breaker=None)
-    )
+    response = asyncio.run(revise_v2_content_item(request, provider, breaker=None))
 
     assert response.contract_version == "content-v2"
     assert response.validation.valid is True

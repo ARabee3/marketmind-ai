@@ -1065,6 +1065,14 @@ describe("ContentV2Service.regenerateFailedPack", () => {
     const packRepository = {
       markPackStatus: jest.fn().mockResolvedValue({ changed: true }),
       appendProgressEvent: jest.fn().mockResolvedValue({}),
+      getProgressEvents: jest.fn().mockResolvedValue([
+        {
+          stage: "failed",
+          status: "failed",
+          messageText: "Availability wording had no approved grounding source.",
+          payload: { error_code: "CONTENT_UNSUPPORTED_CLAIM" },
+        },
+      ]),
     };
     const jobOutbox = {
       createIntent: jest.fn().mockResolvedValue({}),
@@ -1111,18 +1119,33 @@ describe("ContentV2Service.regenerateFailedPack", () => {
       expect.objectContaining({
         jobName: "generate-content-v2",
         jobId: expect.stringMatching(/^regenerate-content-v2-pack-failed-/),
+        payload: expect.objectContaining({
+          priorFailure: {
+            error_code: "CONTENT_UNSUPPORTED_CLAIM",
+            message: "Availability wording had no approved grounding source.",
+          },
+        }),
       }),
       mocks.tx,
     );
     expect(mocks.contentQueue.add).toHaveBeenCalledWith(
       "generate-content-v2",
-      expect.objectContaining({ contentPackId: "pack-failed" }),
+      expect.objectContaining({
+        contentPackId: "pack-failed",
+        priorFailure: {
+          error_code: "CONTENT_UNSUPPORTED_CLAIM",
+          message: "Availability wording had no approved grounding source.",
+        },
+      }),
       expect.objectContaining({ attempts: 3 }),
     );
     expect(mocks.packRepository.appendProgressEvent).toHaveBeenCalledWith(
       "pack-failed",
       expect.objectContaining({
-        payload: expect.objectContaining({ owner_recovery: true }),
+        payload: expect.objectContaining({
+          owner_recovery: true,
+          prior_failure_code: "CONTENT_UNSUPPORTED_CLAIM",
+        }),
       }),
     );
     expect(result.status).toBe("queued");

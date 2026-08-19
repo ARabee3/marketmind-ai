@@ -1,6 +1,7 @@
 import type { BusinessProfile } from "../../discovery/business-profile.schema";
 import type {
   ContentChannel,
+  ContentErrorCode,
   ContentFormat,
   ContentValidationResult,
   LanguageMode,
@@ -62,6 +63,12 @@ export type AiContentV2PlanResponse = {
   readonly validation: ContentValidationResult;
 };
 
+/** Safe summary from a previous terminal generation run. */
+export type ContentGenerationFailureContextV2 = {
+  readonly error_code: ContentErrorCode;
+  readonly message: string;
+};
+
 export type AiContentV2GenerateRequest = {
   readonly contract_version: "content-v2";
   readonly content_pack_id: UUID;
@@ -75,6 +82,8 @@ export type AiContentV2GenerateRequest = {
   readonly frozen_input: ContentV2FrozenInput;
   readonly language_mode: LanguageMode;
   readonly idempotency_key: string;
+  /** Present only for an explicit owner regeneration after a failed pack. */
+  readonly prior_failure?: ContentGenerationFailureContextV2;
 };
 
 export type AiContentV2GenerateResponse = {

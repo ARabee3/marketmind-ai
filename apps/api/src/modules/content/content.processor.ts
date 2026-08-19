@@ -17,6 +17,7 @@ import {
 } from "@marketmind/contracts";
 import type {
   AiContentV2GenerateRequest,
+  ContentGenerationFailureContextV2,
   ContentV2FrozenInput,
   StrategyPlanV2,
 } from "@marketmind/contracts";
@@ -64,6 +65,7 @@ interface ContentGenerateJobData {
   contentPackId: string;
   idempotencyKey: string;
   correlationId: string;
+  priorFailure?: ContentGenerationFailureContextV2;
 }
 
 interface ContentReviseJobData {
@@ -398,8 +400,13 @@ export class ContentProcessor extends WorkerHost {
   private async handleGenerateV2(
     job: Job<ContentGenerateJobData>,
   ): Promise<void> {
-    const { contentCycleId, weekNumber, contentPackId, correlationId } =
-      job.data;
+    const {
+      contentCycleId,
+      weekNumber,
+      contentPackId,
+      correlationId,
+      priorFailure,
+    } = job.data;
     const startedAt = new Date();
 
     const pack = await this.packRepo.getPackById(contentPackId);
@@ -508,6 +515,7 @@ export class ContentProcessor extends WorkerHost {
         language_mode: (frozenInput.editorial_profile?.language ??
           "ar-EG") as AiContentV2GenerateRequest["language_mode"],
         idempotency_key: `pack:${pack.id}`,
+        ...(priorFailure ? { prior_failure: priorFailure } : {}),
       };
 
       const response = await this.contentAiClient.generateV2(request);
