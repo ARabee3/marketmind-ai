@@ -68,9 +68,9 @@ export function ReadinessLedger({
 
         {/* Domain scores */}
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('domainScores')}
-          </h4>
+          </h3>
           {readiness.blocking_domains.length > 0 && (
             <p className="text-xs text-destructive font-medium">{t('blockingDomainsLabel')}</p>
           )}
@@ -107,9 +107,9 @@ export function ReadinessLedger({
         {/* Uncertainties */}
         {uncertainties.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {tReview('uncertaintiesTitle')}
-            </h4>
+            </h3>
             {highSeverity.length > 0 && (
               <div className="space-y-1">
                 {highSeverity.map((u) => (

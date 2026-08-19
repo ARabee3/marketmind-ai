@@ -1228,6 +1228,9 @@ function ChannelsStep({
                         name={`url-${choice.channel}`}
                         type="url"
                         dir="ltr"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
                         placeholder={t('wizard.meta.publicUrlPlaceholder')}
                         value={choice.publicUrl}
                         onChange={(event) =>

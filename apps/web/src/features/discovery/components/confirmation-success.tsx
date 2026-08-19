@@ -55,7 +55,7 @@ export function ConfirmationSuccess({
           <CardContent className="space-y-4">
             {readiness.blocking_domains.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-warning">{t('blockingDomainsLabel')}</h4>
+                <h3 className="text-sm font-semibold text-warning">{t('blockingDomainsLabel')}</h3>
                 <ul className="list-disc list-inside text-sm">
                   {readiness.blocking_domains.map((domain) => (
                     <li key={domain}>{domainLabels[domain] ?? domain}</li>
@@ -65,7 +65,7 @@ export function ConfirmationSuccess({
             )}
             {unresolved.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-warning">{t('unresolvedUncertainties')}</h4>
+                <h3 className="text-sm font-semibold text-warning">{t('unresolvedUncertainties')}</h3>
                 <div className="space-y-2">
                   {unresolved.map((u) => (
                     <div key={u.field_key} className="p-3 rounded-md bg-warning/5 border border-warning/20">
