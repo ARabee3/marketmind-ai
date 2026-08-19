@@ -10,6 +10,7 @@ import { envSchema } from "../src/config/env.schema";
 import { AuthModule } from "../src/modules/auth/auth.module";
 import { RbacModule } from "../src/modules/rbac/rbac.module";
 import { PrismaService } from "../src/common/persistence/prisma.service";
+import { AuditModule } from "../src/modules/audit/audit.module";
 import { AdminController } from "../src/modules/publishing/admin/admin.controller";
 import { ReconciliationService } from "../src/modules/publishing/scheduling/reconciliation.service";
 
@@ -70,6 +71,7 @@ describe("Publishing Admin (e2e)", () => {
         }),
         AuthModule,
         RbacModule,
+        AuditModule,
       ],
       controllers: [AdminController],
       providers: [
@@ -451,6 +453,17 @@ describe("Publishing Admin (e2e)", () => {
         where: { id: intentId },
       });
       expect(intent?.status).toBe("FAILED");
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: { targetId: unknownResultId, action: "publishing.resolve_failed" },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.reason).toBe("manual reconciliation");
+      expect(auditEntry?.beforeState).toEqual({ outcome: "UNKNOWN" });
+      expect(auditEntry?.afterState).toEqual({
+        outcome: "FAILED",
+        remotePublicationId: null,
+      });
     });
 
     it("resolves an UNKNOWN result as PUBLISHED with provider proof", async () => {
@@ -475,6 +488,16 @@ describe("Publishing Admin (e2e)", () => {
         where: { id: intentId },
       });
       expect(intent?.status).toBe("SUCCEEDED");
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: { targetId: unknownResultId, action: "publishing.resolve_published" },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.reason).toBe("confirmed on the provider dashboard");
+      expect(auditEntry?.afterState).toEqual({
+        outcome: "PUBLISHED",
+        remotePublicationId: "provider-page-post-42",
+      });
     });
 
     it("rejects resolving a non-UNKNOWN result with 400", async () => {
@@ -518,6 +541,13 @@ describe("Publishing Admin (e2e)", () => {
         .expect(201);
 
       expect(res.body).toHaveProperty("ok", true);
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: { action: "publishing.sweep" },
+        orderBy: { createdAt: "desc" },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.actorEmail).toBe("admin@e2e.test");
     });
   });
 
@@ -531,6 +561,12 @@ describe("Publishing Admin (e2e)", () => {
 
       expect(res.body).toHaveProperty("queued", true);
       expect(fakeQueue.add).toHaveBeenCalled();
+
+      const auditEntry = await prisma.auditLog.findFirst({
+        where: { targetId: scheduledIntentId, action: "publishing.resync_schedule" },
+      });
+      expect(auditEntry).toBeTruthy();
+      expect(auditEntry?.beforeState).toHaveProperty("id", scheduledIntentId);
     });
   });
 });

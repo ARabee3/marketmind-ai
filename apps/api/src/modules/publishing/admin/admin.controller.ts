@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Request } from "express";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { ReconciliationService } from "../scheduling/reconciliation.service";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
@@ -9,6 +10,8 @@ import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { ListResultsQueryDto } from "./dto/list-results-query.dto";
+import { AuthenticatedUser } from "../../auth/interfaces/jwt-payload.interface";
+import { AuditService } from "../../audit/audit.service";
 
 class ResolveUnknownDto {
   @IsString()
@@ -47,13 +50,40 @@ export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reconciliation: ReconciliationService,
+    private readonly auditService: AuditService,
   ) {}
 
   /** Manual trigger for queue-DB reconciliation on one intent. */
   @Post("intents/:intentId/resync-schedule")
   @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
-  async resyncIntent(@Param("intentId") intentId: string) {
-    return this.reconciliation.resyncIntent(intentId);
+  async resyncIntent(
+    @Param("intentId") intentId: string,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    const beforeState = await this.prisma.publishingIntent.findUnique({
+      where: { id: intentId },
+      select: { id: true, status: true, version: true },
+    });
+    if (!beforeState) {
+      throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    }
+    const result = await this.reconciliation.resyncIntent(intentId);
+    await this.auditService.record({
+      actorUserId: actor.id,
+      actorEmail: actor.email,
+      action: "publishing.resync_schedule",
+      targetType: "publishing_intent",
+      targetId: intentId,
+      reason: "Admin resynced the publishing schedule for this intent",
+      beforeState,
+      afterState: {
+        id: intentId,
+        status: "SCHEDULED",
+        version: beforeState.version,
+      },
+    });
+    return result;
   }
 
   /** Manually close out an UNKNOWN result after human/provider investigation. */
@@ -62,7 +92,9 @@ export class AdminController {
   async resolveUnknown(
     @Param("resultId") resultId: string,
     @Body() dto: ResolveUnknownDto,
+    @Req() req: Request,
   ) {
+    const actor = req.user as AuthenticatedUser;
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.publishingResult.findUnique({
         where: { id: resultId },
@@ -105,6 +137,23 @@ export class AdminController {
         data: { status: intentStatus as never },
       });
 
+      await this.auditService.record({
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        action:
+          newOutcome === "PUBLISHED"
+            ? "publishing.resolve_published"
+            : "publishing.resolve_failed",
+        targetType: "publishing_result",
+        targetId: resultId,
+        reason: dto.reason,
+        beforeState: { outcome: result.outcome },
+        afterState: {
+          outcome: newOutcome,
+          remotePublicationId: updated.remotePublicationId,
+        },
+      });
+
       return updated;
     });
   }
@@ -112,8 +161,18 @@ export class AdminController {
   /** Trigger reconciliation sweep immediately on demand. */
   @Post("sweep")
   @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
-  async triggerSweep() {
+  async triggerSweep(@Req() req: Request) {
+    const actor = req.user as AuthenticatedUser;
     await this.reconciliation.runSweep();
+    await this.auditService.record({
+      actorUserId: actor.id,
+      actorEmail: actor.email,
+      action: "publishing.sweep",
+      targetType: "publishing",
+      reason: "Admin triggered a manual reconciliation sweep",
+      beforeState: {},
+      afterState: {},
+    });
     return { ok: true, message: "Reconciliation sweep triggered" };
   }
 
