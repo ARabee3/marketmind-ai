@@ -4,6 +4,7 @@ import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryInitialQuestionService } from "./discovery-initial-question.service";
 import { StartDiscoveryDto, LanguageModeDto } from "./dto/start-discovery.dto";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
@@ -33,6 +34,9 @@ describe("DiscoveryService enqueue behavior", () => {
   const queueProducer = {
     enqueueResearch: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryQueueProducer>;
+  const initialQuestionService = {
+    ensureInitialQuestion: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryInitialQuestionService>;
 
   let service: DiscoveryService;
 
@@ -57,6 +61,7 @@ describe("DiscoveryService enqueue behavior", () => {
       conversationRepository,
       progressGateway,
       queueProducer,
+      initialQuestionService,
     );
   });
 

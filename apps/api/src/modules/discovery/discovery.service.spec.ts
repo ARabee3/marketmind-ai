@@ -8,6 +8,7 @@ import { DiscoveryProgressGateway } from "./discovery-progress.gateway";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
 import { DiscoveryRepository } from "./discovery.repository";
 import { DiscoveryService } from "./discovery.service";
+import { DiscoveryInitialQuestionService } from "./discovery-initial-question.service";
 import { LanguageModeDto, StartDiscoveryDto } from "./dto/start-discovery.dto";
 import { emptyDiscoveryProfileState } from "./market-profile";
 import { IntelligenceResult } from "./discovery-state";
@@ -37,6 +38,9 @@ describe("DiscoveryService", () => {
   const queueProducer = {
     enqueueResearch: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryQueueProducer>;
+  const initialQuestionService = {
+    ensureInitialQuestion: jest.fn(),
+  } as unknown as jest.Mocked<DiscoveryInitialQuestionService>;
 
   let service: DiscoveryService;
 
@@ -47,6 +51,7 @@ describe("DiscoveryService", () => {
       conversationRepository,
       progressGateway,
       queueProducer,
+      initialQuestionService,
     );
   });
 
@@ -253,5 +258,121 @@ describe("DiscoveryService", () => {
       dto,
     );
     expect(result.session_id).toBe("22222222-2222-4222-8222-222222222222");
+  });
+
+  describe("retryInterview", () => {
+    const SESSION_ID = "11111111-1111-4111-8111-111111111111";
+
+    function sessionWith(status: string) {
+      return {
+        id: SESSION_ID,
+        status,
+        languageMode: "ar-EG",
+        currentQuestion: null,
+        startedAt: new Date("2026-06-29T10:00:00.000Z"),
+        intelligence: {
+          status: "complete" as const,
+          search_mode: "free_search" as const,
+          source_refs: [],
+          research_observations: [],
+          conversation_hooks: [],
+          knowledge_gaps: [],
+        },
+        progressEvents: [],
+        profileState: emptyDiscoveryProfileState(),
+        ownerTurnCount: 0,
+        completionReason: null,
+        intakes: [
+          {
+            businessName: "Koshary Corner",
+            businessType: "restaurant",
+            city: "Cairo",
+            area: null,
+          },
+        ],
+      } as never;
+    }
+
+    beforeEach(() => {
+      conversationRepository.listMessages.mockResolvedValue([]);
+      conversationRepository.latestProfileDraft.mockResolvedValue(undefined);
+      conversationRepository.getIntake.mockResolvedValue({
+        business_name: "Koshary Corner",
+        business_type: "restaurant",
+        city: "Cairo",
+      });
+    });
+
+    it("creates the initial question from a partial_ready session and returns status", async () => {
+      repository.findSessionForOwner.mockResolvedValue(sessionWith("partial_ready"));
+      initialQuestionService.ensureInitialQuestion.mockResolvedValue("started");
+
+      const result = await service.retryInterview("owner-id", SESSION_ID);
+
+      expect(initialQuestionService.ensureInitialQuestion).toHaveBeenCalledWith(
+        SESSION_ID,
+        {
+          intake: {
+            business_name: "Koshary Corner",
+            business_type: "restaurant",
+            city: "Cairo",
+          },
+          language_mode: "ar-EG",
+        },
+        expect.objectContaining({ status: "complete" }),
+        ["partial_ready", "research_failed", "ready_for_chat"],
+      );
+      expect(result.status).toBe("partial_ready");
+    });
+
+    it("is a no-op when the conversation already started", async () => {
+      repository.findSessionForOwner.mockResolvedValue(sessionWith("in_progress"));
+
+      const result = await service.retryInterview("owner-id", SESSION_ID);
+
+      expect(result.status).toBe("in_progress");
+      expect(initialQuestionService.ensureInitialQuestion).not.toHaveBeenCalled();
+      expect(conversationRepository.getIntake).not.toHaveBeenCalled();
+    });
+
+    it("rejects retry for a terminal session", async () => {
+      repository.findSessionForOwner.mockResolvedValue(sessionWith("confirmed"));
+
+      await expect(
+        service.retryInterview("owner-id", SESSION_ID),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: expect.objectContaining({
+          code: "DISCOVERY_SESSION_STATE_CONFLICT",
+        }),
+      });
+      expect(initialQuestionService.ensureInitialQuestion).not.toHaveBeenCalled();
+    });
+
+    it("surfaces provider unavailability as a retryable 503", async () => {
+      repository.findSessionForOwner.mockResolvedValue(sessionWith("partial_ready"));
+      initialQuestionService.ensureInitialQuestion.mockResolvedValue(
+        "unavailable",
+      );
+
+      await expect(
+        service.retryInterview("owner-id", SESSION_ID),
+      ).rejects.toMatchObject({
+        status: 503,
+        response: expect.objectContaining({
+          code: "DISCOVERY_AI_SERVICE_UNAVAILABLE",
+        }),
+      });
+    });
+
+    it("propagates ownership/not-found errors from the repository", async () => {
+      repository.findSessionForOwner.mockRejectedValue(
+        new NotFoundException("Discovery session not found"),
+      );
+
+      await expect(
+        service.retryInterview("owner-id", SESSION_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });

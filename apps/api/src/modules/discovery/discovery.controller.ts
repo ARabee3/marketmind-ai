@@ -81,6 +81,15 @@ export class DiscoveryController {
     return this.discoveryService.getStatus(req.user.id, sessionId);
   }
 
+  @Post(":sessionId/retry-interview")
+  @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
+  async retryInterview(
+    @Req() req: RequestWithUser,
+    @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
+  ): Promise<DiscoveryStatusResponse> {
+    return this.discoveryService.retryInterview(req.user.id, sessionId);
+  }
+
   @Sse(":sessionId/stream")
   @Permissions(PERMISSIONS.DISCOVERY_CONTINUE)
   stream(

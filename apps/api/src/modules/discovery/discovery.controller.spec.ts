@@ -12,6 +12,7 @@ import { PermissionsGuard } from "../rbac/guards/permissions.guard";
 import { PERMISSIONS } from "../rbac/rbac.constants";
 import { RbacService } from "../rbac/rbac.service";
 import { emptyDiscoveryProfileState } from "./market-profile";
+import { DiscoveryStatusResponse } from "./discovery-state";
 import { DiscoveryRateLimitGuard } from "./discovery-rate-limit.guard";
 import { DiscoveryRedisLimiterService } from "./discovery-redis-limiter.service";
 import { RedisService } from "../redis/redis.service";
@@ -20,6 +21,7 @@ describe("DiscoveryController", () => {
   const service = {
     startPreparedDiscovery: jest.fn(),
     getStatus: jest.fn(),
+    retryInterview: jest.fn(),
   } as unknown as jest.Mocked<DiscoveryService>;
   const conversationService = {
     respondToDiscovery: jest.fn(),
@@ -133,6 +135,54 @@ describe("DiscoveryController", () => {
     );
   });
 
+  it("retries the interview for the authenticated owner", async () => {
+    const statusResponse: DiscoveryStatusResponse = {
+      session_id: "11111111-1111-4111-8111-111111111111",
+      status: "in_progress",
+      language_mode: LanguageModeDto.Mixed,
+      intake_summary: {
+        business_name: "Koshary Corner",
+        business_type: "quick service restaurant",
+        city: "Cairo",
+      },
+      intelligence: {
+        status: "complete",
+        search_mode: "free_search",
+        source_refs: [],
+        research_observations: [],
+        conversation_hooks: [],
+        knowledge_gaps: [],
+      },
+      messages: [
+        {
+          id: "msg-1",
+          role: "assistant",
+          content: "Who are your customers?",
+          language: LanguageModeDto.Mixed,
+          source: "chat",
+          created_at: "2026-06-29T10:02:00.000Z",
+        },
+      ],
+      profile_state: emptyDiscoveryProfileState(),
+      progress_events: [],
+      strategy_locked: true,
+    };
+    service.retryInterview.mockResolvedValue(statusResponse);
+
+    const result = await controller.retryInterview(
+      {
+        user: { id: "owner-id", email: "owner@example.com", roles: [] },
+      } as never,
+      "11111111-1111-4111-8111-111111111111",
+    );
+
+    expect(result).toEqual(statusResponse);
+    expect(service.retryInterview).toHaveBeenCalledWith(
+      "owner-id",
+      "11111111-1111-4111-8111-111111111111",
+    );
+  });
+
   it("forwards an owner WAV upload without creating a discovery turn", async () => {
     const sessionId = "11111111-1111-4111-8111-111111111111";
     const response = {
@@ -188,6 +238,9 @@ describe("DiscoveryController", () => {
     expect(getPermissions("confirmProfile")).toEqual([
       PERMISSIONS.DISCOVERY_CONFIRM_PROFILE,
     ]);
+    expect(getPermissions("retryInterview")).toEqual([
+      PERMISSIONS.DISCOVERY_CONTINUE,
+    ]);
     expect(getPermissions("status")).toBeUndefined();
   });
 
@@ -204,7 +257,8 @@ type DiscoveryRoute =
   | "respond"
   | "transcribe"
   | "summarize"
-  | "confirmProfile";
+  | "confirmProfile"
+  | "retryInterview";
 
 function getPermissions(route: DiscoveryRoute): unknown {
   return Reflect.getMetadata(

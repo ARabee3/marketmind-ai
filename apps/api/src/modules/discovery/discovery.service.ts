@@ -9,6 +9,7 @@ import { DiscoveryRepository } from "./discovery.repository";
 import { StartDiscoveryDto } from "./dto/start-discovery.dto";
 import {
   DiscoveryProgressInput,
+  DiscoverySessionStatus,
   DiscoveryStatusResponse,
   StartDiscoveryResponse,
 } from "./discovery-state";
@@ -18,6 +19,13 @@ import { DiscoveryConversationRepository } from "./discovery-conversation.reposi
 import { LanguageModeDto } from "./dto/start-discovery.dto";
 import { DiscoveryQueueProducer } from "./discovery-queue.producer";
 import { suggestedAnswersFromMetadata } from "./discovery-suggested-answers";
+import { DiscoveryInitialQuestionService } from "./discovery-initial-question.service";
+
+const RETRYABLE_INTERVIEW_STATUSES: readonly DiscoverySessionStatus[] = [
+  "partial_ready",
+  "research_failed",
+  "ready_for_chat",
+];
 
 @Injectable()
 export class DiscoveryService {
@@ -28,6 +36,7 @@ export class DiscoveryService {
     private readonly conversationRepository: DiscoveryConversationRepository,
     private readonly progressGateway: DiscoveryProgressGateway,
     private readonly queueProducer: DiscoveryQueueProducer,
+    private readonly initialQuestionService: DiscoveryInitialQuestionService,
   ) {}
 
   async startPreparedDiscovery(
@@ -148,6 +157,65 @@ export class DiscoveryService {
       progress_events: progressEventsFromPersistence(session.progressEvents),
       strategy_locked: session.status !== "confirmed",
     };
+  }
+
+  /**
+   * Recreate the missing initial conversation for a stuck Discovery session.
+   *
+   * Research results are preserved; only the first assistant question is
+   * (re)created. Idempotent: if a conversation already exists the current
+   * status is returned without further work, so repeated clicks are safe.
+   */
+  async retryInterview(
+    ownerUserId: string,
+    sessionId: string,
+  ): Promise<DiscoveryStatusResponse> {
+    const session = await this.discoveryRepository.findSessionForOwner(
+      ownerUserId,
+      sessionId,
+    );
+
+    // Already chatting — nothing to retry, return authoritative status.
+    if (session.status === "in_progress") {
+      return this.getStatus(ownerUserId, sessionId);
+    }
+
+    if (!RETRYABLE_INTERVIEW_STATUSES.includes(session.status)) {
+      this.logger.warn(
+        `Discovery retry-interview rejected for session ${sessionId} in state ${session.status}`,
+      );
+      throw new ConflictException({
+        code: "DISCOVERY_SESSION_STATE_CONFLICT",
+        message:
+          "Discovery session is not in a state that allows retrying the interview.",
+      });
+    }
+
+    const intake = await this.conversationRepository.getIntake(sessionId);
+    const dto: StartDiscoveryDto = {
+      intake,
+      language_mode: session.languageMode as LanguageModeDto,
+    };
+
+    const result = await this.initialQuestionService.ensureInitialQuestion(
+      sessionId,
+      dto,
+      session.intelligence,
+      RETRYABLE_INTERVIEW_STATUSES,
+    );
+
+    if (result === "unavailable") {
+      throw new ServiceUnavailableException({
+        code: "DISCOVERY_AI_SERVICE_UNAVAILABLE",
+        message: "The discovery interview could not start. Please retry.",
+        retryable: true,
+      });
+    }
+
+    this.logger.log(
+      `Discovery interview started for session ${sessionId} (retry result: ${result})`,
+    );
+    return this.getStatus(ownerUserId, sessionId);
   }
 }
 
