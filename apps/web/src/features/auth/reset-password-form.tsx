@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, type FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { publicRequest } from '@/lib/api'
 import { Input } from '@/components/ui/input'
@@ -42,6 +43,8 @@ export function ResetPasswordForm() {
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<ResetPasswordFormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [view, setView] = useState<View>(token ? 'form' : 'invalid')
@@ -183,19 +186,34 @@ export function ResetPasswordForm() {
 
       <div className={authStyles.field}>
         <Label htmlFor="password">{t('resetPasswordPasswordLabel')}</Label>
-        <Input
-          ref={passwordRef}
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('resetPasswordPasswordPlaceholder')}
-          className={authStyles.input}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          aria-invalid={errors.password ? 'true' : 'false'}
-          aria-describedby={errors.password ? 'password-error' : undefined}
-        />
+        <div className="relative">
+          <Input
+            ref={passwordRef}
+            id="password"
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            placeholder={t('resetPasswordPasswordPlaceholder')}
+            className={cn(authStyles.input, 'pe-10')}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            aria-invalid={errors.password ? 'true' : 'false'}
+            aria-describedby={errors.password ? 'password-error' : undefined}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-action rounded-e-md"
+            aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <EyeOffIcon className="h-4 w-4 shrink-0" aria-hidden />
+            ) : (
+              <EyeIcon className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+          </button>
+        </div>
         {errors.password && (
           <p id="password-error" role="alert" className="text-sm text-destructive">
             {t(errors.password, { min: MIN_PASSWORD_LENGTH })}
@@ -207,21 +225,36 @@ export function ResetPasswordForm() {
         <Label htmlFor="confirmPassword">
           {t('resetPasswordConfirmPasswordLabel')}
         </Label>
-        <Input
-          ref={confirmPasswordRef}
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('resetPasswordConfirmPasswordPlaceholder')}
-          className={authStyles.input}
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-          aria-invalid={errors.confirmPassword ? 'true' : 'false'}
-          aria-describedby={
-            errors.confirmPassword ? 'confirm-password-error' : undefined
-          }
-        />
+        <div className="relative">
+          <Input
+            ref={confirmPasswordRef}
+            id="confirmPassword"
+            name="confirmPassword"
+            type={showConfirmPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            placeholder={t('resetPasswordConfirmPasswordPlaceholder')}
+            className={cn(authStyles.input, 'pe-10')}
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            aria-invalid={errors.confirmPassword ? 'true' : 'false'}
+            aria-describedby={
+              errors.confirmPassword ? 'confirm-password-error' : undefined
+            }
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-action rounded-e-md"
+            aria-label={showConfirmPassword ? t('hidePassword') : t('showPassword')}
+            tabIndex={-1}
+          >
+            {showConfirmPassword ? (
+              <EyeOffIcon className="h-4 w-4 shrink-0" aria-hidden />
+            ) : (
+              <EyeIcon className="h-4 w-4 shrink-0" aria-hidden />
+            )}
+          </button>
+        </div>
         {errors.confirmPassword && (
           <p id="confirm-password-error" role="alert" className="text-sm text-destructive">
             {t(errors.confirmPassword)}

@@ -13,6 +13,8 @@ const authMessages: Record<string, string> = {
   loginPasswordLabel: 'Password',
   loginPasswordPlaceholder: '••••••••',
   loginSubmit: 'Sign in',
+  showPassword: 'Show password',
+  hidePassword: 'Hide password',
   registerSuccess: 'Account created. Please sign in.',
   loginRegisteredConfirmation:
     'Account created. We sent a verification link to your email.',
@@ -98,8 +100,22 @@ describe('LoginForm', () => {
     render(<LoginForm />)
 
     expect(screen.getByLabelText(/email/i)).toBeDefined()
-    expect(screen.getByLabelText(/password/i)).toBeDefined()
+    expect(screen.getByLabelText(/^password$/i)).toBeDefined()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeDefined()
+  })
+
+  it('toggles password visibility when the eye button is clicked', () => {
+    render(<LoginForm />)
+    const passwordInput = screen.getByLabelText(/^password$/i)
+    const toggleButton = screen.getByRole('button', { name: /show password/i })
+
+    expect(passwordInput.getAttribute('type')).toBe('password')
+    fireEvent.click(toggleButton)
+    expect(passwordInput.getAttribute('type')).toBe('text')
+    expect(screen.getByRole('button', { name: /hide password/i })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: /hide password/i }))
+    expect(passwordInput.getAttribute('type')).toBe('password')
   })
 
   it('prefills email from the query string', () => {
@@ -172,7 +188,7 @@ describe('LoginForm', () => {
     render(<LoginForm />)
 
     typeInto(screen.getByLabelText(/email/i), '  ahmed@example.com  ')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -193,7 +209,7 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
     typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -211,7 +227,7 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
     typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -224,7 +240,7 @@ describe('LoginForm', () => {
 
     render(<LoginForm />)
     typeInto(screen.getByLabelText(/email/i), 'admin@example.com')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -242,7 +258,7 @@ describe('LoginForm', () => {
     render(<LoginForm />)
 
     typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -261,7 +277,7 @@ describe('LoginForm', () => {
     render(<LoginForm />)
 
     typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
-    typeInto(screen.getByLabelText(/password/i), 'password123')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {

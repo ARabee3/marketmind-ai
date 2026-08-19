@@ -13,6 +13,8 @@ const authMessages: Record<string, string> = {
   resetPasswordConfirmPasswordLabel: 'Confirm new password',
   resetPasswordConfirmPasswordPlaceholder: '••••••••',
   resetPasswordSubmit: 'Reset password',
+  showPassword: 'Show password',
+  hidePassword: 'Hide password',
   resetPasswordSuccessTitle: 'Password reset',
   resetPasswordSuccessBody:
     'Your password has been reset. You can sign in with your new password.',
@@ -124,6 +126,28 @@ describe('ResetPasswordForm', () => {
     expect((link as HTMLAnchorElement).getAttribute('href')).toContain(
       '/forgot-password',
     )
+  })
+
+  it('toggles password and confirm password visibility', () => {
+    setSearchParams(new URLSearchParams({ token: 'valid-token' }))
+    render(<ResetPasswordForm />)
+
+    const passwordInput = screen.getByLabelText(/^new password$/i)
+    const confirmPasswordInput = screen.getByLabelText(/confirm new password/i)
+    const toggleButtons = screen.getAllByRole('button', { name: /show password/i })
+
+    expect(passwordInput.getAttribute('type')).toBe('password')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('password')
+
+    // Toggle password
+    fireEvent.click(toggleButtons[0])
+    expect(passwordInput.getAttribute('type')).toBe('text')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('password')
+
+    // Toggle confirm password
+    fireEvent.click(toggleButtons[1])
+    expect(passwordInput.getAttribute('type')).toBe('text')
+    expect(confirmPasswordInput.getAttribute('type')).toBe('text')
   })
 
   it('submits the new password and shows the success state with a sign-in link', async () => {
