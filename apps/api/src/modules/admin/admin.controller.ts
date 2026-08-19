@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -18,7 +19,9 @@ import { PERMISSIONS } from "../rbac/rbac.constants";
 import { AuthenticatedUser } from "../auth/interfaces/jwt-payload.interface";
 import { AuditService } from "../audit/audit.service";
 import { AdminService } from "./admin.service";
+import { AdminBillingService } from "./admin-billing.service";
 import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
+import { PauseAccountDto } from "./dto/pause-account.dto";
 
 @Controller("admin")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -26,6 +29,7 @@ import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly adminBillingService: AdminBillingService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -95,5 +99,34 @@ export class AdminController {
       from,
       to,
     });
+  }
+
+  @Get("billing/cost-alerts")
+  async getCostAlerts() {
+    return this.adminBillingService.listCostAlerts();
+  }
+
+  @Get("billing/reconciliation")
+  async getReconciliationMismatches() {
+    return this.adminBillingService.listReconciliationMismatches();
+  }
+
+  @Post("billing/accounts/:id/pause")
+  async pauseAccount(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: PauseAccountDto,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    return this.adminBillingService.pauseAccount(id, dto.reason, actor.id, actor.email);
+  }
+
+  @Post("billing/accounts/:id/resume")
+  async resumeAccount(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    return this.adminBillingService.resumeAccount(id, actor.id, actor.email);
   }
 }
