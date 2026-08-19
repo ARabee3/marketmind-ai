@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { use } from 'react'
 import { useTranslations } from 'next-intl'
+import { useWallet } from '@/features/billing/wallet-context'
 import { useStrategy } from '@/features/strategy/hooks/use-strategy'
 import { StrategyReview } from '@/features/strategy/components/strategy-review'
 import {
@@ -25,12 +26,17 @@ export default function StrategyReviewPage({ params }: Props) {
   const { strategy_id } = use(params)
   const tc = useTranslations('Common')
   const { strategy, loading, error, refresh } = useStrategy(strategy_id)
+  const { refresh: refreshWallet } = useWallet()
   const [profile, setProfile] = useState<StrategyProfileSummary | null>(null)
   const [retrieval, setRetrieval] = useState<RetrievedKnowledgePack | null>(
     null,
   )
   const [progress, setProgress] = useState<readonly StrategyProgressEvent[]>([])
   const [profileLoaded, setProfileLoaded] = useState(false)
+
+  useEffect(() => {
+    void refreshWallet()
+  }, [refreshWallet, strategy_id])
 
   useEffect(() => {
     let cancelled = false
