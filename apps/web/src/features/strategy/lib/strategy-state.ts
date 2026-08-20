@@ -1,4 +1,5 @@
 import type {
+  CurrentJourneyResponse,
   StrategyBlocker,
   StrategyResource,
   StrategyStatus,
@@ -15,6 +16,37 @@ export type StrategyOwnerProgressLabel =
   | 'failed'
   | 'needs_choices'
   | 'revision_needed'
+
+/** Next-step Discovery guidance shown before the owner has a confirmed
+ *  business profile. Strategy planning is locked until Discovery confirms the
+ *  profile, so route the owner back to the exact next step instead of showing
+ *  the strategy start action. */
+export type StrategyDiscoveryAction = {
+  readonly destination: string
+  readonly labelKey:
+    | 'startDiscovery'
+    | 'continueDiscovery'
+    | 'reviewProfile'
+    | 'viewDiscovery'
+}
+
+export function strategyDiscoveryAction(
+  journey: CurrentJourneyResponse,
+): StrategyDiscoveryAction {
+  const action = journey.primary_action
+  switch (action?.type) {
+    case 'start_discovery':
+      return { destination: action.destination, labelKey: 'startDiscovery' }
+    case 'continue_discovery':
+      return { destination: action.destination, labelKey: 'continueDiscovery' }
+    case 'review_profile':
+      return { destination: action.destination, labelKey: 'reviewProfile' }
+    case 'view_discovery':
+      return { destination: action.destination, labelKey: 'viewDiscovery' }
+    default:
+      return { destination: '/discovery/new', labelKey: 'startDiscovery' }
+  }
+}
 
 export function ownerProgressLabel(status: StrategyStatus): StrategyOwnerProgressLabel {
   if (status === 'ready') return 'ready_to_prepare'

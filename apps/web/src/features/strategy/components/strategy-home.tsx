@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Compass, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import type { CurrentJourneyResponse, StrategyProgressEvent, StrategyResource } 
 import {
   getReadinessItems,
   ownerProgressLabel,
+  strategyDiscoveryAction,
 } from '../lib/strategy-state'
 import { StrategyProfileSummary } from './strategy-profile-summary'
 import { StrategyProgress } from './strategy-progress'
@@ -136,11 +137,13 @@ export function StrategyHome() {
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">{t('home.subtitle')}</p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Link href="/strategy/new" className={buttonVariants({ size: 'lg', className: 'shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all' })}>
-                  {t('home.start')}
-                </Link>
-              </div>
+              {profile ? (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Link href="/strategy/new" className={buttonVariants({ size: 'lg', className: 'shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all' })}>
+                    {t('home.start')}
+                  </Link>
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
@@ -148,7 +151,9 @@ export function StrategyHome() {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
             <StrategyProfileSummary profile={profile} />
           </div>
-        ) : null}
+        ) : (
+          <StrategyDiscoveryRequired journey={state.journey} onRefresh={() => void retryJourney()} />
+        )}
       </section>
     )
   }
@@ -213,6 +218,46 @@ export function StrategyHome() {
             </p>
           </section>
         </aside>
+      </div>
+    </section>
+  )
+}
+
+function StrategyDiscoveryRequired({
+  journey,
+  onRefresh,
+}: {
+  readonly journey: CurrentJourneyResponse
+  readonly onRefresh: () => void
+}) {
+  const t = useTranslations('Strategy')
+  const action = strategyDiscoveryAction(journey)
+
+  return (
+    <section className="grid gap-4 rounded-xl border border-dashed border-border bg-surface p-7 text-center shadow-elevated md:p-10">
+      <span className="mx-auto grid size-12 place-items-center rounded-lg bg-soft-teal text-primary">
+        <Compass className="size-6" aria-hidden="true" />
+      </span>
+      <h2 className="text-2xl font-bold text-navy">
+        {t('home.discoveryRequired.title')}
+      </h2>
+      <p className="mx-auto max-w-xl text-sm leading-7 text-muted-foreground">
+        {t('home.discoveryRequired.body')}
+      </p>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Link
+          href={action.destination}
+          className={buttonVariants({
+            className: 'shadow-tactile hover:brightness-105 active:translate-y-[2px] active:shadow-tactile-pressed transition-all',
+          })}
+        >
+          {t(`home.discoveryRequired.${action.labelKey}`)}
+          <ArrowUpRight className="ms-2 size-4 rtl:scale-x-[-1]" aria-hidden="true" />
+        </Link>
+        <Button type="button" variant="outline" onClick={onRefresh}>
+          <RefreshCw className="me-2 size-4" aria-hidden="true" />
+          {t('home.retry')}
+        </Button>
       </div>
     </section>
   )
