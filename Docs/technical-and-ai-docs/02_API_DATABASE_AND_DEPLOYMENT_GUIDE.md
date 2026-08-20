@@ -160,23 +160,44 @@ Model clusters (representative members):
 | Performance / Optimization | `PerformanceSyncWindow`, `MetricSnapshot`, `OptimizationProposal`, `OptimizationDecision`, `ApprovedOptimizationInstruction` |
 | Billing | `BillingAccount`, `BillingPointBalance`, `BillingPointLedger`, `BillingPrice`, `BillingSubscription`, `BillingCheckoutAttempt`, `BillingPaymentTransaction`, `BillingProviderEvent`, `BillingUsageLedger`, `BillingProviderCostLedger`, `BillingOutbox` |
 
-**ERD for dbdiagram.io:** import
-[`MARKETMIND_DATABASE_ERD.dbml`](./MARKETMIND_DATABASE_ERD.dbml) into a new
-dbdiagram.io diagram. It contains the complete physical schema: all 86 tables,
-11 enums, 135 foreign-key relationships, primary keys, unique constraints, and
-indexes. It is generated from the live Prisma schema rather than maintained by
-hand.
+### 6.1 Complete entity-relationship diagram
 
-Regenerate and validate it after any Prisma schema change:
+[![Complete MarketMind AI database ERD](./assets/MARKETMIND_DATABASE_ERD.svg)](./assets/MARKETMIND_DATABASE_ERD.svg)
 
-```bash
-node scripts/generate-database-erd.mjs
-```
+*Figure 1 — Complete physical PostgreSQL ERD for MarketMind AI. The linked SVG
+preserves full resolution for detailed inspection.*
 
-For the final submission, arrange and export the complete diagram as SVG. If the
-full 86-table export is unreadable on a single page, also export focused views for
-the model clusters above; those focused views supplement rather than replace the
-complete ERD. Do not edit the generated DBML directly.
+The ERD covers all 86 PostgreSQL tables and their 135 foreign-key relationships.
+Each blue header is a physical table, each row is a stored column, the type appears
+on the right, the key icon identifies a primary key, the link icon identifies a
+foreign key, and `NN` means the column is required (`NOT NULL`). Relationship lines
+connect each foreign key to the referenced key; nullable foreign-key columns mark
+optional relationships. Enum definitions and index details remain in the Prisma
+schema and the [companion DBML source](./MARKETMIND_DATABASE_ERD.dbml).
+
+The main relationship paths are:
+
+- **Identity and business ownership:** `User` anchors authentication and RBAC;
+  `businesses` associates the owner with the business profile, discovery,
+  strategy, content, billing, publishing, and optimization records.
+- **Discovery to confirmed profile:** `discovery_sessions` collects intake,
+  social links, research evidence, messages, hooks, and gaps before producing
+  versioned `business_profile_drafts` and confirmed `business_profile_versions`.
+- **Knowledge and strategy:** governed marketing-knowledge entries are versioned,
+  sourced, chunked, and logged during ingestion. Strategy retrieval records the
+  selected evidence before `strategies`, briefs, versions, decisions, and progress
+  events are persisted. Vector embeddings themselves remain in Qdrant.
+- **Content lifecycle:** an approved strategy and profile version feed a
+  `content_cycle`, then week context and planning, content packs, items, immutable
+  item versions, assets, owner decisions, and progress or generation records.
+- **Publishing and measurement:** approved content creates
+  `publication_candidates`; the outbox hands a frozen snapshot to
+  `publishing_candidates`, which continues through targets, owner approval,
+  attempts, results, performance snapshots, and owner-controlled optimization.
+- **Billing and operational reliability:** billing accounts connect balances,
+  prices, subscriptions, checkout and payment records, usage and cost ledgers, and
+  outbox events. Orchestration, progress, audit, and outbox tables preserve an
+  explainable history of asynchronous work and retries.
 
 **Migrations & seeds:** 34 timestamped migrations under `apps/api/prisma/migrations/`
 (+ `migration_lock.toml`), applied with `prisma migrate deploy`. Seed scripts:
