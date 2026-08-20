@@ -13,9 +13,11 @@ import type {
 } from '@marketmind/contracts'
 import {
   AlertCircle,
+  ArrowUpRight,
   Check,
   CheckCircle2,
   Clock3,
+  Compass,
   Facebook,
   FlaskConical,
   Info,
@@ -27,6 +29,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getCurrentJourney } from '@/lib/api/journey'
 import {
   decideOptimizationProposal,
   getOptimizationProposals,
@@ -44,12 +47,15 @@ import {
   metricValueFor,
   PERFORMANCE_METRIC_ORDER,
   PERFORMANCE_STAGE_ORDER,
+  performanceSetupAction,
   stageStatus,
+  type PerformanceSetupAction,
   type PerformanceStageStatus,
 } from './performance-state'
 
 type LoadState =
   | { readonly status: 'loading' }
+  | { readonly status: 'setup_required'; readonly setup: PerformanceSetupAction }
   | { readonly status: 'ready'; readonly overview: PerformanceOverviewV1 }
   | { readonly status: 'error' }
 
@@ -80,6 +86,25 @@ export function PerformancePage() {
 
   const loadData = useCallback(async () => {
     setNotice(null)
+    // Performance routes fail closed (403) until the owner has a business
+    // scope, so gate the monitoring calls behind a confirmed profile and a
+    // ready Content cycle. A first-time owner still gets the full guided next
+    // step from the journey instead of a generic "could not load" error.
+    try {
+      const journey = await getCurrentJourney()
+      const setup = performanceSetupAction(journey)
+      if (setup) {
+        setLoadState({ status: 'setup_required', setup })
+        setOptimizationState({ status: 'loading' })
+        return false
+      }
+    } catch {
+      setLoadState((current) =>
+        current.status === 'ready' ? current : { status: 'error' },
+      )
+      setOptimizationState({ status: 'error' })
+      return false
+    }
     const [overviewResult, optimizationResult] = await Promise.allSettled([
       fetchOverview(),
       fetchOptimization(),
@@ -189,6 +214,16 @@ export function PerformancePage() {
   }
 
   if (loadState.status === 'loading') return <PerformanceLoading />
+
+  if (loadState.status === 'setup_required') {
+    return (
+      <PerformanceSetupRequired
+        setup={loadState.setup}
+        onOpenDemo={() => setDemoMode(true)}
+        onRefresh={() => void loadOverview()}
+      />
+    )
+  }
 
   if (loadState.status === 'error') {
     return (
@@ -310,6 +345,58 @@ function PerformanceLoading() {
           <Skeleton className="min-h-60 rounded-xl" />
         </div>
       </div>
+    </section>
+  )
+}
+
+function PerformanceSetupRequired({
+  setup,
+  onOpenDemo,
+  onRefresh,
+}: {
+  readonly setup: PerformanceSetupAction
+  readonly onOpenDemo: () => void
+  readonly onRefresh: () => void
+}) {
+  const t = useTranslations('Performance')
+
+  return (
+    <section className="grid gap-5">
+      <PerformanceHeader
+        overview={null}
+        reloading={false}
+        onReload={onRefresh}
+        onOpenDemo={onOpenDemo}
+      />
+      <section className="grid gap-4 rounded-xl border border-dashed border-border bg-surface p-7 text-center shadow-elevated md:p-10">
+        <span className="mx-auto grid size-12 place-items-center rounded-lg bg-soft-teal text-primary">
+          <Compass className="size-6" aria-hidden="true" />
+        </span>
+        <h2 className="text-2xl font-bold text-navy">
+          {t(`setupRequired.title.${setup.requirement}`)}
+        </h2>
+        <p className="mx-auto max-w-xl text-sm leading-7 text-muted-foreground">
+          {t(`setupRequired.body.${setup.requirement}`)}
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Link
+            href={setup.destination}
+            className={buttonVariants({
+              className: 'shadow-tactile hover:brightness-105',
+            })}
+          >
+            {t(`setupRequired.${setup.labelKey}`)}
+            <ArrowUpRight
+              className="ms-2 size-4 rtl:scale-x-[-1]"
+              aria-hidden="true"
+            />
+          </Link>
+          <Button type="button" variant="outline" onClick={onRefresh}>
+            <RefreshCw className="me-2 size-4" aria-hidden="true" />
+            {t('setupRequired.tryAgain')}
+          </Button>
+        </div>
+      </section>
     </section>
   )
 }
