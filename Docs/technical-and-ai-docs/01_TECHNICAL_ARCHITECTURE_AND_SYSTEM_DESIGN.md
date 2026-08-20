@@ -189,7 +189,7 @@ are available checks rather than enforced merge gates. Full CI/CD detail is in
 |---|---|---|
 | Auth + RBAC, discovery, strategy, content v1+v2, performance, publishing intents/targets/exports, health | implemented | On the live path. Optimization proposals are provider-dependent; `gemini_dev` does not provide them. |
 | Transactional outbox + cron reconciliation, BullMQ queues, socket.io/SSE progress | implemented | |
-| **LangGraph agentic orchestration** (`services/ai/app/orchestration/`) | implemented, gated off | Code complete (phases 0-5); disabled at runtime (`AI_ORCHESTRATION_ENABLED=false`), no HTTP endpoint wired. See Doc 3 section 6. |
+| **LangGraph agentic orchestration** (`services/ai/app/orchestration/`) | implemented, not on the live path | Code complete (phases 0-5). The code default is `AI_ORCHESTRATION_ENABLED=false` and hosted Compose overrides it to `true`, but no FastAPI orchestration router or NestJS controller invokes the graph, so current product paths do not use it. See Doc 3 section 6. |
 | Billing `geidea` provider | not implemented | Explicitly not implemented; prod runs `fake`. |
 | n8n automated publishing | simulated | Demo-inert; manual/simulated flow only (Doc 2 §9). |
 

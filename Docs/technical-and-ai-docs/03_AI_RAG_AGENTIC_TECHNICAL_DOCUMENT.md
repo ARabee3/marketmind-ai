@@ -34,7 +34,7 @@ values are from the developer's ignored `.env` and are not proof of the hosted r
 | Setting | Default |
 |---|---|
 | `embedding_model` / `embedding_dimensions` | `text-embedding-3-large` / `3072` |
-| `image_model` (`image_provider_mode` defaults `mock`; **local snapshot = `openrouter`**) | `gemini-3.1-flash-image` |
+| `image_model` (`image_provider_mode` defaults `mock`; **local snapshot = `openrouter`**) | `google/gemini-3.1-flash-image` |
 | `voice_transcription_model` | `gemini-3.6-flash` |
 | `rag_selection_mode` / `rag_mmr_lambda` | `semantic_mmr` / `0.5` |
 | `ai_generation_attempts` | `3` (hard max 3) |
@@ -171,7 +171,7 @@ fake embeddings + an in-memory Qdrant + `ai_provider_mode="mock"`. Metrics:
 case's expected hard outcome must match) and **rubric quality = 0.9** (≥90% of applicable
 human-rubric dimensions scored ≥4/5).
 
-## 6. Agentic AI — implemented as code, gated OFF at runtime
+## 6. Agentic AI — implemented as code, not wired to the live runtime
 
 Location: `services/ai/app/orchestration/` (phases 0–5), built on `langgraph==1.2.10` +
 `langgraph-checkpoint-postgres==3.1.1`.
@@ -181,10 +181,11 @@ Location: `services/ai/app/orchestration/` (phases 0–5), built on `langgraph==
   enabled just because its code is deployed").
 - **Not wired into any endpoint** — no orchestration router in `app/main.py`, and the
   NestJS `OrchestrationModule` has no controller.
-- `phase5/rollout.py::decide_rollout` returns `disabled` unless the flag is on **and** the
-  cohort is on an explicit allow-list; `shadow` mode records comparison evidence with **no
-  domain writes**. Prod compose sets `AI_ORCHESTRATION_ENABLED="true"`, which at most
-  enables shadow evidence — it does not move the live path onto the graph.
+- When invoked, `phase5/rollout.py::decide_rollout` returns `disabled` if the flag is off,
+  `shadow` only when `shadow_mode=true`, and `allowlist` only when the flag is on and the
+  cohort is explicitly allowed. Prod Compose sets `AI_ORCHESTRATION_ENABLED="true"`, but
+  that setting alone does not execute the graph because no endpoint or live-path caller is
+  wired.
 
 **Agent & roles:** a **Research Agent** (`phase2/research_agent.py::ResearchAgent`) — a
 bounded controller loop that selects tools until an evidence gate is met, emitting
@@ -242,8 +243,8 @@ verified hosted-runtime value. Production Compose overrides some values, includi
 | `GEMINI_MODEL` | `""` | **`gemini-3.5-flash-lite`** | Text-gen model ID. |
 | `OPEN_ROUTER_MODEL` | `""` | **`google/gemma-4-31b-it:free`** | OpenRouter text-gen model. |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | `text-embedding-3-large` / `3072` | **`gemini-embedding-2`** / **`768`** | Embedding model and vector dimensions. |
-| `IMAGE_PROVIDER_MODE` / `IMAGE_MODEL` | `mock` | **`openrouter`** / **`gemini-3.1-flash-image`** | Static-image generation. |
-| `AI_ORCHESTRATION_ENABLED` | `false` | `false` | Gate for the agentic engine; production Compose sets `true`, but no HTTP endpoint is wired and the rollout remains shadow-only. |
+| `IMAGE_PROVIDER_MODE` / `IMAGE_MODEL` | `mock` / `google/gemini-3.1-flash-image` | **`openrouter`** / **`gemini-3.1-flash-image`** (unverified local override) | Static-image generation; the tracked OpenRouter example uses the provider-qualified `google/gemini-3.1-flash-image` ID. |
+| `AI_ORCHESTRATION_ENABLED` | `false` | `false` | Gate for the agentic engine; production Compose sets `true`, but the setting alone activates no graph because no HTTP endpoint or live-path caller is wired. |
 | `AI_ORCHESTRATION_TRACE_ENABLED` | `false` | – | Langfuse tracing. |
 | `AI_GENERATION_ATTEMPTS` | `3` | – | Per-artifact repair budget (hard max 3). |
 | `RAG_SELECTION_MODE` / `RAG_MMR_LAMBDA` | `semantic_mmr` / `0.5` | `semantic_mmr` / `0.5` | Retrieval selection. |

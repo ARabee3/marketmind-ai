@@ -114,16 +114,21 @@ Response `202 Accepted`:
 }
 ```
 > Voice input: `POST /api/v1/discovery/:sessionId/transcribe` accepts a multipart
-> `audio` field, **WAV only**, max 5 MB (rejects with `DISCOVERY_TRANSCRIPTION_INVALID_AUDIO`
-> otherwise).
+> `audio` field, **WAV only**, max 5 MB. Non-WAV audio returns
+> `DISCOVERY_TRANSCRIPTION_INVALID_AUDIO`; requests above the multipart limit are rejected
+> with HTTP `413` before transcription.
 
 ## 4. Internal routes (n8n / executor boundary)
 
-Outside `/api/v1`, under `/internal/v1/...` (not owner-reachable):
+Outside `/api/v1`, under `/internal/v1/...` (not owner-facing):
 `publishing/candidates/ingest`, `publishing/execute-meta`,
 `publishing/media-fetch/:assetId`, `publishing/assets/:id`,
 `publishing/dispatch/:attemptId/callback`. These are the automation-executor contract.
-In the hosted demo the automation executor is not running (see §9).
+Caddy forwards `/internal/*` to the API, so these routes are externally reachable and
+must not be described as network-private. Candidate ingestion, Meta execution, and the
+asset route require the internal service token; callbacks require a signed HMAC envelope;
+the media-fetch route is public by design but requires a short-lived, attempt-bound HMAC
+query token. In the hosted demo the automation executor is not running (see §9).
 
 ## 5. AI service surface (FastAPI, internal)
 
@@ -160,20 +165,18 @@ Model clusters (representative members):
 | Performance / Optimization | `PerformanceSyncWindow`, `MetricSnapshot`, `OptimizationProposal`, `OptimizationDecision`, `ApprovedOptimizationInstruction` |
 | Billing | `BillingAccount`, `BillingPointBalance`, `BillingPointLedger`, `BillingPrice`, `BillingSubscription`, `BillingCheckoutAttempt`, `BillingPaymentTransaction`, `BillingProviderEvent`, `BillingUsageLedger`, `BillingProviderCostLedger`, `BillingOutbox` |
 
-### 6.1 Complete entity-relationship diagram
+### 6.1 Database relationship diagram
 
-[![Complete MarketMind AI database ERD](./assets/MARKETMIND_DATABASE_ERD.svg)](./assets/MARKETMIND_DATABASE_ERD.svg)
+[![MarketMind AI database relationship diagram](./assets/MARKETMIND_DATABASE_ERD.svg)](./assets/MARKETMIND_DATABASE_ERD.svg)
 
-*Figure 1 — Complete physical PostgreSQL ERD for MarketMind AI. The linked SVG
-preserves full resolution for detailed inspection.*
+*Figure 1 — PostgreSQL table and relationship topology for MarketMind AI. The
+linked SVG preserves full resolution for detailed inspection.*
 
 The ERD covers all 86 PostgreSQL tables and their 135 foreign-key relationships.
-Each blue header is a physical table, each row is a stored column, the type appears
-on the right, the key icon identifies a primary key, the link icon identifies a
-foreign key, and `NN` means the column is required (`NOT NULL`). Relationship lines
-connect each foreign key to the referenced key; nullable foreign-key columns mark
-optional relationships. Enum definitions and index details remain in the Prisma
-schema and the [companion DBML source](./MARKETMIND_DATABASE_ERD.dbml).
+Each blue header is a physical table; relationship lines connect foreign keys to
+their referenced keys. The SVG is a readable topology snapshot. The generated
+[companion DBML source](./MARKETMIND_DATABASE_ERD.dbml) and Prisma schema are the
+current sources for exact columns, nullability, enum definitions, and indexes.
 
 The main relationship paths are:
 
