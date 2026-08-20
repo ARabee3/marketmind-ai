@@ -682,6 +682,14 @@
       "title": "Turn the confirmed business profile into a 12-week marketing plan.",
       "subtitle": "Choose the goal, budget approach, and team capacity first. MarketMind keeps the profile facts locked and asks before any important decision.",
       "start": "Start strategy choices",
+      "discoveryRequired": {
+        "title": "Complete your business profile first",
+        "body": "Strategy planning starts only after your business profile is confirmed through Discovery. Finish the guided discovery journey first, then return here to plan.",
+        "startDiscovery": "Start business discovery",
+        "continueDiscovery": "Continue discovery",
+        "reviewProfile": "Review & confirm business profile",
+        "viewDiscovery": "View discovery"
+      },
       "review": "Review sample draft",
       "viewApproved": "View approved plan",
       "currentLabel": "Current plan state",

@@ -18,6 +18,12 @@ const messages: Record<string, string> = {
   'home.currentLabel': 'Current plan state',
   'home.currentBody': 'This preview shows the owner journey.',
   'home.currentBodyApproved': 'The approved plan is saved.',
+  'home.discoveryRequired.title': 'Complete your business profile first',
+  'home.discoveryRequired.body': 'Strategy planning starts only after your business profile is confirmed through Discovery.',
+  'home.discoveryRequired.startDiscovery': 'Start business discovery',
+  'home.discoveryRequired.continueDiscovery': 'Continue discovery',
+  'home.discoveryRequired.reviewProfile': 'Review & confirm business profile',
+  'home.discoveryRequired.viewDiscovery': 'View discovery',
   'progress.labels.ready': 'The draft is ready for review.',
   'progress.labels.approved': 'The plan is approved.',
   'home.loadError': 'We could not load your Strategy workspace. Please try again.',
@@ -33,7 +39,9 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
 }))
 
 vi.mock('@/lib/api/journey', () => ({
@@ -64,6 +72,28 @@ const noStrategyJourney = {
   owner: { email: 'owner@example.com', email_verified: true },
   journey: { state: 'discovery_not_started', profile: null },
   future_phase: { availability: 'unavailable', strategy_id: null },
+  primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+}
+
+const profileNoStrategyJourney = {
+  owner: { email: 'owner@example.com', email_verified: true },
+  journey: {
+    state: 'discovery_confirmed',
+    profile: {
+      business_name: 'Example Cafe',
+      business_type: 'retail',
+      city: 'Cairo',
+      area: 'Maadi',
+      confirmed_at: '2026-07-01T00:00:00.000Z',
+      version: 1,
+    },
+  },
+  future_phase: { availability: 'unavailable', strategy_id: null },
+  primary_action: {
+    type: 'view_discovery',
+    session_id: 'session-1',
+    destination: '/discovery/session-1',
+  },
 }
 
 const readyJourney = {
@@ -109,17 +139,50 @@ describe('StrategyHome', () => {
     const retryButton = await screen.findByRole('button', { name: 'Try again' })
     fireEvent.click(retryButton)
 
-    expect(await screen.findByText('Start strategy choices')).toBeTruthy()
+    expect(await screen.findByText('Complete your business profile first')).toBeTruthy()
     expect(journeyMock).toHaveBeenCalledTimes(2)
   })
 
-  it('shows the no-strategy start CTA when discovery is not confirmed', async () => {
+  it('guides a user without a confirmed profile to discovery instead of strategy choices', async () => {
     journeyMock.mockResolvedValueOnce(noStrategyJourney)
 
     render(<StrategyHome />)
 
+    expect(
+      await screen.findByRole('heading', { name: 'Complete your business profile first' }),
+    ).toBeTruthy()
+    expect(screen.queryByText('Start strategy choices')).toBeNull()
+    const discoveryLink = screen.getByRole('link', { name: 'Start business discovery' })
+    expect(discoveryLink.getAttribute('href')).toBe('/discovery/new')
+  })
+
+  it('routes the discovery card to the active discovery session', async () => {
+    journeyMock.mockResolvedValueOnce({
+      ...noStrategyJourney,
+      journey: { state: 'discovery_active', profile: null },
+      primary_action: {
+        type: 'continue_discovery',
+        session_id: 'session-1',
+        destination: '/discovery/session-1',
+      },
+    })
+
+    render(<StrategyHome />)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Complete your business profile first' }),
+    ).toBeTruthy()
+    const discoveryLink = screen.getByRole('link', { name: 'Continue discovery' })
+    expect(discoveryLink.getAttribute('href')).toBe('/discovery/session-1')
+  })
+
+  it('keeps the strategy start CTA once the profile is confirmed', async () => {
+    journeyMock.mockResolvedValueOnce(profileNoStrategyJourney)
+
+    render(<StrategyHome />)
+
     expect(await screen.findByText('Start strategy choices')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    expect(screen.queryByText('Complete your business profile first')).toBeNull()
   })
 
   it('renders the workspace when a strategy is available', async () => {
