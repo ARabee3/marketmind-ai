@@ -12,21 +12,28 @@ export function AdminPageHeader({
   action?: ReactNode
 }) {
   return (
-    <header className="border-b border-border/80 pb-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl">
-          <p className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-primary uppercase">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-            {eyebrow}
-          </p>
-          <h1 className="mt-2 text-balance text-2xl font-bold tracking-tight text-navy md:text-3xl">
-            {title}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-            {description}
-          </p>
+    <header className="relative overflow-hidden rounded-xl bg-navy px-5 py-6 text-primary-foreground shadow-elevated md:px-7 md:py-8">
+      <div className="pointer-events-none absolute -top-24 end-6 h-56 w-56 rounded-full bg-primary/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 start-10 h-56 w-56 rounded-full bg-journey-mint/20 blur-3xl" />
+      <div className="relative grid gap-3">
+        <p className="text-xs font-semibold tracking-[0.14em] text-journey-mint uppercase">
+          {eyebrow}
+        </p>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div className="grid gap-2">
+            <h1 className="max-w-3xl text-3xl leading-tight font-bold text-primary-foreground md:text-4xl lg:text-5xl">
+              {title}
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-primary-foreground/75 md:text-base">
+              {description}
+            </p>
+          </div>
+          {action ? (
+            <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
+              {action}
+            </div>
+          ) : null}
         </div>
-        {action}
       </div>
     </header>
   )

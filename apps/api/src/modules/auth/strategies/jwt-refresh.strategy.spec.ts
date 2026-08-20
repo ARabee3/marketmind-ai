@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import * as bcrypt from 'bcrypt';
+import { UserStatus } from '@prisma/client';
 
 import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 
@@ -12,6 +13,7 @@ describe('JwtRefreshStrategy', () => {
           email: 'owner@example.com',
           roles: ['OWNER'],
           refreshToken: null,
+          status: UserStatus.ACTIVE,
         }),
       },
       refreshSession: {
@@ -55,6 +57,7 @@ describe('JwtRefreshStrategy', () => {
           email: 'owner@example.com',
           roles: ['OWNER'],
           refreshToken: 'legacy-hash',
+          status: UserStatus.ACTIVE,
         }),
       },
       refreshSession: {

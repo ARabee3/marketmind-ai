@@ -14,6 +14,8 @@ export type BackendErrorCode =
   | 'INVALID_CREDENTIALS'
   | 'EMAIL_EXISTS'
   | 'EMAIL_NOT_VERIFIED'
+  | 'ACCOUNT_SUSPENDED'
+  | 'ACCOUNT_DISABLED'
   | 'VALIDATION_ERROR'
   | 'SERVER_ERROR'
   | 'RATE_LIMIT_EXCEEDED'
@@ -26,6 +28,8 @@ export type BackendErrorCode =
 export type LoginErrorKey =
   | 'errorInvalidCredentials'
   | 'errorEmailNotVerified'
+  | 'errorAccountSuspended'
+  | 'errorAccountDisabled'
   | 'errorLoginFailed'
 
 export type RegistrationErrorKey =
@@ -99,6 +103,10 @@ export function mapBackendErrorToKey(
       return 'errorInvalidCredentials'
     case 'EMAIL_NOT_VERIFIED':
       return 'errorEmailNotVerified'
+    case 'ACCOUNT_SUSPENDED':
+      return 'errorAccountSuspended'
+    case 'ACCOUNT_DISABLED':
+      return 'errorAccountDisabled'
     case 'EMAIL_EXISTS':
       return 'errorEmailExists'
     case 'RATE_LIMIT_EXCEEDED':
@@ -114,26 +122,38 @@ export function mapBackendErrorToKey(
   }
 }
 
+export type BackendErrorDetails = {
+  code?: string
+  reason?: string | null
+}
+
+export async function parseBackendError(
+  response: Response,
+): Promise<BackendErrorDetails> {
+  try {
+    const data = (await response.json()) as
+      | { code?: string; reason?: string | null; error?: { code?: string } }
+      | undefined
+    if (data && typeof data === 'object') {
+      const code =
+        typeof data.code === 'string'
+          ? data.code
+          : data.error && typeof data.error.code === 'string'
+            ? data.error.code
+            : undefined
+      return {
+        code,
+        reason: typeof data.reason === 'string' ? data.reason : null,
+      }
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
+
 export async function parseBackendErrorCode(
   response: Response,
 ): Promise<string | undefined> {
-  try {
-    const data = (await response.json()) as
-      | { code?: string }
-      | { error?: { code?: string } }
-      | undefined
-    if (data && typeof data === 'object') {
-      if ('code' in data && typeof data.code === 'string') return data.code
-      if (
-        'error' in data &&
-        data.error &&
-        typeof data.error.code === 'string'
-      ) {
-        return data.error.code
-      }
-    }
-    return undefined
-  } catch {
-    return undefined
-  }
+  return (await parseBackendError(response)).code
 }

@@ -8,6 +8,7 @@ export type AdminUserRow = {
   roles: string[]
   loginMethod: string
   status: string
+  suspensionReason?: string | null
   createdAt: string
   lastLoginAt: string | null
   businessCount: number
@@ -55,6 +56,9 @@ export type AdminRevenueSummary = {
   activeSubscriptions: number
   trialingCount: number
   mrrEgp: number
+  pastDueSubscriptions: number
+  expiredSubscriptions: number
+  unverifiedUsers: number
 }
 
 export type AdminSubscriptionRow = {
@@ -75,6 +79,9 @@ export type GetUsersParams = {
   page?: number
   pageSize?: number
   search?: string
+  verified?: boolean
+  role?: string
+  status?: string
 }
 
 export async function getAdminUsers(
@@ -84,6 +91,11 @@ export async function getAdminUsers(
   if (params.page) searchParams.set("page", String(params.page))
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize))
   if (params.search) searchParams.set("search", params.search)
+  if (params.verified !== undefined) {
+    searchParams.set("verified", String(params.verified))
+  }
+  if (params.role) searchParams.set("role", params.role)
+  if (params.status) searchParams.set("status", params.status)
 
   const qs = searchParams.toString()
   const response = await apiRequest(`/admin/users${qs ? `?${qs}` : ""}`)
@@ -107,6 +119,41 @@ export async function getAdminUser(
   return response.json()
 }
 
+export type UpdateAdminUserPayload = {
+  status?: "ACTIVE" | "SUSPENDED" | "DISABLED"
+  roles?: string[]
+  reason?: string
+}
+
+export type UpdateAdminUserResult = {
+  id: string
+  email: string
+  fullName: string | null
+  roles: string[]
+  status: string
+  suspensionReason?: string | null
+  isEmailVerified: boolean
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function updateAdminUser(
+  id: string,
+  payload: UpdateAdminUserPayload,
+): Promise<UpdateAdminUserResult> {
+  const response = await apiRequest(`/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw Object.assign(new Error("Failed to update user"), {
+      status: response.status,
+    })
+  }
+  return response.json()
+}
+
 export async function getAdminRevenueSummary(): Promise<AdminRevenueSummary> {
   const response = await apiRequest("/admin/revenue/summary")
   if (!response.ok) {
@@ -120,10 +167,11 @@ export async function getAdminRevenueSummary(): Promise<AdminRevenueSummary> {
 export async function getAdminSubscriptions(
   page = 1,
   pageSize = 20,
+  state?: string,
 ): Promise<AdminPaginatedResponse<AdminSubscriptionRow>> {
-  const response = await apiRequest(
-    `/admin/subscriptions?page=${page}&pageSize=${pageSize}`,
-  )
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (state) query.set("state", state)
+  const response = await apiRequest(`/admin/subscriptions?${query.toString()}`)
   if (!response.ok) {
     throw Object.assign(new Error("Failed to fetch subscriptions"), {
       status: response.status,

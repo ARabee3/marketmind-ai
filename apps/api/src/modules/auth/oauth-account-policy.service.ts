@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import * as bcrypt from "bcrypt";
-import { Role } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 
 import { PrismaService } from "../../common/persistence/prisma.service";
 import {
@@ -155,10 +155,26 @@ export class OAuthAccountPolicyService {
       lastLoginAt: Date | null;
       createdAt: Date;
       updatedAt: Date;
+      status: UserStatus;
+      suspensionReason: string | null;
     },
     isNew: boolean,
     sessionMetadata: RefreshSessionMetadata,
   ): Promise<OAuthSignInResult> {
+    if (user.status !== UserStatus.ACTIVE) {
+      const isSuspended = user.status === UserStatus.SUSPENDED;
+      throw new OAuthException(
+        isSuspended ? "OAUTH_ACCOUNT_SUSPENDED" : "OAUTH_ACCOUNT_DISABLED",
+        isSuspended
+          ? "Your account is suspended. Contact support if you believe this is a mistake"
+          : "Your account is disabled. Contact support if you believe this is a mistake",
+        undefined,
+        {
+          reason: isSuspended ? user.suspensionReason : null,
+        },
+      );
+    }
+
     const tokens = await this.authService.issueTokensForUser(user, sessionMetadata);
     return {
       user: tokens.user,

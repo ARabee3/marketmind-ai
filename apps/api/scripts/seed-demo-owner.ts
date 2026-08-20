@@ -87,13 +87,13 @@ async function main(): Promise<void> {
   const passwordHash = await bcrypt.hash("rehearsal-only-password", 12);
   const user = await prisma.user.upsert({
     where: { email: DEMO_OWNER_EMAIL },
-    update: { isEmailVerified: true, status: "active" },
+    update: { isEmailVerified: true, status: "ACTIVE" },
     create: {
       email: DEMO_OWNER_EMAIL,
       password: passwordHash,
       fullName: "Demo Owner (rehearsal)",
       isEmailVerified: true,
-      status: "active",
+      status: "ACTIVE",
       roles: ["OWNER"],
     },
   });

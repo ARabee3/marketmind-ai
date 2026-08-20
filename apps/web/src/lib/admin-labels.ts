@@ -27,6 +27,8 @@ export function adminStatusLabel(status: string, t: Translator): string {
       return t("inactive")
     case "suspended":
       return t("suspended")
+    case "disabled":
+      return t("statusDisabled")
     case "trialing":
       return t("trialing")
     case "past_due":
@@ -66,5 +68,189 @@ export function adminIntervalLabel(interval: string, t: Translator): string {
       return t("intervalFoundingPilot")
     default:
       return interval
+  }
+}
+
+export function publishingOutcomeLabel(outcome: string, t: Translator): string {
+  switch (outcome) {
+    case "UNKNOWN":
+      return t("outcomeUnknown")
+    case "PUBLISHED":
+      return t("outcomePublished")
+    case "FAILED":
+      return t("outcomeFailed")
+    case "EXPORTED":
+      return t("outcomeExported")
+    case "SIMULATED":
+      return t("outcomeSimulated")
+    case "CANCELLED":
+      return t("outcomeCancelled")
+    default:
+      return outcome
+  }
+}
+
+export function publishingIntentStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "DRAFT":
+      return t("intentDraft")
+    case "AWAITING_APPROVAL":
+      return t("intentAwaitingApproval")
+    case "SCHEDULED":
+      return t("intentScheduled")
+    case "DISPATCHING":
+      return t("intentDispatching")
+    case "SUCCEEDED":
+      return t("intentSucceeded")
+    case "FAILED":
+      return t("intentFailed")
+    case "ACTION_REQUIRED":
+      return t("intentActionRequired")
+    case "CANCELLED":
+      return t("intentCancelled")
+    default:
+      return status
+  }
+}
+
+export function publishingAttemptStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "QUEUED":
+      return t("attemptQueued")
+    case "RUNNING":
+      return t("attemptRunning")
+    case "DISPATCHING":
+      return t("attemptDispatching")
+    case "SUCCEEDED":
+      return t("attemptSucceeded")
+    case "FAILED":
+      return t("attemptFailed")
+    case "UNKNOWN":
+      return t("attemptUnknown")
+    case "CANCELLED":
+      return t("attemptCancelled")
+    default:
+      return status
+  }
+}
+
+export function publishingModeLabel(mode: string, t: Translator): string {
+  switch (mode) {
+    case "REAL":
+      return t("modeReal")
+    case "MANUAL_EXPORT":
+      return t("modeManualExport")
+    case "SIMULATION":
+      return t("modeSimulation")
+    default:
+      return mode
+  }
+}
+
+export function publishingChannelLabel(
+  channel: string,
+  t: Translator,
+): string {
+  switch (channel) {
+    case "facebook":
+      return t("channelFacebook")
+    case "instagram":
+      return t("channelInstagram")
+    default:
+      return channel
+  }
+}
+
+export function billingAccountStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "active":
+      return t("billingAccountActive")
+    case "paused":
+      return t("billingAccountPaused")
+    default:
+      return status
+  }
+}
+
+export function walletLedgerDirectionLabel(
+  direction: string,
+  t: Translator,
+): string {
+  switch (direction) {
+    case "credit":
+      return t("ledgerCredit")
+    case "debit":
+      return t("ledgerDebit")
+    default:
+      return direction
+  }
+}
+
+export function walletLedgerReasonLabel(reason: string, t: Translator): string {
+  switch (reason) {
+    case "topup":
+      return t("ledgerReasonTopup")
+    case "trial_grant":
+      return t("ledgerReasonTrialGrant")
+    case "spend":
+      return t("ledgerReasonSpend")
+    case "refund":
+      return t("ledgerReasonRefund")
+    default:
+      return reason
+  }
+}
+
+export function walletTransactionKindLabel(
+  kind: string,
+  t: Translator,
+): string {
+  switch (kind) {
+    case "charge":
+      return t("transactionKindTopup")
+    default:
+      return kind
+  }
+}
+
+export function walletTransactionStatusLabel(
+  status: string,
+  t: Translator,
+): string {
+  switch (status) {
+    case "succeeded":
+      return t("transactionStatusSucceeded")
+    case "failed":
+      return t("transactionStatusFailed")
+    case "pending":
+      return t("transactionStatusPending")
+    default:
+      return status
+  }
+}
+
+export function walletPaymentModeLabel(mode: string, t: Translator): string {
+  switch (mode) {
+    case "card":
+      return t("paymentModeCard")
+    case "one_time_card":
+      return t("paymentModeOneTimeCard")
+    case "recurring_card":
+      return t("paymentModeRecurringCard")
+    case "wallet":
+      return t("paymentModeWallet")
+    case "reference":
+      return t("paymentModeReference")
+    default:
+      return mode
   }
 }

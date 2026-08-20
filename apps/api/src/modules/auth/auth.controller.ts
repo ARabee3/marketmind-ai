@@ -33,7 +33,7 @@ import { AuthRateLimiterService } from './auth-rate-limiter.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { AuthenticatedUser } from './interfaces/jwt-payload.interface';
-import { OAuthStateService } from './oauth-state.service';
+import { OAuthStateService, type OAuthErrorPayload } from './oauth-state.service';
 import { GoogleOAuthClient } from './google-oauth.client';
 import { OAuthAccountPolicyService } from './oauth-account-policy.service';
 import { OAuthException } from './exceptions/oauth.exception';
@@ -230,12 +230,32 @@ export class AuthController {
       res.redirect(`${redirectBase}?status=success`);
     } catch (error) {
       this.logger.warn('Google OAuth callback failed', error);
-      const errorCode = this.normalizeOAuthError(error);
+      const normalizedError = this.normalizeOAuthError(error);
       if (browserStateMatches) {
         this.clearOAuthStateCookie(res);
       }
-      this.redirectWithError(res, redirectBase, errorCode);
+      let errorTicket: string | undefined;
+      if (normalizedError.reason) {
+        try {
+          errorTicket = await this.oauthState.createError(normalizedError);
+        } catch (ticketError) {
+          this.logger.warn('Could not persist OAuth error detail', ticketError);
+        }
+      }
+      this.redirectWithError(
+        res,
+        redirectBase,
+        normalizedError.code,
+        errorTicket,
+      );
     }
+  }
+
+  @Get('oauth/error')
+  async consumeOAuthError(
+    @Query('ticket') ticket?: string,
+  ): Promise<OAuthErrorPayload | null> {
+    return this.oauthState.consumeError(ticket);
   }
 
   @Post('forgot-password')
@@ -371,26 +391,37 @@ export class AuthController {
     res: Response,
     base: string,
     code: string,
+    errorTicket?: string,
   ): void {
     const url = new URL(base);
     url.searchParams.set('error', code);
+    if (errorTicket) url.searchParams.set('error_ticket', errorTicket);
     res.redirect(url.toString());
   }
 
-  private normalizeOAuthError(error: unknown): string {
+  private normalizeOAuthError(error: unknown): OAuthErrorPayload {
     if (error instanceof OAuthException) {
-      return error.code;
+      const response = error.getResponse();
+      return {
+        code: error.code,
+        reason:
+          typeof response === 'object' &&
+          response !== null &&
+          typeof (response as { reason?: unknown }).reason === 'string'
+            ? (response as { reason: string }).reason
+            : null,
+      };
     }
 
     if (error instanceof HttpException) {
       const response = error.getResponse();
       if (typeof response === 'object' && response !== null && 'code' in response) {
-        return (response as { code: string }).code;
+        return { code: (response as { code: string }).code };
       }
-      return 'OAUTH_PROVIDER_ERROR';
+      return { code: 'OAUTH_PROVIDER_ERROR' };
     }
 
-    return 'SERVER_ERROR';
+    return { code: 'SERVER_ERROR' };
   }
 }
 

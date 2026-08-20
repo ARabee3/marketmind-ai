@@ -14,6 +14,11 @@ export interface OAuthStatePayload {
   fingerprint?: string;
 }
 
+export interface OAuthErrorPayload {
+  code: string;
+  reason?: string | null;
+}
+
 /**
  * OAuth state parameter management.
  *
@@ -26,6 +31,8 @@ export class OAuthStateService {
   private readonly logger = new Logger(OAuthStateService.name);
   private readonly keyPrefix = "oauth:state:";
   private readonly ttlSeconds = 600; // 10 minutes
+  private readonly errorKeyPrefix = "oauth:error:";
+  private readonly errorTtlSeconds = 300; // 5 minutes
 
   constructor(private readonly redis: RedisService) {}
 
@@ -105,5 +112,45 @@ export class OAuthStateService {
     }
 
     return payload;
+  }
+
+  /**
+   * Stores a short-lived, one-time OAuth error detail behind an opaque ticket.
+   * Sensitive account context must not be placed directly in the redirect URL.
+   */
+  async createError(payload: OAuthErrorPayload): Promise<string> {
+    const ticket = randomBytes(32).toString("base64url");
+    await this.redis
+      .getClient()
+      .setex(
+        `${this.errorKeyPrefix}${ticket}`,
+        this.errorTtlSeconds,
+        JSON.stringify(payload),
+      );
+    return ticket;
+  }
+
+  /**
+   * Consumes a short-lived OAuth error detail. A ticket can only be used once.
+   */
+  async consumeError(ticket: string | undefined): Promise<OAuthErrorPayload | null> {
+    if (!ticket || ticket.length < 16) return null;
+
+    const raw = await this.redis
+      .getClient()
+      .getdel(`${this.errorKeyPrefix}${ticket}`);
+    if (!raw) return null;
+
+    try {
+      const payload = JSON.parse(raw as string) as Partial<OAuthErrorPayload>;
+      if (typeof payload.code !== "string") return null;
+      return {
+        code: payload.code,
+        reason: typeof payload.reason === "string" ? payload.reason : null,
+      };
+    } catch {
+      this.logger.warn("OAuth error payload is corrupted");
+      return null;
+    }
   }
 }

@@ -8,6 +8,8 @@ import { MarketingKnowledgeEligibilityService } from "./marketing-knowledge-elig
 import { MarketingKnowledgeRebuildService } from "./marketing-knowledge-rebuild.service";
 
 @Module({
+  imports: [],
+  controllers: [],
   providers: [
     MarketingKnowledgeEntryRepository,
     MarketingKnowledgeVersionRepository,

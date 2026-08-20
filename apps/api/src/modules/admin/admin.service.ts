@@ -1,9 +1,18 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Role, UserStatus } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 
 const ACTIVE_BUSINESS_STATUS = "active";
 const ACTIVE_SUBSCRIPTION_STATE = "active";
 const TRIALING_SUBSCRIPTION_STATE = "trialing";
+const PAST_DUE_SUBSCRIPTION_STATE = "past_due";
+const EXPIRED_SUBSCRIPTION_STATE = "expired";
 
 export function resolveLoginMethod(providers: string[]): string {
   return providers.length > 0 ? providers.join(", ") : "password";
@@ -22,9 +31,12 @@ export function computeMrrEgp(subs: SubscriptionAggregate[]): number {
       total += sub.amountEgp;
     } else if (sub.interval === "yearly") {
       total += sub.amountEgp / 12;
-    } else {
+    } else if (sub.periodDays > 0) {
       total += (sub.amountEgp * 30) / sub.periodDays;
     }
+    // A custom-interval price with a non-positive periodDays cannot be
+    // annualized; contributing 0 keeps the total finite instead of emitting
+    // Infinity/NaN (which JSON-serializes to null and corrupts the summary).
   }
   return Math.round(total);
 }
@@ -37,6 +49,7 @@ export interface UserRow {
   roles: string[];
   loginMethod: string;
   status: string;
+  suspensionReason?: string | null;
   createdAt: Date;
   lastLoginAt: Date | null;
   businessCount: number;
@@ -73,11 +86,27 @@ export interface UserDetail {
   }[];
 }
 
+export interface UpdateUserResult {
+  id: string;
+  email: string;
+  fullName: string | null;
+  roles: string[];
+  status: string;
+  suspensionReason?: string | null;
+  isEmailVerified: boolean;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface RevenueSummary {
   activeBusinesses: number;
   activeSubscriptions: number;
   trialingCount: number;
   mrrEgp: number;
+  pastDueSubscriptions: number;
+  expiredSubscriptions: number;
+  unverifiedUsers: number;
 }
 
 export interface SubscriptionRow {
@@ -96,21 +125,32 @@ export interface SubscriptionRow {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async getUsers(
     page: number,
     pageSize: number,
     search?: string,
+    verified?: boolean,
+    role?: Role,
+    status?: UserStatus,
   ): Promise<PaginatedResponse<UserRow>> {
-    const where = search
-      ? {
-          OR: [
-            { email: { contains: search, mode: "insensitive" as const } },
-            { fullName: { contains: search, mode: "insensitive" as const } },
-          ],
-        }
-      : {};
+    const where = {
+      ...(search
+        ? {
+            OR: [
+              { email: { contains: search, mode: "insensitive" as const } },
+              { fullName: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+      ...(verified !== undefined ? { isEmailVerified: verified } : {}),
+      ...(role !== undefined ? { roles: { has: role } } : {}),
+      ...(status !== undefined ? { status } : {}),
+    };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -144,7 +184,8 @@ export class AdminService {
       loginMethod: resolveLoginMethod(
         user.federatedIdentities.map((identity) => identity.provider),
       ),
-      status: user.status,
+      status: user.status.toLowerCase(),
+      suspensionReason: user.suspensionReason,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       businessCount: user.businesses.length,
@@ -212,7 +253,8 @@ export class AdminService {
         loginMethod: resolveLoginMethod(
           federatedIdentities.map((identity) => identity.provider),
         ),
-        status: user.status,
+        status: user.status.toLowerCase(),
+        suspensionReason: user.suspensionReason,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
         businessCount: businesses.length,
@@ -225,7 +267,14 @@ export class AdminService {
   }
 
   async getRevenueSummary(): Promise<RevenueSummary> {
-    const [activeBusinesses, activeSubs, trialingCount] = await Promise.all([
+    const [
+      activeBusinesses,
+      activeSubs,
+      trialingCount,
+      pastDueCount,
+      expiredCount,
+      unverifiedUsers,
+    ] = await Promise.all([
       this.prisma.business.count({
         where: { status: ACTIVE_BUSINESS_STATUS },
       }),
@@ -244,6 +293,15 @@ export class AdminService {
       this.prisma.billingSubscription.count({
         where: { state: TRIALING_SUBSCRIPTION_STATE },
       }),
+      this.prisma.billingSubscription.count({
+        where: { state: PAST_DUE_SUBSCRIPTION_STATE },
+      }),
+      this.prisma.billingSubscription.count({
+        where: { state: EXPIRED_SUBSCRIPTION_STATE },
+      }),
+      this.prisma.user.count({
+        where: { isEmailVerified: false, status: UserStatus.ACTIVE },
+      }),
     ]);
 
     const mrrEgp = computeMrrEgp(
@@ -259,15 +317,20 @@ export class AdminService {
       activeSubscriptions: activeSubs.length,
       trialingCount,
       mrrEgp,
+      pastDueSubscriptions: pastDueCount,
+      expiredSubscriptions: expiredCount,
+      unverifiedUsers,
     };
   }
 
   async getSubscriptions(
     page: number,
     pageSize: number,
+    state?: string,
   ): Promise<PaginatedResponse<SubscriptionRow>> {
     const [subs, total] = await Promise.all([
       this.prisma.billingSubscription.findMany({
+        where: state ? { state } : {},
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: "desc" },
@@ -290,7 +353,7 @@ export class AdminService {
           },
         },
       }),
-      this.prisma.billingSubscription.count(),
+      this.prisma.billingSubscription.count({ where: state ? { state } : {} }),
     ]);
 
     const items: SubscriptionRow[] = subs.map((s) => ({
@@ -309,4 +372,90 @@ export class AdminService {
 
     return { items, total, page, pageSize };
   }
+
+  /**
+   * Updates the mutable admin-controlled fields of a user (status and roles).
+   *
+   * Every mutation is recorded in the append-only audit log with the full
+   * before/after state. Admins cannot modify their own account (self-protection).
+   */
+  async updateUser(
+    id: string,
+    dto: UpdateAdminUserDto,
+    actorUserId: string,
+    actorEmail: string,
+  ): Promise<UpdateUserResult> {
+    if (id === actorUserId) {
+      throw new BadRequestException("Admins cannot modify their own account");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const data: {
+      status?: UserStatus;
+      roles?: Role[];
+      suspensionReason?: string | null;
+    } = {};
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      data.suspensionReason =
+        dto.status === UserStatus.SUSPENDED ? dto.reason?.trim() || null : null;
+    }
+    if (dto.roles !== undefined) data.roles = dto.roles;
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException("Nothing to update");
+    }
+
+    const beforeState = { status: user.status, roles: user.roles };
+    const updated = await this.prisma.user.update({ where: { id }, data });
+    const afterState = { status: updated.status, roles: updated.roles };
+
+    await this.auditService.record({
+      actorUserId,
+      actorEmail,
+      action: resolveUserUpdateAction(beforeState, afterState),
+      targetType: "user",
+      targetId: id,
+      reason: dto.reason,
+      beforeState,
+      afterState,
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName,
+      roles: updated.roles,
+      status: updated.status.toLowerCase(),
+      suspensionReason: updated.suspensionReason,
+      isEmailVerified: updated.isEmailVerified,
+      lastLoginAt: updated.lastLoginAt,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
+  }
+}
+
+/**
+ * Maps a user mutation to the most specific audit action so the log stays
+ * filterable by intent (suspend, unsuspend, role change, generic update).
+ */
+function resolveUserUpdateAction(
+  before: { status: string; roles: string[] },
+  after: { status: string; roles: string[] },
+): string {
+  if (before.status !== after.status && after.status === UserStatus.SUSPENDED) {
+    return "user.suspend";
+  }
+  if (before.status !== after.status && after.status === UserStatus.ACTIVE) {
+    return "user.unsuspend";
+  }
+  if (JSON.stringify(before.roles) !== JSON.stringify(after.roles)) {
+    return "user.role_change";
+  }
+  return "user.update";
 }

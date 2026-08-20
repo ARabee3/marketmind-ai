@@ -32,14 +32,14 @@ async function main(): Promise<void> {
       fullName: ADMIN_NAME,
       roles: ["ADMIN"],
       isEmailVerified: true,
-      status: "active",
+      status: "ACTIVE",
     },
     create: {
       email: ADMIN_EMAIL,
       password: passwordHash,
       fullName: ADMIN_NAME,
       isEmailVerified: true,
-      status: "active",
+      status: "ACTIVE",
       roles: ["ADMIN"],
     },
   })

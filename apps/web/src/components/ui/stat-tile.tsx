@@ -13,9 +13,9 @@ export function StatTile({
   className?: string
 }) {
   return (
-    <Card className={cn("border-t-2 border-t-primary/40 shadow-sm", className)} size="sm">
+    <Card className={cn("border-border shadow-sm", className)} size="sm">
       <CardContent>
-        <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+        <p className="text-xs font-semibold tracking-[0.12em] text-primary uppercase">
           {label}
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-navy">

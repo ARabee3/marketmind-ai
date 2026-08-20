@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Role } from '@prisma/client';
+import { Role, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import { AuthService } from './auth.service';
@@ -34,6 +34,7 @@ const mockDbUser = {
   roles: [Role.OWNER] as Role[],
   refreshToken: MOCK_HASHED_REFRESH,
   isEmailVerified: false,
+  status: UserStatus.ACTIVE,
   lastLoginAt: null,
   preferredLocale: 'ar-EG',
   createdAt: new Date('2024-01-01T00:00:00Z'),
@@ -268,6 +269,45 @@ describe('AuthService', () => {
       expect(error).toBeInstanceOf(UnauthorizedException);
       expect((error as UnauthorizedException).getResponse()).toMatchObject({
         code: 'EMAIL_NOT_VERIFIED',
+      });
+    });
+
+    it('should throw UnauthorizedException with ACCOUNT_SUSPENDED for a suspended user', async () => {
+      // Arrange — verified user whose account is suspended
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedDbUser,
+        status: UserStatus.SUSPENDED,
+        suspensionReason: 'policy violation',
+      });
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+
+      // Act & Assert
+      let error: unknown;
+      try {
+        await service.login(loginDto);
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        code: 'ACCOUNT_SUSPENDED',
+        reason: 'policy violation',
+      });
+    });
+
+    it('should throw ACCOUNT_DISABLED without a suspension reason for a disabled user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedDbUser,
+        status: UserStatus.DISABLED,
+        suspensionReason: 'legacy suspension reason',
+      });
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+
+      await expect(service.login(loginDto)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'ACCOUNT_DISABLED',
+          reason: null,
+        }),
       });
     });
 
