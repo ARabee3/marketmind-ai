@@ -12,7 +12,8 @@ export class OAuthException extends HttpException {
     public readonly code: string,
     message: string,
     status: HttpStatus = HttpStatus.BAD_REQUEST,
+    details: Record<string, unknown> = {},
   ) {
-    super({ code, message }, status);
+    super({ code, message, ...details }, status);
   }
 }

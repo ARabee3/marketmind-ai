@@ -24,9 +24,17 @@ const authMessages: Record<string, string> = {
     'This account is already linked to a different sign-in method.',
   oauthRateLimitedTitle: 'Too many sign-in attempts',
   oauthRateLimitedDescription: 'Please wait a moment and try again.',
+  oauthAccountSuspendedTitle: 'Your account is suspended',
+  oauthAccountSuspendedDescription: 'This account cannot sign in right now.',
+  oauthAccountDisabledTitle: 'Your account is disabled',
+  oauthAccountDisabledDescription: 'This account cannot sign in right now.',
   oauthConfigurationErrorTitle: 'Sign in is temporarily unavailable',
   oauthConfigurationErrorDescription:
     'We are having trouble with Google sign in.',
+  suspensionReason: 'Reason: {reason}',
+  suspensionReasonUnavailable: 'No suspension reason was provided.',
+  contactSupport: 'Email support',
+  supportEmail: 'hello@marketmind.ai',
   oauthUnknownErrorTitle: 'Sign in failed',
   oauthUnknownErrorDescription: 'Something went wrong.',
 }
@@ -38,7 +46,13 @@ const commonMessages: Record<string, string> = {
 vi.mock('next-intl', () => ({
   useTranslations: (namespace: string) => {
     const messages = namespace === 'Auth' ? authMessages : commonMessages
-    return (key: string) => messages[key] ?? key
+    return (key: string, values?: Record<string, unknown>) => {
+      const message = messages[key] ?? key
+      return Object.entries(values ?? {}).reduce(
+        (result, [name, value]) => result.replace(`{${name}}`, String(value)),
+        message,
+      )
+    }
   },
 }))
 
@@ -65,14 +79,21 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(),
 }))
 
+vi.mock('@/lib/api', () => ({
+  publicRequest: vi.fn(),
+}))
+
 import { useSearchParams } from 'next/navigation'
+import { publicRequest } from '@/lib/api'
 
 const mockedUseSession = vi.mocked(useSession)
 const mockedUseSearchParams = vi.mocked(useSearchParams)
+const mockedPublicRequest = vi.mocked(publicRequest)
 
 describe('OAuthCallbackHandler', () => {
   beforeEach(() => {
     replaceMock.mockReset()
+    mockedPublicRequest.mockReset()
   })
 
   afterEach(() => {
@@ -214,6 +235,7 @@ describe('OAuthCallbackHandler', () => {
       /account linked to another sign-in method/i,
     ],
     ['AUTH_RATE_LIMITED', /too many sign-in attempts/i],
+    ['OAUTH_ACCOUNT_DISABLED', /your account is disabled/i],
     ['OAUTH_CONFIGURATION_ERROR', /sign in is temporarily unavailable/i],
   ])(
     'renders the localized state for error code %s',
@@ -235,6 +257,39 @@ describe('OAuthCallbackHandler', () => {
       expect(screen.queryByText('sensitive detail')).toBeNull()
     },
   )
+
+  it('loads a suspended-account reason from the one-time OAuth error ticket', async () => {
+    mockedUseSearchParams.mockReturnValue(
+      new URLSearchParams({
+        error: 'OAUTH_ACCOUNT_SUSPENDED',
+        error_ticket: 'opaque-error-ticket-123456',
+      }) as unknown as ReturnType<typeof useSearchParams>,
+    )
+    mockedUseSession.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: false,
+      refresh: vi.fn(),
+    } as unknown as ReturnType<typeof useSession>)
+    mockedPublicRequest.mockResolvedValue(
+      new Response(JSON.stringify({ reason: 'Policy violation' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    render(<OAuthCallbackHandler />)
+
+    expect(screen.getByText(/your account is suspended/i)).toBeDefined()
+    expect(
+      await screen.findByText(/reason: policy violation/i),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('link', { name: /email support/i }).getAttribute('href'),
+    ).toBe('mailto:hello@marketmind.ai')
+    expect(mockedPublicRequest).toHaveBeenCalledWith(
+      '/auth/oauth/error?ticket=opaque-error-ticket-123456',
+    )
+  })
 
   it('renders a safe unknown-error state for malformed callbacks', () => {
     mockedUseSearchParams.mockReturnValue(

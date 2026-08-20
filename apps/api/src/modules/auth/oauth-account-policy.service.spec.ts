@@ -40,6 +40,7 @@ const mockDbUser = {
   password: "hashed-password",
   refreshToken: null,
   status: UserStatus.ACTIVE,
+  suspensionReason: null,
 };
 
 describe("OAuthAccountPolicyService", () => {
@@ -119,6 +120,38 @@ describe("OAuthAccountPolicyService", () => {
       expectTokenResult(result, false);
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(federatedIdentity.findOrCreate).not.toHaveBeenCalled();
+    });
+
+    it("returns the suspension reason when a linked account is suspended", async () => {
+      federatedIdentity.findByProvider.mockResolvedValue({
+        id: "fi-1",
+        userId: "user-1",
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockDbUser,
+        status: UserStatus.SUSPENDED,
+        suspensionReason: "Policy violation",
+      });
+
+      await expect(service.signInWithGoogle(mockProfile)).rejects.toMatchObject({
+        code: "OAUTH_ACCOUNT_SUSPENDED",
+        response: expect.objectContaining({ reason: "Policy violation" }),
+      });
+    });
+
+    it("keeps disabled accounts distinct from suspended accounts", async () => {
+      federatedIdentity.findByProvider.mockResolvedValue({
+        id: "fi-1",
+        userId: "user-1",
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockDbUser,
+        status: UserStatus.DISABLED,
+      });
+
+      await expect(service.signInWithGoogle(mockProfile)).rejects.toMatchObject({
+        code: "OAUTH_ACCOUNT_DISABLED",
+      });
     });
 
     it("creates a new verified owner when no identity or email exists", async () => {

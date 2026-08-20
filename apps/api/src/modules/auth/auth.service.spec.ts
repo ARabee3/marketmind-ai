@@ -277,6 +277,7 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         ...mockVerifiedDbUser,
         status: UserStatus.SUSPENDED,
+        suspensionReason: 'policy violation',
       });
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
@@ -290,6 +291,23 @@ describe('AuthService', () => {
       expect(error).toBeInstanceOf(UnauthorizedException);
       expect((error as UnauthorizedException).getResponse()).toMatchObject({
         code: 'ACCOUNT_SUSPENDED',
+        reason: 'policy violation',
+      });
+    });
+
+    it('should throw ACCOUNT_DISABLED without a suspension reason for a disabled user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockVerifiedDbUser,
+        status: UserStatus.DISABLED,
+        suspensionReason: 'legacy suspension reason',
+      });
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+
+      await expect(service.login(loginDto)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'ACCOUNT_DISABLED',
+          reason: null,
+        }),
       });
     });
 

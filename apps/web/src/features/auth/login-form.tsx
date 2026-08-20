@@ -16,7 +16,7 @@ import {
   MIN_PASSWORD_LENGTH,
   type ValidationErrorKey,
 } from './validation'
-import { mapBackendErrorToKey, parseBackendErrorCode } from './auth-errors'
+import { mapBackendErrorToKey, parseBackendError } from './auth-errors'
 import { authStyles } from './auth-styles'
 import {
   safeAdminReturnPath,
@@ -30,6 +30,9 @@ type LoginFormErrors = {
     | 'errorLoginFailed'
     | 'errorInvalidCredentials'
     | 'errorEmailNotVerified'
+    | 'errorAccountSuspended'
+    | 'errorAccountDisabled'
+  suspensionReason?: string | null
 }
 
 export function LoginForm() {
@@ -49,6 +52,9 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isRegistered = searchParams.get('registered') === 'true'
   const isReset = searchParams.get('reset') === 'true'
+  const isAccountBlocked =
+    errors.root === 'errorAccountSuspended' ||
+    errors.root === 'errorAccountDisabled'
 
   const validate = useCallback((): boolean => {
     const next: LoginFormErrors = {}
@@ -87,9 +93,9 @@ export function LoginForm() {
       } catch (error) {
         const apiError = error as { response?: Response }
         if (apiError.response) {
-          const code = await parseBackendErrorCode(apiError.response)
-          const key = mapBackendErrorToKey(code, 'errorLoginFailed')
-          setErrors({ root: key })
+          const details = await parseBackendError(apiError.response)
+          const key = mapBackendErrorToKey(details.code, 'errorLoginFailed')
+          setErrors({ root: key, suspensionReason: details.reason })
         } else {
           setErrors({ root: 'errorLoginFailed' })
         }
@@ -126,20 +132,36 @@ export function LoginForm() {
       )}
 
       {errors.root && (
-        <div
-          role="alert"
-          className={authStyles.alert}
-        >
-          <span>{t(errors.root)}</span>
-          {errors.root === 'errorEmailNotVerified' && (
-            <Link
-              href="/resend-verification"
+        isAccountBlocked ? (
+          <div role="alert" className={cn(authStyles.alert, 'space-y-2')}>
+            <p className="font-semibold">{t(errors.root)}</p>
+            {errors.root === 'errorAccountSuspended' && (
+              <p dir="auto" className="text-sm">
+                {errors.suspensionReason
+                  ? t('suspensionReason', { reason: errors.suspensionReason })
+                  : t('suspensionReasonUnavailable')}
+              </p>
+            )}
+            <a
+              href={`mailto:${t('supportEmail')}`}
               className={authStyles.actionLink}
             >
-              {t('loginResendVerification')}
-            </Link>
-          )}
-        </div>
+              {t('contactSupport')}
+            </a>
+          </div>
+        ) : (
+          <div role="alert" className={authStyles.alert}>
+            <span>{t(errors.root)}</span>
+            {errors.root === 'errorEmailNotVerified' && (
+              <Link
+                href="/resend-verification"
+                className={authStyles.actionLink}
+              >
+                {t('loginResendVerification')}
+              </Link>
+            )}
+          </div>
+        )
       )}
 
       <div className={authStyles.field}>

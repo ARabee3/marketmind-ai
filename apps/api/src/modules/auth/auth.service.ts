@@ -158,9 +158,14 @@ export class AuthService {
     }
 
     if (user.status !== UserStatus.ACTIVE) {
+      const isSuspended = user.status === UserStatus.SUSPENDED;
       throw new UnauthorizedException({
-        code: 'ACCOUNT_SUSPENDED',
-        message: 'Your account is not active. Contact support if you believe this is a mistake',
+        code: isSuspended ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_DISABLED',
+        message: isSuspended
+          ? 'Your account is suspended. Contact support if you believe this is a mistake'
+          : 'Your account is disabled. Contact support if you need help',
+        reason:
+          isSuspended ? user.suspensionReason : null,
       });
     }
 

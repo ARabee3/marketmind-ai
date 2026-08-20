@@ -156,14 +156,22 @@ export class OAuthAccountPolicyService {
       createdAt: Date;
       updatedAt: Date;
       status: UserStatus;
+      suspensionReason: string | null;
     },
     isNew: boolean,
     sessionMetadata: RefreshSessionMetadata,
   ): Promise<OAuthSignInResult> {
     if (user.status !== UserStatus.ACTIVE) {
+      const isSuspended = user.status === UserStatus.SUSPENDED;
       throw new OAuthException(
-        "OAUTH_ACCOUNT_SUSPENDED",
-        "Your account is not active. Contact support if you believe this is a mistake",
+        isSuspended ? "OAUTH_ACCOUNT_SUSPENDED" : "OAUTH_ACCOUNT_DISABLED",
+        isSuspended
+          ? "Your account is suspended. Contact support if you believe this is a mistake"
+          : "Your account is disabled. Contact support if you believe this is a mistake",
+        undefined,
+        {
+          reason: isSuspended ? user.suspensionReason : null,
+        },
       );
     }
 

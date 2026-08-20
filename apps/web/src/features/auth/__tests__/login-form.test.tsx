@@ -25,6 +25,12 @@ const authMessages: Record<string, string> = {
   validationPasswordRequired: 'Password is required',
   errorInvalidCredentials: 'Incorrect email or password',
   errorEmailNotVerified: 'Please verify your email before signing in.',
+  errorAccountSuspended: 'Your account is suspended.',
+  errorAccountDisabled: 'Your account is disabled. Contact support if you need help.',
+  suspensionReason: 'Reason: {reason}',
+  suspensionReasonUnavailable: 'No suspension reason was provided.',
+  contactSupport: 'Email support',
+  supportEmail: 'hello@marketmind.ai',
   errorLoginFailed: 'Could not sign in. Please try again.',
 }
 
@@ -327,5 +333,54 @@ describe('LoginForm', () => {
     expect((resendLink as HTMLAnchorElement).getAttribute('href')).toContain(
       '/resend-verification',
     )
+  })
+
+  it('shows the suspension reason and support link when login returns ACCOUNT_SUSPENDED', async () => {
+    login.mockRejectedValue({
+      response: new Response(
+        JSON.stringify({
+          code: 'ACCOUNT_SUSPENDED',
+          reason: 'Policy violation',
+        }),
+        { status: 401 },
+      ),
+    })
+
+    render(<LoginForm />)
+
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(await screen.findByText('Your account is suspended.')).toBeDefined()
+    expect(screen.getByText('Reason: Policy violation')).toBeDefined()
+    expect(
+      screen.getByRole('link', { name: 'Email support' }).getAttribute('href'),
+    ).toBe('mailto:hello@marketmind.ai')
+  })
+
+  it('shows a disabled-account message and support link when login returns ACCOUNT_DISABLED', async () => {
+    login.mockRejectedValue({
+      response: new Response(
+        JSON.stringify({ code: 'ACCOUNT_DISABLED', reason: 'ignored' }),
+        { status: 401 },
+      ),
+    })
+
+    render(<LoginForm />)
+
+    typeInto(screen.getByLabelText(/email/i), 'ahmed@example.com')
+    typeInto(screen.getByLabelText(/^password$/i), 'password123')
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(
+      await screen.findByText(
+        /your account is disabled\. contact support if you need help/i,
+      ),
+    ).toBeDefined()
+    expect(screen.queryByText(/reason: ignored/i)).toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'Email support' }).getAttribute('href'),
+    ).toBe('mailto:hello@marketmind.ai')
   })
 })
