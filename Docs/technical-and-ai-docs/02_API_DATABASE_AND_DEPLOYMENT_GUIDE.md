@@ -160,9 +160,23 @@ Model clusters (representative members):
 | Performance / Optimization | `PerformanceSyncWindow`, `MetricSnapshot`, `OptimizationProposal`, `OptimizationDecision`, `ApprovedOptimizationInstruction` |
 | Billing | `BillingAccount`, `BillingPointBalance`, `BillingPointLedger`, `BillingPrice`, `BillingSubscription`, `BillingCheckoutAttempt`, `BillingPaymentTransaction`, `BillingProviderEvent`, `BillingUsageLedger`, `BillingProviderCostLedger`, `BillingOutbox` |
 
-For the ERD in the submission, render **per cluster** rather than all 86 tables at once,
-and generate it from the live schema (e.g. `prisma-erd-generator` or
-`prisma migrate diff`) so it can never drift from the code.
+**ERD for dbdiagram.io:** import
+[`MARKETMIND_DATABASE_ERD.dbml`](./MARKETMIND_DATABASE_ERD.dbml) into a new
+dbdiagram.io diagram. It contains the complete physical schema: all 86 tables,
+11 enums, 135 foreign-key relationships, primary keys, unique constraints, and
+indexes. It is generated from the live Prisma schema rather than maintained by
+hand.
+
+Regenerate and validate it after any Prisma schema change:
+
+```bash
+node scripts/generate-database-erd.mjs
+```
+
+For the final submission, arrange and export the complete diagram as SVG. If the
+full 86-table export is unreadable on a single page, also export focused views for
+the model clusters above; those focused views supplement rather than replace the
+complete ERD. Do not edit the generated DBML directly.
 
 **Migrations & seeds:** 34 timestamped migrations under `apps/api/prisma/migrations/`
 (+ `migration_lock.toml`), applied with `prisma migrate deploy`. Seed scripts:
