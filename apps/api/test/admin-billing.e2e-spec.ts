@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+﻿import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Role } from "@prisma/client";
@@ -133,80 +133,6 @@ describe("Admin Billing (e2e)", () => {
     await app.close();
   });
 
-  describe("GET /admin/billing/cost-alerts", () => {
-    it("returns 401 for unauthenticated caller", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/cost-alerts")
-        .expect(401);
-    });
-
-    it("returns 403 for non-admin user", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/cost-alerts")
-        .set("Authorization", `Bearer ${ownerToken}`)
-        .expect(403);
-    });
-
-    it("returns cost alert summary for admin", async () => {
-      const res = await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/cost-alerts")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(res.body).toHaveProperty("alerts");
-      expect(res.body).toHaveProperty("totalAccountsAboveEgp50");
-      expect(res.body).toHaveProperty("totalHighRetryArtifacts");
-    });
-  });
-
-  describe("GET /admin/billing/reconciliation", () => {
-    it("returns reconciliation mismatches for admin", async () => {
-      const res = await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/reconciliation")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(Array.isArray(res.body)).toBe(true);
-    });
-  });
-
-  describe("GET /admin/billing/accounts", () => {
-    it("returns 401 for unauthenticated caller", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/accounts")
-        .expect(401);
-    });
-
-    it("returns 403 for non-admin user", async () => {
-      await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/accounts")
-        .set("Authorization", `Bearer ${ownerToken}`)
-        .expect(403);
-    });
-
-    it("lists billing accounts with the test account included", async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/api/v1/admin/billing/accounts?search=billing-e2e-user`)
-        .set("Authorization", `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(res.body).toHaveProperty("items");
-      expect(res.body).toHaveProperty("total");
-      expect(res.body.items.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.items[0]).toHaveProperty("ownerEmail");
-      expect(res.body.items[0]).toHaveProperty("status");
-    });
-
-    it("filters paused accounts by status", async () => {
-      const res = await request(app.getHttpServer())
-        .get("/api/v1/admin/billing/accounts?status=active")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(res.body.items.every((item: { status: string }) => item.status === "active")).toBe(true);
-    });
-  });
-
   describe("GET /admin/billing/wallets/overview", () => {
     it("returns 401 for unauthenticated caller", async () => {
       await request(app.getHttpServer())
@@ -339,72 +265,6 @@ describe("Admin Billing (e2e)", () => {
       expect(res.body).toHaveProperty("total");
       expect(Array.isArray(res.body.items)).toBe(true);
       expect(typeof res.body.total).toBe("number");
-    });
-  });
-
-  describe("POST /admin/billing/accounts/:id/pause and /resume", () => {
-    it("returns 404 for missing account", async () => {
-      await request(app.getHttpServer())
-        .post("/api/v1/admin/billing/accounts/00000000-0000-4000-8000-000000000999/pause")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ reason: "Testing non-existent" })
-        .expect(404);
-    });
-
-    it("pauses the account and blocks points spending", async () => {
-      const pauseRes = await request(app.getHttpServer())
-        .post(`/api/v1/admin/billing/accounts/${testAccountId}/pause`)
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ reason: "Suspicious activity detected" })
-        .expect(201);
-
-      expect(pauseRes.body).toMatchObject({
-        id: testAccountId,
-        status: "paused",
-        pausedReason: "Suspicious activity detected",
-      });
-
-      // Verify audit log entry was created
-      const auditLog = await prisma.auditLog.findFirst({
-        where: {
-          targetId: testAccountId,
-          action: "billing.pause",
-        },
-      });
-      expect(auditLog).not.toBeNull();
-      expect(auditLog?.reason).toBe("Suspicious activity detected");
-
-      // Verify spending points fails when paused
-      await expect(
-        billingService.spendPoints(testUserId, "content_item", 1, `e2e-claim-${Date.now()}`),
-      ).rejects.toThrow("This billing account is paused by an operator.");
-    });
-
-    it("resumes the account and restores points spending", async () => {
-      const resumeRes = await request(app.getHttpServer())
-        .post(`/api/v1/admin/billing/accounts/${testAccountId}/resume`)
-        .set("Authorization", `Bearer ${adminToken}`)
-        .expect(201);
-
-      expect(resumeRes.body).toMatchObject({
-        id: testAccountId,
-        status: "active",
-        pausedReason: null,
-      });
-
-      // Verify audit log entry was created
-      const auditLog = await prisma.auditLog.findFirst({
-        where: {
-          targetId: testAccountId,
-          action: "billing.resume",
-        },
-      });
-      expect(auditLog).not.toBeNull();
-
-      // Spending points should work again
-      await expect(
-        billingService.spendPoints(testUserId, "content_item", 1, `e2e-claim-${Date.now()}`),
-      ).resolves.not.toThrow();
     });
   });
 });

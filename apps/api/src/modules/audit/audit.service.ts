@@ -13,22 +13,6 @@ export interface AuditRecordInput {
   afterState?: unknown;
 }
 
-export interface AuditQueryFilters {
-  actor?: string;
-  action?: string;
-  from?: string;
-  to?: string;
-  page: number;
-  pageSize: number;
-}
-
-export interface PaginatedAuditLogs {
-  items: AuditLog[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 /**
  * Append-only audit trail.
  *
@@ -59,32 +43,5 @@ export class AuditService {
             : (input.afterState as Prisma.InputJsonValue),
       },
     });
-  }
-
-  async list(filters: AuditQueryFilters): Promise<PaginatedAuditLogs> {
-    const where: Prisma.AuditLogWhereInput = {
-      ...(filters.actor ? { actorUserId: filters.actor } : {}),
-      ...(filters.action ? { action: filters.action } : {}),
-      ...(filters.from || filters.to
-        ? {
-            createdAt: {
-              ...(filters.from ? { gte: new Date(filters.from) } : {}),
-              ...(filters.to ? { lte: new Date(filters.to) } : {}),
-            },
-          }
-        : {}),
-    };
-
-    const [items, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip: (filters.page - 1) * filters.pageSize,
-        take: filters.pageSize,
-        orderBy: { createdAt: "desc" },
-      }),
-      this.prisma.auditLog.count({ where }),
-    ]);
-
-    return { items, total, page: filters.page, pageSize: filters.pageSize };
   }
 }

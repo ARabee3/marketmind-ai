@@ -22,7 +22,6 @@ import {
   type AdminRevenueSummary,
   type AdminUserRow,
 } from "@/lib/api/admin"
-import { listBillingCostAlerts, type CostAlertSummary } from "@/lib/api/admin-billing"
 import { adminRoleLabel } from "@/lib/admin-labels"
 
 type Phase = "loading" | "error" | "ready"
@@ -33,7 +32,6 @@ export default function AdminOverviewPage() {
   const [phase, setPhase] = useState<Phase>("loading")
   const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null)
   const [recentUsers, setRecentUsers] = useState<AdminUserRow[]>([])
-  const [costAlerts, setCostAlerts] = useState<CostAlertSummary | null>(null)
   const [userTotal, setUserTotal] = useState(0)
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
@@ -47,15 +45,13 @@ export default function AdminOverviewPage() {
     async function fetch() {
       setPhase("loading")
       try {
-        const [rev, users, alerts] = await Promise.all([
+        const [rev, users] = await Promise.all([
           getAdminRevenueSummary(),
           getAdminUsers({ page: 1, pageSize: 5 }),
-          listBillingCostAlerts(),
         ])
         if (cancelled) return
         setRevenue(rev)
         setRecentUsers(users.items)
-        setCostAlerts(alerts)
         setUserTotal(users.total)
         setLastRefreshedAt(new Date())
         setPhase("ready")
@@ -107,7 +103,7 @@ export default function AdminOverviewPage() {
         }
       />
 
-      <NeedsAttentionPanel revenue={revenue} costAlerts={costAlerts} t={t} />
+      <NeedsAttentionPanel revenue={revenue} t={t} />
 
       <MetricsPanel
         revenue={revenue}
@@ -145,20 +141,15 @@ export default function AdminOverviewPage() {
 
 function NeedsAttentionPanel({
   revenue,
-  costAlerts,
   t,
 }: {
   revenue: AdminRevenueSummary | null
-  costAlerts: CostAlertSummary | null
   t: ReturnType<typeof useTranslations>
 }) {
   const pastDue = revenue?.pastDueSubscriptions ?? 0
   const expired = revenue?.expiredSubscriptions ?? 0
   const unverified = revenue?.unverifiedUsers ?? 0
-  const billingAlerts = costAlerts
-    ? costAlerts.totalAccountsAboveEgp50 + costAlerts.totalHighRetryArtifacts
-    : 0
-  const total = pastDue + expired + unverified + billingAlerts
+  const total = pastDue + expired + unverified
 
   return (
     <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
@@ -216,16 +207,6 @@ function NeedsAttentionPanel({
                 variant="draft"
                 href="/admin/users?verified=false"
                 ariaLabel={`${t("unverifiedUsers")} — ${t("viewDetails")}`}
-                viewLabel={t("viewDetails")}
-              />
-            )}
-            {billingAlerts > 0 && (
-              <NeedsAttentionRow
-                label={t("billingCostAlertsShort")}
-                count={billingAlerts}
-                variant="past_due"
-                href="/admin/billing"
-                ariaLabel={`${t("billingCostAlertsShort")} — ${t("viewDetails")}`}
                 viewLabel={t("viewDetails")}
               />
             )}
