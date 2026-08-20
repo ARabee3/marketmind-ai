@@ -2002,6 +2002,16 @@
       "goContent": "Review Content",
       "tryAgain": "Try again"
     },
+    "setupRequired": {
+      "title": "Complete your business profile and content strategy first",
+      "body": "Publishing starts once your business profile is confirmed and you have an approved content strategy. Finish the guided journey first, then return here to publish approved content.",
+      "startDiscovery": "Start business discovery",
+      "continueDiscovery": "Continue discovery",
+      "reviewProfile": "Review & confirm business profile",
+      "viewDiscovery": "View discovery",
+      "viewStrategy": "Open content strategy",
+      "tryAgain": "Try again"
+    },
     "error": {
       "title": "Publishing could not load",
       "body": "We could not load the latest candidates and decisions. Nothing was published by this screen.",

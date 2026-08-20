@@ -1,4 +1,5 @@
 import type {
+  CurrentJourneyResponse,
   PublicationAttemptV1,
   PublicationCandidateSummaryV1,
   PublicationIntentV1,
@@ -8,6 +9,40 @@ import type {
 import type { PublishingIntentDetailView } from "@/lib/api/publishing";
 
 export type PublishingIntentStateKey = PublicationIntentV1["state"];
+
+/** Next-step guidance shown before the owner has a publishable setup. */
+export type PublishingSetupAction = {
+  readonly destination: string;
+  readonly labelKey:
+    | "startDiscovery"
+    | "continueDiscovery"
+    | "reviewProfile"
+    | "viewDiscovery"
+    | "viewStrategy";
+};
+
+/** Publishing requires a confirmed business profile and approved content
+ *  strategy. Until the journey provides one, route the owner back to the
+ *  exact next step instead of treating the missing setup as a failure. */
+export function publishingSetupAction(
+  journey: CurrentJourneyResponse,
+): PublishingSetupAction {
+  const action = journey.primary_action;
+  switch (action.type) {
+    case "start_discovery":
+      return { destination: action.destination, labelKey: "startDiscovery" };
+    case "continue_discovery":
+      return { destination: action.destination, labelKey: "continueDiscovery" };
+    case "review_profile":
+      return { destination: action.destination, labelKey: "reviewProfile" };
+    case "view_discovery":
+      return { destination: action.destination, labelKey: "viewDiscovery" };
+    case "view_strategy":
+      return { destination: action.destination, labelKey: "viewStrategy" };
+    case "none":
+      return { destination: "/discovery/new", labelKey: "startDiscovery" };
+  }
+}
 
 /** Stable per-browser connection fingerprint (issue #175): bound to the OAuth
  *  state at connect time and required again at account-selection time, so a
