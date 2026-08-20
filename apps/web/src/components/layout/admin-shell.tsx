@@ -58,7 +58,7 @@ export function AdminShell({
     <div className="relative min-h-dvh overflow-x-clip bg-background text-foreground">
       <a
         href="#main-content"
-        className="fixed start-4 top-2 z-50 -translate-y-20 rounded-lg bg-navy px-3 py-2 text-sm font-semibold text-white transition-transform focus-visible:translate-y-0 focus-visible:ring-3 focus-visible:ring-action/50"
+        className="fixed start-4 top-2 z-50 -translate-y-20 rounded-lg bg-navy px-3 py-2 text-sm font-semibold text-white transition-transform motion-reduce:transition-none focus-visible:translate-y-0 focus-visible:ring-3 focus-visible:ring-action/50"
       >
         {tc("skipToMain")}
       </a>
@@ -68,7 +68,7 @@ export function AdminShell({
 
       <aside
         className={cn(
-          "fixed inset-y-0 start-0 z-30 hidden flex-col border-e border-border/80 bg-surface/95 shadow-header backdrop-blur transition-[width] duration-300 ease-out lg:flex",
+          "fixed inset-y-0 start-0 z-30 hidden flex-col border-e border-border/80 bg-surface/95 shadow-header backdrop-blur transition-[width] duration-300 ease-out motion-reduce:transition-none lg:flex",
           sidebarCollapsed ? "w-[84px]" : "w-[260px]",
         )}
       >
@@ -211,7 +211,7 @@ export function AdminShell({
 
       <div
         className={cn(
-          "relative transition-[margin] duration-300 ease-out",
+          "relative transition-[margin] duration-300 ease-out motion-reduce:transition-none",
           sidebarCollapsed ? "lg:ms-[84px]" : "lg:ms-[260px]",
         )}
       >

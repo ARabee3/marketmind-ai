@@ -122,7 +122,7 @@ export default function AdminPublishingPage() {
             <RefreshCw
               className={cn(
                 "size-4",
-                sweepState === "running" && "animate-spin",
+                sweepState === "running" && "animate-spin motion-reduce:animate-none",
               )}
               aria-hidden="true"
             />
@@ -503,6 +503,7 @@ function ResolveDialog({
             </label>
             <Input
               id="publishing-resolve-reason"
+              name="publishing-resolve-reason"
               type="text"
               autoComplete="off"
               value={reason}
@@ -522,6 +523,7 @@ function ResolveDialog({
               </label>
               <Input
                 id="publishing-resolve-remote-id"
+                name="publishing-resolve-remote-id"
                 type="text"
                 autoComplete="off"
                 value={remotePublicationId}
@@ -611,7 +613,7 @@ function ResyncButton({
         disabled={busy}
       >
         <RefreshCw
-          className={cn("size-3.5", busy && "animate-spin")}
+          className={cn("size-3.5", busy && "animate-spin motion-reduce:animate-none")}
           aria-hidden="true"
         />
         {busy ? t("resyncing") : t("resync")}
