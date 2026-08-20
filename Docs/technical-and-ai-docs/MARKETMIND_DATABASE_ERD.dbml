@@ -411,12 +411,20 @@ Table "billing_outbox" {
   "event_type" TEXT [not null]
   "dedupe_key" TEXT [not null]
   "payload" JSONB [not null, default: '{}']
+  "state" TEXT [not null, default: 'pending']
+  "attempts" INTEGER [not null, default: 0]
+  "lease_owner" TEXT
+  "lease_expires_at" TIMESTAMP(3)
+  "next_attempt_at" TIMESTAMP(3)
+  "last_error" TEXT
   "dispatched_at" TIMESTAMP(3)
   "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
 
   Indexes {
     id [pk, name: "billing_outbox_pkey"]
     dedupe_key [unique, name: "billing_outbox_dedupe_key_key"]
+    (state, next_attempt_at) [name: "billing_outbox_state_next_attempt_at_idx"]
+    lease_expires_at [name: "billing_outbox_lease_expires_at_idx"]
     (dispatched_at, created_at) [name: "billing_outbox_dispatched_at_created_at_idx"]
   }
 }
