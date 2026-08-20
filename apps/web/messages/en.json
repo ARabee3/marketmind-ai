@@ -3076,6 +3076,25 @@
     "loadFailed": "Content performance is unavailable",
     "loadFailedBody": "We could not load the monitoring evidence. Your published content is unchanged; try again when the API is available.",
     "retry": "Try again",
+    "setupRequired": {
+      "title": {
+        "profile": "Complete your business profile first",
+        "strategy": "Create your content strategy first",
+        "content": "Generate approved content first"
+      },
+      "body": {
+        "profile": "Performance monitoring starts after your business profile is confirmed. Finish the guided journey, then return here to follow what your published posts teach you.",
+        "strategy": "Content performance tracks real Facebook posts that MarketMind published. Build an approved content strategy first, then return here to monitor.",
+        "content": "This workspace monitors Facebook posts MarketMind publishes from your Content cycle. Approve content in the cycle, then return here to follow the results."
+      },
+      "startDiscovery": "Start business discovery",
+      "continueDiscovery": "Continue discovery",
+      "reviewProfile": "Review & confirm business profile",
+      "viewDiscovery": "View discovery",
+      "goStrategy": "Open content strategy",
+      "goContent": "Open content",
+      "tryAgain": "Try again"
+    },
     "capability": {
       "ready": { "label": "Insights ready" },
       "blocked": { "label": "Action needed" },
