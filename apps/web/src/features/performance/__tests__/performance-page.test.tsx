@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
+  CurrentJourneyResponse,
   OptimizationDecisionResponseV1,
   OptimizationProposalWorkspaceV1,
   PerformanceOverviewV1,
   PerformancePostProjectionV1,
 } from '@marketmind/contracts'
+import { getCurrentJourney } from '@/lib/api/journey'
 import {
   decideOptimizationProposal,
   getOptimizationProposals,
@@ -44,6 +46,10 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
+vi.mock('@/lib/api/journey', () => ({
+  getCurrentJourney: vi.fn(),
+}))
+
 vi.mock('@/lib/api/performance', () => ({
   getPerformanceOverview: vi.fn(),
   getOptimizationProposals: vi.fn(),
@@ -51,6 +57,7 @@ vi.mock('@/lib/api/performance', () => ({
   refreshPerformancePost: vi.fn(),
 }))
 
+const mockedGetCurrentJourney = vi.mocked(getCurrentJourney)
 const mockedGetPerformanceOverview = vi.mocked(getPerformanceOverview)
 const mockedGetOptimizationProposals = vi.mocked(getOptimizationProposals)
 const mockedDecideOptimizationProposal = vi.mocked(decideOptimizationProposal)
@@ -59,6 +66,103 @@ const mockedRefreshPerformancePost = vi.mocked(refreshPerformancePost)
 const BUSINESS_ID = 'a1000000-0000-4000-8000-000000000001'
 const CANDIDATE_ID = 'a1000000-0000-4000-8000-000000000002'
 const RESULT_ID = 'a1000000-0000-4000-8000-000000000003'
+const STRATEGY_ID = 'a1000000-0000-4000-8000-000000000004'
+const CYCLE_ID = 'a1000000-0000-4000-8000-000000000005'
+const SESSION_ID = 'a1000000-0000-4000-8000-000000000006'
+
+function readyJourney(): CurrentJourneyResponse {
+  return {
+    owner: {
+      user_id: 'a1000000-0000-4000-8000-000000000007',
+      full_name: 'Ahmed Hassan',
+      email: 'owner@example.com',
+      email_verified: true,
+    },
+    journey: {
+      state: 'discovery_confirmed',
+      discovery: {
+        session_id: SESSION_ID,
+        status: 'confirmed',
+        language_mode: 'en',
+        business_summary: {
+          business_name: 'Al Nada Shop',
+          business_type: 'Retail shop',
+          city: 'Assiut',
+          area: 'Assiut City',
+        },
+        readiness: {
+          ready: true,
+          profile_readiness: 0.92,
+          owner_turn_count: 6,
+          max_owner_turns: 15,
+        },
+        profile_draft_id: null,
+        confirmed_profile_version_id: 'a1000000-0000-4000-8000-000000000008',
+        updated_at: '2026-08-19T08:00:00.000Z',
+        completed_at: '2026-08-19T08:00:00.000Z',
+      },
+      profile: {
+        business_profile_version_id: 'a1000000-0000-4000-8000-000000000008',
+        business_id: BUSINESS_ID,
+        version: 1,
+        business_name: 'Al Nada Shop',
+        business_type: 'Retail shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        confirmed_at: '2026-08-19T08:00:00.000Z',
+      },
+    },
+    future_phase: {
+      phase: 'strategy',
+      availability: 'available',
+      status: 'approved',
+      reason: 'strategy_active',
+      strategy_id: STRATEGY_ID,
+      current_version_id: null,
+      destination: `/strategy/${STRATEGY_ID}`,
+      business: {
+        business_name: 'Al Nada Shop',
+        business_type: 'Retail shop',
+        city: 'Assiut',
+        area: 'Assiut City',
+        profile_version: 1,
+      },
+    },
+    primary_action: {
+      type: 'view_strategy',
+      strategy_id: STRATEGY_ID,
+      destination: `/strategy/${STRATEGY_ID}`,
+    },
+    content: {
+      ready: true,
+      reason: 'cycle_active',
+      cycle: { id: CYCLE_ID, status: 'active', current_week: 1 },
+      pack: null,
+    },
+    generated_at: '2026-08-19T08:00:00.000Z',
+  }
+}
+
+function noProfileJourney(): CurrentJourneyResponse {
+  return {
+    owner: {
+      user_id: 'a1000000-0000-4000-8000-000000000007',
+      full_name: 'Ahmed Hassan',
+      email: 'owner@example.com',
+      email_verified: true,
+    },
+    journey: { state: 'no_journey', discovery: null, profile: null },
+    future_phase: {
+      phase: 'strategy',
+      availability: 'unavailable',
+      status: 'needs_brief',
+      reason: 'discovery_required',
+      destination: null,
+    },
+    primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+    generated_at: '2026-08-19T08:00:00.000Z',
+  }
+}
 
 function post(): PerformancePostProjectionV1 {
   return {
@@ -135,7 +239,10 @@ function overview(
 
 describe('PerformancePage', () => {
   afterEach(() => vi.clearAllMocks())
-  beforeEach(() => mockedGetOptimizationProposals.mockResolvedValue([]))
+  beforeEach(() => {
+    mockedGetCurrentJourney.mockResolvedValue(readyJourney())
+    mockedGetOptimizationProposals.mockResolvedValue([])
+  })
 
   function optimizationWorkspace(): OptimizationProposalWorkspaceV1 {
     return {
@@ -194,6 +301,99 @@ describe('PerformancePage', () => {
       instruction: null,
     }
   }
+
+  it('routes a first-time owner to business discovery instead of failing', async () => {
+    mockedGetCurrentJourney.mockResolvedValue(noProfileJourney())
+
+    render(<PerformancePage />)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'setupRequired.title.profile',
+      }),
+    ).not.toBeNull()
+    expect(
+      screen.getByRole('heading', { name: 'title' }),
+    ).not.toBeNull()
+    const action = screen.getByRole('link', {
+      name: 'setupRequired.startDiscovery',
+    })
+    expect(action.getAttribute('href')).toBe('/discovery/new')
+    expect(screen.getByRole('button', { name: 'setupRequired.tryAgain' })).not.toBeNull()
+    expect(mockedGetPerformanceOverview).not.toHaveBeenCalled()
+    expect(mockedGetOptimizationProposals).not.toHaveBeenCalled()
+  })
+
+  it('routes an owner without an available strategy to the strategy section', async () => {
+    const journey: CurrentJourneyResponse = {
+      ...readyJourney(),
+      future_phase: {
+        phase: 'strategy',
+        availability: 'locked',
+        status: 'needs_brief',
+        reason: 'strategy_not_active',
+        destination: null,
+      },
+    }
+    mockedGetCurrentJourney.mockResolvedValue(journey)
+
+    render(<PerformancePage />)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'setupRequired.title.strategy',
+      }),
+    ).not.toBeNull()
+    const action = screen.getByRole('link', {
+      name: 'setupRequired.goStrategy',
+    })
+    expect(action.getAttribute('href')).toBe('/strategy')
+    expect(mockedGetPerformanceOverview).not.toHaveBeenCalled()
+  })
+
+  it('routes an owner without a content cycle to the content section', async () => {
+    const journey: CurrentJourneyResponse = {
+      ...readyJourney(),
+      content: {
+        ready: false,
+        reason: 'no_cycle',
+        cycle: null,
+        pack: null,
+      },
+    }
+    mockedGetCurrentJourney.mockResolvedValue(journey)
+
+    render(<PerformancePage />)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'setupRequired.title.content',
+      }),
+    ).not.toBeNull()
+    const action = screen.getByRole('link', {
+      name: 'setupRequired.goContent',
+    })
+    expect(action.getAttribute('href')).toBe('/content')
+    expect(mockedGetPerformanceOverview).not.toHaveBeenCalled()
+  })
+
+  it('keeps a genuine journey failure as a retryable error', async () => {
+    mockedGetCurrentJourney.mockRejectedValue(new Error('network down'))
+
+    render(<PerformancePage />)
+
+    expect(await screen.findByText('loadFailed')).not.toBeNull()
+    expect(mockedGetPerformanceOverview).not.toHaveBeenCalled()
+
+    mockedGetCurrentJourney.mockResolvedValue(readyJourney())
+    mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'title' }),
+    ).not.toBeNull()
+    expect(mockedGetPerformanceOverview).toHaveBeenCalledTimes(1)
+  })
 
   it('renders real raw values and labels missing metrics unavailable', async () => {
     mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))

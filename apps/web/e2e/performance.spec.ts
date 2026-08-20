@@ -1,11 +1,58 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import type { PerformanceOverviewV1, PerformancePostProjectionV1 } from '@marketmind/contracts'
+import { PUBLISHING_JOURNEY_FIXTURE } from '../src/features/publishing/lib/publishing-fixtures'
 import { mockAccessToken, mockAuthMe, mockAuthRefresh } from './fixtures/auth'
 
 const locales = ['en', 'ar'] as const
 
 for (const locale of locales) {
   test.describe(`Content performance (${locale})`, () => {
+    test('guides a first-time owner to the strategy and publishing flow instead of an error', async ({ page }) => {
+      await authenticate(page)
+      await page.route('**/journey/current', async (route) => {
+        await json(route, {
+          ...PUBLISHING_JOURNEY_FIXTURE,
+          journey: { state: 'no_journey', discovery: null, profile: null },
+          future_phase: {
+            phase: 'strategy',
+            availability: 'unavailable',
+            status: 'needs_brief',
+            reason: 'discovery_required',
+            destination: null,
+          },
+          primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+          content: {
+            ready: false,
+            reason: 'no_cycle',
+            cycle: null,
+            pack: null,
+          },
+        })
+      })
+
+      await page.goto(`/${locale}/performance`)
+
+      await expect(
+        page.getByRole('heading', {
+          name: locale === 'ar' ? 'كمّل ملف نشاطك الأول' : 'Complete your business profile first',
+        }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('link', {
+          name: locale === 'ar' ? 'ابدأ رحلة الاستكشاف' : 'Start business discovery',
+        }),
+      ).toHaveAttribute('href', new RegExp(`/${locale}/discovery/new$`))
+      await expect(
+        page.getByText(
+          locale === 'ar'
+            ? 'ماقدرناش نحمل أدلة المتابعة. المحتوى المنشور بتاعك مااتغيرش'
+            : 'We could not load the monitoring evidence',
+        ),
+      ).not.toBeVisible()
+      expect(await page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr')
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    })
+
     test('renders the real-evidence rail and keeps the page within the viewport', async ({ page }) => {
       await authenticate(page)
       await mockPerformanceApi(page)
@@ -37,6 +84,7 @@ for (const locale of locales) {
 
     test('keeps the monitoring connection recovery action visible', async ({ page }) => {
       await authenticate(page)
+      await mockJourney(page)
       await page.route('**/performance/facebook/overview', async (route) => {
         await json(route, {
           ...overview(),
@@ -88,7 +136,20 @@ async function authenticate(page: Page) {
   await mockAuthMe(page)
 }
 
+async function mockJourney(page: Page) {
+  await page.route('**/journey/current', async (route) => {
+    await json(route, {
+      ...PUBLISHING_JOURNEY_FIXTURE,
+      content: {
+        ...PUBLISHING_JOURNEY_FIXTURE.content,
+        cycle: { ...PUBLISHING_JOURNEY_FIXTURE.content!.cycle!, current_week: 1 },
+      },
+    })
+  })
+}
+
 async function mockPerformanceApi(page: Page) {
+  await mockJourney(page)
   await page.route('**/performance/facebook/overview', async (route) => {
     await json(route, overview())
   })
