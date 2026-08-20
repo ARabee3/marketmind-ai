@@ -13,6 +13,12 @@ Enum "Role" {
   "DEVELOPER_DEMO"
 }
 
+Enum "UserStatus" {
+  "ACTIVE"
+  "SUSPENDED"
+  "DISABLED"
+}
+
 Enum "ActionTokenType" {
   "PASSWORD_RESET"
   "EMAIL_VERIFICATION"
@@ -93,7 +99,8 @@ Table "User" {
   "refreshToken" TEXT
   "lastLoginAt" TIMESTAMP(3)
   "fullName" TEXT
-  "status" TEXT [not null, default: 'active']
+  "status" UserStatus [not null, default: 'ACTIVE']
+  "suspension_reason" TEXT
   "preferredLocale" TEXT [not null, default: 'ar-EG']
   "createdAt" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
   "updatedAt" TIMESTAMP(3) [not null]
@@ -192,6 +199,9 @@ Table "billing_accounts" {
   "id" UUID [not null]
   "owner_user_id" UUID [not null]
   "active_business_id" UUID
+  "status" TEXT [not null, default: 'active']
+  "paused_reason" TEXT
+  "paused_at" TIMESTAMP(3)
   "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
   "updated_at" TIMESTAMP(3) [not null]
 
@@ -797,6 +807,27 @@ Table "federated_identities" {
     id [pk, name: "federated_identities_pkey"]
     user_id [name: "federated_identities_user_id_idx"]
     (provider, provider_subject) [unique, name: "federated_identities_provider_provider_subject_key"]
+  }
+}
+
+Table "audit_logs" {
+  "id" UUID [not null]
+  "actor_user_id" UUID [not null]
+  "actor_email" TEXT
+  "action" TEXT [not null]
+  "target_type" TEXT [not null]
+  "target_id" TEXT
+  "reason" TEXT
+  "before_state" JSONB
+  "after_state" JSONB
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "audit_logs_pkey"]
+    action [name: "audit_logs_action_idx"]
+    actor_user_id [name: "audit_logs_actor_user_id_idx"]
+    (target_type, target_id) [name: "audit_logs_target_type_target_id_idx"]
+    created_at [name: "audit_logs_created_at_idx"]
   }
 }
 

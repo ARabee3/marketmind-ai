@@ -12,17 +12,21 @@ COPY packages/contracts/package.json packages/contracts/package.json
 RUN npm ci
 
 # Build shared contracts first, then the Next.js app.
-# NEXT_PUBLIC_API_URL is inlined into the client bundle at build time, so it is
-# required here and must match the runtime value (see the runner stage).
+# NEXT_PUBLIC_* values are inlined into the client bundle or read while Next.js
+# generates route metadata, so they must match the runtime values (see runner).
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 COPY . .
 RUN npm run build -w @marketmind/contracts && npm run build -w @marketmind/web
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
 WORKDIR /app
 

@@ -149,7 +149,7 @@ HTTP path (see Document 3 §6).
 ## 6. Database
 
 **One Prisma schema** (`apps/api/prisma/schema.prisma`) on **PostgreSQL 16** —
-**86 models, 11 enums** (verified). Vector data lives in Qdrant, not Postgres; chunk
+**87 models, 12 enums** (verified). Vector data lives in Qdrant, not Postgres; chunk
 *text* and governance live in Postgres.
 
 Model clusters (representative members):
@@ -172,7 +172,7 @@ Model clusters (representative members):
 *Figure 1 — PostgreSQL table and relationship topology for MarketMind AI. The
 linked SVG preserves full resolution for detailed inspection.*
 
-The ERD covers all 86 PostgreSQL tables and their 135 foreign-key relationships.
+The ERD covers all 87 PostgreSQL tables and their 135 foreign-key relationships.
 Each blue header is a physical table; relationship lines connect foreign keys to
 their referenced keys. The SVG is a readable topology snapshot. The generated
 [companion DBML source](./MARKETMIND_DATABASE_ERD.dbml) and Prisma schema are the
@@ -202,7 +202,7 @@ The main relationship paths are:
   outbox events. Orchestration, progress, audit, and outbox tables preserve an
   explainable history of asynchronous work and retries.
 
-**Migrations & seeds:** 34 timestamped migrations under `apps/api/prisma/migrations/`
+**Migrations & seeds:** 40 timestamped migrations under `apps/api/prisma/migrations/`
 (+ `migration_lock.toml`), applied with `prisma migrate deploy`. Seed scripts:
 `seed.ts`, `scripts/seed-admin-user.ts`, `seed-demo-owner.ts`, `seed-publishing-demo.ts`.
  Outbox + status side-tables reflect the event-driven design in Document 1 §5.3.

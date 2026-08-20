@@ -1359,7 +1359,20 @@
         "progressLabel": "12-week marketing roadmap",
         "progressValue": "04 / 12",
         "progressAria": "12-week marketing plan progress",
-        "weeks": ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"],
+        "weeks": [
+          "01",
+          "02",
+          "03",
+          "04",
+          "05",
+          "06",
+          "07",
+          "08",
+          "09",
+          "10",
+          "11",
+          "12"
+        ],
         "weekCompleteLabel": "Complete",
         "weekCurrentLabel": "Current week",
         "weekUpcomingLabel": "Upcoming",
@@ -1368,7 +1381,11 @@
         "optimizationLabel": "Optimized from Week 03 performance",
         "optimizationText": "+44% higher post clicks when opening with a direct question hook",
         "contentLabel": "3 Facebook posts to review",
-        "contentItems": ["Unboxing visual & offer intro", "Item assortment & pricing breakdown", "Thursday pre-weekend deadline reminder"],
+        "contentItems": [
+          "Unboxing visual & offer intro",
+          "Item assortment & pricing breakdown",
+          "Thursday pre-weekend deadline reminder"
+        ],
         "actionLabel": "Your next decision",
         "actionText": "Review copy & visual direction, then approve for publishing",
         "readyLabel": "Ready for approval"
@@ -1506,9 +1523,18 @@
             "badge": "BusinessProfile Snapshot",
             "title": "Rose & Sugar Sweets (Cairo)",
             "fields": [
-              { "label": "Business Category", "value": "Artisan Bakery & Oriental Desserts" },
-              { "label": "Target Audience", "value": "Families, Weekend Gatherings, Corporate Gift Boxes" },
-              { "label": "Core Differentiator", "value": "Fresh Belgian Chocolate & Natural Butter (No Hydrogenated Oils)" }
+              {
+                "label": "Business Category",
+                "value": "Artisan Bakery & Oriental Desserts"
+              },
+              {
+                "label": "Target Audience",
+                "value": "Families, Weekend Gatherings, Corporate Gift Boxes"
+              },
+              {
+                "label": "Core Differentiator",
+                "value": "Fresh Belgian Chocolate & Natural Butter (No Hydrogenated Oils)"
+              }
             ],
             "chat": {
               "question": "Welcome! What makes Rose & Sugar desserts stand out from others in your area?",
@@ -1523,9 +1549,18 @@
             "badge": "ResearchPack Signals",
             "title": "Greater Cairo Bakery Benchmarks",
             "fields": [
-              { "label": "Peak Engagement Hours", "value": "Wednesdays & Thursdays 7:00 PM – 11:00 PM" },
-              { "label": "High-Converting Format", "value": "Short dessert unboxing clips & weekend reservation hooks" },
-              { "label": "Post Click Rate", "value": "3.4x higher clicks when listing exact box assortment and pricing" }
+              {
+                "label": "Peak Engagement Hours",
+                "value": "Wednesdays & Thursdays 7:00 PM – 11:00 PM"
+              },
+              {
+                "label": "High-Converting Format",
+                "value": "Short dessert unboxing clips & weekend reservation hooks"
+              },
+              {
+                "label": "Post Click Rate",
+                "value": "3.4x higher clicks when listing exact box assortment and pricing"
+              }
             ],
             "footer": "Grounded from 14 verified local market signals"
           },
@@ -1533,9 +1568,18 @@
             "badge": "StrategyPlan (12 Weeks)",
             "title": "Quarter 1 Strategic Roadmap",
             "fields": [
-              { "label": "Phase 1 (Weeks 01–04)", "value": "Taste Differentiation & Signature Assortment Awareness" },
-              { "label": "Phase 2 (Weeks 05–08)", "value": "Weekend Pre-Orders & Family Sharing Box Urgency" },
-              { "label": "Phase 3 (Weeks 09–12)", "value": "Customer Reviews, Loyalty Bundles & Catering Bookings" }
+              {
+                "label": "Phase 1 (Weeks 01–04)",
+                "value": "Taste Differentiation & Signature Assortment Awareness"
+              },
+              {
+                "label": "Phase 2 (Weeks 05–08)",
+                "value": "Weekend Pre-Orders & Family Sharing Box Urgency"
+              },
+              {
+                "label": "Phase 3 (Weeks 09–12)",
+                "value": "Customer Reviews, Loyalty Bundles & Catering Bookings"
+              }
             ],
             "footer": "Strategy Approved · Content Cycle Active"
           },
@@ -1543,9 +1587,18 @@
             "badge": "ContentPack · Week 04 Post 01",
             "title": "Weekend Family Box Feature",
             "fields": [
-              { "label": "Hook (Egyptian Arabic)", "value": "“ويك إند من غير بوكس الورد والسكر ميكملش! 🍰”" },
-              { "label": "Visual Direction", "value": "High-res overhead video unboxing showing all 6 dessert varieties" },
-              { "label": "Call to Action", "value": "Send Message on Facebook for Friday Pre-Orders" }
+              {
+                "label": "Hook (Egyptian Arabic)",
+                "value": "“ويك إند من غير بوكس الورد والسكر ميكملش! 🍰”"
+              },
+              {
+                "label": "Visual Direction",
+                "value": "High-res overhead video unboxing showing all 6 dessert varieties"
+              },
+              {
+                "label": "Call to Action",
+                "value": "Send Message on Facebook for Friday Pre-Orders"
+              }
             ],
             "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
           },
@@ -1553,9 +1606,18 @@
             "badge": "Meta Graph API Dispatch",
             "title": "Facebook Business Page Connection",
             "fields": [
-              { "label": "Connected Account", "value": "Rose & Sugar Sweets (Facebook Page ID #8491)" },
-              { "label": "Scheduled Broadcast", "value": "Thursday 6:30 PM (Africa/Cairo)" },
-              { "label": "Dispatch Safety", "value": "Approved candidate frozen · No automatic rewriting" }
+              {
+                "label": "Connected Account",
+                "value": "Rose & Sugar Sweets (Facebook Page ID #8491)"
+              },
+              {
+                "label": "Scheduled Broadcast",
+                "value": "Thursday 6:30 PM (Africa/Cairo)"
+              },
+              {
+                "label": "Dispatch Safety",
+                "value": "Approved candidate frozen · No automatic rewriting"
+              }
             ],
             "footer": "Status: Verified & Scheduled for Meta Broadcast"
           },
@@ -1563,9 +1625,18 @@
             "badge": "OptimizationProposal (Closed Loop)",
             "title": "Post Performance & Next-Week Cues",
             "fields": [
-              { "label": "Post Click-Through Rate", "value": "+44% clicks when opening with a direct curiosity hook" },
-              { "label": "Media View Retention", "value": "Unboxing clips generated 3.8x higher 7-day views than static images" },
-              { "label": "AI Next-Week Guidance", "value": "Adopt question-style hooks and prioritize video unboxing format" }
+              {
+                "label": "Post Click-Through Rate",
+                "value": "+44% clicks when opening with a direct curiosity hook"
+              },
+              {
+                "label": "Media View Retention",
+                "value": "Unboxing clips generated 3.8x higher 7-day views than static images"
+              },
+              {
+                "label": "AI Next-Week Guidance",
+                "value": "Adopt question-style hooks and prioritize video unboxing format"
+              }
             ],
             "footer": "Approved by Owner · Fed into Week 05 Generator"
           }
@@ -1575,9 +1646,18 @@
             "badge": "BusinessProfile Snapshot",
             "title": "Nile Modest Apparel (Mansoura)",
             "fields": [
-              { "label": "Business Category", "value": "Modern Modest Wear & Summer Linen Sets" },
-              { "label": "Target Audience", "value": "University Students & Working Women (20–35)" },
-              { "label": "Core Differentiator", "value": "100% Egyptian Breathable Cotton with Contemporary Tailoring" }
+              {
+                "label": "Business Category",
+                "value": "Modern Modest Wear & Summer Linen Sets"
+              },
+              {
+                "label": "Target Audience",
+                "value": "University Students & Working Women (20–35)"
+              },
+              {
+                "label": "Core Differentiator",
+                "value": "100% Egyptian Breathable Cotton with Contemporary Tailoring"
+              }
             ],
             "chat": {
               "question": "Welcome! Who is your primary audience and what fabrics/tailoring do you specialize in?",
@@ -1592,9 +1672,18 @@
             "badge": "ResearchPack Signals",
             "title": "Egyptian Apparel Benchmarks",
             "fields": [
-              { "label": "Top Engagement Driver", "value": "Fabric drape & natural movement videos" },
-              { "label": "Purchase Trigger", "value": "Clear sizing guide in comments boosts checkout confidence by 64%" },
-              { "label": "Winning Channel Angle", "value": "Direct Facebook Page posts highlighting natural Egyptian fabrics" }
+              {
+                "label": "Top Engagement Driver",
+                "value": "Fabric drape & natural movement videos"
+              },
+              {
+                "label": "Purchase Trigger",
+                "value": "Clear sizing guide in comments boosts checkout confidence by 64%"
+              },
+              {
+                "label": "Winning Channel Angle",
+                "value": "Direct Facebook Page posts highlighting natural Egyptian fabrics"
+              }
             ],
             "footer": "Grounded from 18 verified local market signals"
           },
@@ -1602,9 +1691,18 @@
             "badge": "StrategyPlan (12 Weeks)",
             "title": "Summer Capsule Roadmap",
             "fields": [
-              { "label": "Phase 1 (Weeks 01–04)", "value": "Collection Lookbook & Premium Egyptian Fabric Quality" },
-              { "label": "Phase 2 (Weeks 05–08)", "value": "Mix-and-Match Styling Guides & Everyday Wear Demos" },
-              { "label": "Phase 3 (Weeks 09–12)", "value": "Limited Summer Colorways & Free Shipping Thresholds" }
+              {
+                "label": "Phase 1 (Weeks 01–04)",
+                "value": "Collection Lookbook & Premium Egyptian Fabric Quality"
+              },
+              {
+                "label": "Phase 2 (Weeks 05–08)",
+                "value": "Mix-and-Match Styling Guides & Everyday Wear Demos"
+              },
+              {
+                "label": "Phase 3 (Weeks 09–12)",
+                "value": "Limited Summer Colorways & Free Shipping Thresholds"
+              }
             ],
             "footer": "Strategy Approved · Content Cycle Active"
           },
@@ -1612,9 +1710,18 @@
             "badge": "ContentPack · Week 02 Post 02",
             "title": "Linen Set Styling Guide",
             "fields": [
-              { "label": "Hook (Egyptian Arabic)", "value": "“طقم الكتان اللي هيعيش معاكي الصيف كله بكل شياكة ✨”" },
-              { "label": "Visual Direction", "value": "Natural outdoor daylight video showcasing fabric texture and movement" },
-              { "label": "Call to Action", "value": "Send Message on Facebook to check remaining sizes" }
+              {
+                "label": "Hook (Egyptian Arabic)",
+                "value": "“طقم الكتان اللي هيعيش معاكي الصيف كله بكل شياكة ✨”"
+              },
+              {
+                "label": "Visual Direction",
+                "value": "Natural outdoor daylight video showcasing fabric texture and movement"
+              },
+              {
+                "label": "Call to Action",
+                "value": "Send Message on Facebook to check remaining sizes"
+              }
             ],
             "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
           },
@@ -1622,9 +1729,18 @@
             "badge": "Meta Graph API Dispatch",
             "title": "Facebook Business Page Connection",
             "fields": [
-              { "label": "Connected Account", "value": "Nile Modest Apparel (Facebook Page ID #3920)" },
-              { "label": "Scheduled Broadcast", "value": "Sunday 8:00 PM (Africa/Cairo)" },
-              { "label": "Dispatch Safety", "value": "Deterministic dispatch · Exact approved candidate" }
+              {
+                "label": "Connected Account",
+                "value": "Nile Modest Apparel (Facebook Page ID #3920)"
+              },
+              {
+                "label": "Scheduled Broadcast",
+                "value": "Sunday 8:00 PM (Africa/Cairo)"
+              },
+              {
+                "label": "Dispatch Safety",
+                "value": "Deterministic dispatch · Exact approved candidate"
+              }
             ],
             "footer": "Status: Verified & Scheduled for Meta Broadcast"
           },
@@ -1632,9 +1748,18 @@
             "badge": "OptimizationProposal (Closed Loop)",
             "title": "Post Performance & Next-Week Cues",
             "fields": [
-              { "label": "Post Click Rate", "value": "Fabric drape video drove 2.8x higher click engagement than static photos" },
-              { "label": "Audience Retention", "value": "7-day post media views peaked on evening lookbook posts" },
-              { "label": "AI Next-Week Guidance", "value": "Include quick fabric care tip card in Week 03 visual carousel" }
+              {
+                "label": "Post Click Rate",
+                "value": "Fabric drape video drove 2.8x higher click engagement than static photos"
+              },
+              {
+                "label": "Audience Retention",
+                "value": "7-day post media views peaked on evening lookbook posts"
+              },
+              {
+                "label": "AI Next-Week Guidance",
+                "value": "Include quick fabric care tip card in Week 03 visual carousel"
+              }
             ],
             "footer": "Approved by Owner · Fed into Week 03 Generator"
           }
@@ -1644,9 +1769,18 @@
             "badge": "BusinessProfile Snapshot",
             "title": "Al-Safwa Dental Care (Maadi)",
             "fields": [
-              { "label": "Business Category", "value": "Specialized Dental Center & Smile Aesthetics" },
-              { "label": "Target Audience", "value": "Working Adults, Families seeking painless dental treatments" },
-              { "label": "Core Differentiator", "value": "German Laser Technology & 0% Interest Installment Plans" }
+              {
+                "label": "Business Category",
+                "value": "Specialized Dental Center & Smile Aesthetics"
+              },
+              {
+                "label": "Target Audience",
+                "value": "Working Adults, Families seeking painless dental treatments"
+              },
+              {
+                "label": "Core Differentiator",
+                "value": "German Laser Technology & 0% Interest Installment Plans"
+              }
             ],
             "chat": {
               "question": "Welcome Doctor! What is your clinic's flagship specialty that we should highlight in the plan?",
@@ -1661,9 +1795,18 @@
             "badge": "ResearchPack Signals",
             "title": "Local Healthcare Search Trends",
             "fields": [
-              { "label": "Primary Patient Barrier", "value": "Cost ambiguity and fear of painful procedures" },
-              { "label": "Highest Converting Angle", "value": "Doctor credentials with real patient before/after transformations" },
-              { "label": "Booking Habit", "value": "Weekend consultations booked 3–4 days in advance" }
+              {
+                "label": "Primary Patient Barrier",
+                "value": "Cost ambiguity and fear of painful procedures"
+              },
+              {
+                "label": "Highest Converting Angle",
+                "value": "Doctor credentials with real patient before/after transformations"
+              },
+              {
+                "label": "Booking Habit",
+                "value": "Weekend consultations booked 3–4 days in advance"
+              }
             ],
             "footer": "Grounded from 12 verified local market signals"
           },
@@ -1671,9 +1814,18 @@
             "badge": "StrategyPlan (12 Weeks)",
             "title": "Patient Trust & Growth Plan",
             "fields": [
-              { "label": "Phase 1 (Weeks 01–04)", "value": "Clinic Tech, Sterilization Standards & Painless Care" },
-              { "label": "Phase 2 (Weeks 05–08)", "value": "Patient Smile Makeovers & Installment Option Transparency" },
-              { "label": "Phase 3 (Weeks 09–12)", "value": "Seasonal Family Checkup Packages & Preventive Care" }
+              {
+                "label": "Phase 1 (Weeks 01–04)",
+                "value": "Clinic Tech, Sterilization Standards & Painless Care"
+              },
+              {
+                "label": "Phase 2 (Weeks 05–08)",
+                "value": "Patient Smile Makeovers & Installment Option Transparency"
+              },
+              {
+                "label": "Phase 3 (Weeks 09–12)",
+                "value": "Seasonal Family Checkup Packages & Preventive Care"
+              }
             ],
             "footer": "Strategy Approved · Content Cycle Active"
           },
@@ -1681,9 +1833,18 @@
             "badge": "ContentPack · Week 03 Post 01",
             "title": "Laser Dentistry Case Study",
             "fields": [
-              { "label": "Hook (Egyptian Arabic)", "value": "“ابتسامتك بتفرق في ثقتك.. جلسة واحدة من غير أي ألم وبأحدث ليزر 🦷”" },
-              { "label": "Visual Direction", "value": "High-clarity split before/after photo with doctor explanation badge" },
-              { "label": "Call to Action", "value": "Send Message on Facebook to book your consultation" }
+              {
+                "label": "Hook (Egyptian Arabic)",
+                "value": "“ابتسامتك بتفرق في ثقتك.. جلسة واحدة من غير أي ألم وبأحدث ليزر 🦷”"
+              },
+              {
+                "label": "Visual Direction",
+                "value": "High-clarity split before/after photo with doctor explanation badge"
+              },
+              {
+                "label": "Call to Action",
+                "value": "Send Message on Facebook to book your consultation"
+              }
             ],
             "footer": "3 Posts Drafted · 0 Published · Awaiting Approval"
           },
@@ -1691,9 +1852,18 @@
             "badge": "Meta Graph API Dispatch",
             "title": "Facebook Business Page Connection",
             "fields": [
-              { "label": "Connected Account", "value": "Al-Safwa Dental Care (Facebook Page ID #5102)" },
-              { "label": "Scheduled Broadcast", "value": "Tuesday 1:00 PM (Africa/Cairo)" },
-              { "label": "Dispatch Safety", "value": "Deterministic dispatch · Exact approved candidate" }
+              {
+                "label": "Connected Account",
+                "value": "Al-Safwa Dental Care (Facebook Page ID #5102)"
+              },
+              {
+                "label": "Scheduled Broadcast",
+                "value": "Tuesday 1:00 PM (Africa/Cairo)"
+              },
+              {
+                "label": "Dispatch Safety",
+                "value": "Deterministic dispatch · Exact approved candidate"
+              }
             ],
             "footer": "Status: Verified & Scheduled for Meta Broadcast"
           },
@@ -1701,9 +1871,18 @@
             "badge": "OptimizationProposal (Closed Loop)",
             "title": "Post Performance & Next-Week Cues",
             "fields": [
-              { "label": "Post Engagement & Clicks", "value": "Posts highlighting 0% installments generated +58% post clicks" },
-              { "label": "Media View Duration", "value": "Before/after video comparisons had 3.1x longer view time" },
-              { "label": "AI Next-Week Guidance", "value": "Lead with painless procedure hooks and feature installment transparency" }
+              {
+                "label": "Post Engagement & Clicks",
+                "value": "Posts highlighting 0% installments generated +58% post clicks"
+              },
+              {
+                "label": "Media View Duration",
+                "value": "Before/after video comparisons had 3.1x longer view time"
+              },
+              {
+                "label": "AI Next-Week Guidance",
+                "value": "Lead with painless procedure hooks and feature installment transparency"
+              }
             ],
             "footer": "Approved by Owner · Fed into Week 04 Generator"
           }
@@ -3114,9 +3293,15 @@
       "tryAgain": "Try again"
     },
     "capability": {
-      "ready": { "label": "Insights ready" },
-      "blocked": { "label": "Action needed" },
-      "unknown": { "label": "Status unavailable" }
+      "ready": {
+        "label": "Insights ready"
+      },
+      "blocked": {
+        "label": "Action needed"
+      },
+      "unknown": {
+        "label": "Status unavailable"
+      }
     },
     "notices": {
       "queued": "A refresh was queued. The evidence rail will update when Facebook returns a new observation.",
@@ -3182,10 +3367,18 @@
     "rail": {
       "label": "Evidence collection timeline",
       "stages": {
-        "published": { "label": "Published" },
-        "24h": { "label": "24 hours" },
-        "72h": { "label": "72 hours" },
-        "7d": { "label": "7 days" }
+        "published": {
+          "label": "Published"
+        },
+        "24h": {
+          "label": "24 hours"
+        },
+        "72h": {
+          "label": "72 hours"
+        },
+        "7d": {
+          "label": "7 days"
+        }
       },
       "status": {
         "scheduled": "Scheduled",
@@ -3544,5 +3737,286 @@
     "topUpWalletComplete": "Wallet topped up.",
     "toppingUpWallet": "Topping up…",
     "costCircuitOpen": "AI work paused — monthly provider cost limit reached"
+  },
+  "Legal": {
+    "privacy": {
+      "meta": {
+        "title": "Privacy Policy — MarketMind",
+        "description": "How MarketMind collects, uses, stores, and protects your data, and the rights you have over it."
+      },
+      "eyebrow": "MarketMind AI",
+      "title": "Privacy Policy",
+      "updated": "Last updated: 19 August 2026",
+      "sections": [
+        {
+          "id": "intro",
+          "heading": "1. Who we are and what this policy covers",
+          "paragraphs": [
+            "MarketMind AI is an AI-assisted marketing platform for Egyptian small and medium businesses. This policy explains what personal data the platform collects, why it is collected, where it flows, how long it is kept, and the choices you have.",
+            "MarketMind AI is operated by the MarketMind project team. Formal operator legal identity and registration details: to be completed following legal review. [LEGAL REVIEW]"
+          ]
+        },
+        {
+          "id": "data",
+          "heading": "2. What data we collect",
+          "paragraphs": [
+            "We collect only the data the product needs to work. This includes:"
+          ],
+          "items": [
+            "Account data: your email address (used for login and verification), your name (optional), a bcrypt-hashed password (we never store your password in readable form), your preferred language, and your role on the platform.",
+            "Sign-in and session data: records of active sessions, including IP address, browser user-agent, and last login time. If you sign in with Google, the email, display name, and profile picture returned by your Google account.",
+            "Business profile data: business name, industry, city, area, address, location coordinates, and social page links you enter during discovery.",
+            "Discovery data: your interview answers, AI conversation history within discovery sessions, and research observations gathered from public web sources.",
+            "Voice notes: if you use voice input, short audio recordings (WAV, currently limited to 5 MB / 45 seconds) that are transcribed to text and are not saved as audio files by the application.",
+            "Strategy and content data: your confirmed strategy decisions, weekly context, promotion details you approve, AI-generated drafts, and their review/approval history.",
+            "Media files: images you upload to the media library (JPEG, PNG, or WebP, currently limited to 10 MB per file).",
+            "Facebook connection data: when you connect a Facebook Page, an access token stored in encrypted form (AES-256-GCM), plus page performance metrics retrieved for the performance workspace.",
+            "Billing data: your points balance and usage ledger, and payment transaction records (amount, currency, status, provider transaction reference). The hosted demo currently uses a clearly labelled simulated payment provider. Card numbers are never stored by MarketMind."
+          ]
+        },
+        {
+          "id": "purposes",
+          "heading": "3. Why we use your data",
+          "items": [
+            "To create and secure your account, verify your email, and manage sessions.",
+            "To run the product journey you asked for: discovery, strategy generation, weekly content generation, publishing assistance, and performance insights.",
+            "To send transactional emails (verification, password reset, connection expiry notices).",
+            "To operate prepaid points billing when enabled.",
+            "To protect the service and its users against abuse (for example, login and request rate limits)."
+          ],
+          "paragraphs": [
+            "We do not sell your personal data, and we do not run advertising or analytics trackers on the website."
+          ]
+        },
+        {
+          "id": "ai",
+          "heading": "4. How AI processing works",
+          "paragraphs": [
+            "MarketMind uses third-party large language model (LLM) providers (OpenAI, Google Gemini, or OpenRouter, depending on configuration) to generate strategy plans, content drafts, and images, and to transcribe voice notes.",
+            "What this means for your data:"
+          ],
+          "items": [
+            "Discovery and strategy: your business profile and interview answers are included in prompts sent to the AI provider so the output matches your business.",
+            "Content generation: prompts are automatically scrubbed of contact details (phone numbers and email addresses) before being sent; approved call-to-action destinations are preserved.",
+            "Knowledge retrieval (RAG): the retrieval knowledge base is a curated, human-reviewed marketing corpus owned by the project — it is not built from your documents. Retrieval queries are scrubbed of email/phone patterns before search.",
+            "Output controls: strategy and content outputs pass deterministic validation (claim grounding, prohibited claims, schema, and language checks) before they are stored or shown. Invalid outputs are repaired within a bounded number of attempts or rejected.",
+            "Human control: AI never publishes on its own. Real publishing always requires your explicit approval."
+          ]
+        },
+        {
+          "id": "third-parties",
+          "heading": "5. Where your data flows (third parties)",
+          "paragraphs": [
+            "Depending on the features you use, your data is processed by these third parties under their own privacy terms:"
+          ],
+          "items": [
+            "Google: account sign-in (OAuth) and Gemini AI models for generation/transcription.",
+            "OpenAI / OpenRouter: AI text and image generation via the configured provider.",
+            "Meta (Facebook): page connection, publishing, and page performance insights when you connect a page.",
+            "Paymob: payment processing when real payments are enabled (not active on the hosted demo, which uses a simulated provider). Paymob receives the name and email on your account for checkout. Card details are handled by Paymob and are not stored by MarketMind.",
+            "SerpAPI and Apify: public web and public Facebook page research during discovery, when those integrations are enabled.",
+            "Cloudflare R2: storage of generated content images, when that storage backend is enabled.",
+            "An SMTP email provider: delivery of transactional emails.",
+            "Cloud hosting (currently an AWS EC2 instance for the hosted demo), with TLS encryption in transit."
+          ]
+        },
+        {
+          "id": "cookies",
+          "heading": "6. Cookies",
+          "paragraphs": [
+            "The website uses only strictly necessary cookies and local storage: a session refresh cookie (HttpOnly), short-lived OAuth state cookies during sign-in/connection flows, and a language-preference cookie. There are no advertising, profiling, or third-party analytics cookies."
+          ]
+        },
+        {
+          "id": "security",
+          "heading": "7. How we protect your data",
+          "items": [
+            "Passwords are stored only as bcrypt hashes; sensitive tokens (such as Facebook page tokens) are encrypted at rest with AES-256-GCM and key-version rotation support.",
+            "Role-based access control separates owner and platform-admin capabilities, and owner-facing business requests are scoped to the relevant business data.",
+            "Payment webhooks are verified with HMAC signatures before anything is accepted.",
+            "Login, registration, and forgot-password request initiation have dedicated rate limits. Reset-password links are high-entropy, single-use, and time-limited; the final password submission relies on those token protections rather than the custom request limiter. AI workflows have per-owner request limits.",
+            "Uploaded and generated files are validated by type, size, and content signature before storage.",
+            "Errors returned to users are stable, coded messages; internal details stay in server logs."
+          ],
+          "paragraphs": [
+            "No system can guarantee perfect security. If you believe your data was affected by an incident, contact us at the email below."
+          ]
+        },
+        {
+          "id": "retention",
+          "heading": "8. How long we keep data",
+          "paragraphs": [
+            "Account and product data is kept while your account exists. We currently do not run automated retention or deletion jobs, and there is no self-service account deletion yet — this is a known gap tracked in the project roadmap. To request deletion of your account and data, contact us at the email below and the team will handle it manually."
+          ]
+        },
+        {
+          "id": "rights",
+          "heading": "9. Your rights",
+          "paragraphs": [
+            "You can see and correct your profile information inside the product at any time. For anything else — accessing a copy of your data, correcting it, deleting it, objecting to or restricting processing — contact us at the email below and the project team will handle your request manually. Self-service export and deletion tooling is not implemented yet; this is a known limitation documented in the project roadmap."
+          ]
+        },
+        {
+          "id": "transfers",
+          "heading": "10. International transfers",
+          "paragraphs": [
+            "Some providers listed above (for example OpenAI and Cloudflare) may process data outside Egypt. Transfers depend on those providers' terms and the configuration in use."
+          ]
+        },
+        {
+          "id": "gdpr",
+          "heading": "11. GDPR readiness (not a compliance claim)",
+          "paragraphs": [
+            "MarketMind AI is a graduation project. GDPR readiness is currently partial: transparency, purpose limitation, data minimization, and security measures are implemented as described above, while automated retention, self-service deletion/export, and formal records of processing are not yet in place. This policy has not been reviewed by a lawyer, and nothing here should be read as a claim of formal GDPR compliance. [LEGAL REVIEW]"
+          ]
+        },
+        {
+          "id": "children",
+          "heading": "12. Children",
+          "paragraphs": [
+            "The platform is intended for adults who own or manage a business. It is not directed at children."
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "13. Changes to this policy",
+          "paragraphs": [
+            "If we change this policy, we will update the date at the top and, for significant changes, notify you inside the product."
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "14. Contact",
+          "paragraphs": [
+            "Questions or requests about your data: hello@marketmind.ai"
+          ]
+        }
+      ]
+    },
+    "terms": {
+      "meta": {
+        "title": "Terms of Use — MarketMind",
+        "description": "The rules for using the MarketMind AI platform, including acceptable use, AI output limits, and third-party services."
+      },
+      "eyebrow": "MarketMind AI",
+      "title": "Terms of Use",
+      "updated": "Last updated: 19 August 2026",
+      "sections": [
+        {
+          "id": "acceptance",
+          "heading": "1. Acceptance",
+          "paragraphs": [
+            "By creating an account or using MarketMind AI, you agree to these Terms. If you do not agree, do not use the platform."
+          ]
+        },
+        {
+          "id": "service",
+          "heading": "2. About the service",
+          "paragraphs": [
+            "MarketMind AI is an AI-assisted marketing platform for Egyptian SMEs that helps you capture your business profile, generate a 12-week marketing strategy and weekly Facebook content drafts, review and approve them, publish to your Facebook page, and follow performance.",
+            "The platform  is provided as a demonstration. Some capabilities are simulated in the hosted environment and are clearly labelled as simulated (for example, the demo payment provider). Availability, behavior, and features may change or be suspended."
+          ]
+        },
+        {
+          "id": "account",
+          "heading": "3. Your account",
+          "paragraphs": [
+            "You are responsible for the accuracy of your registration data, for keeping your password confidential, and for activity under your account. Notify us immediately at the contact email below about unauthorized use."
+          ]
+        },
+        {
+          "id": "acceptable-use",
+          "heading": "4. Acceptable use",
+          "paragraphs": [
+            "When you use MarketMind, and in the content you submit or publish through it, you must not:"
+          ],
+          "items": [
+            "Break any applicable law or third-party rights (including Meta platform terms when publishing to Facebook).",
+            "Infringe intellectual property, or submit content you do not have the right to use.",
+            "Publish false, misleading, or unsubstantiated claims — the platform deliberately blocks unapproved price, guarantee, medical, and comparison claims and requires owner approval for promotions.",
+            "Attempt to gain unauthorized access, probe or attack the service, bypass rate limits or security controls, or reverse engineer the platform.",
+            "Submit malicious input, including attempts to make the AI ignore its rules (prompt injection).",
+            "Use the platform for spam, fraud, harassment, or distribution of harmful content."
+          ]
+        },
+        {
+          "id": "user-content",
+          "heading": "5. Your content",
+          "paragraphs": [
+            "Your business data and the content you submit remain yours. You grant the platform a limited licence to process them solely to provide the service (including sending relevant parts to AI providers as described in the Privacy Policy). Content published to Facebook is governed also by your relationship with Meta. You decide what gets approved and published; the platform never auto-publishes without your explicit approval."
+          ]
+        },
+        {
+          "id": "ai-outputs",
+          "heading": "6. AI output limitations",
+          "paragraphs": [
+            "AI-generated strategies, captions, and images are drafts produced by third-party models and validated by automated checks. They may still be inaccurate, incomplete, or unsuitable for your business. You are responsible for reviewing and approving every item before it is published. MarketMind output is not professional, legal, financial, or medical advice."
+          ]
+        },
+        {
+          "id": "third-parties",
+          "heading": "7. Third-party services",
+          "paragraphs": [
+            "The platform relies on third parties (Google, OpenAI/OpenRouter, Meta, Paymob, email and storage providers). Their own terms apply to those services, and they may change or restrict their offerings. Problems caused by third parties may affect platform behavior."
+          ]
+        },
+        {
+          "id": "availability",
+          "heading": "8. Availability and changes",
+          "paragraphs": [
+            "The service is provided on an as-available basis for evaluation and demonstration. We may modify, suspend, or discontinue any part of it at any time, including during and after the graduation project period."
+          ]
+        },
+        {
+          "id": "ip",
+          "heading": "9. Intellectual property",
+          "paragraphs": [
+            "The platform, its code, design, curated marketing knowledge base, and brand materials belong to the MarketMind project team (formal ownership structure to be confirmed). [LEGAL REVIEW] Your content remains yours as stated above."
+          ]
+        },
+        {
+          "id": "disclaimer",
+          "heading": "10. Disclaimer of warranties",
+          "paragraphs": [
+            "The service is provided \"as is\" and \"as available\", without warranties of any kind, express or implied, including fitness for a particular purpose or uninterrupted operation."
+          ]
+        },
+        {
+          "id": "liability",
+          "heading": "11. Limitation of liability",
+          "paragraphs": [
+            "To the maximum extent permitted by law, the project team is not liable for indirect, incidental, or consequential damages, or for loss of data, revenue, or profits arising from use of the platform. This demo platform should not be used as your only marketing or business tool without independent safeguards such as data exports."
+          ]
+        },
+        {
+          "id": "termination",
+          "heading": "12. Termination",
+          "paragraphs": [
+            "You may stop using the platform at any time and request account deletion as described in the Privacy Policy. We may suspend or terminate accounts that violate these Terms or abuse the service."
+          ]
+        },
+        {
+          "id": "law",
+          "heading": "13. Governing law",
+          "paragraphs": [
+            "These Terms are intended to be governed by the laws of the Arab Republic of Egypt, unless otherwise determined after legal review. [LEGAL REVIEW]"
+          ]
+        },
+        {
+          "id": "changes",
+          "heading": "14. Changes",
+          "paragraphs": [
+            "We may update these Terms. The date at the top shows the current version; continued use after changes means you accept the updated Terms."
+          ]
+        },
+        {
+          "id": "contact",
+          "heading": "15. Contact",
+          "paragraphs": [
+            "Questions about these Terms: hello@marketmind.ai"
+          ]
+        }
+      ]
     }
   }
+}

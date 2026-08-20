@@ -164,7 +164,7 @@ This section supersedes the older, thinner `Docs/techstack.md`.
 | Layer | Choice | Why |
 |---|---|---|
 | API | **NestJS 11** + TypeScript ~5.7 | Structured DI/modules fit a multi-domain orchestrator; first-class guards, pipes, schedules, and queue integration. |
-| ORM / DB | **Prisma 6** + **PostgreSQL 16** | Type-safe schema + migrations shared with contracts; relational integrity for a rich domain (86 models). |
+| ORM / DB | **Prisma 6** + **PostgreSQL 16** | Type-safe schema + migrations shared with contracts; relational integrity for a rich domain (87 models). |
 | Queues | **BullMQ 5** on **Redis 7** | Durable async jobs (research, strategy, content, publishing) with retries; pairs with the transactional-outbox pattern. |
 | Real-time | **socket.io 4** + SSE | Push generation progress to the owner during long AI runs. |
 | Web | **Next.js 16 / React 19**, next-intl 4, Tailwind v4 | App Router + i18n for a bilingual AR/EN product; single-origin proxy to the API. |

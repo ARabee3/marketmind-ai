@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { MenuIcon, XIcon } from 'lucide-react'
 import { BrandLockup } from '@/components/brand/brand-lockup'
 import { useSession } from '@/features/auth/session-provider'
-import { Link } from '@/i18n/navigation'
+import { Link, usePathname } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { inertOutside } from '@/lib/a11y/inert-outside'
 import { EASE, useReducedMotion } from '../lib/motion'
@@ -25,6 +25,7 @@ export function Nav() {
   const t = useTranslations('Landing.nav')
   const common = useTranslations('Common')
   const locale = useLocale()
+  const pathname = usePathname()
   const isRtl = locale === 'ar'
   const targetLocale = isRtl ? 'en' : 'ar'
   const links = t.raw('links') as NavLink[]
@@ -109,7 +110,7 @@ export function Nav() {
         )}
       >
         <a
-          href="#top"
+          href={`/${locale}#top`}
           onClick={() => setDrawerOpen(false)}
           className="flex items-center rounded-full ps-3.5 pe-2.5 py-1 transition-opacity hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-action"
         >
@@ -120,7 +121,7 @@ export function Nav() {
           {links.map((link) => (
             <li key={link.href}>
               <a
-                href={link.href}
+                href={`/${locale}${link.href}`}
                 className="rounded-full px-2 py-2 text-[13px] text-muted transition-colors hover:bg-soft-teal hover:text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
               >
                 {link.label}
@@ -131,7 +132,7 @@ export function Nav() {
 
         <div className="hidden items-center gap-2 md:flex">
           <Link
-            href="/"
+            href={pathname}
             locale={targetLocale}
             className="rounded-full border border-border px-3 py-2 text-[12px] font-bold text-muted transition-colors hover:bg-soft-teal hover:text-navy outline-none focus-visible:ring-2 focus-visible:ring-action"
           >
@@ -195,7 +196,7 @@ export function Nav() {
                 {links.map((link) => (
                   <li key={link.href} className="border-b border-border">
                     <a
-                      href={link.href}
+                      href={`/${locale}${link.href}`}
                       onClick={() => setDrawerOpen(false)}
                       className="block rounded py-4 text-[1.4rem] font-bold leading-none text-navy outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-action"
                     >
@@ -220,7 +221,7 @@ export function Nav() {
                   {t('login')}
                 </Link>
                 <Link
-                  href="/"
+                  href={pathname}
                   locale={targetLocale}
                   onClick={() => setDrawerOpen(false)}
                   className="rounded-full border border-border bg-bg px-4 py-3 text-center font-latin text-[13px] font-bold text-navy outline-none transition-colors hover:bg-soft-teal focus-visible:ring-2 focus-visible:ring-action"

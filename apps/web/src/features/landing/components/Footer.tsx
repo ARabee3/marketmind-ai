@@ -1,11 +1,12 @@
 import { MailIcon } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { BrandLockup } from '@/components/brand/brand-lockup'
+import { Link } from '@/i18n/navigation'
 import { FooterLocaleSwitch } from './FooterLocaleSwitch'
 
 type NavLink = { href: string; label: string }
 
-export async function Footer() {
+export async function Footer({ locale }: { readonly locale: string }) {
   const footer = await getTranslations('Landing.footer')
   const nav = await getTranslations('Landing.nav')
   const common = await getTranslations('Common')
@@ -28,7 +29,7 @@ export async function Footer() {
             {links.map((link) => (
               <li key={link.href}>
                 <a
-                  href={link.href}
+                  href={`/${locale}${link.href}`}
                   className="rounded text-[14px] text-ink-soft transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
                   {link.label}
@@ -51,6 +52,18 @@ export async function Footer() {
       <div className="mx-auto mt-12 flex max-w-content flex-col items-center justify-between gap-3 border-t border-primary/15 pt-6 text-[12px] text-muted sm:flex-row">
         <span>{footer('sourceLine')}</span>
         <div className="flex items-center gap-4">
+          <Link
+            href="/privacy"
+            className="rounded text-[12px] text-muted underline-offset-4 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action hover:underline"
+          >
+            {footer('privacy')}
+          </Link>
+          <Link
+            href="/terms"
+            className="rounded text-[12px] text-muted underline-offset-4 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action hover:underline"
+          >
+            {footer('terms')}
+          </Link>
           <FooterLocaleSwitch label={nav('language')} />
         </div>
       </div>
