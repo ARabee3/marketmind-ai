@@ -10,7 +10,9 @@ central configuration is `services/ai/app/core/config.py` (`Settings`, pydantic-
 
 ## 2. LLM integration
 
-**Providers (`ProviderMode`):** `mock` (code default / CI fallback), `openai`, `gemini_dev` (**active runtime**), `openrouter`.
+**Providers (`ProviderMode`):** `mock` (code default / CI fallback), `openai`, `gemini_dev`,
+`openrouter`. The values called out below are a local `.env` snapshot; this PR does not
+verify the hosted provider runtime.
 SDKs: `openai>=1.93`, `google-genai>=1.24`; OpenRouter reuses the OpenAI SDK with a custom
 `base_url`. Each feature has its **own provider factory** with mock + real adapters:
 
@@ -21,18 +23,18 @@ SDKs: `openai>=1.93`, `google-genai>=1.24`; OpenRouter reuses the OpenAI SDK wit
 | Content | `app/providers/content_provider.py` | OpenAI / Gemini / OpenRouter |
 | Query planning | `app/search/llm_query_planner.py` | OpenAI / Gemini / OpenRouter (`mock` → deterministic planner) |
 | Evidence triage | `app/search/llm_evidence_triage.py` | OpenAI / Gemini |
-| Optimization | `app/optimization/providers.py` | uses `settings.openai_model` |
+| Optimization | `app/optimization/providers.py` | Mock / OpenAI only; `gemini_dev` returns unavailable |
 | Image / voice | `app/content/image_provider.py`, `app/voice_transcription/provider.py` | Gemini flash-image / Gemini flash |
 
 **Model configuration (all in `config.py`, mirrored in `.env.example`).** Text-generation
-model IDs are env-supplied (code defaults are empty as a safety fallback). **Active
-runtime values** (from `.env`): `GEMINI_MODEL=gemini-3.5-flash-lite`,
-`OPEN_ROUTER_MODEL=google/gemma-4-31b-it:free`.
+model IDs are env-supplied (code defaults are empty as a safety fallback). The following
+values are from the developer's ignored `.env` and are not proof of the hosted runtime:
+`GEMINI_MODEL=gemini-3.5-flash-lite`, `OPEN_ROUTER_MODEL=google/gemma-4-31b-it:free`.
 
 | Setting | Default |
 |---|---|
 | `embedding_model` / `embedding_dimensions` | `text-embedding-3-large` / `3072` |
-| `image_model` (`image_provider_mode` defaults `mock`; **runtime = `openrouter`**) | `gemini-3.1-flash-image` |
+| `image_model` (`image_provider_mode` defaults `mock`; **local snapshot = `openrouter`**) | `gemini-3.1-flash-image` |
 | `voice_transcription_model` | `gemini-3.6-flash` |
 | `rag_selection_mode` / `rag_mmr_lambda` | `semantic_mmr` / `0.5` |
 | `ai_generation_attempts` | `3` (hard max 3) |
@@ -72,8 +74,8 @@ budgets. These come from a deterministic decision engine (`app/decisions/`,
 ## 3. Prompts
 
 Prompts are **Python modules / string constants** (not external template files), with
-**versioned identifiers recorded in generation metadata** for reproducibility. (real
-prompts; runtime uses real Gemini provider)
+**versioned identifiers recorded in generation metadata** for reproducibility. Provider
+mode determines which prompt paths can run; see the provider and ledger notes below.
 
 - Strategy: `app/strategy/prompts.py` + `app/strategy/assembler.py`. Versions
   (`app/strategy/prompt_versions.py`): `strategy-generate-v3`, `strategy-revise-v3`,
@@ -86,15 +88,18 @@ prompts; runtime uses real Gemini provider)
   `discovery-v2-market-aware`.
 - Search: inline `QUERY_PLAN_SYSTEM_PROMPT` in `llm_query_planner.py`.
 
-Prompt-driven features (running on real Gemini provider): discovery interview,
-strategy generate/revise, content generate/revise/weekly-plan/static-image, query
-planning, evidence triage, optimization proposals. Snapshot tests:
+Prompt-driven features implemented: discovery interview, strategy generate/revise,
+content generate/revise/weekly-plan/static-image, query planning, evidence triage, and
+optimization proposals. In the local snapshot, text generation is configured for
+`gemini_dev`, image generation is configured separately for `openrouter`, and optimization
+is unavailable unless the provider mode is `mock` or `openai`. Snapshot tests:
 `tests/content/test_prompt_snapshots.py`.
 
 ## 4. RAG pipeline
 
-End-to-end and implemented; runtime embeddings use the **Gemini provider**
-(`gemini-embedding-2`, 768-d).
+The RAG pipeline is implemented end-to-end and its embedding provider is configuration
+dependent. The local `.env` snapshot uses the **Gemini provider** (`gemini-embedding-2`,
+768-d); hosted embedding configuration still requires live verification.
 
 **Ingestion (offline, CLI-driven) —** `app/knowledge/ingestion/`:
 - CLI: `app/knowledge/ingestion/cli.py` (Typer app `marketmind-knowledge`, commands
@@ -117,7 +122,7 @@ Authoring/governance assets live in `_schema/`; approvals in `APPROVAL_RECORD.md
 
 **Embeddings —** `app/embeddings/`: `DeterministicFakeEmbeddingProvider` (CI fallback),
 `OpenAIEmbeddingProvider` (`text-embedding-3-large`, 3072-d), `GeminiEmbeddingProvider`
-(**active runtime**: `gemini-embedding-2`, 768-d). `EmbeddingConfig.version = "embedding-v1"`.
+(**local snapshot**: `gemini-embedding-2`, 768-d). `EmbeddingConfig.version = "embedding-v1"`.
 
 **Vector store —** Qdrant (`qdrant-client==1.18.0`), collection `marketing_knowledge_v1`.
 Point IDs are deterministic `uuid5(chunk_id#entry_version)`. The collection stores an
@@ -226,9 +231,11 @@ Governance docs: `Docs/marketing-knowledge/_schema/FRONT_MATTER_SCHEMA.md`,
 
 Behaviour is driven by env vars in `services/ai/app/core/config.py`. Document only the
 **names** and defaults; real keys live in the gitignored `services/ai/.env` (see
-`.env.example`). Key switches:
+`.env.example`). The third column below is a **local configuration snapshot**, not a
+verified hosted-runtime value. Production Compose overrides some values, including
+`AI_ORCHESTRATION_ENABLED=true`.
 
-| Env var | Code default | Runtime `.env` | Effect |
+| Env var | Code default | Local `.env` snapshot | Effect |
 |---|---|---|---|
 | `AI_PROVIDER_MODE` | `mock` | **`gemini_dev`** | Selects LLM provider.|
 | `EMBEDDING_PROVIDER_MODE` | `fake` | **`gemini`** | Selects embeddings. |
@@ -236,7 +243,7 @@ Behaviour is driven by env vars in `services/ai/app/core/config.py`. Document on
 | `OPEN_ROUTER_MODEL` | `""` | **`google/gemma-4-31b-it:free`** | OpenRouter text-gen model. |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | `text-embedding-3-large` / `3072` | **`gemini-embedding-2`** / **`768`** | Embedding model and vector dimensions. |
 | `IMAGE_PROVIDER_MODE` / `IMAGE_MODEL` | `mock` | **`openrouter`** / **`gemini-3.1-flash-image`** | Static-image generation. |
-| `AI_ORCHESTRATION_ENABLED` | `false` | `false` | Gate for the agentic engine; shadow-only even when true. |
+| `AI_ORCHESTRATION_ENABLED` | `false` | `false` | Gate for the agentic engine; production Compose sets `true`, but no HTTP endpoint is wired and the rollout remains shadow-only. |
 | `AI_ORCHESTRATION_TRACE_ENABLED` | `false` | – | Langfuse tracing. |
 | `AI_GENERATION_ATTEMPTS` | `3` | – | Per-artifact repair budget (hard max 3). |
 | `RAG_SELECTION_MODE` / `RAG_MMR_LAMBDA` | `semantic_mmr` / `0.5` | `semantic_mmr` / `0.5` | Retrieval selection. |
@@ -247,11 +254,11 @@ Behaviour is driven by env vars in `services/ai/app/core/config.py`. Document on
 
 | Area | Status |
 |---|---|
-| Provider abstraction, factories, OpenAI/Gemini/OpenRouter adapters, structured output, retry/repair | real code; **runtime = `gemini_dev`** |
-| Text-gen model IDs | config-driven; **runtime = `gemini-3.5-flash-lite`** |
-| Prompts + versioning (discovery/strategy/content/search) | running on real provider |
-| RAG retrieval + Qdrant + Postgres hydration + citations + MMR | real code; **runtime embeddings = `gemini` (`gemini-embedding-2`)** |
-| Ingestion CLI + pipeline + governance filtering | Implemented and running |
+| Provider abstraction, factories, OpenAI/Gemini/OpenRouter adapters, structured output, retry/repair | real code; local snapshot = `gemini_dev`; hosted runtime not verified |
+| Text-gen model IDs | config-driven; local snapshot = `gemini-3.5-flash-lite` |
+| Prompts + versioning (discovery/strategy/content/search) | implemented; provider-dependent at runtime |
+| RAG retrieval + Qdrant + Postgres hydration + citations + MMR | real code; local embedding snapshot = `gemini` (`gemini-embedding-2`); hosted runtime not verified |
+| Ingestion CLI + pipeline + governance filtering | Implemented CLI/pipeline; execution requires an explicit ingestion run |
 | RAG eval (retrieval metrics, RAG-vs-noRAG grounding, governance fixtures) | deterministic |
 | Content eval thresholds (hard=1.0, rubric=0.9) | engine; **rubric bar unmet pending human sign-off** |
 | Agentic orchestration (phases 0–5, tools, approval interrupts, shadow/rollout) | disabled by default, no endpoint |
