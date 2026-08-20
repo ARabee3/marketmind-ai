@@ -468,6 +468,86 @@ test.describe("Suite G: bilingual state and recovery mapping", () => {
   });
 });
 
+test.describe("Suite H: first-time setup guidance", () => {
+  test("H1 shows guided setup instead of a load error for a first-time owner without a business profile", async ({
+    page,
+  }) => {
+    await authenticate(page);
+    await mockPublishingApi(page, makeState(), {
+      journey: makeNoProfileJourney(),
+      listsStatus: 403,
+    });
+
+    await page.goto("/en/publishing");
+    await expect(
+      page.getByRole("heading", {
+        name: "Complete your business profile and content strategy first",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Publishing starts once your business profile is confirmed",
+        { exact: false },
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Start business discovery" }),
+    ).toHaveAttribute("href", "/en/discovery/new");
+    await expect(
+      page.getByText("Publishing could not load", { exact: false }),
+    ).toHaveCount(0);
+  });
+
+  test("H2 renders the setup guidance in Arabic with RTL direction", async ({
+    page,
+  }) => {
+    await authenticate(page);
+    await mockPublishingApi(page, makeState(), {
+      journey: makeNoProfileJourney(),
+      listsStatus: 403,
+    });
+
+    await page.goto("/ar/publishing");
+    await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await expect(
+      page.getByRole("heading", { name: "كمّل ملف نشاطك وخطة المحتوى الأول" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "ابدأ رحلة الاستكشاف" }),
+    ).toHaveAttribute("href", "/ar/discovery/new");
+    await expect(
+      page.getByText("تعذر تحميل النشر", { exact: false }),
+    ).toHaveCount(0);
+  });
+
+  test("H3 keeps the approved-content empty state once the profile exists", async ({
+    page,
+  }) => {
+    await authenticate(page);
+    await mockPublishingApi(page, makeState(), {
+      journey: {
+        ...PUBLISHING_JOURNEY_FIXTURE,
+        content: { ready: false, reason: "no_cycle", cycle: null, pack: null },
+      },
+      emptyCandidates: true,
+    });
+
+    await page.goto("/en/publishing");
+    await expect(
+      page.getByRole("heading", {
+        name: "Publishing starts with approved Content",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Complete your business profile and content strategy first",
+        { exact: false },
+      ),
+    ).toHaveCount(0);
+  });
+});
+
 function failedAttempt(
   attemptId: string,
   errorCode: string | null,
@@ -529,25 +609,62 @@ function makeState(overrides: Partial<MockState> = {}): MockState {
   };
 }
 
+function makeNoProfileJourney(): CurrentJourneyResponse {
+  return {
+    owner: {
+      user_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      full_name: "Ahmed Hassan",
+      email: "owner@example.com",
+      email_verified: true,
+    },
+    journey: {
+      state: "no_journey",
+      discovery: null,
+      profile: null,
+    },
+    future_phase: {
+      phase: "strategy",
+      availability: "locked",
+      status: "needs_brief",
+      reason: "discovery_required",
+      destination: null,
+    },
+    primary_action: {
+      type: "start_discovery",
+      destination: "/discovery/new",
+    },
+    generated_at: "2026-08-04T10:06:00.000Z",
+  };
+}
+
 async function authenticate(page: Page) {
   await mockAuthRefresh(page, mockAccessToken);
   await mockAuthMe(page);
 }
 
-async function mockPublishingApi(page: Page, state: MockState) {
-  const journey: CurrentJourneyResponse = {
-    ...PUBLISHING_JOURNEY_FIXTURE,
-    content: {
-      ready: true,
-      reason: "cycle_active",
-      cycle: { ...PUBLISHING_JOURNEY_FIXTURE.content!.cycle!, current_week: 1 },
-      pack: PUBLISHING_JOURNEY_FIXTURE.content!.pack,
-    },
-  };
+async function mockPublishingApi(
+  page: Page,
+  state: MockState,
+  options: {
+    journey?: CurrentJourneyResponse;
+    listsStatus?: number;
+    emptyCandidates?: boolean;
+  } = {},
+) {
+  const journey: CurrentJourneyResponse =
+    options.journey ?? {
+      ...PUBLISHING_JOURNEY_FIXTURE,
+      content: {
+        ready: true,
+        reason: "cycle_active",
+        cycle: { ...PUBLISHING_JOURNEY_FIXTURE.content!.cycle!, current_week: 1 },
+        pack: PUBLISHING_JOURNEY_FIXTURE.content!.pack,
+      },
+    };
   await page.route(
     /\/api\/v1\/(publication-candidates|publication-intents|publishing-targets|journey\/current|content-assets)/,
     async (route) => {
-      await handlePublishingRoute(route, state, journey);
+      await handlePublishingRoute(route, state, journey, options);
     },
   );
 }
@@ -556,6 +673,7 @@ async function handlePublishingRoute(
   route: Route,
   state: MockState,
   journey: CurrentJourneyResponse,
+  options: { listsStatus?: number; emptyCandidates?: boolean },
 ) {
   const request = route.request();
   const url = new URL(request.url());
@@ -574,6 +692,18 @@ async function handlePublishingRoute(
     return;
   }
   if (path.endsWith("/publication-candidates") && request.method() === "GET") {
+    if (options.listsStatus !== undefined && options.listsStatus !== 200) {
+      await json(
+        route,
+        { code: "PUBLISHING_FORBIDDEN_NO_BUSINESS" },
+        options.listsStatus,
+      );
+      return;
+    }
+    if (options.emptyCandidates) {
+      await json(route, []);
+      return;
+    }
     await json(
       route,
       PUBLISHING_CANDIDATE_FIXTURES.map((entry) => ({
@@ -587,6 +717,14 @@ async function handlePublishingRoute(
     return;
   }
   if (path.endsWith("/publishing-targets") && request.method() === "GET") {
+    if (options.listsStatus !== undefined && options.listsStatus !== 200) {
+      await json(
+        route,
+        { code: "PUBLISHING_FORBIDDEN_NO_BUSINESS" },
+        options.listsStatus,
+      );
+      return;
+    }
     await json(
       route,
       PUBLISHING_TARGET_FIXTURES.map((target) => ({
@@ -605,6 +743,14 @@ async function handlePublishingRoute(
     return;
   }
   if (path.endsWith("/publication-intents") && request.method() === "GET") {
+    if (options.listsStatus !== undefined && options.listsStatus !== 200) {
+      await json(
+        route,
+        { code: "PUBLISHING_FORBIDDEN_NO_BUSINESS" },
+        options.listsStatus,
+      );
+      return;
+    }
     await json(route, state.intent ? [intentRow(state.intent)] : []);
     return;
   }
