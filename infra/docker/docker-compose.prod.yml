@@ -142,11 +142,13 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://${CADDY_HOSTNAME}/api/v1
+        NEXT_PUBLIC_APP_URL: https://${CADDY_HOSTNAME}
     container_name: marketmind-prod-web
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://${CADDY_HOSTNAME}/api/v1
+      NEXT_PUBLIC_APP_URL: https://${CADDY_HOSTNAME}
     depends_on:
       api:
         condition: service_healthy

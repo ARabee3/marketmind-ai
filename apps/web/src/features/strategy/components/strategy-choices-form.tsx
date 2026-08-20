@@ -14,6 +14,7 @@ import { useRouter } from '@/i18n/navigation'
 import { getCurrentJourney } from '@/lib/api/journey'
 import { getStrategy } from '@/lib/api/strategy'
 import { cn } from '@/lib/utils'
+import { useWallet } from '@/features/billing/wallet-context'
 import { useStrategyActions } from '../hooks/use-strategy-actions'
 import type { StrategyProfileSummary as ProfileSummary } from '../lib/strategy-fixtures'
 import { StrategyProfileSummary } from './strategy-profile-summary'
@@ -126,6 +127,7 @@ export function StrategyChoicesForm() {
   const locale = useLocale()
   const router = useRouter()
   const { create, saveBrief, generate, pending, error } = useStrategyActions()
+  const { refresh: refreshWallet } = useWallet()
   const [form, setForm] = useState<FormData>(() =>
     emptyForm(locale === 'ar' ? 'ar-EG' : 'en'),
   )
@@ -295,6 +297,7 @@ export function StrategyChoicesForm() {
     if (shouldGenerate) {
       const started = await generate(strategyId)
       if (!started) return
+      await refreshWallet()
       router.push(`/strategy/${strategyId}`)
     }
   }

@@ -56,44 +56,47 @@ export class ContentJobOutboxRepository {
   ): Promise<Prisma.ContentJobOutboxGetPayload<Record<string, never>>[]> {
     const now = new Date();
     const leaseExpiresAt = new Date(now.getTime() + leaseMs);
-    return this.prisma.$transaction(async (tx) => {
-      await tx.contentJobOutbox.updateMany({
-        where: {
-          state: "processing",
-          leaseExpiresAt: { lt: now },
-        },
-        data: {
-          state: "pending",
-          leaseOwner: null,
-          leaseExpiresAt: null,
-          nextAttemptAt: now,
-        },
-      });
-
-      const ids = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT "id"
-        FROM "content_job_outbox"
-        WHERE "state" = 'pending'
-          AND ("next_attempt_at" IS NULL OR "next_attempt_at" <= ${now})
-        ORDER BY "created_at" ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT ${limit}
-      `;
-      if (ids.length === 0) return [];
-
-      const claimedIds: string[] = [];
-      for (const row of ids) {
-        const claimed = await tx.contentJobOutbox.updateMany({
-          where: { id: row.id, state: "pending" },
-          data: { state: "processing", leaseOwner, leaseExpiresAt },
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.contentJobOutbox.updateMany({
+          where: {
+            state: "processing",
+            leaseExpiresAt: { lt: now },
+          },
+          data: {
+            state: "pending",
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            nextAttemptAt: now,
+          },
         });
-        if (claimed.count === 1) claimedIds.push(row.id);
-      }
-      return tx.contentJobOutbox.findMany({
-        where: { id: { in: claimedIds } },
-        orderBy: { createdAt: "asc" },
-      });
-    });
+
+        const ids = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id"
+          FROM "content_job_outbox"
+          WHERE "state" = 'pending'
+            AND ("next_attempt_at" IS NULL OR "next_attempt_at" <= ${now})
+          ORDER BY "created_at" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${limit}
+        `;
+        if (ids.length === 0) return [];
+
+        const claimedIds: string[] = [];
+        for (const row of ids) {
+          const claimed = await tx.contentJobOutbox.updateMany({
+            where: { id: row.id, state: "pending" },
+            data: { state: "processing", leaseOwner, leaseExpiresAt },
+          });
+          if (claimed.count === 1) claimedIds.push(row.id);
+        }
+        return tx.contentJobOutbox.findMany({
+          where: { id: { in: claimedIds } },
+          orderBy: { createdAt: "asc" },
+        });
+      },
+      { timeout: 30_000 },
+    );
   }
 
   async markDispatched(jobId: string, leaseOwner: string): Promise<boolean> {

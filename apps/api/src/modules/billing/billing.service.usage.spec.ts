@@ -221,3 +221,74 @@ describe("BillingService points ledger", () => {
     });
   });
 });
+
+describe("BillingService provider-cost circuit breaker", () => {
+  function makeService(aggregateResult: { _sum: { egpCost: number | null } }) {
+    const prisma = {
+      billingAccount: {
+        findUnique: jest.fn().mockResolvedValue({ id: "account-1" }),
+      },
+      billingProviderCostLedger: {
+        aggregate: jest.fn().mockResolvedValue(aggregateResult),
+      },
+    };
+    const fake = new FakePaymentProvider(
+      new ConfigService({ billing: { fakeWebhookSecret: "test-secret" } }),
+    );
+    return new BillingService(
+      prisma as unknown as PrismaService,
+      fake,
+      new ConfigService({ app: { nodeEnv: "test" } }),
+      fake,
+    );
+  }
+
+  it("stays closed when the account has no recorded provider cost", async () => {
+    const service = makeService({ _sum: { egpCost: null } });
+
+    await expect(service.isProviderCostCircuitBreakerOpen("user-1")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("stays closed below the EGP ceiling", async () => {
+    const service = makeService({ _sum: { egpCost: 40 } });
+
+    await expect(service.isProviderCostCircuitBreakerOpen("user-1")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("opens when the current billing period crosses the EGP ceiling", async () => {
+    const service = makeService({ _sum: { egpCost: 71 } });
+
+    await expect(service.isProviderCostCircuitBreakerOpen("user-1")).resolves.toBe(
+      true,
+    );
+  });
+
+  it("stays closed for a missing billing account", async () => {
+    const prisma = {
+      billingAccount: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      billingProviderCostLedger: {
+        aggregate: jest.fn(),
+      },
+    };
+    const fake = new FakePaymentProvider(
+      new ConfigService({ billing: { fakeWebhookSecret: "test-secret" } }),
+    );
+    const service = new BillingService(
+      prisma as unknown as PrismaService,
+      fake,
+      new ConfigService({ app: { nodeEnv: "test" } }),
+      fake,
+    );
+
+    await expect(service.isProviderCostCircuitBreakerOpen("user-1")).resolves.toBe(
+      false,
+    );
+    expect(prisma.billingProviderCostLedger.aggregate).not.toHaveBeenCalled();
+  });
+});

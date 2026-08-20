@@ -486,42 +486,45 @@ export class PublicationCandidateRepository {
     leaseMs = 60_000,
   ) {
     const now = new Date();
-    return this.prisma.$transaction(async (tx) => {
-      await tx.publicationCandidateOutbox.updateMany({
-        where: { state: "processing", leaseExpiresAt: { lt: now } },
-        data: {
-          state: "pending",
-          leaseOwner: null,
-          leaseExpiresAt: null,
-          nextAttemptAt: now,
-        },
-      });
-      const ids = await tx.$queryRaw<Array<{ id: bigint }>>`
-        SELECT "id"
-        FROM "publication_candidate_outbox"
-        WHERE "state" = 'pending'
-          AND ("next_attempt_at" IS NULL OR "next_attempt_at" <= ${now})
-        ORDER BY "created_at" ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT ${limit}
-      `;
-      const claimedIds: bigint[] = [];
-      for (const row of ids) {
-        const updated = await tx.publicationCandidateOutbox.updateMany({
-          where: { id: row.id, state: "pending" },
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.publicationCandidateOutbox.updateMany({
+          where: { state: "processing", leaseExpiresAt: { lt: now } },
           data: {
-            state: "processing",
-            leaseOwner,
-            leaseExpiresAt: new Date(now.getTime() + leaseMs),
+            state: "pending",
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            nextAttemptAt: now,
           },
         });
-        if (updated.count === 1) claimedIds.push(row.id);
-      }
-      return tx.publicationCandidateOutbox.findMany({
-        where: { id: { in: claimedIds } },
-        orderBy: { createdAt: "asc" },
-      });
-    });
+        const ids = await tx.$queryRaw<Array<{ id: bigint }>>`
+          SELECT "id"
+          FROM "publication_candidate_outbox"
+          WHERE "state" = 'pending'
+            AND ("next_attempt_at" IS NULL OR "next_attempt_at" <= ${now})
+          ORDER BY "created_at" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${limit}
+        `;
+        const claimedIds: bigint[] = [];
+        for (const row of ids) {
+          const updated = await tx.publicationCandidateOutbox.updateMany({
+            where: { id: row.id, state: "pending" },
+            data: {
+              state: "processing",
+              leaseOwner,
+              leaseExpiresAt: new Date(now.getTime() + leaseMs),
+            },
+          });
+          if (updated.count === 1) claimedIds.push(row.id);
+        }
+        return tx.publicationCandidateOutbox.findMany({
+          where: { id: { in: claimedIds } },
+          orderBy: { createdAt: "asc" },
+        });
+      },
+      { timeout: 30_000 },
+    );
   }
 
   async releaseOutboxClaim(

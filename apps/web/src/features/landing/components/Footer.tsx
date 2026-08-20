@@ -6,7 +6,7 @@ import { FooterLocaleSwitch } from './FooterLocaleSwitch'
 
 type NavLink = { href: string; label: string }
 
-export async function Footer() {
+export async function Footer({ locale }: { readonly locale: string }) {
   const footer = await getTranslations('Landing.footer')
   const nav = await getTranslations('Landing.nav')
   const common = await getTranslations('Common')
@@ -29,7 +29,7 @@ export async function Footer() {
             {links.map((link) => (
               <li key={link.href}>
                 <a
-                  href={link.href}
+                  href={`/${locale}${link.href}`}
                   className="rounded text-[14px] text-ink-soft transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
                 >
                   {link.label}

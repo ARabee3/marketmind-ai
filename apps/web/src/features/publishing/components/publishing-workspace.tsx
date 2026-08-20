@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Compass, RefreshCw, ShieldCheck } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type {
   CurrentJourneyContentReadiness,
+  CurrentJourneyResponse,
   PublicationCandidateSummaryV1,
   PublicationIntentV1,
   PublishingMode,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/api/publishing";
 import {
   activeIntentForCandidate,
+  publishingSetupAction,
   publishingStatusRefreshDelay,
   realIntentForCandidate,
 } from "../lib/publishing-state";
@@ -52,9 +54,14 @@ type WorkspaceData = {
   readonly exportState: PublishingExportState | null;
 };
 
+type LoadResult =
+  | { readonly journey: Awaited<ReturnType<typeof getPublishingJourney>> }
+  | WorkspaceData;
+
 type State =
   | { readonly phase: "loading" }
   | { readonly phase: "error" }
+  | { readonly phase: "setup_required"; readonly journey: CurrentJourneyResponse }
   | { readonly phase: "ready"; readonly data: WorkspaceData };
 
 const EMPTY_READINESS: CurrentJourneyContentReadiness = {
@@ -81,9 +88,16 @@ export function PublishingWorkspace({
   const [notice, setNotice] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
 
-  const load = useCallback(async () => {
-    const [journey, candidates, intents, targets] = await Promise.all([
-      getPublishingJourney(),
+  const load = useCallback(async (): Promise<LoadResult> => {
+    // Publishing routes fail closed (403) until the owner has a business
+    // scope, so gate the publishing calls behind a confirmed profile. A
+    // first-time owner still gets the full guided next step from the journey
+    // instead of a generic "could not load" error.
+    const journey = await getPublishingJourney();
+    if (journey.journey.profile === null) {
+      return { journey };
+    }
+    const [candidates, intents, targets] = await Promise.all([
       listPublishingCandidates(),
       listPublishingIntents(),
       listPublishingTargets(),
@@ -101,7 +115,11 @@ export function PublishingWorkspace({
   const refresh = useCallback(async () => {
     try {
       const data = await load();
-      setState({ phase: "ready", data });
+      if ("candidates" in data) {
+        setState({ phase: "ready", data });
+      } else {
+        setState({ phase: "setup_required", journey: data.journey });
+      }
       setNotice(null);
     } catch {
       setState({ phase: "error" });
@@ -113,6 +131,10 @@ export function PublishingWorkspace({
     void load()
       .then((data) => {
         if (cancelled) return;
+        if (!("candidates" in data)) {
+          setState({ phase: "setup_required", journey: data.journey });
+          return;
+        }
         setState({ phase: "ready", data });
         const search = new URLSearchParams(window.location.search);
         const weekValue = Number(search.get("week"));
@@ -371,7 +393,7 @@ export function PublishingWorkspace({
     );
   }
 
-  if (state.phase === "error" || !data) {
+  if (state.phase === "error") {
     return (
       <section
         className="grid min-h-56 place-items-center rounded-xl border border-danger/20 bg-danger/5 p-6 text-center"
@@ -394,6 +416,19 @@ export function PublishingWorkspace({
       </section>
     );
   }
+
+  if (state.phase === "setup_required") {
+    return (
+      <PublishingSetupRequired
+        journey={state.journey}
+        format={format}
+        t={t}
+        onRefresh={() => void refresh()}
+      />
+    );
+  }
+
+  if (!data) return null;
 
   if (data.candidates.length === 0) {
     return (
@@ -525,6 +560,50 @@ function replaceSelectionUrl(week: number, candidateId: string | null) {
   if (candidateId) url.searchParams.set("candidate", candidateId);
   else url.searchParams.delete("candidate");
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
+function PublishingSetupRequired({
+  journey,
+  format,
+  t,
+  onRefresh,
+}: {
+  readonly journey: CurrentJourneyResponse;
+  readonly format: ReturnType<typeof useFormatter>;
+  readonly t: ReturnType<typeof useTranslations<"Publishing">>;
+  readonly onRefresh: () => void;
+}) {
+  const action = publishingSetupAction(journey);
+  return (
+    <section className="grid gap-5">
+      <PublishingHeader week={1} intentId={null} format={format} t={t} />
+      <section className="grid gap-4 rounded-xl border border-dashed border-border bg-surface p-7 text-center shadow-elevated">
+        <Compass className="mx-auto size-9 text-primary" aria-hidden="true" />
+        <h2 className="text-2xl font-bold text-navy">
+          {t("setupRequired.title")}
+        </h2>
+        <p className="mx-auto max-w-xl text-sm leading-7 text-muted-foreground">
+          {t("setupRequired.body")}
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Link
+            href={action.destination}
+            className="inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/40"
+          >
+            {t(`setupRequired.${action.labelKey}`)}
+            <ArrowUpRight
+              className="ms-2 size-4 rtl:scale-x-[-1]"
+              aria-hidden="true"
+            />
+          </Link>
+          <Button type="button" variant="outline" onClick={() => onRefresh()}>
+            <RefreshCw className="me-2 size-4" aria-hidden="true" />
+            {t("setupRequired.tryAgain")}
+          </Button>
+        </div>
+      </section>
+    </section>
+  );
 }
 
 function PublishingHeader({

@@ -2,7 +2,7 @@
 
 **MarketMind AI — current known issues, limitations, deferred scope, and roadmap**
 
-- **Date:** 2026-08-19
+- **Date:** 2026-08-20
 - Every item below carries its evidence location. Items are honest statements of current state; roadmap items are **PLANNED**, not implemented.
 
 ---
@@ -39,7 +39,7 @@ No account deletion, no self-service data export, no automated retention or log 
 - No dedicated content-moderation classifier (integrity guardrails only).
 - Strategy/discovery prompts intentionally include full business profile → provider-side processing is unavoidable for the product; content prompts are scrubbed.
 - No production-quality measurement loop for live outputs (evaluation is offline, synthetic, fake-provider in CI; real-provider spot-checks manual).
-- Orchestration/Langfuse tracing implemented but disabled pending shadow rollout (`ai_orchestration_enabled=False`).
+- Orchestration persistence/contracts are implemented and the hosted production flag is enabled, but no existing product route invokes the orchestration service; Langfuse trace export remains disabled by default pending a shadow rollout.
 
 ## 5. RAG Limitations
 
@@ -69,7 +69,7 @@ No metrics, no alerting, no error tracking (Sentry-class), no log shipping/reten
 
 ## 9. Deferred Scope (explicitly out of current scope)
 
-Video generation, paid-ads automation, multi-platform publishing beyond Facebook, real production payments activation (Paymob is sandbox-verified only; hosted demo runs `BILLING_PROVIDER=fake`), agentic orchestration rollout (code present, disabled), Langfuse tracing rollout, automatic multi-language strategy generation beyond current bilingual support. Source: `Docs/planning/00_START_HERE.md` (included/deferred lists) + config flags.
+Video generation, paid-ads automation, multi-platform publishing beyond Facebook, real production payments activation (Paymob is sandbox-verified only; hosted demo runs `BILLING_PROVIDER=fake`), agentic orchestration rollout (persistence/contracts present; no live product route wired), Langfuse tracing rollout, automatic multi-language strategy generation beyond current bilingual support. Source: `Docs/planning/00_START_HERE.md` (included/deferred lists) + config flags.
 
 ## 10. Current Risks (top, in priority order)
 
@@ -100,7 +100,7 @@ Video generation, paid-ads automation, multi-platform publishing beyond Facebook
 
 | # | Item | Addresses |
 | --- | --- | --- |
-| M-1 | Account deletion + data export (owner self-service or admin-operated) with cascade review across 86 models | Privacy §19-20 |
+| M-1 | Account deletion + data export (owner self-service or admin-operated) with cascade review across 87 models | Privacy §19-20 |
 | M-2 | Retention automation: session/log/payload pruning crons aligned to the sprint-1 documented policy (180d/30d/14d) | Privacy §18 |
 | M-3 | Runtime prompt-injection scanner on inbound free-text fields (reuse eval-harness patterns) | AI §4 |
 | M-4 | Content-moderation decision: adopt provider-side moderation endpoints or keep integrity-only posture with documented rationale | Security §8 |
@@ -116,7 +116,7 @@ Video generation, paid-ads automation, multi-platform publishing beyond Facebook
 | --- | --- | --- |
 | L-1 | GDPR readiness → review: legal counsel pass over policy/terms, DPA inventory for processors, records of processing, transfer mechanism decision | Privacy §22 |
 | L-2 | Production payments activation (Paymob live keys, webhook monitoring, reconciliation alerts) — only after M-1/M-2 | Deferred scope |
-| L-3 | Agentic orchestration shadow rollout with Langfuse tracing (already code-complete, disabled) | AI §4 |
+| L-3 | Wire the implemented orchestration persistence/contracts into a shadow product route, then add Langfuse tracing | AI §4 |
 | L-4 | Real-provider LLM quality benchmarking cadence (monthly spot-checks using the manual opt-in runner) | AI §4 |
 | L-5 | Multi-worker deployment hardening: shared rate-limit store, Qdrant API key, service mesh/network policy | K-02, §5 |
 | L-6 | Second publishing platform (per planning docs' deferred list) with the same approval-gate architecture | Deferred scope |
@@ -130,4 +130,4 @@ Order of execution recommended: **S-1 → S-3 → S-5 → S-7 → M-1 → M-2 �
 
 ## Evidence index
 
-All file references in this document were verified at commit `637a0b4` on branch `docs/security-privacy-testing-roadmap`. LIVE CI records are GitHub Actions run IDs listed in `TESTING_AND_EVALUATION_REPORT.md` §8. Companion documents: `SECURITY_AND_PRIVACY_GDPR_PACKAGE.md` (risk register, safeguards, GDPR coverage, evidence matrix) and `TESTING_AND_EVALUATION_REPORT.md` (inventory, methodology, executed results).
+All file references in this document were re-verified against `origin/main` commit `170d98a` and the merged PR worktree. LIVE CI records are GitHub Actions run IDs listed in `TESTING_AND_EVALUATION_REPORT.md` §8. Companion documents: `SECURITY_AND_PRIVACY_GDPR_PACKAGE.md` (risk register, safeguards, GDPR coverage, evidence matrix) and `TESTING_AND_EVALUATION_REPORT.md` (inventory, methodology, executed results).

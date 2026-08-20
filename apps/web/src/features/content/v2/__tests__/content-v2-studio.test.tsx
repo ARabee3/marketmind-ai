@@ -34,6 +34,15 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.replanCta": "Re-plan",
       "ContentV2.studio.generateCta": "Generate drafts",
       "ContentV2.studio.weekCost": "This week will use 2 points",
+      "ContentV2.studio.confirmTitle": "Confirm point usage",
+      "ContentV2.studio.confirmBody":
+        "Generating this week's drafts will use {points} points. You have {balance} points.",
+      "ContentV2.studio.confirmBodyNoBalance":
+        "Generating this week's drafts will use {points} points.",
+      "ContentV2.studio.confirmInsufficient":
+        "You need {points} points but you have {balance}. Top up to continue.",
+      "ContentV2.studio.confirmCancel": "Cancel",
+      "ContentV2.studio.confirmCta": "Confirm and generate",
       "ContentV2.studio.insufficientPoints":
         "You need points. Top up to continue.",
       "ContentV2.studio.topUpCta": "Top up points",
@@ -312,6 +321,12 @@ describe("ContentV2Studio", () => {
       name: "Generate drafts",
     });
     fireEvent.click(generateButton);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.className.split(/\s+/)).toContain("rtl:translate-x-1/2");
+    expect(dialog.className.split(/\s+/)).toContain("ltr:-translate-x-1/2");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm and generate" }),
+    );
 
     await waitFor(() => {
       expect(contentCycleApi.generateContentWeek).toHaveBeenCalledWith(
@@ -352,11 +367,16 @@ describe("ContentV2Studio", () => {
     const generateButton = await screen.findByRole("button", {
       name: "Generate drafts",
     });
-    expect((generateButton as HTMLButtonElement).disabled).toBe(true);
+    expect((generateButton as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByRole("alert").textContent).toMatch(/Top up/i);
     expect(
       screen.getByRole("link", { name: "Top up points" }),
     ).toBeTruthy();
+    fireEvent.click(generateButton);
+    const confirmButton = await screen.findByRole("button", {
+      name: "Confirm and generate",
+    });
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
     expect(contentCycleApi.generateContentWeek).not.toHaveBeenCalled();
   });
 
@@ -374,6 +394,9 @@ describe("ContentV2Studio", () => {
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Generate drafts" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm and generate" }),
     );
 
     expect(await screen.findByText(/plan is no longer valid/i)).toBeDefined();
@@ -429,6 +452,9 @@ describe("ContentV2Studio", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Generate fresh drafts" }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm and generate" }),
+    );
 
     await waitFor(() => {
       expect(contentV2Api.regenerateContentPackV2).toHaveBeenCalledWith(
@@ -471,6 +497,9 @@ describe("ContentV2Studio", () => {
       name: "Retry this week's generation",
     });
     fireEvent.click(retryButton);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm and generate" }),
+    );
 
     await waitFor(() => {
       expect(contentCycleApi.retryContentPack).toHaveBeenCalledWith(

@@ -819,6 +819,90 @@ test.describe('Discovery Interview & Review', () => {
     expect(statusCalls).toBe(settledCalls)
   })
 
+  test('Stuck interview recovery in English retries and starts the conversation', async ({ page }) => {
+    let started = false
+    let retryCalls = 0
+
+    await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(started
+          ? baseStatus({
+              messages: [makeMessage({ id: 'msg-first', role: 'assistant', content: 'Who are your customers?' })],
+              current_question: 'Who are your customers?',
+            })
+          : baseStatus({ status: 'partial_ready', messages: [], current_question: undefined })),
+      })
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/retry-interview`, async (route) => {
+      retryCalls++
+      started = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(baseStatus({
+          status: 'in_progress',
+          messages: [makeMessage({ id: 'msg-first', role: 'assistant', content: 'Who are your customers?' })],
+          current_question: 'Who are your customers?',
+        })),
+      })
+    })
+
+    await page.goto(`/en/discovery/${sessionId}`)
+
+    await expect(page.getByText("The interview didn't start")).toBeVisible()
+    await expect(page.getByText('The first question was not created. Your research and details are safe — retry to begin the interview.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Start interview' }).click()
+
+    await expect(page.getByText('Who are your customers?')).toBeVisible()
+    expect(retryCalls).toBe(1)
+  })
+
+  test('Stuck interview recovery in Arabic retries and starts the conversation', async ({ page }) => {
+    let started = false
+    let retryCalls = 0
+
+    await page.route(`**/api/v1/discovery/${sessionId}/status`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(started
+          ? baseStatus({
+              messages: [makeMessage({ id: 'msg-first', role: 'assistant', content: 'من هم عملاؤك؟', language: 'ar-EG' })],
+              current_question: 'من هم عملاؤك؟',
+            })
+          : baseStatus({ status: 'partial_ready', messages: [], current_question: undefined })),
+      })
+    })
+
+    await page.route(`**/api/v1/discovery/${sessionId}/retry-interview`, async (route) => {
+      retryCalls++
+      started = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(baseStatus({
+          status: 'in_progress',
+          messages: [makeMessage({ id: 'msg-first', role: 'assistant', content: 'من هم عملاؤك؟', language: 'ar-EG' })],
+          current_question: 'من هم عملاؤك؟',
+        })),
+      })
+    })
+
+    await page.goto(`/ar/discovery/${sessionId}`)
+
+    await expect(page.getByText('لم تبدأ المقابلة')).toBeVisible()
+    await expect(page.getByText('لم يتم إنشاء السؤال الأول. بحثك وبياناتك محفوظة — حاول مرة أخرى لبدء المقابلة.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'بدء المقابلة' }).click()
+
+    await expect(page.getByText('من هم عملاؤك؟')).toBeVisible()
+    expect(retryCalls).toBe(1)
+  })
+
   test('Desktop layout at 1280px has no horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto(`/en/discovery/${sessionId}`)

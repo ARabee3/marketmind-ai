@@ -7,7 +7,7 @@ type Props = { params: Promise<{ locale: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'Landing.meta' })
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://marketmind.ai'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://marketmindai.duckdns.org'
 
   return {
     title: t('title'),

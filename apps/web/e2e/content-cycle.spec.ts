@@ -355,6 +355,9 @@ test.describe("Content V2 weekly studio", () => {
     ).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Re-plan" })).toHaveCount(1);
     await page.getByRole("button", { name: "Generate drafts" }).click();
+    await page
+      .getByRole("button", { name: "Confirm and generate" })
+      .click();
     await expect.poll(() => generateCalls).toBe(1);
   });
 
@@ -401,6 +404,9 @@ test.describe("Content V2 weekly studio", () => {
     });
     await expect(regenerate).toHaveCount(1);
     await regenerate.click();
+    await page
+      .getByRole("button", { name: "Confirm and generate" })
+      .click();
     await expect.poll(() => regenerationCalls).toBe(1);
   });
 

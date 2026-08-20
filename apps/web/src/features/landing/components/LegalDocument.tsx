@@ -24,7 +24,7 @@ export async function LegalDocument({ namespace }: Props) {
   const sections = t.raw('sections') as readonly LegalSection[]
 
   return (
-    <article className="mx-auto w-full max-w-content px-4 py-14 sm:px-6 md:py-20">
+    <article className="mx-auto w-full max-w-content px-4 pt-24 pb-14 sm:px-6 md:py-20">
       <header className="border-b border-primary/15 pb-8">
         <p className="text-xs font-bold tracking-[0.14em] text-primary uppercase">
           {t('eyebrow')}

@@ -13,6 +13,12 @@ enum Role {
   DEVELOPER_DEMO
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
 enum ActionTokenType {
   PASSWORD_RESET
   EMAIL_VERIFICATION
@@ -27,7 +33,8 @@ model User {
   refreshToken    String?
   lastLoginAt     DateTime?
   fullName        String?
-  status          String    @default("active")
+  status          UserStatus @default(ACTIVE)
+  suspensionReason String?   @map("suspension_reason")
   preferredLocale String    @default("ar-EG")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -165,11 +172,14 @@ model Business {
 // truth. Amounts are whole Egyptian pounds for the launch catalog.
 
 model BillingAccount {
-  id               String   @id @default(uuid()) @db.Uuid
-  ownerUserId      String   @unique @map("owner_user_id") @db.Uuid
-  activeBusinessId String?  @map("active_business_id") @db.Uuid
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  ownerUserId      String    @unique @map("owner_user_id") @db.Uuid
+  activeBusinessId String?   @map("active_business_id") @db.Uuid
+  status           String    @default("active") // "active" | "paused" (operator fraud/safety pause)
+  pausedReason     String?   @map("paused_reason")
+  pausedAt         DateTime? @map("paused_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   ownerUser      User                        @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   activeBusiness Business?                   @relation(fields: [activeBusinessId], references: [id], onDelete: SetNull)
@@ -404,17 +414,34 @@ model BillingProviderCostLedger {
   @@map("billing_provider_cost_ledger")
 }
 
+/**
+ * Committed billing events awaiting deterministic delivery (e.g. the
+ * localized payment-confirmation email). Rows are written atomically with the
+ * payment transaction inside `applyPaidEvent`; the unique dedupe key
+ * (`provider:externalEventId`) makes duplicate webhooks and queue replays
+ * idempotent. Delivery state mirrors the content outbox lease pattern so a
+ * transient mail-provider failure is retried without touching the succeeded
+ * payment, wallet credit, or ledger entry.
+ */
 model BillingOutbox {
   id               String    @id @default(uuid()) @db.Uuid
   billingAccountId String    @map("billing_account_id") @db.Uuid
   eventType        String    @map("event_type")
   dedupeKey        String    @unique @map("dedupe_key")
   payload          Json      @default("{}")
+  state            String    @default("pending")
+  attempts         Int       @default(0)
+  leaseOwner       String?   @map("lease_owner")
+  leaseExpiresAt   DateTime? @map("lease_expires_at")
+  nextAttemptAt    DateTime? @map("next_attempt_at")
+  lastError        String?   @map("last_error")
   dispatchedAt     DateTime? @map("dispatched_at")
   createdAt        DateTime  @default(now()) @map("created_at")
 
   billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
 
+  @@index([state, nextAttemptAt])
+  @@index([leaseExpiresAt])
   @@index([dispatchedAt, createdAt])
   @@map("billing_outbox")
 }
@@ -828,6 +855,31 @@ model FederatedIdentity {
   @@unique([provider, providerSubject])
   @@index([userId])
   @@map("federated_identities")
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────
+// Append-only trail for admin-sensitive and AI-sensitive actions. Rows are
+// created via AuditService.record() only; there is intentionally no update
+// or delete surface, and no endpoint mutates existing rows. before/after
+// state capture the actor, reason, and the exact state transition.
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  actorEmail  String?  @map("actor_email")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String?  @map("target_id")
+  reason      String?
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([actorUserId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ── Marketing Knowledge Governance ─────────────────────────────────────

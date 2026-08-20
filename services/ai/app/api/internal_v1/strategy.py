@@ -234,6 +234,23 @@ def _validation_repair_prompt(
     attempt: int,
 ) -> PromptAssembly:
     failed_values = _validation_field_snapshots(plan, validation)
+    issue_codes = {issue.code for issue in validation.issues}
+    language_repair = (
+        " Because this validation set includes a language mismatch, every listed "
+        "owner-facing prose field, including owner_advice action, why_it_matters, "
+        "timing, and source.text, must be rewritten predominantly in "
+        "brief.plan_language. For ar-EG, write those values in Arabic; source.text "
+        "is synthesized owner-facing text, not a raw evidence excerpt."
+        if "STRATEGY_LANGUAGE_MISMATCH" in issue_codes
+        else ""
+    )
+    citation_repair = (
+        " Resolve every STRATEGY_INVALID_CITATION by keeping only citations that "
+        "match an exact persisted retrieval-pack citation, including chunk_id, "
+        "entry_id, and entry_version; never invent or copy a citation identifier."
+        if "STRATEGY_INVALID_CITATION" in issue_codes
+        else ""
+    )
     return PromptAssembly(
         system_prompt=(
             f"{prompt.system_prompt}\n\n"
@@ -251,6 +268,7 @@ def _validation_repair_prompt(
             "'blocking'. Either resolve the underlying problem inside the plan "
             "(adjust scope, capacity, or capability_state) or downgrade the "
             "blocker to severity 'warning' with a clear owner-visible explanation."
+            f"{language_repair}{citation_repair}"
         ),
         user_prompt=(
             f"{prompt.user_prompt}\n\n"

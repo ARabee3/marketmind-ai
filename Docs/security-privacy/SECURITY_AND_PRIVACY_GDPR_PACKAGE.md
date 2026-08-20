@@ -2,8 +2,9 @@
 
 **MarketMind AI — graduation project security, privacy, and GDPR-readiness evidence package**
 
-- **Date:** 2026-08-19
-- **Evidence type:** all evidence in this document is **code/config/schema verified** (LIVE from the repository at the above commit) unless explicitly labelled `MOCK`, `SYNTHETIC`, `NOT RUN`, or `NOT VERIFIED`.
+- **Date:** 2026-08-20
+- **Evidence baseline:** `origin/main` commit `170d98a` before this PR's fixes; changed claims below were re-checked against the merged PR worktree.
+- **Evidence type:** all evidence in this document is **code/config/schema verified** unless explicitly labelled `MOCK`, `SYNTHETIC`, `NOT RUN`, or `NOT VERIFIED`.
 - **Scope note:** this is an engineering audit for a university graduation project. It is **not** a legal opinion, and nothing in it claims formal GDPR compliance.
 
 ---
@@ -37,7 +38,7 @@ Significant gaps remain, documented honestly in this package:
 | Frontend | Next.js (App Router, `[locale]` segments, next-intl, ar/en, RTL) | `apps/web/src/app/[locale]/`, `apps/web/src/proxy.ts` |
 | Backend API | NestJS 11, global prefix `/api/v1`, internal routes under `/internal/v1` | `apps/api/src/main.ts:69-71` |
 | AI service | FastAPI, provider modes `mock \| openai \| gemini_dev \| openrouter` | `services/ai/app/main.py`, `services/ai/app/core/config.py:8` |
-| Database | PostgreSQL via Prisma; 86 models, 34 migration directories | `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/` |
+| Database | PostgreSQL via Prisma; 87 models, 40 migration directories | `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/` |
 | Cache/queues | Redis + BullMQ (6 queues: discovery-research, strategy-generation, content-generation, content-outbox, facebook-performance-sync, publishing-dispatch) | `apps/api/src/app.module.ts:51-58`, feature modules |
 | Vector DB | Qdrant collection `marketing_knowledge_v1` (curated corpus; NOT user documents) | `services/ai/app/core/config.py:87`, `services/ai/app/rag/retrieval_service.py` |
 | Embeddings | `text-embedding-3-large` (3072-dim), `fake` provider default for dev | `services/ai/app/core/config.py:72-76` |
@@ -208,7 +209,7 @@ PII categories actually processed (all schema/code-verified):
 ```text
 Browser (apps/web, ar/en)
   → NestJS API (/api/v1, JWT access; refresh via HttpOnly cookie)
-      → PostgreSQL (Prisma; 86 models)
+      → PostgreSQL (Prisma; 87 models)
       → Redis/BullMQ (6 queues) ── workers → AI service
       → AI service (/internal/v1/*, NO service auth — R-02)
           → LLM providers (OpenAI / Gemini / OpenRouter; OpenAI content calls use store=False)
@@ -221,7 +222,7 @@ Browser (apps/web, ar/en)
       → n8n webhook (publishing dispatch; demo environment points at localhost — inert)
 ```
 
-Unknown/unverified: none material — all flows above are code-verified; Langfuse trace export exists in code but is **disabled by default** (`ai_orchestration_trace_enabled=False`, exporter `none`).
+Unknown/unverified: none material — all flows above are code-verified. Orchestration persistence/contracts are present and hosted Compose sets `AI_ORCHESTRATION_ENABLED=true`, but no existing product route invokes the service; Langfuse trace export remains **disabled by default** (`ai_orchestration_trace_enabled=False`, exporter `none`).
 
 ## 17. Data Storage
 
@@ -233,7 +234,7 @@ PostgreSQL (Docker volume `marketmind_prod_pgdata`), Redis (queues/limits/OAuth 
 
 ## 19. Data Deletion
 
-**MISSING (self-service).** No account-deletion endpoint; admin module is read-only. Disconnecting a Facebook page deletes/deactivates its connection credentials (connection service). What the Privacy Policy commits to (honest commitment, manual process): deletion requests via `hello@marketmind.ai` handled manually by the team — flagged for human review as an operational promise.
+**MISSING (self-service).** No account-deletion endpoint or export endpoint. Current admin surfaces include operational mutations such as role/status changes, wallet top-ups, and publishing reconciliation, but do not expose account deletion/export. Disconnecting a Facebook page deletes/deactivates its connection credentials (connection service). What the Privacy Policy commits to (honest commitment, manual process): deletion requests via `hello@marketmind.ai` handled manually by the team — flagged for human review as an operational promise.
 
 ## 20. User Rights
 
@@ -289,13 +290,13 @@ See §3 risk register R-01…R-14 plus privacy gaps above. Priority ordering in 
 | E-09 | Content PII scrubbing before prompts | IMPLEMENTED | Code + tests | `content/prompts.py:30-91`; `tests/content/test_pii_scrubber.py` |
 | E-10 | RAG corpus curated + filtered retrieval | IMPLEMENTED | Code + tests | `rag/filter_builder.py:8-53`; `tests/evaluation/` |
 | E-11 | No helmet/headers | VERIFIED GAP | Code (absence) | `apps/api/src/main.ts` |
-| E-12 | No account deletion/export | VERIFIED GAP | Code (absence) | admin module read-only; no DELETE user routes |
+| E-12 | No account deletion/export | VERIFIED GAP | Code (absence) | admin surfaces have no account deletion/export route; no DELETE user routes |
 | E-13 | No backups | VERIFIED GAP | Docs+infra (absence) | grep `backup\|pg_dump` in `infra/`, `DEPLOY_HOSTED.md` |
 | E-14 | No SAST/secret-scan/audit in CI | VERIFIED GAP | CI config | `.github/workflows/*.yml` |
 | E-15 | Voice AI-side rate limit never enforced | VERIFIED GAP | Code (absence) | `config.py:116` single definition, 0 usages |
 | E-16 | Eval suites exist w/ thresholds | IMPLEMENTED (execution status: see Testing report) | Code+docs+CI | `services/ai/tests/evaluation/`, `ai-ci.yml:35-50` |
 | E-17 | Privacy/Terms pages on website | IMPLEMENTED (this branch) | Code + dictionary | `apps/web/src/app/[locale]/(landing)/{privacy,terms}/page.tsx`, `messages/{ar,en}.json` `Legal` namespace |
-| E-18 | ar/en policy parity | IMPLEMENTED | Check output | `npm run check:dictionary` → "all keys match" (run 2026-08-19 on this branch) |
+| E-18 | ar/en policy parity | IMPLEMENTED | Check output | `npm run check:dictionary` → "all keys match" (run 2026-08-20 in the PR worktree) |
 
 ## 25. Privacy Policy (website)
 

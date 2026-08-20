@@ -1,12 +1,13 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest'
-import type { StrategyStatus } from '@marketmind/contracts'
+import type { CurrentJourneyResponse, StrategyStatus } from '@marketmind/contracts'
 import { getStrategyDemoFixture } from '../lib/strategy-fixtures'
 import {
   getStrategyReadiness,
   ownerProgressLabel,
   strategyCanBeApproved,
+  strategyDiscoveryAction,
 } from '../lib/strategy-state'
 
 describe('strategy frontend state', () => {
@@ -71,5 +72,76 @@ describe('strategy frontend state', () => {
 
     expect(fixture.progress).toHaveLength(4)
     expect(fixture.progress.every((event) => event.status === 'complete')).toBe(true)
+  })
+
+  describe('strategyDiscoveryAction', () => {
+    const baseJourney = {
+      owner: { email: 'owner@example.com', email_verified: true },
+      journey: { state: 'discovery_not_started', profile: null },
+      future_phase: { availability: 'unavailable', strategy_id: null },
+    } as unknown as CurrentJourneyResponse
+
+    it('maps a start_discovery action to the new discovery route', () => {
+      const journey: CurrentJourneyResponse = {
+        ...baseJourney,
+        primary_action: { type: 'start_discovery', destination: '/discovery/new' },
+      }
+
+      expect(strategyDiscoveryAction(journey)).toEqual({
+        destination: '/discovery/new',
+        labelKey: 'startDiscovery',
+      })
+    })
+
+    it('maps a continue_discovery action to the active session', () => {
+      const journey: CurrentJourneyResponse = {
+        ...baseJourney,
+        primary_action: {
+          type: 'continue_discovery',
+          session_id: 'session-1',
+          destination: '/discovery/session-1',
+        },
+      }
+
+      expect(strategyDiscoveryAction(journey)).toEqual({
+        destination: '/discovery/session-1',
+        labelKey: 'continueDiscovery',
+      })
+    })
+
+    it('maps a review_profile action to the profile review route', () => {
+      const journey: CurrentJourneyResponse = {
+        ...baseJourney,
+        primary_action: {
+          type: 'review_profile',
+          session_id: 'session-1',
+          destination: '/discovery/session-1/review',
+        },
+      }
+
+      expect(strategyDiscoveryAction(journey)).toEqual({
+        destination: '/discovery/session-1/review',
+        labelKey: 'reviewProfile',
+      })
+    })
+
+    it('falls back to a new discovery journey when no primary action exists', () => {
+      expect(strategyDiscoveryAction(baseJourney)).toEqual({
+        destination: '/discovery/new',
+        labelKey: 'startDiscovery',
+      })
+    })
+
+    it('falls back when the primary action is not discovery related', () => {
+      const journey: CurrentJourneyResponse = {
+        ...baseJourney,
+        primary_action: { type: 'none', destination: null },
+      }
+
+      expect(strategyDiscoveryAction(journey)).toEqual({
+        destination: '/discovery/new',
+        labelKey: 'startDiscovery',
+      })
+    })
   })
 })

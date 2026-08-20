@@ -61,3 +61,4 @@ jobs:
             ghcr.io/${{ steps.repo_owner.outputs.owner }}/marketmind-ai-${{ matrix.image }}:${{ github.sha }}
           build-args: |
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_API_URL=https://marketmindai.duckdns.org/api/v1') || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_APP_URL=https://marketmindai.duckdns.org') || '' }}

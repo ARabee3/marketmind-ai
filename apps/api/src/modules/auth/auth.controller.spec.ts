@@ -55,6 +55,8 @@ describe('AuthController', () => {
   const createMockOAuthState = () => ({
     createState: jest.fn(),
     consumeState: jest.fn(),
+    createError: jest.fn(),
+    consumeError: jest.fn(),
   });
 
   const createMockGoogleOAuth = () => ({
@@ -443,6 +445,36 @@ describe('AuthController', () => {
 
       const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectUrl).toContain('error=OAUTH_EMAIL_ALREADY_USED_PASSWORD');
+    });
+
+    it('stores a suspended-account reason behind a one-time ticket', async () => {
+      const { OAuthException } = await import('./exceptions/oauth.exception');
+      oauthState.consumeState.mockResolvedValue({ provider: 'google' });
+      googleOAuth.exchangeCode.mockResolvedValue({
+        providerSubject: 'google-sub-123',
+        email: 'owner@example.com',
+        emailVerified: true,
+        rawProfile: {},
+      });
+      oauthAccountPolicy.signInWithGoogle.mockRejectedValue(
+        new OAuthException(
+          'OAUTH_ACCOUNT_SUSPENDED',
+          'Account suspended',
+          undefined,
+          { reason: 'Policy violation' },
+        ),
+      );
+      oauthState.createError.mockResolvedValue('opaque-ticket-123456');
+
+      await controller.googleCallback(mockRequest, response, 'state-nonce', 'auth-code');
+
+      expect(oauthState.createError).toHaveBeenCalledWith({
+        code: 'OAUTH_ACCOUNT_SUSPENDED',
+        reason: 'Policy violation',
+      });
+      const redirectUrl = (response.redirect as jest.Mock).mock.calls[0][0];
+      expect(redirectUrl).toContain('error=OAUTH_ACCOUNT_SUSPENDED');
+      expect(redirectUrl).toContain('error_ticket=opaque-ticket-123456');
     });
 
     it('redirects with AUTH_RATE_LIMITED when callback is rate limited', async () => {

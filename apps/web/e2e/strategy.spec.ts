@@ -8,7 +8,7 @@ import type {
   StrategyVersionSummary,
 } from '@marketmind/contracts'
 import { mockAccessToken, mockAuthMe, mockAuthRefresh } from './fixtures/auth'
-import { responseWithConfirmedProfile } from './fixtures/dashboard'
+import { responseWithConfirmedProfile, responseWithNoJourney } from './fixtures/dashboard'
 import { getStrategyDemoFixture } from '../src/features/strategy/lib/strategy-fixtures'
 import arabicPlanJson from '../../../packages/contracts/examples/strategy-plan.example.json' with { type: 'json' }
 
@@ -302,6 +302,60 @@ test.describe('Strategy owner journey', () => {
     })
   })
 })
+
+for (const locale of ['en', 'ar'] as const) {
+  test.describe(`Strategy home without a confirmed profile (${locale})`, () => {
+    test('guides the owner to discovery instead of showing strategy choices', async ({ page }) => {
+      await authenticate(page)
+      await mockJourney(page, responseWithNoJourney())
+
+      await page.goto(`/${locale}/strategy`)
+
+      await expect(
+        page.getByRole('heading', {
+          name:
+            locale === 'ar' ? 'كمّل ملف نشاطك الأول' : 'Complete your business profile first',
+        }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('link', {
+          name: locale === 'ar' ? 'ابدأ رحلة الاستكشاف' : 'Start business discovery',
+        }),
+      ).toHaveAttribute('href', new RegExp(`/${locale}/discovery/new$`))
+      await expect(
+        page.getByText(
+          locale === 'ar' ? 'ابدأ اختيارات الاستراتيجية' : 'Start strategy choices',
+        ),
+      ).not.toBeVisible()
+      expect(await page.locator('html')).toHaveAttribute(
+        'dir',
+        locale === 'ar' ? 'rtl' : 'ltr',
+      )
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true)
+    })
+
+    test('keeps the strategy start CTA once the profile is confirmed', async ({ page }) => {
+      await authenticate(page)
+      await mockJourney(page, confirmedJourney(false))
+
+      await page.goto(`/${locale}/strategy`)
+
+      await expect(
+        page.getByRole('link', {
+          name: locale === 'ar' ? 'ابدأ اختيارات الاستراتيجية' : 'Start strategy choices',
+        }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('heading', {
+          name:
+            locale === 'ar' ? 'كمّل ملف نشاطك الأول' : 'Complete your business profile first',
+        }),
+      ).not.toBeVisible()
+    })
+  })
+}
 
 async function authenticate(page: Page) {
   await mockAuthRefresh(page, mockAccessToken)

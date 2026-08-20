@@ -1,4 +1,8 @@
-import { OAuthStateService, OAuthStatePayload } from "./oauth-state.service";
+import {
+  OAuthStateService,
+  OAuthStatePayload,
+  OAuthErrorPayload,
+} from "./oauth-state.service";
 import { OAuthException } from "./exceptions/oauth.exception";
 
 describe("OAuthStateService", () => {
@@ -131,6 +135,53 @@ describe("OAuthStateService", () => {
       await expect(service.consumeState("missing")).rejects.toMatchObject({
         code: "OAUTH_STATE_MISMATCH",
       });
+    });
+  });
+
+  describe("OAuth error tickets", () => {
+    it("stores a short-lived opaque error ticket", async () => {
+      mockRedisClient.setex.mockResolvedValue("OK");
+      const payload: OAuthErrorPayload = {
+        code: "OAUTH_ACCOUNT_SUSPENDED",
+        reason: "Policy violation",
+      };
+
+      const ticket = await service.createError(payload);
+
+      expect(ticket).toMatch(/^[A-Za-z0-9_-]+$/);
+      expect(mockRedisClient.setex).toHaveBeenCalledWith(
+        `oauth:error:${ticket}`,
+        300,
+        JSON.stringify(payload),
+      );
+    });
+
+    it("consumes a ticket once and normalizes the payload", async () => {
+      mockRedisClient.getdel.mockResolvedValue(
+        JSON.stringify({
+          code: "OAUTH_ACCOUNT_SUSPENDED",
+          reason: "Policy violation",
+          ignored: "not exposed",
+        }),
+      );
+
+      const result = await service.consumeError("valid-error-ticket-123456");
+
+      expect(result).toEqual({
+        code: "OAUTH_ACCOUNT_SUSPENDED",
+        reason: "Policy violation",
+      });
+      expect(mockRedisClient.getdel).toHaveBeenCalledWith(
+        "oauth:error:valid-error-ticket-123456",
+      );
+    });
+
+    it("returns null for missing or invalid tickets", async () => {
+      expect(await service.consumeError(undefined)).toBeNull();
+      expect(await service.consumeError("short")).toBeNull();
+
+      mockRedisClient.getdel.mockResolvedValue(null);
+      expect(await service.consumeError("missing-error-ticket-123456")).toBeNull();
     });
   });
 });

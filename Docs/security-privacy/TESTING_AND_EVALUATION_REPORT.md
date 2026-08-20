@@ -2,9 +2,9 @@
 
 **MarketMind AI — testing audit, evaluation methodology, and evidence**
 
-- **Date:** 2026-08-19
-- **Branch:** `docs/security-privacy-testing-roadmap` (base commit `637a0b4`)
-- **Truthfulness statement:** no test result in this document is invented. Local full-suite execution was **not performed** during this audit (owner skipped local runs after aborted attempts); where results are cited they are either (a) executed directly for this audit and labelled `LOCAL (executed 2026-08-19)`, or (b) fetched live from GitHub Actions and labelled `LIVE (CI)`, or (c) methodology/config facts read from code and labelled accordingly. Anything unverifiable is marked `NOT RUN` / `NOT VERIFIED`.
+- **Date:** 2026-08-20
+- **Branch:** `docs/security-privacy-testing-roadmap` (verified against base commit `170d98a` plus the fixes in this PR)
+- **Truthfulness statement:** no test result in this document is invented. The checks listed in §12 were executed locally in an isolated PR worktree on 2026-08-20 unless labelled `LIVE (CI)`, `NOT RUN`, or `NOT VERIFIED`. Local API e2e and the full web e2e matrix were not run because the former requires a disposable database and the latter was not needed beyond the targeted landing/legal smoke; hosted-production behavior remains unverified.
 
 ---
 
@@ -27,7 +27,7 @@ Strategy notes (from code/config): API e2e is self-sufficient on any runner (in-
 
 - **CI (LIVE):** GitHub Actions, ubuntu-latest; Node 20; Python 3.12 via uv; Postgres 16 + Redis 7 service containers for API integration; Playwright chromium for web.
 - **Local dev:** Docker Compose (Postgres :5433, Redis :6379, Qdrant :6333, n8n :5678). Note the CI-vs-local port mismatch (CI Postgres on 5432, local on 5433) — running the CI integration job verbatim locally requires a `DATABASE_URL` override.
-- **This audit's environment:** backing containers were up (Postgres/Redis/Qdrant/n8n verified running). Full local test execution was **skipped by owner decision** (initial parallel runs were aborted; not retried).
+- **This audit's environment:** backing Postgres/Redis/Qdrant/n8n containers were up. Checks ran in `/tmp/marketmind-pr258-fix.wUsCmR`; API e2e was intentionally not run against the shared development database.
 
 ## 3. Unit Tests (inventory — verified on disk)
 
@@ -119,21 +119,25 @@ CI gaps: no lint/typecheck for API in CI (apps/api has no ESLint config at all �
 
 | Check | Scope | Result | Label |
 | --- | --- | --- | --- |
-| Dictionary parity | `apps/web` messages after adding `Legal` namespace (ar/en) | **PASS** — "all keys match between en.json and ar.json" | LOCAL (executed 2026-08-19) |
-| TypeScript typecheck | `apps/web` incl. new privacy/terms pages + `LegalDocument` | **PASS** — `tsc --noEmit` exit 0 | LOCAL (executed 2026-08-19) |
-| ESLint | 4 changed/new web files | **PASS** — exit 0, no findings | LOCAL (executed 2026-08-19) |
-| API unit / e2e / db suites | full suites | NOT RUN locally this audit; green on main in CI (§8) | LIVE (CI) / NOT RUN (local) |
-| Web vitest / playwright | full suites | NOT RUN locally this audit; green on main in CI (§8) | LIVE (CI) / NOT RUN (local) |
-| AI pytest (non-network) | full suite | NOT RUN locally this audit; ai-ci green on main (§8) | LIVE (CI) / NOT RUN (local) |
-| Contracts check | 13 validation scripts | NOT RUN locally this audit; runs inside api-ci (green) | LIVE (CI) / NOT RUN (local) |
+| Dictionary parity | `apps/web` messages (`Legal` namespace, ar/en) | **PASS** — all keys match | LOCAL (executed 2026-08-20) |
+| Web typecheck / lint / unit | full `npm run check -w @marketmind/web` | **PASS** — 95 files, 703 tests; lint had one existing unused-import warning and no errors | LOCAL (executed 2026-08-20) |
+| Web production build | `npm run build -w @marketmind/web` | **PASS** — Next.js build completed and rendered 59 routes | LOCAL (executed 2026-08-20) |
+| Legal-page browser smoke | en/ar Privacy and Terms navigation at desktop/mobile sizes | **PASS** — targeted landing suite 12 passed, 2 expected skips; canonical, locale, RTL, anchor, overflow, and mobile-header spacing also verified | LOCAL (executed 2026-08-20) |
+| Contracts check | `npm run check -w @marketmind/contracts` | **PASS** — all contract, example, lifecycle, and Python checks completed | LOCAL (executed 2026-08-20) |
+| API build | `npm run build -w @marketmind/api` | **PASS** — Nest build and Prisma client generation completed | LOCAL (executed 2026-08-20) |
+| API unit suite | `npm run test -w @marketmind/api -- --runInBand` | **PASS** — 176 suites, 1,536 tests | LOCAL (executed 2026-08-20) |
+| API e2e / DB suites | full suites | **NOT RUN locally** — requires a dedicated disposable database; historical CI results remain in §8 | NOT RUN (local) / LIVE (historical CI) |
+| AI pytest (non-network) | `npm run check:ai` | **PASS** — 1,018 passed, 1 skipped, 74 deselected | LOCAL (executed 2026-08-20) |
+| AI content threshold | `npm run check:ai:content:threshold` | **PARTIAL / exit 1** — hard guardrails 100% PASS; rubric quality 0% because no human-reviewed cases are present, with no unmet deterministic cases | LOCAL (executed 2026-08-20) |
+| Web full Playwright matrix | all `apps/web/e2e` specs | **NOT RUN locally** — targeted landing/legal smoke ran against the isolated worktree; historical CI results remain in §8 | NOT RUN (local) / LIVE (historical CI) |
 
 ## 13. Limitations of this report
 
-1. No local suite execution (owner decision) — all suite-level green/red claims rest on LIVE CI results for main on 2026-08-19.
+1. API e2e and the full web Playwright matrix were not run locally; their historical CI records are listed in §8 and are not a substitute for a new post-fix run.
 2. No coverage percentages are reported anywhere in this document because no coverage tool runs in CI and none was run locally.
 3. Web e2e validates the mock API boundary only (§5).
-4. Hosted-production behavior (https://marketmindai.duckdns.org) was not exercised — no browser or credentials were used in this audit.
-5. New legal pages were statically verified (type/lint/dictionary) but not browser-walked → **human review item**.
+4. Hosted-production behavior (https://marketmindai.duckdns.org) was not exercised — no browser credentials or live provider calls were used in this audit.
+5. Legal pages were browser-walked locally in both locales and responsive sizes; the remaining human gate is legal approval of the explicit `[LEGAL REVIEW]` placeholders.
 
 ## 14. Evidence pointers
 

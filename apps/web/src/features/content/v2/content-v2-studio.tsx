@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import type {
@@ -9,7 +15,6 @@ import type {
   ContentPostPlanV2,
   ContentWeekSummaryV2,
 } from "@marketmind/contracts";
-import { POINT_PRICES } from "@marketmind/contracts";
 import {
   createOrReplaceWeekPlanV2,
   getCycleWorkspaceV2,
@@ -22,6 +27,8 @@ import { createIdempotencyKey } from "@/lib/api/publishing";
 import { useWallet } from "@/features/billing/wallet-context";
 import { ContentV2PostCard } from "./content-v2-post-card";
 import { ContentV2Setup } from "./content-v2-setup";
+import { ContentGenerateConfirmDialog } from "./content-generate-confirm-dialog";
+import { contentFormatPointCost } from "./content-v2-pricing";
 
 type StudioProps = {
   readonly cycleId: string;
@@ -42,7 +49,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
   const t = useTranslations("ContentV2.studio");
   const tErrors = useTranslations("ContentV2.errors");
   const format = useFormatter();
-  const { wallet } = useWallet();
+  const { wallet, refresh: refreshWallet } = useWallet();
 
   const [workspace, setWorkspace] = useState<ContentCycleWorkspaceV2 | null>(
     null,
@@ -60,6 +67,10 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
   const [mutationError, setMutationError] = useState<MutationErrorKey | null>(
     null,
   );
+  const [confirmAction, setConfirmAction] = useState<
+    "generate" | "retry" | "regenerate" | null
+  >(null);
+  const previousGenerationState = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -96,6 +107,19 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
     }, 2000);
     return () => window.clearInterval(interval);
   }, [load, workspace]);
+
+  useEffect(() => {
+    const state = workspace?.current_week.generation_state ?? null;
+    const previous = previousGenerationState.current;
+    previousGenerationState.current = state;
+    if (
+      previous &&
+      ["queued", "generating"].includes(previous) &&
+      ["ready", "completed"].includes(state ?? "")
+    ) {
+      void refreshWallet();
+    }
+  }, [refreshWallet, workspace?.current_week.generation_state]);
 
   const handlePlan = async (isReplan = false) => {
     if (!workspace || isMutating) return;
@@ -148,6 +172,11 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
       setIsMutating(false);
       setMutatingAction(null);
     }
+  };
+
+  const requestGenerate = (action: "generate" | "retry" | "regenerate") => {
+    if (!workspace || isMutating) return;
+    setConfirmAction(action);
   };
 
   const handleSavePlan = async (
@@ -277,8 +306,11 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
     current_week.generation_state === "completed" ||
     current_week.pack?.status === "approved";
 
-  const weekPostCount = current_week.week_plan?.post_plans.length ?? 0;
-  const weekCost = weekPostCount * POINT_PRICES.content_item;
+  const weekCost =
+    current_week.week_plan?.post_plans.reduce(
+      (total, plan) => total + contentFormatPointCost(plan.format),
+      0,
+    ) ?? 0;
   const generateBlocked =
     current_week.primary_action === "generate" &&
     wallet !== null &&
@@ -314,13 +346,13 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
         void handlePlan();
         return;
       case "generate":
-        void handleGenerate();
+        requestGenerate("generate");
         return;
       case "retry":
-        void handleGenerate("retry");
+        requestGenerate("retry");
         return;
       case "regenerate":
-        void handleGenerate("regenerate");
+        requestGenerate("regenerate");
         return;
       default:
         return;
@@ -470,7 +502,7 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                 <button
                   type="button"
                   onClick={handlePrimaryAction}
-                  disabled={isMutating || generateBlocked}
+                  disabled={isMutating}
                   className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:opacity-60"
                 >
                   {isMutating
@@ -721,6 +753,18 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
           onSaved={() => load()}
         />
       </div>
+      <ContentGenerateConfirmDialog
+        open={confirmAction !== null}
+        cost={weekCost}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        onConfirm={() => {
+          const action = confirmAction;
+          setConfirmAction(null);
+          if (action) void handleGenerate(action);
+        }}
+      />
     </>
   );
 }

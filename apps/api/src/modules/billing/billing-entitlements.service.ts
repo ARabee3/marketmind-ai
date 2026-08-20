@@ -14,7 +14,13 @@ export type BillingEntitlementDecision = {
   readonly used: number;
   readonly limit: number;
   readonly remaining: number;
-  readonly reason: "active" | "trial" | "past_due_grace" | "expired" | "limit";
+  readonly reason:
+    | "active"
+    | "trial"
+    | "past_due_grace"
+    | "expired"
+    | "limit"
+    | "cost_circuit";
 };
 
 /**
@@ -37,6 +43,23 @@ export class BillingEntitlementsService {
     const wallet = await this.billingService.getWallet(userId);
     const cost = pointsForMetric(metric, requested);
     const remaining = Math.max(0, wallet.balance - cost);
+
+    const circuitOpen = await this.billingService.isProviderCostCircuitBreakerOpen(
+      userId,
+    );
+    if (circuitOpen) {
+      return {
+        allowed: false,
+        state: "cost_circuit",
+        metric,
+        requested,
+        used: 0,
+        limit: wallet.balance,
+        remaining,
+        reason: "cost_circuit",
+      };
+    }
+
     const allowed = wallet.balance >= cost;
 
     return {
@@ -58,6 +81,12 @@ export class BillingEntitlementsService {
   ): Promise<BillingEntitlementDecision> {
     const decision = await this.check(userId, metric, requested);
     if (!decision.allowed) {
+      if (decision.reason === "cost_circuit") {
+        throw new BillingDomainException(
+          "BILLING_COST_CIRCUIT_OPEN",
+          "Monthly provider cost limit reached. New AI work is paused until the billing period resets.",
+        );
+      }
       throw new BillingDomainException(
         "BILLING_INSUFFICIENT_POINTS",
         "Not enough points for this action. Top up to continue.",

@@ -9,9 +9,9 @@ import type {
   ContentMediaLibraryEntryV2,
   ContentPostPlanV2,
 } from "@marketmind/contracts";
-import { POINT_PRICES } from "@marketmind/contracts";
 import { cn } from "@/lib/utils";
 import { ContentV2MediaOption } from "./content-v2-media-option";
+import { contentFormatPointCost } from "./content-v2-pricing";
 
 type EditablePlan = Pick<
   ContentPostPlanV2,
@@ -85,6 +85,7 @@ export function ContentV2PostCard({
   const readyMedia = mediaEntries.filter((entry) => entry.status === "ready");
   const readyMediaIds = new Set(readyMedia.map((entry) => entry.id));
   const imageRequired = requiresImage(plan.format);
+  const pointCost = contentFormatPointCost(plan.format);
   const mediaSummary =
     mediaCount > 0
       ? t("mediaSelectedCount", { count: mediaCount })
@@ -177,9 +178,9 @@ export function ContentV2PostCard({
           </span>
           <span
             className="rounded-full bg-soft-teal px-2.5 py-0.5 text-[11px] font-semibold text-primary"
-            aria-label={t("pointCost", { points: POINT_PRICES.content_item })}
+            aria-label={t("pointCost", { points: pointCost })}
           >
-            {t("pointCost", { points: POINT_PRICES.content_item })}
+            {t("pointCost", { points: pointCost })}
           </span>
         </div>
       </div>

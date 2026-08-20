@@ -26,7 +26,7 @@ export async function LandingShell({ children, locale }: Props) {
       </a>
       <Nav />
       <main id="main-content">{children}</main>
-      <Footer />
+      <Footer locale={locale} />
     </div>
   )
 }

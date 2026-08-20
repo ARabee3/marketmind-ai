@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  CurrentJourneyResponse,
   PublicationCandidateSummaryV1,
   PublicationIntentV1,
   PublishingTargetPublicV1,
@@ -7,6 +8,7 @@ import type {
 import {
   activeIntentForCandidate,
   localCairoToUtc,
+  publishingSetupAction,
   publishingStatusRefreshDelay,
   realIntentForCandidate,
   targetSupportsCandidate,
@@ -142,4 +144,87 @@ describe("publishing state helpers", () => {
     expect(targetSupportsCandidate(target, textCandidate)).toBe(true);
     expect(targetSupportsCandidate(target, imageCandidate)).toBe(true);
   });
+
+  it("routes a first-time owner to start discovery", () => {
+    expect(
+      publishingSetupAction(
+        journeyWithPrimaryAction({ type: "start_discovery", destination: "/discovery/new" }),
+      ),
+    ).toEqual({ destination: "/discovery/new", labelKey: "startDiscovery" });
+  });
+
+  it("routes an owner mid-interview back to continue discovery", () => {
+    expect(
+      publishingSetupAction(
+        journeyWithPrimaryAction({
+          type: "continue_discovery",
+          session_id: "session-1",
+          destination: "/discovery/interview/session-1",
+        }),
+      ),
+    ).toEqual({
+      destination: "/discovery/interview/session-1",
+      labelKey: "continueDiscovery",
+    });
+  });
+
+  it("routes an owner with a draft profile to review it", () => {
+    expect(
+      publishingSetupAction(
+        journeyWithPrimaryAction({
+          type: "review_profile",
+          session_id: "session-1",
+          destination: "/discovery/review/session-1",
+        }),
+      ),
+    ).toEqual({
+      destination: "/discovery/review/session-1",
+      labelKey: "reviewProfile",
+    });
+  });
+
+  it("routes an owner with a confirmed profile to the content strategy", () => {
+    expect(
+      publishingSetupAction(
+        journeyWithPrimaryAction({
+          type: "view_strategy",
+          strategy_id: "strategy-1",
+          destination: "/strategy/strategy-1",
+        }),
+      ),
+    ).toEqual({ destination: "/strategy/strategy-1", labelKey: "viewStrategy" });
+  });
+
+  it("falls back to start discovery when the journey has no action", () => {
+    expect(
+      publishingSetupAction(journeyWithPrimaryAction({ type: "none", destination: null })),
+    ).toEqual({ destination: "/discovery/new", labelKey: "startDiscovery" });
+  });
 });
+
+function journeyWithPrimaryAction(
+  primaryAction: CurrentJourneyResponse["primary_action"],
+): CurrentJourneyResponse {
+  return {
+    owner: {
+      user_id: "owner-1",
+      full_name: null,
+      email: "owner@example.com",
+      email_verified: true,
+    },
+    journey: {
+      state: "no_journey",
+      discovery: null,
+      profile: null,
+    },
+    future_phase: {
+      phase: "strategy",
+      availability: "locked",
+      status: "needs_brief",
+      reason: "discovery_required",
+      destination: null,
+    },
+    primary_action: primaryAction,
+    generated_at: "2026-01-01T00:00:00.000Z",
+  };
+}

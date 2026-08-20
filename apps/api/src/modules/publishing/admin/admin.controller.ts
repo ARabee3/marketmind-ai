@@ -1,13 +1,17 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Request } from "express";
 import { PrismaService } from "../../../common/persistence/prisma.service";
 import { ReconciliationService } from "../scheduling/reconciliation.service";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../rbac/guards/permissions.guard";
 import { Permissions } from "../../rbac/decorators/permissions.decorator";
 import { PERMISSIONS } from "../../rbac/rbac.constants";
-import { IsInt, IsNotEmpty, IsString, Min } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { ListResultsQueryDto } from "./dto/list-results-query.dto";
+import { AuthenticatedUser } from "../../auth/interfaces/jwt-payload.interface";
+import { AuditService } from "../../audit/audit.service";
 
 class ResolveUnknownDto {
   @IsString()
@@ -18,11 +22,13 @@ class ResolveUnknownDto {
   @IsNotEmpty()
   reason!: string;
 
-  // Provider proof — REQUIRED when resolution === 'PUBLISHED'. Never fabricate
-  // a publication without evidence from the provider (anti-pattern §12/G10).
+  // Provider proof — REQUIRED when resolution === 'PUBLISHED' (enforced by the
+  // controller). Optional when resolving as FAILED. Never fabricate a
+  // publication without evidence from the provider (anti-pattern §12/G10).
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  remotePublicationId!: string;
+  remotePublicationId?: string;
 }
 
 /**
@@ -44,13 +50,40 @@ export class AdminController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reconciliation: ReconciliationService,
+    private readonly auditService: AuditService,
   ) {}
 
   /** Manual trigger for queue-DB reconciliation on one intent. */
   @Post("intents/:intentId/resync-schedule")
   @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
-  async resyncIntent(@Param("intentId") intentId: string) {
-    return this.reconciliation.resyncIntent(intentId);
+  async resyncIntent(
+    @Param("intentId") intentId: string,
+    @Req() req: Request,
+  ) {
+    const actor = req.user as AuthenticatedUser;
+    const beforeState = await this.prisma.publishingIntent.findUnique({
+      where: { id: intentId },
+      select: { id: true, status: true, version: true },
+    });
+    if (!beforeState) {
+      throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
+    }
+    const result = await this.reconciliation.resyncIntent(intentId);
+    await this.auditService.record({
+      actorUserId: actor.id,
+      actorEmail: actor.email,
+      action: "publishing.resync_schedule",
+      targetType: "publishing_intent",
+      targetId: intentId,
+      reason: "Admin resynced the publishing schedule for this intent",
+      beforeState,
+      afterState: {
+        id: intentId,
+        status: "SCHEDULED",
+        version: beforeState.version,
+      },
+    });
+    return result;
   }
 
   /** Manually close out an UNKNOWN result after human/provider investigation. */
@@ -59,7 +92,9 @@ export class AdminController {
   async resolveUnknown(
     @Param("resultId") resultId: string,
     @Body() dto: ResolveUnknownDto,
+    @Req() req: Request,
   ) {
+    const actor = req.user as AuthenticatedUser;
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.publishingResult.findUnique({
         where: { id: resultId },
@@ -102,6 +137,23 @@ export class AdminController {
         data: { status: intentStatus as never },
       });
 
+      await this.auditService.record({
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        action:
+          newOutcome === "PUBLISHED"
+            ? "publishing.resolve_published"
+            : "publishing.resolve_failed",
+        targetType: "publishing_result",
+        targetId: resultId,
+        reason: dto.reason,
+        beforeState: { outcome: result.outcome },
+        afterState: {
+          outcome: newOutcome,
+          remotePublicationId: updated.remotePublicationId,
+        },
+      });
+
       return updated;
     });
   }
@@ -109,8 +161,18 @@ export class AdminController {
   /** Trigger reconciliation sweep immediately on demand. */
   @Post("sweep")
   @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
-  async triggerSweep() {
+  async triggerSweep(@Req() req: Request) {
+    const actor = req.user as AuthenticatedUser;
     await this.reconciliation.runSweep();
+    await this.auditService.record({
+      actorUserId: actor.id,
+      actorEmail: actor.email,
+      action: "publishing.sweep",
+      targetType: "publishing",
+      reason: "Admin triggered a manual reconciliation sweep",
+      beforeState: {},
+      afterState: {},
+    });
     return { ok: true, message: "Reconciliation sweep triggered" };
   }
 
@@ -124,5 +186,95 @@ export class AdminController {
     });
     if (!attempt) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
     return attempt;
+  }
+
+  /**
+   * List results across all businesses, newest first. Admin-only (§9) —
+   * ownership scoping is intentionally NOT applied because admins reconcile
+   * on behalf of every business. `outcome` filters (e.g. UNKNOWN surfaces the
+   * reconciliation queue); pagination matches the other admin lists.
+   */
+  @Get("results")
+  @Permissions(PERMISSIONS.PUBLISHING_ADMIN)
+  async listResults(@Query() query: ListResultsQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const where = query.outcome ? { outcome: query.outcome } : {};
+
+    const [total, items] = await Promise.all([
+      this.prisma.publishingResult.count({ where }),
+      this.prisma.publishingResult.findMany({
+        where,
+        orderBy: { occurredAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          attempt: {
+            select: {
+              id: true,
+              status: true,
+              attemptSequence: true,
+              sanitizedError: true,
+              startedAt: true,
+              finishedAt: true,
+              intent: {
+                select: {
+                  id: true,
+                  status: true,
+                  mode: true,
+                  scheduledUtcAt: true,
+                  version: true,
+                  businessId: true,
+                  candidate: {
+                    select: {
+                      id: true,
+                      channel: true,
+                      format: true,
+                      locale: true,
+                    },
+                  },
+                  target: {
+                    select: {
+                      id: true,
+                      provider: true,
+                      channel: true,
+                      displayName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // The Intent model carries only a businessId scalar (no relation), so the
+    // display names are resolved in one small batched read and attached to the
+    // response payload for the admin console — never used for authorization.
+    const businessIds = [
+      ...new Set(
+        items
+          .map((item) => item.attempt.intent.businessId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const businesses = businessIds.length
+      ? await this.prisma.business.findMany({
+          where: { id: { in: businessIds } },
+          select: { id: true, displayName: true },
+        })
+      : [];
+    const businessById = new Map(businesses.map((b) => [b.id, b]));
+
+    const serialized = items.map((item) => ({
+      ...item,
+      intent: {
+        ...item.attempt.intent,
+        business: businessById.get(item.attempt.intent.businessId) ?? null,
+      },
+    }));
+
+    return { items: serialized, total, page, pageSize };
   }
 }

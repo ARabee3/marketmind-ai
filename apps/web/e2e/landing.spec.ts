@@ -110,6 +110,43 @@ test('desktop authentication actions share the same visual bounds', async ({ pag
   expect(createAccountBounds.y).toBe(loginBounds.y)
 })
 
+for (const legal of [
+  { locale: 'en', otherLocale: 'ar', firstLink: 'How it works', language: 'AR' },
+  { locale: 'ar', otherLocale: 'en', firstLink: 'رحلة الـ ٥ خطوات', language: 'EN' },
+] as const) {
+  test(`keeps legal-page navigation in ${legal.locale}`, async ({ page, isMobile }) => {
+    await page.goto(`/${legal.locale}/privacy`)
+
+    const headerNav = page.getByRole('navigation', { name: /Primary navigation|التنقل الرئيسي/ })
+    if (!isMobile) {
+      await expect(headerNav.getByRole('link', { name: legal.firstLink })).toHaveAttribute(
+        'href',
+        `/${legal.locale}#how-it-works`,
+      )
+    }
+
+    const footer = page.getByRole('contentinfo')
+    await expect(footer.getByRole('link', { name: legal.firstLink })).toHaveAttribute(
+      'href',
+      `/${legal.locale}#how-it-works`,
+    )
+    if (!isMobile) {
+      await expect(
+        headerNav.getByRole('link', { name: legal.language, exact: true }),
+      ).toHaveAttribute('href', `/${legal.otherLocale}/privacy`)
+    }
+    await expect(footer.getByRole('link', { name: legal.language, exact: true })).toHaveAttribute(
+      'href',
+      `/${legal.otherLocale}/privacy`,
+    )
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    )
+    expect(hasHorizontalOverflow).toBe(false)
+  })
+}
+
 test.describe('Reduced motion', () => {
   test('keeps the marketing runway static and readable', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })

@@ -20,7 +20,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => t,
   useFormatter: () => ({
     dateTime: () => "Jan 1, 2024",
-    number: (_: number) => "EGP 299",
+    number: () => "EGP 299",
   }),
   useLocale: () => "en",
 }))
@@ -44,9 +44,7 @@ vi.mock("@/i18n/navigation", () => ({
 
 describe("StatTile", () => {
   it("renders label, value, and optional subtext", () => {
-    const { container } = render(
-      <StatTile label="MRR" value="1,234" subtext="12 active" />,
-    )
+    render(<StatTile label="MRR" value="1,234" subtext="12 active" />)
     expect(screen.getByText("MRR")).toBeDefined()
     expect(screen.getByText("1,234")).toBeDefined()
     expect(screen.getByText("12 active")).toBeDefined()

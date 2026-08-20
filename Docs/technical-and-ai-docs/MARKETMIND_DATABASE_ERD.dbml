@@ -1,0 +1,2236 @@
+// GENERATED FILE - DO NOT EDIT DIRECTLY.
+// Source: apps/api/prisma/schema.prisma
+// Regenerate: node scripts/generate-database-erd.mjs
+
+Project marketmind_ai {
+  database_type: 'PostgreSQL'
+  Note: 'Complete physical MarketMind AI database ERD generated from the Prisma schema.'
+}
+
+Enum "Role" {
+  "OWNER"
+  "ADMIN"
+  "DEVELOPER_DEMO"
+}
+
+Enum "UserStatus" {
+  "ACTIVE"
+  "SUSPENDED"
+  "DISABLED"
+}
+
+Enum "ActionTokenType" {
+  "PASSWORD_RESET"
+  "EMAIL_VERIFICATION"
+}
+
+Enum "PublishingCandidateStatus" {
+  "ACTIVE"
+  "REVOKED"
+  "REPLACED"
+}
+
+Enum "PublishingTargetProvider" {
+  "META"
+}
+
+Enum "PublishingTargetConnectionState" {
+  "CONNECTED"
+  "EXPIRED"
+  "REVOKED"
+  "ERROR"
+}
+
+Enum "PublishingIntentStatus" {
+  "DRAFT"
+  "AWAITING_APPROVAL"
+  "SCHEDULED"
+  "DISPATCHING"
+  "SUCCEEDED"
+  "FAILED"
+  "ACTION_REQUIRED"
+  "CANCELLED"
+}
+
+Enum "PublishingMode" {
+  "REAL"
+  "MANUAL_EXPORT"
+  "SIMULATION"
+}
+
+Enum "PublishingApprovalDecision" {
+  "APPROVED"
+  "REJECTED"
+}
+
+Enum "PublishingAttemptStatus" {
+  "QUEUED"
+  "RUNNING"
+  "DISPATCHING"
+  "SUCCEEDED"
+  "FAILED"
+  "UNKNOWN"
+  "CANCELLED"
+}
+
+Enum "PublishingOutcome" {
+  "PUBLISHED"
+  "EXPORTED"
+  "SIMULATED"
+  "FAILED"
+  "CANCELLED"
+  "UNKNOWN"
+}
+
+Enum "PublishingConnectionState" {
+  "PENDING_SELECTION"
+  "ACTIVE"
+  "EXPIRED"
+  "REVOKED"
+  "ERROR"
+}
+
+Table "User" {
+  "id" UUID [not null]
+  "email" TEXT [not null]
+  "password" TEXT [not null]
+  "roles" "Role[]" [default: `ARRAY['OWNER']::"Role"[]`]
+  "isEmailVerified" BOOLEAN [not null, default: false]
+  "refreshToken" TEXT
+  "lastLoginAt" TIMESTAMP(3)
+  "fullName" TEXT
+  "status" UserStatus [not null, default: 'ACTIVE']
+  "suspension_reason" TEXT
+  "preferredLocale" TEXT [not null, default: 'ar-EG']
+  "createdAt" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updatedAt" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "User_pkey"]
+    email [unique, name: "User_email_key"]
+  }
+}
+
+Table "refresh_sessions" {
+  "id" UUID [not null]
+  "user_id" UUID [not null]
+  "token_hash" TEXT [not null]
+  "user_agent" TEXT
+  "ip_address" INET
+  "expires_at" TIMESTAMP(3) [not null]
+  "revoked_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "refresh_sessions_pkey"]
+    token_hash [unique, name: "refresh_sessions_token_hash_key"]
+    user_id [name: "refresh_sessions_user_id_idx"]
+    expires_at [name: "refresh_sessions_expires_at_idx"]
+  }
+}
+
+Table "roles" {
+  "id" UUID [not null]
+  "name" Role [not null]
+  "description" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "roles_pkey"]
+    name [unique, name: "roles_name_key"]
+  }
+}
+
+Table "permissions" {
+  "id" UUID [not null]
+  "name" TEXT [not null]
+  "description" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "permissions_pkey"]
+    name [unique, name: "permissions_name_key"]
+  }
+}
+
+Table "role_permissions" {
+  "role_id" UUID [not null]
+  "permission_id" UUID [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (role_id, permission_id) [pk, name: "role_permissions_pkey"]
+  }
+}
+
+Table "user_roles" {
+  "user_id" UUID [not null]
+  "role_id" UUID [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (user_id, role_id) [pk, name: "user_roles_pkey"]
+  }
+}
+
+Table "businesses" {
+  "id" UUID [not null]
+  "owner_user_id" UUID [not null]
+  "display_name" TEXT [not null]
+  "business_type" TEXT [not null]
+  "city" TEXT [not null]
+  "area" TEXT
+  "address_text" TEXT
+  "latitude" DECIMAL(9,6)
+  "longitude" DECIMAL(9,6)
+  "primary_locale" TEXT [not null, default: 'ar-EG']
+  "status" TEXT [not null, default: 'draft']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "businesses_pkey"]
+    owner_user_id [name: "businesses_owner_user_id_idx"]
+    (city, area) [name: "businesses_city_area_idx"]
+  }
+}
+
+Table "billing_accounts" {
+  "id" UUID [not null]
+  "owner_user_id" UUID [not null]
+  "active_business_id" UUID
+  "status" TEXT [not null, default: 'active']
+  "paused_reason" TEXT
+  "paused_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "billing_accounts_pkey"]
+    owner_user_id [unique, name: "billing_accounts_owner_user_id_key"]
+    active_business_id [name: "billing_accounts_active_business_id_idx"]
+  }
+}
+
+Table "billing_point_balances" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "balance" INTEGER [not null, default: 0]
+  "lifetime_granted" INTEGER [not null, default: 0]
+  "lifetime_spent" INTEGER [not null, default: 0]
+  "updated_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_point_balances_pkey"]
+    billing_account_id [unique, name: "billing_point_balances_billing_account_id_key"]
+  }
+}
+
+Table "billing_point_ledger" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "direction" TEXT [not null]
+  "reason" TEXT [not null]
+  "metric" TEXT
+  "points" INTEGER [not null]
+  "balance_after" INTEGER [not null]
+  "claim_key" TEXT [not null]
+  "transaction_id" UUID
+  "expires_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_point_ledger_pkey"]
+    (billing_account_id, created_at) [name: "billing_point_ledger_billing_account_id_created_at_idx"]
+    (billing_account_id, claim_key) [unique, name: "billing_point_ledger_billing_account_id_claim_key_key"]
+  }
+}
+
+Table "billing_prices" {
+  "id" UUID [not null]
+  "code" TEXT [not null]
+  "plan_code" TEXT [not null]
+  "interval" TEXT [not null]
+  "amount_egp" INTEGER [not null]
+  "currency" TEXT [not null, default: 'EGP']
+  "period_days" INTEGER [not null]
+  "points_granted" INTEGER
+  "public" BOOLEAN [not null, default: true]
+  "display_name_en" TEXT [not null]
+  "display_name_ar" TEXT [not null]
+  "entitlements" JSONB [not null, default: '{}']
+  "active_from" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "retired_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_prices_pkey"]
+    code [unique, name: "billing_prices_code_key"]
+    (plan_code, public, retired_at) [name: "billing_prices_plan_code_public_retired_at_idx"]
+  }
+}
+
+Table "billing_subscriptions" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "price_id" UUID [not null]
+  "state" TEXT [not null, default: 'trialing']
+  "renewal_mode" TEXT [not null, default: 'none']
+  "provider" TEXT
+  "provider_customer_ref" TEXT
+  "provider_agreement_ref" TEXT
+  "masked_payment_method" TEXT
+  "trial_started_at" TIMESTAMP(3)
+  "trial_ends_at" TIMESTAMP(3)
+  "paid_through_at" TIMESTAMP(3)
+  "grace_ends_at" TIMESTAMP(3)
+  "cancel_at_period_end" BOOLEAN [not null, default: false]
+  "cancel_requested_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "billing_subscriptions_pkey"]
+    (billing_account_id, state, created_at) [name: "billing_subscriptions_billing_account_id_state_created_at_idx"]
+    paid_through_at [name: "billing_subscriptions_paid_through_at_idx"]
+  }
+}
+
+Table "billing_checkout_attempts" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "price_id" UUID [not null]
+  "idempotency_key" TEXT [not null]
+  "request_fingerprint" TEXT [not null]
+  "provider" TEXT [not null]
+  "provider_checkout_ref" TEXT
+  "provider_checkout_url" TEXT
+  "amount_egp" INTEGER [not null]
+  "currency" TEXT [not null, default: 'EGP']
+  "payment_mode" TEXT [not null]
+  "sandbox" BOOLEAN [not null, default: false]
+  "status" TEXT [not null, default: 'pending']
+  "expires_at" TIMESTAMP(3) [not null]
+  "confirmed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "billing_checkout_attempts_pkey"]
+    provider_checkout_ref [unique, name: "billing_checkout_attempts_provider_checkout_ref_key"]
+    (billing_account_id, status) [name: "billing_checkout_attempts_billing_account_id_status_idx"]
+    (expires_at, status) [name: "billing_checkout_attempts_expires_at_status_idx"]
+    (billing_account_id, idempotency_key) [unique, name: "billing_checkout_attempts_billing_account_id_idempotency_ke_key"]
+  }
+}
+
+Table "billing_payment_transactions" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "subscription_id" UUID
+  "checkout_attempt_id" UUID
+  "provider" TEXT [not null]
+  "provider_transaction_id" TEXT [not null]
+  "kind" TEXT [not null]
+  "status" TEXT [not null]
+  "amount_egp" INTEGER [not null]
+  "currency" TEXT [not null, default: 'EGP']
+  "payment_mode" TEXT
+  "occurred_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_payment_transactions_pkey"]
+    (billing_account_id, occurred_at) [name: "billing_payment_transactions_billing_account_id_occurred_at_idx"]
+    (provider, provider_transaction_id) [unique, name: "billing_payment_transactions_provider_provider_transaction__key"]
+  }
+}
+
+Table "billing_provider_events" {
+  "id" UUID [not null]
+  "billing_account_id" UUID
+  "provider" TEXT [not null]
+  "external_event_id" TEXT [not null]
+  "fingerprint" TEXT [not null]
+  "event_type" TEXT [not null]
+  "signature_valid" BOOLEAN [not null]
+  "status" TEXT [not null, default: 'received']
+  "payload" JSONB [not null, default: '{}']
+  "received_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "processed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_provider_events_pkey"]
+    fingerprint [name: "billing_provider_events_fingerprint_idx"]
+    (status, received_at) [name: "billing_provider_events_status_received_at_idx"]
+    (provider, external_event_id) [unique, name: "billing_provider_events_provider_external_event_id_key"]
+  }
+}
+
+Table "billing_usage_ledger" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "business_id" UUID
+  "metric" TEXT [not null]
+  "period_start" TIMESTAMP(3) [not null]
+  "period_end" TIMESTAMP(3) [not null]
+  "units" INTEGER [not null, default: 0]
+  "claim_key" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "billing_usage_ledger_pkey"]
+    (billing_account_id, metric, period_start, period_end) [name: "billing_usage_ledger_billing_account_id_metric_period_start_idx"]
+    (billing_account_id, metric, period_start, claim_key) [unique, name: "billing_usage_ledger_billing_account_id_metric_period_start_key"]
+  }
+}
+
+Table "billing_provider_cost_ledger" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "business_id" UUID
+  "billing_period_start" TIMESTAMP(3) [not null]
+  "provider" TEXT [not null]
+  "model" TEXT
+  "logical_artifact_key" TEXT [not null]
+  "input_units" INTEGER
+  "output_units" INTEGER
+  "native_cost" DECIMAL(18,8)
+  "native_currency" TEXT
+  "egp_rate" DECIMAL(18,8)
+  "egp_cost" DECIMAL(18,8)
+  "successful_artifact" BOOLEAN [not null, default: false]
+  "quota_effect" INTEGER [not null, default: 0]
+  "retry_count" INTEGER [not null, default: 0]
+  "snapshot_version" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_provider_cost_ledger_pkey"]
+    (billing_account_id, billing_period_start) [name: "billing_provider_cost_ledger_billing_account_id_billing_per_idx"]
+    (billing_account_id, logical_artifact_key) [unique, name: "billing_provider_cost_ledger_billing_account_id_logical_art_key"]
+  }
+}
+
+Table "billing_outbox" {
+  "id" UUID [not null]
+  "billing_account_id" UUID [not null]
+  "event_type" TEXT [not null]
+  "dedupe_key" TEXT [not null]
+  "payload" JSONB [not null, default: '{}']
+  "state" TEXT [not null, default: 'pending']
+  "attempts" INTEGER [not null, default: 0]
+  "lease_owner" TEXT
+  "lease_expires_at" TIMESTAMP(3)
+  "next_attempt_at" TIMESTAMP(3)
+  "last_error" TEXT
+  "dispatched_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "billing_outbox_pkey"]
+    dedupe_key [unique, name: "billing_outbox_dedupe_key_key"]
+    (state, next_attempt_at) [name: "billing_outbox_state_next_attempt_at_idx"]
+    lease_expires_at [name: "billing_outbox_lease_expires_at_idx"]
+    (dispatched_at, created_at) [name: "billing_outbox_dispatched_at_created_at_idx"]
+  }
+}
+
+Table "discovery_sessions" {
+  "id" UUID [not null]
+  "business_id" UUID
+  "owner_user_id" UUID [not null]
+  "status" TEXT [not null]
+  "language_mode" TEXT [not null, default: 'mixed']
+  "current_question" TEXT
+  "profile_state" JSONB [not null, default: '{}']
+  "owner_turn_count" INTEGER [not null, default: 0]
+  "completion_reason" TEXT
+  "profile_draft_id" UUID
+  "confirmed_profile_version_id" UUID
+  "started_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "completed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "discovery_sessions_pkey"]
+    (owner_user_id, status) [name: "discovery_sessions_owner_user_id_status_idx"]
+    business_id [name: "discovery_sessions_business_id_idx"]
+    created_at [name: "discovery_sessions_created_at_idx"]
+  }
+}
+
+Table "prepared_discovery_intakes" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "business_name" TEXT [not null]
+  "business_type" TEXT [not null]
+  "city" TEXT [not null]
+  "area" TEXT
+  "address_text" TEXT
+  "owner_goal_text" TEXT
+  "known_competitors_text" TEXT
+  "target_audience_text" TEXT
+  "notes" TEXT
+  "raw_payload" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "prepared_discovery_intakes_pkey"]
+    session_id [unique, name: "prepared_discovery_intakes_session_id_key"]
+  }
+}
+
+Table "social_links" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "business_id" UUID
+  "platform" TEXT [not null]
+  "url" TEXT [not null]
+  "owner_submitted" BOOLEAN [not null, default: true]
+  "status" TEXT [not null, default: 'pending']
+  "metadata" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "social_links_pkey"]
+    (session_id, platform) [name: "social_links_session_id_platform_idx"]
+    (session_id, url) [unique, name: "social_links_session_id_url_key"]
+  }
+}
+
+Table "social_connections" {
+  "id" UUID [not null]
+  "user_id" UUID [not null]
+  "provider" TEXT [not null, default: 'facebook']
+  "page_id" TEXT [not null]
+  "page_name" TEXT [not null]
+  "encrypted_token" TEXT [not null]
+  "encryption_iv" TEXT [not null]
+  "auth_tag" TEXT [not null]
+  "is_valid" BOOLEAN [not null, default: true]
+  "connected_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "last_tested_at" TIMESTAMP(3)
+  "expires_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "social_connections_pkey"]
+    user_id [unique, name: "social_connections_user_id_key"]
+  }
+}
+
+Table "intelligence_runs" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "status" TEXT [not null]
+  "search_mode" TEXT [not null]
+  "started_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "completed_at" TIMESTAMP(3)
+  "duration_ms" INTEGER
+  "error_code" TEXT
+  "error_message" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "intelligence_runs_pkey"]
+    session_id [name: "intelligence_runs_session_id_idx"]
+    status [name: "intelligence_runs_status_idx"]
+  }
+}
+
+Table "source_refs" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "intelligence_run_id" UUID
+  "source_type" TEXT [not null]
+  "platform" TEXT
+  "url" TEXT
+  "title" TEXT
+  "snippet" TEXT
+  "fetched_at" TIMESTAMP(3)
+  "confidence" DECIMAL(4,3) [not null, default: 0.5]
+  "metadata" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "source_refs_pkey"]
+    session_id [name: "source_refs_session_id_idx"]
+    confidence [name: "source_refs_confidence_idx"]
+    url [name: "source_refs_url_idx"]
+  }
+}
+
+Table "research_observations" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "source_ref_id" UUID
+  "kind" TEXT [not null]
+  "statement" TEXT [not null]
+  "confidence" DECIMAL(4,3) [not null, default: 0.5]
+  "visibility" TEXT [not null, default: 'internal']
+  "status" TEXT [not null, default: 'accepted']
+  "discard_reason" TEXT
+  "metadata" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "research_observations_pkey"]
+    (session_id, status) [name: "research_observations_session_id_status_idx"]
+    kind [name: "research_observations_kind_idx"]
+  }
+}
+
+Table "conversation_hooks" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "source_observation_id" UUID
+  "hook_text" TEXT [not null]
+  "language" TEXT [not null, default: 'mixed']
+  "status" TEXT [not null, default: 'active']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "conversation_hooks_pkey"]
+    (session_id, status) [name: "conversation_hooks_session_id_status_idx"]
+  }
+}
+
+Table "knowledge_gaps" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "field_key" TEXT [not null]
+  "question_hint" TEXT [not null]
+  "priority" INTEGER [not null, default: 3]
+  "status" TEXT [not null, default: 'open']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "knowledge_gaps_pkey"]
+    (session_id, status, priority) [name: "knowledge_gaps_session_id_status_priority_idx"]
+  }
+}
+
+Table "discovery_messages" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "role" TEXT [not null]
+  "content" TEXT [not null]
+  "language" TEXT [not null, default: 'mixed']
+  "source" TEXT [not null, default: 'chat']
+  "metadata" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "discovery_messages_pkey"]
+    (session_id, created_at) [name: "discovery_messages_session_id_created_at_idx"]
+  }
+}
+
+Table "business_profile_drafts" {
+  "id" UUID [not null]
+  "session_id" UUID [not null]
+  "business_id" UUID
+  "version" INTEGER [not null, default: 1]
+  "status" TEXT [not null, default: 'draft']
+  "completeness" TEXT [not null, default: 'incomplete']
+  "completion_reason" TEXT [not null, default: 'owner_finished_early']
+  "readiness" JSONB [not null, default: '{}']
+  "confirmed_facts" JSONB [not null, default: '{}']
+  "research_observations" JSONB [not null, default: '[]']
+  "uncertainties" JSONB [not null, default: '[]']
+  "owner_goals" JSONB [not null, default: '[]']
+  "strategy_relevant_notes" JSONB [not null, default: '[]']
+  "raw_ai_output" JSONB [not null, default: '{}']
+  "created_by_agent_run_id" UUID
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "business_profile_drafts_pkey"]
+    (session_id, status) [name: "business_profile_drafts_session_id_status_idx"]
+    (session_id, version) [unique, name: "business_profile_drafts_session_id_version_key"]
+  }
+}
+
+Table "business_profile_versions" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "draft_id" UUID
+  "version" INTEGER [not null]
+  "profile" JSONB [not null]
+  "confirmed_by_user_id" UUID [not null]
+  "confirmed_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "business_profile_versions_pkey"]
+    business_id [name: "business_profile_versions_business_id_idx"]
+    (business_id, version) [unique, name: "business_profile_versions_business_id_version_key"]
+  }
+}
+
+Table "agent_runs" {
+  "id" UUID [not null]
+  "session_id" UUID
+  "run_type" TEXT [not null]
+  "provider_mode" TEXT [not null]
+  "model_name" TEXT
+  "prompt_version" TEXT [not null]
+  "status" TEXT [not null]
+  "input_hash" TEXT
+  "input_tokens" INTEGER
+  "output_tokens" INTEGER
+  "latency_ms" INTEGER
+  "output_json" JSONB [not null, default: '{}']
+  "error_code" TEXT
+  "error_message" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "agent_runs_pkey"]
+    session_id [name: "agent_runs_session_id_idx"]
+    (run_type, status) [name: "agent_runs_run_type_status_idx"]
+    created_at [name: "agent_runs_created_at_idx"]
+  }
+}
+
+Table "orchestration_runs" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "owner_user_id" UUID [not null]
+  "contract_version" TEXT [not null]
+  "graph_name" TEXT [not null]
+  "graph_version" TEXT [not null]
+  "status" TEXT [not null]
+  "current_role" TEXT
+  "current_stage" TEXT [not null]
+  "feature_cohort" TEXT [not null]
+  "checkpoint_thread_id" TEXT [not null]
+  "checkpoint_version" INTEGER
+  "immutable_input_refs" JSONB [not null, default: '{}']
+  "output_refs" JSONB [not null, default: '{}']
+  "bounds" JSONB [not null, default: '{}']
+  "correlation_id" TEXT [not null]
+  "idempotency_key" TEXT [not null]
+  "idempotency_fingerprint" TEXT [not null]
+  "terminal_error" JSONB
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "orchestration_runs_pkey"]
+    checkpoint_thread_id [unique, name: "orchestration_runs_checkpoint_thread_id_key"]
+    (business_id, status) [name: "orchestration_runs_business_id_status_idx"]
+    (owner_user_id, status) [name: "orchestration_runs_owner_user_id_status_idx"]
+    (owner_user_id, idempotency_key) [unique, name: "orchestration_runs_owner_user_id_idempotency_key_key"]
+  }
+}
+
+Table "orchestration_events" {
+  "id" UUID [not null]
+  "run_id" UUID [not null]
+  "seq" INTEGER [not null]
+  "contract_version" TEXT [not null]
+  "event_type" TEXT [not null]
+  "status" TEXT [not null]
+  "current_role" TEXT
+  "current_stage" TEXT [not null]
+  "node" TEXT
+  "tool" TEXT
+  "summary" TEXT [not null]
+  "payload" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "orchestration_events_pkey"]
+    (run_id, created_at) [name: "orchestration_events_run_id_created_at_idx"]
+    (run_id, seq) [unique, name: "orchestration_events_run_id_seq_key"]
+  }
+}
+
+Table "discovery_progress_events" {
+  "id" BIGSERIAL [not null, increment]
+  "session_id" UUID [not null]
+  "seq" INTEGER [not null]
+  "stage" TEXT [not null]
+  "status" TEXT [not null]
+  "message_key" TEXT [not null]
+  "message_text" TEXT [not null]
+  "payload" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "discovery_progress_events_pkey"]
+    (session_id, created_at) [name: "discovery_progress_events_session_id_created_at_idx"]
+    (session_id, seq) [unique, name: "discovery_progress_events_session_id_seq_key"]
+  }
+}
+
+Table "action_tokens" {
+  "id" UUID [not null]
+  "user_id" UUID [not null]
+  "type" ActionTokenType [not null]
+  "token_hash" TEXT [not null]
+  "expires_at" TIMESTAMP(3) [not null]
+  "consumed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "action_tokens_pkey"]
+    token_hash [unique, name: "action_tokens_token_hash_key"]
+    (user_id, type) [name: "action_tokens_user_id_type_idx"]
+    expires_at [name: "action_tokens_expires_at_idx"]
+  }
+}
+
+Table "federated_identities" {
+  "id" UUID [not null]
+  "user_id" UUID [not null]
+  "provider" TEXT [not null]
+  "provider_subject" TEXT [not null]
+  "email" TEXT
+  "display_name" TEXT
+  "avatar_url" TEXT
+  "raw_profile" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "federated_identities_pkey"]
+    user_id [name: "federated_identities_user_id_idx"]
+    (provider, provider_subject) [unique, name: "federated_identities_provider_provider_subject_key"]
+  }
+}
+
+Table "audit_logs" {
+  "id" UUID [not null]
+  "actor_user_id" UUID [not null]
+  "actor_email" TEXT
+  "action" TEXT [not null]
+  "target_type" TEXT [not null]
+  "target_id" TEXT
+  "reason" TEXT
+  "before_state" JSONB
+  "after_state" JSONB
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "audit_logs_pkey"]
+    action [name: "audit_logs_action_idx"]
+    actor_user_id [name: "audit_logs_actor_user_id_idx"]
+    (target_type, target_id) [name: "audit_logs_target_type_target_id_idx"]
+    created_at [name: "audit_logs_created_at_idx"]
+  }
+}
+
+Table "marketing_knowledge_entries" {
+  "id" UUID [not null]
+  "slug" TEXT [not null]
+  "latest_version" INTEGER [not null, default: 0]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_entries_pkey"]
+    slug [unique, name: "marketing_knowledge_entries_slug_key"]
+  }
+}
+
+Table "marketing_knowledge_entry_versions" {
+  "id" UUID [not null]
+  "entry_id" UUID [not null]
+  "version" INTEGER [not null]
+  "kind" TEXT [not null]
+  "title" TEXT [not null]
+  "title_ar" TEXT
+  "summary" TEXT [not null]
+  "body" TEXT [not null]
+  "locale" TEXT [not null]
+  "markets" "TEXT[]"
+  "industries" "TEXT[]"
+  "business_models" "TEXT[]"
+  "objectives" "TEXT[]"
+  "funnel_stages" "TEXT[]"
+  "channels" "TEXT[]"
+  "seasons" "TEXT[]"
+  "budget_modes" "TEXT[]"
+  "evidence_tier" TEXT [not null]
+  "review_status" TEXT [not null, default: 'draft']
+  "effective_at" TIMESTAMP(3) [not null]
+  "expires_at" TIMESTAMP(3)
+  "author" TEXT [not null]
+  "reviewer" TEXT
+  "reviewed_at" TIMESTAMP(3)
+  "checksum" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_entry_versions_pkey"]
+    (review_status, effective_at, expires_at) [name: "marketing_knowledge_entry_versions_review_status_effective__idx"]
+    kind [name: "marketing_knowledge_entry_versions_kind_idx"]
+    locale [name: "marketing_knowledge_entry_versions_locale_idx"]
+    evidence_tier [name: "marketing_knowledge_entry_versions_evidence_tier_idx"]
+    markets [type: gin, name: "marketing_knowledge_entry_versions_markets_idx"]
+    industries [type: gin, name: "marketing_knowledge_entry_versions_industries_idx"]
+    business_models [type: gin, name: "marketing_knowledge_entry_versions_business_models_idx"]
+    objectives [type: gin, name: "marketing_knowledge_entry_versions_objectives_idx"]
+    funnel_stages [type: gin, name: "marketing_knowledge_entry_versions_funnel_stages_idx"]
+    channels [type: gin, name: "marketing_knowledge_entry_versions_channels_idx"]
+    seasons [type: gin, name: "marketing_knowledge_entry_versions_seasons_idx"]
+    budget_modes [type: gin, name: "marketing_knowledge_entry_versions_budget_modes_idx"]
+    (entry_id, version) [unique, name: "marketing_knowledge_entry_versions_entry_id_version_key"]
+  }
+}
+
+Table "marketing_knowledge_source_refs" {
+  "id" UUID [not null]
+  "entry_version_id" UUID [not null]
+  "reference" TEXT [not null]
+  "note" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_source_refs_pkey"]
+    entry_version_id [name: "marketing_knowledge_source_refs_entry_version_id_idx"]
+    (entry_version_id, reference) [unique, name: "marketing_knowledge_source_refs_entry_version_id_reference_key"]
+  }
+}
+
+Table "marketing_knowledge_chunks" {
+  "id" UUID [not null]
+  "chunk_id" UUID [not null]
+  "entry_version_id" UUID [not null]
+  "chunk_order" INTEGER [not null]
+  "text" TEXT [not null]
+  "token_count" INTEGER [not null]
+  "checksum" TEXT [not null]
+  "embedding_provider" TEXT [not null]
+  "embedding_model" TEXT [not null]
+  "embedding_dimensions" INTEGER [not null]
+  "embedding_version" TEXT [not null]
+  "qdrant_point_id" UUID
+  "qdrant_collection_name" TEXT
+  "indexed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_chunks_pkey"]
+    chunk_id [unique, name: "marketing_knowledge_chunks_chunk_id_key"]
+    entry_version_id [name: "marketing_knowledge_chunks_entry_version_id_idx"]
+    chunk_id [name: "marketing_knowledge_chunks_chunk_id_idx"]
+    (entry_version_id, chunk_order) [unique, name: "marketing_knowledge_chunks_entry_version_id_chunk_order_key"]
+    (checksum, embedding_provider, embedding_model, embedding_dimensions, embedding_version) [unique, name: "marketing_knowledge_chunks_checksum_embedding_provider_embe_key"]
+  }
+}
+
+Table "marketing_knowledge_ingestion_runs" {
+  "id" UUID [not null]
+  "status" TEXT [not null, default: 'pending']
+  "actor" TEXT [not null]
+  "commit_sha" TEXT
+  "configuration" JSONB [not null, default: '{}']
+  "entered_count" INTEGER [not null, default: 0]
+  "updated_count" INTEGER [not null, default: 0]
+  "skipped_count" INTEGER [not null, default: 0]
+  "failed_count" INTEGER [not null, default: 0]
+  "started_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "finished_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_ingestion_runs_pkey"]
+    (status, started_at) [name: "marketing_knowledge_ingestion_runs_status_started_at_idx"]
+  }
+}
+
+Table "marketing_knowledge_ingestion_errors" {
+  "id" UUID [not null]
+  "run_id" UUID [not null]
+  "slug" TEXT
+  "version" INTEGER
+  "error_code" TEXT [not null]
+  "error_message" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "marketing_knowledge_ingestion_errors_pkey"]
+    run_id [name: "marketing_knowledge_ingestion_errors_run_id_idx"]
+  }
+}
+
+Table "strategy_retrieval_runs" {
+  "id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "brief_id" UUID [not null]
+  "profile_version_id" UUID [not null]
+  "query_summary" TEXT [not null]
+  "query_context" JSONB [not null]
+  "configuration" JSONB [not null, default: '{}']
+  "status" TEXT [not null, default: 'pending']
+  "item_count" INTEGER [not null, default: 0]
+  "gap_count" INTEGER [not null, default: 0]
+  "latency_ms" INTEGER [not null, default: 0]
+  "started_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "finished_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "strategy_retrieval_runs_pkey"]
+    (strategy_id, created_at) [name: "strategy_retrieval_runs_strategy_id_created_at_idx"]
+  }
+}
+
+Table "strategy_retrieval_items" {
+  "id" UUID [not null]
+  "run_id" UUID [not null]
+  "chunk_id" UUID [not null]
+  "entry_id" UUID [not null]
+  "entry_version" INTEGER [not null]
+  "title" TEXT [not null]
+  "excerpt" TEXT [not null]
+  "kind" TEXT [not null]
+  "tags" JSONB [not null, default: '{}']
+  "relevance_score" DOUBLEPRECISION [not null]
+  "evidence_tier" TEXT [not null]
+  "source_references" "TEXT[]"
+  "effective_at" TIMESTAMP(3) [not null]
+  "expires_at" TIMESTAMP(3)
+  "review_status" TEXT [not null]
+  "market_tier" TEXT [not null]
+  "is_fallback" BOOLEAN [not null, default: false]
+  "fallback_label" TEXT
+  "category" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "strategy_retrieval_items_pkey"]
+    run_id [name: "strategy_retrieval_items_run_id_idx"]
+    chunk_id [name: "strategy_retrieval_items_chunk_id_idx"]
+  }
+}
+
+Table "strategy_retrieval_gaps" {
+  "id" UUID [not null]
+  "run_id" UUID [not null]
+  "category" TEXT [not null]
+  "description" TEXT [not null]
+  "severity" TEXT [not null]
+
+  Indexes {
+    id [pk, name: "strategy_retrieval_gaps_pkey"]
+    run_id [name: "strategy_retrieval_gaps_run_id_idx"]
+  }
+}
+
+Table "strategies" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "status" TEXT [not null, default: 'needs_brief']
+  "contract_version" TEXT [not null, default: 'strategy-v1']
+  "current_version_id" UUID
+  "owner_user_id" UUID [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "strategies_pkey"]
+    business_id [name: "strategies_business_id_idx"]
+    owner_user_id [name: "strategies_owner_user_id_idx"]
+  }
+}
+
+Table "strategy_briefs" {
+  "id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "business_profile_version_id" UUID [not null]
+  "primary_objective" TEXT [not null]
+  "start_date" TIMESTAMP(3) [not null]
+  "plan_language" TEXT [not null]
+  "paid_media_allowed" BOOLEAN [not null]
+  "external_budget_mode" TEXT [not null]
+  "external_budget_egp" JSONB
+  "team_capacity" TEXT
+  "weekly_capacity" TEXT
+  "weekly_capacity_note" TEXT
+  "channel_choices" JSONB
+  "constraints" TEXT
+  "clarification_answers" JSONB
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "strategy_briefs_pkey"]
+    strategy_id [unique, name: "strategy_briefs_strategy_id_key"]
+  }
+}
+
+Table "strategy_versions" {
+  "id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "version" INTEGER [not null]
+  "retrieval_run_id" UUID
+  "prompt_config" JSONB [not null, default: '{}']
+  "plan_data" JSONB [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "strategy_versions_pkey"]
+    (strategy_id, version) [unique, name: "strategy_versions_strategy_id_version_key"]
+  }
+}
+
+Table "strategy_decisions" {
+  "id" UUID [not null]
+  "strategy_version_id" UUID [not null]
+  "owner_user_id" UUID [not null]
+  "action" TEXT [not null]
+  "feedback" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "strategy_decisions_pkey"]
+  }
+}
+
+Table "strategy_progress_events" {
+  "id" BIGSERIAL [not null, increment]
+  "strategy_id" UUID [not null]
+  "seq" INTEGER [not null]
+  "stage" TEXT [not null]
+  "status" TEXT [not null]
+  "message_key" TEXT [not null]
+  "message_text" TEXT [not null]
+  "payload" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "strategy_progress_events_pkey"]
+    (strategy_id, created_at) [name: "strategy_progress_events_strategy_id_created_at_idx"]
+    (strategy_id, seq) [unique, name: "strategy_progress_events_strategy_id_seq_key"]
+  }
+}
+
+Table "content_cycles" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "business_id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "strategy_version" INTEGER [not null]
+  "strategy_decision_id" UUID [not null]
+  "profile_version_id" UUID [not null]
+  "status" TEXT [not null, default: 'active']
+  "current_week_number" INTEGER [not null, default: 1]
+  "week_1_start_date" DATE [not null]
+  "next_generation_at" TIMESTAMP(3)
+  "timezone" TEXT [not null, default: 'Africa/Cairo']
+  "pause_reason" TEXT
+  "completed_at" TIMESTAMP(3)
+  "owner_user_id" UUID [not null]
+  "idempotency_key" TEXT
+  "idempotency_fingerprint" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_cycles_pkey"]
+    business_id [name: "content_cycles_business_id_idx"]
+    (strategy_id, strategy_version) [name: "content_cycles_strategy_id_strategy_version_idx"]
+    (owner_user_id, idempotency_key) [unique, name: "content_cycles_owner_user_id_idempotency_key_key"]
+  }
+}
+
+Table "content_week_contexts" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v1']
+  "content_cycle_id" UUID [not null]
+  "week_number" INTEGER [not null]
+  "week_start_date" DATE [not null]
+  "promotion_mode" TEXT [not null]
+  "promotion" JSONB
+  "must_include" JSONB [not null, default: '[]']
+  "must_avoid" JSONB [not null, default: '[]']
+  "approved_asset_ids" JSONB [not null, default: '[]']
+  "cta_destination" JSONB
+  "generation_cutoff_at" TIMESTAMP(3) [not null]
+  "weekly_claim_id" UUID [not null]
+  "context_source" TEXT [not null]
+  "confirmed_by_user_id" UUID
+  "confirmed_at" TIMESTAMP(3)
+  "system_defaulted_at" TIMESTAMP(3)
+  "frozen_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_week_contexts_pkey"]
+    content_cycle_id [name: "content_week_contexts_content_cycle_id_idx"]
+    (content_cycle_id, week_number) [unique, name: "content_week_contexts_content_cycle_id_week_number_key"]
+  }
+}
+
+Table "content_packs" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v1']
+  "content_cycle_id" UUID [not null]
+  "weekly_claim_id" UUID [not null]
+  "week_number" INTEGER [not null]
+  "business_id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "strategy_version" INTEGER [not null]
+  "strategy_decision_id" UUID [not null]
+  "profile_version_id" UUID [not null]
+  "week_context_id" UUID [not null]
+  "status" TEXT [not null, default: 'queued']
+  "retry_eligible" BOOLEAN [not null, default: true]
+  "item_ids" JSONB [not null, default: '[]']
+  "week_plan_id" UUID
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_packs_pkey"]
+    content_cycle_id [name: "content_packs_content_cycle_id_idx"]
+    status [name: "content_packs_status_idx"]
+    (content_cycle_id, week_number) [unique, name: "content_packs_content_cycle_id_week_number_key"]
+  }
+}
+
+Table "content_items" {
+  "id" UUID [not null]
+  "content_pack_id" UUID [not null]
+  "current_version_id" UUID
+  "status" TEXT [not null, default: 'draft']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_items_pkey"]
+    content_pack_id [name: "content_items_content_pack_id_idx"]
+  }
+}
+
+Table "content_item_versions" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v1']
+  "content_item_id" UUID [not null]
+  "content_pack_id" UUID [not null]
+  "version" INTEGER [not null]
+  "channel" TEXT [not null]
+  "format" TEXT [not null]
+  "language_mode" TEXT [not null]
+  "strategy_trace" JSONB [not null]
+  "caption_variants" JSONB [not null]
+  "cta" TEXT
+  "hashtags" JSONB [not null]
+  "creative_brief" TEXT [not null]
+  "alt_text" TEXT [not null]
+  "short_video_script" JSONB
+  "recommended_publish_window" JSONB [not null]
+  "claim_sources" JSONB [not null]
+  "warnings" JSONB [not null]
+  "blockers" JSONB [not null]
+  "asset_required" BOOLEAN [not null]
+  "asset_ids" JSONB [not null]
+  "generation_provenance" JSONB [not null]
+  "version_checksum" TEXT [not null]
+  "edit_kind" TEXT
+  "base_version_id" UUID
+  "base_version_checksum" TEXT
+  "edited_by_user_id" UUID
+  "validation_state" TEXT
+  "edited_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_item_versions_pkey"]
+    content_pack_id [name: "content_item_versions_content_pack_id_idx"]
+    (content_item_id, version) [unique, name: "content_item_versions_content_item_id_version_key"]
+  }
+}
+
+Table "content_assets" {
+  "id" UUID [not null]
+  "content_item_version_id" UUID
+  "kind" TEXT [not null]
+  "status" TEXT [not null]
+  "mime_type" TEXT
+  "width" INTEGER
+  "height" INTEGER
+  "storage_key" TEXT
+  "checksum" TEXT
+  "alt_text" TEXT [not null]
+  "provider_name" TEXT
+  "provider_model" TEXT
+  "provider_request_id" TEXT
+  "failure_code" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_assets_pkey"]
+    content_item_version_id [name: "content_assets_content_item_version_id_idx"]
+    checksum [name: "content_assets_checksum_idx"]
+  }
+}
+
+Table "content_item_version_assets" {
+  "content_item_version_id" UUID [not null]
+  "asset_id" UUID [not null]
+
+  Indexes {
+    (content_item_version_id, asset_id) [pk, name: "content_item_version_assets_pkey"]
+    asset_id [name: "content_item_version_assets_asset_id_idx"]
+  }
+}
+
+Table "content_editorial_profiles" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "content_cycle_id" UUID [not null]
+  "audience_nuance" TEXT [not null]
+  "voice" TEXT [not null]
+  "language" TEXT [not null, default: 'ar-EG']
+  "writing_guardrails" JSONB [not null, default: '[]']
+  "default_visual_guidance" TEXT
+  "tone_preset" TEXT [not null, default: 'recommended']
+  "length_preset" TEXT [not null, default: 'balanced']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_editorial_profiles_pkey"]
+    content_cycle_id [unique, name: "content_editorial_profiles_content_cycle_id_key"]
+  }
+}
+
+Table "content_cta_library_entries" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "content_cycle_id" UUID [not null]
+  "label" TEXT [not null]
+  "destination" JSONB [not null]
+  "campaign_context" TEXT
+  "active" BOOLEAN [not null, default: true]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_cta_library_entries_pkey"]
+    content_cycle_id [name: "content_cta_library_entries_content_cycle_id_idx"]
+  }
+}
+
+Table "content_media_library_entries" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "business_id" UUID [not null]
+  "content_cycle_id" UUID [not null]
+  "owner_user_id" UUID [not null]
+  "kind" TEXT [not null]
+  "status" TEXT [not null]
+  "mime_type" TEXT
+  "size_bytes" INTEGER
+  "width" INTEGER
+  "height" INTEGER
+  "checksum" TEXT
+  "storage_key" TEXT
+  "failure_code" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_media_library_entries_pkey"]
+    business_id [name: "content_media_library_entries_business_id_idx"]
+    content_cycle_id [name: "content_media_library_entries_content_cycle_id_idx"]
+  }
+}
+
+Table "content_week_plans" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "content_cycle_id" UUID [not null]
+  "week_number" INTEGER [not null]
+  "status" TEXT [not null, default: 'draft']
+  "frozen_input" JSONB
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_week_plans_pkey"]
+    (content_cycle_id, week_number) [unique, name: "content_week_plans_content_cycle_id_week_number_key"]
+  }
+}
+
+Table "content_post_plans" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v2']
+  "content_week_plan_id" UUID [not null]
+  "position" INTEGER [not null]
+  "purpose" TEXT [not null]
+  "intended_audience" TEXT
+  "channel" TEXT [not null]
+  "format" TEXT [not null]
+  "cta_library_entry_id" UUID
+  "owner_instructions" TEXT
+  "visual_direction" TEXT
+  "selected_media_ids" JSONB [not null, default: '[]']
+  "plan_state" TEXT [not null, default: 'planned']
+  "source" TEXT [not null]
+  "content_item_id" UUID
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_post_plans_pkey"]
+    content_week_plan_id [name: "content_post_plans_content_week_plan_id_idx"]
+    (content_week_plan_id, position) [unique, name: "content_post_plans_content_week_plan_id_position_key"]
+  }
+}
+
+Table "content_generation_runs" {
+  "id" UUID [not null]
+  "content_pack_id" UUID [not null]
+  "content_cycle_id" UUID [not null]
+  "week_number" INTEGER [not null]
+  "run_type" TEXT [not null]
+  "status" TEXT [not null]
+  "provider_name" TEXT
+  "provider_model" TEXT
+  "input_hash" TEXT
+  "latency_ms" INTEGER
+  "error_code" TEXT
+  "error_message" TEXT
+  "started_at" TIMESTAMP(3) [not null]
+  "finished_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_generation_runs_pkey"]
+    content_pack_id [name: "content_generation_runs_content_pack_id_idx"]
+    status [name: "content_generation_runs_status_idx"]
+  }
+}
+
+Table "content_progress_events" {
+  "id" BIGSERIAL [not null, increment]
+  "content_pack_id" UUID [not null]
+  "seq" INTEGER [not null]
+  "stage" TEXT [not null]
+  "status" TEXT [not null]
+  "message_key" TEXT [not null]
+  "message_text" TEXT [not null]
+  "payload" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_progress_events_pkey"]
+    (content_pack_id, created_at) [name: "content_progress_events_content_pack_id_created_at_idx"]
+    (content_pack_id, seq) [unique, name: "content_progress_events_content_pack_id_seq_key"]
+  }
+}
+
+Table "content_decisions" {
+  "id" UUID [not null]
+  "content_item_id" UUID [not null]
+  "content_item_version_id" UUID [not null]
+  "content_item_version" INTEGER [not null]
+  "content_item_version_checksum" TEXT [not null]
+  "decision" TEXT [not null]
+  "revision_notes" TEXT
+  "decided_by_user_id" UUID [not null]
+  "decided_at" TIMESTAMP(3) [not null]
+  "owner_user_id" UUID [not null]
+  "idempotency_key" TEXT
+  "request_fingerprint" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "content_decisions_pkey"]
+    content_item_id [name: "content_decisions_content_item_id_idx"]
+    (owner_user_id, idempotency_key) [unique, name: "content_decisions_owner_user_id_idempotency_key_key"]
+    content_item_version_id [unique, name: "content_decisions_content_item_version_id_key"]
+  }
+}
+
+Table "publication_candidates" {
+  "id" UUID [not null]
+  "candidate_id" UUID [not null]
+  "business_id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'content-v1']
+  "payload" JSONB [not null]
+  "candidate_checksum" TEXT [not null]
+  "content_cycle_id" UUID [not null]
+  "content_pack_id" UUID [not null]
+  "content_item_id" UUID [not null]
+  "content_item_version_id" UUID [not null]
+  "content_item_version" INTEGER [not null]
+  "state" TEXT [not null, default: 'active']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publication_candidates_pkey"]
+    candidate_id [unique, name: "publication_candidates_candidate_id_key"]
+    business_id [name: "publication_candidates_business_id_idx"]
+    content_item_version_id [name: "publication_candidates_content_item_version_id_idx"]
+    content_item_version_id [unique, name: "publication_candidates_content_item_version_id_key"]
+  }
+}
+
+Table "publication_candidate_statuses" {
+  "id" BIGSERIAL [not null, increment]
+  "candidate_id" UUID [not null]
+  "candidate_checksum" TEXT [not null]
+  "state_version" INTEGER [not null]
+  "candidate_state" TEXT [not null]
+  "replacement_candidate_id" UUID
+  "changed_by_user_id" UUID
+  "changed_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publication_candidate_statuses_pkey"]
+    candidate_id [name: "publication_candidate_statuses_candidate_id_idx"]
+    (candidate_id, state_version) [unique, name: "publication_candidate_statuses_candidate_id_state_version_key"]
+  }
+}
+
+Table "publication_candidate_outbox" {
+  "id" BIGSERIAL [not null, increment]
+  "event_id" UUID [not null]
+  "event_type" TEXT [not null]
+  "correlation_id" UUID [not null]
+  "candidate_id" UUID [not null]
+  "payload" JSONB [not null]
+  "state" TEXT [not null, default: 'pending']
+  "attempts" INTEGER [not null, default: 0]
+  "lease_owner" TEXT
+  "lease_expires_at" TIMESTAMP(3)
+  "last_error" TEXT
+  "next_attempt_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "dispatched_at" TIMESTAMP(3)
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publication_candidate_outbox_pkey"]
+    event_id [unique, name: "publication_candidate_outbox_event_id_key"]
+    (state, next_attempt_at) [name: "publication_candidate_outbox_state_next_attempt_at_idx"]
+    lease_expires_at [name: "publication_candidate_outbox_lease_expires_at_idx"]
+    candidate_id [name: "publication_candidate_outbox_candidate_id_idx"]
+  }
+}
+
+Table "content_job_outbox" {
+  "id" UUID [not null]
+  "job_id" TEXT [not null]
+  "queue_name" TEXT [not null]
+  "job_name" TEXT [not null]
+  "payload" JSONB [not null]
+  "state" TEXT [not null, default: 'pending']
+  "attempts" INTEGER [not null, default: 0]
+  "lease_owner" TEXT
+  "lease_expires_at" TIMESTAMP(3)
+  "next_attempt_at" TIMESTAMP(3)
+  "last_error" TEXT
+  "dispatched_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "content_job_outbox_pkey"]
+    job_id [unique, name: "content_job_outbox_job_id_key"]
+    (state, next_attempt_at) [name: "content_job_outbox_state_next_attempt_at_idx"]
+    lease_expires_at [name: "content_job_outbox_lease_expires_at_idx"]
+  }
+}
+
+Table "publishing_candidates" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "external_content_id" TEXT [not null]
+  "candidate_checksum" TEXT [not null]
+  "event_fingerprint" TEXT [not null]
+  "event_id" UUID [not null]
+  "status" PublishingCandidateStatus [not null, default: 'ACTIVE']
+  "source_status" JSONB [not null]
+  "payload" JSONB [not null]
+  "channel" TEXT [not null]
+  "format" TEXT [not null]
+  "locale" TEXT [not null, default: 'ar']
+  "strategy_week_number" INTEGER
+  "source_state_version" INTEGER [not null, default: 1]
+  "received_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "version" INTEGER [not null, default: 1]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publishing_candidates_pkey"]
+    (business_id, status) [name: "publishing_candidates_business_id_status_idx"]
+    (business_id, external_content_id, candidate_checksum) [unique, name: "publishing_candidates_business_id_external_content_id_candi_key"]
+    event_fingerprint [unique, name: "publishing_candidates_event_fingerprint_key"]
+  }
+}
+
+Table "publishing_targets" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "provider" PublishingTargetProvider [not null]
+  "channel" TEXT [not null]
+  "external_account_id" TEXT [not null]
+  "display_name" TEXT [not null]
+  "connection_state" PublishingTargetConnectionState [not null, default: 'CONNECTED']
+  "credential_ref" TEXT [not null]
+  "capabilities" JSONB [not null, default: '[]']
+  "last_verified_at" TIMESTAMP(3)
+  "expires_at" TIMESTAMP(3)
+  "version" INTEGER [not null, default: 1]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+  "connection_id" UUID
+
+  Indexes {
+    id [pk, name: "publishing_targets_pkey"]
+    (business_id, connection_state) [name: "publishing_targets_business_id_connection_state_idx"]
+    (business_id, provider, channel, external_account_id) [unique, name: "publishing_targets_business_id_provider_channel_external_ac_key"]
+  }
+}
+
+Table "publishing_credentials" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "provider" PublishingTargetProvider [not null]
+  "kind" TEXT [not null]
+  "key_version" TEXT [not null]
+  "ciphertext" TEXT [not null]
+  "provider_user_id" TEXT
+  "provider_account_id" TEXT
+  "expires_at" TIMESTAMP(3)
+  "revoked_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publishing_credentials_pkey"]
+    business_id [name: "publishing_credentials_business_id_idx"]
+    provider_account_id [name: "publishing_credentials_provider_account_id_idx"]
+  }
+}
+
+Table "publishing_provider_connections" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "user_id" UUID [not null]
+  "provider" PublishingTargetProvider [not null]
+  "provider_identity" TEXT [not null]
+  "display_name" TEXT [not null]
+  "external_account_id" TEXT [not null]
+  "state" PublishingConnectionState [not null, default: 'PENDING_SELECTION']
+  "requested_channel" TEXT
+  "requested_capability" TEXT [not null, default: 'static_image']
+  "locale" TEXT
+  "return_path" TEXT
+  "fingerprint" TEXT
+  "user_credential_ref" UUID
+  "expires_at" TIMESTAMP(3)
+  "version" INTEGER [not null, default: 1]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publishing_provider_connections_pkey"]
+    (business_id, state) [name: "publishing_provider_connections_business_id_state_idx"]
+    (business_id, provider, external_account_id) [unique, name: "publishing_provider_connections_business_id_provider_extern_key"]
+  }
+}
+
+Table "publishing_connection_audit" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "connection_id" UUID
+  "target_id" UUID
+  "actor_user_id" UUID [not null]
+  "action" TEXT [not null]
+  "detail" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publishing_connection_audit_pkey"]
+    (business_id, created_at) [name: "publishing_connection_audit_business_id_created_at_idx"]
+  }
+}
+
+Table "meta_oauth_states" {
+  "id" UUID [not null]
+  "state_hash" TEXT [not null]
+  "user_id" UUID [not null]
+  "business_id" UUID [not null]
+  "locale" TEXT
+  "return_path" TEXT
+  "requested_channel" TEXT
+  "requested_capability" TEXT [not null, default: 'static_image']
+  "fingerprint" TEXT
+  "expires_at" TIMESTAMP(3) [not null]
+  "consumed_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "meta_oauth_states_pkey"]
+    state_hash [unique, name: "meta_oauth_states_state_hash_key"]
+    business_id [name: "meta_oauth_states_business_id_idx"]
+    expires_at [name: "meta_oauth_states_expires_at_idx"]
+  }
+}
+
+Table "publishing_intents" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "candidate_id" UUID [not null]
+  "target_id" UUID
+  "mode" PublishingMode [not null, default: 'REAL']
+  "status" PublishingIntentStatus [not null, default: 'DRAFT']
+  "scheduled_local_at" TIMESTAMP(6)
+  "timezone" TEXT
+  "scheduled_utc_at" TIMESTAMPTZ(6)
+  "version" INTEGER [not null, default: 1]
+  "created_by_user_id" UUID [not null]
+  "idempotency_key" TEXT
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publishing_intents_pkey"]
+    (business_id, status) [name: "publishing_intents_business_id_status_idx"]
+    candidate_id [name: "publishing_intents_candidate_id_idx"]
+    scheduled_utc_at [name: "publishing_intents_scheduled_utc_at_idx"]
+  }
+}
+
+Table "publishing_approvals" {
+  "id" UUID [not null]
+  "intent_id" UUID [not null]
+  "intent_version_at_decision" INTEGER [not null]
+  "candidate_checksum" TEXT [not null]
+  "decision" PublishingApprovalDecision [not null]
+  "decided_by_user_id" UUID [not null]
+  "decided_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "notes" TEXT
+  "approval_fingerprint" TEXT [not null]
+  "idempotency_key" TEXT [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publishing_approvals_pkey"]
+    approval_fingerprint [unique, name: "publishing_approvals_approval_fingerprint_key"]
+    intent_id [name: "publishing_approvals_intent_id_idx"]
+    idempotency_key [name: "publishing_approvals_idempotency_key_idx"]
+  }
+}
+
+Table "publishing_attempts" {
+  "id" UUID [not null]
+  "intent_id" UUID [not null]
+  "intent_version" INTEGER [not null]
+  "attempt_sequence" INTEGER [not null]
+  "status" PublishingAttemptStatus [not null, default: 'QUEUED']
+  "workflow_version" TEXT
+  "provider_request_fingerprint" TEXT
+  "idempotency_key" TEXT [not null]
+  "n8n_execution_ref" TEXT
+  "sanitized_error" TEXT
+  "dispatched_at" TIMESTAMP(3)
+  "started_at" TIMESTAMP(3)
+  "finished_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "publishing_attempts_pkey"]
+    (intent_id, intent_version) [name: "publishing_attempts_intent_id_intent_version_idx"]
+    (status, created_at) [name: "publishing_attempts_status_created_at_idx"]
+    provider_request_fingerprint [name: "publishing_attempts_provider_request_fingerprint_idx"]
+    (intent_id, intent_version, attempt_sequence) [unique, name: "publishing_attempts_intent_id_intent_version_attempt_sequen_key"]
+    (intent_id, idempotency_key) [unique, name: "publishing_attempts_intent_id_idempotency_key_key"]
+  }
+}
+
+Table "publishing_results" {
+  "id" UUID [not null]
+  "attempt_id" UUID [not null]
+  "intent_id" UUID [not null]
+  "outcome" PublishingOutcome [not null]
+  "provider" TEXT
+  "remote_publication_id" TEXT
+  "remote_url" TEXT
+  "export_artifact_id" UUID
+  "simulation_label" TEXT
+  "error_code" TEXT
+  "retryable" BOOLEAN [not null, default: false]
+  "raw_payload_hash" TEXT
+  "sanitized_error" TEXT
+  "occurred_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publishing_results_pkey"]
+    attempt_id [unique, name: "publishing_results_attempt_id_key"]
+    intent_id [name: "publishing_results_intent_id_idx"]
+  }
+}
+
+Table "performance_sync_windows" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "publishing_result_id" UUID [not null]
+  "provider" VARCHAR(32) [not null, default: 'facebook']
+  "window" VARCHAR(3) [not null]
+  "due_at" TIMESTAMPTZ(6) [not null]
+  "state" VARCHAR(16) [not null, default: 'queued']
+  "attempt_count" INTEGER [not null, default: 0]
+  "next_attempt_at" TIMESTAMPTZ(6)
+  "lease_owner" VARCHAR(128)
+  "lease_expires_at" TIMESTAMPTZ(6)
+  "last_error_code" VARCHAR(64)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "performance_sync_windows_pkey"]
+    (business_id, state, due_at) [name: "performance_sync_windows_business_id_state_due_at_idx"]
+    (state, next_attempt_at) [name: "performance_sync_windows_state_next_attempt_at_idx"]
+    lease_expires_at [name: "performance_sync_windows_lease_expires_at_idx"]
+    publishing_result_id [name: "performance_sync_windows_publishing_result_id_idx"]
+    (publishing_result_id, window) [unique, name: "performance_sync_windows_publishing_result_id_window_key"]
+  }
+}
+
+Table "metric_snapshots" {
+  "id" UUID [not null]
+  "business_id" UUID [not null]
+  "publishing_result_id" UUID [not null]
+  "publishing_attempt_id" UUID [not null]
+  "publishing_intent_id" UUID [not null]
+  "candidate_id" UUID [not null]
+  "candidate_checksum" TEXT [not null]
+  "provider" VARCHAR(32) [not null, default: 'facebook']
+  "provider_object_id" TEXT [not null]
+  "window" VARCHAR(3) [not null]
+  "published_at" TIMESTAMPTZ(6) [not null]
+  "due_at" TIMESTAMPTZ(6) [not null]
+  "observed_at" TIMESTAMPTZ(6)
+  "fetched_at" TIMESTAMPTZ(6) [not null]
+  "graph_version" VARCHAR(32) [not null]
+  "metric_schema_version" VARCHAR(64) [not null, default: 'facebook-insights-v1']
+  "metrics" JSONB [not null]
+  "provider_metadata" JSONB [not null, default: '{}']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "metric_snapshots_pkey"]
+    (business_id, published_at) [name: "metric_snapshots_business_id_published_at_idx"]
+    (business_id, window, fetched_at) [name: "metric_snapshots_business_id_window_fetched_at_idx"]
+    (candidate_id, published_at) [name: "metric_snapshots_candidate_id_published_at_idx"]
+    publishing_intent_id [name: "metric_snapshots_publishing_intent_id_idx"]
+    publishing_attempt_id [name: "metric_snapshots_publishing_attempt_id_idx"]
+    (publishing_result_id, window) [unique, name: "metric_snapshots_publishing_result_id_window_key"]
+  }
+}
+
+Table "optimization_proposals" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'optimization-v1']
+  "business_id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "strategy_version" INTEGER [not null]
+  "content_cycle_id" UUID [not null]
+  "format_cohort" VARCHAR(64) [not null]
+  "basis_snapshot_ids" JSONB [not null]
+  "evidence_checksum" TEXT [not null]
+  "deterministic_comparison" JSONB [not null]
+  "change_kind" VARCHAR(32) [not null]
+  "summary" TEXT [not null]
+  "rationale" TEXT [not null]
+  "uncertainty" TEXT [not null]
+  "instruction" TEXT [not null]
+  "model_version" TEXT [not null]
+  "prompt_version" TEXT [not null]
+  "generation_fingerprint" TEXT [not null]
+  "status" VARCHAR(32) [not null, default: 'PENDING_OWNER_DECISION']
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "optimization_proposals_pkey"]
+    (business_id, status, created_at) [name: "optimization_proposals_business_id_status_created_at_idx"]
+    (content_cycle_id, strategy_id, strategy_version) [name: "optimization_proposals_content_cycle_id_strategy_id_strateg_idx"]
+    (business_id, generation_fingerprint) [unique, name: "optimization_proposals_business_id_generation_fingerprint_key"]
+  }
+}
+
+Table "optimization_decisions" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'optimization-decision-v1']
+  "proposal_id" UUID [not null]
+  "business_id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "strategy_version" INTEGER [not null]
+  "content_cycle_id" UUID [not null]
+  "format_cohort" VARCHAR(64) [not null]
+  "evidence_checksum" TEXT [not null]
+  "action" VARCHAR(16) [not null]
+  "owner_user_id" UUID [not null]
+  "idempotency_key" TEXT [not null]
+  "request_fingerprint" TEXT [not null]
+  "note" TEXT
+  "decided_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "optimization_decisions_pkey"]
+    proposal_id [unique, name: "optimization_decisions_proposal_id_key"]
+    (business_id, created_at) [name: "optimization_decisions_business_id_created_at_idx"]
+    (content_cycle_id, strategy_id, strategy_version) [name: "optimization_decisions_content_cycle_id_strategy_id_strateg_idx"]
+    (owner_user_id, idempotency_key) [unique, name: "optimization_decisions_owner_user_id_idempotency_key_key"]
+    (owner_user_id, request_fingerprint) [unique, name: "optimization_decisions_owner_user_id_request_fingerprint_key"]
+  }
+}
+
+Table "approved_optimization_instructions" {
+  "id" UUID [not null]
+  "contract_version" TEXT [not null, default: 'optimization-instruction-v1']
+  "proposal_id" UUID [not null]
+  "approved_decision_id" UUID [not null]
+  "business_id" UUID [not null]
+  "strategy_id" UUID [not null]
+  "strategy_version" INTEGER [not null]
+  "content_cycle_id" UUID [not null]
+  "format_cohort" VARCHAR(64) [not null]
+  "evidence_checksum" TEXT [not null]
+  "change_kind" VARCHAR(32) [not null]
+  "instruction" TEXT [not null]
+  "status" VARCHAR(32) [not null, default: 'PENDING_CONSUMPTION']
+  "consumed_content_pack_id" UUID
+  "consumed_week_plan_id" UUID
+  "approved_at" TIMESTAMP(3) [not null]
+  "consumed_at" TIMESTAMP(3)
+  "superseded_at" TIMESTAMP(3)
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP(3) [not null]
+
+  Indexes {
+    id [pk, name: "approved_optimization_instructions_pkey"]
+    proposal_id [unique, name: "approved_optimization_instructions_proposal_id_key"]
+    approved_decision_id [unique, name: "approved_optimization_instructions_approved_decision_id_key"]
+    consumed_content_pack_id [unique, name: "approved_optimization_instructions_consumed_content_pack_id_key"]
+    consumed_week_plan_id [unique, name: "approved_optimization_instructions_consumed_week_plan_id_key"]
+    (business_id, status, created_at) [name: "approved_optimization_instructions_business_id_status_creat_idx"]
+    (content_cycle_id, strategy_id, strategy_version, format_cohort, status) [name: "approved_optimization_instructions_content_cycle_id_strateg_idx"]
+  }
+}
+
+Table "publishing_callback_identities" {
+  "id" UUID [not null]
+  "attempt_id" UUID [not null]
+  "external_callback_id" TEXT [not null]
+  "signature_valid" BOOLEAN [not null]
+  "payload_hash" TEXT [not null]
+  "payload_timestamp" TIMESTAMP(3) [not null]
+  "outcome" TEXT [not null]
+  "received_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publishing_callback_identities_pkey"]
+    external_callback_id [unique, name: "publishing_callback_identities_external_callback_id_key"]
+    attempt_id [name: "publishing_callback_identities_attempt_id_idx"]
+  }
+}
+
+Table "publishing_export_metadata" {
+  "id" UUID [not null]
+  "intent_id" UUID [not null]
+  "export_type" TEXT [not null]
+  "destination_ref" TEXT [not null]
+  "checksum" TEXT [not null]
+  "manifest" JSONB
+  "exported_at" TIMESTAMP(3) [not null]
+  "created_at" TIMESTAMP(3) [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    id [pk, name: "publishing_export_metadata_pkey"]
+    intent_id [name: "publishing_export_metadata_intent_id_idx"]
+  }
+}
+
+Ref "refresh_sessions_user_id_fkey":"User"."id" <? "refresh_sessions"."user_id" [update: cascade, delete: cascade]
+
+Ref "role_permissions_role_id_fkey":"roles"."id" <? "role_permissions"."role_id" [update: cascade, delete: cascade]
+
+Ref "role_permissions_permission_id_fkey":"permissions"."id" <? "role_permissions"."permission_id" [update: cascade, delete: cascade]
+
+Ref "user_roles_user_id_fkey":"User"."id" <? "user_roles"."user_id" [update: cascade, delete: cascade]
+
+Ref "user_roles_role_id_fkey":"roles"."id" <? "user_roles"."role_id" [update: cascade, delete: cascade]
+
+Ref "businesses_owner_user_id_fkey":"User"."id" <? "businesses"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "billing_accounts_owner_user_id_fkey":"User"."id" <? "billing_accounts"."owner_user_id" [update: cascade, delete: cascade]
+
+Ref "billing_accounts_active_business_id_fkey":"businesses"."id" ?<? "billing_accounts"."active_business_id" [update: cascade, delete: set null]
+
+Ref "billing_point_balances_billing_account_id_fkey":"billing_accounts"."id" <? "billing_point_balances"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_point_ledger_billing_account_id_fkey":"billing_accounts"."id" <? "billing_point_ledger"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_subscriptions_billing_account_id_fkey":"billing_accounts"."id" <? "billing_subscriptions"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_subscriptions_price_id_fkey":"billing_prices"."id" <? "billing_subscriptions"."price_id" [update: cascade, delete: restrict]
+
+Ref "billing_checkout_attempts_billing_account_id_fkey":"billing_accounts"."id" <? "billing_checkout_attempts"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_checkout_attempts_price_id_fkey":"billing_prices"."id" <? "billing_checkout_attempts"."price_id" [update: cascade, delete: restrict]
+
+Ref "billing_payment_transactions_billing_account_id_fkey":"billing_accounts"."id" <? "billing_payment_transactions"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_payment_transactions_subscription_id_fkey":"billing_subscriptions"."id" ?<? "billing_payment_transactions"."subscription_id" [update: cascade, delete: set null]
+
+Ref "billing_payment_transactions_checkout_attempt_id_fkey":"billing_checkout_attempts"."id" ?<? "billing_payment_transactions"."checkout_attempt_id" [update: cascade, delete: set null]
+
+Ref "billing_provider_events_billing_account_id_fkey":"billing_accounts"."id" ?<? "billing_provider_events"."billing_account_id" [update: cascade, delete: set null]
+
+Ref "billing_usage_ledger_billing_account_id_fkey":"billing_accounts"."id" <? "billing_usage_ledger"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_provider_cost_ledger_billing_account_id_fkey":"billing_accounts"."id" <? "billing_provider_cost_ledger"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "billing_outbox_billing_account_id_fkey":"billing_accounts"."id" <? "billing_outbox"."billing_account_id" [update: cascade, delete: cascade]
+
+Ref "discovery_sessions_business_id_fkey":"businesses"."id" ?<? "discovery_sessions"."business_id" [update: cascade, delete: set null]
+
+Ref "discovery_sessions_owner_user_id_fkey":"User"."id" <? "discovery_sessions"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "prepared_discovery_intakes_session_id_fkey":"discovery_sessions"."id" <? "prepared_discovery_intakes"."session_id" [update: cascade, delete: cascade]
+
+Ref "social_links_session_id_fkey":"discovery_sessions"."id" <? "social_links"."session_id" [update: cascade, delete: cascade]
+
+Ref "social_links_business_id_fkey":"businesses"."id" ?<? "social_links"."business_id" [update: cascade, delete: set null]
+
+Ref "social_connections_user_id_fkey":"User"."id" <? "social_connections"."user_id" [update: cascade, delete: cascade]
+
+Ref "intelligence_runs_session_id_fkey":"discovery_sessions"."id" <? "intelligence_runs"."session_id" [update: cascade, delete: cascade]
+
+Ref "source_refs_session_id_fkey":"discovery_sessions"."id" <? "source_refs"."session_id" [update: cascade, delete: cascade]
+
+Ref "source_refs_intelligence_run_id_fkey":"intelligence_runs"."id" ?<? "source_refs"."intelligence_run_id" [update: cascade, delete: set null]
+
+Ref "research_observations_session_id_fkey":"discovery_sessions"."id" <? "research_observations"."session_id" [update: cascade, delete: cascade]
+
+Ref "research_observations_source_ref_id_fkey":"source_refs"."id" ?<? "research_observations"."source_ref_id" [update: cascade, delete: set null]
+
+Ref "conversation_hooks_session_id_fkey":"discovery_sessions"."id" <? "conversation_hooks"."session_id" [update: cascade, delete: cascade]
+
+Ref "conversation_hooks_source_observation_id_fkey":"research_observations"."id" ?<? "conversation_hooks"."source_observation_id" [update: cascade, delete: set null]
+
+Ref "knowledge_gaps_session_id_fkey":"discovery_sessions"."id" <? "knowledge_gaps"."session_id" [update: cascade, delete: cascade]
+
+Ref "discovery_messages_session_id_fkey":"discovery_sessions"."id" <? "discovery_messages"."session_id" [update: cascade, delete: cascade]
+
+Ref "business_profile_drafts_session_id_fkey":"discovery_sessions"."id" <? "business_profile_drafts"."session_id" [update: cascade, delete: cascade]
+
+Ref "business_profile_drafts_business_id_fkey":"businesses"."id" ?<? "business_profile_drafts"."business_id" [update: cascade, delete: set null]
+
+Ref "business_profile_drafts_created_by_agent_run_id_fkey":"agent_runs"."id" ?<? "business_profile_drafts"."created_by_agent_run_id" [update: cascade, delete: set null]
+
+Ref "business_profile_versions_business_id_fkey":"businesses"."id" <? "business_profile_versions"."business_id" [update: cascade, delete: restrict]
+
+Ref "business_profile_versions_draft_id_fkey":"business_profile_drafts"."id" ?<? "business_profile_versions"."draft_id" [update: cascade, delete: set null]
+
+Ref "business_profile_versions_confirmed_by_user_id_fkey":"User"."id" <? "business_profile_versions"."confirmed_by_user_id" [update: cascade, delete: restrict]
+
+Ref "agent_runs_session_id_fkey":"discovery_sessions"."id" ?<? "agent_runs"."session_id" [update: cascade, delete: set null]
+
+Ref "orchestration_runs_business_id_fkey":"businesses"."id" <? "orchestration_runs"."business_id" [update: cascade, delete: cascade]
+
+Ref "orchestration_runs_owner_user_id_fkey":"User"."id" <? "orchestration_runs"."owner_user_id" [update: cascade, delete: cascade]
+
+Ref "orchestration_events_run_id_fkey":"orchestration_runs"."id" <? "orchestration_events"."run_id" [update: cascade, delete: cascade]
+
+Ref "discovery_progress_events_session_id_fkey":"discovery_sessions"."id" <? "discovery_progress_events"."session_id" [update: cascade, delete: cascade]
+
+Ref "action_tokens_user_id_fkey":"User"."id" <? "action_tokens"."user_id" [update: cascade, delete: cascade]
+
+Ref "federated_identities_user_id_fkey":"User"."id" <? "federated_identities"."user_id" [update: cascade, delete: cascade]
+
+Ref "marketing_knowledge_entry_versions_entry_id_fkey":"marketing_knowledge_entries"."id" <? "marketing_knowledge_entry_versions"."entry_id" [update: cascade, delete: cascade]
+
+Ref "marketing_knowledge_source_refs_entry_version_id_fkey":"marketing_knowledge_entry_versions"."id" <? "marketing_knowledge_source_refs"."entry_version_id" [update: cascade, delete: cascade]
+
+Ref "marketing_knowledge_chunks_entry_version_id_fkey":"marketing_knowledge_entry_versions"."id" <? "marketing_knowledge_chunks"."entry_version_id" [update: cascade, delete: cascade]
+
+Ref "marketing_knowledge_ingestion_errors_run_id_fkey":"marketing_knowledge_ingestion_runs"."id" <? "marketing_knowledge_ingestion_errors"."run_id" [update: cascade, delete: cascade]
+
+Ref "strategy_retrieval_runs_strategy_id_fkey":"strategies"."id" <? "strategy_retrieval_runs"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "strategy_retrieval_runs_brief_id_fkey":"strategy_briefs"."id" <? "strategy_retrieval_runs"."brief_id" [update: cascade, delete: cascade]
+
+Ref "strategy_retrieval_runs_profile_version_id_fkey":"business_profile_versions"."id" <? "strategy_retrieval_runs"."profile_version_id" [update: cascade, delete: restrict]
+
+Ref "strategy_retrieval_items_run_id_fkey":"strategy_retrieval_runs"."id" <? "strategy_retrieval_items"."run_id" [update: cascade, delete: cascade]
+
+Ref "strategy_retrieval_gaps_run_id_fkey":"strategy_retrieval_runs"."id" <? "strategy_retrieval_gaps"."run_id" [update: cascade, delete: cascade]
+
+Ref "strategies_business_id_fkey":"businesses"."id" <? "strategies"."business_id" [update: cascade, delete: restrict]
+
+Ref "strategies_owner_user_id_fkey":"User"."id" <? "strategies"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "strategy_briefs_strategy_id_fkey":"strategies"."id" <? "strategy_briefs"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "strategy_briefs_business_profile_version_id_fkey":"business_profile_versions"."id" <? "strategy_briefs"."business_profile_version_id" [update: cascade, delete: restrict]
+
+Ref "strategy_versions_strategy_id_fkey":"strategies"."id" <? "strategy_versions"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "strategy_decisions_strategy_version_id_fkey":"strategy_versions"."id" <? "strategy_decisions"."strategy_version_id" [update: cascade, delete: cascade]
+
+Ref "strategy_decisions_owner_user_id_fkey":"User"."id" <? "strategy_decisions"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "strategy_progress_events_strategy_id_fkey":"strategies"."id" <? "strategy_progress_events"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "content_cycles_business_id_fkey":"businesses"."id" <? "content_cycles"."business_id" [update: cascade, delete: restrict]
+
+Ref "content_cycles_owner_user_id_fkey":"User"."id" <? "content_cycles"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "content_cycles_profile_version_id_fkey":"business_profile_versions"."id" <? "content_cycles"."profile_version_id" [update: cascade, delete: restrict]
+
+Ref "content_week_contexts_content_cycle_id_fkey":"content_cycles"."id" <? "content_week_contexts"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_week_contexts_confirmed_by_user_id_fkey":"User"."id" ?<? "content_week_contexts"."confirmed_by_user_id" [update: cascade, delete: set null]
+
+Ref "content_packs_content_cycle_id_fkey":"content_cycles"."id" <? "content_packs"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_packs_week_context_id_fkey":"content_week_contexts"."id" <? "content_packs"."week_context_id" [update: cascade, delete: cascade]
+
+Ref "content_packs_week_plan_id_fkey":"content_week_plans"."id" ?<? "content_packs"."week_plan_id" [update: cascade, delete: set null]
+
+Ref "content_packs_business_id_fkey":"businesses"."id" <? "content_packs"."business_id" [update: cascade, delete: restrict]
+
+Ref "content_packs_profile_version_id_fkey":"business_profile_versions"."id" <? "content_packs"."profile_version_id" [update: cascade, delete: restrict]
+
+Ref "content_items_content_pack_id_fkey":"content_packs"."id" <? "content_items"."content_pack_id" [update: cascade, delete: cascade]
+
+Ref "content_item_versions_content_item_id_fkey":"content_items"."id" <? "content_item_versions"."content_item_id" [update: cascade, delete: cascade]
+
+Ref "content_item_versions_content_pack_id_fkey":"content_packs"."id" <? "content_item_versions"."content_pack_id" [update: cascade, delete: cascade]
+
+Ref "content_assets_content_item_version_id_fkey":"content_item_versions"."id" ?<? "content_assets"."content_item_version_id" [update: cascade, delete: cascade]
+
+Ref "content_item_version_assets_content_item_version_id_fkey":"content_item_versions"."id" <? "content_item_version_assets"."content_item_version_id" [update: cascade, delete: cascade]
+
+Ref "content_item_version_assets_asset_id_fkey":"content_assets"."id" <? "content_item_version_assets"."asset_id" [update: cascade, delete: cascade]
+
+Ref "content_editorial_profiles_content_cycle_id_fkey":"content_cycles"."id" <? "content_editorial_profiles"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_cta_library_entries_content_cycle_id_fkey":"content_cycles"."id" <? "content_cta_library_entries"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_media_library_entries_business_id_fkey":"businesses"."id" <? "content_media_library_entries"."business_id" [update: cascade, delete: cascade]
+
+Ref "content_media_library_entries_content_cycle_id_fkey":"content_cycles"."id" <? "content_media_library_entries"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_media_library_entries_owner_user_id_fkey":"User"."id" <? "content_media_library_entries"."owner_user_id" [update: cascade, delete: cascade]
+
+Ref "content_week_plans_content_cycle_id_fkey":"content_cycles"."id" <? "content_week_plans"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_post_plans_content_week_plan_id_fkey":"content_week_plans"."id" <? "content_post_plans"."content_week_plan_id" [update: cascade, delete: cascade]
+
+Ref "content_generation_runs_content_pack_id_fkey":"content_packs"."id" <? "content_generation_runs"."content_pack_id" [update: cascade, delete: cascade]
+
+Ref "content_generation_runs_content_cycle_id_fkey":"content_cycles"."id" <? "content_generation_runs"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "content_progress_events_content_pack_id_fkey":"content_packs"."id" <? "content_progress_events"."content_pack_id" [update: cascade, delete: cascade]
+
+Ref "content_decisions_content_item_id_fkey":"content_items"."id" <? "content_decisions"."content_item_id" [update: cascade, delete: cascade]
+
+Ref "content_decisions_content_item_version_id_fkey":"content_item_versions"."id" <? "content_decisions"."content_item_version_id" [update: cascade, delete: cascade]
+
+Ref "content_decisions_decided_by_user_id_fkey":"User"."id" <? "content_decisions"."decided_by_user_id" [update: cascade, delete: restrict]
+
+Ref "content_decisions_owner_user_id_fkey":"User"."id" <? "content_decisions"."owner_user_id" [update: cascade, delete: restrict]
+
+Ref "publication_candidates_business_id_fkey":"businesses"."id" <? "publication_candidates"."business_id" [update: cascade, delete: restrict]
+
+Ref "publication_candidates_content_cycle_id_fkey":"content_cycles"."id" <? "publication_candidates"."content_cycle_id" [update: cascade, delete: restrict]
+
+Ref "publication_candidates_content_pack_id_fkey":"content_packs"."id" <? "publication_candidates"."content_pack_id" [update: cascade, delete: restrict]
+
+Ref "publication_candidate_statuses_candidate_id_fkey":"publication_candidates"."id" <? "publication_candidate_statuses"."candidate_id" [update: cascade, delete: cascade]
+
+Ref "publication_candidate_statuses_changed_by_user_id_fkey":"User"."id" ?<? "publication_candidate_statuses"."changed_by_user_id" [update: cascade, delete: set null]
+
+Ref "publishing_targets_connection_id_fkey":"publishing_provider_connections"."id" ?<? "publishing_targets"."connection_id" [update: cascade, delete: set null]
+
+Ref "publishing_credentials_business_id_fkey":"businesses"."id" <? "publishing_credentials"."business_id" [update: cascade, delete: cascade]
+
+Ref "publishing_provider_connections_business_id_fkey":"businesses"."id" <? "publishing_provider_connections"."business_id" [update: cascade, delete: cascade]
+
+Ref "publishing_connection_audit_business_id_fkey":"businesses"."id" <? "publishing_connection_audit"."business_id" [update: cascade, delete: cascade]
+
+Ref "meta_oauth_states_business_id_fkey":"businesses"."id" <? "meta_oauth_states"."business_id" [update: cascade, delete: restrict]
+
+Ref "publishing_intents_candidate_id_fkey":"publishing_candidates"."id" <? "publishing_intents"."candidate_id" [update: cascade, delete: restrict]
+
+Ref "publishing_intents_target_id_fkey":"publishing_targets"."id" ?<? "publishing_intents"."target_id" [update: cascade, delete: set null]
+
+Ref "publishing_approvals_intent_id_fkey":"publishing_intents"."id" <? "publishing_approvals"."intent_id" [update: cascade, delete: cascade]
+
+Ref "publishing_attempts_intent_id_fkey":"publishing_intents"."id" <? "publishing_attempts"."intent_id" [update: cascade, delete: cascade]
+
+Ref "publishing_results_attempt_id_fkey":"publishing_attempts"."id" <? "publishing_results"."attempt_id" [update: cascade, delete: cascade]
+
+Ref "performance_sync_windows_business_id_fkey":"businesses"."id" <? "performance_sync_windows"."business_id" [update: cascade, delete: cascade]
+
+Ref "performance_sync_windows_publishing_result_id_fkey":"publishing_results"."id" <? "performance_sync_windows"."publishing_result_id" [update: cascade, delete: cascade]
+
+Ref "metric_snapshots_business_id_fkey":"businesses"."id" <? "metric_snapshots"."business_id" [update: cascade, delete: cascade]
+
+Ref "metric_snapshots_publishing_result_id_fkey":"publishing_results"."id" <? "metric_snapshots"."publishing_result_id" [update: cascade, delete: cascade]
+
+Ref "metric_snapshots_publishing_attempt_id_fkey":"publishing_attempts"."id" <? "metric_snapshots"."publishing_attempt_id" [update: cascade, delete: cascade]
+
+Ref "metric_snapshots_publishing_intent_id_fkey":"publishing_intents"."id" <? "metric_snapshots"."publishing_intent_id" [update: cascade, delete: cascade]
+
+Ref "metric_snapshots_candidate_id_fkey":"publishing_candidates"."id" <? "metric_snapshots"."candidate_id" [update: cascade, delete: cascade]
+
+Ref "optimization_proposals_business_id_fkey":"businesses"."id" <? "optimization_proposals"."business_id" [update: cascade, delete: cascade]
+
+Ref "optimization_proposals_strategy_id_fkey":"strategies"."id" <? "optimization_proposals"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "optimization_proposals_content_cycle_id_fkey":"content_cycles"."id" <? "optimization_proposals"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "optimization_decisions_proposal_id_fkey":"optimization_proposals"."id" <? "optimization_decisions"."proposal_id" [update: cascade, delete: cascade]
+
+Ref "optimization_decisions_business_id_fkey":"businesses"."id" <? "optimization_decisions"."business_id" [update: cascade, delete: cascade]
+
+Ref "optimization_decisions_strategy_id_fkey":"strategies"."id" <? "optimization_decisions"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "optimization_decisions_content_cycle_id_fkey":"content_cycles"."id" <? "optimization_decisions"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "optimization_decisions_owner_user_id_fkey":"User"."id" <? "optimization_decisions"."owner_user_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_proposal_id_fkey":"optimization_proposals"."id" <? "approved_optimization_instructions"."proposal_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_approved_decision_id_fkey":"optimization_decisions"."id" <? "approved_optimization_instructions"."approved_decision_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_business_id_fkey":"businesses"."id" <? "approved_optimization_instructions"."business_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_strategy_id_fkey":"strategies"."id" <? "approved_optimization_instructions"."strategy_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_content_cycle_id_fkey":"content_cycles"."id" <? "approved_optimization_instructions"."content_cycle_id" [update: cascade, delete: cascade]
+
+Ref "approved_optimization_instructions_consumed_content_pack_i_fkey":"content_packs"."id" ?<? "approved_optimization_instructions"."consumed_content_pack_id" [update: cascade, delete: set null]
+
+Ref "approved_optimization_instructions_consumed_week_plan_id_fkey":"content_week_plans"."id" ?<? "approved_optimization_instructions"."consumed_week_plan_id" [update: cascade, delete: set null]
+
+Ref "publishing_callback_identities_attempt_id_fkey":"publishing_attempts"."id" <? "publishing_callback_identities"."attempt_id" [update: cascade, delete: cascade]
+
+Ref "publishing_export_metadata_intent_id_fkey":"publishing_intents"."id" <? "publishing_export_metadata"."intent_id" [update: cascade, delete: cascade]
