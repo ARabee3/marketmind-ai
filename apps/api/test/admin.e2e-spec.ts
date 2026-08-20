@@ -331,6 +331,34 @@ describe("Admin (e2e)", () => {
         expect(item.isEmailVerified).toBe(false);
       }
     });
+
+    it("filters users by role and account status", async () => {
+      const { suspended } = await seedAttentionData();
+
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/admin/users")
+        .query({
+          role: "OWNER",
+          status: "SUSPENDED",
+          search: suspended.email,
+        })
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0]).toMatchObject({
+        email: suspended.email,
+        roles: [Role.OWNER],
+        status: "suspended",
+      });
+    });
+
+    it("rejects invalid account filters", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/admin/users?role=SUPPORT")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(400);
+    });
   });
 
   describe("PATCH /admin/users/:id", () => {
@@ -454,6 +482,7 @@ describe("Admin (e2e)", () => {
 
       const dbUser = await prisma.user.findUnique({ where: { id: targetId } });
       expect(dbUser?.status).toBe(UserStatus.SUSPENDED);
+      expect(dbUser?.suspensionReason).toBe("e2e policy violation");
 
       const auditEntry = await prisma.auditLog.findFirst({
         where: { targetId, action: "user.suspend" },

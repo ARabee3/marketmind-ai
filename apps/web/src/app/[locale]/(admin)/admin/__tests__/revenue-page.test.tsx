@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import AdminRevenuePage from "../revenue/page"
 import {
   getWalletOverview,
@@ -39,10 +39,6 @@ vi.mock("@/lib/api/admin-billing", () => ({
   topUpWallet: vi.fn(),
 }))
 
-vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
-}))
-
 const overviewMock = vi.mocked(getWalletOverview)
 const balancesMock = vi.mocked(listWalletBalances)
 const ledgerMock = vi.mocked(getWalletLedger)
@@ -54,12 +50,14 @@ function makeWallet(overrides: {
   ownerEmail?: string
   ownerFullName?: string | null
   status?: string
+  balance?: number
 } = {}) {
   const {
     accountId = "wallet-1",
     ownerEmail = "owner@example.com",
     ownerFullName = "Cairo Owner",
     status = "active",
+    balance = 120,
   } = overrides
   return {
     accountId,
@@ -67,7 +65,7 @@ function makeWallet(overrides: {
     ownerEmail,
     ownerFullName,
     status,
-    balance: 120,
+    balance,
     lifetimeGranted: 500,
     lifetimeSpent: 380,
     createdAt: "2024-01-01T00:00:00.000Z",
@@ -123,6 +121,7 @@ describe("AdminRevenuePage", () => {
       totalLifetimeSpent: 380,
       totalTopUpEgp: 300,
       totalTopUpCount: 1,
+      unverifiedUsers: 0,
     })
     balancesMock.mockResolvedValue({
       items: [makeWallet()],
@@ -190,6 +189,33 @@ describe("AdminRevenuePage", () => {
     expect(ledgerMock).toHaveBeenCalledWith("wallet-1")
   })
 
+  it("opens a wallet ledger from the keyboard", async () => {
+    ledgerMock.mockResolvedValue([makeLedgerRow()])
+
+    render(<AdminRevenuePage />)
+
+    const walletRow = await screen.findByRole("button", {
+      name: "openWalletDetails",
+    })
+    fireEvent.keyDown(walletRow, { key: "Enter" })
+
+    expect(await screen.findByText("walletLedgerTitle")).toBeDefined()
+    expect(ledgerMock).toHaveBeenCalledWith("wallet-1")
+  })
+
+  it("shows a retryable state when the selected wallet ledger fails", async () => {
+    ledgerMock.mockRejectedValueOnce(new Error("ledger unavailable"))
+
+    render(<AdminRevenuePage />)
+
+    const ownerCells = await screen.findAllByText("owner@example.com")
+    fireEvent.click(ownerCells[0])
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toContain("walletLedgerLoadError")
+    expect(within(alert).getByRole("button", { name: "retry" })).toBeDefined()
+  })
+
   it("renders a debit ledger row label", async () => {
     ledgerMock.mockResolvedValue([makeLedgerRow({ direction: "debit", reason: "spend" })])
 
@@ -219,22 +245,45 @@ describe("AdminRevenuePage", () => {
     expect(await screen.findByText("transactionStatusFailed")).toBeDefined()
   })
 
-  it("filters wallets by status via the status buttons", async () => {
-    await waitFor(() => {
-      render(<AdminRevenuePage />)
-    })
+  it("does not render the wallet status filter", async () => {
+    render(<AdminRevenuePage />)
 
-    const pausedButton = await screen.findByRole("button", { name: "billingAccountPaused" })
-    fireEvent.click(pausedButton)
+    expect(await screen.findByText("walletsTitle")).toBeDefined()
+    expect(screen.queryByRole("group", { name: "walletStatus" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "walletStatusAll" })).toBeNull()
+  })
+
+  it("keeps the wallet search field mounted and focused while filtering", async () => {
+    render(<AdminRevenuePage />)
+
+    const search = await screen.findByLabelText("walletSearchLabel")
+    search.focus()
+    fireEvent.change(search, { target: { value: "owner" } })
+
+    expect(screen.getByLabelText("walletSearchLabel")).toBe(search)
+    expect(document.activeElement).toBe(search)
 
     await waitFor(() => {
-      expect(balancesMock).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "paused" }),
+      expect(balancesMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: "owner" }),
       )
     })
   })
 
   it("top-ups the selected wallet and refreshes the data", async () => {
+    balancesMock.mockResolvedValueOnce({
+      items: [makeWallet({ balance: 120 })],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+    balancesMock.mockResolvedValueOnce({
+      items: [makeWallet({ balance: 170 })],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+
     await waitFor(() => {
       render(<AdminRevenuePage />)
     })
@@ -260,6 +309,31 @@ describe("AdminRevenuePage", () => {
     await waitFor(() => {
       expect(ledgerMock).toHaveBeenCalledWith("wallet-1")
     })
+    await waitFor(() => {
+      expect(screen.getByText("170")).toBeDefined()
+    })
+  })
+
+  it("surfaces refresh failures after the initial dashboard load", async () => {
+    balancesMock.mockResolvedValueOnce({
+      items: [makeWallet()],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+    balancesMock.mockRejectedValueOnce(new Error("refresh unavailable"))
+
+    render(<AdminRevenuePage />)
+
+    const search = await screen.findByLabelText("walletSearchLabel")
+    fireEvent.change(search, { target: { value: "missing" } })
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole("alert").textContent).toContain("refreshFailed")
+      },
+      { timeout: 2000 },
+    )
   })
 
   it("disables the top-up confirm button until points and reason are valid", async () => {

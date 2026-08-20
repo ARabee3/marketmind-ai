@@ -8,6 +8,7 @@ export type AdminUserRow = {
   roles: string[]
   loginMethod: string
   status: string
+  suspensionReason?: string | null
   createdAt: string
   lastLoginAt: string | null
   businessCount: number
@@ -79,6 +80,8 @@ export type GetUsersParams = {
   pageSize?: number
   search?: string
   verified?: boolean
+  role?: string
+  status?: string
 }
 
 export async function getAdminUsers(
@@ -91,6 +94,8 @@ export async function getAdminUsers(
   if (params.verified !== undefined) {
     searchParams.set("verified", String(params.verified))
   }
+  if (params.role) searchParams.set("role", params.role)
+  if (params.status) searchParams.set("status", params.status)
 
   const qs = searchParams.toString()
   const response = await apiRequest(`/admin/users${qs ? `?${qs}` : ""}`)
@@ -126,6 +131,7 @@ export type UpdateAdminUserResult = {
   fullName: string | null
   roles: string[]
   status: string
+  suspensionReason?: string | null
   isEmailVerified: boolean
   lastLoginAt: string | null
   createdAt: string

@@ -27,6 +27,8 @@ export function adminStatusLabel(status: string, t: Translator): string {
       return t("inactive")
     case "suspended":
       return t("suspended")
+    case "disabled":
+      return t("statusDisabled")
     case "trialing":
       return t("trialing")
     case "past_due":
@@ -233,5 +235,22 @@ export function walletTransactionStatusLabel(
       return t("transactionStatusPending")
     default:
       return status
+  }
+}
+
+export function walletPaymentModeLabel(mode: string, t: Translator): string {
+  switch (mode) {
+    case "card":
+      return t("paymentModeCard")
+    case "one_time_card":
+      return t("paymentModeOneTimeCard")
+    case "recurring_card":
+      return t("paymentModeRecurringCard")
+    case "wallet":
+      return t("paymentModeWallet")
+    case "reference":
+      return t("paymentModeReference")
+    default:
+      return mode
   }
 }

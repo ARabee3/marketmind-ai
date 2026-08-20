@@ -19,6 +19,7 @@ export type WalletOverview = {
   totalLifetimeSpent: number
   totalTopUpEgp: number
   totalTopUpCount: number
+  unverifiedUsers: number
 }
 
 export type WalletBalanceRow = {

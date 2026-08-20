@@ -7,6 +7,9 @@ import { AuditService } from "../audit/audit.service";
 describe("AdminBillingService", () => {
   let service: AdminBillingService;
   let prisma: {
+    user: {
+      count: jest.Mock;
+    };
     billingAccount: {
       findUnique: jest.Mock;
       findMany: jest.Mock;
@@ -33,6 +36,9 @@ describe("AdminBillingService", () => {
 
   beforeEach(async () => {
     prisma = {
+      user: {
+        count: jest.fn().mockResolvedValue(0),
+      },
       billingAccount: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -80,6 +86,7 @@ describe("AdminBillingService", () => {
         _sum: { amountEgp: 3600 },
         _count: { _all: 12 },
       });
+      prisma.user.count.mockResolvedValue(8);
 
       const overview = await service.getWalletOverview();
 
@@ -92,6 +99,7 @@ describe("AdminBillingService", () => {
         totalLifetimeSpent: 3800,
         totalTopUpEgp: 3600,
         totalTopUpCount: 12,
+        unverifiedUsers: 8,
       });
     });
   });

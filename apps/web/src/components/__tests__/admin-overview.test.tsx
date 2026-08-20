@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react"
 import AdminOverviewPage from "@/app/[locale]/(admin)/admin/page"
 import {
-  getAdminRevenueSummary,
   getAdminUsers,
 } from "@/lib/api/admin"
+import { getWalletOverview } from "@/lib/api/admin-billing"
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
@@ -13,7 +13,8 @@ vi.mock("next-intl", () => ({
       : key,
   useFormatter: () => ({
     dateTime: () => "10:00 AM",
-    number: () => "EGP 299",
+    number: (value: number, options?: { style?: string }) =>
+      options?.style === "currency" ? `EGP ${value}` : String(value),
   }),
   useLocale: () => "en",
 }))
@@ -37,27 +38,30 @@ vi.mock("@/i18n/navigation", () => ({
 }))
 
 vi.mock("@/lib/api/admin", () => ({
-  getAdminRevenueSummary: vi.fn(),
   getAdminUsers: vi.fn(),
 }))
+vi.mock("@/lib/api/admin-billing", () => ({
+  getWalletOverview: vi.fn(),
+}))
 
-const getAdminRevenueSummaryMock = vi.mocked(getAdminRevenueSummary)
+const getWalletOverviewMock = vi.mocked(getWalletOverview)
 const getAdminUsersMock = vi.mocked(getAdminUsers)
 
-const summaryWithNeeds = {
-  activeBusinesses: 3,
-  activeSubscriptions: 5,
-  trialingCount: 1,
-  mrrEgp: 548,
-  pastDueSubscriptions: 2,
-  expiredSubscriptions: 7,
+const overviewWithNeeds = {
+  totalAccounts: 4,
+  activeAccounts: 3,
+  pausedAccounts: 2,
+  totalPointsOutstanding: 1200,
+  totalLifetimeGranted: 5000,
+  totalLifetimeSpent: 3800,
+  totalTopUpEgp: 548,
+  totalTopUpCount: 12,
   unverifiedUsers: 9,
 }
-const summaryAllClear = {
-  ...summaryWithNeeds,
-  pastDueSubscriptions: 0,
-  expiredSubscriptions: 0,
-  unverifiedUsers: 0,
+const overviewAllClear = {
+  ...overviewWithNeeds,
+  pausedAccounts: 0,
+  unverifiedUsers: 9,
 }
 
 function emptyUsersPage(total = 0) {
@@ -70,7 +74,10 @@ describe("AdminOverviewPage", () => {
   })
 
   it("renders the admin console hero banner", async () => {
-    getAdminRevenueSummaryMock.mockResolvedValue(summaryAllClear)
+    getWalletOverviewMock.mockResolvedValue({
+      ...overviewAllClear,
+      unverifiedUsers: 0,
+    })
     getAdminUsersMock.mockResolvedValue(emptyUsersPage())
 
     await act(async () => {
@@ -85,7 +92,7 @@ describe("AdminOverviewPage", () => {
   })
 
   it("renders Needs-attention rows from the summary counts", async () => {
-    getAdminRevenueSummaryMock.mockResolvedValue(summaryWithNeeds)
+    getWalletOverviewMock.mockResolvedValue(overviewWithNeeds)
     getAdminUsersMock.mockResolvedValue(emptyUsersPage(42))
 
     await act(async () => {
@@ -95,18 +102,19 @@ describe("AdminOverviewPage", () => {
     const needsAttention = await screen.findByTestId("admin-needs-attention")
 
     await waitFor(() => {
-      expect(within(needsAttention).getByText("pastDueSubscriptions")).toBeDefined()
-      expect(within(needsAttention).getByText("expiredSubscriptions")).toBeDefined()
+      expect(within(needsAttention).getByText("pausedWallets")).toBeDefined()
       expect(within(needsAttention).getByText("unverifiedUsers")).toBeDefined()
     })
     expect(within(needsAttention).getByText("2")).toBeDefined()
-    expect(within(needsAttention).getByText("7")).toBeDefined()
     expect(within(needsAttention).getByText("9")).toBeDefined()
-    expect(within(needsAttention).getAllByText("viewDetails")).toHaveLength(3)
+    expect(within(needsAttention).getAllByText("viewDetails")).toHaveLength(2)
   })
 
   it("shows the all-clear healthy state when no counts need attention", async () => {
-    getAdminRevenueSummaryMock.mockResolvedValue(summaryAllClear)
+    getWalletOverviewMock.mockResolvedValue({
+      ...overviewAllClear,
+      unverifiedUsers: 0,
+    })
     getAdminUsersMock.mockResolvedValue(emptyUsersPage())
 
     await act(async () => {
@@ -120,7 +128,7 @@ describe("AdminOverviewPage", () => {
   })
 
   it("renders metric cards from revenue and user totals", async () => {
-    getAdminRevenueSummaryMock.mockResolvedValue(summaryWithNeeds)
+    getWalletOverviewMock.mockResolvedValue(overviewWithNeeds)
     getAdminUsersMock.mockResolvedValue(emptyUsersPage(42))
 
     await act(async () => {
@@ -131,21 +139,24 @@ describe("AdminOverviewPage", () => {
 
     await waitFor(() => {
       expect(within(metrics).getByText("totalUsers")).toBeDefined()
-      expect(within(metrics).getByText("activeBusinesses")).toBeDefined()
-      expect(within(metrics).getByText("activeSubscriptions")).toBeDefined()
-      expect(within(metrics).getByText("mrr")).toBeDefined()
+      expect(within(metrics).getByText("activeWallets")).toBeDefined()
+      expect(within(metrics).getByText("pointsOutstanding")).toBeDefined()
+      expect(within(metrics).getByText("topUpEgp")).toBeDefined()
     })
     const values = within(metrics)
       .getAllByTestId("metric-value")
       .map((el) => el.textContent)
     expect(values).toContain("42")
     expect(values).toContain("3")
-    expect(values).toContain("5")
-    expect(values).toContain("EGP 299")
+    expect(values).toContain("1200")
+    expect(values).toContain("EGP 548")
   })
 
   it("renders Last-refreshed timestamp and a Refresh action that re-fetches", async () => {
-    getAdminRevenueSummaryMock.mockResolvedValue(summaryAllClear)
+    getWalletOverviewMock.mockResolvedValue({
+      ...overviewAllClear,
+      unverifiedUsers: 0,
+    })
     getAdminUsersMock.mockResolvedValue(emptyUsersPage())
 
     await act(async () => {
@@ -156,10 +167,10 @@ describe("AdminOverviewPage", () => {
     expect(refreshBtn.tagName).toBe("BUTTON")
     expect(screen.getByText(/Last refreshed/)).toBeDefined()
 
-    const callsBefore = getAdminRevenueSummaryMock.mock.calls.length
+    const callsBefore = getWalletOverviewMock.mock.calls.length
     fireEvent.click(refreshBtn)
     await waitFor(() => {
-      expect(getAdminRevenueSummaryMock.mock.calls.length).toBeGreaterThan(callsBefore)
+      expect(getWalletOverviewMock.mock.calls.length).toBeGreaterThan(callsBefore)
     })
   })
 })

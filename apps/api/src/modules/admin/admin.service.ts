@@ -49,6 +49,7 @@ export interface UserRow {
   roles: string[];
   loginMethod: string;
   status: string;
+  suspensionReason?: string | null;
   createdAt: Date;
   lastLoginAt: Date | null;
   businessCount: number;
@@ -91,6 +92,7 @@ export interface UpdateUserResult {
   fullName: string | null;
   roles: string[];
   status: string;
+  suspensionReason?: string | null;
   isEmailVerified: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
@@ -133,6 +135,8 @@ export class AdminService {
     pageSize: number,
     search?: string,
     verified?: boolean,
+    role?: Role,
+    status?: UserStatus,
   ): Promise<PaginatedResponse<UserRow>> {
     const where = {
       ...(search
@@ -144,6 +148,8 @@ export class AdminService {
           }
         : {}),
       ...(verified !== undefined ? { isEmailVerified: verified } : {}),
+      ...(role !== undefined ? { roles: { has: role } } : {}),
+      ...(status !== undefined ? { status } : {}),
     };
 
     const [users, total] = await Promise.all([
@@ -179,6 +185,7 @@ export class AdminService {
         user.federatedIdentities.map((identity) => identity.provider),
       ),
       status: user.status.toLowerCase(),
+      suspensionReason: user.suspensionReason,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
       businessCount: user.businesses.length,
@@ -247,6 +254,7 @@ export class AdminService {
           federatedIdentities.map((identity) => identity.provider),
         ),
         status: user.status.toLowerCase(),
+        suspensionReason: user.suspensionReason,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
         businessCount: businesses.length,
@@ -386,8 +394,16 @@ export class AdminService {
       throw new NotFoundException("User not found");
     }
 
-    const data: { status?: UserStatus; roles?: Role[] } = {};
-    if (dto.status !== undefined) data.status = dto.status;
+    const data: {
+      status?: UserStatus;
+      roles?: Role[];
+      suspensionReason?: string | null;
+    } = {};
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      data.suspensionReason =
+        dto.status === UserStatus.SUSPENDED ? dto.reason?.trim() || null : null;
+    }
     if (dto.roles !== undefined) data.roles = dto.roles;
 
     if (Object.keys(data).length === 0) {
@@ -415,6 +431,7 @@ export class AdminService {
       fullName: updated.fullName,
       roles: updated.roles,
       status: updated.status.toLowerCase(),
+      suspensionReason: updated.suspensionReason,
       isEmailVerified: updated.isEmailVerified,
       lastLoginAt: updated.lastLoginAt,
       createdAt: updated.createdAt,

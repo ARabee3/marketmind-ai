@@ -1,5 +1,6 @@
 ﻿import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { UserStatus } from "@prisma/client";
 import { PrismaService } from "../../common/persistence/prisma.service";
 import { AuditService } from "../audit/audit.service";
 
@@ -31,6 +32,7 @@ export type WalletOverview = {
   totalLifetimeSpent: number;
   totalTopUpEgp: number;
   totalTopUpCount: number;
+  unverifiedUsers: number;
 };
 
 export type WalletLedgerRow = {
@@ -81,6 +83,7 @@ export class AdminBillingService {
       pausedAccounts,
       balanceAgg,
       topUps,
+      unverifiedUsers,
     ] = await Promise.all([
       this.prisma.billingAccount.count(),
       this.prisma.billingAccount.count({ where: { status: "active" } }),
@@ -97,6 +100,9 @@ export class AdminBillingService {
         _sum: { amountEgp: true },
         _count: { _all: true },
       }),
+      this.prisma.user.count({
+        where: { isEmailVerified: false, status: UserStatus.ACTIVE },
+      }),
     ]);
 
     return {
@@ -108,6 +114,7 @@ export class AdminBillingService {
       totalLifetimeSpent: balanceAgg._sum.lifetimeSpent ?? 0,
       totalTopUpEgp: topUps._sum.amountEgp ?? 0,
       totalTopUpCount: topUps._count._all,
+      unverifiedUsers,
     };
   }
 

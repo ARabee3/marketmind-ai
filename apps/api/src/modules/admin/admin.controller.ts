@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -11,6 +12,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
+import { Role, UserStatus } from "@prisma/client";
 import { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../rbac/guards/permissions.guard";
@@ -37,12 +39,27 @@ export class AdminController {
     @Query("pageSize") pageSize?: string,
     @Query("search") search?: string,
     @Query("verified") verified?: string,
+    @Query("role") role?: string,
+    @Query("status") status?: string,
   ) {
     const p = Math.max(1, parseInt(page ?? "1", 10) || 1);
     const ps = Math.min(100, Math.max(1, parseInt(pageSize ?? "20", 10) || 20));
     const verifiedFilter =
       verified === "true" ? true : verified === "false" ? false : undefined;
-    return this.adminService.getUsers(p, ps, search, verifiedFilter);
+    const roleFilter = parseOptionalEnum(role, Object.values(Role), "role");
+    const statusFilter = parseOptionalEnum(
+      status,
+      Object.values(UserStatus),
+      "status",
+    );
+    return this.adminService.getUsers(
+      p,
+      ps,
+      search,
+      verifiedFilter,
+      roleFilter,
+      statusFilter,
+    );
   }
 
   @Get("users/:id")
@@ -131,4 +148,16 @@ export class AdminController {
       accountId,
     });
   }
+}
+
+function parseOptionalEnum<T extends string>(
+  value: string | undefined,
+  values: readonly T[],
+  name: string,
+): T | undefined {
+  if (!value) return undefined;
+  if (!values.includes(value as T)) {
+    throw new BadRequestException(`Invalid ${name} filter`);
+  }
+  return value as T;
 }

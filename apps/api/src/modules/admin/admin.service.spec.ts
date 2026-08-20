@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { UserStatus } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import {
   AdminService,
   computeMrrEgp,
@@ -204,6 +204,34 @@ describe("AdminService", () => {
       expect(prisma.user.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ isEmailVerified: false }),
+        }),
+      );
+    });
+
+    it("filters users by account role and status", async () => {
+      await service.getUsers(
+        1,
+        20,
+        undefined,
+        undefined,
+        Role.ADMIN,
+        UserStatus.SUSPENDED,
+      );
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            roles: { has: Role.ADMIN },
+            status: UserStatus.SUSPENDED,
+          }),
+        }),
+      );
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            roles: { has: Role.ADMIN },
+            status: UserStatus.SUSPENDED,
+          }),
         }),
       );
     });
@@ -424,7 +452,10 @@ describe("AdminService", () => {
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: "user-1" },
-        data: { status: UserStatus.SUSPENDED },
+        data: {
+          status: UserStatus.SUSPENDED,
+          suspensionReason: "policy violation",
+        },
       });
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({

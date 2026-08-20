@@ -32,6 +32,7 @@ vi.mock("next-intl", () => ({
   },
   useFormatter: () => ({
     dateTime: () => "Jan 1, 2024",
+    number: (value: number) => String(value),
   }),
 }))
 
@@ -120,6 +121,43 @@ describe("AdminUsersPage pagination", () => {
     })
     expect(await screen.findByText("user-2@example.com")).toBeDefined()
     expect(screen.getByText("Page 2 of 2")).toBeDefined()
+  })
+
+  it("filters users by account type and account status", async () => {
+    render(<AdminUsersPage />)
+
+    expect(await screen.findByText("user-1@example.com")).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText("accountTypeFilterLabel"), {
+      target: { value: "ADMIN" },
+    })
+    fireEvent.change(screen.getByLabelText("accountStatusFilterLabel"), {
+      target: { value: "SUSPENDED" },
+    })
+
+    await waitFor(() => {
+      expect(getAdminUsersMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page: 1,
+          role: "ADMIN",
+          status: "SUSPENDED",
+        }),
+      )
+    })
+  })
+
+  it("localizes the disabled account status label", async () => {
+    getAdminUsersMock.mockResolvedValueOnce({
+      items: [{ ...makeUser(1), status: "disabled" }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+
+    render(<AdminUsersPage />)
+
+    expect(await screen.findByText("statusDisabled")).toBeDefined()
+    expect(screen.queryByText("disabled")).toBeNull()
   })
 
   it("traps focus in user details and restores it to the opening row", async () => {

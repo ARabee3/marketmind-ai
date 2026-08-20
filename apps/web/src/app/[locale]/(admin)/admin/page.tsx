@@ -17,11 +17,13 @@ import { AdminPageHeader } from "@/components/layout/admin-page-header"
 import { Link } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
 import {
-  getAdminRevenueSummary,
   getAdminUsers,
-  type AdminRevenueSummary,
   type AdminUserRow,
 } from "@/lib/api/admin"
+import {
+  getWalletOverview,
+  type WalletOverview,
+} from "@/lib/api/admin-billing"
 import { adminRoleLabel } from "@/lib/admin-labels"
 
 type Phase = "loading" | "error" | "ready"
@@ -30,7 +32,7 @@ export default function AdminOverviewPage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
   const [phase, setPhase] = useState<Phase>("loading")
-  const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null)
+  const [overview, setOverview] = useState<WalletOverview | null>(null)
   const [recentUsers, setRecentUsers] = useState<AdminUserRow[]>([])
   const [userTotal, setUserTotal] = useState(0)
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
@@ -45,12 +47,12 @@ export default function AdminOverviewPage() {
     async function fetch() {
       setPhase("loading")
       try {
-        const [rev, users] = await Promise.all([
-          getAdminRevenueSummary(),
+        const [walletOverview, users] = await Promise.all([
+          getWalletOverview(),
           getAdminUsers({ page: 1, pageSize: 5 }),
         ])
         if (cancelled) return
-        setRevenue(rev)
+        setOverview(walletOverview)
         setRecentUsers(users.items)
         setUserTotal(users.total)
         setLastRefreshedAt(new Date())
@@ -103,10 +105,10 @@ export default function AdminOverviewPage() {
         }
       />
 
-      <NeedsAttentionPanel revenue={revenue} t={t} />
+      <NeedsAttentionPanel overview={overview} t={t} format={format} />
 
       <MetricsPanel
-        revenue={revenue}
+        overview={overview}
         userTotal={userTotal}
         t={t}
         format={format}
@@ -140,16 +142,17 @@ export default function AdminOverviewPage() {
 }
 
 function NeedsAttentionPanel({
-  revenue,
+  overview,
   t,
+  format,
 }: {
-  revenue: AdminRevenueSummary | null
+  overview: WalletOverview | null
   t: ReturnType<typeof useTranslations>
+  format: ReturnType<typeof useFormatter>
 }) {
-  const pastDue = revenue?.pastDueSubscriptions ?? 0
-  const expired = revenue?.expiredSubscriptions ?? 0
-  const unverified = revenue?.unverifiedUsers ?? 0
-  const total = pastDue + expired + unverified
+  const pausedWallets = overview?.pausedAccounts ?? 0
+  const unverified = overview?.unverifiedUsers ?? 0
+  const total = pausedWallets + unverified
 
   return (
     <article className="overflow-hidden rounded-xl border border-border bg-surface shadow-elevated">
@@ -180,30 +183,20 @@ function NeedsAttentionPanel({
           </div>
         ) : (
           <ul className="grid gap-2" data-testid="admin-needs-attention">
-            {pastDue > 0 && (
+            {pausedWallets > 0 && (
               <NeedsAttentionRow
-                label={t("pastDueSubscriptions")}
-                count={pastDue}
+                label={t("pausedWallets")}
+                count={format.number(pausedWallets)}
                 variant="past_due"
-                href="/admin/revenue?state=past_due"
-                ariaLabel={`${t("pastDueSubscriptions")} — ${t("viewDetails")}`}
-                viewLabel={t("viewDetails")}
-              />
-            )}
-            {expired > 0 && (
-              <NeedsAttentionRow
-                label={t("expiredSubscriptions")}
-                count={expired}
-                variant="expired"
-                href="/admin/revenue?state=expired"
-                ariaLabel={`${t("expiredSubscriptions")} — ${t("viewDetails")}`}
+                href="/admin/revenue"
+                ariaLabel={`${t("pausedWallets")} — ${t("viewDetails")}`}
                 viewLabel={t("viewDetails")}
               />
             )}
             {unverified > 0 && (
               <NeedsAttentionRow
                 label={t("unverifiedUsers")}
-                count={unverified}
+                count={format.number(unverified)}
                 variant="draft"
                 href="/admin/users?verified=false"
                 ariaLabel={`${t("unverifiedUsers")} — ${t("viewDetails")}`}
@@ -218,18 +211,18 @@ function NeedsAttentionPanel({
 }
 
 function MetricsPanel({
-  revenue,
+  overview,
   userTotal,
   t,
   format,
 }: {
-  revenue: AdminRevenueSummary | null
+  overview: WalletOverview | null
   userTotal: number
   t: ReturnType<typeof useTranslations>
   format: ReturnType<typeof useFormatter>
 }) {
-  const mrrValue = revenue
-    ? format.number(revenue.mrrEgp, {
+  const topUpValue = overview
+    ? format.number(overview.totalTopUpEgp, {
         style: "currency",
         currency: "EGP",
         maximumFractionDigits: 0,
@@ -244,23 +237,25 @@ function MetricsPanel({
   }[] = [
     {
       label: t("totalUsers"),
-      value: String(userTotal),
+      value: format.number(userTotal),
       href: "/admin/users",
       ariaLabel: t("totalUsersAria"),
     },
     {
-      label: t("activeBusinesses"),
-      value: String(revenue?.activeBusinesses ?? 0),
-    },
-    {
-      label: t("activeSubscriptions"),
-      value: String(revenue?.activeSubscriptions ?? 0),
+      label: t("activeWallets"),
+      value: format.number(overview?.activeAccounts ?? 0),
       href: "/admin/revenue",
-      ariaLabel: t("activeSubscriptionsAria"),
+      ariaLabel: t("activeWalletsAria"),
     },
     {
-      label: t("mrr"),
-      value: mrrValue,
+      label: t("pointsOutstanding"),
+      value: format.number(overview?.totalPointsOutstanding ?? 0),
+      href: "/admin/revenue",
+      ariaLabel: t("pointsOutstandingAria"),
+    },
+    {
+      label: t("topUpEgp"),
+      value: topUpValue,
     },
   ]
 
@@ -311,7 +306,7 @@ function MetricCard({
   const card = (
     <div
       className={cn(
-        "grid h-full gap-3 rounded-lg border p-3 transition-transform hover:-translate-y-0.5",
+        "grid h-full gap-3 rounded-lg border p-3 transition-transform motion-reduce:transition-none hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
         isActive
           ? "border-primary bg-soft-teal shadow-sm"
           : "border-border bg-background",
@@ -442,7 +437,7 @@ function NeedsAttentionRow({
   viewLabel,
 }: {
   label: string
-  count: number
+  count: string
   variant: "past_due" | "expired" | "draft"
   href: string
   ariaLabel: string

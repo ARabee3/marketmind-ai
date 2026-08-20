@@ -1,8 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useFormatter, useTranslations } from "next-intl"
-import { useSearchParams } from "next/navigation"
 import { StatTile } from "@/components/ui/stat-tile"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -35,6 +34,7 @@ import {
   billingAccountStatusLabel,
   walletLedgerDirectionLabel,
   walletLedgerReasonLabel,
+  walletPaymentModeLabel,
   walletTransactionKindLabel,
   walletTransactionStatusLabel,
 } from "@/lib/admin-labels"
@@ -45,28 +45,25 @@ type Phase = "loading" | "error" | "ready"
 export default function AdminRevenuePage() {
   const t = useTranslations("Admin")
   const format = useFormatter()
-  const searchParams = useSearchParams()
   const [phase, setPhase] = useState<Phase>("loading")
   const [overview, setOverview] = useState<WalletOverview | null>(null)
   const [wallets, setWallets] = useState<WalletBalanceRow[]>([])
   const [walletTotal, setWalletTotal] = useState(0)
   const [walletPage, setWalletPage] = useState(1)
   const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [selectedWallet, setSelectedWallet] = useState<WalletBalanceRow | null>(null)
   const [ledger, setLedger] = useState<WalletLedgerRow[]>([])
-  const [ledgerPhase, setLedgerPhase] = useState<"loading" | "ready">("ready")
+  const [ledgerPhase, setLedgerPhase] = useState<"loading" | "error" | "ready">("ready")
   const [transactions, setTransactions] = useState<WalletTransactionRow[]>([])
   const [txTotal, setTxTotal] = useState(0)
   const [txPage, setTxPage] = useState(1)
   const [dataVersion, setDataVersion] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const ledgerRequestRef = useRef(0)
   const pageSize = 20
-  const walletStateFilter = searchParams.get("walletState") ?? undefined
-  const [lastWalletStateFilter, setLastWalletStateFilter] = useState(walletStateFilter)
-  if (walletStateFilter !== lastWalletStateFilter) {
-    setLastWalletStateFilter(walletStateFilter)
-    setWalletPage(1)
-  }
 
   const retry = useCallback(() => {
     setDataVersion((v) => v + 1)
@@ -80,24 +77,26 @@ export default function AdminRevenuePage() {
     setTxPage(p)
   }, [])
 
-  const selectStatus = (value: string) => {
-    setWalletPage(1)
-    setStatus(value)
-    setDataVersion((v) => v + 1)
-  }
-
   const selectWallet = useCallback(async (wallet: WalletBalanceRow) => {
+    const requestId = ledgerRequestRef.current + 1
+    ledgerRequestRef.current = requestId
     setSelectedWallet(wallet)
     setLedgerPhase("loading")
     try {
       const rows = await getWalletLedger(wallet.accountId)
+      if (requestId !== ledgerRequestRef.current) return
       setLedger(rows)
-    } catch {
-      setLedger([])
-    } finally {
       setLedgerPhase("ready")
+    } catch {
+      if (requestId !== ledgerRequestRef.current) return
+      setLedger([])
+      setLedgerPhase("error")
     }
   }, [])
+
+  const retryLedger = useCallback(() => {
+    if (selectedWallet) void selectWallet(selectedWallet)
+  }, [selectedWallet, selectWallet])
 
   const refreshAfterTopUp = useCallback(() => {
     setDataVersion((v) => v + 1)
@@ -107,34 +106,59 @@ export default function AdminRevenuePage() {
   }, [selectedWallet, selectWallet])
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 300)
+    return () => window.clearTimeout(timeout)
+  }, [search])
+
+  useEffect(() => {
     let cancelled = false
     async function fetch() {
-      setPhase("loading")
+      if (hasLoadedRef.current) {
+        setIsRefreshing(true)
+        setRefreshError(false)
+      } else {
+        setPhase("loading")
+      }
       try {
         const [ov, walletData, txData] = await Promise.all([
           getWalletOverview(),
           listWalletBalances({
             page: walletPage,
             pageSize,
-            search: search.trim() || undefined,
-            status: status || walletStateFilter,
+            search: debouncedSearch || undefined,
           }),
           listWalletTransactions({ page: txPage, pageSize }),
         ])
         if (cancelled) return
         setOverview(ov)
         setWallets(walletData.items)
+        setSelectedWallet((current) => {
+          if (!current) return null
+          return walletData.items.find((wallet) => wallet.accountId === current.accountId) ?? null
+        })
         setWalletTotal(walletData.total)
         setTransactions(txData.items)
         setTxTotal(txData.total)
         setPhase("ready")
+        hasLoadedRef.current = true
+        setIsRefreshing(false)
+        setRefreshError(false)
       } catch {
-        if (!cancelled) setPhase("error")
+        if (!cancelled) {
+          if (hasLoadedRef.current) {
+            setIsRefreshing(false)
+            setRefreshError(true)
+          } else {
+            setPhase("error")
+          }
+        }
       }
     }
     void fetch()
     return () => { cancelled = true }
-  }, [dataVersion, walletPage, status, walletStateFilter, txPage, search])
+  }, [dataVersion, walletPage, txPage, debouncedSearch])
 
   if (phase === "loading") {
     return (
@@ -183,20 +207,20 @@ export default function AdminRevenuePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label={t("activeBusinesses")}
-          value={String(overview?.activeAccounts ?? 0)}
+          value={format.number(overview?.activeAccounts ?? 0)}
           subtext={
             overview && overview.pausedAccounts > 0
-              ? `${t("billingAccountPaused")}: ${overview.pausedAccounts}`
+              ? `${t("billingAccountPaused")}: ${format.number(overview.pausedAccounts)}`
               : undefined
           }
         />
         <StatTile
           label={t("pointsOutstanding")}
-          value={String(overview?.totalPointsOutstanding ?? 0)}
+          value={format.number(overview?.totalPointsOutstanding ?? 0)}
         />
         <StatTile
           label={t("pointsLifetimeSpent")}
-          value={String(overview?.totalLifetimeSpent ?? 0)}
+          value={format.number(overview?.totalLifetimeSpent ?? 0)}
         />
         <StatTile
           label={t("topUpEgp")}
@@ -232,6 +256,8 @@ export default function AdminRevenuePage() {
               </label>
               <Input
                 id="wallet-search"
+                name="wallet-search"
+                autoComplete="off"
                 value={search}
                 onChange={(e) => {
                   setWalletPage(1)
@@ -240,27 +266,22 @@ export default function AdminRevenuePage() {
                 placeholder={t("walletSearchPlaceholder")}
                 className="md:w-64"
               />
-              <div
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-                role="group"
-                aria-label={t("walletStatus")}
-              >
-                {["", "active", "paused"].map((value) => (
-                  <button
-                    key={value || "all"}
-                    type="button"
-                    onClick={() => selectStatus(value)}
-                    className={cn(
-                      "rounded px-2 py-1 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
-                      status === value
-                        ? "bg-primary text-white"
-                        : "text-muted-foreground hover:text-navy",
-                    )}
-                  >
-                    {value === "" ? t("walletStatusAll") : billingAccountStatusLabel(value, t)}
-                  </button>
-                ))}
-              </div>
+              {isRefreshing && (
+                <span role="status" className="text-xs text-muted-foreground">
+                  {t("refreshing")}
+                </span>
+              )}
+              {refreshError && (
+                <div
+                  role="alert"
+                  className="flex items-center gap-2 text-xs text-danger"
+                >
+                  <span>{t("refreshFailed")}</span>
+                  <Button type="button" size="sm" variant="outline" onClick={retry}>
+                    {t("retry")}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -285,10 +306,21 @@ export default function AdminRevenuePage() {
                       <TableRow
                         key={w.accountId}
                         className={cn(
-                          "cursor-pointer",
+                          "cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2",
                           selectedWallet?.accountId === w.accountId && "bg-primary/5",
                         )}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t("openWalletDetails", {
+                          name: w.ownerFullName || w.ownerEmail || t("unknownOwner"),
+                        })}
                         onClick={() => void selectWallet(w)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            void selectWallet(w)
+                          }
+                        }}
                       >
                         <TableCell>
                           <span className="font-medium text-navy">
@@ -354,6 +386,16 @@ export default function AdminRevenuePage() {
 
             {ledgerPhase === "loading" ? (
               <Skeleton className="h-48" />
+            ) : ledgerPhase === "error" ? (
+              <div
+                role="alert"
+                className="flex flex-col items-start gap-3 rounded-lg border border-danger/20 bg-danger/5 px-4 py-4 text-sm"
+              >
+                <p className="text-danger">{t("walletLedgerLoadError")}</p>
+                <Button type="button" size="sm" variant="outline" onClick={retryLedger}>
+                  {t("retry")}
+                </Button>
+              </div>
             ) : ledger.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("walletLedgerEmpty")}</p>
             ) : (
@@ -473,7 +515,9 @@ export default function AdminRevenuePage() {
                           })}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {tx.paymentMode || t("none")}
+                          {tx.paymentMode
+                            ? walletPaymentModeLabel(tx.paymentMode, t)
+                            : t("none")}
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
                           {format.dateTime(new Date(tx.occurredAt), {
@@ -528,6 +572,7 @@ function TopUpDialog({
   onDone: () => void
 }) {
   const t = useTranslations("Admin")
+  const format = useFormatter()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
@@ -592,7 +637,7 @@ function TopUpDialog({
           </p>
           <p className="text-xs text-muted-foreground">{wallet.ownerEmail}</p>
           <p className="text-xs text-muted-foreground">
-            {t("walletBalance")}: {wallet.balance}
+            {t("walletBalance")}: {format.number(wallet.balance)}
           </p>
         </div>
 
@@ -605,6 +650,9 @@ function TopUpDialog({
               id="top-up-points"
               type="number"
               min={1}
+              name="top-up-points"
+              autoComplete="off"
+              inputMode="numeric"
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               placeholder={t("topUpPointsPlaceholder")}
@@ -617,6 +665,8 @@ function TopUpDialog({
             </label>
             <Input
               id="top-up-reason"
+              name="top-up-reason"
+              autoComplete="off"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("reasonPlaceholder")}

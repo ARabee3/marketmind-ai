@@ -36,6 +36,7 @@ import {
 } from "@/lib/admin-labels"
 
 const AVAILABLE_ROLES = ["OWNER", "ADMIN", "DEVELOPER_DEMO"] as const
+const AVAILABLE_STATUSES = ["ACTIVE", "SUSPENDED", "DISABLED"] as const
 
 type Phase = "loading" | "error" | "ready"
 
@@ -52,6 +53,8 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [searchInput, setSearchInput] = useState("")
+  const [roleFilter, setRoleFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
   const pageSize = 20
@@ -84,7 +87,16 @@ export default function AdminUsersPage() {
     async function fetch() {
       setPhase("loading")
       try {
-        const result = await getAdminUsers({ page, pageSize, search, verified: verifiedFilter })
+        const result = await getAdminUsers({
+          page,
+          pageSize,
+          search,
+          ...(verifiedFilter !== undefined
+            ? { verified: verifiedFilter }
+            : {}),
+          ...(roleFilter ? { role: roleFilter } : {}),
+          ...(statusFilter ? { status: statusFilter } : {}),
+        })
         if (cancelled) return
         setUsers(result.items)
         setTotal(result.total)
@@ -95,7 +107,7 @@ export default function AdminUsersPage() {
     }
     void fetch()
     return () => { cancelled = true }
-  }, [dataVersion, page, search, verifiedFilter])
+  }, [dataVersion, page, search, verifiedFilter, roleFilter, statusFilter])
 
   const handleSearch = () => {
     setPage(1)
@@ -116,6 +128,16 @@ export default function AdminUsersPage() {
         onSearchInputChange={setSearchInput}
         onSearch={handleSearch}
         search={search}
+        roleFilter={roleFilter}
+        statusFilter={statusFilter}
+        onRoleFilterChange={(value) => {
+          setPage(1)
+          setRoleFilter(value)
+        }}
+        onStatusFilterChange={(value) => {
+          setPage(1)
+          setStatusFilter(value)
+        }}
         onClear={() => {
           setSearchInput("")
           setSearch("")
@@ -183,6 +205,10 @@ function SearchCard({
   onSearchInputChange,
   onSearch,
   search,
+  roleFilter,
+  statusFilter,
+  onRoleFilterChange,
+  onStatusFilterChange,
   onClear,
   t,
 }: {
@@ -190,6 +216,10 @@ function SearchCard({
   onSearchInputChange: (value: string) => void
   onSearch: () => void
   search: string
+  roleFilter: string
+  statusFilter: string
+  onRoleFilterChange: (value: string) => void
+  onStatusFilterChange: (value: string) => void
   onClear: () => void
   t: ReturnType<typeof useTranslations>
 }) {
@@ -236,6 +266,54 @@ function SearchCard({
             </Button>
           )}
         </form>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1">
+            <label
+              htmlFor="admin-user-role-filter"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {t("accountTypeFilterLabel")}
+            </label>
+            <select
+              id="admin-user-role-filter"
+              name="account-type"
+              autoComplete="off"
+              value={roleFilter}
+              onChange={(event) => onRoleFilterChange(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <option value="">{t("accountTypeAll")}</option>
+              {AVAILABLE_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {adminRoleLabel(role, t)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-1">
+            <label
+              htmlFor="admin-user-status-filter"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {t("accountStatusFilterLabel")}
+            </label>
+            <select
+              id="admin-user-status-filter"
+              name="account-status"
+              autoComplete="off"
+              value={statusFilter}
+              onChange={(event) => onStatusFilterChange(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <option value="">{t("accountStatusAll")}</option>
+              {AVAILABLE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {adminStatusLabel(status.toLowerCase(), t)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
     </article>
   )
@@ -357,10 +435,10 @@ function UsersTableCard({
                           </Badge>
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
-                          {u.businessCount}
+                          {format.number(u.businessCount)}
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
-                          {u.activeSessionCount}
+                          {format.number(u.activeSessionCount)}
                         </TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">
                           {format.dateTime(new Date(u.createdAt), {
@@ -653,11 +731,11 @@ function UserDetailPanel({
                 />
                 <StatPill
                   label={t("businesses")}
-                  value={String(detail.user.businessCount)}
+                  value={format.number(detail.user.businessCount)}
                 />
                 <StatPill
                   label={t("activeSessions")}
-                  value={String(detail.user.activeSessionCount)}
+                  value={format.number(detail.user.activeSessionCount)}
                 />
                 <StatPill
                   label={t("joined")}
@@ -704,7 +782,7 @@ function UserDetailPanel({
               {detail.businesses.length > 0 && (
                 <section>
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    {t("businesses")} ({detail.businesses.length})
+                    {t("businesses")} ({format.number(detail.businesses.length)})
                   </h3>
                   <div className="space-y-2">
                     {detail.businesses.map((b) => (
@@ -739,7 +817,7 @@ function UserDetailPanel({
               {detail.activeSessions.length > 0 && (
                 <section>
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    {t("activeSessions")} ({detail.activeSessions.length})
+                    {t("activeSessions")} ({format.number(detail.activeSessions.length)})
                   </h3>
                   <div className="space-y-2">
                     {detail.activeSessions.map((s) => (
@@ -771,7 +849,7 @@ function UserDetailPanel({
                 <section>
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
                     {t("federatedIdentities")} (
-                    {detail.federatedIdentities.length})
+                    {format.number(detail.federatedIdentities.length)})
                   </h3>
                   <div className="space-y-2">
                     {detail.federatedIdentities.map((fi) => (
@@ -900,6 +978,7 @@ function AccountManagementSection({
                   </label>
                   <Input
                     id="admin-suspend-reason"
+                    name="admin-suspend-reason"
                     value={reason}
                     onChange={(e) => onReasonChange(e.target.value)}
                     placeholder={t("reasonPlaceholder")}
@@ -949,6 +1028,7 @@ function AccountManagementSection({
                   </label>
                   <Input
                     id="admin-reactivate-reason"
+                    name="admin-reactivate-reason"
                     value={reason}
                     onChange={(e) => onReasonChange(e.target.value)}
                     placeholder={t("reasonPlaceholder")}
