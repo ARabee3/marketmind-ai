@@ -1,4 +1,5 @@
 import type {
+  CurrentJourneyResponse,
   PerformanceMetricName,
   PerformanceMetricValueV1,
   PerformancePostProjectionV1,
@@ -7,6 +8,92 @@ import type {
 
 export const PERFORMANCE_STAGE_ORDER = ['published', '24h', '72h', '7d'] as const
 export type PerformanceStage = (typeof PERFORMANCE_STAGE_ORDER)[number]
+
+/** The first journey milestone the owner still needs before performance
+ *  monitoring is meaningful: a confirmed business profile, an available
+ *  content strategy, or a content cycle producing approved posts. */
+export type PerformanceSetupRequirement = 'profile' | 'strategy' | 'content'
+
+/** Next-step guidance shown before the owner has a publishable setup. */
+export type PerformanceSetupAction = {
+  readonly requirement: PerformanceSetupRequirement
+  readonly destination: string
+  readonly labelKey:
+    | 'startDiscovery'
+    | 'continueDiscovery'
+    | 'reviewProfile'
+    | 'viewDiscovery'
+    | 'goStrategy'
+    | 'goContent'
+}
+
+/** Performance monitoring needs a confirmed business profile, an available
+ *  strategy, and a content cycle. Until the journey provides all three, route
+ *  the owner back to the exact next step instead of treating the missing setup
+ *  as a failure. Returns null when the owner is ready to load evidence. */
+export function performanceSetupAction(
+  journey: CurrentJourneyResponse,
+): PerformanceSetupAction | null {
+  if (journey.journey.profile === null) {
+    const action = journey.primary_action
+    switch (action.type) {
+      case 'start_discovery':
+        return {
+          requirement: 'profile',
+          destination: action.destination,
+          labelKey: 'startDiscovery',
+        }
+      case 'continue_discovery':
+        return {
+          requirement: 'profile',
+          destination: action.destination,
+          labelKey: 'continueDiscovery',
+        }
+      case 'review_profile':
+        return {
+          requirement: 'profile',
+          destination: action.destination,
+          labelKey: 'reviewProfile',
+        }
+      case 'view_discovery':
+        return {
+          requirement: 'profile',
+          destination: action.destination,
+          labelKey: 'viewDiscovery',
+        }
+      case 'view_strategy':
+        return {
+          requirement: 'strategy',
+          destination: action.destination,
+          labelKey: 'goStrategy',
+        }
+      case 'none':
+        return {
+          requirement: 'profile',
+          destination: '/discovery/new',
+          labelKey: 'startDiscovery',
+        }
+    }
+  }
+
+  if (journey.future_phase.availability !== 'available') {
+    return {
+      requirement: 'strategy',
+      destination: '/strategy',
+      labelKey: 'goStrategy',
+    }
+  }
+
+  if (journey.content?.ready !== true) {
+    return {
+      requirement: 'content',
+      destination: '/content',
+      labelKey: 'goContent',
+    }
+  }
+
+  return null
+}
 
 export type PerformanceStageStatus =
   | 'scheduled'
