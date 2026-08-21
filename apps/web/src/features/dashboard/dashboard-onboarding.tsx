@@ -95,6 +95,14 @@ export function DashboardOnboarding({ userId }: { readonly userId: string | null
             >
               {t(`steps.${step}.body`)}
             </p>
+            {step === 'control' ? (
+              <p
+                role="note"
+                className="mt-4 rounded-lg border border-primary/20 bg-soft-teal px-3 py-2 text-sm font-semibold leading-6 text-primary"
+              >
+                {t('steps.control.pointsTip')}
+              </p>
+            ) : null}
 
             <ol className="mt-5 grid grid-cols-4 gap-2" aria-label={t('progressLabel')}>
               {STEPS.map((item, index) => (

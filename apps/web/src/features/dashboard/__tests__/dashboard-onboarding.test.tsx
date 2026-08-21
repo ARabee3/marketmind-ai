@@ -23,6 +23,7 @@ describe('DashboardOnboarding', () => {
 
     expect(await screen.findByRole('dialog')).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'steps.control.title' })).not.toBeNull()
+    expect(screen.getByRole('note')).toHaveTextContent('steps.control.pointsTip')
     expect(document.activeElement).toBe(screen.getAllByRole('button', { name: 'skip' })[0])
   })
 

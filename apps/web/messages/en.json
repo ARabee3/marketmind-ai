@@ -179,7 +179,8 @@
       "steps": {
         "control": {
           "title": "You stay in control",
-          "body": "MarketMind does not publish, launch strategy, or invent business facts without your confirmation. The dashboard always shows the next owner decision."
+          "body": "MarketMind does not publish, launch strategy, or invent business facts without your confirmation. The dashboard always shows the next owner decision.",
+          "pointsTip": "Tip: You have 65 free points to try the system."
         },
         "profile": {
           "title": "Build the business profile first",
