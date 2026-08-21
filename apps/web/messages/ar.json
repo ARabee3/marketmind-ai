@@ -3362,6 +3362,8 @@
       "title": "منشور فيسبوك منشور",
       "realEvidence": "دليل حقيقي",
       "publishedAt": "اتنشر {date}",
+      "viewAction": "عرض المنشور",
+      "reference": "معرّف المنشور: {id}",
       "refresh": "اطلب تحديث",
       "refreshing": "جارٍ الطلب…"
     },

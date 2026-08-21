@@ -3362,6 +3362,8 @@
       "title": "Published Facebook post",
       "realEvidence": "Real evidence",
       "publishedAt": "Published {date}",
+      "viewAction": "View post",
+      "reference": "Post ID: {id}",
       "refresh": "Request refresh",
       "refreshing": "Requesting…"
     },
