@@ -2323,7 +2323,7 @@
     "pricePoints": "{points} نقطة",
     "lowBalanceTitle": "الرصيد قرب يخلص",
     "lowBalanceBody": "فضل عندك {points} نقطة. اشترِ باقة عشان شغل الذكاء الاصطناعي يفضل شغال.",
-    "lowBalanceCta": "اشحن 150 نقطة",
+      "lowBalanceCta": "اشترِ {points} نقطة بـ {amount}",
     "rolloverTitle": "النقاط بتراكم",
     "rolloverBody": "النقاط المشتراة بتراكم مع كل شحنة. توليد الذكاء الاصطناعي بس هو اللي بيصرف — العرض والتعديل على شغلك مجانًا دائمًا.",
     "transactionsTitle": "سجل المدفوعات",

@@ -171,6 +171,11 @@ function BillingReadyView({
 }) {
   const t = useTranslations('Billing')
   const busy = workingBundle !== null
+  const recommendedBundle =
+    data.bundles.find((bundle) => bundle.code === 'pro_500') ?? data.bundles[0] ?? null
+  const buyRecommendedBundle = () => {
+    if (recommendedBundle) onBuy(recommendedBundle)
+  }
 
   return (
     <section className="grid gap-6">
@@ -193,7 +198,7 @@ function BillingReadyView({
           <WalletBalancePanel
             wallet={data.wallet}
             busy={busy}
-            onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
+            onTopUp={buyRecommendedBundle}
           />
 
           <BundlesPanel
@@ -220,7 +225,9 @@ function BillingReadyView({
             <LowBalanceNudge
               balance={data.wallet.balance}
               busy={busy}
-              onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
+              bundle={recommendedBundle}
+              formatCurrency={formatCurrency}
+              onTopUp={buyRecommendedBundle}
             />
           ) : null}
           <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -419,10 +426,14 @@ function PriceMenu() {
 function LowBalanceNudge({
   balance,
   busy,
+  bundle,
+  formatCurrency,
   onTopUp,
 }: {
   readonly balance: number
   readonly busy: boolean
+  readonly bundle: BillingPointBundle | null
+  readonly formatCurrency: (amount: number) => string
   readonly onTopUp: () => void
 }) {
   const t = useTranslations('Billing')
@@ -434,15 +445,20 @@ function LowBalanceNudge({
     >
       <p className="font-bold">{t('lowBalanceTitle')}</p>
       <p>{t('lowBalanceBody', { points: balance })}</p>
-      <Button type="button" size="sm" disabled={busy} onClick={onTopUp}>
-        {busy ? (
-          <LoaderCircle
-            className="animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-        ) : null}
-        {t('lowBalanceCta')}
-      </Button>
+      {bundle ? (
+        <Button type="button" size="sm" disabled={busy} onClick={onTopUp}>
+          {busy ? (
+            <LoaderCircle
+              className="animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          ) : null}
+          {t('lowBalanceCta', {
+            points: bundle.points,
+            amount: formatCurrency(bundle.amount_egp),
+          })}
+        </Button>
+      ) : null}
     </div>
   )
 }

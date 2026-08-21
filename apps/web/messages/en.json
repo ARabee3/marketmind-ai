@@ -2323,7 +2323,7 @@
     "pricePoints": "{points, plural, one{{points} point} other{{points} points}}",
     "lowBalanceTitle": "Balance running low",
     "lowBalanceBody": "You have {points} points left. Buy a bundle to keep AI work moving.",
-    "lowBalanceCta": "Top up 150 points",
+      "lowBalanceCta": "Buy {points} points for {amount}",
     "rolloverTitle": "Points roll over",
     "rolloverBody": "Purchased points roll over across top-ups. Only AI generation spends points — viewing and editing your work stays free.",
     "transactionsTitle": "Payment history",
