@@ -130,11 +130,12 @@ export function BillingHome() {
       workingBundle={workingBundle}
       checkoutError={checkoutError}
       onBuy={(bundle) => void runCheckout(bundle)}
-      formatCurrency={(amount) =>
+      formatCurrency={(amount, fractionDigits = 0) =>
         formatter.number(amount, {
           style: 'currency',
           currency: 'EGP',
-          maximumFractionDigits: 0,
+          minimumFractionDigits: fractionDigits,
+          maximumFractionDigits: fractionDigits,
         })
       }
       formatDate={(value) =>
@@ -165,7 +166,7 @@ function BillingReadyView({
   readonly workingBundle: string | null
   readonly checkoutError: boolean
   readonly onBuy: (bundle: BillingPointBundle) => void
-  readonly formatCurrency: (amount: number) => string
+  readonly formatCurrency: (amount: number, fractionDigits?: number) => string
   readonly formatDate: (value: string) => string
   readonly formatDateTime: (value: string) => string
 }) {
@@ -320,7 +321,7 @@ function BundlesPanel({
   readonly bundles: readonly BillingPointBundle[]
   readonly workingBundle: string | null
   readonly onBuy: (bundle: BillingPointBundle) => void
-  readonly formatCurrency: (amount: number) => string
+  readonly formatCurrency: (amount: number, fractionDigits?: number) => string
 }) {
   const t = useTranslations('Billing')
   return (
@@ -355,7 +356,7 @@ function BundlesPanel({
                 </div>
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t('bundlePerPoint', {
-                    perPoint: formatCurrency(bundle.amount_egp / bundle.points),
+                    perPoint: formatCurrency(bundle.amount_egp / bundle.points, 2),
                   })}
                 </p>
                 <Button
