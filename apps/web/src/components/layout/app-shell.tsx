@@ -302,16 +302,12 @@ function DesktopSidebar({
               <BrandMark className="size-7" />
             </span>
           ) : (
-            <span className="min-w-0">
-              <BrandLockup
-                label={brandName}
-                markClassName="size-9"
-                wordmarkClassName="text-base"
-              />
-              <span className="block truncate ps-10 text-xs text-muted-foreground">
-                {t("tagline")}
-              </span>
-            </span>
+            <BrandLockup
+              label={brandName}
+              className="min-w-0"
+              markClassName="size-9"
+              wordmarkClassName="text-base"
+            />
           )}
         </Link>
         <button
