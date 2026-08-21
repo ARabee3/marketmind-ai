@@ -613,22 +613,28 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
                         ctaEntries={cta_library}
                         mediaEntries={media_library}
                         mediaDisabled={isMutating}
-                        onUploadMedia={handleUploadMedia}
-                        onMediaChange={(selectedMediaIds) =>
-                          handleSavePlan(
-                            plan.id,
-                            {
-                              purpose: plan.purpose,
-                              intended_audience: plan.intended_audience,
-                              channel: plan.channel,
-                              format: plan.format,
-                              cta_library_entry_id: plan.cta_library_entry_id,
-                              owner_instructions: plan.owner_instructions,
-                              visual_direction: plan.visual_direction,
-                              selected_media_ids: selectedMediaIds,
-                            },
-                            false,
-                          )
+                        onUploadMedia={
+                          isWeekCompleted ? undefined : handleUploadMedia
+                        }
+                        onMediaChange={
+                          isWeekCompleted
+                            ? undefined
+                            : (selectedMediaIds) =>
+                                handleSavePlan(
+                                  plan.id,
+                                  {
+                                    purpose: plan.purpose,
+                                    intended_audience: plan.intended_audience,
+                                    channel: plan.channel,
+                                    format: plan.format,
+                                    cta_library_entry_id:
+                                      plan.cta_library_entry_id,
+                                    owner_instructions: plan.owner_instructions,
+                                    visual_direction: plan.visual_direction,
+                                    selected_media_ids: selectedMediaIds,
+                                  },
+                                  false,
+                                )
                         }
                         availableChannels={
                           workspace.why_this_week.committed_channels

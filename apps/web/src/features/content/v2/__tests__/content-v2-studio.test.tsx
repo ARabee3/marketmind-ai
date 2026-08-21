@@ -74,6 +74,8 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.historyStatus.failed": "Failed",
       "ContentV2.studio.postCard.postLabel": "Post {position}",
       "ContentV2.studio.postCard.state.planned": "Planned",
+      "ContentV2.postCard.uploadPhoto": "Upload photo",
+      "ContentV2.postCard.chooseSavedPhoto": "Choose saved photo",
       "ContentV2.setup.title": "Content setup",
       "ContentV2.setup.backToStudio": "Back to studio",
       "ContentV2.setup.preferencesTitle": "Content preferences",
@@ -538,7 +540,7 @@ describe("ContentV2Studio", () => {
           week_plan: {
             id: "week-plan-1",
             status: "frozen",
-            post_plans: [],
+            post_plans: draftPlanWorkspace().current_week.week_plan!.post_plans,
           },
           pack: {
             id: "pack-1",
@@ -627,6 +629,10 @@ describe("ContentV2Studio", () => {
     });
     expect(approvedLinks).toHaveLength(1);
     expect(screen.queryByRole("link", { name: "Review drafts" })).toBeNull();
+    expect(screen.queryByLabelText("Upload photo")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose saved photo" }),
+    ).toBeNull();
   });
 
   it("does not make a failed historical week look reviewable", async () => {
