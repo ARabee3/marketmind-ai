@@ -1,123 +1,70 @@
 # MarketMind API
 
-NestJS backend API for MarketMind AI.
+NestJS 11 backend for MarketMind AI. The API owns authentication, business
+authorization, durable lifecycle state, approvals, billing, queues,
+publishing, provider connections, performance collection, and admin controls.
 
-## Prerequisites
+## Run locally
 
-- Node.js >= 20
-- npm >= 10
-- Docker (for local PostgreSQL)
-
-## Quick Start
-
-### 1. Install dependencies
-
-From the **monorepo root**:
+The recommended full-stack path is from the monorepo root:
 
 ```bash
 npm install
-```
-
-### 2. Set up environment
-
-```bash
 cp apps/api/.env.example apps/api/.env
+npm run dev:full
 ```
 
-### 3. Start PostgreSQL
+To run only the API after local dependencies and migrations are ready:
 
 ```bash
-docker compose -f infra/docker/docker-compose.local.yml up -d
+npm run start:dev -w @marketmind/api
 ```
 
-### 4. Generate Prisma client
-
-```bash
-cd apps/api
-npx prisma generate
-```
-
-### 5. Run migrations (once models are defined)
-
-```bash
-cd apps/api
-npx prisma migrate dev
-```
-
-### 6. Start the API
-
-```bash
-cd apps/api
-npm run start:dev
-```
-
-The API will be available at `http://localhost:3001/api/v1`.
-
-### 7. Verify
+The API is available at <http://localhost:3001/api/v1>. Verify it with:
 
 ```bash
 curl http://localhost:3001/api/v1/health
 ```
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2026-06-25T08:00:00.000Z",
-  "service": "marketmind-api"
-}
+## Main modules
+
+| Module                            | Responsibility                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `auth`, `users`, `rbac`, `admin`  | Identity, rotating sessions, roles, permissions, and administration                  |
+| `discovery`, `journey`            | Business intake, research-backed interviews, confirmation, and journey state         |
+| `strategy`, `marketing-knowledge` | Strategy lifecycle, reviewed knowledge governance, retrieval inputs, and approvals   |
+| `content`                         | Content V1/V2 planning, jobs, generation handoff, revisions, assets, and decisions   |
+| `publishing`, `facebook`          | Immutable candidates, scheduling, export/simulation, Meta connections, and execution |
+| `performance`                     | Eligible Facebook snapshot windows, sync state, and Optimization decisions           |
+| `billing`                         | Points wallet, catalog, checkout, ledger, outbox, and provider callbacks             |
+| `mail`, `audit`, `orchestration`  | Transactional email, audit records, and feature-gated orchestration boundary         |
+
+## Data and execution
+
+- PostgreSQL/Prisma is the durable source of truth.
+- Redis/BullMQ carries recoverable jobs and schedules.
+- FastAPI is an internal AI capability service; it does not own product
+  lifecycle rows.
+- Qdrant is a rebuildable index of approved shared marketing knowledge.
+- Content approval and publication approval are separate immutable decisions.
+
+The current Prisma schema and migrations live under `prisma/`. Apply committed
+migrations with:
+
+```bash
+npm run prisma:migrate:deploy -w @marketmind/api
 ```
 
-## Scripts
+## Checks
 
-| Script | Description |
-|---|---|
-| `npm run start:dev` | Start in watch mode |
-| `npm run start:debug` | Start in debug + watch mode |
-| `npm run build` | Build for production |
-| `npm run start:prod` | Run production build |
-| `npm test` | Run unit tests |
-| `npm run test:e2e` | Run e2e tests |
-| `npm run test:cov` | Run tests with coverage |
-| `npm run prisma:generate` | Generate Prisma client |
-| `npm run prisma:migrate:dev` | Run migrations (dev) |
-| `npm run prisma:studio` | Open Prisma Studio |
-
-## Project Structure
-
-```
-apps/api/
-├── prisma/
-│   ├── schema.prisma          # Database schema
-│   ├── migrations/            # Database migrations
-│   └── seed.ts                # Seed script
-├── src/
-│   ├── main.ts                # Application entry point
-│   ├── app.module.ts          # Root module
-│   ├── config/
-│   │   ├── configuration.ts   # Typed config factory
-│   │   └── env.schema.ts      # Env validation
-│   ├── common/
-│   │   └── persistence/
-│   │       ├── prisma.module.ts
-│   │       └── prisma.service.ts
-│   └── modules/
-│       ├── auth/              # Auth (Issue #5)
-│       ├── users/             # Users (Issue #5)
-│       ├── rbac/              # RBAC (Issue #6)
-│       └── health/            # Health endpoint
-├── test/
-│   └── health.e2e-spec.ts     # E2e tests
-├── .env.example
-├── nest-cli.json
-├── package.json
-└── tsconfig.json
+```bash
+npm run build -w @marketmind/api
+npm run test -w @marketmind/api
+npm run test:e2e -w @marketmind/api
 ```
 
-## Database
+Database-focused tests use the dedicated `test/jest-db.json` configuration and
+must point only to a disposable test database.
 
-- **Engine**: PostgreSQL 16
-- **ORM/Migration**: Prisma
-- **Direction**: PostgreSQL is the source of truth. Qdrant is reserved for later RAG/vector retrieval.
-
-See `Docs/planning/sprint-1/prepared-discovery-architecture/02_DATABASE_SCHEMA_AND_MIGRATIONS.md` for the full Sprint 1 schema.
+See the [API, database, and deployment guide](../../Docs/technical-and-ai-docs/02_API_DATABASE_AND_DEPLOYMENT_GUIDE.md)
+for the complete endpoint and operational reference.

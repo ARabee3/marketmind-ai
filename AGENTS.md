@@ -1,106 +1,105 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-24
-**Commit:** 537b505
-**Branch:** main
+**Updated:** 2026-08-21
+**Default branch:** `main`
 
 ## OVERVIEW
 
-MarketMind AI is a graduation-project monorepo for an AI-assisted marketing
-platform for Egyptian small and medium businesses (SMEs) across industries.
-The repo is currently planning docs plus an npm workspace skeleton; the
-frontend scaffold lives under `apps/web`.
+MarketMind AI is an Arabic-first, bilingual marketing workspace for Egyptian
+SMEs. This monorepo contains a production-shaped Next.js web app, NestJS API,
+FastAPI AI service, shared TypeScript/Python contracts, reviewed Qdrant RAG
+knowledge, Docker/Caddy deployment, and deterministic publishing automation.
+
+The owner journey is Discovery → Strategy → Content → Publish/export →
+Performance → Optimization. AI proposes and explains; the owner approves;
+deterministic services persist and execute.
 
 ## STRUCTURE
 
 ```text
 marketmind-ai/
-+-- Docs/                  # planning pack and sprint guidance
-+-- apps/api/              # future NestJS backend API
-+-- apps/web/              # future Next.js frontend
-+-- services/ai/           # future FastAPI AI service
-+-- packages/contracts/    # future shared schemas/contracts
-+-- infra/                 # future infrastructure/deployment notes
-+-- package.json           # npm workspace root
-+-- README.md              # current repo status
+├── apps/api/              # NestJS API, Prisma schema/migrations, jobs, adapters
+├── apps/web/              # Next.js 16 bilingual/RTL owner experience
+├── services/ai/           # FastAPI AI, RAG, validation, providers, orchestration
+├── packages/contracts/    # Shared TypeScript/Python contracts and fixtures
+├── Docs/                  # Maintained docs, RAG corpus, runbooks, dated evidence
+├── infra/                 # Docker Compose, Caddy, and n8n workflow assets
+├── scripts/               # Repository checks, setup, rehearsal, and readiness
+└── .github/               # CI workflows and repository presentation assets
 ```
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Understand MVP scope | `Docs/planning/00_START_HERE.md` | Includes included/deferred lists. |
-| Understand product flow | `Docs/planning/02_MARKETMIND_AI_FLOW.md` | Owner approval gates and data movement. |
-| Understand AI roles | `Docs/planning/03_AGENTS_OVERVIEW.md` | Five AI roles plus deterministic publishing service. |
-| First implementation order | `Docs/planning/04_FIRST_IMPLEMENTATION_ROADMAP.md` | Start with Discovery AI and NestJS Auth/RBAC. |
-| Sprint 1 slice | `Docs/planning/sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` | Concrete owners, modules, endpoints, acceptance. |
-| Sprint 1 architecture | `Docs/planning/sprint-1/prepared-discovery-architecture/README.md` | Prepared Discovery architecture pack. |
-| Content Agent and automation handoff | `Docs/planning/sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md` | Approved `content-v1` implementation plan, approval lifecycle, and `PublicationCandidateV1` freeze boundary. |
-| Publishing Automation | `Docs/planning/sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` | Approved deterministic publishing lifecycle, n8n boundary, safety rules, and Automation-team issue split. |
-| Points-wallet billing | `Docs/planning/sprint-7/billing-points-model.md` + `billing-plan.md` | Approved prepaid-points model and implementation plan (bundles, `POINT_PRICES`, ledger, reserve/refund). |
-| Project structure | `Docs/planning/PROJECT_STRUCTURE_AND_REUSABLE_COMPONENTS.md` | Target monorepo folders and reusable boundaries. |
-| Team process | `Docs/planning/05_TEAM_OPERATING_SYSTEM.md` | Issue readiness, review, DoD. |
-| Stack notes | `Docs/techstack.md` | NestJS/TypeScript, Next.js, FastAPI, PostgreSQL, Qdrant. |
+| Task                          | Location                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| Public overview and setup     | `README.md`                                                                 |
+| Documentation index           | `Docs/README.md`                                                            |
+| Current system architecture   | `Docs/technical-and-ai-docs/01_TECHNICAL_ARCHITECTURE_AND_SYSTEM_DESIGN.md` |
+| API, database, and deployment | `Docs/technical-and-ai-docs/02_API_DATABASE_AND_DEPLOYMENT_GUIDE.md`        |
+| AI, RAG, and agentic design   | `Docs/technical-and-ai-docs/03_AI_RAG_AGENTIC_TECHNICAL_DOCUMENT.md`        |
+| Database authority            | `apps/api/prisma/schema.prisma`                                             |
+| Cross-service contracts       | `packages/contracts/src/` and `packages/contracts/python/`                  |
+| Reviewed Strategy knowledge   | `Docs/marketing-knowledge/`                                                 |
+| Product journey               | `Docs/planning/02_MARKETMIND_AI_FLOW.md`                                    |
+| Provider/live readiness       | feature runbooks plus `.env.example` files                                  |
 
 ## CODE MAP
 
-No product source exists yet. Current workspaces are placeholders:
-
-| Area | Current state | Intended role |
-| --- | --- | --- |
-| `apps/api` | README only | NestJS API: auth, RBAC, health, app endpoints. |
-| `apps/web` | README only | Next.js frontend. |
-| `services/ai` | README only | FastAPI AI service and provider adapters. |
-| `packages/contracts` | README only | Shared schemas between frontend, API, and AI service. |
-| `infra` | README only | Deployment/infrastructure notes later. |
+| Area                   | Responsibility                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/api/src/modules` | Auth, RBAC, Discovery, Strategy, Content, billing, publishing, performance, admin, mail, and orchestration boundaries          |
+| `apps/web/src`         | Locale routing, owner workspace, journey screens, approval UX, and provider connections                                        |
+| `services/ai/app`      | Discovery, search, RAG, deterministic decisions, Strategy, Content, Optimization, providers, and gated LangGraph orchestration |
+| `packages/contracts`   | Versioned schemas, lifecycle rules, validators, examples, and Python parity                                                    |
+| `infra/docker`         | Local and hosted service composition                                                                                           |
+| `infra/n8n`            | Version-controlled deterministic publishing workflow                                                                           |
 
 ## COMMANDS
 
 ```bash
-npm run check
+npm run dev:full       # local full stack with migrations and reviewed knowledge
+npm run dev            # restart against an already prepared local database
+npm run check          # contracts, API, AI, web, and knowledge validation
+npm run demo:rehearse  # deterministic demo-readiness rehearsal
 ```
 
-`npm run check` currently prints `No implementation yet`.
+Use `uv` from `services/ai` for Python checks. The full API e2e suite requires a
+safe test database; provider network tests remain opt-in.
 
 ## CONVENTIONS
 
-- Use two-space indentation, LF endings, UTF-8, and final newlines from
-  `.editorconfig`.
-- Treat `Docs/planning/` as the current source of product truth until real code
-  and ADRs exist.
-- Keep implementation aligned to one complete MVP journey before broadening the
-  platform.
-- For Sprint 1 backend, create `AuthModule`, `UsersModule`, `RbacModule`,
-  `HealthModule`, and the Prepared Discovery module described in the sprint
-  architecture pack; keep `GET /api/v1/health` simple.
-- AI agents must have focused responsibilities. Discovery must not research
-  competitors, create strategy, generate content, or move forward without owner
-  confirmation.
-- Publishing is not an LLM agent. Real publishing requires explicit owner
-  approval; demo/simulated data must be clearly labeled.
-- Human task owners must understand, test, and explain AI-assisted work.
+- Use two-space indentation, LF endings, UTF-8, and final newlines.
+- PostgreSQL is the durable source of truth. Qdrant is a rebuildable knowledge
+  index; Redis/BullMQ is recoverable execution infrastructure.
+- Keep `Docs/marketing-knowledge/` path-stable because runtime ingestion and CI
+  consume it directly.
+- Keep AI responsibilities narrow and structured. Deterministic validation and
+  lifecycle rules remain authoritative.
+- Strategy, Content, Optimization, billing, and publishing decisions must be
+  scoped to the authenticated business owner.
+- Content approval and real-publication approval are separate immutable
+  decisions.
+- Mark mock, fixture, exported, simulated, failed, and live-provider outcomes
+  truthfully.
+- Do not commit credentials, tokens, private browser state, generated exports,
+  or personal scratch documents.
 
 ## ANTI-PATTERNS
 
-- Do not create `AuditModule` in Sprint 1.
-- Do not start with Terraform, complex infrastructure, perfect UI animation,
-  paid ads automation, full video generation, or many social platforms.
-- Do not invent missing business facts, offers, analytics, citations, or source
-  quality.
-- Do not hide failed integrations or present simulation data as real.
-- Do not submit generated code nobody on the team can explain.
-
-## NOTES
-
-- LSP/code symbol mapping is intentionally empty because there is no source code
-  yet and no language servers are installed locally.
-- Add narrower `AGENTS.md` files only after a directory has real implementation
-  conventions that differ from this root file.
+- Do not invent business facts, offers, citations, metrics, provider success,
+  or source quality.
+- Do not treat an HTTP 200, mock result, or CI fixture as live-provider proof.
+- Do not let an LLM publish, charge, approve itself, or bypass deterministic
+  policy checks.
+- Do not put private Business Profiles in the shared Qdrant collection.
+- Do not create a second lifecycle beside the existing Strategy, Content,
+  publishing, billing, or performance state machines.
+- Do not silently install unreviewed agent skills or commit local agent setup.
 
 ## DESIGN SYSTEM
 
-- **Responsive app shell:** sidebar nav on desktop, bottom nav on mobile; max-width
-  1200px content area centred in the viewport.
+- **Responsive app shell:** sidebar nav on desktop, bottom nav on mobile;
+  max-width 1200px content area centred in the viewport.
 - **Component selection:** under `apps/web`, follow the local shadcn-first
   policy: semantic HTML, existing local primitive, the smallest missing
   official shadcn primitive, then a custom component only for justified
@@ -108,33 +107,33 @@ npm run check
   page section to a card.
 - **Approved colour palette:**
 
-  | Token | Hex | Usage |
-  | --- | --- | --- |
-  | `--bg` | `#F7F8FA` | Page background |
-  | `--surface` | `#FFFFFF` | Cards, modals, sheets |
-  | `--navy` | `#102A43` | Headings, primary text |
-  | `--primary` | `#0B6F71` | Buttons, links, active states |
-  | `--action` | `#246BFD` | Call-to-action, interactive elements |
-  | `--warning` | `#A15C00` | Warning banners, caution icons |
-  | `--danger` | `#B42318` | Error states, destructive buttons |
-  | `--border` | `#D9E2EC` | Dividers, input borders, card strokes |
+  | Token       | Hex       | Usage                                 |
+  | ----------- | --------- | ------------------------------------- |
+  | `--bg`      | `#F7F8FA` | Page background                       |
+  | `--surface` | `#FFFFFF` | Cards, modals, sheets                 |
+  | `--navy`    | `#102A43` | Headings, primary text                |
+  | `--primary` | `#0B6F71` | Buttons, links, active states         |
+  | `--action`  | `#246BFD` | Call-to-action, interactive elements  |
+  | `--warning` | `#A15C00` | Warning banners, caution icons        |
+  | `--danger`  | `#B42318` | Error states, destructive buttons     |
+  | `--border`  | `#D9E2EC` | Dividers, input borders, card strokes |
 
 ## APPROVED AI CODING SKILLS
 
 AI-generated frontend code must follow the approved skill set below. All
 sources are pinned to a reviewed commit; see
-`.agents/skills/marketmind-frontend-workflow/references/approved-tools.md`
-for the full install configuration, capabilities, and the MCP policy.
+`.agents/skills/marketmind-frontend-workflow/references/approved-tools.md` for
+the full install configuration, capabilities, and MCP policy.
 
-| Skill | Official source | Pinned commit | Status | When |
-| --- | --- | --- | --- | --- |
-| Next.js best practices (bundled docs + workflow skills) | `vercel/next.js` canary `skills/` (skills migrated here from `vercel-labs/next-skills`) | `vercel/next.js@00598045` (canary) + `npx @next/codemod@canary agents-md` to vendor `next/dist/docs` | Required | Pages, layouts, RSC, fonts, data patterns, routing (Next.js 16 proxy, app router) |
-| `vercel-react-best-practices` | `vercel-labs/agent-skills/skills/react-best-practices` | repo commit `f8a72b9` | Required | Components, hooks, state, composition, performance |
-| `web-design-guidelines` | `vercel-labs/agent-skills/skills/web-design-guidelines` | repo commit `f8a72b9` | Required (final review) | Final accessibility / UX review pass |
-| `frontend-design` | `anthropics/skills/skills/frontend-design` | repo commit `9d2f1ae` | **Required** (not optional) when designing or styling UI — establishes visual direction |
+| Skill                                                   | Official source                                         | Pinned commit                                        | Status                      | When                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------- | --------------------------- | ------------------------------------------------------ |
+| Next.js best practices (bundled docs + workflow skills) | `vercel/next.js` canary `skills/`                       | `vercel/next.js@00598045` plus vendored Next.js docs | Required                    | Pages, layouts, RSC, fonts, data, and routing          |
+| `vercel-react-best-practices`                           | `vercel-labs/agent-skills/skills/react-best-practices`  | `f8a72b9`                                            | Required                    | Components, hooks, state, composition, and performance |
+| `web-design-guidelines`                                 | `vercel-labs/agent-skills/skills/web-design-guidelines` | `f8a72b9`                                            | Required final review       | Accessibility and UX audit                             |
+| `frontend-design`                                       | `anthropics/skills/skills/frontend-design`              | `9d2f1ae`                                            | Required for design/styling | Visual direction                                       |
 
-Every AI-generated frontend PR must pass `npm run check` and be reviewed by a
-human for consistency with these skills and the MarketMind visual brief below.
+Every AI-generated frontend PR must pass `npm run check` and receive human
+review for consistency with these skills and the MarketMind visual brief.
 
 ## DESIGN & VOICE BRIEF
 
@@ -144,27 +143,19 @@ human for consistency with these skills and the MarketMind visual brief below.
 > mysterious.
 
 The design system must remain suitable for retail, services, hospitality,
-education, healthcare, and other SMEs. **Anti-patterns** (do not use):
-
-- generic AI conventions: purple gradients, glassmorphism, excessive floating
-  cards, sparkle / robot imagery, sci-fi styling;
-- industry-specific decoration (e.g. café-only iconography) — examples may use
-  a café but the system is industry-neutral;
-- hiding failed integrations or presenting simulation data as real.
-
-**Distinctiveness comes from** guided business journeys, bilingual
-typography, visible readiness / progress, evidence, and clear owner control.
+education, healthcare, and other SMEs. Avoid generic AI conventions such as
+purple gradients, glassmorphism, excessive floating cards, robot imagery, or
+sci-fi styling. Examples may use one industry, but the system is
+industry-neutral. Distinctiveness comes from guided journeys, bilingual
+typography, visible readiness, evidence, and owner control.
 
 ## PROJECT-LOCAL ROUTING SKILL
 
-`.agents/skills/marketmind-frontend-workflow/` is the project-local skill
-that routes design, implementation, testing, debugging, and review work
-under `apps/web` to the smallest relevant approved skill / MCP. Do not apply
-every skill or MCP to every task; sequence design → implementation →
-interactive verification → final audit.
+`.agents/skills/marketmind-frontend-workflow/` routes work under `apps/web` to
+the smallest relevant approved skill or browser tool. Sequence design →
+implementation → interactive verification → final audit.
 
 Before frontend work, run `npm run agent:setup -- --agent <agent>` once, then
-use `npm run agent:doctor` to verify the reviewed skill revisions. Agents must
-not discover or silently install alternatives. MCP registration is local to
-each developer's agent and must never commit credentials or personal browser
-profiles.
+use `npm run agent:doctor` to verify reviewed skill revisions. MCP registration
+is local to each developer and must never commit credentials or personal
+browser profiles.

@@ -1,90 +1,78 @@
 # MarketMind AI — Start Here
 
-This folder is the planning home for the MarketMind AI graduation project.
+MarketMind AI is an Arabic-first, bilingual marketing workspace for Egyptian
+small and medium businesses. It helps an owner understand the business, build
+an evidence-grounded strategy, create weekly content, publish or export only
+after approval, and use real Facebook performance evidence to improve future
+content.
 
-The goal is not to start coding yet. The goal is to help the whole team understand the product, the AI flow, the agent responsibilities, and the work process before implementation begins.
+ببساطة: ماركت مايند بيساعد صاحب المشروع يفهم نشاطه، يبني خطة تسويق مبنية على
+أدلة، يراجع المحتوى، ويوافق على أي خطوة قبل النشر أو التغيير.
 
-## Project in one sentence
+## Product journey
 
-MarketMind AI helps Egyptian small and medium businesses (SMEs) across industries plan, create, publish, and improve social media marketing with AI while keeping the business owner in control.
+```mermaid
+flowchart LR
+    D["Discover"] --> S["Strategy"]
+    S --> SA{"Owner approves"}
+    SA --> C["Weekly content"]
+    C --> CA{"Owner approves"}
+    CA --> P["Publish or export"]
+    P --> M["Facebook performance"]
+    M --> O["Optimization proposal"]
+    O --> OA{"Owner approves"}
+```
 
-ببساطة: السيستم بيساعد أصحاب الشركات الصغيرة والمتوسطة في مصر في مختلف المجالات يعملوا خطة تسويق ومحتوى للسوشيال ميديا، لكن أي قرار مهم لازم يتوافق عليه من الإنسان الأول.
+The owner remains the decision-maker throughout the journey. Research may
+suggest facts, AI may propose plans and content, and deterministic services may
+execute approved actions; none of those layers can silently approve on the
+owner's behalf.
 
-## MVP in simple words
+## Current implementation
 
-For the graduation MVP, we focus on one complete journey:
+- Email/password and Google authentication, session rotation, RBAC, and admin
+  controls.
+- Bilingual Prepared Discovery with research evidence, progress updates, and
+  owner-confirmed business profiles.
+- Curated Strategy RAG over reviewed marketing knowledge, deterministic
+  calculations, citations, versioning, and owner decisions.
+- Content V2 weekly planning, generation, policy validation, revision, assets,
+  and item-level approval.
+- Deterministic export, simulation, scheduling, and Facebook static publishing
+  behind exact candidate approval and provider-readiness gates.
+- Automatic Facebook performance snapshots and bounded, owner-approved
+  hook/CTA optimization proposals.
+- Prepaid points-wallet billing with idempotent ledger handling and Paymob
+  integration boundaries.
+- Feature-flagged LangGraph orchestration with durable checkpoints and shadow
+  evidence; the established product path remains authoritative.
 
-1. Understand the business.
-2. Research useful marketing context.
-3. Create a marketing strategy.
-4. Generate content week by week from the approved 12-week strategy.
-5. Publish or export the content.
-6. Monitor results.
-7. Suggest improvements for future content.
+Provider-dependent behavior still requires valid external accounts,
+permissions, public media URLs, and server-side credentials. Local defaults and
+CI use deterministic mock paths where documented; those results are not live
+provider proof.
 
-The MVP should feel like a real product, even if some external integrations use safe simulation during the demo.
+## Reading order
 
-## What is included now
+1. Read [`../../README.md`](../../README.md) for the public project overview and
+   local setup.
+2. Read [`../README.md`](../README.md) for the maintained documentation map.
+3. Read [`02_MARKETMIND_AI_FLOW.md`](02_MARKETMIND_AI_FLOW.md) for the full data
+   and approval journey.
+4. Read [`03_AGENTS_OVERVIEW.md`](03_AGENTS_OVERVIEW.md) for responsibility
+   boundaries.
+5. Use the current technical documents under
+   [`../technical-and-ai-docs/`](../technical-and-ai-docs/) for implementation
+   and deployment details.
+6. Use the feature architecture and runbook linked from [`../README.md`](../README.md)
+   when changing a specific vertical slice.
 
-- One owner account.
-- One business profile.
-- Arabic and English experience.
-- Business discovery interview.
-- Optional menu, logo, brand guide, and photo understanding.
-- Trusted research with citations.
-- Marketing strategy.
-- Rolling weekly content generation: Week 1 starts the cycle, then the next
-  week's draft is prepared by the end of the current week.
-- Human approval before publishing.
-- Manual export or clearly labeled simulation when real publishing is unavailable.
-- Facebook-only automatic performance monitoring for real posts published by
-  MarketMind; test fixtures never appear as live analytics.
-- An evidence-backed hook/CTA improvement proposal after enough comparable
-  seven-day data, with owner approval before one future draft is influenced.
+## Truthfulness rules
 
-## What is not included now
-
-These are intentionally deferred from the current graduation-demo acceptance:
-
-- Subscriptions and payments. This is the next planned commercial-readiness
-  slice; use `sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md` before
-  implementation.
-- Agency dashboards.
-- Multiple businesses per account.
-- Role-based access control.
-- Influencer matching.
-- TikTok publishing.
-- Paid ads execution.
-- Full generated video production.
-- Native mobile apps.
-
-## How the team should read these docs
-
-Recommended order:
-
-1. Read this file first.
-2. Read `01_AI_CONCEPTS_FOR_THE_TEAM.md` to understand the AI vocabulary.
-3. Read `02_MARKETMIND_AI_FLOW.md` to understand the full journey.
-4. Read `03_AGENTS_OVERVIEW.md` to understand each AI role.
-5. Read `04_FIRST_IMPLEMENTATION_ROADMAP.md` before creating GitHub Issues.
-6. Read `05_TEAM_OPERATING_SYSTEM.md` before assigning work.
-7. Use `06_GLOSSARY_AND_CHECKLIST.md` before coding and before demo.
-8. Read `07_GIT_CONVENTIONS.md` before opening implementation PRs.
-9. Use `sprint-1/07_SPRINT_1_VERTICAL_SLICE.md` for the first real implementation sprint.
-10. Read `sprint-4/STRATEGY_AGENT_TEAM_GUIDE.md` before starting Sprint 4 issues.
-11. Use `sprint-4/STRATEGY_AGENT_AND_CURATED_RAG_ARCHITECTURE.md` as the detailed source of truth for the Strategy Agent and required RAG vertical slice.
-12. Use `sprint-5/CONTENT_AGENT_AND_AUTOMATION_HANDOFF_ARCHITECTURE.md` as the approved implementation plan for the Content Agent and the publishing-automation handoff.
-13. Use `sprint-5/PUBLISHING_AUTOMATION_ARCHITECTURE.md` as the approved
-    deterministic publishing plan and Automation-team issue split.
-14. Use `sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md` as the proposed
-    pricing, Egypt-friendly gateway, billing-lifecycle, and implementation plan.
-15. Use `09_RAG_CHECKLIST_CLOSEOUT_IMPLEMENTATION_PLAN.md` for the focused
-    MMR, retrieval-evaluation, and truthful RAG-readiness closeout.
-16. Use
-    `sprint-8/FACEBOOK_PERFORMANCE_AND_OPTIMIZATION_ARCHITECTURE.md` and
-    `sprint-8/FACEBOOK_PERFORMANCE_IMPLEMENTATION_ISSUES.md` for the
-    Facebook-only monitoring and owner-approved Optimization vertical slice.
-
-## Important team rule
-
-AI can help us build faster, but every human owner of a task must understand, test, and explain the work.
+- PostgreSQL owns durable product state; Redis/BullMQ carries recoverable work;
+  Qdrant is a rebuildable index of reviewed knowledge.
+- Publishing is deterministic and always separate from content approval.
+- Fixtures, simulations, and mock providers must remain visibly labeled.
+- Failed integrations and insufficient evidence must surface as blockers, not
+  fabricated success.
+- Code and shared contracts supersede historical planning language.

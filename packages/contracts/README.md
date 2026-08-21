@@ -1,52 +1,49 @@
-# packages/contracts
+# MarketMind shared contracts
 
-Shared contracts and examples for the MarketMind AI monorepo.
+Versioned TypeScript and Python contracts shared across the Next.js web app,
+NestJS API, and FastAPI AI service. This package defines data shapes, lifecycle
+rules, validation helpers, and positive/negative fixtures; it does not contain
+controllers, provider clients, persistence, or secrets.
 
-Sprint 1 starts here with the Prepared Discovery contract from issue `#1`.
-This package intentionally contains contracts and fixtures only. It does not
-contain NestJS controllers, FastAPI provider code, repositories, or secrets.
+## Contract domains
 
-## What Exists Now
+- Discovery sessions, confirmed profiles, progress, and journey state
+- Strategy briefs, retrieval packs, plans, readiness, versions, and decisions
+- Content V1/V2 cycles, weekly plans, packs, item versions, assets, and policy
+- Publishing candidates, approvals, intents, schedules, attempts, and results
+- Meta connection readiness
+- Facebook performance snapshots and Optimization proposals
+- Billing-facing boundaries where shared with consumers
+- Agentic orchestration state, events, start/resume, and terminal results
+- Stable API error envelopes
 
-- Prepared Discovery lifecycle statuses and allowed transitions.
-- Public NestJS request/response TypeScript interfaces.
-- Internal FastAPI Discovery request/response TypeScript interfaces.
-- WebSocket progress event contract.
-- Shared API error envelope.
-- JSON examples for start, status, respond, summarize, confirm, progress, AI
-  calls, and public errors.
-- A lightweight example validator.
-- A human-readable contract guide in `PREPARED_DISCOVERY_CONTRACT.md`.
-- Frozen Content and deterministic Publishing v1 boundaries, including exact
-  owner approval, authoritative candidate-status intake, SHA-256 asset-byte
-  verification, idempotency, truthful results, and signed workflow fixtures.
+The `examples/` directory intentionally includes valid and invalid fixtures.
+Invalid examples are regression evidence for fail-closed validation and must
+not be removed just because they cannot pass the positive schema path.
 
-## Useful Commands
-
-Run from the repository root:
+## Commands
 
 ```bash
-npm run check
+# Complete package validation
+npm run check -w @marketmind/contracts
+
+# Build the bundled Node consumer artifact
+npm run build -w @marketmind/contracts
+
+# Focused publishing and consumer parity
+npm run check:publishing -w @marketmind/contracts
+npm run check:consumers -w @marketmind/contracts
 ```
 
-Run only this package:
+`npm run check` at the repository root runs the complete contract suite,
+including TypeScript/Python parity and fixture validation.
 
-```bash
-npm --workspace @marketmind/contracts run check
-```
+## Invariants
 
-Publishing-only checks:
-
-```bash
-npm --workspace @marketmind/contracts run check:publishing
-npm --workspace @marketmind/contracts run check:consumers
-```
-
-## Important Boundaries
-
-- Research happens before chat opens.
-- WebSocket progress is live feedback only; HTTP status remains the recovery
-  source of truth.
-- Owner-visible research observations need source labels or source refs.
-- Wrong or low-confidence matches must be discarded before reaching Discovery.
-- Strategy remains locked until the owner confirms a profile draft.
+- IDs, owner/business scope, versions, and checksums are explicit.
+- Approval applies to one exact immutable version.
+- Mock, simulation, export, failed, unknown, and live results cannot collapse
+  into the same state.
+- Provider payloads are normalized before entering shared product contracts.
+- New fields must be reflected in TypeScript, Python, validators, examples, and
+  consumer type tests where applicable.

@@ -1,0 +1,56 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>MarketMind AI social preview</title>
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#D9E2EC" stroke-opacity="0.55"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="28" flood-color="#102A43" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="#F7F8FA"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <circle cx="1110" cy="-40" r="310" fill="#E7F3F2"/>
+  <circle cx="1220" cy="630" r="250" fill="#EAF0FF"/>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="72" width="1136" height="496" rx="36" fill="#FFFFFF"/>
+  </g>
+
+  <g transform="translate(122 118)">
+    <rect width="96" height="96" rx="26" fill="#E7F3F2"/>
+    <g transform="translate(20 20) scale(1.1667)">
+      <path d="M7 36V11L24 27" stroke="#0B6F71" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 27L41 11V25" stroke="#102A43" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M41 25C41 34 35 40 26 40H18" stroke="#0B6F71" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <text x="246" y="160" fill="#102A43" font-family="Arial, sans-serif" font-size="46" font-weight="700">MarketMind AI</text>
+  <text x="246" y="202" fill="#0B6F71" font-family="Arial, sans-serif" font-size="24" font-weight="600">Arabic-first marketing intelligence for Egyptian SMEs</text>
+
+  <text x="122" y="303" fill="#102A43" font-family="Arial, sans-serif" font-size="54" font-weight="700">Evidence before decisions.</text>
+  <text x="122" y="364" fill="#102A43" font-family="Arial, sans-serif" font-size="54" font-weight="700">Owner control before execution.</text>
+  <text x="122" y="409" fill="#52677A" font-family="Arial, sans-serif" font-size="23">Discover → Strategy → Content → Publish → Improve</text>
+
+  <g transform="translate(122 470)">
+    <rect width="176" height="54" rx="27" fill="#0B6F71"/>
+    <text x="88" y="35" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18" font-weight="700">DISCOVER</text>
+    <path d="M194 27H229" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M222 20L229 27L222 34" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="248" width="176" height="54" rx="27" fill="#E7F3F2" stroke="#8DC5C2"/>
+    <text x="336" y="35" text-anchor="middle" fill="#0B6F71" font-family="Arial, sans-serif" font-size="18" font-weight="700">STRATEGY</text>
+    <path d="M442 27H477" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M470 20L477 27L470 34" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="496" width="176" height="54" rx="27" fill="#E7F3F2" stroke="#8DC5C2"/>
+    <text x="584" y="35" text-anchor="middle" fill="#0B6F71" font-family="Arial, sans-serif" font-size="18" font-weight="700">CONTENT</text>
+    <path d="M690 27H725" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M718 20L725 27L718 34" stroke="#8FA3B4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="744" width="176" height="54" rx="27" fill="#EAF0FF" stroke="#9DB8FA"/>
+    <text x="832" y="35" text-anchor="middle" fill="#245FC7" font-family="Arial, sans-serif" font-size="18" font-weight="700">PUBLISH</text>
+  </g>
+</svg>

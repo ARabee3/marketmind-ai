@@ -1,13 +1,9 @@
 # MarketMind Points Wallet — Billing Model
 
-- **Status:** Approved direction (team decision, 2026-08-16)
-- **Supersedes:** the artifact-count entitlements and "no AI credits" stance in
-  `Docs/planning/sprint-6/PAYMENTS_AND_SUBSCRIPTIONS_ARCHITECTURE.md`. That
-  document's payment plumbing (hosted checkout, signed webhooks, idempotency,
-  reconciliation, security rules) still stands. Only the **pricing shape**
-  changes: from "one subscription with artifact caps" to a **prepaid points
-  wallet**.
-- **Implementation plan:** see [`billing-plan.md`](./billing-plan.md).
+- **Status:** Implemented direction (team decision, 2026-08-16)
+- **Model:** prepaid points wallet with hosted checkout, signed webhooks,
+  idempotent ledger handling, reconciliation, and server-owned pricing.
+- **Implementation record:** see [`billing-plan.md`](./billing-plan.md).
 
 ---
 
@@ -27,6 +23,7 @@ launch.
   plans, and exporting cost nothing. **Only AI generation spends points.**
 
 ### Why points, not tokens
+
 1. **The customer can't model tokens.** A bakery or salon owner does not know
    what a token is. "Will 150 points last me?" is answerable; "will 150k tokens
    last me?" is not.
@@ -38,6 +35,7 @@ launch.
    **successful artifact**, not per provider attempt.
 
 ### Why a pure wallet, not a subscription (at launch)
+
 - **It ships now.** A subscription needs automatic recurring card charging,
   which is **not yet approved by Paymob** (the adapter deliberately refuses
   `recurring_card` today). Every points top-up is a **one-time payment**, so
@@ -46,18 +44,18 @@ launch.
 - **The lifecycle is trivial:** you either have points or you don't. No grace
   period, dunning, `past_due`, or cancellation flows.
 - **A subscription can be added later** as an "auto-buy N points each month"
-  layer once recurring card charging is approved — underneath it is the *same*
+  layer once recurring card charging is approved — underneath it is the _same_
   points ledger, so nothing built now is wasted.
 
 ---
 
 ## 2. Bundles
 
-| Bundle | Points | Price (EGP) | EGP per point | Who it's for |
-| --- | ---: | ---: | ---: | --- |
-| Starter | 150 | 100 | 0.667 | Light users / first purchase |
-| Growth | 300 | 200 | 0.667 | Typical monthly buyer |
-| Pro | 500 | 300 | **0.600** | Heavy users (best value) |
+| Bundle  | Points | Price (EGP) | EGP per point | Who it's for                 |
+| ------- | -----: | ----------: | ------------: | ---------------------------- |
+| Starter |    150 |         100 |         0.667 | Light users / first purchase |
+| Growth  |    300 |         200 |         0.667 | Typical monthly buyer        |
+| Pro     |    500 |         300 |     **0.600** | Heavy users (best value)     |
 
 The 500-point bundle is deliberately cheaper per point (EGP 0.60 vs 0.667) as a
 **volume kicker** — it rewards buying larger and topping up less often.
@@ -72,21 +70,22 @@ code; NestJS resolves the exact EGP amount from the catalog.
 Every AI action costs a fixed number of points, charged **on the successful
 artifact only**. A failed generation does **not** spend the owner's points.
 
-| Owner action | Internal metric | Points | ≈ EGP value | Our cost (EGP) | Margin |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Post (content item) | `content_item` | **2** | ~1.3 | ~0.07 | very high |
-| Post revision | `content_revision` | **1** | ~0.7 | ~0.08 | very high |
-| Image | `static_image` | **8** | ~5 | ~2.3 | ~2.2× |
-| Strategy phase (incl. discovery + research) | `strategy_cycle` | **50** | ~33 | ~22–25 | **~1.3–1.4×** |
-| Strategy revision | `strategy_revision` | **10** | ~6.7 | ~0.55 | very high |
-| Discovery (part of strategy phase) | `discovery` | **0** | — | (in phase) | — |
-| Connect / publish target | `publication_target` | **0** | — | ~0 | — |
+| Owner action                                | Internal metric      | Points | ≈ EGP value | Our cost (EGP) |        Margin |
+| ------------------------------------------- | -------------------- | -----: | ----------: | -------------: | ------------: |
+| Post (content item)                         | `content_item`       |  **2** |        ~1.3 |          ~0.07 |     very high |
+| Post revision                               | `content_revision`   |  **1** |        ~0.7 |          ~0.08 |     very high |
+| Image                                       | `static_image`       |  **8** |          ~5 |           ~2.3 |         ~2.2× |
+| Strategy phase (incl. discovery + research) | `strategy_cycle`     | **50** |         ~33 |         ~22–25 | **~1.3–1.4×** |
+| Strategy revision                           | `strategy_revision`  | **10** |        ~6.7 |          ~0.55 |     very high |
+| Discovery (part of strategy phase)          | `discovery`          |  **0** |           — |     (in phase) |             — |
+| Connect / publish target                    | `publication_target` |  **0** |           — |             ~0 |             — |
 
 Notes:
+
 - **"Strategy phase" is one charge (50 pts) that covers the whole
   discovery → research → strategy draft flow**, because the expensive part is the
   third-party research (SerpApi/Apify, ~EGP 14), not the model. Discovery is not
-  separately chargeable, so it must be gated *behind* this 50-point debit to
+  separately chargeable, so it must be gated _behind_ this 50-point debit to
   avoid a free-research leak (see the plan's "reserve" note).
 - **The strategy phase is the thin-margin action (~1.3–1.4×).** It is safe
   because it happens only **once per 12-week cycle (~once a quarter)**, so total
@@ -100,23 +99,25 @@ Notes:
 ## 4. How much a real month costs the owner
 
 From the actual implementation:
+
 - Content is generated **weekly** over a **12-week cycle**; each actionable week
   produces **exactly 3–5 posts** (content-v2 planner). → **12–20 posts/month.**
 - Images are capped at **12/month**.
 - A **strategy phase runs once per cycle** (~once a quarter), not every month.
 
-| Scenario | Points spent | ≈ EGP charged | Our cost (EGP) |
-| --- | ---: | ---: | ---: |
-| Light month (8 posts, 4 images, no strategy) | 8×2 + 4×8 = **48** | ~32 | ~10 |
-| Normal full month (20 posts, 12 images) | 40 + 96 = **136** | ~91 | ~32 |
-| Strategy month (20 posts, 12 images, 1 strategy) | 40 + 96 + 50 = **186** | ~124 | ~60 |
+| Scenario                                         |           Points spent | ≈ EGP charged | Our cost (EGP) |
+| ------------------------------------------------ | ---------------------: | ------------: | -------------: |
+| Light month (8 posts, 4 images, no strategy)     |     8×2 + 4×8 = **48** |           ~32 |            ~10 |
+| Normal full month (20 posts, 12 images)          |      40 + 96 = **136** |           ~91 |            ~32 |
+| Strategy month (20 posts, 12 images, 1 strategy) | 40 + 96 + 50 = **186** |          ~124 |            ~60 |
 
 ### How long a bundle lasts (with rollover)
-| Bundle | Covers |
-| --- | --- |
-| 150 pts | ~1 normal full month |
+
+| Bundle  | Covers                                                       |
+| ------- | ------------------------------------------------------------ |
+| 150 pts | ~1 normal full month                                         |
 | 300 pts | ~1 strategy month, or ~2 normal months (leftover rolls over) |
-| 500 pts | ~2.5–3 normal months |
+| 500 pts | ~2.5–3 normal months                                         |
 
 This is generous on purpose — rollover builds trust. The trade-off of the pure
 wallet is **less frequent purchases** than a subscription. That is accepted for
@@ -153,11 +154,11 @@ run out, the owner simply buys a bundle.
 - Indicative gateway fee is **2.75% + EGP 3** per top-up. The fixed EGP 3 is why
   larger bundles are better for margin:
 
-  | Top-up | ~Fee | Net to us |
-  | ---: | ---: | ---: |
-  | EGP 100 | ~5.75 | ~94.25 |
-  | EGP 200 | ~8.50 | ~191.50 |
-  | EGP 300 | ~11.25 | ~288.75 |
+  |  Top-up |   ~Fee | Net to us |
+  | ------: | -----: | --------: |
+  | EGP 100 |  ~5.75 |    ~94.25 |
+  | EGP 200 |  ~8.50 |   ~191.50 |
+  | EGP 300 | ~11.25 |   ~288.75 |
 
 ---
 

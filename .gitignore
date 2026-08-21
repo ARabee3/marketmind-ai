@@ -33,6 +33,8 @@ npm-debug.log*
 # Agent skill lockfile (references local/temp paths; reinstall via npm run agent:setup)
 skills-lock.json
 __pycache__/
+.pytest_cache/
+.ruff_cache/
 
 # Orchestration / review session artifacts
 .omo/
@@ -48,3 +50,7 @@ content-phase-report.txt
 agents-skills.zip
 .playwright-mcp/
 apps/api/.content-assets/
+
+# Generated local artifacts
+/output/
+/tmp/
