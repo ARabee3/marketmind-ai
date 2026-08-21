@@ -2032,7 +2032,26 @@
       "replaced": "تم استبدالها",
       "emptyTitle": "مفيش قطع معتمدة للأسبوع ده",
       "emptyBody": "قطع المحتوى المعتمدة هتظهر هنا لما دورة المحتوى تكون جاهزة.",
-      "choose": "خد قرار للمنشور ده"
+      "choose": "خد قرار للمنشور ده",
+      "viewPublishedPost": "فتح المنشور",
+      "metadata": {
+        "channel": {
+          "facebook": "فيسبوك",
+          "instagram": "إنستجرام",
+          "tiktok": "تيك توك",
+          "googleBusinessProfile": "ملف النشاط على جوجل"
+        },
+        "format": {
+          "staticImagePost": "منشور بصورة",
+          "shortVideoScript": "سيناريو فيديو قصير",
+          "carouselBrief": "موجز كاروسيل",
+          "textPost": "منشور نصي"
+        },
+        "locale": {
+          "arabic": "العربية",
+          "english": "الإنجليزية"
+        }
+      }
     },
     "preview": {
       "eyebrow": "المنشور المعتمد المحدد",
@@ -3366,7 +3385,7 @@
       "realEvidence": "دليل حقيقي",
       "publishedAt": "اتنشر {date}",
       "viewAction": "عرض المنشور",
-      "reference": "معرّف المنشور: {id}",
+      "linkUnavailable": "رابط المنشور مش متاح لسه",
       "refresh": "اطلب تحديث",
       "refreshing": "جارٍ الطلب…"
     },

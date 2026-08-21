@@ -260,6 +260,15 @@ export class IntentsService {
         candidate: true,
         target: true,
         approvals: { orderBy: { decidedAt: "desc" } },
+        attempts: {
+          orderBy: { attemptSequence: "desc" },
+          take: 1,
+          select: {
+            result: {
+              select: { outcome: true, remoteUrl: true },
+            },
+          },
+        },
       },
     });
     if (!intent) throw new NotFoundException(PublishingErrorCode.NOT_FOUND);
@@ -274,7 +283,19 @@ export class IntentsService {
         ...(query.candidateId ? { candidateId: query.candidateId } : {}),
         ...(query.targetId ? { targetId: query.targetId } : {}),
       },
-      include: { candidate: true, target: true },
+      include: {
+        candidate: true,
+        target: true,
+        attempts: {
+          orderBy: { attemptSequence: "desc" },
+          take: 1,
+          select: {
+            result: {
+              select: { outcome: true, remoteUrl: true },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
     return intents.map((i) => this.projectIntent(i));
@@ -1088,7 +1109,23 @@ export class IntentsService {
     const rawCandidate = intent["candidate"] as
       | { candidateChecksum?: unknown }
       | undefined;
-    const { target: _rawTarget, candidate: _rawCandidate, ...rest } = intent;
+    const rawAttempts = Array.isArray(intent["attempts"])
+      ? (intent["attempts"] as Array<{
+          result?: { outcome?: string; remoteUrl?: string | null } | null;
+        }>)
+      : [];
+    const publishedPostUrl = rawAttempts.find(
+      (attempt) =>
+        attempt.result?.outcome === "PUBLISHED" &&
+        typeof attempt.result.remoteUrl === "string" &&
+        attempt.result.remoteUrl.length > 0,
+    )?.result?.remoteUrl;
+    const {
+      target: _rawTarget,
+      candidate: _rawCandidate,
+      attempts: _rawAttempts,
+      ...rest
+    } = intent;
     const safeTarget = rawTarget ? toTargetProjection(rawTarget) : undefined;
     // Approval clients need the frozen checksum at the intent boundary; do
     // not force the browser to depend on the raw candidate relation shape.
@@ -1105,6 +1142,7 @@ export class IntentsService {
       ...rest,
       ...(safeTarget ? { target: safeTarget } : {}),
       ...(candidateChecksum ? { candidateChecksum } : {}),
+      ...(publishedPostUrl ? { publishedPostUrl } : {}),
       scheduledLocalDisplay:
         scheduledUtcAt && rest["timezone"]
           ? utcToCairoLocalIso(scheduledUtcAt, rest["timezone"] as string)

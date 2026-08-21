@@ -864,9 +864,7 @@ function PostEvidence({
                 {t('post.viewAction')}
               </a>
             ) : (
-              <span className="text-xs" title={post.provider_object_id}>
-                {t('post.reference', { id: post.provider_object_id })}
-              </span>
+              <span className="text-xs">{t('post.linkUnavailable')}</span>
             )}
           </div>
         </div>

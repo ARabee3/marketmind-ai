@@ -2032,7 +2032,26 @@
       "replaced": "Replaced",
       "emptyTitle": "No approved candidates for this week",
       "emptyBody": "Approved Content items will appear here when the Content cycle is ready.",
-      "choose": "Decide on this post"
+      "choose": "Decide on this post",
+      "viewPublishedPost": "View published post",
+      "metadata": {
+        "channel": {
+          "facebook": "Facebook",
+          "instagram": "Instagram",
+          "tiktok": "TikTok",
+          "googleBusinessProfile": "Google Business Profile"
+        },
+        "format": {
+          "staticImagePost": "Image post",
+          "shortVideoScript": "Short video script",
+          "carouselBrief": "Carousel brief",
+          "textPost": "Text post"
+        },
+        "locale": {
+          "arabic": "Arabic",
+          "english": "English"
+        }
+      }
     },
     "preview": {
       "eyebrow": "Selected approved post",
@@ -3366,7 +3385,7 @@
       "realEvidence": "Real evidence",
       "publishedAt": "Published {date}",
       "viewAction": "View post",
-      "reference": "Post ID: {id}",
+      "linkUnavailable": "Post link not available yet",
       "refresh": "Request refresh",
       "refreshing": "Requesting…"
     },

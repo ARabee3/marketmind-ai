@@ -400,7 +400,13 @@ export class MetaGraphClient {
         message: "page feed response carried no post id",
       });
     }
-    return { remotePublicationId, remoteUrl: null };
+    return {
+      remotePublicationId,
+      remoteUrl: await this.permalinkForFacebookPost(
+        remotePublicationId,
+        params.pageToken,
+      ),
+    };
   }
 
   /**
@@ -493,6 +499,31 @@ export class MetaGraphClient {
 
   private config(key: string, fallback: string): string {
     return this.configService.get<string>(key, fallback) ?? fallback;
+  }
+
+  private async permalinkForFacebookPost(
+    postId: string,
+    pageToken: string,
+  ): Promise<string | null> {
+    try {
+      const response = await this.graphGet<{
+        permalink_url?: string;
+        link?: string;
+      }>(`/${encodeURIComponent(postId)}`, {
+        fields: "permalink_url,link",
+        access_token: pageToken,
+      });
+      return response.permalink_url ?? response.link ?? null;
+    } catch (error) {
+      // A confirmed post remains successful when the best-effort permalink
+      // lookup is unavailable; the owner can still inspect the result later.
+      this.logger.warn(
+        `Facebook permalink lookup failed for ${postId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
   }
 
   private async graphGet<T>(

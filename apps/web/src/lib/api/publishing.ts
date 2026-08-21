@@ -345,6 +345,9 @@ export function toPublishingIntent(value: unknown): PublicationIntentV1 {
     updated_at:
       dateValue(valueFrom(raw, "updated_at", "updatedAt")) ??
       new Date(0).toISOString(),
+    published_post_url: nullableString(
+      valueFrom(raw, "published_post_url", "publishedPostUrl"),
+    ),
   };
 }
 

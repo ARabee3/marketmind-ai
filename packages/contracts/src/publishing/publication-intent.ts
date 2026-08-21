@@ -44,6 +44,8 @@ export type PublicationIntentV1 = {
   readonly created_by_user_id: UUID;
   readonly created_at: IsoDateTime;
   readonly updated_at: IsoDateTime;
+  /** Provider permalink for a confirmed real publication, when available. */
+  readonly published_post_url?: string | null;
 };
 
 export type PublicationApprovalSnapshotV1 = {

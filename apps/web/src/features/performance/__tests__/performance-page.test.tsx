@@ -423,6 +423,17 @@ describe('PerformancePage', () => {
     expect(link.getAttribute('target')).toBe('_blank')
   })
 
+  it('does not expose an unusable provider id when the permalink is unavailable', async () => {
+    mockedGetPerformanceOverview.mockResolvedValue(
+      overview([{ ...post(), post_url: null }]),
+    )
+
+    render(<PerformancePage />)
+
+    expect(await screen.findByText('post.linkUnavailable')).not.toBeNull()
+    expect(screen.queryByText('page-1_post-1')).toBeNull()
+  })
+
   it('shows a permission blocker and safe reconnect action without hiding evidence', async () => {
     const blocked: PerformanceOverviewV1 = {
       ...overview([post()]),
