@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import type { DashboardJourneyKind } from './dashboard-state'
+import type { DashboardContentStatus, DashboardJourneyKind } from './dashboard-state'
 
 const PHASES = [
   'discovery',
@@ -20,7 +20,13 @@ const STRATEGY_KINDS: ReadonlySet<DashboardJourneyKind> = new Set([
   'strategy_rejected',
 ])
 
-export function JourneyRail({ activeKind }: { readonly activeKind: DashboardJourneyKind }) {
+export function JourneyRail({
+  activeKind,
+  contentStatus,
+}: {
+  readonly activeKind: DashboardJourneyKind
+  readonly contentStatus: DashboardContentStatus
+}) {
   const t = useTranslations('Dashboard')
 
   return (
@@ -34,7 +40,10 @@ export function JourneyRail({ activeKind }: { readonly activeKind: DashboardJour
       <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {PHASES.map((phase) => (
           <li key={phase}>
-            <PhaseCard phase={phase} status={phaseStatus(phase, activeKind)} />
+            <PhaseCard
+              phase={phase}
+              status={phaseStatus(phase, activeKind, contentStatus)}
+            />
           </li>
         ))}
       </ol>
@@ -83,6 +92,7 @@ function PhaseCard({
 function phaseStatus(
   phase: Phase,
   activeKind: DashboardJourneyKind,
+  contentStatus: DashboardContentStatus,
 ): 'done' | 'active' | 'locked' {
   if (phase === 'discovery') {
     return activeKind === 'empty' ? 'active' : 'done'
@@ -98,5 +108,6 @@ function phaseStatus(
     if (activeKind === 'confirmed') return 'active'
     return 'locked'
   }
+  if (phase === 'content') return contentStatus
   return 'locked'
 }

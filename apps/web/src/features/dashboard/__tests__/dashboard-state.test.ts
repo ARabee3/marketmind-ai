@@ -125,6 +125,30 @@ describe('mapCurrentJourney', () => {
     expect(state.location).toBe('Assiut City, Assiut')
     expect(state.profileVersion).toBe(2)
   })
+
+  it('marks Content done when the current pack is approved', () => {
+    const response = {
+      ...responseWithConfirmedProfileAndStrategy('approved'),
+      content: {
+        ready: true,
+        reason: 'cycle_active' as const,
+        cycle: {
+          id: 'cycle-id',
+          status: 'active',
+          current_week: 1,
+        },
+        pack: {
+          id: 'pack-id',
+          status: 'approved',
+          week_number: 1,
+          failed: false,
+          pending_decisions: 0,
+        },
+      },
+    }
+
+    expect(mapCurrentJourney(response).contentStatus).toBe('done')
+  })
 })
 
 type AvailableStrategyStatus = Exclude<StrategyStatus, 'needs_brief' | 'failed'>

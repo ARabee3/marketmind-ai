@@ -230,7 +230,10 @@ export function DashboardHome() {
       ) : null}
 
       <div className="mt-12 md:mt-0">
-        <JourneyRail activeKind={journey.kind} />
+        <JourneyRail
+          activeKind={journey.kind}
+          contentStatus={journey.contentStatus}
+        />
       </div>
     </section>
   )

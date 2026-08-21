@@ -156,9 +156,9 @@
       "content": {
         "number": "4",
         "title": "Content",
-        "done": "Not active yet",
-        "active": "Not active yet",
-        "locked": "Future phase"
+        "done": "All posts approved",
+        "active": "Posts await your decision",
+        "locked": "After Strategy approval"
       },
       "results": {
         "number": "5",
