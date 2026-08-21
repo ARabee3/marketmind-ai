@@ -1,5 +1,6 @@
 ﻿import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { BullModule } from "@nestjs/bullmq";
 import { JwtService } from "@nestjs/jwt";
 import { Role } from "@prisma/client";
 import { Test, TestingModule } from "@nestjs/testing";
@@ -22,7 +23,8 @@ process.env.JWT_REFRESH_EXPIRES_IN = "7d";
 process.env.WEB_ORIGIN = "http://localhost:3000";
 process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
 process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
-process.env.GOOGLE_CALLBACK_URL = "http://localhost:3001/api/v1/auth/google/callback";
+process.env.GOOGLE_CALLBACK_URL =
+  "http://localhost:3001/api/v1/auth/google/callback";
 process.env.FB_APP_ID = "test-facebook-app-id";
 process.env.FB_APP_SECRET = "test-facebook-app-secret";
 process.env.FB_REDIRECT_URI =
@@ -51,6 +53,11 @@ describe("Admin Billing (e2e)", () => {
           isGlobal: true,
           load: [configuration],
           validate: envSchema,
+        }),
+        BullModule.forRoot({
+          connection: {
+            url: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
+          },
         }),
         AuthModule,
         RbacModule,
@@ -105,7 +112,11 @@ describe("Admin Billing (e2e)", () => {
     });
 
     ownerToken = await jwtService.signAsync(
-      { sub: testUserId, email: "billing-e2e-user@example.com", roles: [Role.OWNER] },
+      {
+        sub: testUserId,
+        email: "billing-e2e-user@example.com",
+        roles: [Role.OWNER],
+      },
       { secret: TEST_ACCESS_SECRET, expiresIn: "15m" },
     );
     adminToken = await jwtService.signAsync(
@@ -125,10 +136,12 @@ describe("Admin Billing (e2e)", () => {
   afterAll(async () => {
     // Restore billing account to active if modified
     if (testAccountId) {
-      await prisma.billingAccount.update({
-        where: { id: testAccountId },
-        data: { status: "active", pausedReason: null, pausedAt: null },
-      }).catch(() => {});
+      await prisma.billingAccount
+        .update({
+          where: { id: testAccountId },
+          data: { status: "active", pausedReason: null, pausedAt: null },
+        })
+        .catch(() => {});
     }
     await app.close();
   });
@@ -232,7 +245,10 @@ describe("Admin Billing (e2e)", () => {
       expect(res.body.balance).toBe((before?.balance ?? 0) + 50);
 
       const ledger = await prisma.billingPointLedger.findFirst({
-        where: { billingAccountId: testAccountId, claimKey: { startsWith: "admin:topup:" } },
+        where: {
+          billingAccountId: testAccountId,
+          claimKey: { startsWith: "admin:topup:" },
+        },
         orderBy: { createdAt: "desc" },
       });
       expect(ledger).toBeTruthy();
