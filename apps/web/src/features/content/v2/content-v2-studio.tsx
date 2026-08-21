@@ -407,6 +407,25 @@ export function ContentV2Studio({ cycleId }: StudioProps) {
             </p>
           </section>
 
+          <section
+            aria-labelledby="cta-guidance"
+            className="rounded-xl border border-action/30 bg-action/5 p-4"
+          >
+            <h2 id="cta-guidance" className="text-sm font-bold text-navy">
+              {t("ctaGuidanceTitle")}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {t("ctaGuidanceBody")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode("setup")}
+              className="mt-3 rounded-lg border border-action/40 px-3 py-2 text-xs font-bold text-action hover:bg-action/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+            >
+              {t("ctaGuidanceCta")}
+            </button>
+          </section>
+
           {/* Action panel: state + one primary action + contextual secondary */}
           <section aria-labelledby="generation-state" className="space-y-3">
             <p

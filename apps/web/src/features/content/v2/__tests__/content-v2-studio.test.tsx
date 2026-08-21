@@ -58,6 +58,10 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.recoveryPlanSafe":
         "Your reviewed post plan is still intact, and nothing was published.",
       "ContentV2.studio.configureProfileCta": "Editorial settings",
+      "ContentV2.studio.ctaGuidanceTitle": "Give every post a clear next step",
+      "ContentV2.studio.ctaGuidanceBody":
+        "Open the CTA library before planning.",
+      "ContentV2.studio.ctaGuidanceCta": "Open CTA library",
       "ContentV2.studio.viewFullStrategy": "View full strategy",
       "ContentV2.studio.generationState.not_started": "Not planned",
       "ContentV2.studio.generationState.planned":
@@ -256,6 +260,20 @@ describe("ContentV2Studio", () => {
     expect(screen.getByText(/default voice/i)).toBeDefined();
     expect(screen.getByText(/3–5 post cards/i)).toBeDefined();
     expect(screen.queryByRole("button", { name: "Re-plan" })).toBeNull();
+  });
+
+  it("guides the owner to the CTA library from the content entry", async () => {
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      baseWorkspace(),
+    );
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open CTA library" }),
+    );
+
+    expect(await screen.findByText("ctaSection")).toBeDefined();
   });
 
   it("keeps unsaved editorial setup values when returning to the studio", async () => {

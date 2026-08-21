@@ -2930,6 +2930,9 @@
       "notAvailable": "Not available",
       "nextWeekStatus": "Week {week}: {status}",
       "configureProfileCta": "Editorial settings",
+      "ctaGuidanceTitle": "Give every post a clear next step",
+      "ctaGuidanceBody": "Open the CTA library to save reusable destinations before planning your posts. Each card can use one primary call to action.",
+      "ctaGuidanceCta": "Open CTA library",
       "defaultVisualHint": "Image posts will get a generated visual only when you do not choose or upload one on the card.",
       "noAction": "No action available right now"
     },
