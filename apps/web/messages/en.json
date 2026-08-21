@@ -156,9 +156,9 @@
       "content": {
         "number": "4",
         "title": "Content",
-        "done": "Not active yet",
-        "active": "Not active yet",
-        "locked": "Future phase"
+        "done": "All posts approved",
+        "active": "Posts await your decision",
+        "locked": "After Strategy approval"
       },
       "results": {
         "number": "5",
@@ -179,7 +179,8 @@
       "steps": {
         "control": {
           "title": "You stay in control",
-          "body": "MarketMind does not publish, launch strategy, or invent business facts without your confirmation. The dashboard always shows the next owner decision."
+          "body": "MarketMind does not publish, launch strategy, or invent business facts without your confirmation. The dashboard always shows the next owner decision.",
+          "pointsTip": "Tip: You have 65 free points to try the system."
         },
         "profile": {
           "title": "Build the business profile first",
@@ -2031,7 +2032,26 @@
       "replaced": "Replaced",
       "emptyTitle": "No approved candidates for this week",
       "emptyBody": "Approved Content items will appear here when the Content cycle is ready.",
-      "choose": "Decide on this post"
+      "choose": "Decide on this post",
+      "viewPublishedPost": "View published post",
+      "metadata": {
+        "channel": {
+          "facebook": "Facebook",
+          "instagram": "Instagram",
+          "tiktok": "TikTok",
+          "googleBusinessProfile": "Google Business Profile"
+        },
+        "format": {
+          "staticImagePost": "Image post",
+          "shortVideoScript": "Short video script",
+          "carouselBrief": "Carousel brief",
+          "textPost": "Text post"
+        },
+        "locale": {
+          "arabic": "Arabic",
+          "english": "English"
+        }
+      }
     },
     "preview": {
       "eyebrow": "Selected approved post",
@@ -2322,7 +2342,7 @@
     "pricePoints": "{points, plural, one{{points} point} other{{points} points}}",
     "lowBalanceTitle": "Balance running low",
     "lowBalanceBody": "You have {points} points left. Buy a bundle to keep AI work moving.",
-    "lowBalanceCta": "Top up 150 points",
+      "lowBalanceCta": "Buy {points} points for {amount}",
     "rolloverTitle": "Points roll over",
     "rolloverBody": "Purchased points roll over across top-ups. Only AI generation spends points — viewing and editing your work stays free.",
     "transactionsTitle": "Payment history",
@@ -2929,6 +2949,9 @@
       "notAvailable": "Not available",
       "nextWeekStatus": "Week {week}: {status}",
       "configureProfileCta": "Editorial settings",
+      "ctaGuidanceTitle": "Give every post a clear next step",
+      "ctaGuidanceBody": "Open the CTA library to save reusable destinations before planning your posts. Each card can use one primary call to action.",
+      "ctaGuidanceCta": "Open CTA library",
       "defaultVisualHint": "Image posts will get a generated visual only when you do not choose or upload one on the card.",
       "noAction": "No action available right now"
     },
@@ -3361,6 +3384,8 @@
       "title": "Published Facebook post",
       "realEvidence": "Real evidence",
       "publishedAt": "Published {date}",
+      "viewAction": "View post",
+      "linkUnavailable": "Post link not available yet",
       "refresh": "Request refresh",
       "refreshing": "Requesting…"
     },

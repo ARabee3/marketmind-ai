@@ -75,6 +75,7 @@ const INTENT_FIELDS = new Set([
   "created_by_user_id",
   "created_at",
   "updated_at",
+  "published_post_url",
 ]);
 
 const APPROVAL_FIELDS = new Set([

@@ -58,6 +58,10 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.recoveryPlanSafe":
         "Your reviewed post plan is still intact, and nothing was published.",
       "ContentV2.studio.configureProfileCta": "Editorial settings",
+      "ContentV2.studio.ctaGuidanceTitle": "Give every post a clear next step",
+      "ContentV2.studio.ctaGuidanceBody":
+        "Open the CTA library before planning.",
+      "ContentV2.studio.ctaGuidanceCta": "Open CTA library",
       "ContentV2.studio.viewFullStrategy": "View full strategy",
       "ContentV2.studio.generationState.not_started": "Not planned",
       "ContentV2.studio.generationState.planned":
@@ -70,6 +74,8 @@ vi.mock("next-intl", () => ({
       "ContentV2.studio.historyStatus.failed": "Failed",
       "ContentV2.studio.postCard.postLabel": "Post {position}",
       "ContentV2.studio.postCard.state.planned": "Planned",
+      "ContentV2.postCard.uploadPhoto": "Upload photo",
+      "ContentV2.postCard.chooseSavedPhoto": "Choose saved photo",
       "ContentV2.setup.title": "Content setup",
       "ContentV2.setup.backToStudio": "Back to studio",
       "ContentV2.setup.preferencesTitle": "Content preferences",
@@ -256,6 +262,20 @@ describe("ContentV2Studio", () => {
     expect(screen.getByText(/default voice/i)).toBeDefined();
     expect(screen.getByText(/3–5 post cards/i)).toBeDefined();
     expect(screen.queryByRole("button", { name: "Re-plan" })).toBeNull();
+  });
+
+  it("guides the owner to the CTA library from the content entry", async () => {
+    vi.mocked(contentV2Api.getCycleWorkspaceV2).mockResolvedValue(
+      baseWorkspace(),
+    );
+
+    render(<ContentV2Studio cycleId="cycle-1" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open CTA library" }),
+    );
+
+    expect(await screen.findByText("ctaSection")).toBeDefined();
   });
 
   it("keeps unsaved editorial setup values when returning to the studio", async () => {
@@ -520,7 +540,7 @@ describe("ContentV2Studio", () => {
           week_plan: {
             id: "week-plan-1",
             status: "frozen",
-            post_plans: [],
+            post_plans: draftPlanWorkspace().current_week.week_plan!.post_plans,
           },
           pack: {
             id: "pack-1",
@@ -609,6 +629,10 @@ describe("ContentV2Studio", () => {
     });
     expect(approvedLinks).toHaveLength(1);
     expect(screen.queryByRole("link", { name: "Review drafts" })).toBeNull();
+    expect(screen.queryByLabelText("Upload photo")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose saved photo" }),
+    ).toBeNull();
   });
 
   it("does not make a failed historical week look reviewable", async () => {

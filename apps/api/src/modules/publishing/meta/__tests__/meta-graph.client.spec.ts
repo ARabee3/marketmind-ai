@@ -48,9 +48,9 @@ beforeEach(() => {
 });
 
 describe("MetaGraphClient (issue #175)", () => {
-  it("publishes a Facebook text post through the Page feed endpoint", async () => {
+  it("publishes a Facebook text post and resolves its permalink", async () => {
     const { client, http } = makeClient(
-      undefined,
+      () => of({ data: { permalink_url: "https://facebook.example/post-1" } }),
       () => of({ data: { id: "page-1_post-1" } }),
     );
 
@@ -62,7 +62,7 @@ describe("MetaGraphClient (issue #175)", () => {
       }),
     ).resolves.toEqual({
       remotePublicationId: "page-1_post-1",
-      remoteUrl: null,
+      remoteUrl: "https://facebook.example/post-1",
     });
     expect(http.post).toHaveBeenCalledWith(
       "https://graph.facebook.com/v21.0/page-1/feed",
@@ -70,6 +70,15 @@ describe("MetaGraphClient (issue #175)", () => {
       expect.objectContaining({
         params: {
           message: "Approved text",
+          access_token: "page-token",
+        },
+      }),
+    );
+    expect(http.get).toHaveBeenCalledWith(
+      "https://graph.facebook.com/v21.0/page-1_post-1",
+      expect.objectContaining({
+        params: {
+          fields: "permalink_url,link",
           access_token: "page-token",
         },
       }),

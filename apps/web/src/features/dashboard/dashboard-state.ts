@@ -16,6 +16,8 @@ export type DashboardJourneyKind =
   | 'strategy_rejected'
   | 'error'
 
+export type DashboardContentStatus = 'locked' | 'active' | 'done'
+
 export type DashboardPrimaryActionType =
   CurrentJourneyResponse['primary_action']['type']
 
@@ -34,6 +36,7 @@ export type DashboardJourneyState = {
   readonly primaryHref: string | null
   readonly strategyLockedReason: DashboardStrategyLockedReason
   readonly strategyStatus: StrategyStatus | null
+  readonly contentStatus: DashboardContentStatus
 }
 
 export function mapCurrentJourney(
@@ -58,6 +61,7 @@ export function mapCurrentJourney(
     primaryHref: response.primary_action.destination,
     strategyLockedReason: response.future_phase.reason,
     strategyStatus: response.future_phase.status,
+    contentStatus: contentStatus(response),
   }
 
   if (response.future_phase.availability === 'available') {
@@ -100,7 +104,14 @@ export function errorDashboardState(): DashboardJourneyState {
     primaryHref: null,
     strategyLockedReason: 'discovery_required',
     strategyStatus: null,
+    contentStatus: 'locked',
   }
+}
+
+function contentStatus(response: CurrentJourneyResponse): DashboardContentStatus {
+  if (response.content?.pack?.status === 'approved') return 'done'
+  if (response.content?.ready) return 'active'
+  return 'locked'
 }
 
 function strategyJourneyKind(

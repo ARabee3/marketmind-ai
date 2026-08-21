@@ -563,6 +563,7 @@ function validatePostProjection(
       "publishing_result_id",
       "provider",
       "provider_object_id",
+      "post_url",
       "published_at",
       "snapshots",
       "sync_windows",
@@ -584,6 +585,9 @@ function validatePostProjection(
     `${field}.provider_object_id`,
     issues,
   );
+  if (value.post_url !== undefined && value.post_url !== null) {
+    requireString(value.post_url, `${field}.post_url`, issues);
+  }
   requireDate(value.published_at, `${field}.published_at`, issues);
   if (!Array.isArray(value.snapshots)) {
     issues.push(issue(`${field}.snapshots`, "must be an array"));

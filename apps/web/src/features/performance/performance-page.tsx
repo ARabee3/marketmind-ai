@@ -850,9 +850,23 @@ function PostEvidence({
               {demoMode ? t('demo.postBadge') : t('post.realEvidence')}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {t('post.publishedAt', { date: formatDate(post.published_at) })}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              {t('post.publishedAt', { date: formatDate(post.published_at) })}
+            </span>
+            {post.post_url ? (
+              <a
+                href={post.post_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-bold text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action"
+              >
+                {t('post.viewAction')}
+              </a>
+            ) : (
+              <span className="text-xs">{t('post.linkUnavailable')}</span>
+            )}
+          </div>
         </div>
         {demoMode ? (
           <span className="text-xs font-semibold text-warning">

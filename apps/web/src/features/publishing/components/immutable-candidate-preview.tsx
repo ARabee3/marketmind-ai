@@ -38,6 +38,30 @@ export function ImmutableCandidatePreview({
     );
   }
 
+  const channelLabel = t(
+    ({
+      facebook: "queue.metadata.channel.facebook",
+      instagram: "queue.metadata.channel.instagram",
+      tiktok: "queue.metadata.channel.tiktok",
+      google_business_profile:
+        "queue.metadata.channel.googleBusinessProfile",
+    } as const)[payload.target_channel],
+  );
+  const formatLabel = t(
+    ({
+      static_image_post: "queue.metadata.format.staticImagePost",
+      short_video_script: "queue.metadata.format.shortVideoScript",
+      carousel_brief: "queue.metadata.format.carouselBrief",
+      text_post: "queue.metadata.format.textPost",
+    } as const)[payload.content_format],
+  );
+  const localeLabel = t(
+    ({
+      ar: "queue.metadata.locale.arabic",
+      en: "queue.metadata.locale.english",
+    } as const)[payload.selected_locale],
+  );
+
   return (
     <section
       aria-labelledby="immutable-candidate-title"
@@ -104,9 +128,9 @@ export function ImmutableCandidatePreview({
           {t("preview.details")}
         </summary>
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Fact label={t("preview.channel")} value={payload.target_channel} />
-          <Fact label={t("preview.format")} value={payload.content_format} />
-          <Fact label={t("preview.locale")} value={payload.selected_locale} />
+          <Fact label={t("preview.channel")} value={channelLabel} />
+          <Fact label={t("preview.format")} value={formatLabel} />
+          <Fact label={t("preview.locale")} value={localeLabel} />
           <Fact
             label={t("preview.sourceWeek")}
             value={String(payload.strategy_week_number)}

@@ -172,6 +172,7 @@ function post(): PerformancePostProjectionV1 {
     publishing_result_id: RESULT_ID,
     provider: 'facebook',
     provider_object_id: 'page-1_post-1',
+    post_url: 'https://facebook.example/page-1_post-1',
     published_at: '2026-08-18T08:00:00.000Z',
     snapshots: [
       {
@@ -410,6 +411,27 @@ describe('PerformancePage', () => {
     expect(
       screen.getByText(/baseline.count:observed=1,required=3/),
     ).not.toBeNull()
+  })
+
+  it('gives each monitored post a provider link', async () => {
+    mockedGetPerformanceOverview.mockResolvedValue(overview([post()]))
+
+    render(<PerformancePage />)
+
+    const link = await screen.findByRole('link', { name: 'post.viewAction' })
+    expect(link.getAttribute('href')).toBe('https://facebook.example/page-1_post-1')
+    expect(link.getAttribute('target')).toBe('_blank')
+  })
+
+  it('does not expose an unusable provider id when the permalink is unavailable', async () => {
+    mockedGetPerformanceOverview.mockResolvedValue(
+      overview([{ ...post(), post_url: null }]),
+    )
+
+    render(<PerformancePage />)
+
+    expect(await screen.findByText('post.linkUnavailable')).not.toBeNull()
+    expect(screen.queryByText('page-1_post-1')).toBeNull()
   })
 
   it('shows a permission blocker and safe reconnect action without hiding evidence', async () => {

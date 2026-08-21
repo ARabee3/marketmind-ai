@@ -135,6 +135,8 @@ export type PerformancePostProjectionV1 = {
   readonly publishing_result_id: UUID;
   readonly provider: typeof PERFORMANCE_PROVIDER;
   readonly provider_object_id: string;
+  /** Provider permalink when the publishing provider returned one. */
+  readonly post_url?: string | null;
   readonly published_at: IsoDateTime;
   readonly snapshots: readonly PerformanceSnapshotProjectionV1[];
   /** Mutable collection state is projected separately from immutable evidence. */

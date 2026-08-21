@@ -246,6 +246,7 @@ export class PerformanceRepository {
       readonly candidateId: string;
       readonly publishedAt: Date;
       readonly providerObjectId: string;
+      readonly postUrl: string | null;
     }[]
   > {
     const rows = await this.prisma.publishingResult.findMany({
@@ -266,6 +267,7 @@ export class PerformanceRepository {
         id: true,
         occurredAt: true,
         remotePublicationId: true,
+        remoteUrl: true,
         attempt: { select: { intent: { select: { candidateId: true } } } },
       },
     });
@@ -277,6 +279,7 @@ export class PerformanceRepository {
               candidateId: row.attempt.intent.candidateId,
               publishedAt: row.occurredAt,
               providerObjectId: row.remotePublicationId,
+              postUrl: row.remoteUrl ?? null,
             },
           ]
         : [],
@@ -707,6 +710,7 @@ export class PerformanceRepository {
         publishing_result_id: seed.publishingResultId,
         provider: "facebook",
         provider_object_id: seed.providerObjectId,
+        post_url: seed.postUrl,
         published_at: seed.publishedAt.toISOString(),
         snapshots: [],
       });
@@ -812,6 +816,7 @@ export class PerformanceRepository {
         publishing_result_id: seed.publishingResultId,
         provider: "facebook",
         provider_object_id: seed.providerObjectId,
+        post_url: seed.postUrl,
         published_at: seed.publishedAt.toISOString(),
         snapshots: [],
       });

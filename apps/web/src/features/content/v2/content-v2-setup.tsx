@@ -84,9 +84,7 @@ export function ContentV2Setup({
   const [media, setMedia] =
     useState<readonly ContentMediaLibraryEntryV2[]>(mediaEntries);
   const [isUploading, setIsUploading] = useState(false);
-  const [optionalToolsOpen, setOptionalToolsOpen] = useState(
-    ctaEntries.length > 0 || mediaEntries.length > 0,
-  );
+  const [optionalToolsOpen, setOptionalToolsOpen] = useState(true);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);

@@ -1077,15 +1077,15 @@ function ChannelsStep({
                   : 'border-border bg-background',
               )}
             >
-              <div className="flex items-start justify-between gap-3">
-                <span className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <span className="flex min-w-0 items-center gap-3">
                   <ChannelIcon channel={choice.channel} meta={meta.meta} />
-                  <span className="font-bold text-navy">
+                  <span className="min-w-0 break-words font-bold text-navy">
                     {t(`channels.${choice.channel}`)}
                   </span>
                 </span>
-                <span className="flex items-center gap-4">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-navy">
+                <span className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+                  <label className="flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold text-navy">
                     <input
                       type="radio"
                       name="primary-channel"
@@ -1097,7 +1097,7 @@ function ChannelsStep({
                     />
                     {t('channels.roles.primary')}
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-navy">
+                  <label className="flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold text-navy">
                     <input
                       type="checkbox"
                       className="size-4 accent-[var(--color-primary)]"
@@ -1123,7 +1123,7 @@ function ChannelsStep({
                           <label
                             key={target.target_id}
                             className={cn(
-                              'flex cursor-pointer items-start gap-2 text-sm font-semibold text-navy',
+                              'flex min-w-0 cursor-pointer items-start gap-2 text-sm font-semibold text-navy',
                               target.connection_state !== 'connected' && 'text-muted-foreground',
                             )}
                           >
@@ -1143,7 +1143,7 @@ function ChannelsStep({
                                 })
                               }
                             />
-                            <span>
+                            <span className="min-w-0 break-words">
                               {isUsablePublishingTarget(target, choice.channel)
                                 ? `${t('wizard.meta.connectedTarget')}: ${target.display_name}`
                                 : `${target.display_name} — ${t('wizard.meta.targetUnavailable')}`}
@@ -1153,7 +1153,7 @@ function ChannelsStep({
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-fit"
+                        className="w-full justify-center sm:w-fit"
                         disabled={metaPending}
                         onClick={() =>
                           onConnect(choice.channel as 'facebook' | 'instagram')
@@ -1187,7 +1187,7 @@ function ChannelsStep({
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-fit"
+                        className="w-full justify-center sm:w-fit"
                         disabled={facebookPending}
                         onClick={onConnectFacebook}
                       >

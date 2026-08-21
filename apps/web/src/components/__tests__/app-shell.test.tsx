@@ -101,6 +101,10 @@ describe("AppShell", () => {
     );
     const brands = screen.getAllByRole("img", { name: "MarketMind" });
     expect(brands).toHaveLength(2);
+    const sidebarBrand = brands.find((brand) => brand.closest("aside"));
+    expect(sidebarBrand?.closest("aside")?.textContent).not.toMatch(
+      /Marketing intelligence for SMEs/,
+    );
   });
 
   it("renders primary desktop sidebar and fixed mobile bottom nav with all destinations", () => {

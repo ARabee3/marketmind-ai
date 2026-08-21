@@ -89,6 +89,14 @@ describe("IntentsService.getIntent", () => {
           },
           target: null,
           approvals: [],
+          attempts: [
+            {
+              result: {
+                outcome: "PUBLISHED",
+                remoteUrl: "https://facebook.example/post-1",
+              },
+            },
+          ],
         }),
       },
     } as any;
@@ -101,6 +109,53 @@ describe("IntentsService.getIntent", () => {
 
     expect(result.candidateChecksum).toBe("a".repeat(64));
     expect(result.candidate).toBeUndefined();
+    expect(result.publishedPostUrl).toBe("https://facebook.example/post-1");
+  });
+});
+
+describe("IntentsService.listIntents", () => {
+  it("projects the latest published permalink for the publishing queue", async () => {
+    const prisma = {
+      publishingIntent: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            businessId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            candidateId: "22222222-2222-4222-8222-222222222222",
+            status: "SUCCEEDED",
+            attempts: [
+              {
+                result: {
+                  outcome: "PUBLISHED",
+                  remoteUrl: "https://facebook.example/post-1",
+                },
+              },
+            ],
+          },
+        ]),
+      },
+    } as any;
+    const service = new IntentsService(prisma, {} as any, {} as any);
+
+    const result = await service.listIntents(
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      {},
+    );
+
+    expect(result[0].publishedPostUrl).toBe(
+      "https://facebook.example/post-1",
+    );
+    expect(prisma.publishingIntent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          attempts: expect.objectContaining({
+            select: {
+              result: { select: { outcome: true, remoteUrl: true } },
+            },
+          }),
+        }),
+      }),
+    );
   });
 });
 

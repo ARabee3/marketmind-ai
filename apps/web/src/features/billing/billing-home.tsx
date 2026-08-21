@@ -130,11 +130,12 @@ export function BillingHome() {
       workingBundle={workingBundle}
       checkoutError={checkoutError}
       onBuy={(bundle) => void runCheckout(bundle)}
-      formatCurrency={(amount) =>
+      formatCurrency={(amount, fractionDigits = 0) =>
         formatter.number(amount, {
           style: 'currency',
           currency: 'EGP',
-          maximumFractionDigits: 0,
+          minimumFractionDigits: fractionDigits,
+          maximumFractionDigits: fractionDigits,
         })
       }
       formatDate={(value) =>
@@ -165,12 +166,17 @@ function BillingReadyView({
   readonly workingBundle: string | null
   readonly checkoutError: boolean
   readonly onBuy: (bundle: BillingPointBundle) => void
-  readonly formatCurrency: (amount: number) => string
+  readonly formatCurrency: (amount: number, fractionDigits?: number) => string
   readonly formatDate: (value: string) => string
   readonly formatDateTime: (value: string) => string
 }) {
   const t = useTranslations('Billing')
   const busy = workingBundle !== null
+  const recommendedBundle =
+    data.bundles.find((bundle) => bundle.code === 'pro_500') ?? data.bundles[0] ?? null
+  const buyRecommendedBundle = () => {
+    if (recommendedBundle) onBuy(recommendedBundle)
+  }
 
   return (
     <section className="grid gap-6">
@@ -193,7 +199,7 @@ function BillingReadyView({
           <WalletBalancePanel
             wallet={data.wallet}
             busy={busy}
-            onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
+            onTopUp={buyRecommendedBundle}
           />
 
           <BundlesPanel
@@ -220,7 +226,9 @@ function BillingReadyView({
             <LowBalanceNudge
               balance={data.wallet.balance}
               busy={busy}
-              onTopUp={() => data.bundles[0] && onBuy(data.bundles[0])}
+              bundle={recommendedBundle}
+              formatCurrency={formatCurrency}
+              onTopUp={buyRecommendedBundle}
             />
           ) : null}
           <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -313,7 +321,7 @@ function BundlesPanel({
   readonly bundles: readonly BillingPointBundle[]
   readonly workingBundle: string | null
   readonly onBuy: (bundle: BillingPointBundle) => void
-  readonly formatCurrency: (amount: number) => string
+  readonly formatCurrency: (amount: number, fractionDigits?: number) => string
 }) {
   const t = useTranslations('Billing')
   return (
@@ -348,7 +356,7 @@ function BundlesPanel({
                 </div>
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t('bundlePerPoint', {
-                    perPoint: formatCurrency(bundle.amount_egp / bundle.points),
+                    perPoint: formatCurrency(bundle.amount_egp / bundle.points, 2),
                   })}
                 </p>
                 <Button
@@ -419,10 +427,14 @@ function PriceMenu() {
 function LowBalanceNudge({
   balance,
   busy,
+  bundle,
+  formatCurrency,
   onTopUp,
 }: {
   readonly balance: number
   readonly busy: boolean
+  readonly bundle: BillingPointBundle | null
+  readonly formatCurrency: (amount: number) => string
   readonly onTopUp: () => void
 }) {
   const t = useTranslations('Billing')
@@ -434,15 +446,20 @@ function LowBalanceNudge({
     >
       <p className="font-bold">{t('lowBalanceTitle')}</p>
       <p>{t('lowBalanceBody', { points: balance })}</p>
-      <Button type="button" size="sm" disabled={busy} onClick={onTopUp}>
-        {busy ? (
-          <LoaderCircle
-            className="animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-        ) : null}
-        {t('lowBalanceCta')}
-      </Button>
+      {bundle ? (
+        <Button type="button" size="sm" disabled={busy} onClick={onTopUp}>
+          {busy ? (
+            <LoaderCircle
+              className="animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          ) : null}
+          {t('lowBalanceCta', {
+            points: bundle.points,
+            amount: formatCurrency(bundle.amount_egp),
+          })}
+        </Button>
+      ) : null}
     </div>
   )
 }
