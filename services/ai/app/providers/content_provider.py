@@ -11,7 +11,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from anyio import to_thread
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from content_contracts import (
     ContentCaptionVariant,
@@ -23,7 +23,11 @@ from content_contracts import (
     ContentShortVideoScript,
     ContentStrategyTrace,
 )
-from content_v2_contracts import ContentPostPlanDraftV2
+from content_v2_contracts import (
+    CONTENT_V2_MAX_POSTS,
+    CONTENT_V2_MIN_POSTS,
+    ContentPostPlanDraftV2,
+)
 
 from app.core.config import Settings
 from app.providers.base import ProviderConfigError, ProviderError
@@ -55,7 +59,10 @@ class ContentPlanProviderOutput(BaseModel):
     """Internal structured-output wrapper for the planner stage."""
 
     model_config = ConfigDict(extra="forbid")
-    post_plans: list[ContentPostPlanDraftV2]
+    post_plans: list[ContentPostPlanDraftV2] = Field(
+        min_length=CONTENT_V2_MIN_POSTS,
+        max_length=CONTENT_V2_MAX_POSTS,
+    )
 
 
 class ContentLLMProvider(ABC):

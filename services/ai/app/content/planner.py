@@ -187,8 +187,19 @@ async def plan_content_week_with_repair(
                 breaker.record_success()
             return plans
         except ProviderError as error:
-            if breaker is not None:
+            if breaker is not None and error.retryable:
                 breaker.record_failure()
+            logger.warning(
+                "content plan repair_or_retry attempt=%d code=%s retryable=%s "
+                "provider=%s model=%s week_plan_id=%s message=%s",
+                attempt,
+                error.code,
+                error.retryable,
+                prompt.metadata.get("provider_name"),
+                prompt.metadata.get("model"),
+                prompt.metadata.get("week_plan_id"),
+                error,
+            )
             if (
                 attempt < MAX_PLAN_ATTEMPTS
                 and error.code in _REPAIRABLE_PLAN_CODES

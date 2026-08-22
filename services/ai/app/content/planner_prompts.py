@@ -43,7 +43,12 @@ CONTENT_PLAN_SYSTEM_PROMPT = "\n".join(
         "- Use only the supplied Strategy week, editorial profile, CTA library, and media library.",
         "- The Strategy week's formats are authoritative; do not substitute formats.",
         "- Never invent offers, prices, facts, or media assets.",
-        "- If the week or handoff is incomplete, return fewer cards rather than inventing inputs.",
+        (
+            "- Always return 3-5 cards. Reuse allowed channel and format "
+            "combinations with distinct grounded purposes when needed; omit "
+            "optional CTA or media references instead of reducing the card "
+            "count or inventing inputs."
+        ),
         "",
         "## Forbidden output",
         "",

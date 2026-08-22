@@ -12,9 +12,12 @@ from pydantic import ValidationError
 from content_v2_contracts import (
     AiContentV2PlanRequest,
     AiContentV2PlanResponse,
+    CONTENT_V2_MAX_POSTS,
+    CONTENT_V2_MIN_POSTS,
     ContentPostPlanDraftV2,
 )
 
+from app.content.circuit_breaker import CircuitBreaker
 from app.content.planner import (
     assemble_plan_prompt,
     plan_content_week_with_repair,
@@ -27,6 +30,7 @@ from app.core.config import Settings
 from app.providers.base import ProviderError
 from app.providers.content_provider import (
     ContentLLMProvider,
+    ContentPlanProviderOutput,
     MockContentProvider,
 )
 from tests.content.fixture_helpers import make_valid_plan_request
@@ -95,6 +99,26 @@ def test_assemble_plan_prompt_valid_request() -> None:
     assert prompt.metadata["contract_version"] == "content-v2"
     assert prompt.context["plan_identity"]["week_plan_id"] == request.week_plan_id
     assert prompt.context["grounding_inputs"]["allowed_channels"] == request.allowed_channels
+
+
+def test_plan_prompt_never_allows_fewer_than_three_cards() -> None:
+    request = make_valid_plan_request()
+    prompt = assemble_plan_prompt(request, "mock", "mock-content-model")
+
+    assert "Always return 3-5 cards" in prompt.system_prompt
+    assert "return fewer cards" not in prompt.system_prompt
+
+
+def test_plan_provider_schema_enforces_card_count() -> None:
+    request = make_valid_plan_request()
+    post_plans_schema = ContentPlanProviderOutput.model_json_schema()["properties"][
+        "post_plans"
+    ]
+
+    assert post_plans_schema["minItems"] == CONTENT_V2_MIN_POSTS
+    assert post_plans_schema["maxItems"] == CONTENT_V2_MAX_POSTS
+    with pytest.raises(ValidationError):
+        ContentPlanProviderOutput(post_plans=_plans_from_request(request, count=2))
 
 
 def test_assemble_plan_prompt_requires_editorial_voice() -> None:
@@ -184,6 +208,39 @@ def test_plan_repair_loop_never_exceeds_max_attempts() -> None:
             plan_content_week_with_repair(provider, prompt, request, breaker=None)
         )
     assert error.value.code == "CONTENT_SCHEMA_FAILURE"
+
+
+def test_plan_schema_failures_do_not_open_provider_breaker() -> None:
+    request = make_valid_plan_request()
+    bad = _plans_from_request(request, count=2)
+    provider = SequencePlannerProvider([bad, bad, bad])
+    prompt = assemble_plan_prompt(request, "sequence", "sequence-model")
+    breaker = CircuitBreaker(failure_threshold=1)
+
+    with pytest.raises(ProviderError) as error:
+        asyncio.run(
+            plan_content_week_with_repair(provider, prompt, request, breaker=breaker)
+        )
+
+    assert error.value.code == "CONTENT_SCHEMA_FAILURE"
+    assert breaker.failures == 0
+    assert breaker.allow()
+
+
+def test_plan_retryable_provider_failure_opens_breaker() -> None:
+    request = make_valid_plan_request()
+    provider = SequencePlannerProvider([])
+    prompt = assemble_plan_prompt(request, "sequence", "sequence-model")
+    breaker = CircuitBreaker(failure_threshold=1)
+
+    with pytest.raises(ProviderError) as error:
+        asyncio.run(
+            plan_content_week_with_repair(provider, prompt, request, breaker=breaker)
+        )
+
+    assert error.value.code == "CONTENT_PROVIDER_FAILURE"
+    assert breaker.failures == 1
+    assert not breaker.allow()
 
 
 def test_mock_provider_returns_three_grounded_cards() -> None:
