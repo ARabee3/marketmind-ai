@@ -52,6 +52,37 @@ def test_v2_generate_projects_frozen_snapshot_into_v1_request() -> None:
     }
 
 
+def test_v2_projection_honors_frozen_editorial_language_override() -> None:
+    request = make_valid_generate_v2_request()
+    original_plan_language = request.strategy_plan.plan_language
+    frozen = request.frozen_input.model_copy(
+        update={
+            "editorial_profile": request.frozen_input.editorial_profile.model_copy(
+                update={"language": "en"}
+            )
+        }
+    )
+    overridden = request.model_copy(
+        update={"frozen_input": frozen, "language_mode": "en"}
+    )
+
+    v1 = v2_generate_to_v1_request(overridden)
+
+    assert v1.language_mode == "en"
+    assert v1.strategy_plan.plan_language.value == "en"
+    assert v1.strategy_plan.content_handoff.language.value == "en"
+    assert overridden.strategy_plan.plan_language == original_plan_language
+
+
+def test_v2_projection_rejects_language_drift_from_frozen_profile() -> None:
+    request = make_valid_generate_v2_request().model_copy(
+        update={"language_mode": "en"}
+    )
+
+    with pytest.raises(ValueError, match="frozen editorial profile"):
+        v2_generate_to_v1_request(request)
+
+
 def test_v2_generate_prompt_embeds_frozen_post_plans() -> None:
     request = make_valid_generate_v2_request()
     v1 = v2_generate_to_v1_request(request)

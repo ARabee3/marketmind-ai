@@ -109,6 +109,14 @@ def test_plan_prompt_never_allows_fewer_than_three_cards() -> None:
     assert "return fewer cards" not in prompt.system_prompt
 
 
+def test_plan_prompt_rejects_language_drift_from_editorial_profile() -> None:
+    request = make_valid_plan_request()
+    mismatched = request.model_copy(update={"language_mode": "en"})
+
+    with pytest.raises(ValueError, match="cycle editorial profile"):
+        assemble_plan_prompt(mismatched, "mock", "mock-content-model")
+
+
 def test_plan_provider_schema_enforces_card_count() -> None:
     request = make_valid_plan_request()
     post_plans_schema = ContentPlanProviderOutput.model_json_schema()["properties"][
@@ -316,6 +324,10 @@ class _StubRequest:
     @property
     def editorial_profile(self) -> object:
         return self.original.editorial_profile
+
+    @property
+    def language_mode(self) -> str:
+        return self.original.language_mode
 
     @property
     def contract_version(self) -> str:

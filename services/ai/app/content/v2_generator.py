@@ -36,7 +36,10 @@ from content_v2_contracts import (
     ContentPackV2,
     ContentVersionEditMetadataV2,
 )
-from strategy_contracts import BusinessProfilePayload
+from strategy_contracts import (
+    BusinessProfilePayload,
+    LanguageMode as StrategyLanguageMode,
+)
 
 from app.content.assembler import (
     PromptAssembly,
@@ -62,6 +65,7 @@ PLAN_ALIGNMENT_RULES = """
 ## Frozen post-plan alignment (content-v2)
 
 - Produce exactly {plan_count} item versions, one per supplied post_plans card, in the same order.
+- Write every owner-facing draft in frozen editorial_profile.language; this is the owner-approved content language for the cycle.
 - Item i must use exactly post_plans[i].channel and post_plans[i].format.
 - Ground each item in its card's purpose, owner_instructions, visual_direction, CTA, and selected media.
 - When a card selects a CTA, preserve its destination value byte-for-byte in every non-null CTA field. When it does not select a CTA, return null CTA fields.
@@ -161,6 +165,11 @@ def v2_generate_to_v1_request(
     promotion/instruction fields and carries only identity + dates.
     """
     frozen = request.frozen_input
+    if frozen.editorial_profile.language != request.language_mode:
+        raise ValueError(
+            "CONTENT_SCHEMA_FAILURE: language_mode: generation language must "
+            "match the frozen editorial profile."
+        )
     handoff = request.strategy_plan.content_handoff
     if not handoff.available:
         raise ValueError(
@@ -205,6 +214,20 @@ def v2_generate_to_v1_request(
         weekly_claim_id=frozen.weekly_claim_id,
     )
     business_profile = BusinessProfilePayload.model_validate(request.business_profile)
+    # Content v2 deliberately lets the owner choose a cycle-wide editorial
+    # language after Strategy approval. The reused v1 pipeline requires its
+    # request language to match plan_language, so project that one field (and
+    # its handoff mirror) into a synthetic, non-persisted plan. The approved
+    # Strategy object on the v2 request remains unchanged and still owns every
+    # identity, channel, format, goal, and weekly decision.
+    projected_language = StrategyLanguageMode(request.language_mode)
+    projected_handoff = handoff.model_copy(update={"language": projected_language})
+    projected_strategy_plan = request.strategy_plan.model_copy(
+        update={
+            "plan_language": projected_language,
+            "content_handoff": projected_handoff,
+        }
+    )
     return AiContentGenerateRequest(
         contract_version="content-v1",
         content_pack_id=request.content_pack_id,
@@ -212,7 +235,7 @@ def v2_generate_to_v1_request(
         strategy_id=request.strategy_id,
         strategy_version=request.strategy_version,
         strategy_decision_id=request.strategy_decision_id,
-        strategy_plan=request.strategy_plan,
+        strategy_plan=projected_strategy_plan,
         business_profile=business_profile,
         week_context=context,
         selected_channels=channels,

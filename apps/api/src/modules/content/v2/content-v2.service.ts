@@ -548,6 +548,9 @@ export class ContentV2Service {
       });
     }
 
+    const editorialProfile = editorialRow
+      ? toEditorialProfileV2(editorialRow)
+      : this.buildFallbackEditorialProfile(cycle, profileVersion, planData);
     const planRequest: AiContentV2PlanRequest = {
       contract_version: "content-v2",
       week_plan_id: cycleId,
@@ -557,9 +560,7 @@ export class ContentV2Service {
       strategy_decision_id: cycle.strategyDecisionId,
       strategy_plan: planData as unknown as StrategyPlanV2,
       week_number: weekNumber,
-      editorial_profile: editorialRow
-        ? toEditorialProfileV2(editorialRow)
-        : this.buildFallbackEditorialProfile(cycle, profileVersion, planData),
+      editorial_profile: editorialProfile,
       cta_library: ctaRows
         .filter((entry) => entry.active)
         .map(toCtaLibraryEntryV2),
@@ -569,9 +570,7 @@ export class ContentV2Service {
       allowed_channels:
         handoff.channels as AiContentV2PlanRequest["allowed_channels"],
       allowed_formats: weekFormats as AiContentV2PlanRequest["allowed_formats"],
-      language_mode:
-        (handoff.language as AiContentV2PlanRequest["language_mode"]) ??
-        "ar-EG",
+      language_mode: editorialProfile.language,
       idempotency_key: `plan:${cycleId}:week:${weekNumber}`,
     };
 

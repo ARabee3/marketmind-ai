@@ -55,6 +55,17 @@ def validate_content_plan_request(
                 retryable=False,
             )
         )
+    if request.language_mode != request.editorial_profile.language:
+        issues.append(
+            ContentValidationIssue(
+                code="CONTENT_SCHEMA_FAILURE",
+                field="language_mode",
+                message=(
+                    "Planning language must match the cycle editorial profile."
+                ),
+                retryable=False,
+            )
+        )
     return ContentValidationResult(valid=not issues, issues=issues)
 
 

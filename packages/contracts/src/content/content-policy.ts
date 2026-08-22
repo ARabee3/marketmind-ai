@@ -668,5 +668,14 @@ export function validateInternalContentV2PlanRequest(
     }
   }
 
+  if (request.language_mode !== request.editorial_profile.language) {
+    addIssue(
+      issues,
+      "CONTENT_SCHEMA_FAILURE",
+      "language_mode",
+      "Planning language must match the cycle editorial profile.",
+    );
+  }
+
   return { valid: issues.length === 0, issues };
 }

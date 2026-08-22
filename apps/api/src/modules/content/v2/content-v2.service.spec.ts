@@ -201,6 +201,31 @@ describe("ContentV2Service.planWeek", () => {
     expect(result.week_plan.id).toBe("week-plan-1");
   });
 
+  it("uses the owner editorial language consistently for planning", async () => {
+    const { service, mocks } = buildService();
+    mocks.setupRepository.getEditorialProfile.mockResolvedValue({
+      id: "ed-1",
+      contentCycleId: CYCLE,
+      audienceNuance: "n",
+      voice: "v",
+      language: "en",
+      writingGuardrails: [],
+      defaultVisualGuidance: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mocks.contentAiClient.plan.mockResolvedValue(PLAN_RESPONSE);
+
+    await service.planWeek(CYCLE, 1, OWNER);
+
+    expect(mocks.contentAiClient.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        language_mode: "en",
+        editorial_profile: expect.objectContaining({ language: "en" }),
+      }),
+    );
+  });
+
   it("rejects planning a non-current week", async () => {
     const { service } = buildService();
     await expect(service.planWeek(CYCLE, 2, OWNER)).rejects.toBeInstanceOf(

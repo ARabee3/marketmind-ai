@@ -316,7 +316,9 @@ describe("ContentAiClient", () => {
         calendar_weeks: [{ week_number: 1 }],
       } as unknown as AiContentV2PlanRequest["strategy_plan"],
       week_number: 1,
-      editorial_profile: {} as AiContentV2PlanRequest["editorial_profile"],
+      editorial_profile: {
+        language: "ar-EG",
+      } as AiContentV2PlanRequest["editorial_profile"],
       cta_library: [],
       media_library: [],
       allowed_channels: ["instagram"],
@@ -374,6 +376,16 @@ describe("ContentAiClient", () => {
         expect.objectContaining({ timeout: expect.any(Number) }),
       );
       expect(result).toEqual(PLAN_RESPONSE);
+    });
+
+    it("rejects planner language drift from the editorial profile", async () => {
+      await expect(
+        client.plan({ ...PLAN_REQUEST, language_mode: "en" }),
+      ).rejects.toMatchObject({
+        code: "CONTENT_SCHEMA_FAILURE",
+        retryable: false,
+      });
+      expect(httpService.post).not.toHaveBeenCalled();
     });
 
     it("rejects a plan response with fewer than three cards", async () => {
