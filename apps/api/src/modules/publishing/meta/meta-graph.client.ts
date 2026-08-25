@@ -369,7 +369,8 @@ export class MetaGraphClient {
   async publishFacebookPhoto(params: {
     pageToken: string;
     pageId: string;
-    imageUrl: string;
+    imageBytes: Buffer;
+    mimeType: string;
     caption: string;
   }): Promise<MetaPublishResult> {
     try {

@@ -9,7 +9,10 @@ import { mapMetaGraphError } from "../meta/meta-error.mapper";
 import { MediaFetchTokenService } from "./media-fetch-token.service";
 import { PublishingErrorCode } from "../common/errors/publishing-error-codes";
 import { ContentAssetReader } from "../assets/content-asset.reader";
-import type { PublishingAssetReference } from "../assets/publishing-asset.types";
+import type {
+  PublishingAssetRecord,
+  PublishingAssetReference,
+} from "../assets/publishing-asset.types";
 import {
   FacebookGraphError,
   FacebookService,
@@ -62,11 +65,11 @@ interface InstagramTokenBundle {
  * result. There is NO fallback to a shared `.env` Page token: a missing,
  * revoked, or unreadable vault record is a truthful failure.
  *
- * Asset handling: the executor never moves raw bytes through the runner. It
- * builds a short-lived, attempt+asset-bound provider-fetch URL that Meta
- * itself fetches (Facebook `url=` param, Instagram `image_url` param). The
- * dispatch-time integrity validator already proved the stored bytes match the
- * approved SHA-256 before the attempt was accepted.
+ * Asset handling: the executor never moves raw bytes through the runner.
+ * Facebook receives the API-owned, integrity-verified bytes as a multipart
+ * upload; Instagram receives a short-lived, attempt+asset-bound provider-fetch
+ * URL. The dispatch-time integrity validator already proved the stored bytes
+ * match the approved SHA-256 before the attempt was accepted.
  */
 @Injectable()
 export class MetaProviderExecutor {
@@ -222,33 +225,33 @@ export class MetaProviderExecutor {
       }
     }
 
-    const mediaConfigurationError = this.mediaFetch.providerFetchOriginError();
-    if (mediaConfigurationError) {
-      this.logger.error(
-        `Executor: provider-fetch media origin is not suitable for real image publishing for attempt=${input.attemptId}: ${mediaConfigurationError}`,
-      );
-      return this.failed(
-        base,
-        PublishingErrorCode.MEDIA_ORIGIN_NOT_REACHABLE,
-        false,
-      );
+    if (target.channel === "instagram") {
+      const mediaConfigurationError =
+        this.mediaFetch.providerFetchOriginError();
+      if (mediaConfigurationError) {
+        this.logger.error(
+          `Executor: provider-fetch media origin is not suitable for real Instagram image publishing for attempt=${input.attemptId}: ${mediaConfigurationError}`,
+        );
+        return this.failed(
+          base,
+          PublishingErrorCode.MEDIA_ORIGIN_NOT_REACHABLE,
+          false,
+        );
+      }
     }
 
-    // ── Candidate asset for the provider-fetch URL ────────────────────────
+    // ── Read and verify the exact approved candidate asset ────────────────
     const asset = this.firstStaticAsset(candidate?.payload);
     if (!asset) {
       return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
     }
-    let imageUrl: string;
+    let verified: PublishingAssetRecord;
     try {
-      const verified = await this.assetReader.readApprovedAsset(asset);
-      if (!verified) {
+      const approvedAsset = await this.assetReader.readApprovedAsset(asset);
+      if (!approvedAsset) {
         return this.failed(base, PublishingErrorCode.ASSET_UNAVAILABLE, false);
       }
-      imageUrl = this.mediaFetch.buildUrl({
-        attemptId: input.attemptId,
-        assetId: asset.asset_id,
-      });
+      verified = approvedAsset;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
@@ -261,6 +264,10 @@ export class MetaProviderExecutor {
     try {
       if (target.channel === "instagram") {
         const ig = tokenBundle as InstagramTokenBundle;
+        const imageUrl = this.mediaFetch.buildUrl({
+          attemptId: input.attemptId,
+          assetId: asset.asset_id,
+        });
         const published = await this.graph.publishInstagramPhoto({
           pageToken: ig.token,
           igBusinessId: target.externalAccountId,
@@ -280,7 +287,8 @@ export class MetaProviderExecutor {
       const published = await this.graph.publishFacebookPhoto({
         pageToken: page.token,
         pageId: target.externalAccountId,
-        imageUrl,
+        imageBytes: verified.bytes,
+        mimeType: verified.mimeType,
         caption,
       });
       return {
@@ -421,32 +429,17 @@ export class MetaProviderExecutor {
         false,
       );
     }
-    const mediaConfigurationError = this.mediaFetch.providerFetchOriginError();
-    if (mediaConfigurationError) {
-      this.logger.error(
-        `Executor: provider-fetch media origin is not suitable for real image publishing for attempt=${input.attemptId}: ${mediaConfigurationError}`,
-      );
-      return this.failed(
-        input.base,
-        PublishingErrorCode.MEDIA_ORIGIN_NOT_REACHABLE,
-        false,
-      );
-    }
-
-    let imageUrl: string;
+    let verified: PublishingAssetRecord;
     try {
-      const verified = await this.assetReader.readApprovedAsset(asset);
-      if (!verified) {
+      const approvedAsset = await this.assetReader.readApprovedAsset(asset);
+      if (!approvedAsset) {
         return this.failed(
           input.base,
           PublishingErrorCode.ASSET_UNAVAILABLE,
           false,
         );
       }
-      imageUrl = this.mediaFetch.buildUrl({
-        attemptId: input.attemptId,
-        assetId: asset.asset_id,
-      });
+      verified = approvedAsset;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       const code = message.includes(PublishingErrorCode.ASSET_TAMPERED)
@@ -459,7 +452,8 @@ export class MetaProviderExecutor {
       const published = await this.facebook.publishPhotoForUser({
         userId: business.ownerUserId,
         pageId: input.target.externalAccountId,
-        imageUrl,
+        imageBytes: verified.bytes,
+        mimeType: verified.mimeType,
         caption: this.captionFor(input.candidate?.payload),
       });
       return {

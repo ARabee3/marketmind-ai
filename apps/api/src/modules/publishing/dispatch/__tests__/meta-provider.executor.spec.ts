@@ -209,7 +209,7 @@ function makeContext(
 
 describe("MetaProviderExecutor (issue #175)", () => {
   it("publishes through PR #193's encrypted SocialConnection reference", async () => {
-    const { executor, facebook, graph } = makeContext({
+    const { executor, facebook, graph, mediaFetch } = makeContext({
       target: {
         id: "target-social-1",
         businessId: "biz-1",
@@ -232,10 +232,12 @@ describe("MetaProviderExecutor (issue #175)", () => {
     expect(facebook.publishPhotoForUser).toHaveBeenCalledWith({
       userId: "owner-1",
       pageId: "page-1",
-      imageUrl: expect.stringContaining("fetch.example.com"),
+      imageBytes: Buffer.from("verified-asset"),
+      mimeType: "image/png",
       caption: "Hello\n#one #two",
     });
     expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+    expect(mediaFetch.buildUrl).not.toHaveBeenCalled();
     expect(result.result.outcome).toBe("published");
   });
 
@@ -302,15 +304,14 @@ describe("MetaProviderExecutor (issue #175)", () => {
       expect.objectContaining({
         pageToken: "EAA-page-token",
         pageId: "page-1",
+        imageBytes: Buffer.from("verified-asset"),
+        mimeType: "image/png",
         caption: "Hello\n#one #two",
       }),
     );
     expect(
       (mediaFetch as unknown as MediaFetchLike).buildUrl,
-    ).toHaveBeenCalledWith({
-      attemptId: "attempt-1",
-      assetId: "asset-9",
-    });
+    ).not.toHaveBeenCalled();
     expect(assetReader.readApprovedAsset).toHaveBeenCalledWith({
       asset_id: "asset-9",
       mime_type: "image/png",
@@ -550,7 +551,7 @@ describe("MetaProviderExecutor (issue #175)", () => {
     expect(result.result.error_code).toBe("PUBLISHING_ASSET_UNAVAILABLE");
   });
 
-  it("fails with a specific media-origin error before reading or sending media", async () => {
+  it("keeps the public media-origin requirement for Instagram", async () => {
     const mediaFetch = {
       ...makeMediaFetch(),
       configurationError: jest.fn(() => null),
@@ -559,12 +560,40 @@ describe("MetaProviderExecutor (issue #175)", () => {
           "PUBLISHING_MEDIA_FETCH_BASE_URL must be publicly reachable for real image publishing (Meta cannot fetch loopback or private addresses)",
       ),
     };
-    const { executor, graph, assetReader } = makeContext({ mediaFetch });
+    const { executor, graph, assetReader } = makeContext({
+      target: {
+        id: "target-instagram-origin",
+        businessId: "biz-1",
+        provider: "META",
+        channel: "instagram",
+        externalAccountId: "ig-1",
+        connectionState: "CONNECTED",
+        credentialRef: "vault-1",
+        capabilities: ["static_image"],
+        expiresAt: null,
+      },
+      credentialRow: {
+        id: "vault-1",
+        businessId: "biz-1",
+        provider: "META",
+        kind: "instagram",
+        revokedAt: null,
+        ciphertext: makeVault().encrypt(
+          JSON.stringify({
+            type: "instagram",
+            token: "EAA-ig-token",
+            igBusinessId: "ig-1",
+          }),
+        ).ciphertext,
+        keyVersion: "v1",
+      },
+      mediaFetch,
+    });
 
     const result = await executor.execute({
       attemptId: "attempt-1",
       intentId: "intent-1",
-      targetId: "target-1",
+      targetId: "target-instagram-origin",
     });
 
     expect(result.result).toMatchObject({
@@ -573,10 +602,10 @@ describe("MetaProviderExecutor (issue #175)", () => {
       retryable: false,
     });
     expect(assetReader.readApprovedAsset).not.toHaveBeenCalled();
-    expect(graph.publishFacebookPhoto).not.toHaveBeenCalled();
+    expect(graph.publishInstagramPhoto).not.toHaveBeenCalled();
   });
 
-  it("blocks a social-connection image dispatch with the same media-origin error", async () => {
+  it("publishes a social-connection Facebook image without a public media origin", async () => {
     const mediaFetch = {
       ...makeMediaFetch(),
       configurationError: jest.fn(() => null),
@@ -607,11 +636,18 @@ describe("MetaProviderExecutor (issue #175)", () => {
     });
 
     expect(result.result).toMatchObject({
-      outcome: "failed",
-      error_code: "PUBLISHING_MEDIA_ORIGIN_NOT_REACHABLE",
-      retryable: false,
+      outcome: "published",
+      error_code: null,
     });
-    expect(facebook.publishPhotoForUser).not.toHaveBeenCalled();
+    expect(mediaFetch.providerFetchOriginError).not.toHaveBeenCalled();
+    expect(mediaFetch.buildUrl).not.toHaveBeenCalled();
+    expect(facebook.publishPhotoForUser).toHaveBeenCalledWith({
+      userId: "owner-1",
+      pageId: "page-1",
+      imageBytes: Buffer.from("verified-asset"),
+      mimeType: "image/png",
+      caption: "Hello\n#one #two",
+    });
   });
 
   it("blocks a provider call when approved media bytes are unavailable", async () => {
