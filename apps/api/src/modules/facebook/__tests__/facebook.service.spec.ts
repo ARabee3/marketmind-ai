@@ -655,7 +655,8 @@ describe("FacebookService", () => {
       const result = await service.publishPhotoViaPageToken({
         pageToken: "page-token",
         pageId: "page-42",
-        imageUrl: "https://cdn.example/img.jpg",
+        imageBytes: Buffer.from("verified-image"),
+        mimeType: "image/png",
         caption: "test caption",
       });
 
@@ -665,16 +666,18 @@ describe("FacebookService", () => {
       });
       expect(axiosPostSpy).toHaveBeenCalledWith(
         expect.stringContaining("/v20.0/page-42/photos"),
-        null,
-        expect.objectContaining({
-          params: expect.objectContaining({
-            url: "https://cdn.example/img.jpg",
-            caption: "test caption",
-            published: "true",
-            access_token: "page-token",
-          }),
-        }),
+        expect.any(FormData),
       );
+      const body = axiosPostSpy.mock.calls[0][1] as FormData;
+      expect(body.get("caption")).toBe("test caption");
+      expect(body.get("published")).toBe("true");
+      expect(body.get("access_token")).toBe("page-token");
+      const source = body.get("source");
+      expect(source).toBeInstanceOf(Blob);
+      expect((source as Blob).type).toBe("image/png");
+      await expect(
+        (source as Blob).arrayBuffer().then((value) => Buffer.from(value)),
+      ).resolves.toEqual(Buffer.from("verified-image"));
       expect(linkSpy).toHaveBeenCalledWith(
         expect.stringContaining("/v20.0/post-1"),
         expect.objectContaining({
@@ -699,7 +702,8 @@ describe("FacebookService", () => {
       const result = await service.publishPhotoViaPageToken({
         pageToken: "page-token",
         pageId: "page-42",
-        imageUrl: "https://cdn.example/img.jpg",
+        imageBytes: Buffer.from("verified-image"),
+        mimeType: "image/jpeg",
         caption: "test caption",
       });
 
@@ -718,7 +722,8 @@ describe("FacebookService", () => {
         service.publishPhotoViaPageToken({
           pageToken: "page-token",
           pageId: "page-42",
-          imageUrl: "https://cdn.example/img.jpg",
+          imageBytes: Buffer.from("verified-image"),
+          mimeType: "image/jpeg",
           caption: "test caption",
         }),
       ).rejects.toThrow("page photos response carried no post id");
@@ -739,7 +744,8 @@ describe("FacebookService", () => {
         service.publishPhotoViaPageToken({
           pageToken: "page-token",
           pageId: "page-42",
-          imageUrl: "https://cdn.example/img.jpg",
+          imageBytes: Buffer.from("verified-image"),
+          mimeType: "image/jpeg",
           caption: "test caption",
         }),
       ).rejects.toThrow("Graph error");
@@ -764,7 +770,8 @@ describe("FacebookService", () => {
         service.publishPhotoForUser({
           userId: "user-1",
           pageId: "page-42",
-          imageUrl: "https://cdn.example/asset.png",
+          imageBytes: Buffer.from("verified-image"),
+          mimeType: "image/png",
           caption: "hello",
         }),
       ).rejects.toMatchObject({

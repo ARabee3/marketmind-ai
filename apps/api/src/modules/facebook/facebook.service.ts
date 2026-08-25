@@ -317,7 +317,8 @@ export class FacebookService {
   async publishPhotoForUser(input: {
     userId: string;
     pageId: string;
-    imageUrl: string;
+    imageBytes: Buffer;
+    mimeType: string;
     caption: string;
   }): Promise<FacebookPhotoPublishResult> {
     try {
@@ -326,7 +327,8 @@ export class FacebookService {
       const result = await this.publishPhotoViaPageToken({
         pageToken,
         pageId: input.pageId,
-        imageUrl: input.imageUrl,
+        imageBytes: input.imageBytes,
+        mimeType: input.mimeType,
         caption: input.caption,
       });
       await this.markConnectionTested(input.userId);
@@ -404,20 +406,25 @@ export class FacebookService {
   async publishPhotoViaPageToken(params: {
     pageToken: string;
     pageId: string;
-    imageUrl: string;
+    imageBytes: Buffer;
+    mimeType: string;
     caption: string;
   }): Promise<FacebookPhotoPublishResult> {
+    const body = new FormData();
+    body.append(
+      "source",
+      new Blob([Uint8Array.from(params.imageBytes)], {
+        type: params.mimeType,
+      }),
+      this.photoFilename(params.mimeType),
+    );
+    body.append("caption", params.caption);
+    body.append("published", "true");
+    body.append("access_token", params.pageToken);
+
     const response = await axios.post<{ id?: string; post_id?: string }>(
       this.graphUrl(`${params.pageId}/photos`),
-      null,
-      {
-        params: {
-          url: params.imageUrl,
-          caption: params.caption,
-          published: "true",
-          access_token: params.pageToken,
-        },
-      },
+      body,
     );
     const remotePublicationId = String(
       response.data?.post_id || response.data?.id || "",
@@ -447,6 +454,16 @@ export class FacebookService {
       );
     }
     return { remotePublicationId, remoteUrl };
+  }
+
+  private photoFilename(mimeType: string): string {
+    const extension =
+      mimeType.toLowerCase() === "image/png"
+        ? "png"
+        : mimeType.toLowerCase() === "image/gif"
+          ? "gif"
+          : "jpg";
+    return `marketmind-image.${extension}`;
   }
 
   /** Resolves a Page token without returning it to a controller or browser. */

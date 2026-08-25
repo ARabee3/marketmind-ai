@@ -312,7 +312,8 @@ describe("MetaGraphClient (issue #175)", () => {
     const result = await client.publishFacebookPhoto({
       pageToken: "page-token",
       pageId: "page-1",
-      imageUrl: "http://localhost:3001/internal/v1/publishing/media-fetch/a?token=x",
+      imageBytes: Buffer.from("verified-image"),
+      mimeType: "image/png",
       caption: "caption",
     });
 
@@ -323,7 +324,8 @@ describe("MetaGraphClient (issue #175)", () => {
     expect(mockFacebookService.publishPhotoViaPageToken).toHaveBeenCalledWith({
       pageToken: "page-token",
       pageId: "page-1",
-      imageUrl: expect.stringContaining("media-fetch"),
+      imageBytes: Buffer.from("verified-image"),
+      mimeType: "image/png",
       caption: "caption",
     });
   });
@@ -343,7 +345,8 @@ describe("MetaGraphClient (issue #175)", () => {
       client.publishFacebookPhoto({
         pageToken: "page-token",
         pageId: "page-1",
-        imageUrl: "http://x",
+        imageBytes: Buffer.from("verified-image"),
+        mimeType: "image/jpeg",
         caption: "c",
       }),
     ).rejects.toMatchObject({
